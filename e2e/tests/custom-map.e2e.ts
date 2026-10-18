@@ -5,7 +5,7 @@
 import { test, expect, type Browser, type Page } from '@playwright/test';
 import { expectNoDesync } from '../support/fixtures';
 import {
-  buildArcher, credits, gameMenu, gameReady, inviteLink, openGameMenu, openRoom, playedMap, relayQuery, runState, shot, startRelay, waveButton,
+  buildArcher, credits, gameMenu, gameReady, inviteLink, openGameMenu, openSaves, openRoom, playedMap, relayQuery, runState, shot, startRelay, waveButton,
 } from '../support/game';
 
 const MAP = 'demo-valley';
@@ -103,7 +103,7 @@ test('a save on a custom map comes back as it was, on the map', async ({ browser
 
   expect(await buildArcher(page), 'a tower stands').toBe(true);
   await openGameMenu(page);
-  await menu.getByRole('menuitem', { name: 'Save game' }).click();
+  await openSaves(page, 'save');
   await menu.locator('.mp-slot').first().click();
   await confirmIfAsked(page, 'Overwrite');
   await expect(menu.locator('.mp-status')).toContainText('Saved.');
@@ -114,7 +114,7 @@ test('a save on a custom map comes back as it was, on the map', async ({ browser
 
   expect(await buildArcher(page), 'a second tower').toBe(true);
   await openGameMenu(page);
-  await menu.getByRole('menuitem', { name: 'Load game' }).click();
+  await openSaves(page, 'load');
   await menu.locator('.mp-slot-row', { hasNot: page.getByText('Autosave') }).first().locator('.mp-slot').click();
   await confirmIfAsked(page, 'Load');
   await expect(menu).toHaveCount(0, { timeout: 120_000 });

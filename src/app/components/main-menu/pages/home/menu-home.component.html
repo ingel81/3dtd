@@ -4,21 +4,7 @@
       <span class="mh-pause-word">{{ pauseWord() }}</span>
       <span class="mh-pause-place td-note">{{ runLine() }}</span>
     </p>
-  }
 
-  @if (layer() === 'start' && menu.starting()) {
-    <!-- The loading of a Start from the worlds: Cancel (Esc) goes back to the world's menu, nothing changed -->
-    <div class="mh-start" role="status">
-      <h3 class="mh-start-title">Loading {{ menu.startLabel ?? 'the world' }}</h3>
-      <span class="mh-bar td-progress" aria-hidden="true"><span [style.width.%]="plate().percent"></span></span>
-      <p class="td-note">{{ menu.problem() ? 'It did not load: the plate says why.' : 'The game starts when it stands.' }}</p>
-      <div class="td-actions is-start">
-        <button type="button" class="td-btn-secondary td-btn-sm" data-entry="cancel" (click)="menu.cancelStart()">
-          <span>Cancel</span><kbd class="td-kbd">Esc</kbd>
-        </button>
-      </div>
-    </div>
-  } @else {
     <div class="td-menu" role="menu" aria-label="Menu" aria-orientation="vertical" tdRovingGroup>
       @for (entry of entries(); track entry.id) {
         @if (entry.below && !entries()[$index - 1]?.below) {
@@ -26,21 +12,37 @@
         }
         <button type="button" role="menuitem" class="mh-item td-menu-item"
                 [attr.aria-current]="menu.page() === entry.id ? 'page' : null"
-                [attr.data-entry]="entry.id" [attr.aria-disabled]="entry.off || entry.why || (entry.loads && menu.playBlocked()) ? true : null"
-                [attr.aria-busy]="showsBar(entry) || (entry.id === 'continue' && busy()) ? true : null"
+                [attr.data-entry]="entry.id" [attr.aria-disabled]="entry.why ? true : null"
                 (click)="activate(entry)" (mouseenter)="followPointer($event)">
           <td-icon [name]="icons[entry.id]" [size]="18" />
           <span class="mh-text">
             <span class="mh-label">{{ entry.label }}</span>
-            @if (subOf(entry); as sub) {
+            @if (entry.sub; as sub) {
               <small class="mh-sub">{{ sub }}</small>
-            }
-            @if (showsBar(entry)) {
-              <span class="mh-bar td-progress" aria-hidden="true"><span [style.width.%]="plate().percent"></span></span>
             }
           </span>
         </button>
       }
+    </div>
+  } @else {
+    <!-- The start is the world's loading, as the world menus' Start shows it: Cancel (Esc) goes back to the world's menu -->
+    <div class="mh-start" role="status">
+      <h3 class="mh-start-title">{{ loadingNow() ? 'Loading ' + startName() : startName() }}</h3>
+      @if (loadingNow()) {
+        <span class="mh-bar td-progress" aria-hidden="true"><span [style.width.%]="plate().percent"></span></span>
+      }
+      <p class="td-note">{{ menu.problem() ? 'It did not load: the plate says why.' : menu.starting() ? 'The game starts when it stands.' : loadingNow() ? 'Play starts it once it stands.' : 'Ready.' }}</p>
+      <div class="td-actions is-start">
+        @if (!menu.starting()) {
+          <button type="button" class="td-btn-primary td-btn-sm" data-entry="play" [attr.aria-disabled]="menu.playBlocked() ? true : null"
+                  [attr.aria-busy]="menu.pendingPlay() ? true : null" (click)="!menu.playBlocked() && menu.requestPlay()">
+            <td-icon name="play" [size]="14" /><span>Play</span>
+          </button>
+        }
+        <button type="button" class="td-btn-secondary td-btn-sm" data-entry="cancel" [attr.aria-disabled]="menu.inCoop() ? true : null" (click)="!menu.inCoop() && menu.cancelStart()">
+          <span>Cancel</span><kbd class="td-kbd">Esc</kbd>
+        </button>
+      </div>
     </div>
   }
 
@@ -54,7 +56,7 @@
     </div>
   }
 
-  @if (status() ?? menu.notice(); as status) {
+  @if (menu.notice(); as status) {
     <p class="mh-status td-note is-warn" role="status">{{ status }}</p>
   }
 </nav>

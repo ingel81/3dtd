@@ -22,16 +22,11 @@ const VIEWPORTS = [
 
 /** The menu's pages with the dialog name each one gives the menu, and its entry in the list */
 const PAGES = [
-  { page: 'new-game', title: 'New game', entry: /^New game/i },
-  { page: 'coop', title: 'Coop', entry: /^Coop/i },
-  { page: 'save', title: 'Save game', entry: /^Save/i },
-  { page: 'load', title: 'Load game', entry: /^Load/i },
+  { page: 'saves', title: 'Saves', entry: /^Saves/i },
   { page: 'settings', title: 'Settings', entry: /^Settings/i },
   { page: 'extras', title: 'Extras', entry: /^Extras/i },
+  { page: 'coop', title: 'Coop', entry: /^Coop/i },
 ] as const;
-
-/** Pages a layer may leave out of its list (no run to save before the first one) */
-const OPTIONAL_IN_START = new Set(['save']);
 
 /** --td-focus-color, #D9BC68 */
 const FOCUS_COLOR = 'rgb(217, 188, 104)';
@@ -230,21 +225,9 @@ async function runTour(page: Page, size: string): Promise<Tour> {
     await tour.shot('start-loaded');
   });
 
-  for (const p of PAGES) {
-    await tour.step(`start page ${p.page}`, async () => {
-      await toMenuList(page);
-      const entry = menu(page).getByRole('menuitem', { name: p.entry });
-      if (!(await entry.count()) && OPTIONAL_IN_START.has(p.page)) return;
-      await entry.first().click();
-      await expect(menuNamed(page, p.title)).toBeVisible({ timeout: 5000 });
-      await page.waitForTimeout(400);
-      await tour.shot(`start-${p.page}`);
-    });
-  }
-
   await tour.step('start the game with Play', async () => {
-    await toMenuList(page);
-    await menu(page).getByRole('menuitem', { name: /^(Play|Continue)/ }).first().click();
+    // The start is the world's loading, Play once it stands (no list)
+    await menu(page).locator('[data-entry="play"]').click();
     await expect(menu(page)).toBeHidden({ timeout: 30_000 });
     for (let i = 0; i < 10; i++) {
       if (!(await page.getByRole('button', { name: /skip intro/i }).count())) break;
@@ -347,7 +330,8 @@ async function runTour(page: Page, size: string): Promise<Tour> {
   await tour.step('confirmation in the menu', async () => {
     await openPause(page);
     await toMenuList(page);
-    await menu(page).getByRole('menuitem', { name: /^Restart/ }).first().click();
+    await menu(page).getByRole('menuitem', { name: /^Saves/ }).first().click();
+    await menu(page).locator('[data-test="restart"]').click();
     await page.waitForTimeout(400);
     await tour.shot('pause-confirm-restart');
     // Say no: the run goes on

@@ -3,7 +3,7 @@
  * entry of it opens beside it. A file of its own without imports, so the
  * UIStore can name the types without pulling in the menu.
  */
-export type MenuPage = 'home' | 'new-game' | 'coop' | 'save' | 'load' | 'settings' | 'extras';
+export type MenuPage = 'home' | 'new-game' | 'coop' | 'saves' | 'settings' | 'extras';
 
 /**
  * The menu's two layers: `start` stands in front of the scene that loads
@@ -24,8 +24,7 @@ export const MENU_PAGE_TITLES: Readonly<Record<MenuPage, string>> = {
   home: 'Menu',
   'new-game': 'New game',
   coop: 'Coop',
-  save: 'Save game',
-  load: 'Load game',
+  saves: 'Saves',
   settings: 'Settings',
   extras: 'Extras',
 };

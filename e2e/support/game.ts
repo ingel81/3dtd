@@ -384,7 +384,7 @@ export async function buildArcher(page: Page): Promise<boolean> {
 
 /** The main menu, in either layer, on its list or one of its pages: the dialog takes the page's title */
 export function gameMenu(page: Page) {
-  return page.getByRole('dialog', { name: /^(Menu|New game|Coop|Save game|Load game|Settings|Extras)$/ });
+  return page.getByRole('dialog', { name: /^(Menu|New game|Coop|Saves|Settings|Extras)$/ });
 }
 
 /** Open the main menu's pause layer with Escape, the focus taken off a clicked control first (its tooltip would take the key) */
@@ -393,6 +393,13 @@ export async function openGameMenu(page: Page): Promise<void> {
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.keyboard.press('Escape');
   await expect(gameMenu(page)).toBeVisible();
+}
+
+/** The menu's Saves page on its Save or Load tab (the menu open on its list) */
+export async function openSaves(page: Page, tab: 'save' | 'load'): Promise<void> {
+  const menu = gameMenu(page);
+  await menu.getByRole('menuitem', { name: 'Saves' }).click();
+  await menu.locator(`[data-tab="${tab}"]`).click();
 }
 
 /** What a save keeps, as the simulation's mirror and the store have it */

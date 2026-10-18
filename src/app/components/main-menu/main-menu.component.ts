@@ -19,8 +19,7 @@ import { MENU_PAGE_TITLES, type MenuPage } from './menu-page';
 import { MenuHomeComponent } from './pages/home/menu-home.component';
 import { MenuNewGameComponent } from './pages/new-game/menu-new-game.component';
 import { MenuCoopComponent } from './pages/coop/menu-coop.component';
-import { MenuSaveComponent } from './pages/save/menu-save.component';
-import { MenuLoadComponent } from './pages/load/menu-load.component';
+import { MenuSavesComponent } from './pages/saves/menu-saves.component';
 import { MenuSettingsComponent } from './pages/settings/menu-settings.component';
 import { MenuExtrasComponent } from './pages/extras/menu-extras.component';
 import { MenuLoadingComponent } from './loading/menu-loading.component';
@@ -63,8 +62,7 @@ const TIP_GAP = 16;
     MenuHomeComponent,
     MenuNewGameComponent,
     MenuCoopComponent,
-    MenuSaveComponent,
-    MenuLoadComponent,
+    MenuSavesComponent,
     MenuSettingsComponent,
     MenuExtrasComponent,
     TdIconComponent,

@@ -2,7 +2,7 @@
 // M5 and a smoke run of the basics): build, a wave, a dialog, the replay, a
 // new place. The dice changes the place in the game: no new map session.
 import { test, expect } from '../support/fixtures';
-import { buildArcher, clearWave, credits, devAction, gameMenu, gameReady, openGameMenu, runState, shot, waveButton } from '../support/game';
+import { buildArcher, clearWave, credits, devAction, gameMenu, gameReady, openGameMenu, openSaves, runState, shot, waveButton } from '../support/game';
 
 test('smoke: build a tower, play a wave, open a dialog, watch the replay', async ({ duo, relay: _relay }, testInfo) => {
   const page = duo.host;
@@ -120,7 +120,7 @@ test('S1 a save comes back as it was, from its slot and from its file, while a r
   await test.step('save into slot 1', async () => {
     expect(await buildArcher(page), 'a tower stands').toBe(true);
     await openGameMenu(page);
-    await menu.getByRole('menuitem', { name: 'Save game' }).click();
+    await openSaves(page, 'save');
     await menu.locator('.mp-slot').first().click();
     await confirm('Overwrite');
     await expect(menu.locator('.mp-status')).toContainText('Saved.');
@@ -133,7 +133,7 @@ test('S1 a save comes back as it was, from its slot and from its file, while a r
   await test.step('another tower, then slot 1 loads the run as it was', async () => {
     expect(await buildArcher(page)).toBe(true);
     await openGameMenu(page);
-    await menu.getByRole('menuitem', { name: 'Load game' }).click();
+    await openSaves(page, 'load');
     await menu.locator('.mp-slot-row', { hasNot: page.getByText('Autosave') }).first().locator('.mp-slot').click();
     await confirm('Load');
     await expect(menu).toHaveCount(0, { timeout: 120_000 });
@@ -142,7 +142,7 @@ test('S1 a save comes back as it was, from its slot and from its file, while a r
 
   await test.step('the file of slot 1 loads it too (the question before Pick file kept the file input)', async () => {
     await openGameMenu(page);
-    await menu.getByRole('menuitem', { name: 'Load game' }).click();
+    await openSaves(page, 'load');
     const [download] = await Promise.all([
       page.waitForEvent('download'),
       menu.locator('.mp-slot-row', { hasNot: page.getByText('Autosave') }).first().locator('.mp-slot-tool').first().click(),
@@ -153,7 +153,7 @@ test('S1 a save comes back as it was, from its slot and from its file, while a r
     await page.keyboard.press('Escape');
     expect(await buildArcher(page)).toBe(true);
     await openGameMenu(page);
-    await menu.getByRole('menuitem', { name: 'Load game' }).click();
+    await openSaves(page, 'load');
     const [chooser] = await Promise.all([
       page.waitForEvent('filechooser'),
       (async () => {

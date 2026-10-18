@@ -60,17 +60,16 @@ describe('MainMenuService', () => {
     expect(menu.isOpen()).toBe(true);
   });
 
-  it('Back on the start list does nothing: there is no game behind it', () => {
+  it('Back on the start cancels its loading: back to the world’s menu, never into a game without a place', () => {
     const { menu } = setup();
     menu.open('home', 'start');
-    expect(menu.back()).toBe(false);
-    expect(menu.isOpen()).toBe(true);
+    expect(menu.back()).toBe(true);
   });
 
   it('an open menu keeps its layer when it goes to a page', () => {
     const { menu } = setup();
     menu.open('home', 'start');
-    menu.open('load');
+    menu.open('saves');
     expect(menu.layer()).toBe('start');
   });
 

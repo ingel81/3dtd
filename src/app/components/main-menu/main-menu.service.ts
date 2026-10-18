@@ -3,7 +3,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { UIStore } from '../../store/ui.store';
 import { GameStore } from '../../store/game.store';
 import { COOP } from '../../services/coop.token';
-import { AUTOSAVE_SLOT, SAVE_GAME, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
+import { SAVE_GAME, type LoadResult, type SaveSlotInfo } from '../../services/save-game/save-game.port';
 import { shortPlaceName } from '../../services/save-game/slot-name';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
@@ -32,16 +32,6 @@ import { whyNot } from '../../world/why-not';
 import { BackgroundMusicService } from '../../game-engine/background-music.service';
 
 export { startMenuSkipped } from './start-menu-skipped';
-
-/** The autosave as the list offers it: "Heilbronn | wave 12" */
-export interface AutosaveOffer {
-  /** The slot: the real places' autosave or the maps' */
-  slotId: string;
-  place: string;
-  wave: number;
-  /** It stands at another place than the one loaded: Continue goes there (E120) */
-  elsewhere: boolean;
-}
 
 /**
  * The main menu's state and its ways (docs/MAIN_MENU_UI_PLAN.md): which
@@ -93,9 +83,6 @@ export class MainMenuService {
 
   /** Automated runs play without the start menu (startMenuSkipped), so do a benchmark and a bot check the game started */
   readonly automated = startMenuSkipped(pageQuery()) || this.start.current().benchmark !== null || this.start.current().trial?.bot != null;
-
-  /** The start order named the place (a link's ?l=): Play comes before Continue */
-  readonly linkedPlace = this.start.current().place !== null;
 
   /**
    * The world was opened with Start (the globes, Continue, a map picked in
@@ -278,22 +265,6 @@ export class MainMenuService {
   /** Quit exists where the app can end itself: the desktop build from 0.5.1 on */
   readonly canQuit = typeof this.bridge?.quit === 'function';
 
-  /**
-   * This world's autosave, offered while the new run has not begun (the
-   * start list of a game opened at once: a link, a coop room); once the run
-   * is under way the autosave is this run's. The other worlds' Continues are
-   * the globes' and the chips' (docs/WORLDS_STATE_PLAN.md, 3.3).
-   */
-  readonly autosaveOffer = computed<AutosaveOffer | null>(() => {
-    if (this.inCoop() || this.underWay()) return null;
-    const slotId = this.autosaveSlotHere();
-    const autosave = slotId ? this.saves.slots().find((slot) => slot.id === slotId) : undefined;
-    if (!autosave) return null;
-    const place = autosave.map?.name ?? shortPlaceName(autosave.location);
-    const elsewhere = this.needsOtherWorld(autosave) || (!autosave.map && this.autosavePlaceDiffers());
-    return { slotId: autosave.id, place, wave: autosave.wave, elsewhere };
-  });
-
   /** The place loaded here, as the list names it */
   readonly placeName = computed(() => (this.hasPlace() ? shortPlaceName(this.locationMgmt.displayName()) : null));
 
@@ -437,8 +408,8 @@ export class MainMenuService {
       this.close();
       return true;
     }
-    // The loading of a Start: Esc cancels it, back to the world's menu, nothing changed
-    if (this.starting() && !this.inCoop()) {
+    // The start's loading: Esc cancels it, back to the world's menu, nothing changed
+    if (state.layer === 'start' && !this.inCoop()) {
       this.cancelStart();
       return true;
     }
@@ -463,20 +434,6 @@ export class MainMenuService {
   requestPlay(): void {
     if (this.ready()) this.close();
     else if (this.hasPlace() && !this.playBlocked()) this.pendingPlay.set(true);
-  }
-
-  /**
-   * Continue an autosave (by default the real places'): it loads (at its
-   * place, which may be another), then the game shows. Asking about another
-   * place is the list's (E120).
-   */
-  async continueAutosave(slotId: string = AUTOSAVE_SLOT): Promise<LoadResult> {
-    const slot = this.saves.slots().find((s) => s.id === slotId);
-    const result = slotId === AUTOSAVE_SLOT && !(slot && this.needsOtherWorld(slot))
-      ? await this.saves.continueAutosave()
-      : await this.loadSlot(slotId);
-    if (result.ok) this.requestPlay();
-    return result;
   }
 
   /**
@@ -527,17 +484,10 @@ export class MainMenuService {
         else this.requestPlay();
         return;
       }
-      // No run came of it: the start list instead of a loading that waits for nothing, its Play a fresh run
+      // No run came of it: the start's Play instead of a loading that waits for nothing, a fresh run
       this.starting.set(false);
       this.notice.set(`${result.reason} Play starts a fresh run here.`);
     });
-  }
-
-  /** The autosave stands at another place than the one loaded (E120) */
-  autosavePlaceDiffers(): boolean {
-    const autosave = this.saves.slots().find((slot) => slot.id === AUTOSAVE_SLOT);
-    if (!autosave || !this.hasPlace()) return false;
-    return autosaveElsewhere(autosave, { hq: this.locationMgmt.hq(), name: this.locationMgmt.displayName() });
   }
 
   /** Restart at the same place (the list asks first while a run is under way) */

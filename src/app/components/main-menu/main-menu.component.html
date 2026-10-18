@@ -26,8 +26,7 @@
         @switch (page()) {
           @case ('new-game') { <app-menu-new-game [layer]="layer()" /> }
           @case ('coop') { <app-menu-coop [layer]="layer()" /> }
-          @case ('save') { <app-menu-save [layer]="layer()" /> }
-          @case ('load') { <app-menu-load [layer]="layer()" /> }
+          @case ('saves') { <app-menu-saves [layer]="layer()" /> }
           @case ('settings') { <app-menu-settings [layer]="layer()" /> }
           @case ('extras') { <app-menu-extras [layer]="layer()" /> }
         }

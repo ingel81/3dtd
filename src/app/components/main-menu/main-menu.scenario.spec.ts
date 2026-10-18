@@ -60,7 +60,7 @@ function pageStub(selector: string) {
   Input({ alias: 'layer', isSignal: true } as Input)(PageStub.prototype, 'layer');
   return PageStub;
 }
-const PAGES = ['new-game', 'coop', 'save', 'load', 'settings', 'extras'].map((page) => pageStub(`app-menu-${page}`));
+const PAGES = ['new-game', 'coop', 'saves', 'settings', 'extras'].map((page) => pageStub(`app-menu-${page}`));
 
 /** The icon stands in empty; its name and size are all the menu binds */
 @Component({ selector: 'td-icon', standalone: true, template: '' })
@@ -75,7 +75,6 @@ Input({ alias: 'size', isSignal: true } as Input)(IconStub.prototype, 'size');
 Input({ alias: 'layer', isSignal: true, required: true } as Input)(MenuHomeComponent.prototype, 'layer');
 
 const HEILBRONN = { lat: 49.14227, lon: 9.21878 };
-const PARIS = { lat: 48.85341, lon: 2.3488 };
 
 function steps(done: number, total = 10): BootStep[] {
   return Array.from({ length: total }, (_, i) => ({
@@ -240,69 +239,18 @@ describe('The main menu', () => {
     await settle();
   }
 
-  describe('one world per start list (docs/WORLDS_STATE_PLAN.md 3.3)', () => {
-    const mapAutosave = (wave = 4): SaveSlotInfo => ({
-      ...autosaveAt(null, 'Ember Crater', wave), id: AUTOSAVE_BUILT_SLOT, world: 'maps', map: { id: 'ember-crater-copy', name: 'Ember Crater (copy)' },
-    });
-
-    it('a map behind the menu: its own Continue, no tabs, and no autosave of a real place in it', async () => {
-      // The screenshot of the review: a map loaded behind the menu, the autosave of a real place stood above its Play
-      mapsOpen = true;
-      world.useCustomMap('ember-crater-copy', 'Ember Crater (copy)');
-      locationMgmt.hq.set(HEILBRONN);
-      engineInit.loading.set(false);
-      saves.hasAutosave.set(true);
-      saves.slots.set([autosaveAt(HEILBRONN, 'Binswangen', 3), mapAutosave(4)]);
-      await setup();
-
-      expect(el().querySelector('[role="tablist"]')).toBeNull();
-      expect(entries()).toEqual(['Continue', 'Play', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor', 'World menu', 'All worlds']);
-      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('Ember Crater (copy) | wave 4');
-      expect(text()).not.toContain('Binswangen');
-    });
-
-    it('on a real place the list is its world only: the maps autosave stays on the globes and in the chips', async () => {
-      mapsOpen = true;
-      locationMgmt.hq.set(HEILBRONN);
-      engineInit.loading.set(false);
-      saves.hasAutosave.set(true);
-      saves.slots.set([autosaveAt(HEILBRONN, 'Kiliansplatz, Heilbronn, Deutschland', 12), mapAutosave(4)]);
-      await setup();
-
-      expect(el().querySelector('[role="tablist"]')).toBeNull();
-      expect(entries()).toEqual(['Continue', 'Play', 'New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor', 'World menu', 'All worlds']);
-      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('Heilbronn | wave 12');
-      expect(text()).not.toContain('Ember Crater');
-    });
-
-    it('without the maps open the list is as before, the editor said to come', async () => {
-      locationMgmt.hq.set(HEILBRONN);
-      engineInit.loading.set(false);
-      await setup();
-
-      expect(el().querySelector('[role="tablist"]')).toBeNull();
-      expect(entries()).toEqual(['Play', 'New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor', 'World menu', 'All worlds']);
-    });
-  });
-
   describe('the start menu', () => {
-    it('without a place offers New game first, and no Play', async () => {
-      coordinator.awaitingStartChoice.set(true);
-      await setup();
-
-      expect(entries()).toEqual(['New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor', 'World menu', 'All worlds']);
-      expect(el().querySelector('app-menu-loading')).toBeNull();
-      // The map editor shows, not yet open
-      expect(entry('editor')!.getAttribute('aria-disabled')).toBe('true');
-    });
-
-    it('leads back to the globes from a world that may never stand (a room that does not answer): nothing held', async () => {
-      coordinator.awaitingStartChoice.set(true);
-      await setup();
-      await click(entry('worlds'));
-      expect(stage.leaveGame).toHaveBeenCalledWith(null, null);
-      await click(entry('world-menu'));
-      expect(stage.leaveGame).toHaveBeenLastCalledWith({ world: 'real', pick: null }, null);
+    it('is the loading of the world, not a list: Loading <place>, Cancel (Esc) back to its menu, nothing held', async () => {
+      await setup('start', { ...PLAIN_START, place: { hq: HEILBRONN, spawns: [] }, play: true, label: 'Heilbronn' });
+      expect(entries()).toEqual([]);
+      expect(text()).toContain('Loading Heilbronn');
+      expect(entry('play')).toBeNull();
+      await click(entry('cancel'));
+      expect(stage.leaveGame).toHaveBeenCalledWith({ world: 'real', pick: expect.anything() });
+      // Esc as well, never into a game without a place
+      stage.leaveGame.mockClear();
+      await press('Escape', entry('cancel')!);
+      expect(stage.leaveGame).toHaveBeenCalledTimes(1);
     });
 
     it('pages through the tips with the dots under the card, and leads its foot with Legal and Privacy (TODO E147, E148)', async () => {
@@ -361,14 +309,15 @@ describe('The main menu', () => {
 
     // The focus moving in on open is cdkTrapFocus's (autoCapture), which jsdom's layout-less tabbable check never finds
     it('is a modal dialog named by its page, the list one tab stop on its first entry', async () => {
-      coordinator.awaitingStartChoice.set(true);
-      await setup();
+      locationMgmt.hq.set(HEILBRONN);
+      engineInit.loading.set(false);
+      await setup('pause');
       const dialog = el().querySelector('[role="dialog"]')!;
 
       expect(dialog.getAttribute('aria-modal')).toBe('true');
       expect(document.getElementById(dialog.getAttribute('aria-labelledby')!)?.textContent).toBe('Menu');
-      expect(entry('new-game')?.getAttribute('tabindex')).toBe('0');
-      expect(entry('coop')?.getAttribute('tabindex')).toBe('-1');
+      expect(entry('continue')?.getAttribute('tabindex')).toBe('0');
+      expect(entry('saves')?.getAttribute('tabindex')).toBe('-1');
 
       await click(entry('settings'));
       expect(document.getElementById(dialog.getAttribute('aria-labelledby')!)?.textContent).toBe('Settings');
@@ -427,57 +376,19 @@ describe('The main menu', () => {
       expect(plate.querySelector('[data-test="streets-busy"]')).toBeNull();
     });
 
-    it('moves an untouched focus to Play when the place comes in above New game (TODO E151)', async () => {
-      await setup();
-      expect(entries()[0]).toBe('New game');
-      entry('new-game')!.focus();
-
-      locationMgmt.hq.set(HEILBRONN);
-      await settle();
-      await settle();
-      expect(entries()[0]).toBe('Play');
-      expect(document.activeElement).toBe(entry('play'));
-      expect(entry('play')?.getAttribute('tabindex')).toBe('0');
-    });
-
-    it('leaves a focus the player moved where it is when the place comes in (TODO E151)', async () => {
-      await setup();
-      entry('settings')!.focus();
-      locationMgmt.hq.set(HEILBRONN);
-      await settle();
-      await settle();
-      expect(document.activeElement).toBe(entry('settings'));
-    });
-
-    it('keeps Play pressed while loading and plays once the place stands', async () => {
+    it('a world not started from a menu (a link, a room) loads with Play: pressed early it plays once the place stands', async () => {
       locationMgmt.hq.set(HEILBRONN);
       await setup();
-      expect(entries()[0]).toBe('Play');
-      expect(entry('play')?.querySelector('.mh-bar')).not.toBeNull();
+      expect(text()).toContain('Loading Heilbronn');
+      expect(el().querySelector('.mh-bar')).not.toBeNull();
 
       await click(entry('play'));
       expect(menu.isOpen()).toBe(true);
-      expect(entry('play')?.textContent).toContain('Starts when loaded');
+      expect(entry('play')?.getAttribute('aria-busy')).toBe('true');
 
       engineInit.loading.set(false);
       await settle();
       expect(ui.mainMenuOpen()).toBe(false);
-    });
-
-    it('shows the loading in one entry: the first that loads, then the one chosen', async () => {
-      locationMgmt.hq.set(HEILBRONN);
-      saves.hasAutosave.set(true);
-      saves.slots.set([autosaveAt(HEILBRONN, 'Kiliansplatz, Heilbronn, Deutschland', 12)]);
-      await setup();
-      expect(entries().slice(0, 2)).toEqual(['Continue', 'Play']);
-      expect(el().querySelectorAll('.mh-bar')).toHaveLength(1);
-      expect(entry('continue')?.querySelector('.mh-bar')).not.toBeNull();
-
-      await click(entry('play'));
-      expect(el().querySelectorAll('.mh-bar')).toHaveLength(1);
-      expect(entry('play')?.querySelector('.mh-bar')).not.toBeNull();
-      expect(entry('play')?.textContent).toContain('Starts when loaded');
-      expect(entry('continue')?.textContent).not.toContain('Starts when loaded');
     });
 
     it('Play on a place that stands closes the menu at once', async () => {
@@ -587,73 +498,10 @@ describe('The main menu', () => {
       expect(el().querySelector('.mm-page-body')?.hasAttribute('cdkFocusInitial')).toBe(true);
     });
 
-    it('Continue of an autosave at this place loads it and plays', async () => {
+    it('Esc on a page goes back to the list, the focus on the entry that opened it', async () => {
       locationMgmt.hq.set(HEILBRONN);
       engineInit.loading.set(false);
-      saves.hasAutosave.set(true);
-      saves.slots.set([autosaveAt(HEILBRONN, 'Kiliansplatz, Heilbronn, Deutschland', 12)]);
-      await setup();
-
-      expect(entries().slice(0, 2)).toEqual(['Continue', 'Play']);
-      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('Heilbronn | wave 12');
-      await click(entry('continue'));
-
-      expect(saves.continueAutosave).toHaveBeenCalledTimes(1);
-      expect(ui.mainMenuOpen()).toBe(false);
-    });
-
-    it('asks before Continue leaves the place loaded for the autosave elsewhere (E120)', async () => {
-      locationMgmt.hq.set(HEILBRONN);
-      engineInit.loading.set(false);
-      saves.hasAutosave.set(true);
-      saves.slots.set([autosaveAt(PARIS, 'Rue de Rivoli, Paris, France', 7)]);
-      await setup();
-
-      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('in Paris | wave 7');
-      await click(entry('continue'));
-      expect(saves.continueAutosave).not.toHaveBeenCalled();
-      expect(text()).toContain('Leaves Heilbronn: the save plays in Paris.');
-      expect(document.activeElement?.textContent).toBe('Continue anyway');
-
-      // Esc takes the question back, the menu stays where it was
-      await press('Escape');
-      expect(el().querySelector('.mh-confirm')).toBeNull();
-      expect(menu.isOpen()).toBe(true);
-
-      await click(entry('continue'));
-      await click(Array.from(el().querySelectorAll<HTMLElement>('.mh-confirm button')).find((b) => b.textContent === 'Continue anyway')!);
-      expect(saves.continueAutosave).toHaveBeenCalledTimes(1);
-    });
-
-    it('tells an older slot without its HQ by the name of the place', async () => {
-      locationMgmt.hq.set(HEILBRONN);
-      engineInit.loading.set(false);
-      saves.hasAutosave.set(true);
-      saves.slots.set([autosaveAt(null, 'Rue de Rivoli, Paris, France')]);
-      await setup();
-      expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('in Paris | wave 7');
-    });
-
-    it('says why the autosave did not load, and stays', async () => {
-      locationMgmt.hq.set(HEILBRONN);
-      engineInit.loading.set(false);
-      saves.hasAutosave.set(true);
-      saves.slots.set([autosaveAt(HEILBRONN, 'Heilbronn')]);
-      saves.continueAutosave.mockResolvedValueOnce({ ok: false, reason: 'That save is damaged.' });
-      await setup();
-
-      await click(entry('continue'));
-      await settle();
-      expect(el().querySelector('[role="status"]')?.textContent).toBe('That save is damaged.');
-      expect(menu.isOpen()).toBe(true);
-    });
-
-    it('Esc on the list does nothing, there is no game behind it; on a page it goes back', async () => {
-      locationMgmt.hq.set(HEILBRONN);
-      await setup();
-
-      await press('Escape', entry('play')!);
-      expect(menu.isOpen()).toBe(true);
+      await setup('pause');
 
       await click(entry('extras'));
       expect(menu.page()).toBe('extras');
@@ -664,9 +512,10 @@ describe('The main menu', () => {
     });
 
     it('the pointer over an entry takes the focus along from the list, never from a page', async () => {
-      coordinator.awaitingStartChoice.set(true);
-      await setup();
-      entry('new-game')!.focus();
+      locationMgmt.hq.set(HEILBRONN);
+      engineInit.loading.set(false);
+      await setup('pause');
+      entry('continue')!.focus();
       entry('settings')!.dispatchEvent(new MouseEvent('mouseenter'));
       expect(document.activeElement).toBe(entry('settings'));
 
@@ -733,25 +582,23 @@ describe('The main menu', () => {
     });
 
     it('moves between the entries with the arrows, wrapping, without choosing', async () => {
-      coordinator.awaitingStartChoice.set(true);
-      await setup();
-      entry('new-game')!.focus();
+      locationMgmt.hq.set(HEILBRONN);
+      engineInit.loading.set(false);
+      await setup('pause');
+      entry('continue')!.focus();
 
       await press('ArrowDown');
-      expect(document.activeElement).toBe(entry('coop'));
+      expect(document.activeElement).toBe(entry('saves'));
       await press('ArrowUp');
       await press('ArrowUp');
-      // Wraps to the last entry, the way back to the globes; the map editor, not yet open, is skipped
+      // Wraps to the last entry, the way back to the globes
       expect(document.activeElement).toBe(entry('worlds'));
-      await press('ArrowUp');
-      await press('ArrowUp');
-      expect(document.activeElement).toBe(entry('extras'));
       expect(menu.page()).toBe('home');
     });
   });
 
   describe('a save the world opened to load (Continue, Load game, Back to the run)', () => {
-    it('that did not load: the start list with Play for a fresh run and the reason, not a loading that waits for nothing', async () => {
+    it('that did not load: the start with Play for a fresh run and the reason, not a loading that waits for nothing', async () => {
       mapsOpen = true;
       world.useCustomMap('bay', 'Bay', 'edited');
       locationMgmt.hq.set(HEILBRONN);
@@ -765,7 +612,7 @@ describe('The main menu', () => {
       expect(menu.starting()).toBe(false);
       expect(text()).not.toContain('Loading Bay');
       expect(text()).toContain(`${reason} Play starts a fresh run here.`);
-      expect(entries()).toContain('Play');
+      expect(entry('play')).not.toBeNull();
       expect(ui.mainMenuOpen()).toBe(true);
     });
   });
@@ -776,12 +623,12 @@ describe('The main menu', () => {
       engineInit.loading.set(false);
     });
 
-    it('lists Continue, the run\'s pages and below the line New game, Coop and Restart', async () => {
+    it('lists Continue, Saves, Settings, Extras and below the line Coop and the ways out', async () => {
       await setup('pause');
       game.towerCount.set(2);
       await settle();
 
-      expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'New game', 'Coop', 'World menu', 'All worlds', 'Restart here']);
+      expect(entries()).toEqual(['Continue', 'Saves', 'Settings', 'Extras', 'Coop', 'World menu', 'All worlds']);
       expect(el().querySelector('.mh-pause-word')?.textContent).toBe('Paused');
       expect(el().querySelector('.mh-pause-place')?.textContent).toBe('Heilbronn | wave 1');
     });
@@ -910,11 +757,11 @@ describe('The main menu', () => {
       expect(entries()).toEqual(['Continue', 'Back to editor', 'Again from wave 5', 'Settings']);
     });
 
-    it('before the first wave or tower Save stands locked with why, Load open', async () => {
+    it('Saves opens its page (saving and loading as its two tabs, menu-saves.component.spec)', async () => {
       await setup('pause');
-      expect(entries()).toContain('Save game');
-      expect(entry('save')!.querySelector('.mh-sub')?.textContent).toBe('No run yet: build or start a wave');
-      expect(entry('load')!.getAttribute('aria-disabled')).toBeNull();
+      await click(entry('saves'));
+      expect(menu.page()).toBe('saves');
+      expect(el().querySelector('app-menu-saves')).not.toBeNull();
     });
 
     it('in Dev world no World menu (it has none, the line under it said "Worlds"), All worlds is its way out', async () => {
@@ -924,16 +771,12 @@ describe('The main menu', () => {
       expect(entries()).toContain('All worlds');
     });
 
-    it('a run lost: the head says Game over, Save stays in its place locked with why, the hold says it is over', async () => {
+    it('a run lost: the head says Game over, the hold says it is over', async () => {
       await setup('pause');
       game.towerCount.set(2);
       game.phase.set('gameover');
       await settle();
       expect(el().querySelector('.mh-pause-word')?.textContent).toBe('Game over');
-      expect(entry('save')!.getAttribute('aria-disabled')).toBe('true');
-      expect(entry('save')!.querySelector('.mh-sub')?.textContent).toBe('The run is over');
-      await click(entry('save'));
-      expect(menu.page()).toBe('home');
       await click(entry('worlds'));
       expect(stage.leaveGame).toHaveBeenCalledWith(null, expect.objectContaining({ run: false, over: true }));
     });
@@ -981,7 +824,7 @@ describe('The main menu', () => {
       const edit = vi.spyOn(menu, 'editThisMap').mockResolvedValue(undefined);
 
       // On a map no New game: its other maps and places are the worlds' (World menu, All worlds)
-      expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'Coop', 'Edit this map', 'World menu', 'All worlds', 'Restart here']);
+      expect(entries()).toEqual(['Continue', 'Saves', 'Settings', 'Extras', 'Coop', 'Edit this map', 'World menu', 'All worlds']);
       await click(entry('edit-map'));
       expect(edit).not.toHaveBeenCalled();
       expect(text()).toContain('Edit this map? The run ends.');
@@ -1078,19 +921,7 @@ describe('The main menu', () => {
       expect(ui.mainMenuOpen()).toBe(false);
     });
 
-    it('asks before Restart ends a run under way', async () => {
-      await setup('pause');
-      game.towerCount.set(1);
-      await settle();
-
-      await click(entry('restart'));
-      expect(facade.restartGame).not.toHaveBeenCalled();
-      await click(Array.from(el().querySelectorAll<HTMLElement>('.mh-confirm button')).find((b) => b.textContent === 'Restart')!);
-      expect(facade.restartGame).toHaveBeenCalledTimes(1);
-      expect(ui.mainMenuOpen()).toBe(false);
-    });
-
-    it('pauses the game alone and lets it go on; in coop it never pauses, Save and Load stand locked with why, no Restart', async () => {
+    it('pauses the game alone and lets it go on; in coop it never pauses, Saves stands locked with why', async () => {
       await setup('pause');
       expect(game.paused()).toBe(true);
       menu.close();
@@ -1102,10 +933,9 @@ describe('The main menu', () => {
       await settle();
       expect(game.paused()).toBe(false);
       // Back to the worlds stays, locked: the room would lose the player
-      expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'Coop', 'World menu', 'All worlds']);
-      expect(entry('save')!.getAttribute('aria-disabled')).toBe('true');
-      expect(entry('save')!.querySelector('.mh-sub')?.textContent).toBe('A coop game is not saved');
-      expect(entry('load')!.querySelector('.mh-sub')?.textContent).toBe('Leave the coop game first');
+      expect(entries()).toEqual(['Continue', 'Saves', 'Settings', 'Extras', 'Coop', 'World menu', 'All worlds']);
+      expect(entry('saves')!.getAttribute('aria-disabled')).toBe('true');
+      expect(entry('saves')!.querySelector('.mh-sub')?.textContent).toBe('A coop game is not saved');
       expect(entry('worlds')!.getAttribute('aria-disabled')).toBe('true');
       expect(entry('worlds')!.textContent).toContain('Leave the coop room first');
       expect(el().querySelector('.mh-pause-word')?.textContent).toBe('Coop');
@@ -1123,25 +953,12 @@ describe('The main menu', () => {
       delete (window as unknown as { desktop?: unknown }).desktop;
     });
 
-    it('game over, the menu: New game and Restart here are there, New game opens its page', async () => {
-      await setup('pause');
-      game.towerCount.set(4);
-      game.phase.set('gameover');
-      await settle();
-
-      expect(entries()).toContain('New game');
-      expect(entries()).toContain('Restart here');
-      await click(entry('new-game'));
-      expect(menu.page()).toBe('new-game');
-      expect(el().querySelector('app-menu-new-game')).not.toBeNull();
-    });
-
     it('Quit 3DTD only in the app: at once with nothing under way, asked first during a run', async () => {
       const quit = vi.fn();
       (window as unknown as { desktop?: unknown }).desktop = {
         version: '0.7.0', onUpdateReady: () => () => undefined, installUpdateNow: vi.fn(), saveRun: vi.fn(), quit,
       };
-      await setup('start');
+      await setup('pause');
       expect(entries()).toContain('Quit 3DTD');
       await click(entry('quit'));
       expect(quit).toHaveBeenCalledTimes(1);
@@ -1156,7 +973,7 @@ describe('The main menu', () => {
     });
 
     it('a browser has no Quit: a tab cannot close itself', async () => {
-      await setup('start');
+      await setup('pause');
       expect(entries()).not.toContain('Quit 3DTD');
     });
   });
@@ -1166,13 +983,13 @@ describe('The main menu', () => {
       locationMgmt.hq.set(HEILBRONN);
       engineInit.loading.set(false);
       await setup('pause');
-      menu.open('load');
+      menu.open('saves');
       await settle();
 
       engineInit.loading.set(true);
       await settle();
       expect(menu.layer()).toBe('start');
-      expect(menu.page()).toBe('load');
+      expect(menu.page()).toBe('saves');
       // Not over the page's plate: the bar under the list's entry shows the load
       expect(el().querySelector('app-menu-loading')).toBeNull();
       expect(menu.back()).toBe(true);
