@@ -678,7 +678,7 @@ global oder eine Reihe Boxen. Stand 2026-10-18 (Quelle: Liste der öffentlichen 
 | overpass.atownsend.org.uk | Großbritannien und Irland | 2 bis 7 s; einzelne Ways in Nordfrankreich |
 | overpass.maprva.org | Virginia | 0,3 bis 0,7 s; nichts über die Grenze (Washington DC leer) |
 | overpass-api.de | global | meist 502 „at capacity“, manchmal 200 nach 20 bis 30 s |
-| maps.mail.ru | global | 200 nach 13 bis 19 s, einmal 504 |
+| maps.mail.ru | global | 200 nach 13 bis 19 s, einmal 504; letzter Rückfall |
 | overpass.private.coffee | global | meist 500; overpass.kumi.systems ist derselbe Rechner |
 
 Nicht aufgenommen: overpass.openstreetmap.fr und .ru (403, nur für freigeschaltete Nutzer), overpass.osm.jp (504),
@@ -737,7 +737,7 @@ Fehler in eine Art und wiederholt, solange einer vorübergehen kann:
   10 bis 20 s; jeder der drei globalen Server ist so bis zu achtmal dran. Die Gebäude-Abfrage wiederholt genauso, ohne
   Zeile in der Ladeplatte. Die OSM-Welt hat `OSM_QUERY_RETRY` (`osm-query.ts`): 6 Runden in 210 s
 - Scheitern alle Runden, wirft die Ladung `OverpassError` mit dem, was jeder Server zuletzt sagte
-  (`overpass-api.de: HTTP 502; maps.mail.ru: HTTP 504; overpass.private.coffee: Failed to fetch; 8 tries`);
+  (`overpass-api.de: HTTP 502; overpass.private.coffee: Failed to fetch; maps.mail.ru: HTTP 504; 8 tries`);
   `OsmStreetService` macht daraus `STREETS_UNREACHABLE`. Lehnte jeder Server ab, weil die Antwort keine Straßen hatte,
   bleibt es bei „No streets found“
 - Während gewartet wird, steht `OsmStreetService.retrying` (Runde, von wie vielen, Art). Die Ladeplatte im Menü zeigt

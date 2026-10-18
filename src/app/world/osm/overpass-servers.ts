@@ -29,8 +29,9 @@ const box = (minLat: number, minLon: number, maxLat: number, maxLon: number): Ge
 /**
  * The servers in their order when nothing is known of their health
  * (overpass-health.ts reorders them): the regional ones, then the global
- * ones, the fastest of a good day first. overpass.kumi.systems is a DNS
- * alias of overpass.private.coffee, the same server, so it is not listed apart.
+ * ones, the fastest of a good day first and maps.mail.ru as the last
+ * fallback. overpass.kumi.systems is a DNS alias of
+ * overpass.private.coffee, the same server, so it is not listed apart.
  */
 export const OVERPASS_SERVERS: readonly OverpassServer[] = [
   {
@@ -68,8 +69,9 @@ export const OVERPASS_SERVERS: readonly OverpassServer[] = [
     ],
   },
   { url: 'https://overpass-api.de/api/interpreter', name: 'overpass-api.de', coverage: null },
-  { url: 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', name: 'maps.mail.ru', coverage: null },
   { url: 'https://overpass.private.coffee/api/interpreter', name: 'overpass.private.coffee', coverage: null },
+  // The last fallback: answers when the others are at capacity, slowly (11 to 19 s on 2026-10-18)
+  { url: 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', name: 'maps.mail.ru', coverage: null },
 ];
 
 const inside = (inner: GeoBox, outer: GeoBox): boolean =>
