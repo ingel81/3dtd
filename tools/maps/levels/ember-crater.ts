@@ -142,8 +142,9 @@ export function buildEmberCrater(): CustomMapDocument {
   }
   // Larger than the catalogue's default: from the rim and in a fly-over the gate read as a small doorway
   const gate = k.place('hell-gate', -12, 12, { rotation: facing({ x: -12, y: 12 }, end), scale: 1.4 });
-  // Glow in the gate: embers rising through it, sparks hanging in the opening
-  // TODO(E190): a column of light rising from the gate
+  // Glow in the gate: a shaft of hellish light rising out of it over the crater, embers rising through it, sparks
+  // hanging in the opening
+  k.place('fx-light-shaft', gate.x, gate.y, { scale: 1.6, tint: '#ff5a1e' });
   k.place('fx-embers', gate.x, gate.y, { scale: 1.3, z: 1 });
   k.place('fx-sparkle', gate.x, gate.y, { scale: 1.5, z: 4, tint: '#ff7a2a' });
   for (let i = 8; i < spiral.length - 4; i += 14) {
