@@ -16,7 +16,7 @@ import bmesh
 from mathutils import Vector
 
 from blender_kit import (Nodes, Part, bake_surface, box, card, card_material, clear_scene, export_lod, finish, flat_material, hexa,
-                         pbr_material, tilt, tube)
+                         net_material, pbr_material, tilt, tube)
 from blender_kit import export as export_plain
 from build_city import Face, glass
 from build_nature import broadleaf
@@ -1786,7 +1786,8 @@ def football_goal(name, w=7.32, h=2.44, depth=2.0):
     """Football goal: white posts and crossbar, the net held by back stanchions (front -Y)"""
     clear_scene()
     white = Part(flat_material('goal-white', (0.9, 0.9, 0.88), 0.4), smooth=True)
-    net = Part(card_material('goal-net', 'net.png'))
+    # Cords a quarter of the mesh wide: the shared net card vanished a few metres off (blender_kit.net_material)
+    net = Part(net_material('goal', (0.88, 0.88, 0.86), diamond=True))
     for sx in (-1, 1):
         tube(white, [Vector((sx * w / 2, 0, -0.2)), Vector((sx * w / 2, 0, h))], [0.06, 0.06], 8)
         tube(white, [Vector((sx * w / 2, depth, 0.0)), Vector((sx * w / 2, 0.6, h)), Vector((sx * w / 2, 0.0, h))], [0.025, 0.025, 0.025], 6)

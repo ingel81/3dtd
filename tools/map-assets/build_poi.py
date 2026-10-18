@@ -27,7 +27,7 @@ import bpy
 from mathutils import Vector
 
 import blender_kit
-from blender_kit import Part, box, card_material, clear_scene, flat_material, oriented_box, pbr_material, tube
+from blender_kit import Part, box, card_material, clear_scene, flat_material, net_material, oriented_box, pbr_material, tube
 from blender_kit import export as export_plain
 from build_city import glass
 from build_modern import export, plank, prism
@@ -38,47 +38,6 @@ WOOD = (0.95, 0.8, 0.6)
 
 def galvanised():
     return Part(flat_material('galvanised', GALV, 0.4, 0.8), smooth=True)
-
-
-def net_material(name, colour, cell=32, cord=8, diamond=False, size=256):
-    """Alpha-tested net card drawn here: cords about a quarter of the mesh wide, so the net still covers
-    some 40 % once mipmaps have averaged it (a thin cord vanishes past a few metres and the net with it).
-    Square mesh for court nets, `diamond` for goal nets and the steel mesh"""
-    import numpy as np
-    y, x = np.mgrid[0:size, 0:size].astype(np.float32) + 0.5
-    if diamond:
-        x, y = (x + y) / 2, (x - y) / 2
-    dx = np.abs(((x + cell / 2) % cell) - cell / 2)
-    dy = np.abs(((y + cell / 2) % cell) - cell / 2)
-    d = np.minimum(dx, dy)
-    alpha = np.clip(cord / 2 + 0.5 - d, 0, 1)
-    shade = 0.75 + 0.25 * np.clip(1 - d / (cord / 2 + 0.5), 0, 1)
-    rgba = np.zeros((size, size, 4), dtype=np.float32)
-    for c in range(3):
-        rgba[..., c] = colour[c] * shade
-    rgba[..., 3] = alpha
-    img = bpy.data.images.new('net-' + name, size, size, alpha=True)
-    img.pixels.foreach_set(rgba[::-1].ravel())
-    folder = os.path.join(blender_kit.OUT, 'tex')
-    os.makedirs(folder, exist_ok=True)
-    img.filepath_raw = os.path.join(folder, 'net-' + name + '.png')
-    img.file_format = 'PNG'
-    img.save()
-    m = bpy.data.materials.new('foliage-net-' + name)
-    m.use_nodes = True
-    nt = m.node_tree
-    bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
-    tex = nt.nodes.new('ShaderNodeTexImage')
-    tex.image = img
-    nt.links.new(tex.outputs['Color'], bsdf.inputs['Base Color'])
-    nt.links.new(tex.outputs['Alpha'], bsdf.inputs['Alpha'])
-    bsdf.inputs['Roughness'].default_value = 0.8
-    try:
-        m.blend_method = 'CLIP'
-    except (AttributeError, TypeError):
-        pass
-    m.use_backface_culling = False
-    return m
 
 
 def goal_net():
