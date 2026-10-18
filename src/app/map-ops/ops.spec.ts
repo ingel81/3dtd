@@ -5,7 +5,7 @@ import { brushWeight, stepRadius } from './brush';
 import { autoPaint, defaultAutoRules, dominantLayer, moveLayer, paintDab, readWeights, removeLayer } from './paint-ops';
 import { erodeDab, flattenDab, noiseDab, raiseDab, rampBetween, smoothDab, terraceDab } from './terrain-ops';
 import { basinSpillHeight, drainSpills, emptyWater, fillBasin, waterMaskDab } from './water-ops';
-import { DEFAULT_SCATTER, MAX_SINK, ObjectGrid, ObjectIds, duplicateObjects, objectsInBox, scatterDab, settled, slopeTilt, alignedToSlope, undersideGap, variedTint, type RockShape } from './object-ops';
+import { DEFAULT_SCATTER, MAX_SINK, ObjectGrid, ObjectIds, ObjectSpotGrid, duplicateObjects, objectsInBox, scatterDab, settled, slopeTilt, alignedToSlope, undersideGap, variedTint, type RockShape } from './object-ops';
 import { Euler, Quaternion, Vector3 } from 'three';
 import { flattenUnderPaths, paintUnderPaths } from './path-terrain';
 
@@ -449,5 +449,24 @@ describe('settling rocks', () => {
     expect(buoys.length).toBeGreaterThan(3);
     for (const o of buoys) expect([o.z, o.pitch ?? 0, o.roll ?? 0].map((v) => v + 0)).toEqual([0, 0, 0]);
     expect(placed.filter((o) => o.asset === 'bush').every((o) => o.z < 0 && !!(o.pitch || o.roll))).toBe(true);
+  });
+});
+
+describe('ObjectSpotGrid', () => {
+  const object = (id: string, x: number, y: number) => ({ id, asset: 'oak', x, y, z: 0, rotation: 0, scale: 1 });
+
+  it('moves an object added again out of its old spot and forgets a dropped one', () => {
+    const grid = new ObjectSpotGrid(4, [object('a', 0, 0), object('b', 0, 0), object('c', 40, 40)]);
+    expect(grid.size).toBe(3);
+    grid.add(object('a', 100, 100));
+    // b still stands at the old spot, a has left it
+    expect(grid.near({ x: 0.5, y: 0 }, 1)).toBe(true);
+    grid.drop('b');
+    expect(grid.near({ x: 0.5, y: 0 }, 1)).toBe(false);
+    expect(grid.near({ x: 100.5, y: 100 }, 1)).toBe(true);
+    grid.drop('c');
+    grid.drop('c');
+    expect(grid.near({ x: 40, y: 40 }, 1)).toBe(false);
+    expect(grid.size).toBe(1);
   });
 });

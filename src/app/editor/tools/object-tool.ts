@@ -18,8 +18,7 @@ import { objectRadius, type ObjectAssetEntry } from '../../map-ops/asset-catalog
 import { ObjectsCommand, type ObjectEdit } from '../model/commands/objects';
 import { insideMap } from '../../map-ops/grid';
 import {
-  ObjectGrid,
-  ObjectIds,
+  ObjectSpotGrid,
   centroid,
   duplicateObjects,
   objectsUnderBrush,
@@ -39,6 +38,7 @@ import { objectImages, sameSector, symmetryImages } from '../ops/symmetry';
 import { edgePolyline, nearestOnEdges } from '../../map-ops/path-graph';
 import { TransformGizmo, gizmoAnchor, type GizmoHandle } from '../view/transform-gizmo';
 import { patch, type EditorTool, type ToolContext, type ToolPointer } from './tool';
+import type { EditorDocument } from '../model/editor-document';
 
 type Drag =
   | { kind: 'box'; x0: number; y0: number }
@@ -75,14 +75,20 @@ export class ObjectTool implements EditorTool {
   private brushing: {
     added: MapObject[];
     removed: ObjectEdit[];
-    grid: ObjectGrid;
-    ids: ObjectIds;
+    /** The spacing grid over the map's objects (scatter only) */
+    grid: ObjectSpotGrid | null;
     erase: boolean;
     origin?: MapPoint;
     /** Where each object stood in the list when the stroke began: a removal's undo puts it back there */
     startIndex: Map<string, number>;
   } | null = null;
   private drag: Drag | null = null;
+  /**
+   * The scatter brush's spacing grid over the map's objects, kept while the
+   * tool is on: objects the change notices name since are brought up to date
+   * at the next stroke (null: the list changed whole, grid it anew)
+   */
+  private spots: { editor: EditorDocument; grid: ObjectSpotGrid; cell: number; changed: Set<string> | null; stop: () => void } | null = null;
   /** The selection's centre, ring and height as last worked out (selectionShape) */
   private shape: { ids: readonly string[]; revision: number; center: MapPoint; radius: number; height: number } | null = null;
   /** The line being drawn in Line mode (free), map points */
@@ -97,6 +103,8 @@ export class ObjectTool implements EditorTool {
 
 
   deactivate(ctx: ToolContext): void {
+    this.spots?.stop();
+    this.spots = null;
     this.hoverAt = null;
     this.endBrush(ctx);
     this.cancel(ctx);
@@ -121,8 +129,7 @@ export class ObjectTool implements EditorTool {
         this.brushing = {
           added: [],
           removed: [],
-          grid: new ObjectGrid(Math.max(2, s.scatter.minDistance), doc.objects),
-          ids: new ObjectIds(doc.objects),
+          grid: erase ? null : this.spotGrid(ctx, Math.max(2, s.scatter.minDistance)),
           erase,
           startIndex: erase ? new Map(doc.objects.map((o, k) => [o.id, k])) : new Map(),
         };
@@ -266,14 +273,16 @@ export class ObjectTool implements EditorTool {
     // With symmetry the scatter grows in the stroke's own sector and is copied to the others
     const rockOf = (asset: string) => rockShape(ctx.catalog.object(asset));
     const floats = (asset: string) => !!ctx.catalog.object(asset).float;
-    const own = scatterDab(t, p.hit, brush, { ...s.scatter, assets: this.scatterAssets(ctx) }, b.grid, b.ids, Math.random, Math.min(dt, 0.1) * 6, rockOf, floats)
+    const grid = b.grid!;
+    const ids = ctx.editor.objectIds;
+    const own = scatterDab(t, p.hit, brush, { ...s.scatter, assets: this.scatterAssets(ctx) }, grid, ids, Math.random, Math.min(dt, 0.1) * 6, rockOf, floats)
       .filter((o) => sameSector(mode, o, origin));
     // Each image tilts with its own ground, and a rock settles from the ground up on its own
-    const images = objectImages(own, symmetryImages(mode, t.grid.columns === t.grid.rows), () => b.ids.take(), t.width / 2, t.depth / 2).map((o) => {
+    const images = objectImages(own, symmetryImages(mode, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2).map((o) => {
       const rock = s.scatter.sinkOnSlope ? rockOf(o.asset) : undefined;
       return setDown(t, rock ? { ...o, z: 0 } : o, rock, s.scatter.alignToSlope && !floats(o.asset));
     });
-    for (const o of images) b.grid.add(o);
+    for (const o of images) grid.add(o);
     const placed = [...own, ...images];
     if (!placed.length) return;
     doc.objects.push(...placed);
@@ -483,7 +492,7 @@ export class ObjectTool implements EditorTool {
     const s = ctx.settings.objects();
     const doc = ctx.editor.doc;
     const t = doc.terrain;
-    const ids = new ObjectIds(doc.objects);
+    const ids = ctx.editor.objectIds;
     // A wall kit's piece: the kit's wall fitted along the line, else the asset every few metres
     const kit = wallKitOf(s.asset);
     const own = (
@@ -516,7 +525,7 @@ export class ObjectTool implements EditorTool {
     if (!insideMap(doc.terrain, { x, y })) return;
     const entry = ctx.catalog.object(s.asset);
     const object: MapObject = {
-      id: new ObjectIds(doc.objects).take(),
+      id: ctx.editor.objectIds.take(),
       asset: s.asset,
       x: Math.round(x * 100) / 100,
       y: Math.round(y * 100) / 100,
@@ -525,7 +534,7 @@ export class ObjectTool implements EditorTool {
       scale: 1,
     };
     const t = doc.terrain;
-    const ids = new ObjectIds([...doc.objects, object]);
+    const ids = ctx.editor.objectIds;
     // A building facing a road: each symmetric image faces its own nearest road (the mirrored turn would face the original's)
     const images = objectImages([object], symmetryImages(ctx.settings.symmetry(), t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2).map((o) => {
       const road = this.roadTurn(o, entry, ctx);
@@ -703,6 +712,42 @@ export class ObjectTool implements EditorTool {
   private selected(ctx: ToolContext): string[] {
     const s = ctx.editor.selection;
     return s?.kind === 'objects' ? s.ids : [];
+  }
+
+  /**
+   * The spacing grid for a scatter stroke with cells of `cell` metres: the
+   * kept one with the objects changed since moved, dropped or added (one pass
+   * over the list, nothing gridded anew), or a new one over the whole list
+   */
+  private spotGrid(ctx: ToolContext, cell: number): ObjectSpotGrid {
+    const editor = ctx.editor;
+    const doc = editor.doc;
+    let kept = this.spots;
+    if (kept && (kept.editor !== editor || kept.cell !== cell || !kept.changed || kept.changed.size > doc.objects.length / 4)) {
+      kept.stop();
+      kept = this.spots = null;
+    }
+    if (!kept) {
+      const fresh: NonNullable<ObjectTool['spots']> = { editor, cell, grid: new ObjectSpotGrid(cell, doc.objects), changed: new Set(), stop: () => undefined };
+      fresh.stop = editor.onChange((c) => {
+        if (c.objects === 'all') fresh.changed = null;
+        else if (c.objects && fresh.changed) for (const id of c.objects) fresh.changed.add(id);
+      });
+      this.spots = fresh;
+      return fresh.grid;
+    }
+    const changed = kept.changed!;
+    if (changed.size) {
+      const seen = new Set<string>();
+      for (const o of doc.objects) {
+        if (!changed.has(o.id)) continue;
+        kept.grid.add(o);
+        seen.add(o.id);
+      }
+      for (const id of changed) if (!seen.has(id)) kept.grid.drop(id);
+      changed.clear();
+    }
+    return kept.grid;
   }
 
   private scatterAssets(ctx: ToolContext): string[] {

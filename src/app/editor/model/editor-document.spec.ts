@@ -198,3 +198,35 @@ describe('EditorDocument', () => {
     });
   });
 });
+
+describe('EditorDocument object ids', () => {
+  const object = (id: string) => ({ id, asset: 'oak', x: 0, y: 0, z: 0, rotation: 0, scale: 1 });
+
+  /** r7 editor measurement: each click to place built two id counters over a 102 000-object list and copied it */
+  it('reads the list once, then counts past every id a change names', () => {
+    const doc = map(64);
+    doc.objects = [object('o3'), object('tree'), object('o7')];
+    const ed = new EditorDocument(doc);
+    expect(ed.objectIds.take()).toBe('o8');
+    // Not read again: an object slipped in unannounced does not move the count
+    doc.objects.push(object('o40'));
+    expect(ed.objectIds.take()).toBe('o9');
+    // An id a change names (a script, the agent, a paste) does
+    ed.emit({ objects: ['o40', 'pine'] });
+    expect(ed.objectIds.take()).toBe('o41');
+    ed.execute(ObjectsCommand.add('Add', ed.doc, [object('o99')]));
+    expect(ed.objectIds.take()).toBe('o100');
+    // An undo does not hand an id out again
+    ed.undo();
+    expect(ed.objectIds.take()).toBe('o101');
+  });
+
+  it('reads the list anew after it changed whole', () => {
+    const ed = new EditorDocument(map(64));
+    expect(ed.objectIds.take()).toBe('o1');
+    const other = map(64);
+    other.objects = [object('o12')];
+    ed.replace(other);
+    expect(ed.objectIds.take()).toBe('o13');
+  });
+});

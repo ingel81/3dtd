@@ -18,6 +18,7 @@
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { mergeChanges, type DocChange, type EditCommand } from './doc-change';
 import { EditTransaction, type TxPart } from './edit-transaction';
+import { objectIdNumber, type ObjectIdSource } from '../../map-ops/object-ops';
 
 export type Selection =
   | { kind: 'objects'; ids: string[] }
@@ -126,6 +127,8 @@ export class EditorDocument {
   private currentSelection: Selection = null;
   /** Counts every change told to the listeners (emit) */
   private changes = 0;
+  /** The next object id's number; 0 until first asked, and again after the list changed whole */
+  private nextObject = 0;
   /** Why the document is held, the latest hold first; empty when free */
   private holds: { reason: string }[] = [];
 
@@ -193,6 +196,23 @@ export class EditorDocument {
   get revision(): number {
     return this.changes;
   }
+
+  /**
+   * Fresh object ids `o<number>`, counted on past the highest the map holds:
+   * the list is read once, then every change notice moves the count past the
+   * ids it names, so a click to place reads no list. An id taken back by an
+   * undo is not handed out again.
+   */
+  readonly objectIds: ObjectIdSource = {
+    take: () => {
+      if (!this.nextObject) {
+        let max = 0;
+        for (const o of this.current.objects) max = Math.max(max, objectIdNumber(o.id));
+        this.nextObject = max + 1;
+      }
+      return `o${this.nextObject++}`;
+    },
+  };
 
   onChange(listener: ChangeListener): () => void {
     this.listeners.add(listener);
@@ -326,6 +346,12 @@ export class EditorDocument {
   /** Tell the listeners about a change that is not a command (a dab of a running stroke) */
   emit(change: DocChange): void {
     this.changes++;
+    const objects = change.objects;
+    if (objects === 'all') this.nextObject = 0;
+    else if (objects && this.nextObject) {
+      // Ids made elsewhere (a script, the agent, a paste) count too
+      for (const id of objects) this.nextObject = Math.max(this.nextObject, objectIdNumber(id) + 1);
+    }
     for (const l of this.listeners) l(change, this.current);
   }
 

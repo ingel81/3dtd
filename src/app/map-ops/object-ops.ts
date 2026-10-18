@@ -11,16 +11,30 @@ import { HEIGHT_LIMITS } from './terrain-ops';
 import { brushWeight, type BrushSettings } from './brush';
 import { nearestOnPolyline } from './path-graph';
 
+/** Where fresh object ids come from: a counter over a list (ObjectIds) or the editor's document, which keeps one */
+export interface ObjectIdSource {
+  take(): string;
+}
+
+/** The number of an id `o<number>`, -1 for any other id; no expression, a drag tells thousands of ids a frame */
+export function objectIdNumber(id: string): number {
+  if (id.length < 2 || id.charCodeAt(0) !== 111) return -1;
+  let n = 0;
+  for (let k = 1; k < id.length; k++) {
+    const c = id.charCodeAt(k) - 48;
+    if (c < 0 || c > 9) return -1;
+    n = n * 10 + c;
+  }
+  return n;
+}
+
 /** Hands out fresh object ids, starting past the highest in the map */
-export class ObjectIds {
+export class ObjectIds implements ObjectIdSource {
   private next: number;
 
   constructor(objects: readonly MapObject[]) {
     let max = 0;
-    for (const o of objects) {
-      const m = /^o(\d+)$/.exec(o.id);
-      if (m) max = Math.max(max, Number(m[1]));
-    }
+    for (const o of objects) max = Math.max(max, objectIdNumber(o.id));
     this.next = max + 1;
   }
 
@@ -328,6 +342,13 @@ export class ObjectGrid {
     if (k >= 0) list!.splice(k, 1);
   }
 
+  /** Forgets exactly this point, the one added (not another at the same spot) */
+  protected removeExact(p: MapPoint): void {
+    const list = this.cells.get(this.key(Math.floor(p.x / this.cell), Math.floor(p.y / this.cell)));
+    const k = list ? list.indexOf(p) : -1;
+    if (k >= 0) list!.splice(k, 1);
+  }
+
   /** True when some point lies closer than `d` */
   near(p: MapPoint, d: number): boolean {
     const ci = Math.floor(p.x / this.cell);
@@ -349,6 +370,42 @@ export class ObjectGrid {
 }
 
 /**
+ * An ObjectGrid that knows its objects by id: an object added again (moved,
+ * scaled) leaves its old spot, one gone is dropped. The scatter brush keeps
+ * it between strokes and brings it up to date from the change notices
+ * instead of gridding a big map's whole list at each stroke.
+ */
+export class ObjectSpotGrid extends ObjectGrid {
+  private readonly byId = new Map<string, MapObject>();
+
+  constructor(cell: number, objects: readonly MapObject[] = []) {
+    super(cell);
+    for (const o of objects) this.add(o);
+  }
+
+  get size(): number {
+    return this.byId.size;
+  }
+
+  /** The object as it is now, out of its old spot when it had one */
+  override add(o: MapObject): void {
+    const old = this.byId.get(o.id);
+    if (old === o) return;
+    if (old) this.removeExact(old);
+    this.byId.set(o.id, o);
+    super.add(o);
+  }
+
+  /** The object with this id is gone */
+  drop(id: string): void {
+    const old = this.byId.get(id);
+    if (!old) return;
+    this.removeExact(old);
+    this.byId.delete(id);
+  }
+}
+
+/**
  * One dab of the scatter brush: tries `density * area` spots weighted by
  * the brush and keeps those far enough from every object. Returns the new
  * objects (not yet in the map). Rocks (a shape from `rockOf`) settle onto
@@ -361,7 +418,7 @@ export function scatterDab(
   brush: BrushSettings,
   options: ScatterOptions,
   grid: ObjectGrid,
-  ids: ObjectIds,
+  ids: ObjectIdSource,
   random: () => number,
   share = 1,
   rockOf: (asset: string) => RockShape | undefined = () => undefined,
@@ -532,7 +589,7 @@ export const DEFAULT_LINE: LineOptions = { spacing: 4, offset: 0, bothSides: fal
  * north (as the level scripts' `row`). With `bothSides` a second row stands
  * as far to the right, turned the other way.
  */
-export function objectsAlong(line: readonly MapPoint[], asset: string, options: LineOptions, ids: ObjectIds, random: () => number): MapObject[] {
+export function objectsAlong(line: readonly MapPoint[], asset: string, options: LineOptions, ids: ObjectIdSource, random: () => number): MapObject[] {
   const length = polylineLengthOf(line);
   if (length < 0.5) return [];
   const n = Math.max(1, Math.round(length / Math.max(0.5, options.spacing)));
@@ -617,7 +674,7 @@ export interface WallOptions {
  * block. Models face north at turn 0 and run east-west, so a piece along a
  * leg turns a quarter more than the line's direction.
  */
-export function wallAlong(line: readonly MapPoint[], kit: WallKit, options: WallOptions, ids: ObjectIds): MapObject[] {
+export function wallAlong(line: readonly MapPoint[], kit: WallKit, options: WallOptions, ids: ObjectIdSource): MapObject[] {
   let legs = simplifyLine(line, 2);
   if (legs.length < 2) return [];
   const near = (a: MapPoint, b: MapPoint) => Math.hypot(a.x - b.x, a.y - b.y) < 6;

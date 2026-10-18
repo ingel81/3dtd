@@ -19,7 +19,7 @@ import { ObjectsCommand } from '../model/commands/objects';
 import { SnapshotCommand } from '../model/commands/snapshot';
 import type { MapVersion } from '../model/version-store';
 import type { SavedStamp, StampKeep } from '../model/stamp-store';
-import { ObjectIds, rockShape, settled } from '../../map-ops/object-ops';
+import { rockShape, settled } from '../../map-ops/object-ops';
 import { levelForBuildings, withGround } from '../ops/object-commands';
 import { decodePng, decodeRaw16 } from '../ops/heightmap';
 import { LandscapeContext } from '../ops/landscape/landscape-context';
@@ -554,14 +554,15 @@ export class EditorAgent {
   }
 
   private placeObject(args: Args): AgentAnswer {
-    const doc = this.changeableEditor().doc;
+    const editor = this.changeableEditor();
+    const doc = editor.doc;
     const catalog = this.host.catalog();
     const asset = text(args, 'asset');
     if (!catalog.loaded) throw new AgentError(NO_CATALOG);
     if (!catalog.objects.has(asset)) throw new AgentError(`There is ${catalog.unknown('asset', asset)}`);
     num(args, 'x');
     num(args, 'y');
-    let object: MapObject = { id: new ObjectIds(doc.objects).take(), asset, x: 0, y: 0, z: 0, rotation: 0, scale: 1, ...this.placement(args) };
+    let object: MapObject = { id: editor.objectIds.take(), asset, x: 0, y: 0, z: 0, rotation: 0, scale: 1, ...this.placement(args) };
     const rock = rockShape(catalog.object(asset));
     const label = `${AGENT_LABEL}place ${asset}`;
     // A building levels its ground first, in the same step, as in the editor
