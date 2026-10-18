@@ -1,4 +1,4 @@
-import type { MapBiome } from '../map-document';
+import type { MapBiome, MapWeather } from '../map-document';
 
 /**
  * Ambient sounds of custom maps (TODO E190): loops a map plays over the
@@ -86,7 +86,7 @@ export const AMBIENT_SOUNDS: Readonly<Record<string, AmbientSound>> = {
   cowbells: { label: 'Cowbells', file: 'assets/sounds/ambient/cowbells.mp3', gain: 0.5 },
   'pine-wind': { label: 'Wind in pines', file: 'assets/sounds/ambient/pine-wind.mp3', gain: 0.6 },
   rain: { label: 'Rain', file: 'assets/sounds/ambient/rain.mp3', gain: 0.6 },
-  // A storm's downpour with gusts (the storm weather plays it, STORM_BED)
+  // A storm's downpour with gusts (the storm weather plays it, WEATHER_BEDS)
   'storm-rain': { label: 'Heavy rain', file: 'assets/sounds/ambient/storm-rain.mp3', gain: 0.75 },
   'cave-wind': { label: 'Cave wind', file: 'assets/sounds/ambient/cave-wind.mp3', gain: 0.6 },
 };
@@ -109,13 +109,17 @@ export const WAVE_SOUNDS: Readonly<Record<string, AmbientSound>> = {
 };
 
 /**
- * What a storm (MapWeather `storm`) plays over the whole map, at its
- * strength k: the downpour and the wind, louder the wilder it is
+ * What a weather plays over the whole map, at its strength k (soundscape.ts):
+ * rain a quieter bed of rain, a storm its downpour and the wind, louder the
+ * stronger. Snow and fog are silent
  */
-export const STORM_BED: readonly { sound: string; volume: (k: number) => number }[] = [
-  { sound: 'storm-rain', volume: (k) => 0.6 + 0.4 * k },
-  { sound: 'wind', volume: (k) => 0.25 + 0.45 * k },
-];
+export const WEATHER_BEDS: Readonly<Partial<Record<MapWeather, readonly { sound: string; volume: (k: number) => number }[]>>> = {
+  rain: [{ sound: 'rain', volume: (k) => 0.35 + 0.45 * k }],
+  storm: [
+    { sound: 'storm-rain', volume: (k) => 0.6 + 0.4 * k },
+    { sound: 'wind', volume: (k) => 0.25 + 0.45 * k },
+  ],
+};
 
 /**
  * Thunder after a storm's lightning (soundscape.ts thunder), whole files

@@ -743,7 +743,9 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
 - **Varianten**: `wind`, `stream` und `surf` haben je zwei Aufnahmen (`variants`, `wind-2.mp3` usw.). Sie spielen
   abwechselnd: jede bis zum Ende ihrer Schleife, die nächste setzt 2 s vorher ein (`CROSSFADE`, Equal-Power-Blende,
   eine Sekunde vorher eingeplant), so fällt die 20-s-Schleife beim langen Zuhören weniger auf
-- **Gewitter** (E243): eine Karte mit Gewitter spielt über alles Starkregen (`storm-rain`) und Wind (`STORM_BED`,
+- **Wetterton** (`WEATHER_BEDS`): Regenwetter spielt über alles ein leiseres Regenbett (`rain`, 0,35 + 0,45 k), Schnee
+  und Nebel nichts. Von oben mindestens 60 %; ein Klang, den das Bett der Karte schon spielt, nicht doppelt
+- **Gewitter** (E243): eine Karte mit Gewitter spielt über alles Starkregen (`storm-rain`) und Wind (`WEATHER_BEDS`,
   lauter je stärker, von oben mindestens 60 %; den Wind nicht doppelt, wenn das Bett ihn schon spielt) und nach jedem
   Blitz Donner (`Soundscape.thunder`, aus `Lightning.onStrike`): verzögert um die Entfernung zum nächsten Punkt des
   Kanals bei 343 m/s, unter 700 m ein Krachen (`crack`), bis 2 km ein rollender Schlag (`roll`), darüber fernes Grollen

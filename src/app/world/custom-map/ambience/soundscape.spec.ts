@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { MapEnvironment, MapLife } from '../map-document';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { AMBIENT_SOUNDS, STORM_BED, THUNDER_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundFiles, thunderKind } from './ambient-sounds';
+import { AMBIENT_SOUNDS, THUNDER_SOUNDS, WEATHER_BEDS, WAVE_SOUNDS, ambienceSounds, soundFiles, thunderKind } from './ambient-sounds';
 import { AMBIENT_LEVEL, AREA_REACH, CROSSFADE, LOOP_PAD, SPEED_OF_SOUND, Soundscape, type SoundscapeListener } from './soundscape';
 
 /** Just enough Web Audio for the soundscape: gains and pans hold their last target, sources say whether they play */
@@ -244,7 +244,7 @@ describe('Soundscape', () => {
     s.setMap({ environment: { ...env('temperate'), weather: 'storm', weatherStrength: 1 } });
     await tick(s, listener(0, 0, { height: 400 }));
     const urls = a.sources.map((x) => (x.sound as { url: string }).url);
-    for (const b of STORM_BED) expect(urls.some((u) => soundFiles(AMBIENT_SOUNDS[b.sound]).includes(u))).toBe(true);
+    for (const b of WEATHER_BEDS.storm!) expect(urls.some((u) => soundFiles(AMBIENT_SOUNDS[b.sound]).includes(u))).toBe(true);
     const loud = levels(a);
     expect(loud[0]).toBeCloseTo(AMBIENT_SOUNDS['storm-rain'].gain * 0.6, 3);
     // A clear sky takes them; a mountain map's own wind is not played twice
@@ -254,6 +254,26 @@ describe('Soundscape', () => {
     s.setMap({ life: { ambience: { sound: 'biome', volume: 1 } }, environment: { ...env('mountain'), weather: 'storm' } });
     await tick(s, listener(0, 0));
     expect(a.sources.filter((x) => x.playing && soundFiles(AMBIENT_SOUNDS['wind']).includes((x.sound as { url: string }).url))).toHaveLength(1);
+    s.dispose();
+  });
+
+  it('plays a quieter bed of rain in rain weather, by its strength, and none in snow or fog', async () => {
+    const a = fakeAudio();
+    const s = new Soundscape(a, (url) => Promise.resolve({ duration: 20.2, url } as unknown as AudioBuffer));
+    s.setVolume(1);
+    s.setMap({ environment: { ...env('temperate'), weather: 'rain', weatherStrength: 0.5 } });
+    await tick(s, listener(0, 0));
+    expect(a.sources.map((x) => (x.sound as { url: string }).url)).toEqual([AMBIENT_SOUNDS['rain'].file]);
+    expect(levels(a)[0]).toBeCloseTo(AMBIENT_SOUNDS['rain'].gain * (0.35 + 0.45 * 0.5), 3);
+    // A map whose own bed is rain does not hear it twice
+    s.setMap({ life: { ambience: { sound: 'rain', volume: 1 } }, environment: { ...env('temperate'), weather: 'rain' } });
+    await tick(s, listener(0, 0));
+    expect(a.sources.filter((x) => x.playing && (x.sound as { url: string }).url === AMBIENT_SOUNDS['rain'].file)).toHaveLength(1);
+    for (const weather of ['snow', 'fog'] as const) {
+      s.setMap({ environment: { ...env('temperate'), weather } });
+      await tick(s, listener(0, 0), 4);
+      expect(s.playing).toBe(0);
+    }
     s.dispose();
   });
 

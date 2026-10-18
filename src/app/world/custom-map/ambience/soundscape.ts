@@ -1,6 +1,6 @@
 import type { CustomMapDocument, MapLife, MapLifeArea, MapPoint } from '../map-document';
 import { LIFE_SOUND_REACH, nearestOnShape } from '../map-life';
-import { AMBIENT_SOUNDS, STORM_BED, THUNDER_SOUNDS, WAVE_SOUNDS, ambienceSounds, soundEntry, soundFiles, thunderKind, type AmbientCalls } from './ambient-sounds';
+import { AMBIENT_SOUNDS, THUNDER_SOUNDS, WEATHER_BEDS, WAVE_SOUNDS, ambienceSounds, soundEntry, soundFiles, thunderKind, type AmbientCalls } from './ambient-sounds';
 import type { LightningStrike } from '../render/environment/lightning';
 
 /**
@@ -11,8 +11,9 @@ import type { LightningStrike } from '../render/environment/lightning';
  * inside its outline or on its line and fading over its reach (AREA_REACH
  * metres unless it sets its own),
  * and the sound once at each wave's start (`life.waveSound`, playWave).
- * A storm (MapWeather `storm`) adds its downpour and wind over everything
- * (STORM_BED) and the thunder after each lightning strike (`thunder`).
+ * Rain and a storm add their bed over everything (WEATHER_BEDS: rain, or a
+ * storm's downpour and wind), a storm the thunder after each lightning
+ * strike (`thunder`).
  * Heard from where the camera looks (the listener: a ground point and the
  * camera's height over it); from high up everything is quieter, and a sound
  * off to one side pans there. Plain Web Audio: one looping buffer source,
@@ -61,8 +62,8 @@ export const SPEED_OF_SOUND = 343;
 const THUNDER_GAIN = 2.4;
 /** Thunder sounding at once at most; a further one waits for none and is left out */
 const MAX_THUNDER = 4;
-/** A storm's bed is heard from high up as well, at least this share (the rain falls around the camera too) */
-const STORM_LIFT = 0.6;
+/** A weather's bed is heard from high up as well, at least this share (the rain falls around the camera too) */
+const WEATHER_LIFT = 0.6;
 
 export interface SoundscapeOutput {
   context: BaseAudioContext;
@@ -89,9 +90,9 @@ interface Voice {
   source: AudioBufferSourceNode | null;
   /** Seconds it has been silent */
   silent: number;
-  /** What it plays: the bed (day or night), the storm's bed, or an area */
+  /** What it plays: the bed (day or night), the weather's bed, or an area */
   bed?: 'day' | 'night';
-  storm?: boolean;
+  weather?: boolean;
   area?: MapLifeArea;
   volume: number;
   /** A sound with variants: the turns scheduled (the playing one and the next) */
@@ -137,15 +138,14 @@ export class Soundscape {
       wanted.push({ key: `bed-day:${bed.day}`, sound: bed.day, bed: 'day', volume: amb.volume });
       if (bed.night !== bed.day) wanted.push({ key: `bed-night:${bed.night}`, sound: bed.night, bed: 'night', volume: amb.volume });
     }
-    if (doc.environment.weather === 'storm') {
-      const k = Math.min(1, Math.max(0, doc.environment.weatherStrength ?? 0.6));
-      // Not twice what the bed plays already (the wind of a mountain map)
-      for (const b of STORM_BED) {
-        if (!wanted.some((w) => w.sound === b.sound)) wanted.push({ key: `storm:${b.sound}`, sound: b.sound, storm: true, volume: b.volume(k) });
-      }
-      // The thunder loads with the storm, so the first strike is heard
-      for (const files of Object.values(THUNDER_SOUNDS)) for (const file of files) void this.file(file);
+    const weather = doc.environment.weather ?? 'clear';
+    const k = Math.min(1, Math.max(0, doc.environment.weatherStrength ?? 0.6));
+    // Not twice what the bed plays already (the wind of a mountain map, a map whose own bed is rain)
+    for (const b of WEATHER_BEDS[weather] ?? []) {
+      if (!wanted.some((w) => w.sound === b.sound)) wanted.push({ key: `weather:${b.sound}`, sound: b.sound, weather: true, volume: b.volume(k) });
     }
+    // The thunder loads with the storm, so the first strike is heard
+    if (weather === 'storm') for (const files of Object.values(THUNDER_SOUNDS)) for (const file of files) void this.file(file);
     for (const area of doc.life?.areas ?? []) {
       if (area.kind !== 'sound' || !area.sound || !AMBIENT_SOUNDS[area.sound]) continue;
       wanted.push({ key: `area:${area.id}:${area.sound}`, sound: area.sound, area, volume: area.volume ?? 0.7 });
@@ -281,7 +281,7 @@ export class Soundscape {
       let heard = 0;
       let pan = 0;
       if (v.bed) heard = v.volume * lift * (v.bed === 'night' ? night : this.voices.some((o) => o.bed === 'night') ? 1 - night : 1);
-      else if (v.storm) heard = v.volume * Math.max(lift, STORM_LIFT);
+      else if (v.weather) heard = v.volume * Math.max(lift, WEATHER_LIFT);
       else if (v.area) {
         const d = nearestOnShape(v.area, listener.at.x, listener.at.y, this.near);
         const f = Math.max(0, 1 - d / (v.area.reach ?? AREA_REACH));
