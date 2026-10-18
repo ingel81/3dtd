@@ -131,6 +131,9 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ### Plattform
 
+- [ ] **E245 Mehrsprachigkeit Englisch und Deutsch** (User, 2026-10-18): Sprachwahl in Settings, Standard nach
+      System, weitere Sprachen später eine Datei. Phase 1 gebaut (Technik, Inventar, Glossar, Grundgerüst
+      `src/app/i18n/`); offen: Glossar-Abnahme, Phase 2 (Pakete I0 bis I9), [docs/I18N_PLAN.md](docs/I18N_PLAN.md).
 - [ ] **E83 AppImage und AUR** (2026-09-30): gebaut 2026-10-05 (statische Laufzeit, Update-Information und `.zsync`,
       AUR-Paket `3dtd-bin` mit CI-Job). AUR ok, der Job lief im Release 0.7.0 grün. Offen beim User nur: das AppImage
       einmal auf Linux starten (PLAYTEST A3.2).
