@@ -10,6 +10,19 @@
   overflow-y: auto;
 }
 
+// On the globes: one of the stage's overlays, the stage's backdrop around it
+:host(.is-staged) {
+  position: static;
+  z-index: auto;
+  overflow: visible;
+}
+
+:host(.is-staged) .token-setup {
+  display: block;
+  min-height: 0;
+  padding: 0;
+}
+
 .token-setup {
   box-sizing: border-box;
   min-height: 100%;

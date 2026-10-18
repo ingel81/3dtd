@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, isDevMode,
 import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { ConfigService } from '../../core/services/config.service';
 import { RovingGroupDirective } from '../roving-group.directive';
+import { TdIconComponent } from '../icon/icon.component';
 import { APP_DOWNLOADS, coopAccess, type CoopAccess } from '../../coop/coop-access';
 import { readDesktopBridge } from '../../core/desktop-bridge';
 import { FIRST_MAP_ID, WorldChoiceService } from '../../world/world-choice.service';
@@ -28,8 +29,13 @@ import { WorldStartService } from '../../world/world-start';
 @Component({
   selector: 'td-token-setup',
   standalone: true,
-  imports: [CdkTrapFocus, RovingGroupDirective],
-  host: { class: 'td-world-bg is-real', '(document:keydown.escape)': 'dismiss()' },
+  imports: [CdkTrapFocus, RovingGroupDirective, TdIconComponent],
+  host: {
+    '[class.td-world-bg]': '!fromWorlds()',
+    '[class.is-real]': '!fromWorlds()',
+    '[class.is-staged]': 'fromWorlds()',
+    '(document:keydown.escape)': 'dismiss()',
+  },
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './token-setup.component.html',
   styleUrl: './token-setup.component.scss',

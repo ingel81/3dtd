@@ -135,7 +135,9 @@
 
   @if (stage.overlay(); as overlay) {
     @if (overlay === 'key') {
-      <td-token-setup [fromWorlds]="true" (tokenSaved)="closeOverlay()" />
+      <div class="ws-overlay td-backdrop">
+        <td-token-setup [fromWorlds]="true" (tokenSaved)="closeOverlay()" />
+      </div>
     } @else {
       <div class="ws-overlay td-backdrop">
         <section class="ws-dlg td-dlg" role="dialog" aria-modal="true" aria-labelledby="ws-dlg-title" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">

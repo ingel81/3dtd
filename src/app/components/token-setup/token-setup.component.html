@@ -4,6 +4,12 @@
  <div class="td-dlg">
   <header class="td-dlg-head">
     <h2 class="td-dlg-title" id="token-setup-title">{{ rejected() ? 'Key rejected' : 'Bring your own map key' }}</h2>
+    @if (fromWorlds()) {
+      <!-- On the globes it is one of the stage's overlays: left by the cross like the others -->
+      <button class="td-close" type="button" aria-label="Back (Esc)" (click)="dismiss()">
+        <td-icon name="close" [size]="12" />
+      </button>
+    }
   </header>
 
   <div class="td-dlg-body">
@@ -104,7 +110,7 @@
   </p>
   </div>
 
-  @if (dismissible()) {
+  @if (dismissible() && !fromWorlds()) {
     <footer class="td-dlg-foot">
       <button class="td-btn-secondary token-back" type="button" (click)="dismiss()">
         {{ fromWorlds() ? 'Back to the worlds' : 'Back to the game' }}
