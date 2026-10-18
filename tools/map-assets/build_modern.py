@@ -15,7 +15,7 @@ import random
 import bmesh
 from mathutils import Vector
 
-from blender_kit import Part, box, card, card_material, clear_scene, export_lod, finish, flat_material, pbr_material, tilt, tube
+from blender_kit import Part, box, card, card_material, clear_scene, export_lod, finish, flat_material, hexa, pbr_material, tilt, tube
 from blender_kit import export as export_plain
 from build_city import Face, glass
 from build_nature import broadleaf
@@ -1192,29 +1192,258 @@ def steel_material():
     return flat_material('steel-rail', (0.32, 0.3, 0.28), 0.35, 0.9)
 
 
-def rails(part, sleepers, x0, x1, z=0.0, spacing=0.65):
-    """Two rails along X (head, web, foot as one profile box each) on concrete sleepers"""
+def rails(part, sleepers, x0, x1, z=0.0, spacing=0.625):
+    """Two rails along X (head, web, foot as one profile box each) on concrete sleepers; a whole number of
+    sleepers per piece, so the 10 m and 2.5 m pieces keep one pitch across their joints"""
     for s in (-1, 1):
         y = s * (GAUGE / 2 + 0.035)
         box(part, (x0 + x1) / 2, y, z + 0.17, x1 - x0, 0.15, 0.03)
         box(part, (x0 + x1) / 2, y, z + 0.2, x1 - x0, 0.03, 0.1)
         box(part, (x0 + x1) / 2, y, z + 0.3, x1 - x0, 0.07, 0.05)
-    n = int((x1 - x0) / spacing)
+    n = max(1, round((x1 - x0) / spacing))
     for i in range(n):
         box(sleepers, x0 + (i + 0.5) * (x1 - x0) / n, 0, z, 0.26, 2.6, 0.17)
 
 
+BALLAST_TOP = 0.35
+
+
+def ballast_material():
+    return pbr_material('ballast', 'gravel_floor_02', (0.62, 0.6, 0.58))
+
+
+def sleeper_material():
+    return pbr_material('sleeper-concrete', 'brushed_concrete', (1.1, 1.1, 1.05))
+
+
 def track(name, length=10.0):
-    """Straight track along X: a ballast bed with sloped shoulders, concrete sleepers, two rails"""
+    """Straight track along X: a ballast bed with sloped shoulders, concrete sleepers, two rails. 10 m and
+    2.5 m long (the OSM railway tiles its lines with both, convert/rails.ts); origin on the formation"""
     clear_scene()
-    ballast = Part(pbr_material('ballast', 'gravel_floor_02', (0.62, 0.6, 0.58)), uv_metres=1.5, bevel=0.0)
-    sleepers = Part(pbr_material('sleeper-concrete', 'brushed_concrete', (1.1, 1.1, 1.05)), uv_metres=1.0, bevel=0.01)
+    ballast = Part(ballast_material(), uv_metres=1.5, bevel=0.0)
+    sleepers = Part(sleeper_material(), uv_metres=1.0, bevel=0.01)
     steel = Part(steel_material())
-    h = 0.35
+    h = BALLAST_TOP
     prism(ballast, [Vector((-length / 2, -2.4, -0.3)), Vector((-length / 2, 2.4, -0.3)), Vector((-length / 2, 1.6, h)),
                     Vector((-length / 2, -1.6, h))], Vector((length, 0, 0)))
     rails(steel, sleepers, -length / 2, length / 2, z=h - 0.08)
-    export(name, [ballast.to_object(name), sleepers.to_object(name + '-sleepers'), steel.to_object(name + '-rails')], lod=60)
+    export(name, [ballast.to_object(name), sleepers.to_object(name + '-sleepers'), steel.to_object(name + '-rails')],
+           lod=60 if length >= 10 else 24)
+
+
+PANEL_TOP = 0.08
+
+
+def level_crossing(name, length=2.5):
+    """A 2.5 m module of a level crossing along X: concrete panels between and beside the rails, flush with
+    the rail heads 8 cm over the road, their outer edges chamfered down to it, steel angles along the
+    flangeways, a dark joint between modules; sleepers under them. The road runs across (Y)"""
+    clear_scene()
+    panel = Part(pbr_material('crossing-panel', 'concrete_slab_wall', (0.78, 0.78, 0.76)), uv_metres=2.5, bevel=0.01)
+    edge = Part(flat_material('crossing-angle', (0.18, 0.18, 0.17), 0.55, 0.7))
+    sleepers = Part(sleeper_material(), uv_metres=1.0, bevel=0.01)
+    steel = Part(steel_material())
+    top = PANEL_TOP
+    rails(steel, sleepers, -length / 2, length / 2, z=top - 0.35)
+    gap = 0.02
+    x0, x1 = -length / 2 + gap / 2, length / 2 - gap / 2
+    inner = GAUGE / 2 - 0.04
+    box(panel, 0, 0, top - 0.2, x1 - x0, inner * 2, 0.2)
+    for s in (-1, 1):
+        y0 = s * (GAUGE / 2 + 0.11)
+        y1 = s * 2.0
+        y2 = s * 2.35
+        lo, hi = (y0, y1) if s > 0 else (y1, y0)
+        box(panel, 0, (lo + hi) / 2, top - 0.2, x1 - x0, abs(hi - lo), 0.2)
+        # The chamfer down to the road
+        prism(panel, [Vector((x0, y1, top - 0.2)), Vector((x0, y2, top - 0.2)), Vector((x0, y2, 0.0)), Vector((x0, y1, top))],
+              Vector((x1 - x0, 0, 0)))
+        # Steel angles along the flangeways
+        for y in (s * (inner + 0.012), y0 - s * 0.012):
+            box(edge, 0, y, top - 0.025, x1 - x0, 0.024, 0.025)
+    export(name, [panel.to_object(name), edge.to_object(name + '-angles'), sleepers.to_object(name + '-sleepers'),
+                  steel.to_object(name + '-rails')], lod=40)
+
+
+def street_track(name, length=2.5):
+    """A 2.5 m module of track in a street or yard along X: the rails' heads flush with an asphalt strip 5 cm over
+    the road (grooves beside the heads), its edges chamfered down to it, a setts band along each rail; sleepers
+    under it. A tramway down a street, a siding in a yard"""
+    clear_scene()
+    asphalt = Part(pbr_material('street-track-asphalt', 'asphalt_02', (0.9, 0.9, 0.9)), uv_metres=2.5, bevel=0.0)
+    setts = Part(pbr_material('street-track-setts', 'concrete_slab_wall', (0.55, 0.55, 0.53)), uv_metres=0.6, bevel=0.0)
+    groove = Part(flat_material('street-track-groove', (0.05, 0.05, 0.05), 0.7, 0.3))
+    sleepers = Part(sleeper_material(), uv_metres=1.0, bevel=0.01)
+    steel = Part(steel_material())
+    top = 0.05
+    rails(steel, sleepers, -length / 2, length / 2, z=top - 0.35)
+    x0, x1 = -length / 2, length / 2
+    head = GAUGE / 2 + 0.035
+    inner = head - 0.075
+    box(asphalt, 0, 0, top - 0.15, length, inner * 2 - 0.3, 0.15)
+    for s in (-1, 1):
+        # A setts band either side of each rail, the groove between band and head
+        for a, b in ((inner - 0.15, inner), (head + 0.075, head + 0.3)):
+            lo, hi = (a, b) if s > 0 else (-b, -a)
+            box(setts, 0, (lo + hi) / 2, top - 0.15, length, hi - lo, 0.15)
+        g0, g1 = (inner, head - 0.035) if s > 0 else (-(head - 0.035), -inner)
+        box(groove, 0, (g0 + g1) / 2, top - 0.06, length, g1 - g0, 0.04)
+        y0, y1, y2 = s * (head + 0.3), s * 1.5, s * 1.75
+        lo, hi = (y0, y1) if s > 0 else (y1, y0)
+        box(asphalt, 0, (lo + hi) / 2, top - 0.15, length, hi - lo, 0.15)
+        prism(asphalt, [Vector((x0, y1, top - 0.15)), Vector((x0, y2, top - 0.15)), Vector((x0, y2, 0.0)), Vector((x0, y1, top))],
+              Vector((length, 0, 0)))
+    export(name, [asphalt.to_object(name), setts.to_object(name + '-setts'), groove.to_object(name + '-grooves'),
+                  sleepers.to_object(name + '-sleepers'), steel.to_object(name + '-rails')], lod=40)
+
+
+def crossed_board(part, z, y, size, width, thick):
+    """One arm pair of a St Andrew's cross: two boards in the XZ plane crossed at 45 degrees about (0, y, z)"""
+    for a in (math.radians(45), math.radians(-45)):
+        c, s = math.cos(a), math.sin(a)
+        corners = []
+        for dy in (-thick / 2, thick / 2):
+            for u, v in ((-size / 2, -width / 2), (size / 2, -width / 2), (size / 2, width / 2), (-size / 2, width / 2)):
+                corners.append(Vector((u * c - v * s, y + dy, z + u * s + v * c)))
+        hexa(part, corners[:4], corners[4:])
+
+
+def crossing_post(name, light=False):
+    """St Andrew's cross on a galvanised post at a level crossing, its face to -Y: red-rimmed white boards;
+    with `light` the yellow and red lights below it in a black board with a white rim and hoods (the German
+    Lichtzeichen)"""
+    clear_scene()
+    post = Part(flat_material('crossing-post', (0.6, 0.62, 0.63), 0.45, 0.8), smooth=True)
+    footing = Part(pbr_material('footing-concrete', 'brushed_concrete', (0.7, 0.7, 0.7)), uv_metres=1.0)
+    red = Part(flat_material('saltire-red', (0.62, 0.04, 0.03), 0.35))
+    white = Part(flat_material('saltire-white', (0.88, 0.88, 0.85), 0.35))
+    parts = [post, footing, red, white]
+    top = 3.6 if light else 2.75
+    box(footing, 0, 0, -0.4, 0.36, 0.36, 0.48)
+    tube(post, [Vector((0, 0, 0.05)), Vector((0, 0, top))], [0.055, 0.05], 10)
+    zc = top - 0.45
+    crossed_board(red, zc, -0.075, 1.2, 0.17, 0.03)
+    crossed_board(white, zc, -0.095, 1.1, 0.09, 0.01)
+    if light:
+        board = Part(flat_material('signal-board', (0.03, 0.03, 0.035), 0.5))
+        rim = Part(flat_material('signal-rim', (0.85, 0.85, 0.82), 0.45))
+        yellow = Part(flat_material('lamp-yellow', (0.75, 0.48, 0.05), 0.12, emission=(0.6, 0.35, 0.02), strength=0.4))
+        lamp = Part(flat_material('lamp-red', (0.62, 0.04, 0.02), 0.12, emission=(0.5, 0.02, 0.01), strength=0.4))
+        parts += [board, rim, yellow, lamp]
+        z0, z1 = 1.55, 2.6
+        box(rim, 0, -0.07, z0 - 0.04, 0.58, 0.02, z1 - z0 + 0.08)
+        box(board, 0, -0.095, z0, 0.5, 0.03, z1 - z0)
+        for z, part in ((z1 - 0.27, yellow), (z0 + 0.27, lamp)):
+            disc = [Vector((math.cos(k / 16 * math.tau) * 0.15, -0.115, z + math.sin(k / 16 * math.tau) * 0.15)) for k in range(16)]
+            f = part.bm.faces.new([part.bm.verts.new(v) for v in disc])
+            for loop in f.loops:
+                loop[part.uv].uv = (0.5, 0.5)
+            # The hood over the lamp: a half ring reaching forward, both sides
+            for k in range(8):
+                a0, a1 = k / 8 * math.pi, (k + 1) / 8 * math.pi
+                p = [Vector((math.cos(a) * 0.18, y, z + math.sin(a) * 0.18)) for a, y in ((a0, -0.11), (a1, -0.11), (a1, -0.33), (a0, -0.33))]
+                board.quad(p, [(0, 0), (1, 0), (1, 1), (0, 1)])
+                board.quad(list(reversed(p)), [(0, 0), (1, 0), (1, 1), (0, 1)])
+    export(name, [p.to_object(name + '-%d' % k) for k, p in enumerate(parts) if p.bm.faces], lod=80 if light else 50)
+
+
+def crossing_barrier(name, boom=4.5):
+    """Half barrier at a level crossing (Halbschranke), its face to -Y: a grey drive housing on a concrete
+    footing, the red and white boom raised upright (open), its counterweight behind the pivot"""
+    clear_scene()
+    housing = Part(flat_material('barrier-housing', (0.52, 0.55, 0.56), 0.45, 0.5))
+    footing = Part(pbr_material('footing-concrete', 'brushed_concrete', (0.7, 0.7, 0.7)), uv_metres=1.0)
+    red = Part(flat_material('boom-red', (0.62, 0.04, 0.03), 0.35))
+    white = Part(flat_material('boom-white', (0.88, 0.88, 0.85), 0.35))
+    steel = Part(flat_material('barrier-steel', (0.3, 0.31, 0.32), 0.45, 0.8), smooth=True)
+    box(footing, 0, 0, -0.4, 0.8, 0.7, 0.5)
+    box(housing, 0, 0, 0.1, 0.5, 0.42, 0.9)
+    prism(housing, [Vector((-0.25, -0.21, 1.0)), Vector((-0.25, 0.21, 1.0)), Vector((-0.25, 0.12, 1.1)), Vector((-0.25, -0.12, 1.1))],
+          Vector((0.5, 0, 0)))
+    pivot = Vector((0.38, 0, 0.85))
+    tube(steel, [Vector((0.2, 0, 0.85)), Vector((0.46, 0, 0.85))], [0.07, 0.07], 10, cap=True)
+    # Upright, leaning back a little; stripes half a metre long
+    lean = math.radians(4)
+    d = Vector((0, math.sin(lean), math.cos(lean)))
+    for k in range(int(boom / 0.5)):
+        a = pivot + d * (0.1 + k * 0.5)
+        b = a + d * 0.5
+        part = red if k % 2 == 0 else white
+        ring = [Vector((-0.04, -0.06, 0)), Vector((0.04, -0.06, 0)), Vector((0.04, 0.06, 0)), Vector((-0.04, 0.06, 0))]
+        hexa(part, [a + v for v in ring], [b + v for v in ring])
+    box(steel, 0.38, 0.12, 0.35, 0.12, 0.26, 0.45)
+    export(name, [p.to_object(name + '-%d' % k) for k, p in enumerate([housing, footing, red, white, steel]) if p.bm.faces], lod=60)
+
+
+def rail_bridge(name, length=10.0):
+    """A piece of a ballasted rail bridge along X, in the track's format (origin on the formation, ballast
+    top 0.35 m over it): a concrete trough (slab 1 m deep, edge beams with a cornice and a drip nose)
+    holding the ballast, sleepers and rails, a galvanised railing on both edges. 10 m and 2.5 m long"""
+    clear_scene()
+    concrete = Part(pbr_material('bridge-concrete', 'precast_concrete_wall', (0.9, 0.9, 0.88)), uv_metres=3.0, bevel=0.02)
+    ballast = Part(ballast_material(), uv_metres=1.5, bevel=0.0)
+    sleepers = Part(sleeper_material(), uv_metres=1.0, bevel=0.01)
+    steel = Part(steel_material())
+    rail = Part(flat_material('railing-galvanised', (0.55, 0.57, 0.6), 0.45, 0.8))
+    h = BALLAST_TOP
+    x0, x1 = -length / 2, length / 2
+    box(concrete, 0, 0, -1.3, length, 5.0, 1.0)
+    for s in (-1, 1):
+        box(concrete, 0, s * 2.65, -1.3, length, 0.3, 1.7)
+        box(concrete, 0, s * 2.75, 0.4, length, 0.5, 0.15)
+        box(concrete, 0, s * 2.95, -1.5, length, 0.14, 0.25)
+        n = max(1, round(length / 1.25))
+        for k in range(n):
+            box(rail, x0 + (k + 0.5) * length / n, s * 2.85, 0.55, 0.06, 0.05, 1.0)
+        box(rail, 0, s * 2.85, 1.5, length, 0.06, 0.05)
+        box(rail, 0, s * 2.85, 1.0, length, 0.03, 0.04)
+    box(ballast, 0, 0, -0.3, length, 5.0, 0.45)
+    prism(ballast, [Vector((x0, -2.5, 0.15)), Vector((x0, 2.5, 0.15)), Vector((x0, 1.6, h)), Vector((x0, -1.6, h))], Vector((length, 0, 0)))
+    rails(steel, sleepers, x0, x1, z=h - 0.08)
+    export(name, [concrete.to_object(name), ballast.to_object(name + '-ballast'), sleepers.to_object(name + '-sleepers'),
+                  steel.to_object(name + '-rails'), rail.to_object(name + '-railing')], lod=90 if length >= 10 else 50)
+
+
+def abutment(name, width=6.4, height=10.0, wing=6.0):
+    """A bridge abutment, origin at its foot under the middle of its face, the face to -Y and the top at
+    `height`: the wall with a bearing shelf and two bearings, the back wall rising behind them, wing walls
+    running back into the embankment and falling with it (1:1.5), a cap on each"""
+    clear_scene()
+    concrete = Part(pbr_material('abutment-concrete', 'precast_concrete_wall', (0.86, 0.86, 0.84)), uv_metres=3.0, bevel=0.03)
+    cap = Part(pbr_material('abutment-cap', 'brushed_concrete', (0.8, 0.8, 0.78)), uv_metres=2.0, bevel=0.02)
+    bearing = Part(flat_material('bearing-steel', (0.25, 0.25, 0.26), 0.5, 0.7))
+    w = width / 2
+    shelf = height - 0.7
+    box(concrete, 0, 0.7, 0, width - 1.2, 1.4, shelf)
+    box(concrete, 0, 1.05, shelf, width - 1.2, 0.7, 0.7)
+    for x in (-w * 0.5, w * 0.5):
+        box(bearing, x, 0.35, shelf, 0.6, 0.45, 0.12)
+    for s in (-1, 1):
+        x = s * (w - 0.3)
+        drop = wing / 1.5
+        hexa(concrete, [Vector((x - 0.3, 0.0, 0)), Vector((x + 0.3, 0.0, 0)), Vector((x + 0.3, wing, 0)), Vector((x - 0.3, wing, 0))],
+             [Vector((x - 0.3, 0.0, height)), Vector((x + 0.3, 0.0, height)), Vector((x + 0.3, wing, height - drop)),
+              Vector((x - 0.3, wing, height - drop))])
+        hexa(cap, [Vector((x - 0.38, -0.08, height)), Vector((x + 0.38, -0.08, height)), Vector((x + 0.38, wing, height - drop)),
+                   Vector((x - 0.38, wing, height - drop))],
+             [Vector((x - 0.38, -0.08, height + 0.15)), Vector((x + 0.38, -0.08, height + 0.15)),
+              Vector((x + 0.38, wing, height - drop + 0.15)), Vector((x - 0.38, wing, height - drop + 0.15))])
+    export(name, [concrete.to_object(name), cap.to_object(name + '-cap'), bearing.to_object(name + '-bearings')], lod=70)
+
+
+def pier(name, width=4.6, height=12.0):
+    """A bridge pier, origin at its foot: a wall pier with rounded ends (wide along X, across the bridge), a
+    cap beam on top reaching past it to carry the deck, top at `height`"""
+    clear_scene()
+    concrete = Part(pbr_material('pier-concrete', 'precast_concrete_wall', (0.86, 0.86, 0.84)), uv_metres=3.0, bevel=0.03)
+    cap = Part(pbr_material('pier-cap', 'brushed_concrete', (0.8, 0.8, 0.78)), uv_metres=2.0, bevel=0.03)
+    r = 0.55
+    body = height - 0.8
+    box(concrete, 0, 0, 0, width - 2 * r, 2 * r, body)
+    for s in (-1, 1):
+        tube(concrete, [Vector((s * (width / 2 - r), 0, 0)), Vector((s * (width / 2 - r), 0, body))], [r, r], 12, cap=True)
+    box(cap, 0, 0, body, width + 1.4, 1.6, 0.8)
+    export(name, [concrete.to_object(name), cap.to_object(name + '-cap')], lod=80)
 
 
 def platform(name, length=20.0, width=4.0, h=0.76):
@@ -1465,6 +1694,16 @@ def fruit_tree(name, seed=0):
 def models():
     return {
         'rail-track': lambda: track('rail-track'),
+        'rail-track-short': lambda: track('rail-track-short', length=2.5),
+        'rail-crossing': lambda: level_crossing('rail-crossing'),
+        'rail-street': lambda: street_track('rail-street'),
+        'crossing-saltire': lambda: crossing_post('crossing-saltire'),
+        'crossing-signal': lambda: crossing_post('crossing-signal', light=True),
+        'crossing-barrier': lambda: crossing_barrier('crossing-barrier'),
+        'rail-bridge': lambda: rail_bridge('rail-bridge'),
+        'rail-bridge-short': lambda: rail_bridge('rail-bridge-short', length=2.5),
+        'bridge-abutment': lambda: abutment('bridge-abutment'),
+        'bridge-pier': lambda: pier('bridge-pier'),
         'rail-platform': lambda: platform('rail-platform'),
         'catenary-mast': lambda: catenary_mast('catenary-mast'),
         'buffer-stop': lambda: buffer_stop('buffer-stop'),

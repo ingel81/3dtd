@@ -16849,9 +16849,15 @@
       "name": "Railway track, straight (10 m along X)",
       "category": "structure",
       "file": "models/rail-track.glb",
-      "triangles": 744,
+      "triangles": 788,
       "footprint": 4.5,
       "height": 0.6,
+      "box": [
+        0,
+        0,
+        4.5,
+        2.2
+      ],
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -16869,10 +16875,322 @@
         {
           "file": "models/rail-track-lod1.glb",
           "distance": 350,
-          "triangles": 74
+          "triangles": 72
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "rail-track-short",
+      "name": "Railway track, short (2.5 m along X)",
+      "category": "structure",
+      "file": "models/rail-track-short.glb",
+      "triangles": 260,
+      "footprint": 2.2,
+      "height": 0.6,
+      "box": [
+        0,
+        0,
+        1.1,
+        2.2
+      ],
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "city",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/rail-track-short-lod1.glb",
+          "distance": 350,
+          "triangles": 30
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "rail-crossing",
+      "name": "Level crossing panels (2.5 m along X, road across)",
+      "category": "structure",
+      "file": "models/rail-crossing.glb",
+      "triangles": 516,
+      "footprint": 2.1,
+      "height": 0.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1200,
+      "roadThrough": true,
+      "tags": [
+        "city",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/rail-crossing-lod1.glb",
+          "distance": 350,
+          "triangles": 50
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "rail-street",
+      "name": "Track in a street or yard (2.5 m along X, rails in asphalt)",
+      "category": "structure",
+      "file": "models/rail-street.glb",
+      "triangles": 380,
+      "footprint": 1.6,
+      "height": 0.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1200,
+      "roadThrough": true,
+      "tags": [
+        "city",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/rail-street-lod1.glb",
+          "distance": 350,
+          "triangles": 42
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/asphalt_02; https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "crossing-saltire",
+      "name": "St Andrew's cross (level crossing)",
+      "category": "prop",
+      "file": "models/crossing-saltire.glb",
+      "triangles": 112,
+      "footprint": 0.4,
+      "height": 2.8,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 700,
+      "tags": [
+        "city",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/crossing-saltire-lod1.glb",
+          "distance": 280,
+          "triangles": 91
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "crossing-signal",
+      "name": "St Andrew's cross with lights (level crossing)",
+      "category": "prop",
+      "file": "models/crossing-signal.glb",
+      "triangles": 228,
+      "footprint": 0.4,
+      "height": 3.6,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 700,
+      "tags": [
+        "city",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/crossing-signal-lod1.glb",
+          "distance": 280,
+          "triangles": 170
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "crossing-barrier",
+      "name": "Half barrier, raised (level crossing)",
+      "category": "prop",
+      "file": "models/crossing-barrier.glb",
+      "triangles": 216,
+      "footprint": 0.4,
+      "height": 5.4,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 700,
+      "tags": [
+        "city",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/crossing-barrier-lod1.glb",
+          "distance": 280,
+          "triangles": 117
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "rail-bridge",
+      "name": "Rail bridge, ballasted trough (10 m along X, formation at 0)",
+      "category": "structure",
+      "file": "models/rail-bridge.glb",
+      "triangles": 1348,
+      "footprint": 4.5,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 2500,
+      "aloft": true,
+      "tags": [
+        "city",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/rail-bridge-lod1.glb",
+          "distance": 350,
+          "triangles": 85
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "rail-bridge-short",
+      "name": "Rail bridge, ballasted trough (2.5 m along X, formation at 0)",
+      "category": "structure",
+      "file": "models/rail-bridge-short.glb",
+      "triangles": 676,
+      "footprint": 2.7,
+      "height": 1.5,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 2500,
+      "aloft": true,
+      "tags": [
+        "city",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/rail-bridge-short-lod1.glb",
+          "distance": 350,
+          "triangles": 50
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "bridge-abutment",
+      "name": "Bridge abutment (6.4 m wide, 10 m to the bearings' top, face to the span)",
+      "category": "structure",
+      "file": "models/bridge-abutment.glb",
+      "triangles": 288,
+      "footprint": 3.0,
+      "height": 10.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        2
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 2500,
+      "roadThrough": true,
+      "tags": [
+        "city",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/bridge-abutment-lod1.glb",
+          "distance": 350,
+          "triangles": 120
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "bridge-pier",
+      "name": "Bridge pier (12 m, wide across the bridge)",
+      "category": "structure",
+      "file": "models/bridge-pier.glb",
+      "triangles": 204,
+      "footprint": 2.7,
+      "height": 12,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        2
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 2500,
+      "roadThrough": true,
+      "tags": [
+        "city",
+        "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/bridge-pier-lod1.glb",
+          "distance": 350,
+          "triangles": 160
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/brushed_concrete"
     },
     {
       "id": "rail-platform",

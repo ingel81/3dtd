@@ -1,4 +1,6 @@
-// Measures the ground rectangle of every building and wall model: the middle
+// Measures the ground rectangle of every building and wall model, and of the
+// straight track pieces (a 10 m slab's footprint disc reached 4.5 m to its
+// sides, over the paths beside the line): the middle
 // (model x, z) and the half sides of its bounds at scale 1, each times
 // BOX_SHARE like the catalogue's footprint radius (eaves overhang). A long
 // building's footprint radius is half its length, a circle that reached far
@@ -17,6 +19,7 @@ import { loadGlb } from '../model-budget/glb-node.mjs';
 /** Share of the half extent that counts as occupied ground (update_catalog.py's footprint share for buildings and walls) */
 const BOX_SHARE = 0.9;
 const CATEGORIES = new Set(['building', 'wall']);
+const PIECES = new Set(['rail-track', 'rail-track-short']);
 
 const assets = process.argv[2];
 if (!assets) {
@@ -27,7 +30,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const objects = JSON.parse(readFileSync(join(here, 'objects.json'), 'utf8'));
 const out = {};
 for (const o of objects) {
-  if (!CATEGORIES.has(o.category) || o.file === '') continue;
+  if ((!CATEGORIES.has(o.category) && !PIECES.has(o.id)) || o.file === '') continue;
   const { root } = await loadGlb(join(assets, o.file ?? `models/${o.id}.glb`));
   root.updateMatrixWorld(true);
   const b = new Box3().setFromObject(root, true);

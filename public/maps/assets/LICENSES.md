@@ -596,6 +596,16 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | office-ribbon | procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
 | shop-office | procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete |
 | rail-track | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete |
+| rail-track-short | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete |
+| rail-crossing | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete |
+| rail-street | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/asphalt_02; https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete |
+| crossing-saltire | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
+| crossing-signal | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
+| crossing-barrier | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
+| rail-bridge | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete |
+| rail-bridge-short | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete |
+| bridge-abutment | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/brushed_concrete |
+| bridge-pier | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/brushed_concrete |
 | rail-platform | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall |
 | catenary-mast | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
 | buffer-stop | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/dark_planks |
