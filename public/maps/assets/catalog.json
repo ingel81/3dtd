@@ -6959,6 +6959,7 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "rotor": 14,
       "tags": [
         "village",
         "mountain"
@@ -7010,6 +7011,7 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "rotor": 11,
       "tags": [
         "village"
       ],
@@ -11661,7 +11663,7 @@
       "name": "Wind turbine",
       "category": "prop",
       "file": "models/wind-turbine.glb",
-      "triangles": 94,
+      "triangles": 102,
       "footprint": 4.6,
       "height": 20.4,
       "blocksLos": false,
@@ -11673,6 +11675,7 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 3000,
+      "rotor": 4,
       "tags": [
         "arctic",
         "mars",

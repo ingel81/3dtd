@@ -208,6 +208,12 @@ export interface CatalogObject {
    */
   spin?: number;
   /**
+   * Seconds a full turn of its parts with materials named `rotor-…` takes,
+   * round their own hub (a windmill's sails, a water wheel, a turbine's
+   * blades; objects/rotor.ts). Default 8 where such parts exist
+   */
+  rotor?: number;
+  /**
    * Looks of the model in its baked texture atlas (a grid, 2 x 2 for four):
    * each instance shows the one its place picks (objects/atlas-variants.ts),
    * a herd of one cow model shows several breeds

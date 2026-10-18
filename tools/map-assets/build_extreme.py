@@ -162,19 +162,23 @@ def station(name):
 
 
 def wind_turbine(name, height=16.0):
-    """Small three-bladed turbine on a tapered tower, rotor facing -Y"""
+    """Small three-bladed turbine on a tapered tower, rotor facing -Y; the blades and the spinner have a
+    material `rotor-*` and turn round the hub in the renderer (catalogue `spin`)"""
     clear_scene()
     white = Part(flat_material('turbine-white', (0.85, 0.86, 0.87), 0.4, 0.2), smooth=True)
+    blades = Part(flat_material('rotor-turbine-blades', (0.87, 0.88, 0.89), 0.38, 0.2), smooth=True)
     tube(white, [Vector((0, 0, -0.5)), Vector((0, 0, height))], [0.45, 0.22], 12, cap=True)
-    tube(white, [Vector((0, 0.8, height + 0.3)), Vector((0, -0.6, height + 0.3)), Vector((0, -1.0, height + 0.3))], [0.35, 0.4, 0.05], 10, cap=True)
+    # Nacelle (still), then the spinner on the hub (turning)
+    tube(white, [Vector((0, 0.8, height + 0.3)), Vector((0, -0.6, height + 0.3))], [0.35, 0.4], 10, cap=True)
+    tube(blades, [Vector((0, -0.6, height + 0.3)), Vector((0, -1.0, height + 0.3))], [0.4, 0.05], 10, cap=True)
     hub = Vector((0, -0.9, height + 0.3))
     for k in range(3):
         a = k / 3 * math.tau + 0.3
         tip = hub + Vector((math.cos(a), 0, math.sin(a))) * 6.0
         side = Vector((-math.sin(a), 0, math.cos(a)))
-        white.quad([hub + side * 0.25, hub - side * 0.1, tip - side * 0.05, tip + side * 0.08], [(0, 0), (1, 0), (1, 1), (0, 1)])
-        white.quad([tip + side * 0.08, tip - side * 0.05, hub - side * 0.1, hub + side * 0.25], [(0, 1), (1, 1), (1, 0), (0, 0)])
-    export(name, [white.to_object(name)])
+        blades.quad([hub + side * 0.25, hub - side * 0.1, tip - side * 0.05, tip + side * 0.08], [(0, 0), (1, 0), (1, 1), (0, 1)])
+        blades.quad([tip + side * 0.08, tip - side * 0.05, hub - side * 0.1, hub + side * 0.25], [(0, 1), (1, 1), (1, 0), (0, 0)])
+    export(name, [white.to_object(name), blades.to_object('rotor-' + name)])
 
 
 def ice_shapes(name, seed, kind):

@@ -1034,7 +1034,8 @@ def chapel(name):
 def windmill(name):
     """Tower mill: tapered plastered tower on a stone base, a reefing stage round it on struts with a
     railing, a door with a canopy and windows climbing the tower, a thatched cap with a tail pole down to
-    the stage, four lattice sails on the front (-Y) with their cloth half furled"""
+    the stage, four lattice sails on the front (-Y) with their cloth half furled. The sails and the hub have materials
+    `rotor-*`: they turn round the hub in the renderer (catalogue `spin`)"""
     clear_scene()
     walls = Part(pbr_material('wall-beige_wall_001', 'beige_wall_001'), smooth=True)
     stone = Part(pbr_material('stone-slates', 'castle_wall_slates'), uv_metres=2.0)
@@ -1042,6 +1043,9 @@ def windmill(name):
     wood = Part(pbr_material('planks-dark', 'dark_planks'), uv_metres=1.0)
     cloth = Part(two_sided(pbr_material('cloth-hessian', 'hessian_230', (1.15, 1.1, 1.0))))
     dark = Part(flat_material('window', (0.05, 0.06, 0.07), 0.2, 0.3))
+    # The turning sails: own materials (a tint apart, so the packer does not join them with the still wood)
+    sail_wood = Part(pbr_material('rotor-planks-dark', 'dark_planks', (0.97, 0.95, 0.93)), uv_metres=1.0)
+    sail_cloth = Part(two_sided(pbr_material('rotor-cloth-hessian', 'hessian_230', (1.15, 1.1, 1.0))))
     h = 10.0
 
     def radius(z):
@@ -1076,28 +1080,30 @@ def windmill(name):
     # Sails: stock, whips, bars across, the cloth on the inner half
     hub = Vector((0, -3.3, h + 0.6))
     box(wood, 0, -2.9, h + 0.45, 0.4, 1.2, 0.4)
-    tube(wood, [hub + Vector((0, 0.3, 0)), hub + Vector((0, -0.3, 0))], [0.45, 0.35], 10, cap=True)
+    tube(sail_wood, [hub + Vector((0, 0.3, 0)), hub + Vector((0, -0.3, 0))], [0.45, 0.35], 10, cap=True)
     for k in range(4):
         a = k / 4 * math.tau + math.radians(20)
         arm = Vector((math.cos(a), 0, math.sin(a)))
         side = Vector((-math.sin(a), 0, math.cos(a)))
         tip = hub + arm * 7.0
-        oriented_box(wood, hub, tip, 0.22)
+        oriented_box(sail_wood, hub, tip, 0.22)
         a0 = hub + arm * 1.4
-        oriented_box(wood, a0 + side * 1.6, tip + side * 1.6, 0.08)
+        oriented_box(sail_wood, a0 + side * 1.6, tip + side * 1.6, 0.08)
         for t in range(9):
             p = hub + arm * (1.4 + 5.6 * t / 8)
-            oriented_box(wood, p, p + side * 1.6, 0.06)
+            oriented_box(sail_wood, p, p + side * 1.6, 0.06)
         corners = [a0, a0 + arm * 3.4, a0 + arm * 3.4 + side * 1.6, a0 + side * 1.6]
         corners = [c + Vector((0, -0.12, 0)) for c in corners]
-        cloth.quad(corners, [(0, 0), (1.7, 0), (1.7, 0.7), (0, 0.7)])
+        sail_cloth.quad(corners, [(0, 0), (1.7, 0), (1.7, 0.7), (0, 0.7)])
     export(name, [stone.to_object(name + '-base'), walls.to_object(name), thatch.to_object(name + '-roof'),
-                  wood.to_object(name + '-wood'), cloth.to_object(name + '-sails'), dark.to_object(name + '-windows')])
+                  wood.to_object(name + '-wood'), dark.to_object(name + '-windows'),
+                  sail_wood.to_object('rotor-' + name + '-wood'), sail_cloth.to_object('rotor-' + name + '-sails')])
 
 
 def mill_wheel(w, d, wall_h, pitch):
-    """Water wheel on the east gable: rims, spokes and paddles (watermill extra)"""
-    wood = Part(pbr_material('planks-dark', 'dark_planks', (0.9, 0.85, 0.8)), uv_metres=1.0)
+    """Water wheel on the east gable: rims, spokes, paddles and its axle (watermill extra); material `rotor-*`:
+    it turns round its axle in the renderer (catalogue `spin`)"""
+    wood = Part(pbr_material('rotor-planks-wheel', 'dark_planks', (0.9, 0.85, 0.8)), uv_metres=1.0)
     x = w / 2 + 0.8
     c = Vector((x, 0, 2.2))
     r = 3.0

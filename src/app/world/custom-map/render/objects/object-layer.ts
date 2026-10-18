@@ -32,6 +32,7 @@ import { bakeImpostor, bakeImpostorAsync, type Impostor } from './impostor';
 import { addVertexRoughMetal, mergeParts } from './merge-parts';
 import { clothGeometry, isCloth } from './cloth';
 import { DEFAULT_SPIN, SPIN_GLSL } from './spin';
+import { addRotorTurn, DEFAULT_ROTOR, isRotor, rotorDepthMaterial, rotorGeometry, rotorHub } from './rotor';
 import { addNightWindows, isWindowGlass } from './night-windows';
 import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_S, settleBlend, type LodBlend } from './lod-fade';
 
@@ -215,6 +216,8 @@ export class MapObjectLayer {
   private batches: AssetBatch[] = [];
   private readonly byId = new Map<string, { batch: AssetBatch; index: number }>();
   private readonly materials = new Map<string, Material>();
+  /** Shadow materials of rotor parts by seconds a turn (rotorShadow) */
+  private readonly rotorShadows = new Map<number, Material>();
   private readonly impostors = new Map<string, Impostor | null>();
   /** Impostor bakes under way, by asset (prepareImpostor) */
   private readonly impostorJobs = new Map<string, Promise<void>>();
@@ -598,6 +601,7 @@ export class MapObjectLayer {
     this.generation++;
     this.clear();
     for (const m of this.materials.values()) m.dispose();
+    for (const m of this.rotorShadows.values()) m.dispose();
     this.materials.clear();
     this.fades.length = 0;
     for (const imp of this.impostors.values()) imp?.dispose();
@@ -658,7 +662,8 @@ export class MapObjectLayer {
   /** Detail levels of an asset: its model, the catalogue's LOD models, an impostor for far trees */
   private levelsFor(model: ObjectModel, lods: { model: ObjectModel; distance: number }[]): Level[] {
     const entry = model.entry;
-    const drawn = (m: ObjectModel) => mergedParts(m).map((p) => ({ geometry: p.geometry, material: this.objectMaterial(p.material, entry) }));
+    const drawn = (m: ObjectModel) =>
+      mergedParts(m).map((p) => ({ geometry: p.geometry, material: this.objectMaterial(p.material, entry), depthMaterial: isRotor(p.material) ? this.rotorShadow(entry) : undefined }));
     const levels: Level[] = [{ from: 0, parts: drawn(model) }];
     for (const lod of lods) levels.push({ from: lod.distance, parts: drawn(lod.model) });
     if (this.wantsImpostor(model)) {
@@ -1256,6 +1261,14 @@ export class MapObjectLayer {
    * for flames (foliage cards that glow). The per-asset numbers are
    * uniforms, so all of them share a handful of shader programs.
    */
+  /** The shadow pass's material for an asset's rotor parts, shared by assets turning as fast */
+  private rotorShadow(entry: CatalogObject): Material {
+    const period = Math.max(0.5, entry.rotor ?? DEFAULT_ROTOR);
+    let m = this.rotorShadows.get(period);
+    if (!m) this.rotorShadows.set(period, (m = rotorDepthMaterial({ value: period })));
+    return m;
+  }
+
   private objectMaterial(source: Material, entry: CatalogObject): Material {
     const m0 = source as MeshStandardMaterial;
     const card = m0.name.startsWith('foliage-');
@@ -1265,12 +1278,15 @@ export class MapObjectLayer {
     const cloth = isCloth(m0);
     // Parts that turn round the model's upright axis: a radar dish, a lighthouse's lens (catalogue `spin`)
     const spin = m0.name.startsWith('spin-');
+    // Parts that turn round a hub of their own: a windmill's sails, a water wheel (rotor.ts, catalogue `rotor`)
+    const rotor = isRotor(m0);
+    const period = rotor ? (entry.rotor ?? DEFAULT_ROTOR) : (entry.spin ?? DEFAULT_SPIN);
     const wind = waterfall ? 0 : entry.wind;
     // Floating objects that are not moored structures rock on the water
     const bob = !!entry.float && entry.category !== 'structure';
     // Several looks in one atlas (a herd of several breeds): only for objects that stay where they are
     const variants = !card && !bob && (entry.variants ?? 1) > 1 ? entry.variants! : 1;
-    const key = `${source.uuid}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin ? (entry.spin ?? DEFAULT_SPIN) : 0}|${variants}`;
+    const key = `${source.uuid}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin || rotor ? period : 0}|${rotor ? 1 : 0}|${variants}`;
     const cached = this.materials.get(key);
     if (cached) return cached;
     // Always an own copy: the library's material is shared (other views, the editor's thumbnails)
@@ -1282,7 +1298,7 @@ export class MapObjectLayer {
       const peak = Math.max(m.emissive.r, m.emissive.g, m.emissive.b) * m.emissiveIntensity;
       if (peak > MAX_EMISSIVE) m.emissiveIntensity *= MAX_EMISSIVE / peak;
     }
-    if (!card && wind <= 0 && !bob && !spin) {
+    if (!card && wind <= 0 && !bob && !spin && !rotor) {
       if (m.userData['roughMetal']) addVertexRoughMetal(m);
       if (variants > 1) addAtlasVariants(m, variants);
       addWindowGlow(m, source);
@@ -1297,10 +1313,11 @@ export class MapObjectLayer {
       uWindBend: { value: windSwayAtTop(wind, entry.height) },
       uWindHeight: { value: Math.max(entry.height, 0.3) },
       uFadeRange: { value: new Vector2(entry.drawDistance * bias * 0.55, entry.drawDistance * bias) },
-      uSpinPeriod: { value: Math.max(0.5, entry.spin ?? DEFAULT_SPIN) },
+      // Seconds a turn of the spinning or rotor parts
+      uSpinPeriod: { value: Math.max(0.5, period) },
     };
     if (card) this.fades.push({ range: local.uFadeRange.value, drawDistance: entry.drawDistance });
-    const variant = `${wind > 0 ? 'w' : ''}${card ? 'c' : ''}${waterfall ? 'f' : ''}${flame ? 'l' : ''}${bob ? 'b' : ''}${cloth ? 'k' : ''}${spin ? 's' : ''}`;
+    const variant = `${wind > 0 ? 'w' : ''}${card ? 'c' : ''}${waterfall ? 'f' : ''}${flame ? 'l' : ''}${bob ? 'b' : ''}${cloth ? 'k' : ''}${spin ? 's' : ''}${rotor ? 'r' : ''}`;
     m.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, WIND_UNIFORMS);
       shader.uniforms['uWindBend'] = local.uWindBend;
@@ -1413,6 +1430,7 @@ ${angle}
 transformed.xz = spinTurn * transformed.xz;
 }`);
       }
+      if (rotor) addRotorTurn(shader, local.uSpinPeriod);
       if (cloth) {
         // The cloth ripples down from where it is fastened, more at its free end, and blows out with the wind
         shader.vertexShader = shader.vertexShader
@@ -1491,11 +1509,20 @@ function addWindowGlow(m: Material, source: Material): void {
 
 const merged = new WeakMap<ObjectModel, ModelPart[]>();
 
-/** A model's parts with the plain-coloured ones merged (merge-parts.ts) and banner cloth cut to wave (cloth.ts), once per model */
+/**
+ * A model's parts with the plain-coloured ones merged (merge-parts.ts), banner cloth cut to wave (cloth.ts) and
+ * rotor parts told their hub (rotor.ts), once per model
+ */
 function mergedParts(model: ObjectModel): ModelPart[] {
   let parts = merged.get(model);
   if (!parts) {
     parts = mergeParts(model.parts).map((p) => (isCloth(p.material) ? { geometry: clothGeometry(p.geometry), material: p.material } : p));
+    // Rotor parts learn their shared hub and axle (rotor.ts)
+    const rotors = parts.filter((p) => isRotor(p.material));
+    if (rotors.length) {
+      const hub = rotorHub(rotors.map((p) => p.geometry));
+      parts = parts.map((p) => (isRotor(p.material) ? { geometry: rotorGeometry(p.geometry, hub), material: p.material } : p));
+    }
     merged.set(model, parts);
   }
   return parts;

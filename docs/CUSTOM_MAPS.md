@@ -609,6 +609,14 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   die senkrechte Achse durch den Ursprung des Modells, eine Umdrehung in `spin` Sekunden (Katalog, Standard 8), jedes
   Objekt mit eigenem Startwinkel aus seiner Lage, auf der Uhr des Winds (das Standbild hält sie an); sie werden nicht
   mit anderen Teilen zusammengelegt (`mergeKey`). Radarschüssel und Leuchtturm-Linse liefert die Modellseite (E179)
+- **Rotoren** (`objects/rotor.ts`): Teile mit Material `rotor-…` drehen sich um eine eigene Nabe, eine Umdrehung in
+  `rotor` Sekunden (Katalog, Standard 8): Flügel der Windmühle (11 s), Wasserrad (14 s), Windrad (4 s). Nabe und Achse
+  stehen nicht im Modell, sie folgen aus der Form: ein Rotor ist drehsymmetrisch (Flügel, Schaufeln, Blätter sind
+  gedrehte Kopien), also liegt das Mittel seiner Ecken auf der Achse, und er ist quer zur Achse flach, also läuft sie
+  längs seiner dünnsten Ausdehnung; alle Rotorteile eines Modells teilen eine Nabe (`rotorHub`, jede Ecke trägt sie in
+  `aRotor`). Gedreht im Vertex-Shader auf der Uhr des Winds, jedes Objekt mit eigenem Startwinkel; der Schatten dreht
+  mit (eigenes Tiefenmaterial, `rotorDepthMaterial`). Anders als `spin` ebnet `rotor` den Boden nicht (ein Windrad ist
+  kein Gebäude). Modellseite: `rotor-`-Materialien mit Werten, die kein anderes Material des Modells hat
 - **Ansichten im Atlas** (`variants`, `objects/atlas-variants.ts`): die gebackenen Texturen eines Modells halten
   `variants` Ansichten desselben Netzes im Raster (2 x 2 für vier; `blender_kit.bake_surface`), die UVs zeigen die
   erste Zelle. Jede Instanz liest im Vertex-Shader die Zelle, die ein Hash ihres Standorts wählt: eine Herde aus einem
