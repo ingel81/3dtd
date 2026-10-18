@@ -661,7 +661,11 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   nachts wie die automatischen. Funken (`sparks`, neu): stoßweise hoch und zurück, nachts hell, am Tag schwach.
   Schneegestöber (`snow`, alle 12 m, aus 14 m Höhe). Staubteufel (`dust`, neue Partikelart): je 70 m ein Wirbel, der
   etwa 40 m um seine Stelle wandert, Staub schraubt sich bis 18 m hoch und weitet sich oben; jeder lebt etwa 40 s je
-  Minute; alle Teilchen eines Wirbels teilen sich dessen Bahn über einen Wert aus seiner Stelle. Hitzeflimmern (`haze`,
+  Minute; alle Teilchen eines Wirbels teilen sich dessen Bahn über einen Wert aus seiner Stelle. Brandung (`surf`, neue
+  Partikelart, auch als Objekt `fx-surf` für einen Felsen): alle 9 m eine Stelle, von der Oberfläche (Wasser über dem
+  Boden) aus; alle 7 s bricht eine Welle (jede Stelle mit eigenem Takt aus ihrer Lage), ihre Gischt steigt in den
+  ersten 2,8 s bis 1,5 bis 6 m hoch, hängt, fällt zurück, weitet sich und treibt mit dem Wind; jede Welle an einer neuen
+  Stelle der Scheibe. Archipelago: 3 m vor jeder Felsküste. Hitzeflimmern (`haze`,
   `effects/life-haze.ts`): ein Tuch 0,6 m über dem Boden im Umriss (Raster alle 4 m, höchstens 40 000 Punkte) oder in
   einem Band 8 m beiderseits der Linie, mit dem Shader des Lava-Flimmerns (`heatHazeMesh`, `water/heat-haze.ts`), am
   Rand über 12 m ausgeblendet; es liest die Bildkopie der Brechung und steht daher nur mit dem Effekt „Lava glow and

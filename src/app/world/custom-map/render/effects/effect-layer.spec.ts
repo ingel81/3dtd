@@ -236,10 +236,23 @@ describe('EffectLayer', () => {
     layer.setDarkness(1);
     expect(flies[0].visible).toBe(true);
     // Dust devils and snow flurries in fields of their own
-    layer.setLife({ areas: [{ id: 'd', kind: 'dust', shape: 'area', points: square }, { id: 's', kind: 'snow', shape: 'area', points: square }] });
+    layer.setLife({
+      areas: [
+        { id: 'd', kind: 'dust', shape: 'area', points: square },
+        { id: 's', kind: 'snow', shape: 'area', points: square },
+        { id: 'u', kind: 'surf', shape: 'route', points: [{ x: -40, y: 0 }, { x: 40, y: 0 }] },
+      ],
+    });
     layer.set([], catalog);
     expect(field('dust')).toHaveLength(1);
     expect(field('snow')).toHaveLength(1);
+    // Surf along its line, a spot every 9 m
+    const surf = field('surf');
+    expect(surf).toHaveLength(1);
+    const surfAt = surf[0].geometry.getAttribute('aOrigin');
+    const spots = new Set<number>();
+    for (let k = 0; k < surfAt.count; k++) spots.add(surfAt.getX(k));
+    expect(spots.size).toBeGreaterThanOrEqual(8);
     layer.setLife({
       areas: [
         { id: 'e', kind: 'embers', shape: 'area', points: square, color: '#ff0000' },

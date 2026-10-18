@@ -458,7 +458,7 @@ export function difficultyFactor(gameplay: Pick<MapGameplay, 'difficulty'> | und
  * devils, heat shimmering over hot ground, boats drifting on the water,
  * things moving over the ground (a rover, a herd), or an ambient sound
  */
-export type MapLifeKind = 'birds' | 'fireflies' | 'fog' | 'leaves' | 'embers' | 'sparks' | 'snow' | 'dust' | 'haze' | 'boats' | 'movers' | 'sound';
+export type MapLifeKind = 'birds' | 'fireflies' | 'fog' | 'leaves' | 'embers' | 'sparks' | 'snow' | 'dust' | 'surf' | 'haze' | 'boats' | 'movers' | 'sound';
 
 /** What flies in a birds area: small songbirds, gulls, crows and ravens, big birds of prey (eagles, vultures) */
 export type MapBirdSpecies = 'songbirds' | 'gulls' | 'crows' | 'raptors';

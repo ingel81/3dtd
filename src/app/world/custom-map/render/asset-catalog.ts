@@ -80,7 +80,8 @@ export type EffectKind =
   | 'waterfall'
   | 'birds'
   | 'beam'
-  | 'shaft';
+  | 'shaft'
+  | 'surf';
 
 /**
  * A particle or sheet effect an object carries. Sizes are at scale 1 and
@@ -91,7 +92,9 @@ export type EffectKind =
  * `radius` long from `height`, turning with the object's `spin` (a
  * lighthouse), shown in the dark; `shaft` a shaft of light `radius` wide
  * standing `height` up from the object's foot (a hell gate's glow), faint
- * by day, its colour the object's light's unless it names one; `column` a tall plume of smoke rising
+ * by day, its colour the object's light's unless it names one; `surf`
+ * spray thrown up in bursts on the swell's beat from a disc of `radius` at
+ * `height` (waves breaking on rock); `column` a tall plume of smoke rising
  * `height` from a foot `radius` wide, leaning with the wind and lit from
  * below over lava or by the object's own light; the others emit particles
  * from a disc of `radius` at `height`.

@@ -15220,6 +15220,37 @@
       "source": "Effekt des Renderers, kein Modell"
     },
     {
+      "id": "fx-surf",
+      "name": "Surf spray",
+      "category": "fx",
+      "file": "",
+      "footprint": 3,
+      "height": 4,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.7,
+        1.5
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "coast",
+        "beach",
+        "arctic"
+      ],
+      "effects": [
+        {
+          "kind": "surf",
+          "radius": 3,
+          "height": 0,
+          "rate": 9
+        }
+      ],
+      "source": "Effekt des Renderers, kein Modell"
+    },
+    {
       "id": "fx-light-shaft",
       "name": "Shaft of light",
       "category": "fx",

@@ -362,7 +362,7 @@ Dokument trägt (`life.areas`), und die Schalter dessen, was die Karte von selbs
 - Outline: ein Klick je Ecke, Enter, Doppelklick oder Rechtsklick schließt den Umriss; gehalten und gezogen malt er
   ihn frei (ein Punkt alle 6 m, Loslassen schließt). Line: ebenso eine offene Linie. Was darin lebt, wählt das Panel:
   Birds (ein Schwarm kreist im Umriss, auf einer Linie hin und zurück), Fireflies (nachts), Ground fog, Leaves,
-  Embers, Sparks, Snow, Dust devils, Heat haze (nur mit dem Lava-Glüh-Effekt), Boats (treiben auf dem Wasser des Umrisses, auf einer Linie hin und zurück),
+  Embers, Sparks, Snow, Dust devils, Surf (Gischt in Stößen, an einer Felsküste entlang gezogen), Heat haze (nur mit dem Lava-Glüh-Effekt), Boats (treiben auf dem Wasser des Umrisses, auf einer Linie hin und zurück),
   Movers (ein Requisit des Katalogs fährt oder geht über den Boden, mit Tempo), Sound (ein Klang, voll
   im Umriss oder auf der Linie, über 70 m leiser). Ein neuer Bereich ist ein Schritt im Verlauf und gleich gewählt. Zu wenig für einen Umriss (unter
   drei Ecken oder 16 m²) sagt die Statuszeile. Höchstens 64 Bereiche, 256 Punkte je Bereich
@@ -373,7 +373,7 @@ Dokument trägt (`life.areas`), und die Schalter dessen, was die Karte von selbs
   (Partikel), Vogelart (Singvögel, Möwen, Krähen und Raben, Greifvögel), Boot (die schwimmenden Requisiten des
   Katalogs) oder Klang, Lautstärke und Reichweite (10 bis 300 m, wie weit er um den Bereich ausklingt, Standard 70), „Shows from“ Medium oder nur
   High, Show, Remove; die Liste der Bereiche; „One spot“ setzt ein
-  Effekt-Objekt (Rauchsäule, kreisender Schwarm, Glühwürmchen, Glut, Blinklicht, Lichtsäule) mit dem Objektwerkzeug; „What the map brings by
+  Effekt-Objekt (Rauchsäule, kreisender Schwarm, Glühwürmchen, Glut, Blinklicht, Lichtsäule, Brandung am Felsen) mit dem Objektwerkzeug; „What the map brings by
   itself“: Schornsteinrauch, Glühwürmchen an Ufern und in Wäldern, Vögel über offenem Land, Funken über Lava, wehende
   Banner, Dichte (0 bis 200 % auf alles); „Sound“: „Over the whole map“ (keiner, der des Looks bei Tag und Nacht oder
   ein Klang) mit Lautstärke, „At each wave“ (Glocke, ferne Sirene, Schiffshorn einmal je Wellenstart) mit Lautstärke,

@@ -10,7 +10,7 @@
  */
 import type { MapBirdSpecies, MapLife, MapLifeArea, MapLifeKind, MapPoint } from './map-document';
 
-export const LIFE_KINDS: readonly MapLifeKind[] = ['birds', 'fireflies', 'fog', 'leaves', 'embers', 'sparks', 'snow', 'dust', 'haze', 'boats', 'movers', 'sound'];
+export const LIFE_KINDS: readonly MapLifeKind[] = ['birds', 'fireflies', 'fog', 'leaves', 'embers', 'sparks', 'snow', 'dust', 'surf', 'haze', 'boats', 'movers', 'sound'];
 export const BIRD_SPECIES: readonly MapBirdSpecies[] = ['songbirds', 'gulls', 'crows', 'raptors'];
 
 /** What drifts in a boats area that names no asset */
@@ -35,6 +35,7 @@ export const LIFE_KIND_INFO: Readonly<Record<MapLifeKind, { label: string; about
   sparks: { label: 'Sparks', about: 'Bright sparks bursting up and falling, strongest at night', color: '#ffd060' },
   snow: { label: 'Snow', about: 'Snow flurries drifting down with the wind', color: '#f4f8ff' },
   dust: { label: 'Dust devils', about: 'Whirls of dust wandering over the ground and rising', color: '#d8b080' },
+  surf: { label: 'Surf', about: 'Spray thrown up where waves break, in bursts on the swell: draw it along a rocky shore', color: '#bfe8ff' },
   haze: { label: 'Heat haze', about: 'The air over hot ground wavers (with the lava glow effect, High and up)', color: '#ffa060' },
   boats: { label: 'Boats', about: 'Boats drifting slowly on the water of the area, or along the route and back', color: '#6ab0ff' },
   movers: { label: 'Movers', about: 'Any object going round the area or along the route and back over the ground: a rover, a cart, grazing animals', color: '#a0e070' },

@@ -50,6 +50,7 @@ const KIND_ID: Record<ParticleKind, number> = {
   sparks: 9,
   dust: 10,
   column: 11,
+  surf: 12,
 };
 
 /** Per kind: particle life (s), size (m), default colour, additive, particles per unit rate */
@@ -66,6 +67,8 @@ const KIND_LOOK: Record<ParticleKind, { life: number; size: number; color: strin
   sparks: { life: 1.4, size: 0.16, color: '#ffb040', additive: true },
   dust: { life: 4, size: 1.2, color: '#c8a878', additive: false },
   column: { life: 16, size: 3.4, color: '#5e5852', additive: false },
+  // A life is one swell: the waves break every 7 s, each throwing its spray up in the first 2.8 s
+  surf: { life: 7, size: 2.2, color: '#f2f7f8', additive: false },
 };
 
 export interface ParticleEmitter {
@@ -179,6 +182,7 @@ export function particleCount(kind: ParticleKind, rate: number | undefined): num
     sparks: 6,
     dust: 12,
     column: 8,
+    surf: 9,
   };
   return Math.max(1, Math.min(400, Math.round((rate ?? defaults[kind]) * life)));
 }
@@ -305,6 +309,23 @@ if (uKind == 0) {
   glow = aGlow * pow(1.0 - f, 2.0) * (1.25 - 0.75 * clamp(uLight, 0.0, 1.0));
   // The puff's own noise: where it starts (seed) and how far it has torn (phase)
   vPuff = vec2(rnd(seed * 13.0 + cycle) * 37.0, phase);
+} else if (uKind == 12) {
+  // Surf: spray thrown up where a wave breaks on rock or shore, all of a spot's spray on the swell's beat (its own
+  // from where it stands), each particle a moment later than the last; it climbs, hangs and falls back, spreading
+  // and drifting with the wind, and is gone before the next wave
+  float own = fract(aOrigin.x * 0.137 + aOrigin.z * 0.071);
+  float swell = uTime / uLife - own - seed * 0.11;
+  float wave = floor(swell);
+  float f = fract(swell) * uLife / 2.8;
+  // A new spot on the spot's disc with every wave
+  float wa = rnd(seed + wave * 1.37) * 6.2832;
+  float wr = sqrt(rnd(seed * 3.1 + wave)) * radius;
+  p = aOrigin + vec3(cos(wa) * wr, 0.0, sin(wa) * wr);
+  float up = (1.5 + rnd(seed * 7.0 + wave) * 4.5) * max(0.5, size / 2.2);
+  p.y += height + 4.0 * up * f * (1.0 - f) * step(f, 1.0);
+  p.xz += vec2(cos(wa), sin(wa)) * (0.6 + rnd(seed * 3.0 + wave) * 1.8) * f + uWindDir * f * (0.5 + 3.0 * uWindStrength);
+  size *= 0.8 + f * 1.6;
+  alpha = smoothstep(0.0, 0.1, f) * (1.0 - smoothstep(0.45, 1.0, f)) * step(f, 1.0) * 0.6;
 } else {
   // Spray at a waterfall's foot: billows up and out from where the water lands
   p.xz += vec2(cos(a), sin(a)) * phase * 2.5;
@@ -313,8 +334,8 @@ if (uKind == 0) {
   alpha = smoothstep(0.0, 0.15, phase) * (1.0 - phase) * 0.75;
 }
   vUv = uv;
-if (uKind == 1 || uKind == 4 || uKind == 5 || uKind == 6 || uKind == 8 || uKind == 10 || uKind == 11) {
-  // Lit things (smoke, fog, leaves, snow, spray) follow the scene's light; glowing ones do not
+if (uKind == 1 || uKind == 4 || uKind == 5 || uKind == 6 || uKind == 8 || uKind == 10 || uKind == 11 || uKind == 12) {
+  // Lit things (smoke, fog, leaves, snow, spray, surf) follow the scene's light; glowing ones do not
   color *= uLight;
 }
   vColor = color + glow;
@@ -362,8 +383,8 @@ if (uKind == 5) {
   q += vec2(noise2(q * 1.7 + 3.3), noise2(q * 1.7 + 9.1)) * 0.8;
   float n = noise2(q) * 0.65 + noise2(q * 2.3 + 7.1) * 0.35;
   shape = smoothstep(0.08 + 0.3 * vPuff.y, 0.8, (1.0 - r) * (0.1 + 1.4 * n));
-} else if (uKind == 1 || uKind == 4 || uKind == 8 || uKind == 10) {
-  // Smoke, fog and dust: very soft puffs
+} else if (uKind == 1 || uKind == 4 || uKind == 8 || uKind == 10 || uKind == 12) {
+  // Smoke, fog, dust and spray: very soft puffs
   shape = pow(max(1.0 - r, 0.0), 1.6);
 } else {
   shape = pow(max(1.0 - r, 0.0), 2.2);
