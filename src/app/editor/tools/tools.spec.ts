@@ -103,6 +103,40 @@ describe('editor tools', () => {
     expect(ed.doc.objects).toHaveLength(0);
   });
 
+  it('keeps the scatter spacing between strokes: across them, and free again where an undo took objects away', () => {
+    const ed = fresh();
+    // Many objects elsewhere: the kept grid follows the few a stroke changes instead of gridding all anew
+    ed.doc.objects = Array.from({ length: 400 }, (_, k) => ({ id: `o${k + 1}`, asset: 'tree-oak', x: 100 + (k % 20) * 4, y: 100 + Math.floor(k / 20) * 4, z: 0, rotation: 0, scale: 1 }));
+    const ctx = context(ed);
+    const tool = new ObjectTool();
+    patch(ctx.settings.objects, { asset: 'tree-oak', mode: 'scatter' });
+    patch(ctx.settings.brush, { radius: 20 });
+    const near = () => ed.doc.objects.filter((o) => o.x < 60);
+    const strokeAt = (x: number) => {
+      tool.pointerDown(at(x, 0), ctx);
+      for (let k = 0; k < 40; k++) tool.frame?.(0.1, at(x, 0), ctx);
+      tool.pointerUp(at(x, 0), ctx);
+    };
+    const spacing = ctx.settings.objects().scatter.minDistance;
+    const closest = () => {
+      const o = near();
+      let d = Infinity;
+      for (let a = 0; a < o.length; a++) for (let b = a + 1; b < o.length; b++) d = Math.min(d, Math.hypot(o[a].x - o[b].x, o[a].y - o[b].y));
+      return d;
+    };
+    strokeAt(0);
+    const first = near().length;
+    expect(first).toBeGreaterThan(5);
+    strokeAt(5);
+    expect(closest()).toBeGreaterThanOrEqual(spacing - 1e-6);
+    ed.undo();
+    ed.undo();
+    expect(near()).toHaveLength(0);
+    strokeAt(0);
+    expect(near().length).toBeGreaterThan(first / 2);
+    tool.deactivate(ctx);
+  });
+
   it('levels a slope under a house placed anew, in the same undo step; a tree levels nothing', () => {
     const ed = fresh();
     const ctx = context(ed);
