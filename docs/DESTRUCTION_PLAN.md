@@ -145,8 +145,9 @@ Drei Schichten, jede mit einer Aufgabe.
 - Snapshot `craters?: number[]` (flach, vier je Krater), Hash-Teil nur, wenn die Liste Einträge hat.
 - Ops: `terrain.setCraters(liste)` (ganz, nach Restore und Sprung), `terrain.crater(eintrag)` je neuem oder vertieftem.
 
-**Spielregeln** (siehe „Auswirkungen aufs Spiel“): Krater ändern keine Route und keine Gegnerhöhe, Ruinen sperren keine
-Straße. Die Simulation braucht deshalb keine Höhen des Kraterbilds; ihre Zellhöhen bleiben die vom Korridor-Bau.
+**Spielregeln** (siehe „Auswirkungen aufs Spiel“, Entscheid 1): Krater und Schutt ändern keine Route, aber die Höhe
+der Gegner und auf Schutt ihr Tempo. Die Simulation hält dafür ein Stempelraster über den Routenzellen (siehe
+„Stempelraster“); die Zellhöhen vom Korridor-Bau bleiben, der Stempel kommt darauf.
 
 ### 2. Hauptthread: wie es aussieht
 
@@ -223,11 +224,11 @@ Straße. Die Simulation braucht deshalb keine Höhen des Kraterbilds; ihre Zellh
 
 | Frage | Vorschlag | Warum |
 |---|---|---|
-| Ändern Ruinen Wege? | Nein. Schutt bleibt im Grundriss und vor der Straße stehen (Halt der Straßen) | Routen stehen je Spawn fest (A*), ein Wechsel mitten in der Welle bräche Korridor, Budget und Coop |
-| Ändern Krater Wege oder Gegnerhöhe? | Nein, auf der Straße nur ein Brandfleck | Die Zellhöhen der Simulation bleiben gültig, Gegner schweben nie |
+| Ändern Ruinen Wege? | Nein. Schutt darf auf die Straße, Gegner laufen darüber und werden leicht gebremst, er sperrt nie | Routen stehen je Spawn fest (A*), ein Wechsel mitten in der Welle bräche Korridor, Budget und Coop |
+| Ändern Krater Wege oder Gegnerhöhe? | Keine Wege; die Gegner laufen durch die Mulde (Höhe aus dem Stempelraster der Simulation) | Ein Nachschlag je Gegner und Tick, ganze Zahlen, gleich für Coop und Replay |
 | Sichtlinien | ändern sich beim Fall (gibt es) und bei Stufe 2 nicht | eine Neuanfrage je Fall, nicht je Treffer |
 | Bauen | eine Ruine wird bebaubar (auf dem Schutt, Sockel wie am Hang); Stufe 1 und 2 sperren wie intakt | Ruined City verspricht „Build in the fallen blocks“ |
-| Tower auf Dächern zerstörbarer Gebäude | weiter nicht (wie heute) | ein Tower in der Luft nach dem Fall braucht eigene Regeln, später |
+| Tower auf Dächern zerstörbarer Gebäude | erlaubt; ein Gebäude mit Tower auf dem Dach nimmt keinen Schaden | kein Tower in der Luft, die Dach-Bauplätze bleiben |
 | Deckung für Gegner | nein | Gegner laufen auf Zellen, Deckung wäre ein neues Kampfsystem |
 | Belohnung | keine | Abriss wäre sonst eine Goldquelle |
 | Straße absichtlich sperren | nur als Wellen-Ereignis der Karte (`objects`, gibt es) | vom Kartenbauer gewollt, mit vorhandenem Mechanismus |
@@ -275,20 +276,24 @@ samt GPU wie in `hitch-probe.ts`; Budgets in `npm run test:perf` für Ledger und
 | Z5 Editor und OSM | Rules „Destruction“, Vorschaden je Objekt, Treffer-Werkzeug, Einschlag-Pinsel, OSM-Schalter und Material | Ruined City mit Vorschaden, eine OSM-Stadt zerstörbar |
 | Z6 Verschleiß | Gegner an den Routen, Bosse | Rechnung in `tools/balance-calc`, Playtest |
 
-## Offene Entscheidungen
+## Entschieden (2026-10-18)
 
-1. **Schutt sperrt nie die Straße.** Empfehlung: ja, nie (Routen bleiben fest).
-2. **Krater ändern weder Weg noch Gegnerhöhe.** Empfehlung: ja, auf Straßen nur Brandfleck.
-3. **Ruinen bebaubar.** Empfehlung: ja, ab Stufe 3 auf dem Schutt.
-4. **Verschleiß durch Gegner** als eigener Schalter der Karte. Empfehlung: ja, standardmäßig aus.
-5. **OSM-Welten standardmäßig zerstörbar.** Empfehlung: ja, mit Schalter im Rahmen.
-6. **Fähigkeiten zerstören:** Atomschlag fällt alles in seinem Radius. Empfehlung: ja, Orbitallaser beschädigt, Frost und
-   EMP nicht.
-7. **Tower auf Dächern zerstörbarer Gebäude** bleiben verboten. Empfehlung: ja für jetzt.
-8. **Innenwände** (der Prototyp hatte sie) oder nur Decken. Empfehlung: nur Decken, Innenwände erst, wenn Bilder sie
-   fordern.
-9. **Rissatlas handgemalt** statt Rauschen. Empfehlung: handgemalt, klein, Graustufen.
-10. **Vorschaden je Objekt im Editor.** Empfehlung: ja, mit Saat.
+1. **Schutt und Krater dürfen auf die Straße, mit Spielwirkung.** Gegner laufen über Schutt und durch Mulden: die
+   Simulation liest je Gegner und Tick aus einem kleinen Raster der Krater- und Schuttstempel (ganze Zahlen,
+   Simulationsstand) die Höhe und auf Schutt eine leichte Bremse. Wege werden nie umgeleitet, Schutt sperrt nie.
+   Coop, Replay und Nachberechnung bleiben deterministisch (nur ganze Zahlen und die IEEE-Grundrechenarten). Kosten je
+   Gegner und Tick: ein Nachschlag im Raster. Die Bremse ist vorher in `tools/balance-calc` durchgerechnet. Zeigt sich
+   ein Performance- oder Balanceproblem, ist der Rückfall „Höhe nur in der Darstellung“. Sichtlinien proben die
+   Gegnerhöhe so, wie die Simulation sie hat.
+2. **Ruinen sind bebaubar:** Tower auf dem Schutt ab Stufe 3.
+3. **Verschleiß durch Gegner** an der Route ist ein Schalter je Karte (`gameplay.wear`), Standard aus.
+4. **OSM-Welten sind standardmäßig zerstörbar**, mit Schalter im OSM-Rahmen.
+5. **Fähigkeiten:** der Atomschlag fällt alles in seinem Radius, der Orbitallaser beschädigt, Frost und EMP nicht.
+6. **Ein Gebäude mit einem Tower auf dem Dach ist unzerstörbar.** Dach-Bauplätze bleiben auf zerstörbaren Gebäuden
+   erlaubt; solange ein Tower oben steht, nimmt das Gebäude keinen Schaden.
+7. **Decken und Innenwände** von Anfang an (wie im früheren Prototyp).
+8. **Rissatlas handgemalt** (klein, Graustufen).
+9. **Vorschaden je Objekt im Editor**, mit Saat.
 
 ## Risiken
 
