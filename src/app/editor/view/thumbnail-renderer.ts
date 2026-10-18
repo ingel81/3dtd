@@ -32,10 +32,10 @@ import {
   TextureLoader,
   Vector3,
   WebGLRenderer,
-  type Object3D,
   type Texture,
 } from 'three';
 import { idle } from './idle';
+import { texturesOf } from '../../three-engine/texture-upload';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import type { CatalogIndex, GroundMaterialEntry, ObjectAssetEntry } from '../../map-ops/asset-catalog';
 import type { BiomeDef } from '../ops/landscape/biomes';
@@ -350,18 +350,6 @@ export class ThumbnailRenderer {
   }
 }
 
-/** The textures of the materials under `root`, each once */
-export function texturesOf(root: Object3D): Set<Texture> {
-  const out = new Set<Texture>();
-  root.traverse((o) => {
-    const mesh = o as Mesh;
-    if (!mesh.isMesh) return;
-    for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
-      for (const value of Object.values(m)) if ((value as Texture | null)?.isTexture) out.add(value as Texture);
-    }
-  });
-  return out;
-}
 
 /**
  * Encodes canvases as PNG in a worker: an image bitmap of the canvas (a copy

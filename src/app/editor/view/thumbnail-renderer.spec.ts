@@ -1,5 +1,6 @@
 import { DataTexture, Group, Mesh, MeshStandardMaterial, PlaneGeometry } from 'three';
-import { ThumbnailRenderer, texturesOf } from './thumbnail-renderer';
+import { ThumbnailRenderer } from './thumbnail-renderer';
+import { texturesOf } from '../../three-engine/texture-upload';
 import { settleContexts } from '../../three-engine/context-release';
 import type { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 

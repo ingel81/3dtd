@@ -493,6 +493,9 @@ describe('CustomMapView warm-up', () => {
         return Promise.resolve();
       },
       render: () => seen.push({ call: 'render', target: current }),
+      // Textures go up ahead of the frame (uploadTextures)
+      properties: { get: () => ({}) },
+      initTexture: () => undefined,
     };
     await view.warmUp(renderer as never, scene, new PerspectiveCamera(), target as never);
     // The scene for the frames, then the shadow pass's depth programs off the main thread (into a target of
@@ -529,6 +532,8 @@ describe('CustomMapView warm-up waits for every program', () => {
         // compileAsync settled, although a program it asked for is still compiling
         compileAsync: () => Promise.resolve(),
         render: () => rendered.push(1),
+        properties: { get: () => ({}) },
+        initTexture: () => undefined,
       };
       const done = view.warmUp(renderer as never, scene, new PerspectiveCamera());
       await vi.advanceTimersByTimeAsync(2000);

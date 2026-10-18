@@ -72,7 +72,8 @@ import { MirrorChoice, type MirrorCandidate } from './water/mirror-choice';
 import { GroundDecals } from './terrain/ground-decals';
 import { NO_MAP_EFFECTS, type MapEffects } from './map-effects';
 import type { GridRect } from './terrain/terrain-chunks';
-import { programsReady } from '../../../three-engine/programs-ready';
+import { firstUsePrograms, programsReady } from '../../../three-engine/programs-ready';
+import { boundTexturesOf, uploadTextures } from '../../../three-engine/texture-upload';
 import { waterLevelAt } from '../water-level';
 import { massRadius } from '../object-mass';
 import { PacedRefresh } from './paced-refresh';
@@ -438,6 +439,12 @@ export class CustomMapView {
     if (this.disposed) return 0;
     // The ground's colour for the grass and the water's view of the land, before the first frame shows them
     await this.terrain.bakeGroundColor(renderer);
+    if (this.disposed) return 0;
+    // The frame below otherwise did the programs' first-use work and uploaded every texture it binds in one long
+    // task (demo valley after the editor: 212 ms info logs, 332 ms uploads): a task for each that takes time
+    const gone = () => this.disposed;
+    await firstUsePrograms(renderer, gone);
+    await uploadTextures(renderer, this.withAllShown(() => boundTexturesOf(renderer, scene)), gone);
     if (this.disposed) return 0;
     // compileAsync leaves out the shadow pass: its depth programs (instanced, alpha-tested cards,
     // per material) compiled on the first frame a caster entered the sun's box, a stall of seconds.
