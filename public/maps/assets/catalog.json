@@ -17063,6 +17063,664 @@
         "village"
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/sandstone_blocks_04"
+    },
+    {
+      "id": "basketball-hoop",
+      "name": "Basketball hoop",
+      "category": "prop",
+      "file": "models/basketball-hoop.glb",
+      "triangles": 548,
+      "footprint": 0.9,
+      "height": 4.0,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/basketball-hoop-lod1.glb",
+          "distance": 240,
+          "triangles": 197
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "tennis-net",
+      "name": "Tennis net (12.8 m)",
+      "category": "prop",
+      "file": "models/tennis-net.glb",
+      "triangles": 96,
+      "footprint": 5.8,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 500,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
+    },
+    {
+      "id": "volleyball-net",
+      "name": "Volleyball net",
+      "category": "prop",
+      "file": "models/volleyball-net.glb",
+      "triangles": 638,
+      "footprint": 6.7,
+      "height": 3.2,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "city",
+        "village",
+        "coast"
+      ],
+      "lod": [
+        {
+          "file": "models/volleyball-net-lod1.glb",
+          "distance": 240,
+          "triangles": 246
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
+    },
+    {
+      "id": "table-tennis",
+      "name": "Table tennis (concrete)",
+      "category": "prop",
+      "file": "models/table-tennis.glb",
+      "triangles": 316,
+      "footprint": 1.2,
+      "height": 0.9,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 400,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "goal-small",
+      "name": "Small-pitch goal (5 m)",
+      "category": "prop",
+      "file": "models/goal-small.glb",
+      "triangles": 224,
+      "footprint": 2.3,
+      "height": 2.0,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
+    },
+    {
+      "id": "handball-goal",
+      "name": "Handball goal (3 m)",
+      "category": "prop",
+      "file": "models/handball-goal.glb",
+      "triangles": 768,
+      "footprint": 1.4,
+      "height": 2.0,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 500,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/handball-goal-lod1.glb",
+          "distance": 200,
+          "triangles": 300
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
+    },
+    {
+      "id": "skate-ramp",
+      "name": "Skate quarter pipe",
+      "category": "prop",
+      "file": "models/skate-ramp.glb",
+      "triangles": 230,
+      "footprint": 1.6,
+      "height": 2.4,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "city"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "climbing-frame",
+      "name": "Climbing tower",
+      "category": "prop",
+      "file": "models/climbing-frame.glb",
+      "triangles": 792,
+      "footprint": 1.9,
+      "height": 3.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/climbing-frame-lod1.glb",
+          "distance": 240,
+          "triangles": 229
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/rough_wood"
+    },
+    {
+      "id": "seesaw",
+      "name": "Seesaw",
+      "category": "prop",
+      "file": "models/seesaw.glb",
+      "triangles": 630,
+      "footprint": 1.6,
+      "height": 1.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 400,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/seesaw-lod1.glb",
+          "distance": 160,
+          "triangles": 229
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/rough_wood"
+    },
+    {
+      "id": "spring-rider",
+      "name": "Spring rider",
+      "category": "prop",
+      "file": "models/spring-rider.glb",
+      "triangles": 736,
+      "footprint": 0.5,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 300,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/spring-rider-lod1.glb",
+          "distance": 120,
+          "triangles": 298
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
+    },
+    {
+      "id": "sandbox",
+      "name": "Sandpit",
+      "category": "prop",
+      "file": "models/sandbox.glb",
+      "triangles": 404,
+      "footprint": 1.4,
+      "height": 0.3,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 400,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/sandbox-lod1.glb",
+          "distance": 160,
+          "triangles": 144
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/rough_wood"
+    },
+    {
+      "id": "bike-rack",
+      "name": "Bicycle rack",
+      "category": "prop",
+      "file": "models/bike-rack.glb",
+      "triangles": 564,
+      "footprint": 0.9,
+      "height": 0.9,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 300,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/bike-rack-lod1.glb",
+          "distance": 120,
+          "triangles": 220
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
+    },
+    {
+      "id": "advertising-column",
+      "name": "Advertising column",
+      "category": "prop",
+      "file": "models/advertising-column.glb",
+      "triangles": 448,
+      "footprint": 0.7,
+      "height": 3.6,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 700,
+      "tags": [
+        "city"
+      ],
+      "lod": [
+        {
+          "file": "models/advertising-column-lod1.glb",
+          "distance": 280,
+          "triangles": 180
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
+    },
+    {
+      "id": "fuel-pump",
+      "name": "Fuel pump on island",
+      "category": "prop",
+      "file": "models/fuel-pump.glb",
+      "triangles": 440,
+      "footprint": 1.6,
+      "height": 2.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "wayside-cross",
+      "name": "Wayside cross",
+      "category": "prop",
+      "file": "models/wayside-cross.glb",
+      "triangles": 300,
+      "footprint": 0.6,
+      "height": 3.4,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "village",
+        "temperate",
+        "mountain"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/rough_wood"
+    },
+    {
+      "id": "flower-bed",
+      "name": "Raised flower bed",
+      "category": "prop",
+      "file": "models/flower-bed.glb",
+      "triangles": 224,
+      "footprint": 1.1,
+      "height": 0.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 300,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/sandstone_blocks_04"
+    },
+    {
+      "id": "sun-lounger",
+      "name": "Pool lounger",
+      "category": "prop",
+      "file": "models/sun-lounger.glb",
+      "triangles": 320,
+      "footprint": 0.8,
+      "height": 0.8,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 250,
+      "tags": [
+        "city",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
+    },
+    {
+      "id": "beer-bench-set",
+      "name": "Beer table set",
+      "category": "prop",
+      "file": "models/beer-bench-set.glb",
+      "triangles": 272,
+      "footprint": 1.0,
+      "height": 0.8,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 300,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/rough_wood"
+    },
+    {
+      "id": "cafe-set",
+      "name": "Bistro table and chairs",
+      "category": "prop",
+      "file": "models/cafe-set.glb",
+      "triangles": 404,
+      "footprint": 0.8,
+      "height": 0.9,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "drawDistance": 300,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "lod": [
+        {
+          "file": "models/cafe-set-lod1.glb",
+          "distance": 120,
+          "triangles": 174
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
+    },
+    {
+      "id": "parasol",
+      "name": "Market parasol",
+      "category": "prop",
+      "file": "models/parasol.glb",
+      "triangles": 192,
+      "footprint": 1.4,
+      "height": 2.8,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        0.9,
+        1.1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 400,
+      "tags": [
+        "city",
+        "village",
+        "coast"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "shopfront-narrow",
+      "name": "Shopfront (3 m)",
+      "category": "prop",
+      "file": "models/shopfront-narrow.glb",
+      "triangles": 300,
+      "footprint": 1.4,
+      "height": 3,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 600,
+      "aloft": true,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "shopfront-wide",
+      "name": "Shopfront (6 m)",
+      "category": "prop",
+      "file": "models/shopfront-wide.glb",
+      "triangles": 440,
+      "footprint": 2.7,
+      "height": 3,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 700,
+      "aloft": true,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "awning",
+      "name": "Awning (3.2 m)",
+      "category": "prop",
+      "file": "models/awning.glb",
+      "triangles": 226,
+      "footprint": 1.5,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 600,
+      "aloft": true,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
+    },
+    {
+      "id": "sign-facade",
+      "name": "Facade sign",
+      "category": "prop",
+      "file": "models/sign-facade.glb",
+      "triangles": 292,
+      "footprint": 1.2,
+      "height": 0.8,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 500,
+      "aloft": true,
+      "tags": [
+        "city",
+        "village"
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
+    },
+    {
+      "id": "sign-bracket",
+      "name": "Bracket sign",
+      "category": "prop",
+      "file": "models/sign-bracket.glb",
+      "triangles": 622,
+      "footprint": 0.5,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": false,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 400,
+      "aloft": true,
+      "tags": [
+        "city",
+        "village",
+        "castle"
+      ],
+      "lod": [
+        {
+          "file": "models/sign-bracket-lod1.glb",
+          "distance": 160,
+          "triangles": 252
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_poi.py)"
     }
   ]
 }

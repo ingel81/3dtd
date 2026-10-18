@@ -604,6 +604,31 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | playground-slide | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/rough_wood |
 | football-goal | procedural (tools/map-assets/build_modern.py) |
 | fountain | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/sandstone_blocks_04 |
+| basketball-hoop | procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/brushed_concrete |
+| tennis-net | procedural (tools/map-assets/build_poi.py) |
+| volleyball-net | procedural (tools/map-assets/build_poi.py) |
+| table-tennis | procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/brushed_concrete |
+| goal-small | procedural (tools/map-assets/build_poi.py) |
+| handball-goal | procedural (tools/map-assets/build_poi.py) |
+| skate-ramp | procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/brushed_concrete |
+| climbing-frame | procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/rough_wood |
+| seesaw | procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/rough_wood |
+| spring-rider | procedural (tools/map-assets/build_poi.py) |
+| sandbox | procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/rough_wood |
+| bike-rack | procedural (tools/map-assets/build_poi.py) |
+| advertising-column | procedural (tools/map-assets/build_poi.py) |
+| fuel-pump | procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/brushed_concrete |
+| wayside-cross | procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/rough_wood |
+| flower-bed | procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/sandstone_blocks_04 |
+| sun-lounger | procedural (tools/map-assets/build_poi.py) |
+| beer-bench-set | procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/rough_wood |
+| cafe-set | procedural (tools/map-assets/build_poi.py) |
+| parasol | procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/brushed_concrete |
+| shopfront-narrow | procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/brushed_concrete |
+| shopfront-wide | procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/brushed_concrete |
+| awning | procedural (tools/map-assets/build_poi.py) |
+| sign-facade | procedural (tools/map-assets/build_poi.py) |
+| sign-bracket | procedural (tools/map-assets/build_poi.py) |
 
 ## Himmelsbilder (`skies/<id>.webp`)
 

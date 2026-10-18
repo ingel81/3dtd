@@ -70,7 +70,8 @@ Stadtkirche, Bahnhof, Parkhaus, Gewächshaus, Kiosk, Trafostation; Gleis, Bahnst
 Hochspannungsmast, Rebzeile, Obstbaum, Spielgeräte, Fußballtor, Brunnen),
 `build_modern2.py` (weitere Arten für OSM-Welten: Laden, Geschäftshaus, Bürohochhaus mit Bandfenstern, Scheune
 heutiger Art, Nebengebäude 4 × 4 m, offener Unterstand, Anbau),
-`build_boats.py` (Fischkutter), `build_cattle.py` (Kühe in drei Posen, vier Fellarten im Atlas), gemeinsame Helfer in `blender_kit.py`.
+`build_poi.py` (Sport- und Spielgeräte, Straßenmöbel, Ladenfronten, Markise, Schilder mit leerer Schildfläche für
+OSM-Flächen und POIs; Fassadenobjekte haben den Ursprung auf der Wand am Fuß, Front -Y), `build_boats.py` (Fischkutter), `build_cattle.py` (Kühe in drei Posen, vier Fellarten im Atlas), gemeinsame Helfer in `blender_kit.py`.
 
 Gebackene Oberflächen (`blender_kit.bake_surface`, Materialien mit `Nodes`): statt gekachelter Texturen rechnen
 prozedurale Materialien Farbe über Planken, Kantenabrieb (Bevel-Knoten), Schmutz in Ecken (AO-Knoten), Rostläufe,

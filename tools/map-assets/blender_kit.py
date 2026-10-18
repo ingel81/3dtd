@@ -841,18 +841,71 @@ def export_lod(name, obj, ratio=0.3, suffix='-lod1', textured=False):
             # Object-level slot: the shared mesh data keeps the textured materials for the full model
             slot.link = 'OBJECT'
             slot.material = flat_copy(source)
-    mod = lod.modifiers.new('decimate', 'DECIMATE')
-    mod.ratio = ratio
-    bpy.ops.object.select_all(action='DESELECT')
-    lod.select_set(True)
-    bpy.context.view_layer.objects.active = lod
-    bpy.ops.object.modifier_apply(modifier=mod.name)
-    # Collapsed edges can leave duplicate faces behind (box-built parts)
-    lod.data.validate()
+    decimate_keeping(lod, ratio, name)
     while len(lod.data.uv_layers) and not textured:
         lod.data.uv_layers.remove(lod.data.uv_layers[0])
     export(name + suffix, [lod])
     bpy.data.objects.remove(lod)
+
+
+# Materials with this many faces or fewer are left whole by decimate_keeping
+LOD_KEEP_FACES = 24
+
+
+def _faces_by_material(obj):
+    used = set()
+    for poly in obj.data.polygons:
+        slot = obj.material_slots[poly.material_index] if poly.material_index < len(obj.material_slots) else None
+        used.add(slot.material.name.removesuffix('-lod') if slot and slot.material else '')
+    return used
+
+
+def _delete_faces(obj, keep):
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if not keep(f.material_index)], context='FACES')
+    bm.to_mesh(obj.data)
+    bm.free()
+
+
+def decimate_keeping(obj, ratio, name=''):
+    """Collapse-decimates `obj` to about `ratio` of its faces, leaving the materials of LOD_KEEP_FACES faces or
+    fewer whole: a roof of four big quads is most of what a distant view sees, and the collapse took such
+    parts away entirely (the industrial hall, the town hall and the station stood without a roof past their
+    LOD distance). Every material of the full mesh keeps faces, else the build stops"""
+    before = _faces_by_material(obj)
+    counts = {}
+    for poly in obj.data.polygons:
+        counts[poly.material_index] = counts.get(poly.material_index, 0) + 1
+    small = {i for i, n in counts.items() if n <= LOD_KEEP_FACES}
+    total = len(obj.data.polygons)
+    kept = None
+    if ratio < 1.0 and small and len(small) < len(counts):
+        kept = obj.copy()
+        kept.data = obj.data.copy()
+        bpy.context.collection.objects.link(kept)
+        _delete_faces(kept, lambda i: i in small)
+        _delete_faces(obj, lambda i: i not in small)
+        # The kept faces count against the target
+        ratio = min(1.0, max(0.02, (ratio * total - len(kept.data.polygons)) / max(1, len(obj.data.polygons))))
+    if ratio < 1.0:
+        mod = obj.modifiers.new('decimate', 'DECIMATE')
+        mod.ratio = ratio
+        bpy.ops.object.select_all(action='DESELECT')
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.modifier_apply(modifier=mod.name)
+    if kept is not None:
+        bpy.ops.object.select_all(action='DESELECT')
+        kept.select_set(True)
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.join()
+    # Collapsed edges can leave duplicate faces behind (box-built parts)
+    obj.data.validate()
+    lost = sorted(before - _faces_by_material(obj))
+    if lost:
+        raise RuntimeError('%s: the distance copy lost every face of %s' % (name or obj.name, ', '.join(lost)))
 
 
 def box_uv(obj, metres):
