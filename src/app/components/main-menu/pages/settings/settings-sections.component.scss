@@ -44,9 +44,19 @@
 .set-world {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  // As wide as the space after the separator: " | " reads even
+  gap: var(--td-sp-1);
 
   .td-link {
     margin-left: auto;
+  }
+}
+
+// The tabs: on a narrow page a tab keeps its label whole and the row wraps
+.set-tabs {
+  flex-wrap: wrap;
+
+  > button {
+    min-width: max-content;
   }
 }

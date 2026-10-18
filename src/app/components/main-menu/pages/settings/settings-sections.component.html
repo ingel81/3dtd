@@ -1,5 +1,5 @@
 <!-- One tab per section (TODO E138): the page held them all and ran long -->
-<div class="td-seg" role="tablist" aria-label="Settings" tdRovingGroup>
+<div class="td-seg set-tabs" role="tablist" aria-label="Settings" tdRovingGroup>
   @for (t of tabs(); track t.id) {
     <button type="button" role="tab" [id]="'td-set-tab-' + t.id" aria-controls="td-set-panel"
             [attr.aria-selected]="tab() === t.id" (click)="selectTab(t.id)">{{ t.label }}</button>
