@@ -75,6 +75,13 @@ That is right only while nothing but the tunnel reaches the proxy: do not publis
 Check: `https://3dtd-osm.sgeht.net/api/interpreter?data=[out:json];node(1);out;` answers with a node;
 `https://3dtd-osm.sgeht.net/api/status` answers 404.
 
+## On Unraid
+
+With the Compose Manager plugin the stack has its buttons there (Compose Up, Compose Down, Update Stack, Autostart),
+and the containers show in the Docker tab with the 3DTD logo (`net.unraid.docker.icon`); the status page's container
+has the status page as its WebUI (`net.unraid.docker.webui`, Unraid fills in the address and port). Keep the database
+on a pool path (`/mnt/cache/...`) of a share without a secondary storage, so the mover never takes it to the array.
+
 ## Status page
 
 `http://<server>:8090/` from the LAN (`STATUS_BIND` and `STATUS_PORT`); it loads nothing from outside and reloads every

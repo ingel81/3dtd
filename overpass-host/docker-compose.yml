@@ -15,12 +15,18 @@ x-hardened: &hardened
     driver: json-file
     options: { max-size: "10m", max-file: "3" }
 
+# How Unraid's Docker tab shows the containers: the 3DTD logo, and the Compose Manager plugin as their manager
+x-unraid: &unraid
+  net.unraid.docker.icon: "https://raw.githubusercontent.com/ingel81/3dtd/next/public/assets/images/logo/logo_square.png"
+  net.unraid.docker.managed: composeman
+
 services:
   overpass:
     # wiktorn/overpass-api v0.7.62.9 with overpass/start-overpass.sh in front (overpass/Dockerfile)
     image: ${OVERPASS_HOST_IMAGES:-ghcr.io/ingel81}/3dtd-osm-overpass:${OVERPASS_HOST_TAG:-latest}
     container_name: 3dtd-overpass
     restart: unless-stopped
+    labels: *unraid
     environment:
       OVERPASS_MODE: clone
       OVERPASS_META: "no"
@@ -51,6 +57,7 @@ services:
     image: ${OVERPASS_HOST_IMAGES:-ghcr.io/ingel81}/3dtd-osm-proxy:${OVERPASS_HOST_TAG:-latest}
     container_name: 3dtd-osm-proxy
     restart: unless-stopped
+    labels: *unraid
     command: ["src/proxy-main.ts"]
     environment:
       UPSTREAM: http://overpass/api/interpreter
@@ -87,6 +94,10 @@ services:
     image: ${OVERPASS_HOST_IMAGES:-ghcr.io/ingel81}/3dtd-osm-proxy:${OVERPASS_HOST_TAG:-latest}
     container_name: 3dtd-osm-status
     restart: unless-stopped
+    labels:
+      <<: *unraid
+      # WebUI in the Docker tab's menu: Unraid puts in the server's address and the host port of 8090
+      net.unraid.docker.webui: "http://[IP]:[PORT:8090]/"
     depends_on: [proxy]
     command: ["src/status-main.ts"]
     environment:
@@ -111,6 +122,7 @@ services:
     image: cloudflare/cloudflared:2026.9.3
     container_name: 3dtd-osm-tunnel
     restart: unless-stopped
+    labels: *unraid
     profiles: [tunnel]
     depends_on: [proxy]
     command: ["tunnel", "--no-autoupdate", "run"]
@@ -123,6 +135,7 @@ services:
   clone:
     image: ${OVERPASS_HOST_IMAGES:-ghcr.io/ingel81}/3dtd-osm-clone:${OVERPASS_HOST_TAG:-latest}
     profiles: [clone]
+    labels: *unraid
     environment:
       CLONE_JOBS: ${CLONE_JOBS:-2}
       CLONE_SPLIT: ${CLONE_SPLIT:-4}
