@@ -13,6 +13,7 @@ import { downloadBlob } from '../../../utils/download';
 import { WorldChoiceService } from '../../../world/world-choice.service';
 import { WorldSession } from '../../../world/world-session.service';
 import { AppScreen } from '../../../world/app-screen.service';
+import { BrowserBack } from '../../../world/browser-back.service';
 import { WorldsStageService } from '../../../worlds/worlds-stage.service';
 import { WorldPathComponent, type PathAction } from '../../../components/world-path/world-path.component';
 import { MatDialog } from '@angular/material/dialog';
@@ -59,6 +60,8 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   private readonly screens = inject(AppScreen);
   private readonly stage = inject(WorldsStageService);
   private readonly dialog = inject(MatDialog);
+  /** The browser's Back while the list shows: the step Esc takes (BrowserBack) */
+  private readonly offBack = inject(BrowserBack).register(() => this.browserBack());
   /** The run the editor came from, waiting as autosave: the way back goes to it */
   readonly waitingRun = this.screens.waitingRun;
   /** The way back, as its button says it: the run that waits, else where the editor was opened from */
@@ -120,6 +123,7 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.offBack();
     for (const u of this.urls) URL.revokeObjectURL(u);
   }
 
@@ -342,16 +346,32 @@ export class MapBrowserComponent implements OnInit, OnDestroy {
     // A dialog over the list and a list of addresses keep their own Esc
     if (event.defaultPrevented || this.dialog.openDialogs.length > 0) return;
     event.preventDefault();
+    this.stepBack();
+  }
+
+  /** One level up, for Esc and the browser's Back (BrowserBack); true when it took a step */
+  private stepBack(): boolean {
     if (this.session.library.importMatch()) void this.resolveImport('cancel');
     else if (this.session.library.importState()) this.closeImport();
     else if (this.confirmDelete() || this.confirmPurge()) {
       this.confirmDelete.set(null);
       this.confirmPurge.set(null);
     } else if (this.mode() === 'new') {
-      if (this.busy()) return;
+      if (this.busy()) return true;
       if (this.osmPlace()) this.osmPlace.set(null);
       else this.mode.set('details');
     } else this.back();
+    return true;
+  }
+
+  /** The browser's Back: a dialog over the list first, then the step Esc takes */
+  private browserBack(): boolean {
+    const dialogs = this.dialog.openDialogs;
+    if (dialogs.length > 0) {
+      dialogs[dialogs.length - 1].close();
+      return true;
+    }
+    return this.stepBack();
   }
 
   async startW3x(metresPerTile: number, maxObjects: number, cropToPlayable: boolean, enhance: boolean, waves: boolean): Promise<void> {

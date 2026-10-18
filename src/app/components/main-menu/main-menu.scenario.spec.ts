@@ -879,6 +879,30 @@ describe('The main menu', () => {
       expect(stage.leaveGame).toHaveBeenLastCalledWith(null, expect.objectContaining({ wave: 3, run: true, keeps: 'nothing' }));
     });
 
+    it('the browser’s Back goes one step up: the menu opens, a page goes back, the list leaves for the world’s menu', async () => {
+      await setup('pause');
+      game.towerCount.set(2);
+      menu.close();
+      await settle();
+      expect(menu.backStep()).toBe(true);
+      expect(ui.mainMenuOpen()).toBe(true);
+      menu.open('settings');
+      expect(menu.backStep()).toBe(true);
+      expect(menu.page()).toBe('home');
+      expect(menu.backStep()).toBe(true);
+      expect(stage.leaveGame).toHaveBeenCalledWith({ world: 'real', pick: expect.objectContaining({ kind: 'place' }) }, expect.objectContaining({ run: true }));
+      // Held behind the globes: they take it
+      session.parked.set({ world: 'real', pick: null, label: 'Heilbronn', wave: 1, run: true });
+      expect(menu.backStep()).toBe(false);
+      session.parked.set(null);
+      // In a coop room the page stays: the menu says why
+      stage.leaveGame.mockClear();
+      coop.room.set({ code: 'ABC123' });
+      await settle();
+      expect(menu.backStep()).toBe(true);
+      expect(stage.leaveGame).not.toHaveBeenCalled();
+    });
+
     it('in Dev world no World menu (it has none, the line under it said "Worlds"), All worlds is its way out', async () => {
       world.useDevWorld();
       await setup('pause');

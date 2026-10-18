@@ -1,3 +1,4 @@
+import { BrowserBack } from '../../../world/browser-back.service';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -234,12 +235,19 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
   }
 
   private readonly offChange: () => void;
+  /** The browser's Back in the editor: its help closes, else the map goes back to the editor's list (BrowserBack) */
+  private readonly offBack = inject(BrowserBack).register(() => {
+    if (this.help()) this.help.set(false);
+    else void this.leave();
+    return true;
+  });
 
   private destroyed = false;
 
   ngOnDestroy(): void {
     this.destroyed = true;
     this.offChange();
+    this.offBack();
     this.session.detachViewport();
   }
 

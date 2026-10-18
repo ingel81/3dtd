@@ -27,6 +27,7 @@ import { readDesktopBridge } from '../core/desktop-bridge';
 import { GlobeDirectorService, homeLongitude } from '../services/world/globe-director.service';
 import { SAVE_GAME } from '../services/save-game/save-game.port';
 import { WorldChoiceService } from '../world/world-choice.service';
+import { BrowserBack } from '../world/browser-back.service';
 import type { LatLon } from '../globe/globe-geo';
 import type { StageGlobeId } from '../globe/globe-stage';
 import { focusQuietly } from '../utils/keyboard-target';
@@ -211,6 +212,8 @@ export class WorldsStageComponent {
       if (this.globesOff()) untracked(() => this.stopGlobes());
     });
     inject(DestroyRef).onDestroy(() => this.stopGlobes());
+    // The browser's Back: the Esc chain, a dialog over the stage first; on the globes with nothing open it leaves
+    inject(DestroyRef).onDestroy(inject(BrowserBack).register(() => this.backStep()));
 
     // The focus as in the start menu: the first entry of the list, the first of a world's menu; back from a
     // world's menu on its globe, where the keyboard left for it
@@ -272,6 +275,16 @@ export class WorldsStageComponent {
 
   closeOverlay(): void {
     this.stage.closeOverlay();
+  }
+
+  /** One step up for the browser's Back (BrowserBack): a dialog over the stage, then the Esc chain */
+  private backStep(): boolean {
+    const dialogs = this.dialog.openDialogs;
+    if (dialogs.length > 0) {
+      dialogs[dialogs.length - 1].close();
+      return true;
+    }
+    return this.stage.back();
   }
 
   onEscape(event: Event): void {

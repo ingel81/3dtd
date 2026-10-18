@@ -1,4 +1,5 @@
 import { DestroyRef, Injectable, Injector, computed, effect, inject, signal, untracked } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
 import { UIStore } from '../../store/ui.store';
 import { GameStore } from '../../store/game.store';
 import { COOP } from '../../services/coop.token';
@@ -20,6 +21,7 @@ import { pageQuery } from '../../core/page-switches';
 import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 import { AppScreen } from '../../world/app-screen.service';
 import { WorldSession, type ParkedWorld } from '../../world/world-session.service';
+import { BrowserBack } from '../../world/browser-back.service';
 import type { OsmFrameRequest } from '../osm-frame/osm-frame-request';
 import { PLAIN_START } from '../../world/world-start';
 import { WorldsStageService } from '../../worlds/worlds-stage.service';
@@ -74,6 +76,8 @@ export class MainMenuService {
   private readonly start = inject(WorldStartService);
   private readonly screens = inject(AppScreen);
   private readonly session = inject(WorldSession);
+  /** Dialogs over the game (Extras' runs, keys): the browser's Back closes the top one first */
+  private readonly dialog = inject(MatDialog);
   /** This game stands held behind the globes (WorldSession.parked): paused, its frames stopped, the keys not its own */
   readonly parked = computed(() => this.session.parked() !== null);
   /** The custom maps are open (CUSTOM_MAPS_OPEN): the start list has its two tabs */
@@ -322,6 +326,8 @@ export class MainMenuService {
     });
     const offHeld = this.session.onLeaveParked((keep) => this.leaveHeld(keep));
     inject(DestroyRef).onDestroy(offHeld);
+    // The browser's Back in the game: one step up, as Esc, not off the page
+    inject(DestroyRef).onDestroy(inject(BrowserBack).register(() => this.backStep()));
     // A Built World played (its first wave or tower) goes on top of that world's Recent; a test of the map does not
     effect(() => {
       const ref = this.worldContext.ref();
@@ -636,6 +642,33 @@ export class MainMenuService {
    */
   private async leaveHeld(keep: boolean): Promise<void> {
     if (keep && this.underWay() && !this.store.isGameOver()) await this.saves.autosaveNow();
+  }
+
+  /**
+   * The browser's Back over the game (BrowserBack): a dialog over it closes, a page of the menu goes back,
+   * a closed menu opens; on the menu's list the game goes up to its world's menu (held behind the globes),
+   * the editor's test back to the editor. A loading Start is cancelled. In a coop room it stays: the menu
+   * says why the room cannot be left that way. False while the globes stand in front (they take it).
+   */
+  backStep(): boolean {
+    if (this.parked()) return false;
+    const dialogs = this.dialog.openDialogs;
+    if (dialogs.length > 0) {
+      dialogs[dialogs.length - 1].close();
+      return true;
+    }
+    if (!this.isOpen()) {
+      this.open();
+      return true;
+    }
+    if (this.starting()) {
+      this.cancelStart();
+      return true;
+    }
+    if (this.page() !== 'home') return this.back();
+    if (this.fromEditor) this.screens.openEditor(null);
+    else if (!this.leaveWhy()) this.leaveTo('world');
+    return true;
   }
 
   /** The loading of a Start stopped: back to the world's menu with its pick; the editor's test back to the editor */
