@@ -130,10 +130,17 @@ export function buildTwinGates(): CustomMapDocument {
   // Rock on the plateaus' faces, once the brushes shaped the ground: what grew on them makes room
   for (const p of ringAt(58)) k.erase(p, 5, (o) => o.asset.startsWith('castle') || o.asset.startsWith('fx'));
   k.cliffRocks(ringAt(58), { radius: 10 });
-  // A watermill on each arm of the river
-  const mill = { x: -64, y: 118 };
-  k.erase(mill, 8);
-  if (k.free(mill.x, mill.y, 4)) k.place('watermill', mill.x, mill.y, { rotation: facing(mill, { x: -40, y: 118 }) });
+  // A watermill on each arm of the river, its wheel (on the mill's east gable, its x) dipping into the stream: the mill
+  // stands on the west bank, the wheel over the water
+  let bed = -60;
+  for (let x = -80; x <= 0; x += 0.5) if (k.h(x, 118) < k.h(bed, 118)) bed = x;
+  const mill = { x: bed - 8.6, y: 118 };
+  k.erase(mill, 12);
+  // Down in the river's cut: a terrace dug into the bank half a metre over the stream (1.8 m deep), the mill on it
+  const millFloor = k.h(bed, 118) + 2.3;
+  k.level(mill, { radius: 10, falloff: 0.55 }, millFloor);
+  k.level({ x: mill.x - 6, y: mill.y }, { radius: 8, falloff: 0.8 }, millFloor + 0.4, 0.6);
+  if (k.free(mill.x, mill.y, 3)) k.place('watermill', mill.x, mill.y, { rotation: Math.PI });
   // Siege works before the north and south gates: a trebuchet aimed at the gate, a siege tower rolled up beside
   // the road, guns, gabions and a camp
   for (const sy of [1, -1]) {
