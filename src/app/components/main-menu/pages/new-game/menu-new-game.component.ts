@@ -36,8 +36,10 @@ import { PlacePickerComponent } from './place-picker.component';
       <section class="td-group">
         <p class="td-note">This game plays on a map. Another map, or a real place, is picked in the worlds: the game waits behind them.</p>
         <div class="td-actions is-start">
-          <button type="button" class="td-btn-primary" [attr.aria-disabled]="menu.leaveWhy() ? true : null" [attr.title]="menu.leaveWhy()"
-                  (click)="menu.leaveTo('world')">{{ menu.worldMenuLabel() }}</button>
+          @if (menu.worldMenuLabel(); as name) {
+            <button type="button" class="td-btn-primary" [attr.aria-disabled]="menu.leaveWhy() ? true : null" [attr.title]="menu.leaveWhy()"
+                    (click)="menu.leaveTo('world')">{{ name }}</button>
+          }
           <button type="button" class="td-btn-secondary" [attr.aria-disabled]="menu.leaveWhy() ? true : null" [attr.title]="menu.leaveWhy()"
                   (click)="menu.leaveTo('globes')">All worlds</button>
         </div>

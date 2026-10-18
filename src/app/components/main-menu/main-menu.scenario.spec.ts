@@ -256,7 +256,7 @@ describe('The main menu', () => {
       await setup();
 
       expect(el().querySelector('[role="tablist"]')).toBeNull();
-      expect(entries()).toEqual(['Continue', 'Play', 'New game', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor', 'World menu', 'All worlds']);
+      expect(entries()).toEqual(['Continue', 'Play', 'Coop', 'Load game', 'Settings', 'Extras', 'Map editor', 'World menu', 'All worlds']);
       expect(entry('continue')?.querySelector('.mh-sub')?.textContent).toBe('Ember Crater (copy) | wave 4');
       expect(text()).not.toContain('Binswangen');
     });
@@ -879,6 +879,13 @@ describe('The main menu', () => {
       expect(stage.leaveGame).toHaveBeenLastCalledWith(null, expect.objectContaining({ wave: 3, run: true, keeps: 'nothing' }));
     });
 
+    it('in Dev world no World menu (it has none, the line under it said "Worlds"), All worlds is its way out', async () => {
+      world.useDevWorld();
+      await setup('pause');
+      expect(entries()).not.toContain('World menu');
+      expect(entries()).toContain('All worlds');
+    });
+
     it('a run lost: the head says Game over, Save stays in its place locked with why, the hold says it is over', async () => {
       await setup('pause');
       game.towerCount.set(2);
@@ -935,7 +942,8 @@ describe('The main menu', () => {
       await settle();
       const edit = vi.spyOn(menu, 'editThisMap').mockResolvedValue(undefined);
 
-      expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'New game', 'Coop', 'Edit this map', 'World menu', 'All worlds', 'Restart here']);
+      // On a map no New game: its other maps and places are the worlds' (World menu, All worlds)
+      expect(entries()).toEqual(['Continue', 'Save game', 'Load game', 'Settings', 'Extras', 'Coop', 'Edit this map', 'World menu', 'All worlds', 'Restart here']);
       await click(entry('edit-map'));
       expect(edit).not.toHaveBeenCalled();
       expect(text()).toContain('Edit this map? The run ends.');

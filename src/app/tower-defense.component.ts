@@ -1099,11 +1099,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.facade.restartGame();
   }
 
-  /** "Menu" on the game-over screen: the menu over the game, the same as Esc and the sidebar's Menu */
-  openMainMenu(): void {
-    this.mainMenu.open();
-  }
-
   // ==================== Location Settings Methods (delegates to LocationChangeCoordinatorService) ====================
 
   /** Apply new location - delegates to coordinator */

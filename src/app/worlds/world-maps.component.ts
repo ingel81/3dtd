@@ -18,7 +18,6 @@ import { WorldsStageService } from './worlds-stage.service';
   styleUrl: './world-menu.scss',
   template: `
     <div class="wm-body">
-      <p class="td-note">Every map that exists as a file: shipped, from coop hosts and yours, in the engine's own look.</p>
       @if (lock()) {
         <p class="td-banner is-warn">Built worlds and the editor are coming soon in this build.</p>
       }

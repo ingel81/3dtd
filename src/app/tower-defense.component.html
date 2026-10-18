@@ -393,7 +393,9 @@
               }
             </span>
             <span class="td-inline td-end-actions">
-              <button type="button" class="td-btn-secondary" (click)="openMainMenu()">Menu</button>
+              <!-- To the globes, the game held behind them, as All worlds in the pause menu; a coop room says why not -->
+              <button type="button" class="td-btn-secondary" [attr.aria-disabled]="mainMenu.leaveWhy() ? true : null"
+                      [matTooltip]="mainMenu.leaveWhy() ?? ''" (click)="mainMenu.leaveTo('globes')">All worlds</button>
               <!-- A custom map: straight into the editor on it, or back to the editor that tests it -->
               @if (mainMenu.editableMapId() !== null) {
                 <button type="button" class="td-btn-secondary" [attr.aria-disabled]="mainMenu.editWhy() ? true : null" [matTooltip]="mainMenu.editWhy() ?? ''"

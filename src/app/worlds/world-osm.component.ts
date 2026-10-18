@@ -28,7 +28,6 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
         <app-osm-frame [place]="frame.place" [spawnsAt]="frame.spawnsAt" [backLink]="false" (back)="stage.frameBack()"
                        (done)="stage.frameDone($event.summary, $event.then)" />
       } @else {
-        <p class="td-note">Maps made from OpenStreetMap streets. No map key needed.</p>
         @if (lock()) {
           <p class="td-banner is-warn">Maps from OpenStreetMap are coming soon in this build.</p>
         }

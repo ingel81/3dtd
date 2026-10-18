@@ -39,6 +39,6 @@ describe('whyNot', () => {
     expect(worldName('real')).toBe('Real places');
     expect(worldName('osm')).toBe('OpenStreetMap');
     expect(worldName('maps')).toBe('Built Worlds');
-    expect(worldName(null)).toBe('DevWorld');
+    expect(worldName(null)).toBe('Dev world');
   });
 });

@@ -154,8 +154,9 @@ export class MenuHomeComponent {
 
     // Back to the worlds: the game is held behind them (docs/WORLDS_STATE_PLAN.md, 3.7); in a coop room locked with why
     const leaveWhy = menu.leaveWhy();
+    const worldMenu = menu.worldMenuLabel();
     const leave = [
-      { ...entry('world-menu', 'World menu', leaveWhy ?? menu.worldMenuLabel(), true), why: leaveWhy },
+      ...(worldMenu ? [{ ...entry('world-menu', 'World menu', leaveWhy ?? worldMenu, true), why: leaveWhy }] : []),
       { ...entry('worlds', 'All worlds', leaveWhy, true), why: leaveWhy },
     ];
 
@@ -166,7 +167,7 @@ export class MenuHomeComponent {
       if (solo && menu.underWay()) list.push({ ...entry('save', 'Save game', saveWhy), why: saveWhy });
       if (solo) list.push(entry('load', 'Load game'));
       list.push(entry('settings', 'Settings'), entry('extras', 'Extras'));
-      if (menu.canChangePlace()) list.push(entry('new-game', 'New game', null, true));
+      if (menu.offersNewGame()) list.push(entry('new-game', 'New game', null, true));
       list.push(entry('coop', 'Coop', null, true));
       if (menu.editableMapId() !== null) list.push({ ...entry('edit-map', menu.editMapLabel, menu.editWhy(), true), why: menu.editWhy() });
       list.push(...leave);
@@ -189,7 +190,7 @@ export class MenuHomeComponent {
     // A place in the link: it is what the player came for
     if (menu.linkedPlace) head.reverse();
     // No place yet: choosing one comes first
-    const choose = menu.canChangePlace();
+    const choose = menu.offersNewGame();
     if (choose && !menu.hasPlace()) head.push(entry('new-game', 'New game'));
     list.push(...head);
     if (choose && menu.hasPlace()) list.push(entry('new-game', 'New game'));

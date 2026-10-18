@@ -62,7 +62,7 @@ export type PathAction = 'worlds' | 'world' | 'play' | 'edit' | { chip: string }
   `],
 })
 export class WorldPathComponent {
-  /** The world the window shows or edits: "Real places", "Built Worlds", "DevWorld" ...; null on the globes */
+  /** The world the window shows or edits: "Real places", "Built Worlds", "Dev world" ...; null on the globes */
   readonly world = input<string | null>(null);
   /** The world's own menu, with nothing picked in it: the path ends at the world */
   readonly worldHere = input(false);

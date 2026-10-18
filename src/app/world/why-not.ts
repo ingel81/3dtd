@@ -67,5 +67,5 @@ export function whyNot(way: PathWay, facts: WhyNotFacts): string | null {
  * is none of them
  */
 export function worldName(world: WorldId | null): string {
-  return world ? WORLD_NAMES[world] : 'DevWorld';
+  return world ? WORLD_NAMES[world] : 'Dev world';
 }

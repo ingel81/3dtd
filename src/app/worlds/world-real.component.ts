@@ -36,7 +36,6 @@ const LISTS: readonly { id: RealList; label: string }[] = [
   styleUrl: './world-menu.scss',
   template: `
     <div class="wm-body">
-      <p class="td-note">Google Photorealistic 3D Tiles through Cesium Ion or a Google Maps key.</p>
       @if (noKey()) {
         <div class="td-banner is-warn td-stack">
           <p>No map key: the 3D tiles need a Cesium Ion token or a Google Maps key. You can still look around and pick a place.</p>

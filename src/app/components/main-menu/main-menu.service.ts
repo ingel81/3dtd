@@ -25,7 +25,7 @@ import { PLAIN_START } from '../../world/world-start';
 import { WorldsStageService } from '../../worlds/worlds-stage.service';
 import { worldOfPage } from '../../world/world-of-page';
 import { recordRecentMap } from '../../worlds/recent-maps';
-import { autosaveSlotOf, samePick, type WorldId, type WorldPick } from '../../worlds/world-rules';
+import { WORLD_NAMES, autosaveSlotOf, samePick, type WorldId, type WorldPick } from '../../worlds/world-rules';
 import { whyNot } from '../../world/why-not';
 import { BackgroundMusicService } from '../../game-engine/background-music.service';
 
@@ -264,6 +264,11 @@ export class MainMenuService {
   readonly canRestart = computed(() => this.facade !== null && !this.inCoop() && this.hasPlace());
   /** The place is the player's to change: not in a coop game, not for a guest in a lobby (coopMapLocked) */
   readonly canChangePlace = computed(() => !this.inCoop() && !this.ui.coopMapLocked());
+  /**
+   * New game in the list: another place of this world (the place picker). Not on a map, whose other maps
+   * and places are the worlds' (World menu, All worlds right under it): no entry that only points there
+   */
+  readonly offersNewGame = computed(() => this.canChangePlace() && this.worldContext.capabilities().realPlace);
   /** Quit exists where the app can end itself: the desktop build from 0.5.1 on */
   readonly canQuit = typeof this.bridge?.quit === 'function';
 
@@ -560,10 +565,10 @@ export class MainMenuService {
    */
   readonly editWhy = computed(() => (this.fromEditor ? null : whyNot('edit', this.wayFacts())));
 
-  /** The world menu of this world's kind, as the pause menu names it */
+  /** The menu of this page's world, by its name; null in Dev world, which has none (All worlds is its way out) */
   readonly worldMenuLabel = computed(() => {
     const world = this.worldOfPage();
-    return world === 'real' ? 'Real places' : world === 'osm' ? 'OpenStreetMap' : world === 'maps' ? 'Built Worlds' : 'Worlds';
+    return world ? WORLD_NAMES[world] : null;
   });
 
   /**
