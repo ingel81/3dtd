@@ -676,7 +676,13 @@ Aus Katalogeinträgen mit `effects` und `light` (auch Einträge ohne Modell, `fi
   dem Boden, mit ihm geneigt, im Umriss je eines auf eigener Schleife (3 je Dichte 1, höchstens 16) oder auf der Linie
   in zwei Spuren 2,5 m neben ihr (2), mit `speed` m/s (Standard 1,5, je eines bis 20 % anders). Mit `height` hängen
   sie an einer Geraden statt am Boden: auf einer Linie von `height` über dem Boden am Anfang zu `height` über dem Boden
-  am Ende (eine Gondel am Seil), im Umriss `height` über seiner Mitte; dann ungeneigt. Die Gegner und Tower sehen sie
+  am Ende, im Umriss `height` über seiner Mitte; dann ungeneigt. Liegen unter einer solchen Linie Seile (Objekte mit
+  Katalog `cable`: die Seilbahn-Spannen, zwei Seile `gauge` auseinander, `length` lang, geneigt mit ihrem `pitch`;
+  `effects/cable-ride.ts`), fahren die Dinge die Seile: die zwei Spuren liegen ein halbes `gauge` neben der Linie, jeder
+  Punkt der Schleife nimmt die Höhe des Seils darunter, Lücken (Rolle am Mast, Wende um das Rad der Station) die
+  Höhe zwischen den Nachbarn, und das Ding hängt an seinem Griff (Katalog `grip`, die Gondel 4,4 m, sonst seine Höhe).
+  Eine Seilbahn bekommt so fahrende Gondeln aus einer Linie von Station zu Station; versetzte Spannen nehmen die Gondeln
+  mit (die Ansicht baut sie neu, wenn sich Seil-Objekte ändern). Mountain Pass: vier Gondeln. Die Gegner und Tower sehen sie
   nicht. Der Weg einer Bodenlinie (ohne `height`) bleibt frei: die Schleife, die sie fahren (`moverWays`, map-life.ts),
   und 1,8 m zu jeder Seite; das `lifeRoute` des Kartenwerkzeugs und des Agenten räumt Felsen, Bäume und Pflanzen von
   dort ab, alles Übrige (Gebäude, Mauern, Props) meldet die Prüfung (`object-on-mover-route`)

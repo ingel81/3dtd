@@ -12851,6 +12851,7 @@
       "wind": 0,
       "drawDistance": 1500,
       "aloft": true,
+      "grip": 4.4,
       "tags": [
         "mountain",
         "winter"
@@ -12875,6 +12876,10 @@
       "wind": 0,
       "drawDistance": 2500,
       "aloft": true,
+      "cable": {
+        "gauge": 5.2,
+        "length": 10
+      },
       "tags": [
         "mountain",
         "winter"
@@ -12899,6 +12904,10 @@
       "wind": 0,
       "drawDistance": 2500,
       "aloft": true,
+      "cable": {
+        "gauge": 5.2,
+        "length": 20
+      },
       "tags": [
         "mountain",
         "winter"
@@ -12923,6 +12932,10 @@
       "wind": 0,
       "drawDistance": 2500,
       "aloft": true,
+      "cable": {
+        "gauge": 5.2,
+        "length": 40
+      },
       "tags": [
         "mountain",
         "winter"

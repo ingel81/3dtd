@@ -1,17 +1,20 @@
 import { Group, InstancedMesh, type Material, Matrix4, Quaternion, Vector3 } from 'three';
-import type { MapLifeArea } from '../../map-document';
+import type { MapLifeArea, MapPoint } from '../../map-document';
 import { areaDensity, centroid, DEFAULT_BOAT, lifeSeed, lifeRandom, loopInside, MOVER_LANE, routeLoop } from '../../map-life';
 import { addHeightFog } from '../environment/height-fog';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary } from '../map-asset-library';
 import { mapToScene } from '../map-coords';
+import { ropeHeightAt, ropeHeights, type Rope } from './cable-ride';
 
 /**
  * Things of the life areas (map-life.ts) that go round: boats (kind `boats`)
  * drifting on the water with the rocking of floating objects, and movers
  * (kind `movers`: a rover, a cart, grazing animals) going over the ground,
- * pitched with it, or with a `height` hanging from a straight line (a
- * gondola on its cable). Each goes round a loop of its own inside an area's
+ * pitched with it, or with a `height` hanging from a line: the ropes of
+ * the cables placed under its route (cable-ride.ts; a gondola rides out on
+ * one rope and back on the other, hanging by its grip, catalogue `grip`),
+ * else a straight line `height` over the ground. Each goes round a loop of its own inside an area's
  * outline, or up a route on one side and back on the other, front ahead. One
  * instanced mesh per part of each model; the CPU moves a few dozen matrices
  * a frame. Drawn only: they block neither sight nor building nor the
@@ -28,6 +31,8 @@ const KINDS = {
 const LOOP_SAMPLES = 64;
 /** A mover's speed when its area names none, m/s */
 export const MOVER_SPEED = 1.5;
+/** Metres across a rope within which a hanging mover's loop counts as on it */
+const ROPE_REACH = 1.5;
 
 interface Mover {
   /** Scene points of its loop (on the water or the ground), and the running length to each */
@@ -71,8 +76,11 @@ export class LifeMovers {
     this.group.userData['losTransparent'] = true;
   }
 
-  /** What goes round in these areas (those of kind boats and movers), `factor` the map's density; a later call wins over one still loading */
-  async set(areas: readonly MapLifeArea[], factor: number): Promise<void> {
+  /**
+   * What goes round in these areas (those of kind boats and movers), `factor` the map's density, `ropes` the
+   * cables a hanging mover rides; a later call wins over one still loading
+   */
+  async set(areas: readonly MapLifeArea[], factor: number, ropes: readonly Rope[] = []): Promise<void> {
     const generation = ++this.generation;
     const fleets: Fleet[] = [];
     for (const area of areas) {
@@ -82,7 +90,7 @@ export class LifeMovers {
       const model = await this.assets.model(asset).catch(() => null);
       if (generation !== this.generation) return;
       if (!model || model.placeholder) continue;
-      const movers = this.moversOf(area, factor);
+      const movers = this.moversOf(area, factor, ropes, model.entry.grip ?? model.entry.height);
       if (!movers.length) continue;
       const meshes = model.parts.map((part) => {
         const mesh = new InstancedMesh(part.geometry, this.material(part.material), movers.length);
@@ -113,8 +121,11 @@ export class LifeMovers {
     }
   }
 
-  /** The area's movers on their loops: boats on the water (over land at the level of the water they last crossed), movers on the ground */
-  private moversOf(area: MapLifeArea, factor: number): Mover[] {
+  /**
+   * The area's movers on their loops: boats on the water (over land at the level of the water they last crossed),
+   * movers on the ground, hanging ones on the ropes under their route by their `grip` (else on a straight line)
+   */
+  private moversOf(area: MapLifeArea, factor: number, ropes: readonly Rope[], grip: number): Mover[] {
     const kind = KINDS[area.kind as keyof typeof KINDS];
     const floats = area.kind === 'boats';
     const onArea = area.shape === 'area';
@@ -124,17 +135,23 @@ export class LifeMovers {
     const [slow, fast] = onArea ? kind.areaSpeed : kind.routeSpeed;
     const own = floats ? 1 : (area.speed ?? MOVER_SPEED) / MOVER_SPEED;
     const out: Mover[] = [];
+    const hanging = !floats && area.height !== undefined;
+    // A hanging route along a cable keeps to its ropes: its two lanes half the ropes' gauge off its line
+    const gauge = hanging && !onArea && ropes.length ? this.gaugeUnder(area.points, ropes) : null;
     for (let k = 0; k < count; k++) {
-      const flat = onArea ? loopInside(area.points, seed + k * 7919, LOOP_SAMPLES, 0.35 + random() * 0.5) : routeLoop(area.points, kind.lane);
+      const flat = onArea ? loopInside(area.points, seed + k * 7919, LOOP_SAMPLES, 0.35 + random() * 0.5) : routeLoop(area.points, gauge !== null ? gauge / 2 : kind.lane);
       let level: number | null = null;
       const first = floats ? (flat.map((p) => this.waterLevelAt(p.x, p.y)).find((l) => l !== null) ?? null) : null;
-      const aloft = !floats && area.height !== undefined ? this.cable(area) : null;
-      const loop = flat.map((p) => {
+      const onRopes = gauge !== null ? ropeHeights(flat, ropes, ROPE_REACH) : null;
+      const aloft = hanging && !onRopes ? this.cable(area) : null;
+      const loop = flat.map((p, i) => {
         const h = floats
           ? (level = this.waterLevelAt(p.x, p.y) ?? level ?? first ?? this.field.heightAt(p.x, p.y))
-          : aloft
-            ? aloft(p.x, p.y)
-            : this.field.heightAt(p.x, p.y);
+          : onRopes
+            ? onRopes[i] - grip
+            : aloft
+              ? aloft(p.x, p.y)
+              : this.field.heightAt(p.x, p.y);
         return mapToScene(p.x, p.y, h, new Vector3());
       });
       const along = [0];
@@ -142,9 +159,29 @@ export class LifeMovers {
       // In an area each goes its own way round; on a route all keep to their lane
       const way = onArea && random() < 0.5 ? -1 : 1;
       const speed = (slow + random() * (fast - slow)) * (floats ? 1 : MOVER_SPEED) * own;
-      out.push({ loop, along, speed: speed * way, phase: random(), floats, pitched: !floats && !aloft });
+      out.push({ loop, along, speed: speed * way, phase: random(), floats, pitched: !floats && !hanging });
     }
     return out;
+  }
+
+  /** The gauge of the ropes the route runs along (those under most of its points), null when it runs along none */
+  private gaugeUnder(points: readonly MapPoint[], ropes: readonly Rope[]): number | null {
+    const gauges: number[] = [];
+    for (let i = 0; i < points.length - 1; i++) {
+      const mid = { x: (points[i].x + points[i + 1].x) / 2, y: (points[i].y + points[i + 1].y) / 2 };
+      // The route runs between the two ropes: a point half a gauge to either side lies on one
+      for (const r of ropes) {
+        const len = Math.hypot(r.b.x - r.a.x, r.b.y - r.a.y) || 1;
+        const n = { x: -(r.b.y - r.a.y) / len, y: (r.b.x - r.a.x) / len };
+        const off = r.gauge / 2;
+        const onIt = [1, -1].some((side) => ropeHeightAt([r], { x: mid.x + n.x * off * side, y: mid.y + n.y * off * side }, ROPE_REACH) !== null);
+        if (onIt) {
+          gauges.push(r.gauge);
+          break;
+        }
+      }
+    }
+    return gauges.length ? gauges.sort((a, b) => a - b)[gauges.length >> 1] : null;
   }
 
   /**

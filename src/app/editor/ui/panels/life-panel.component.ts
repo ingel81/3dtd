@@ -121,7 +121,7 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
             <app-editor-range label="Over the ground" unit="m" [min]="1" [max]="150" [value]="a.height"
                               (changing)="liveArea(a.id, { height: $event })" (changed)="commitArea(a.id, { height: $event }, 'Mover height')" />
           }
-          <p class="td-note">Goes round inside the outline, or up the line on one side and back on the other, over the ground. Drawn only: enemies and towers do not see it.</p>
+          <p class="td-note">Goes round inside the outline, or up the line on one side and back on the other, over the ground. Hanging from a line along cable spans, it rides their ropes. Drawn only: enemies and towers do not see it.</p>
         }
         @if (a.kind === 'boats') {
           <label class="td-setting">

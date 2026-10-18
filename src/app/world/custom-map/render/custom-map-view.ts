@@ -21,7 +21,7 @@ import {
   type ShadowMapType,
   type WebGLRenderer,
 } from 'three';
-import type { CustomMapDocument, MapEnvironment, MapObject, MapWaterKind } from '../map-document';
+import type { CustomMapDocument, MapEnvironment, MapLifeArea, MapObject, MapWaterKind } from '../map-document';
 import { HeightField } from './height-field';
 import type { MapAssetLibrary } from './map-asset-library';
 import type { AssetCatalog, CatalogObject } from './asset-catalog';
@@ -32,6 +32,7 @@ import { EffectLayer, glowStandIn } from './effects/effect-layer';
 import { shaftStandIn } from './effects/light-shafts';
 import { circleFlock, type Flock } from './effects/bird-flocks';
 import { LifeMovers } from './effects/life-movers';
+import { cableRopes } from './effects/cable-ride';
 import { LifeHaze } from './effects/life-haze';
 import { areaShown, lifeSwitches } from '../map-life';
 import type { MapBiome } from '../map-document';
@@ -926,6 +927,7 @@ export class CustomMapView {
    * them shown anew; resolves when their models are in
    */
   setObjects(): Promise<void> {
+    this.refreshHangingMovers();
     return Promise.all([this.objects.setObjects(this.takeShown()), this.refreshEffects(), this.refreshContact(), this.refreshEdgeTrees()]).then(
       () => undefined,
     );
@@ -971,6 +973,9 @@ export class CustomMapView {
       }
     }
     this.shownList = null;
+    // A cable placed, moved or taken away: the gondolas riding it follow
+    const cables = this.entries?.map;
+    if (!cables || [...added, ...removed, ...moved, ...was].some((o) => cables.get(o.asset)?.cable)) this.refreshHangingMovers();
     this.moveObjects(moved, was);
     this.removeObjects(removed);
     return this.addObjects(added);
@@ -1136,10 +1141,21 @@ export class CustomMapView {
     this.haze.set(shown, this.mapEffects.lavaGlow && lifeSwitches(this.doc.life).density > 0 ? this.sceneCopy : null);
   }
 
-  /** The life areas' boats and movers, on levels that show them */
-  private refreshMovers(): Promise<void> {
+  /** The life areas' boats and movers, on levels that show them; hanging movers ride the ropes of the cables placed */
+  private async refreshMovers(): Promise<void> {
     const shown = (this.doc.life?.areas ?? []).filter((a) => (a.kind === 'boats' || a.kind === 'movers') && areaShown(a, this.lifeShare));
-    return this.movers.set(shown, lifeSwitches(this.doc.life).density);
+    let ropes: ReturnType<typeof cableRopes> = [];
+    if (shown.some(hangs)) {
+      const entries = this.catalogEntries(await this.assets.catalog());
+      if (this.disposed) return;
+      ropes = cableRopes(this.doc.objects, (asset) => entries.get(asset), (x, y) => this.heights.heightAt(x, y));
+    }
+    return this.movers.set(shown, lifeSwitches(this.doc.life).density, ropes);
+  }
+
+  /** Movers hanging from a line follow the cables: after objects change that may be some */
+  private refreshHangingMovers(): void {
+    if ((this.doc.life?.areas ?? []).some((a) => hangs(a) && areaShown(a, this.lifeShare))) void this.refreshMovers();
   }
 
   /** Banners' cloth waves on maps that ask for it (life.flags), on levels that show the map's life */
@@ -1653,4 +1669,9 @@ function lowGround(heights: Float32Array, waterLevel: number | undefined): numbe
 /** The switchable map effects a quality level sets */
 function effectsOfQuality(q: CustomMapQuality): Partial<MapEffects> {
   return { refraction: q.refraction, seaWaves: q.seaWaves, lavaGlow: q.lavaGlow, shadowCascade: q.shadowCascade, waterDetail: q.waterDetail, reflection: q.waterReflection > 0 };
+}
+
+/** A mover hanging from a line (a gondola), which rides the cables placed under its route */
+function hangs(a: MapLifeArea): boolean {
+  return a.kind === 'movers' && a.height !== undefined;
 }

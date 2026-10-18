@@ -214,6 +214,14 @@ export interface CatalogObject {
    */
   rotor?: number;
   /**
+   * A cable's span (a cable car's ropes, effects/cable-ride.ts): two ropes
+   * `gauge` metres apart along its front, `length` long at scale 1, at the
+   * height of its origin; movers hanging from a line along it ride them
+   */
+  cable?: { gauge: number; length: number };
+  /** Metres from the origin up to where a hanging mover holds its rope (a gondola's grip); default its height */
+  grip?: number;
+  /**
    * Looks of the model in its baked texture atlas (a grid, 2 x 2 for four):
    * each instance shows the one its place picks (objects/atlas-variants.ts),
    * a herd of one cow model shows several breeds
