@@ -31,7 +31,9 @@ describe('OSM world life from data (frozen probe Miltenberg)', () => {
 
     // The Main with its seamarks: a waterway with ships, the boats on its water
     const river = areas.find((a) => a.kind === 'boats' && a.shape === 'route')!;
-    expect(river.asset).toBe('fishing-boat');
+    // The Main through Miltenberg is wider than 40 m: a barge
+    expect(river.asset).toBe('river-barge');
+    expect(report.life.boats).toBe('river-barge');
     // As many boats as the river is long: about one per 270 m (three per 800 m), never fewer than half the default
     expect(river.density).toBeGreaterThanOrEqual(0.5);
     const inWater = river.points.filter((p) => onWater(doc.terrain, p)).length;

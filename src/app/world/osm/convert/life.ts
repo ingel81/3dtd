@@ -1,7 +1,7 @@
 /**
  * Life of an OSM world from its data (docs/OSM_WORLD_ROUND2_PLAN.md, E240), with the life areas and the intro of
  * any custom map (map-life.ts, map-intro.ts), so the editor shows and changes them like hand-made ones: boats on the
- * river (barges where ships go: seamarks, locks), gulls over it, boats in a marina, crows round the church nearest
+ * river (a barge on a broad waterway with ships: seamarks, locks), gulls over it, boats in a marina, crows round the church nearest
  * the HQ whose bell rings at each wave (else a ship's horn on a waterway with ships), the look's own ambient sound,
  * and an intro flight from the best landmark to the HQ. Drawn and heard only; the game's rules never read it.
  */
@@ -12,7 +12,7 @@ import type { CustomMapDocument, MapIntro, MapIntroView, MapLife, MapLifeArea, M
 import { LIFE_AREA_DENSITY, MAX_LIFE_POINTS } from '../../custom-map/map-life';
 import type { OsmFeatures } from '../osm-parse';
 import type { WaterResult } from './water';
-import { sampleGrid } from './raster';
+import { distanceField, sampleGrid } from './raster';
 import type { Landmark } from './anchors';
 
 export interface LifeReport {
@@ -36,6 +36,14 @@ const MIN_BOAT_ROUTE_M = 250;
  * long, between half and the most an area takes
  */
 const RIVER_M_PER_DENSITY = 800;
+/**
+ * The boat a river carries by its width (twice the median distance from its
+ * line to the shore) where ships go: a barge on a broad waterway (the Main,
+ * the Rhine, a harbour's river), a smaller boat on a canal; rowing boats
+ * where no ships go
+ */
+const BARGE_MIN_WIDTH = 40;
+const BOAT_MIN_WIDTH = 12;
 /** Seamarks on the map from which its river counts as a waterway with ships */
 const SHIPPING_SEAMARKS = 3;
 /** The church whose bell rings stands at most this far (m) from the HQ */
@@ -62,10 +70,10 @@ export function growLife(doc: CustomMapDocument, features: OsmFeatures, water: W
   let riverId: string | null = null;
   if (river) {
     riverId = id('boats');
-    report.boats = shipping ? 'fishing-boat' : 'rowboat';
-    const density = Math.min(LIFE_AREA_DENSITY.max, Math.max(0.5, polylineLength(river) / RIVER_M_PER_DENSITY)) * (shipping ? 1 : 0.6);
-    areas.push({ id: riverId, kind: 'boats', shape: 'route', points: river, asset: report.boats, density: Math.round(density * 10) / 10 });
-    areas.push({ id: id('gulls'), kind: 'birds', shape: 'route', points: river, species: 'gulls', height: 30, density: 0.7 });
+    report.boats = !shipping || river.width < BOAT_MIN_WIDTH ? 'rowboat' : river.width >= BARGE_MIN_WIDTH ? 'river-barge' : 'fishing-boat';
+    const density = Math.min(LIFE_AREA_DENSITY.max, Math.max(0.5, polylineLength(river.points) / RIVER_M_PER_DENSITY)) * (shipping ? 1 : 0.6);
+    areas.push({ id: riverId, kind: 'boats', shape: 'route', points: river.points, asset: report.boats, density: Math.round(density * 10) / 10 });
+    areas.push({ id: id('gulls'), kind: 'birds', shape: 'route', points: river.points, species: 'gulls', height: 30, density: 0.7 });
   }
   const marinas = features.areas
     .filter((a) => a.tags['leisure'] === 'marina' && a.outer.length)
@@ -153,8 +161,12 @@ function isShipping(features: OsmFeatures): boolean {
   return seamarks >= SHIPPING_SEAMARKS;
 }
 
-/** The longest stretch of a river or canal line that runs on the map's water, null for none long enough */
-function riverRoute(doc: CustomMapDocument, features: OsmFeatures, water: WaterResult): MapPoint[] | null {
+/**
+ * The longest stretch of a river or canal line that runs on the map's water
+ * and the water's width along it (twice the median distance to the shore),
+ * null for none long enough
+ */
+function riverRoute(doc: CustomMapDocument, features: OsmFeatures, water: WaterResult): { points: MapPoint[]; width: number } | null {
   const t = doc.terrain;
   const grid = sampleGrid(t.width, t.grid.cellSize);
   const wet = (p: MapPoint) => {
@@ -181,7 +193,12 @@ function riverRoute(doc: CustomMapDocument, features: OsmFeatures, water: WaterR
     }
     close();
   }
-  return bestLength >= MIN_BOAT_ROUTE_M ? fitPoints(best, 3) : null;
+  if (bestLength < MIN_BOAT_ROUTE_M) return null;
+  const toShore = distanceField(water.wet, grid.n, grid.step, BARGE_MIN_WIDTH);
+  const reach = best
+    .map((p) => toShore[Math.round((p.y - grid.origin) / grid.step) * grid.n + Math.round((p.x - grid.origin) / grid.step)])
+    .sort((a, b) => a - b);
+  return { points: fitPoints(best, 3), width: Math.round(2 * reach[Math.floor(reach.length / 2)]) };
 }
 
 /**
