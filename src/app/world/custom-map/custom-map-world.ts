@@ -750,7 +750,6 @@ export class CustomMapWorld implements WorldProvider {
   /** The map's middle where the frame puts map (0, 0) */
   private placeView(): void {
     if (!this.view) return;
-    this.view.group.position.set(this.frame.sceneX(0), 0, this.frame.sceneZ(0));
-    this.view.losBlockers.position.copy(this.view.group.position);
+    this.view.placeAt(this.frame.sceneX(0), this.frame.sceneZ(0));
   }
 }

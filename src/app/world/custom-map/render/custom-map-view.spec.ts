@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { InstancedMesh, Mesh, PerspectiveCamera, Ray, Scene, Vector3, WebGLRenderTarget, type Object3D } from 'three';
+import { InstancedMesh, Matrix4, Mesh, PerspectiveCamera, Ray, Scene, Vector3, WebGLRenderTarget, type Object3D } from 'three';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createDemoMap } from '../demo-map';
 import type { CustomMapDocument, MapPaths, MapRiver } from '../map-document';
@@ -391,6 +391,69 @@ describe('CustomMapView', () => {
     view.setEnvironment({ ...doc.environment, sky: 'dusk' });
     view.dispose();
     expect(scene.children.length).toBe(0);
+  }, 30_000);
+
+  /** V1: the map stood still and three multiplied every world matrix in it again each frame */
+  it('computes its world matrices after a move or an edit, not every frame', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const doc = createDemoMap();
+    const view = new CustomMapView(doc, offlineLibrary());
+    await view.ready;
+    const scene = new Scene();
+    scene.matrixAutoUpdate = false;
+    view.attach(scene);
+    const camera = new PerspectiveCamera(55, 1.6, 0.5, 8000);
+    camera.position.copy(mapToScene(0, -300, 200, new Vector3()));
+    camera.lookAt(mapToScene(0, 0, 0, new Vector3()));
+    camera.updateMatrixWorld();
+    const frame = (): number => {
+      const spy = vi.spyOn(Matrix4.prototype, 'multiplyMatrices');
+      try {
+        view.update(1 / 60, camera);
+        scene.updateMatrixWorld();
+        return spy.mock.calls.length;
+      } finally {
+        spy.mockRestore();
+      }
+    };
+    let nodes = 0;
+    scene.traverse(() => void nodes++);
+    frame();
+    frame();
+    // A frame multiplies for the camera's queries and the sun's box, a handful, none for the map's nodes
+    const still = frame();
+    console.log(`[V1] ${nodes} nodes, ${still} multiplications in a still frame`);
+    expect(nodes).toBeGreaterThan(100);
+    expect(still).toBeLessThan(40);
+
+    // Moved: every world matrix below follows at once, the sight blockers beside the group alike
+    const meshes: Mesh[] = [];
+    scene.traverse((o) => {
+      if (o instanceof Mesh) meshes.push(o);
+    });
+    const local = meshes.map((m) => new Vector3().setFromMatrixPosition(m.matrixWorld));
+    view.placeAt(120, -80);
+    meshes.forEach((m, k) => {
+      const at = new Vector3().setFromMatrixPosition(m.matrixWorld);
+      expect(at.x - local[k].x, m.name).toBeCloseTo(120, 6);
+      expect(at.z - local[k].z, m.name).toBeCloseTo(-80, 6);
+    });
+    expect(frame()).toBeLessThan(40);
+
+    // Edited: cells built for a new object stand at the moved map's place
+    const first = doc.objects[0];
+    doc.objects = [...doc.objects, { ...first, id: 'v1-new', x: first.x + 3 }];
+    await view.objectsChanged(['v1-new']);
+    frame();
+    const added: Object3D[] = [];
+    scene.traverse((o) => {
+      if (o instanceof Mesh && !meshes.includes(o)) added.push(o);
+    });
+    for (const o of added) {
+      const expected = o.parent!.matrixWorld.clone().multiply(o.matrix);
+      expect(o.matrixWorld.equals(expected), o.name).toBe(true);
+    }
+    view.dispose();
   }, 30_000);
 });
 

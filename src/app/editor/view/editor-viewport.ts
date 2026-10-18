@@ -121,6 +121,9 @@ export class EditorViewport {
     private readonly callbacks: ViewportCallbacks,
   ) {
     this.renderer = new WebGLRenderer({ canvas, antialias: true, logarithmicDepthBuffer: true, preserveDrawingBuffer: false });
+    // The scene stands at the origin: without its own matrix composed every frame it forces no child's update,
+    // and the map's StaticGroups recompute only after a change (three-engine/static-group.ts)
+    this.scene.matrixAutoUpdate = false;
     // The custom-map part of the game's quality level with the player's overrides, at a fixed resolution
     // (no dynamic one) and always MSAA
     this.quality = storedKnobsFor(readStoredQuality(), gpuNameOf(this.renderer), 'custom-map');

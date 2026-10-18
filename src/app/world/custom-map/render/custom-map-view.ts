@@ -23,6 +23,7 @@ import {
 } from 'three';
 import type { CustomMapDocument, MapEnvironment, MapLifeArea, MapObject, MapWaterKind } from '../map-document';
 import { HeightField } from './height-field';
+import { StaticGroup } from '../../../three-engine/static-group';
 import type { MapAssetLibrary } from './map-asset-library';
 import type { AssetCatalog, CatalogObject } from './asset-catalog';
 import { mapToScene, sceneToMap } from './map-coords';
@@ -92,8 +93,15 @@ const MAX_FIREFLY_SPOTS = 60;
  * ```
  *
  * Frame: see map-coords.ts (scene x = -map x, scene z = map y, y up). The
- * group sits at the scene origin; it may be moved but not rotated, and the
- * map space queries (`heightAt`) do not follow a move.
+ * group sits at the scene origin; it may be moved (`placeAt`) but not
+ * rotated, and the map space queries (`heightAt`) do not follow a move.
+ *
+ * The map stands still: `group` and `losBlockers` are StaticGroups, their
+ * world matrices computed after a move or an addition, not every frame
+ * (three-engine/static-group.ts). What moves on the map moves in instance
+ * buffers or shaders (movers, birds, rotors, cloth, wind); the point lights
+ * place their own matrices. An object that moves by its own transform goes
+ * in with `addMoving`.
  *
  * Editor updates: change the document in place, then call the matching
  * update with the changed rectangle in map metres (`updateHeights`,
@@ -141,14 +149,14 @@ export interface CustomMapViewOptions {
 
 export class CustomMapView {
   /** All render content of the map */
-  readonly group = new Group();
+  readonly group = new StaticGroup();
   /** The terrain's height texture uniforms (TERRAIN_HEIGHT_GLSL), for shaders outside the map that lie on its ground */
   get heightUniforms(): HeightTexture['uniforms'] {
     return this.terrain.heightTexture.uniforms;
   }
 
   /** Terrain and sight-blocking objects, the LOS cube's group */
-  readonly losBlockers = new Group();
+  readonly losBlockers = new StaticGroup();
   readonly heights: HeightField;
   readonly ready: Promise<void>;
   /** Sky, lights and fog; the owner applies it to its scene (`environment.apply(scene, renderer)`) */
@@ -307,6 +315,18 @@ export class CustomMapView {
     // Measurement hook: a page that set `__mapProbe` before loading (Playwright init script) gets the view
     const g = globalThis as { __mapProbe?: unknown };
     if (g.__mapProbe) g.__mapProbe = this;
+  }
+
+  /**
+   * Moves the map so that its middle (map 0, 0) lies at scene (x, 0, z),
+   * `group` and `losBlockers` alike, their world matrices at once
+   */
+  placeAt(x: number, z: number): void {
+    for (const g of [this.group, this.losBlockers]) {
+      g.position.set(x, 0, z);
+      g.updateMatrix();
+      g.updateMatrixWorld(true);
+    }
   }
 
   /**
