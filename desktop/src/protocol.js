@@ -53,6 +53,7 @@ const CONNECT_HOSTS = [
   'https://assets.ion.cesium.com',
   'https://tile.googleapis.com',
   'https://nominatim.openstreetmap.org',
+  'https://3dtd-osm.sgeht.net',
   'https://overpass-api.de',
   'https://maps.mail.ru',
   'https://overpass.private.coffee',

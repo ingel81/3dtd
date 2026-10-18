@@ -7,7 +7,7 @@ import { OVERPASS_SERVERS, serverCovers, serversFor } from './overpass-servers';
 
 const STREETS_M = 2000;
 const hostsFor = (lat: number, lon: number) => serversFor(OVERPASS_SERVERS, boxAround(lat, lon, STREETS_M)).map((s) => new URL(s.url).host);
-const GLOBAL = ['overpass-api.de', 'overpass.private.coffee', 'maps.mail.ru'];
+const GLOBAL = ['3dtd-osm.sgeht.net', 'overpass-api.de', 'overpass.private.coffee', 'maps.mail.ru'];
 
 describe('overpass-servers', () => {
   it.each<[string, number, number, string | null]>([

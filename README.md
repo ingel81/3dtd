@@ -95,7 +95,7 @@ choices it did no better, and plain rules did, so rules it is. Details in
 | Rendering | [Three.js](https://threejs.org) 0.186 |
 | Tiles | [3DTilesRendererJS](https://github.com/NASA-AMMOS/3DTilesRendererJS) 0.5.2 |
 | Geometry | [Google Photorealistic 3D Tiles](https://developers.google.com/maps/documentation/tile/3d-tiles), via [Cesium Ion](https://cesium.com/platform/cesium-ion/) or the Google Maps API directly |
-| Map data | [OpenStreetMap](https://www.openstreetmap.org/copyright) ([Overpass](https://overpass-api.de) for streets and buildings, [Nominatim](https://nominatim.org) for geocoding) |
+| Map data | [OpenStreetMap](https://www.openstreetmap.org/copyright) ([Overpass](https://wiki.openstreetmap.org/wiki/Overpass_API) for streets and buildings: the game's own instance first, see `overpass-host/`, public servers as fallback; [Nominatim](https://nominatim.org) for geocoding) |
 | Desktop | [Electron](https://www.electronjs.org) 44, NSIS installer (Windows), AppImage (Linux), updates from GitHub Releases ([desktop/](desktop/README.md)) |
 | Co-op | lockstep over a small Node relay ([coop-server/](coop-server/README.md)), in the desktop app also on the LAN |
 | Tests | [Vitest](https://vitest.dev), [Playwright](https://playwright.dev) ([e2e/](e2e/README.md)) |

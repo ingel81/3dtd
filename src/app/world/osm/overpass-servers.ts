@@ -28,8 +28,8 @@ const box = (minLat: number, minLon: number, maxLat: number, maxLon: number): Ge
 /**
  * The servers in their order when nothing is known of their health
  * (overpass-health.ts reorders them): the regional ones, then the global
- * ones, the fastest of a good day first and maps.mail.ru as the last
- * fallback. overpass.kumi.systems is a DNS alias of
+ * ones: the game's own instance first, then the public ones, the fastest of
+ * a good day first and maps.mail.ru as the last fallback. overpass.kumi.systems is a DNS alias of
  * overpass.private.coffee, the same server, so it is not listed apart.
  */
 export const OVERPASS_SERVERS: readonly OverpassServer[] = [
@@ -56,6 +56,8 @@ export const OVERPASS_SERVERS: readonly OverpassServer[] = [
       box(51.3, -10.7, 55.5, -5.3), // Ireland
     ],
   },
+  // The game's own instance (overpass-host/, E233): whole planet, answers in about a second; the public ones back it up
+  { url: 'https://3dtd-osm.sgeht.net/api/interpreter', name: '3dtd-osm.sgeht.net', coverage: null },
   { url: 'https://overpass-api.de/api/interpreter', name: 'overpass-api.de', coverage: null },
   { url: 'https://overpass.private.coffee/api/interpreter', name: 'overpass.private.coffee', coverage: null },
   // The last fallback: answers when the others are at capacity, slowly (11 to 19 s on 2026-10-18)

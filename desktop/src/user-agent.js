@@ -13,6 +13,7 @@
  */
 
 const IDENTIFIED_HOSTS = [
+  'https://3dtd-osm.sgeht.net',
   'https://overpass-api.de',
   'https://maps.mail.ru',
   'https://overpass.private.coffee',

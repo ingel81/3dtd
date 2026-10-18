@@ -754,10 +754,10 @@ describe('LocationChangeCoordinatorService', () => {
         expect(streets.retrying()).toMatchObject({ attempt: 2, of: 8 });
         expect(engineInit.loading()).toBe(true);
 
-        // Eight rounds of the three global servers within the budget, then the problem with its Retry
+        // Eight rounds of the four global servers within the budget, then the problem with its Retry
         await vi.advanceTimersByTimeAsync(180_000);
         await going;
-        expect(asked).toBe(24);
+        expect(asked).toBe(32);
         expect(streets.retrying()).toBeNull();
         expect(uiStore.loadProblem()?.text).toBe(streetsFailedText('Schlossplatz'));
         expect(engineInit.setLoading).toHaveBeenLastCalledWith(false);
@@ -768,7 +768,7 @@ describe('LocationChangeCoordinatorService', () => {
         uiStore.loadProblem()!.retry!();
         await vi.advanceTimersByTimeAsync(0);
         await vi.advanceTimersByTimeAsync(20_000);
-        expect(asked).toBe(25);
+        expect(asked).toBe(33);
         expect(uiStore.loadProblem()).toBeNull();
         expect(engine.setOrigin).toHaveBeenCalledWith(HQ.lat, HQ.lon);
         expect(callbacks.addSpawnPoint).toHaveBeenCalled();
@@ -778,7 +778,7 @@ describe('LocationChangeCoordinatorService', () => {
         coordinator.initializeFlow(delegate);
         const going = coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'Schlossplatz' }, spawn: null });
         await vi.advanceTimersByTimeAsync(0);
-        expect(asked).toBe(3);
+        expect(asked).toBe(4);
 
         serversBack = true;
         const B = { lat: HQ.lat + 0.002, lon: HQ.lon };
@@ -787,8 +787,8 @@ describe('LocationChangeCoordinatorService', () => {
         await Promise.all([going, toB]);
         await vi.advanceTimersByTimeAsync(180_000);
 
-        // Three for A's first round, one for B: A's retries ended with the choice
-        expect(asked).toBe(4);
+        // Four for A's first round, one for B: A's retries ended with the choice
+        expect(asked).toBe(5);
         expect(uiStore.loadProblem()).toBeNull();
         expect(engine.setOrigin.mock.calls).toEqual([[B.lat, B.lon]]);
       });

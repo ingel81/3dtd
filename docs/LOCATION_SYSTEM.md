@@ -705,6 +705,7 @@ global oder eine Reihe Boxen. Stand 2026-10-18 (Quelle: Liste der öffentlichen 
 
 | Server | Abdeckung | Gemessen 2026-10-18 |
 |--------|-----------|---------------------|
+| 3dtd-osm.sgeht.net | global | eigene Instanz (`overpass-host/`, E233), Stadt-Straßen 1 bis 1,3 s; die öffentlichen Server springen ein, wenn sie nicht antwortet |
 | overpass.osm.ch | Schweiz | 0,1 bis 0,4 s; Ways etwa 3 bis 5 km über die Grenze hinaus, lückenhaft |
 | overpass.atownsend.org.uk | Großbritannien und Irland | 2 bis 7 s; einzelne Ways in Nordfrankreich |
 | overpass-api.de | global | meist 502 „at capacity“, manchmal 200 nach 20 bis 30 s |

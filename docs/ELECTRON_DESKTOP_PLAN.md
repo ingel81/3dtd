@@ -128,7 +128,7 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
   font-src 'self';
   connect-src 'self' blob: data: https://api.cesium.com https://assets.ion.cesium.com
     https://tile.googleapis.com https://nominatim.openstreetmap.org
-    https://overpass-api.de https://maps.mail.ru https://overpass.private.coffee
+    https://3dtd-osm.sgeht.net https://overpass-api.de https://maps.mail.ru https://overpass.private.coffee
     https://overpass.osm.ch https://overpass.atownsend.org.uk;
   object-src 'none'; base-uri 'self'; frame-ancestors 'none'
   ```
