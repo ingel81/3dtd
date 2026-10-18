@@ -82,6 +82,16 @@ describe('mass layer: the shape of a raised building', () => {
     expect(shape.covering).toBe('flat');
   });
 
+  it('raises a mansard: walls to the eaves, two triangles of slope per wall, the top over the drawn-in outline', () => {
+    const l: MapMass = { rings: [[0, 0, 30, 0, 30, 10, 10, 10, 10, 30, 0, 30]], height: 6, floors: 2, roof: 'mansard', ridge: 3, facade: 'timber' };
+    const shape = massShape(l);
+    expect(shape.walls.length).toBe(6);
+    expect(shape.caps.length).toBe(0);
+    expect(shape.roof.length).toBe(12 + 4);
+    expect(Math.max(...shape.roof.flatMap((t) => [t.p[1], t.p[4], t.p[7]]))).toBeCloseTo(9);
+    expect(shape.covering).not.toBe('flat');
+  });
+
   it('gives a rectangle under a gable roof two gables, under a hip roof none', () => {
     const rect = [-6, -4, 6, -4, 6, 4, -6, 4];
     const gable = massShape({ rings: [rect], height: 6, floors: 2, roof: 'gable', ridge: 3, facade: 'plaster' });

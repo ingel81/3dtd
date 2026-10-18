@@ -8,7 +8,7 @@
  * by kind; its tint from `building:colour`, else one of its facade's.
  */
 import type { MapMass, MapMassFacade, MapMassRoof, MapPoint } from '../../custom-map/map-document';
-import { MASS_MAX_POINTS, MASS_PARAPET, ringArea2, segmentDistance } from '../../custom-map/object-mass';
+import { insetOutline, MASS_MAX_POINTS, MASS_PARAPET, ringArea2, segmentDistance } from '../../custom-map/object-mass';
 import { toModel } from '../../custom-map/object-ground';
 import { buildingLevels, type BuildingKind } from '../building-tags';
 
@@ -23,6 +23,8 @@ const TOWER_AREA = 400;
 const TOWER_SLENDER = 2.2;
 /** A tower's pyramid, degrees */
 const TOWER_PITCH = 62;
+/** Highest a mansard's slopes rise, m */
+const MANSARD_RISE = 7;
 /** Storey heights, m: homes, and offices, schools and public buildings */
 const HOME_STOREY = 2.9;
 const WORK_STOREY = 3.6;
@@ -224,6 +226,12 @@ export function raiseMass(
         if (ring) rings.push(local(ring));
       }
       if (rings.reduce((s, r) => s + r.length / 2, 0) <= MASS_MAX_POINTS) break;
+    }
+    // A kind with a pitched roof on a crooked outline: slopes from every wall up to a flat top (a mansard)
+    const inset = pitchDeg && rings.length === 1 ? insetOutline(rings[0]) : null;
+    if (inset) {
+      roof = 'mansard';
+      ridge = round2(Math.min(MANSARD_RISE, inset.run * Math.tan((pitchDeg * Math.PI) / 180)));
     }
   }
   // A pitched roof's walls stop at the eaves; a flat one's go on to the parapet

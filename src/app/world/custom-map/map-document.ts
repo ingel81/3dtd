@@ -243,8 +243,13 @@ export const MASS_ASSET = 'building-mass';
 export const MAP_MASS_FACADES = ['plaster', 'concrete', 'metal', 'brick', 'stone', 'timber'] as const;
 export type MapMassFacade = (typeof MAP_MASS_FACADES)[number];
 
-/** Roofs of a raised building: flat with a parapet, or pitched over a rectangle (a ridge along the model's x axis) */
-export const MAP_MASS_ROOFS = ['flat', 'gable', 'hip'] as const;
+/**
+ * Roofs of a raised building: flat with a parapet; pitched over a rectangle
+ * (a ridge along the model's x axis); `mansard` over any outline without a
+ * courtyard: slopes all round up to a flat top drawn in from the walls
+ * (object-mass.ts massInset), the roof an old town's crooked houses take
+ */
+export const MAP_MASS_ROOFS = ['flat', 'gable', 'hip', 'mansard'] as const;
 export type MapMassRoof = (typeof MAP_MASS_ROOFS)[number];
 
 /**
@@ -261,7 +266,7 @@ export interface MapMass {
   /** Storeys, one row of windows each (a hall has one) */
   floors: number;
   roof: MapMassRoof;
-  /** A pitched roof's ridge over the eaves, m */
+  /** A pitched roof's ridge (a mansard's top) over the eaves, m */
   ridge?: number;
   facade: MapMassFacade;
 }

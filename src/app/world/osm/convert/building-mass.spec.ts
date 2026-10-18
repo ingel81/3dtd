@@ -39,13 +39,16 @@ describe('raised buildings from OSM footprints', () => {
     expect([raised.hw * 2, raised.hd * 2].sort((p, q) => p - q).map((v) => Math.round(v))).toEqual([40, 80]);
   });
 
-  it('puts a pitched roof on a house that fills its rectangle, a flat one on a footprint with wings', () => {
+  it('puts a pitched roof on a house that fills its rectangle, a mansard on a crooked one, a flat one round a courtyard', () => {
     const plain = turned(ring(-6, -4.5, 6, -4.5, 6, 4.5, -6.3, 4.5), 1.1, { x: 0, y: 0 });
     const raised = raiseMass(plain, [], minAreaRect(plain), 'house', { building: 'house' }, 108, 2)!;
     expect(massPitched(raised.mass)).toBe(true);
     expect(raised.mass.ridge).toBeGreaterThan(2.5);
     const l = ring(0, 0, 30, 0, 30, 10, 10, 10, 10, 30, 0, 30);
-    expect(raiseMass(l, [], minAreaRect(l), 'house', { building: 'house' }, 500, 2)!.mass.roof).toBe('flat');
+    const lHouse = raiseMass(l, [], minAreaRect(l), 'house', { building: 'house' }, 500, 2)!.mass;
+    expect(lHouse.roof).toBe('mansard');
+    expect(lHouse.ridge).toBeGreaterThan(1);
+    expect(raiseMass(l, [ring(2, 2, 6, 2, 6, 6, 2, 6)], minAreaRect(l), 'house', { building: 'house' }, 484, 2)!.mass.roof).toBe('flat');
     // The tag decides over the kind
     expect(raiseMass(plain, [], minAreaRect(plain), 'house', { building: 'house', 'roof:shape': 'flat' }, 108, 2)!.mass.roof).toBe('flat');
     expect(raiseMass(plain, [], minAreaRect(plain), 'house', { building: 'house', 'roof:shape': 'hipped' }, 108, 2)!.mass.roof).toBe('hip');

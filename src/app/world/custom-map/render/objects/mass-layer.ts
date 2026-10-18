@@ -19,7 +19,7 @@ import {
   type Texture,
 } from 'three';
 import { MAP_MASS_FACADES, MASS_ASSET, type MapMass, type MapMassFacade, type MapObject } from '../../map-document';
-import { MASS_PARAPET, massBounds, massContains, massPitched, massRadius } from '../../object-mass';
+import { MASS_PARAPET, massBounds, massContains, massInset, massPitched, massRadius } from '../../object-mass';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary, ObjectModel } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
@@ -125,8 +125,9 @@ export function massShape(m: MapMass, seed = 0): MassShape {
   let shape = shapes.get(m);
   if (shape) return shape;
   const pitched = massPitched(m);
-  shape = pitched ? pitchedShape(m) : flatShape(m);
-  shape.covering = !pitched ? 'flat' : m.facade === 'metal' ? 'metal' : seed % 3 === 0 ? 'grey' : 'red';
+  const inset = massInset(m);
+  shape = pitched ? pitchedShape(m) : inset ? mansardShape(m, inset.ring) : flatShape(m);
+  shape.covering = !pitched && !inset ? 'flat' : m.facade === 'metal' ? 'metal' : seed % 3 === 0 ? 'grey' : 'red';
   shapes.set(m, shape);
   return shape;
 }
@@ -159,6 +160,38 @@ function flatShape(m: MapMass): MassShape {
     roof.push({ p: [pa.x, roofY, pa.y, pb.x, roofY, pb.y, pc.x, roofY, pc.y], uv: [pa.x, pa.y, pb.x, pb.y, pc.x, pc.y] });
   }
   return { walls, roof, covering: 'flat', caps };
+}
+
+/** Walls to the eaves, slopes from every wall up to the drawn-in top, the top flat over them */
+function mansardShape(m: MapMass, inner: readonly number[]): MassShape {
+  const walls: WallPiece[] = [];
+  const roof: RoofPiece[] = [];
+  const r = m.rings[0];
+  const h = m.height;
+  const top = h + (m.ridge ?? 0);
+  const n = r.length / 2;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const e = edge(m, r[2 * i], r[2 * i + 1], r[2 * j], r[2 * j + 1]);
+    if (e) walls.push({ ...e, bottom: -FOUNDATION, top: h, kind: WALL_FACADE, band: 0.3 });
+    // The slope over this wall: a quad from the eaves to the top's edge, its texture along the wall and up the slope
+    const a = [r[2 * i], h, r[2 * i + 1]];
+    const b = [r[2 * j], h, r[2 * j + 1]];
+    const c = [inner[2 * j], top, inner[2 * j + 1]];
+    const d = [inner[2 * i], top, inner[2 * i + 1]];
+    const len = Math.hypot(b[0] - a[0], b[2] - a[2]);
+    const up = Math.hypot(d[0] - a[0], d[1] - a[1], d[2] - a[2]);
+    roof.push({ p: [...a, ...b, ...c], uv: [0, up, len, up, len, 0] });
+    roof.push({ p: [...a, ...c, ...d], uv: [0, up, len, 0, 0, 0] });
+  }
+  const contour = toPoints(inner);
+  for (const [ia, ib, ic] of ShapeUtils.triangulateShape(contour, [])) {
+    const pa = contour[ia];
+    const pb = contour[ib];
+    const pc = contour[ic];
+    roof.push({ p: [pa.x, top, pa.y, pb.x, top, pb.y, pc.x, top, pc.y], uv: [pa.x, pa.y, pb.x, pb.y, pc.x, pc.y] });
+  }
+  return { walls, roof, covering: 'red', caps: [] };
 }
 
 /** A rectangle's four walls to the eaves, a gable or hip roof along its longer side, the gables under it */

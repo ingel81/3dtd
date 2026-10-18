@@ -7,6 +7,7 @@ import {
   massContains,
   massDistance,
   massFronts,
+  massInset,
   massPitched,
   massProblem,
   massRadius,
@@ -98,6 +99,28 @@ describe('raised buildings: what the rules read of one', () => {
     expect(massProblem({ ...court, roof: 'dome' })).toMatch(/roof/);
     expect(massProblem({ ...court, facade: 'glass' })).toMatch(/facade/);
     expect(massProblem({ ...court, ridge: -1 })).toMatch(/ridge/);
+  });
+});
+
+describe('raised buildings: a mansard over a crooked outline', () => {
+  const l: MapMass = { rings: [[0, 0, 30, 0, 30, 10, 10, 10, 10, 30, 0, 30]], height: 6, floors: 2, roof: 'mansard', ridge: 3, facade: 'timber' };
+
+  it('draws the outline in for its top, rises from the walls to it, and carries towers on both', () => {
+    const inset = massInset(l)!;
+    expect(inset.run).toBeGreaterThan(1);
+    expect(inset.run).toBeLessThanOrEqual(4);
+    expect(inset.ring.length).toBe(12);
+    expect(massTop(l)).toBe(9);
+    expect(massPitched(l)).toBe(false);
+    const roof = massRoof(l);
+    const heights = roofHeights(roof);
+    const at = (x: number, z: number) => heights[Math.floor((z - roof.z) / roof.cell) * roof.columns + Math.floor((x - roof.x) / roof.cell)];
+    // At the wall the eaves, deep inside the wing the top
+    expect(at(15, 0.5)).toBeLessThan(7.5);
+    expect(at(5, 20)).toBeCloseTo(9, 0);
+    // A courtyard or a second ring: no mansard, the roof is flat
+    expect(massInset({ ...l, rings: [...l.rings, [2, 2, 4, 2, 4, 4]] })).toBeNull();
+    expect(massInset({ ...l, roof: 'flat' })).toBeNull();
   });
 });
 

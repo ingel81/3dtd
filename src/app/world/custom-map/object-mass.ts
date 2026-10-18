@@ -67,7 +67,7 @@ export function massArea(m: MapMass): number {
 
 /** Whether a pitched roof stands: only over a lone rectangle along the model's axes, else the roof is flat */
 export function massPitched(m: MapMass): boolean {
-  if (m.roof === 'flat' || m.rings.length !== 1 || m.rings[0].length !== 8 || !((m.ridge ?? 0) > 0)) return false;
+  if (m.roof === 'flat' || m.roof === 'mansard' || m.rings.length !== 1 || m.rings[0].length !== 8 || !((m.ridge ?? 0) > 0)) return false;
   const r = m.rings[0];
   // Each side runs along x or along z
   for (let i = 0; i < 8; i += 2) {
@@ -80,19 +80,113 @@ export function massPitched(m: MapMass): boolean {
 /**
  * Triangles the mass layer draws for the building: two per wall, a flat
  * roof's triangulation and four per side of its parapet (its inner face and
- * its top), a pitched roof's slopes and gables
+ * its top), a pitched roof's slopes and gables, a mansard's slopes and top
  */
 export function massTriangles(m: MapMass): number {
   // Four walls, two slopes of two triangles; two gables (a quad drawn in to a point) or two hips
   if (massPitched(m)) return 8 + 4 + (m.roof === 'hip' ? 2 : 4);
   let edges = 0;
   for (const r of m.rings) edges += r.length / 2;
+  if (massInset(m)) return edges * 4 + edges - 2;
   return edges * 2 + (edges - 2 + 2 * (m.rings.length - 1)) + edges * 4;
 }
 
 /** Highest point over the seat at scale 1, m */
 export function massTop(m: MapMass): number {
-  return m.height + (massPitched(m) ? (m.ridge ?? 0) : 0);
+  return m.height + (massPitched(m) || massInset(m) ? (m.ridge ?? 0) : 0);
+}
+
+/** A mansard's slopes run in at most this far from the walls, m */
+export const MANSARD_RUN = 4;
+
+/** A mansard's flat top: the outline drawn in by `run` metres (its slopes' run), at `ridge` over the eaves */
+export interface MassInset {
+  ring: number[];
+  run: number;
+}
+
+const insets = new WeakMap<number[][], MassInset | null>();
+
+/**
+ * The top of a mansard roof (`roof: 'mansard'`, one ring, a ridge): the
+ * outline drawn in from every wall, the run a share of the outline's mean
+ * half width and at most MANSARD_RUN; null for any other roof or where the
+ * drawn-in outline would cross itself (then the roof is flat). Worked out
+ * once per set of rings
+ */
+export function massInset(m: MapMass): MassInset | null {
+  if (m.roof !== 'mansard' || m.rings.length !== 1 || !((m.ridge ?? 0) > 0)) return null;
+  const cached = insets.get(m.rings);
+  if (cached !== undefined) return cached;
+  const inset = insetOutline(m.rings[0]);
+  insets.set(m.rings, inset);
+  return inset;
+}
+
+/** An outline drawn in by a share of its mean half width (at most MANSARD_RUN), halved twice where it crosses itself */
+export function insetOutline(ring: readonly number[]): MassInset | null {
+  const n = ring.length / 2;
+  let perimeter = 0;
+  for (let i = 0, j = n - 1; i < n; j = i++) perimeter += Math.hypot(ring[2 * i] - ring[2 * j], ring[2 * i + 1] - ring[2 * j + 1]);
+  const area = Math.abs(ringArea2(ring));
+  // Mean half width: area over half the perimeter, halved (a 10 x 30 m house: 3.75 m)
+  let run = Math.min(MANSARD_RUN, (0.8 * area) / perimeter);
+  for (let tries = 0; tries < 3 && run > 0.6; tries++, run /= 2) {
+    const out = offsetRing(ring, run);
+    if (out && Math.abs(ringArea2(out)) > 0.5 && !selfCrossing(out)) return { ring: out, run };
+  }
+  return null;
+}
+
+/** Every vertex moved `d` in along the bisector of its walls (a mitre held to 2.5 d); null where a wall turns round */
+function offsetRing(ring: readonly number[], d: number): number[] | null {
+  const n = ring.length / 2;
+  const ccw = ringArea2(ring) > 0;
+  const out: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const p = (i + n - 1) % n;
+    const q = (i + 1) % n;
+    const x = ring[2 * i];
+    const z = ring[2 * i + 1];
+    const e1x = x - ring[2 * p];
+    const e1z = z - ring[2 * p + 1];
+    const e2x = ring[2 * q] - x;
+    const e2z = ring[2 * q + 1] - z;
+    const l1 = Math.hypot(e1x, e1z) || 1;
+    const l2 = Math.hypot(e2x, e2z) || 1;
+    // Inward normals: the walls turned a quarter towards the inside
+    const s = ccw ? 1 : -1;
+    const n1x = (-e1z / l1) * s;
+    const n1z = (e1x / l1) * s;
+    const n2x = (-e2z / l2) * s;
+    const n2z = (e2x / l2) * s;
+    const bx = n1x + n2x;
+    const bz = n1z + n2z;
+    const dot = n1x * n2x + n1z * n2z;
+    if (dot < -0.95) return null;
+    const k = Math.min(2.5, 1 / Math.max(0.2, (1 + dot) / 2) ** 0.5) * d;
+    const bl = Math.hypot(bx, bz) || 1;
+    out.push(x + (bx / bl) * k, z + (bz / bl) * k);
+  }
+  // The drawn-in outline keeps its turn
+  return ringArea2(out) > 0 === ccw ? out : null;
+}
+
+/** Whether two walls of a ring that do not meet cross */
+function selfCrossing(ring: readonly number[]): boolean {
+  const n = ring.length / 2;
+  if (n > 120) return true;
+  for (let i = 0; i < n; i++) {
+    const a = 2 * i;
+    const b = 2 * ((i + 1) % n);
+    for (let j = i + 2; j < n; j++) {
+      if (i === 0 && j === n - 1) continue;
+      const c = 2 * j;
+      const d = 2 * ((j + 1) % n);
+      if (segmentDistance(ring[a], ring[a + 1], ring[b], ring[b + 1], ring[c], ring[c + 1], ring[d], ring[d + 1]) === 0) return true;
+    }
+  }
+  return false;
 }
 
 /** Bounds of the outline at scale 1 */
@@ -205,6 +299,20 @@ export function massSegmentDistance(m: MapMass, ax: number, az: number, bx: numb
 
 /** Roof height over the seat at model (x, z), scale 1: a flat roof inside its parapet, a pitched one on its slopes */
 function roofHeightAt(m: MapMass, pitched: boolean, b: ReturnType<typeof massBounds>, x: number, z: number): number {
+  const inset = massInset(m);
+  if (inset) {
+    // A mansard rises from the walls over its run, flat above
+    let wall = Infinity;
+    const r = m.rings[0];
+    for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
+      const dx = r[i] - r[j];
+      const dz = r[i + 1] - r[j + 1];
+      const l2 = dx * dx + dz * dz;
+      const t = l2 > 0 ? Math.max(0, Math.min(1, ((x - r[j]) * dx + (z - r[j + 1]) * dz) / l2)) : 0;
+      wall = Math.min(wall, Math.hypot(x - r[j] - t * dx, z - r[j + 1] - t * dz));
+    }
+    return m.height + (m.ridge ?? 0) * Math.min(1, wall / inset.run);
+  }
   if (!pitched) return m.height - MASS_PARAPET;
   const ridge = m.ridge ?? 0;
   // The ridge runs along the longer side
