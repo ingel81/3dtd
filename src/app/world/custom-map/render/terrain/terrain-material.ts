@@ -614,6 +614,16 @@ if (uPathLayer >= 0 && riverBank > 0.0) {
   w[uPathLayer] += bank;
 }
 
+// The ground's shape, baked with its occlusion (ground-occlusion.ts, the same fetch): crests and knolls dry
+// and pale, hollows and runnels damp and darker, scree at the feet of steep slopes, cooled rock around lava
+vec4 shape = texture2D(uGridOcclusion, mapPos * uGridUv.xy + uGridUv.zw);
+float inside = 1.0 - outside;
+float lavaNear = shape.a * inside;
+// Around lava the ground turns to rock (the biome's cliff layer, with its strata, then cooled and scorched
+// below): its sand or dust kept its flat paint under the dark tint and the glow, and the crater walls read as
+// a smooth orange sheet. Ragged edge, a few metres out from the lava
+float scorched = smoothstep(0.4, 0.75, lavaNear + (varFine.a - 0.5) * 0.3 + (n3 - 0.5) * 0.2);
+
 // Cliffs above the slope threshold, edge broken up by noise
 float cliff = 0.0;
 if (uCliffLayer >= 0) {
@@ -630,6 +640,7 @@ if (uCliffLayer >= 0) {
   float hotPaint = 0.0;
   for (int k = 0; k < TERRAIN_LAYERS; k++) hotPaint += uEmissive[k] > 0.0 ? w[k] : 0.0;
   cliff *= 1.0 - clamp(hotPaint, 0.0, 1.0);
+  cliff = max(cliff, scorched);
   for (int k = 0; k < TERRAIN_LAYERS; k++) w[k] *= 1.0 - cliff;
   w[uCliffLayer] += cliff;
 }
@@ -833,15 +844,11 @@ if (cliff > 0.01) {
   albedo = mix(albedo, albedo * shade * bandTint, cliff);
 }
 
-// The ground's shape, baked with its occlusion (ground-occlusion.ts, the same fetch): crests and knolls dry
-// and pale, hollows and runnels damp and darker, scree at the feet of steep slopes, cooled rock around lava
-vec4 shape = texture2D(uGridOcclusion, mapPos * uGridUv.xy + uGridUv.zw);
-float inside = 1.0 - outside;
+// The ground's shape (fetched above, before the cliffs)
 float curv = (shape.g - 0.5) * 2.0 * inside;
 float crest = smoothstep(0.04, 0.4, curv) * (1.0 - cliff);
 float hollow = smoothstep(0.04, 0.4, -curv) * (1.0 - cliff);
 float drain = smoothstep(0.35, 0.9, shape.b) * inside * (1.0 - cliff);
-float lavaNear = shape.a * inside;
 // In the biome's mood: a temperate crest dries to straw, a marsh hollow is peat, a desert runnel salt
 albedo = mix(albedo, albedo * uMoodCrest, crest * 0.8);
 albedo = mix(albedo, albedo * uMoodHollow * 0.9, hollow);
@@ -917,9 +924,21 @@ if (uSnowCover > 0.0) {
   albedo = mix(albedo, vec3(0.86, 0.9, 0.95), driftAmount);
   accD.b = mix(accD.b, 0.55, driftAmount);
 }
-// Around lava the ground is cooled rock, lit orange from below with the lava's slow pulse
-albedo = mix(albedo, vec3(0.045, 0.04, 0.038), smoothstep(0.55, 0.85, lavaNear));
-accGlow += vec3(1.0, 0.32, 0.06) * pow(lavaNear, 4.0) * 0.22 * (0.85 + 0.15 * sin(uTerrainTime * 1.1 + mapPos.x * 0.05));
+// Around lava the ground is cooled rock: farther out baked rust-dark, at the lava black basalt. Both keep the
+// rock's own light and dark (its texture and strata against its average, drawn out): one flat colour there,
+// under the glow and the lava's lights, read as a smooth orange sheet
+if (lavaNear > 0.01) {
+  float rockLum = dot(albedo, vec3(0.3333)) / max(dot(accAvg, vec3(0.3333)), 0.02);
+  float grain = clamp(1.0 + (rockLum - 1.0) * 1.1, 0.5, 1.5) * mix(0.82, 1.12, varFiner.b);
+  float baked = smoothstep(0.2, 0.6, lavaNear + (varFiner.a - 0.5) * 0.2);
+  albedo = mix(albedo, albedo * vec3(0.52, 0.3, 0.22), baked * 0.85);
+  vec3 basalt = mix(vec3(0.075, 0.064, 0.058), vec3(0.11, 0.07, 0.05), smoothstep(0.4, 0.7, varFine.b));
+  albedo = mix(albedo, basalt * grain, smoothstep(0.55, 0.85, lavaNear));
+  // Lit orange from below with the lava's slow pulse, strongest in the rock's cracks and hollows (its low
+  // heights), faint on its knobs
+  float seams = mix(0.4, 1.5, smoothstep(0.6, 0.15, accC.a));
+  accGlow += vec3(1.0, 0.32, 0.06) * pow(lavaNear, 4.0) * 0.22 * seams * (0.85 + 0.15 * sin(uTerrainTime * 1.1 + mapPos.x * 0.05));
+}
 albedo *= mix(1.0, 0.6, wetBank);
 // Soil, grass and rock are rough and barely shiny: against the sun at a grazing angle the full
 // specular of a standard material turned meadows and yards into white sheets. Wet banks keep a sheen
