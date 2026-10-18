@@ -59,6 +59,20 @@ export function buildDemoValley(): CustomMapDocument {
   k.scatter(['flowers', 'grass-clump', 'flowers-yellow'], knoll, { radius: 32, strength: 1 }, { density: 10, minDistance: 1.6 });
   k.scatter(['tree-oak', 'tree-birch', 'bush'], ring(knoll, 34, 120, 330, 30), { radius: 9, strength: 0.8 }, { density: 2, minDistance: 6 });
 
+  // ---- The vineyard: the terraced mountain's lower flanks over the river planted with vine rows along the terraces,
+  // a vintner's cottage and a wine press at their foot, a chapel on the summit as the valley's second landmark
+  const vineyard = { x: 172, y: 135 };
+  k.erase(vineyard, 80, keepFx);
+  k.paint('dirt', vineyard, { radius: 74, falloff: 0.6 }, 0.35);
+  k.contourRows('vine-row', { center: vineyard, radius: 78 }, { gap: 3.4, length: 10, maxSlope: 20 });
+  // Cherry and fruit trees along the vineyard's edge, the rows' end posts in the grass
+  k.scatter(['fruit-tree', 'bush', 'grass-clump'], ring(vineyard, 82, 150, 330, 20), { radius: 8, strength: 0.8 }, { density: 1.5, minDistance: 7 });
+  const summit = { x: 190, y: 190 };
+  k.erase(summit, 14, keepFx);
+  k.level(summit, { radius: 10, falloff: 0.4 }, k.h(summit.x, summit.y));
+  k.place('chapel-mountain', summit.x, summit.y, { rotation: facing(summit, village) });
+  k.place('bench', summit.x + 6, summit.y - 8, { rotation: facing(summit, village) + Math.PI });
+
   // ---- The woods: where trees stand thick, clearings in the densest ones, deadwood and undergrowth in the rest
   const cell = 32;
   const count = new Map<string, { n: number; x: number; y: number }>();
