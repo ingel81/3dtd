@@ -66,6 +66,7 @@ describe('Ability bar after the research, playtest 510, 511 and 513 replayed', (
       routeSweep: () => null,
       // A missile silo stands: the nuclear strike has its launch site
       launchSite: () => (siloStands ? { towerId: 'silo', position: { lat: 0, lon: 0, height: 0 } } : null),
+      damageWorld: () => undefined,
     } as unknown as AbilityWorld;
     abilities = new AbilityManager(bus, abilityWorld);
     abilities.setPhaseProvider(() => (waveActive() ? 'wave' : 'setup'));

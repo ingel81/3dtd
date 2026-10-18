@@ -521,7 +521,7 @@ export class TowerDefenseFacadeService {
         // The look and sound of the simulation on this engine: the packets'
         // ops and tables, the main bus's events (docs/SIM_WORKER.md)
         this.dropPresentation();
-        const host = new PresentationHost({ engine, bus: this.sim.bus, source: this.mirror, ground: this.grid });
+        const host = new PresentationHost({ engine, bus: this.sim.bus, source: this.mirror, ground: this.grid, stampGround: this.grid });
         this.presentation.attach(host);
         // A world sent before the host stood: its HQ (MainWorldService.sendToSim sets it on later ones)
         host.setBase(this.world.basePosition);

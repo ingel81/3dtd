@@ -1,6 +1,6 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { MAP_METERS_PER_DEGREE } from '../world/custom-map/map-document';
-import { StructureLedger } from './game-state/structure-ledger';
+import { WorldDamage } from './game-state/world-damage';
 import { Vector3 } from 'three';
 import { EnemyManager } from './enemy.manager';
 import { TowerManager } from './tower.manager';
@@ -119,7 +119,8 @@ export class GameStateManager {
   };
   readonly towerManager = new TowerManager(this.eventBus, this.coords, this.sink);
   readonly enemyManager = new EnemyManager(this.eventBus, this.globalRouteGrid, this.spatialGrid, this.coords, this.sink);
-  readonly projectileManager = new ProjectileManager(this.eventBus, this.sink);
+  readonly projectileManager = new ProjectileManager(this.eventBus, this.sink, (projectile, air) =>
+    this.worldDamage.impact(projectile.position.lat, projectile.position.lon, projectile.typeConfig, air));
   readonly waveManager = new WaveManager(this.eventBus, this.enemyManager);
   /**
    * One set of abilities per player (docs/COOP_PLAN.md, D11), in roster
@@ -147,6 +148,7 @@ export class GameStateManager {
         this.combatEffect.applyAbilityHalt(targets, status, durationMsOf, sourceId),
       routeSweep: (target, maxDistanceM, lengthM) =>
         routeSweepToward(this.waveManager.getPaths(), target, maxDistanceM, lengthM),
+      damageWorld: (id, at, fromMs, toMs) => this.worldDamage.ability(id, at, fromMs, toMs),
     }, owner);
   }
 
@@ -255,8 +257,25 @@ export class GameStateManager {
     this.globalRouteGrid, this.coords, this.eventBus, (playerId) => this.simResearch.airTargetingFor(playerId),
   );
 
-  /** The HP of a destructible world's structures (RunRules.structures, TODO E131), see StructureLedger */
-  readonly structures = new StructureLedger(this.sink, (x, y, radius) => this.seeAroundFall(x, y, radius));
+  /**
+   * What the fight does to a destructible world (RunRules.structures and
+   * destruction, docs/DESTRUCTION_PLAN.md): the structures' HP, the
+   * craters, the ground the enemies walk on, see WorldDamage
+   */
+  readonly worldDamage = new WorldDamage({
+    sink: this.sink,
+    toLocal: (lat, lon, out) => {
+      const at = this.coords.sync.geoToLocalSimpleInto(lat, lon, 0, this.damageLocal);
+      out.x = at.x;
+      out.z = at.z;
+    },
+    routeSpan: () => this.globalRouteGrid.cellSpan(),
+    setField: (field) => this.enemyManager.setStampField(field),
+    towers: () => this.towerManager.getAll(),
+    enemies: () => this.enemyManager.getAllActive(),
+    seeAround: (x, y, radius) => this.seeAround(x, y, radius),
+  });
+  private readonly damageLocal = new Vector3();
 
   /** A custom map's wave events (RunRules.events, TODO E170): lanes that open later, objects that come and go */
   readonly waveEvents = new WaveEvents(
@@ -266,7 +285,7 @@ export class GameStateManager {
     () => {
       for (const seat of this.researchSeats) seat.research.announceState();
     },
-    (x, y, radius) => this.seeAroundFall(x, y, radius),
+    (x, y, radius) => this.seeAround(x, y, radius),
     (spawnId) => this.waveManager.spawnPoints.find((point) => point.id === spawnId)?.name ?? spawnId,
   );
 
@@ -408,7 +427,7 @@ export class GameStateManager {
     towerCombat: this.towerCombat,
     debugEnemies: this.debugEnemies,
     sink: this.sink,
-    structures: this.structures,
+    worldDamage: this.worldDamage,
     research: () => this.researchSeats.map((seat) => seat.research),
     abilities: () => this.abilitySeats,
     heroes: () => this.heroSeats,
@@ -435,7 +454,8 @@ export class GameStateManager {
     // Between waves the next kill's wave starts the budget afresh; a restore resets it (resetKillRewards)
     killRewards: () => (this.waveManager.phase() === 'wave' ? this.enemyManager.killRewardState() : null),
     baseHealth: () => this.baseHealth(),
-    structureHp: () => this.structures.hpList(),
+    structureHp: () => this.worldDamage.structures.hpView(),
+    craters: () => this.worldDamage.craters.view(),
     waveNumber: () => this.waveManager.waveNumber(),
     spawner: () => this.waveManager.spawnerProgress(),
     idCounter: () => GameObject.getIdCounter(),
@@ -765,8 +785,8 @@ export class GameStateManager {
     const same = runRulesKey({ ...next, structures: null }) === runRulesKey({ ...this.runRules, structures: null });
     const startedPast = this.startApplied;
     this.runRules = next;
-    // The world's structures, all standing (a world where nothing falls has none), and its wave events
-    this.structures.load(next.structures);
+    // The world's structures at their start (a world where nothing falls has none), no craters, and its wave events
+    this.worldDamage.load(next);
     this.waveEvents.load(next.events);
     if (same) return;
     this.healthLedger.setStart(next.hqHealth);
@@ -876,9 +896,6 @@ export class GameStateManager {
     this.eventBusSubs.add(this.eventBus.on('research:completed', (event) => {
       this.towerLifecycle.scheduleAirRetrofit(event.effects, event.playerId);
     }));
-
-    // A projectile that came down wears down the structures of a destructible world near it (TODO E131)
-    this.eventBusSubs.add(this.eventBus.on('vfx:projectile-impact', (event) => this.structures.impact(event.lat, event.lon)));
 
     // Once a wave is over, turn the towers to where the route enters their
     // range. During the wave a tower keeps the heading of its last target.
@@ -1150,6 +1167,8 @@ export class GameStateManager {
     // tickPendingDeaths is what finalises the removal of enemies whose
     // death animation just expired.
     this.enemyManager.update(stepMs, now);
+    // The enemies passing by wear the structures down, where the map says so
+    this.worldDamage.tick(stepMs, now);
 
     // Camouflaged enemies near a scout, before anything picks a target
     revealCamo(this.enemyManager.getAllActive(), this.towerManager.getAll(), now, this.scouts);
@@ -1286,7 +1305,7 @@ export class GameStateManager {
   resyncPresentation(): void {
     this.towerManager.refreshInnerFires();
     this.towerLifecycle.announceBuilds();
-    this.structures.publish();
+    this.worldDamage.publish();
     // The wave events as the restored wave counter has them, quietly
     this.syncWaveEvents(false);
     this.waveEvents.publish();
@@ -1432,13 +1451,17 @@ export class GameStateManager {
     this.healthLedger.resetToStart();
   }
 
-  /** Debug: take `amount` off the structures within `reach` m of a point (StructureLedger.hit); the ids that fell */
-  hitStructures(lat: number, lon: number, reach: number, amount: number): string[] {
-    return this.structures.hit(lat, lon, reach, amount);
+  /** Debug: take `amount` off the structures within `reach` m of a point (WorldDamage.debugHit); how many changed their stage */
+  hitStructures(lat: number, lon: number, reach: number, amount: number): number {
+    return this.worldDamage.debugHit(lat, lon, reach, amount);
   }
 
-  /** A structure fell at map metres `x`, `y`: the towers that may see past it now ask for their sight anew */
-  private seeAroundFall(x: number, y: number, radius: number): void {
+  /**
+   * Something changed at map metres `x`, `y` out to `radius` (a structure
+   * fell, an object of a wave event came or went, a crater opened under the
+   * routes): the towers that may see past it ask for their sight anew
+   */
+  private seeAround(x: number, y: number, radius: number): void {
     for (const tower of this.towerManager.getAll()) {
       const dx = tower.position.lon * MAP_METERS_PER_DEGREE - x;
       const dy = tower.position.lat * MAP_METERS_PER_DEGREE - y;
@@ -1610,7 +1633,7 @@ export class GameStateManager {
     this.sink.oozes.clear();
 
     this.healthLedger.resetToStart();
-    this.structures.reset();
+    this.worldDamage.reset();
     this.waveEvents.load(this.runRules.events);
     this.creditsLedger.reset();
     this.clock.reset();

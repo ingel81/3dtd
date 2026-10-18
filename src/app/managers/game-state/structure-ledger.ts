@@ -1,119 +1,306 @@
 import type { SimSink } from '../../sim/core/sim-sink';
 import type { RunStructure } from '../../sim/protocol/run-rules';
 import { MAP_METERS_PER_DEGREE } from '../../world/custom-map/map-document';
+import { structureStage, type StructureStage } from '../../configs/destruction.config';
+import { DetMath } from '../../utils/det-math';
 
-/** How far from an impact a structure still takes its damage, m (plus the structure's own radius) */
-export const IMPACT_REACH_M = 4;
-/** HP an impact takes off each structure in reach */
-export const IMPACT_DAMAGE = 20;
+/** Edge of a cell of the ledger's lookup grid, m (as CustomMapSurface's build blocking) */
+export const STRUCTURE_CELL_M = 16;
 
-/** A structure the simulation wears down */
-interface LedgerEntry {
-  readonly id: string;
-  readonly lat: number;
-  readonly lon: number;
-  readonly height: number;
-  /** Map metres (a custom map's lat and lon are its metres over MAP_METERS_PER_DEGREE) */
-  readonly x: number;
-  readonly y: number;
-  readonly radius: number;
-  readonly maxHp: number;
-  hp: number;
+/** What the ledger tells its owner (WorldDamage) */
+export interface StructureEvents {
+  /** Structure `index` went from stage `from` to `to` by damage (not by a restore or a new run) */
+  staged(index: number, from: StructureStage, to: StructureStage): void;
+  /** A tower stands on the roof of structure `index` (RunStructure.roof): it takes no damage */
+  carried(index: number): boolean;
 }
 
+/** Numbers per roof in StructureLedger.roof: middle x, y, half extents, cos, sin */
+const ROOF_STRIDE = 6;
+
 /**
- * The HP of a destructible world's structures in the simulation (TODO E131):
- * every projectile impact takes IMPACT_DAMAGE off each standing structure
- * within IMPACT_REACH_M of it plus its radius; at 0 it falls. A fall goes to
- * the main thread as the full set of fallen ids (`structures.setFallen`), so
- * a restore or a replay's seek shows the same, and as the moment of its
- * fall (`main.structureFell`, an explosion); the towers near it see anew
- * (`onFall`). The run rules bring the structures (RunRules.structures), a
- * new run stands them up again. Snapshots and the state hash carry the HP.
+ * The HP of a destructible world's structures in the simulation
+ * (docs/DESTRUCTION_PLAN.md, TODO E131): whole numbers, the stage of each a
+ * function of them (structureStage). Damage comes in by place (hit, fell);
+ * a grid of STRUCTURE_CELL_M cells finds the structures in reach, so a hit
+ * costs the few structures near it, not all of a city's thousands.
+ *
+ * The main thread hears the stages: all of them as one byte each in the run
+ * rules' order (`structures.setStages`) after a load, a new run, a restore
+ * or a replay's seek, and one stage at a time as it changes
+ * (`structures.stage`), a few bytes however long the run. The owner hears
+ * every change by damage (StructureEvents.staged) for what follows from it:
+ * the moment of a fall, its rubble, the towers that see past it. Snapshots
+ * and the state hash carry the HP.
  */
 export class StructureLedger {
-  private list: LedgerEntry[] = [];
+  private structures: readonly RunStructure[] = [];
+  /** Map metres, per structure */
+  private x = new Float64Array(0);
+  private y = new Float64Array(0);
+  private radius = new Float64Array(0);
+  private maxHp = new Int32Array(0);
+  private startHp = new Int32Array(0);
+  private hp = new Int32Array(0);
+  private stage = new Uint8Array(0);
+  /** Per structure whose roof carries towers its box (ROOF_STRIDE numbers), NaN for one without */
+  private roof = new Float64Array(0);
+
+  // The lookup grid: per cell its structures, as offsets into `items` (cellStart has one more entry than cells)
+  private minX = 0;
+  private minY = 0;
+  private columns = 0;
+  private rows = 0;
+  private cellStart = new Int32Array(1);
+  private items = new Int32Array(0);
+  /** The query a structure was last visited by, so one in several cells counts once */
+  private seen = new Uint32Array(0);
+  private query = 0;
+  /** The structures a query reached, in their order (scratch) */
+  private readonly reached: number[] = [];
 
   constructor(
     private readonly sink: SimSink,
-    /** A structure fell: map metres and its radius, for the towers whose sight it changes */
-    private readonly onFall: (x: number, y: number, radius: number) => void,
+    private readonly events: StructureEvents,
   ) {}
 
-  /** The world's structures, all standing; none for a world where nothing falls */
+  /** The world's structures, at their start (standing, or as the map damaged them); none for a world where nothing falls */
   load(structures: readonly RunStructure[] | null): void {
-    this.list = (structures ?? []).map((s) => ({
-      id: s.id,
-      lat: s.lat,
-      lon: s.lon,
-      height: s.height,
-      x: s.lon * MAP_METERS_PER_DEGREE,
-      y: s.lat * MAP_METERS_PER_DEGREE,
-      radius: s.radius,
-      maxHp: s.hp,
-      hp: s.hp,
-    }));
-    this.publish();
+    const list = structures ?? [];
+    const n = list.length;
+    this.structures = list;
+    this.x = new Float64Array(n);
+    this.y = new Float64Array(n);
+    this.radius = new Float64Array(n);
+    this.maxHp = new Int32Array(n);
+    this.startHp = new Int32Array(n);
+    this.hp = new Int32Array(n);
+    this.stage = new Uint8Array(n);
+    this.roof = new Float64Array(n * ROOF_STRIDE).fill(NaN);
+    this.seen = new Uint32Array(n);
+    this.query = 0;
+    list.forEach((s, i) => {
+      this.x[i] = s.lon * MAP_METERS_PER_DEGREE;
+      this.y[i] = s.lat * MAP_METERS_PER_DEGREE;
+      this.radius[i] = s.radius;
+      this.maxHp[i] = Math.max(1, Math.round(s.hp));
+      this.startHp[i] = Math.min(this.maxHp[i], Math.max(0, Math.round(s.start ?? s.hp)));
+      if (s.roof) this.setRoof(i, s);
+    });
+    this.buildGrid();
+    this.toStart();
   }
 
-  /** A new run: every structure stands again */
+  private setRoof(i: number, s: RunStructure): void {
+    const r = this.roof;
+    const k = i * ROOF_STRIDE;
+    if (s.box) {
+      const [bx, by, hx, hy, turn] = s.box;
+      r[k] = bx;
+      r[k + 1] = by;
+      r[k + 2] = hx;
+      r[k + 3] = hy;
+      r[k + 4] = DetMath.cos(turn);
+      r[k + 5] = DetMath.sin(turn);
+    } else {
+      // No ground plan: a square as wide as the circle, unturned
+      r[k] = this.x[i];
+      r[k + 1] = this.y[i];
+      r[k + 2] = r[k + 3] = s.radius;
+      r[k + 4] = 1;
+      r[k + 5] = 0;
+    }
+  }
+
+  /** Each structure in the cells its circle covers */
+  private buildGrid(): void {
+    const n = this.structures.length;
+    if (n === 0) {
+      this.columns = this.rows = 0;
+      this.cellStart = new Int32Array(1);
+      this.items = new Int32Array(0);
+      return;
+    }
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (let i = 0; i < n; i++) {
+      minX = Math.min(minX, this.x[i] - this.radius[i]);
+      minY = Math.min(minY, this.y[i] - this.radius[i]);
+      maxX = Math.max(maxX, this.x[i] + this.radius[i]);
+      maxY = Math.max(maxY, this.y[i] + this.radius[i]);
+    }
+    this.minX = minX;
+    this.minY = minY;
+    this.columns = Math.floor((maxX - minX) / STRUCTURE_CELL_M) + 1;
+    this.rows = Math.floor((maxY - minY) / STRUCTURE_CELL_M) + 1;
+    const counts = new Int32Array(this.columns * this.rows + 1);
+    const visit = (i: number, each: (cell: number) => void) => {
+      const i0 = this.col(this.x[i] - this.radius[i]);
+      const i1 = this.col(this.x[i] + this.radius[i]);
+      const j0 = this.row(this.y[i] - this.radius[i]);
+      const j1 = this.row(this.y[i] + this.radius[i]);
+      for (let j = j0; j <= j1; j++) for (let c = i0; c <= i1; c++) each(j * this.columns + c);
+    };
+    for (let i = 0; i < n; i++) visit(i, (cell) => counts[cell + 1]++);
+    for (let k = 1; k < counts.length; k++) counts[k] += counts[k - 1];
+    const fill = counts.slice(0, -1);
+    this.items = new Int32Array(counts[counts.length - 1]);
+    for (let i = 0; i < n; i++) visit(i, (cell) => (this.items[fill[cell]++] = i));
+    this.cellStart = counts;
+  }
+
+  private col(x: number): number {
+    return Math.min(this.columns - 1, Math.max(0, Math.floor((x - this.minX) / STRUCTURE_CELL_M)));
+  }
+
+  private row(y: number): number {
+    return Math.min(this.rows - 1, Math.max(0, Math.floor((y - this.minY) / STRUCTURE_CELL_M)));
+  }
+
+  /** A new run: every structure as the map has it at the start */
   reset(): void {
-    if (this.list.length === 0) return;
-    for (const s of this.list) s.hp = s.maxHp;
-    this.publish();
+    if (this.structures.length === 0) return;
+    this.toStart();
+  }
+
+  private toStart(): void {
+    this.hp.set(this.startHp);
+    this.restage();
   }
 
   get size(): number {
-    return this.list.length;
+    return this.structures.length;
   }
 
-  /** A projectile came down at `lat`, `lon` */
-  impact(lat: number, lon: number): void {
-    this.hit(lat, lon, IMPACT_REACH_M, IMPACT_DAMAGE);
+  /** The structures the run rules brought, in their order */
+  list(): readonly RunStructure[] {
+    return this.structures;
   }
 
-  /** Take `amount` off every standing structure within `reach` m plus its radius; the ids that fell */
-  hit(lat: number, lon: number, reach: number, amount: number): string[] {
-    if (this.list.length === 0 || amount <= 0) return [];
-    const x = lon * MAP_METERS_PER_DEGREE;
-    const y = lat * MAP_METERS_PER_DEGREE;
-    const fallen: LedgerEntry[] = [];
-    for (const s of this.list) {
-      if (s.hp <= 0) continue;
-      const r = reach + s.radius;
-      const dx = s.x - x;
-      const dy = s.y - y;
-      if (dx * dx + dy * dy > r * r) continue;
-      s.hp = Math.max(0, s.hp - amount);
-      if (s.hp === 0) fallen.push(s);
+  /** Map metres of structure `index` */
+  xOf(index: number): number {
+    return this.x[index];
+  }
+
+  yOf(index: number): number {
+    return this.y[index];
+  }
+
+  /**
+   * Take `amount` (whole HP) off every structure that still stands within
+   * `reach` m plus its radius of map metres (`x`, `y`) and carries no
+   * tower; how many changed their stage
+   */
+  hit(x: number, y: number, reach: number, amount: number): number {
+    if (amount <= 0 || this.structures.length === 0) return 0;
+    let changed = 0;
+    for (const i of this.near(x, y, reach)) if (this.damage(i, amount)) changed++;
+    return changed;
+  }
+
+  /** Every structure within `reach` m plus its radius of (`x`, `y`) falls, but one that carries a tower; how many fell */
+  fell(x: number, y: number, reach: number): number {
+    if (this.structures.length === 0) return 0;
+    let fallen = 0;
+    for (const i of this.near(x, y, reach)) if (this.damage(i, this.hp[i])) fallen++;
+    return fallen;
+  }
+
+  /**
+   * The standing structures within `reach` m plus their radius of map
+   * metres (`x`, `y`), in the run rules' order: the order damage acts in, so
+   * what follows from it (falls, sight requests) comes in the same order on
+   * every client. A scratch list, valid until the next call
+   */
+  near(x: number, y: number, reach: number): readonly number[] {
+    const reached = this.reached;
+    reached.length = 0;
+    if (this.columns === 0) return reached;
+    const q = ++this.query;
+    const i0 = this.col(x - reach);
+    const i1 = this.col(x + reach);
+    const j0 = this.row(y - reach);
+    const j1 = this.row(y + reach);
+    for (let j = j0; j <= j1; j++) {
+      for (let c = i0; c <= i1; c++) {
+        const cell = j * this.columns + c;
+        for (let k = this.cellStart[cell]; k < this.cellStart[cell + 1]; k++) {
+          const i = this.items[k];
+          if (this.seen[i] === q) continue;
+          this.seen[i] = q;
+          if (this.hp[i] <= 0) continue;
+          const r = reach + this.radius[i];
+          const dx = this.x[i] - x;
+          const dy = this.y[i] - y;
+          if (dx * dx + dy * dy <= r * r) reached.push(i);
+        }
+      }
     }
-    if (fallen.length === 0) return [];
-    this.publish();
-    for (const s of fallen) {
-      // The moment of the fall: a show op, left out while the show is muted (a replay's seek)
-      this.sink.main.structureFell(s.lat, s.lon, s.radius, s.height);
-      this.onFall(s.x, s.y, s.radius);
-    }
-    return fallen.map((s) => s.id);
+    if (reached.length > 1) reached.sort((a, b) => a - b);
+    return reached;
   }
 
-  /** HP in the order of the list, for a snapshot and the state hash */
+  /** `amount` off structure `index` unless it carries a tower; whether its stage changed */
+  private damage(index: number, amount: number): boolean {
+    if (this.hp[index] <= 0 || amount <= 0) return false;
+    if (!Number.isNaN(this.roof[index * ROOF_STRIDE]) && this.events.carried(index)) return false;
+    this.hp[index] = Math.max(0, this.hp[index] - amount);
+    const to = structureStage(this.hp[index], this.maxHp[index]);
+    const from = this.stage[index] as StructureStage;
+    if (to === from) return false;
+    this.stage[index] = to;
+    this.sink.structures.stage(index, to);
+    this.events.staged(index, from, to);
+    return true;
+  }
+
+  /** Whether map metres (`x`, `y`) lie on the roof of structure `index` (RunStructure.roof, its box) */
+  onRoof(index: number, x: number, y: number): boolean {
+    const r = this.roof;
+    const k = index * ROOF_STRIDE;
+    if (Number.isNaN(r[k])) return false;
+    // In the box's own axes, as CustomMapSurface's covers()
+    const ox = x - r[k];
+    const oy = y - r[k + 1];
+    const cos = r[k + 4];
+    const sin = r[k + 5];
+    return Math.abs(-ox * cos - oy * sin) <= r[k + 2] && Math.abs(-ox * sin + oy * cos) <= r[k + 3];
+  }
+
+  /** HP in the order of the run rules, for a snapshot */
   hpList(): number[] {
-    return this.list.map((s) => s.hp);
+    return Array.from(this.hp);
   }
 
-  /** HP back from a snapshot (hpList); a snapshot without them stands every structure */
+  /** The HP as a view, for the state hash without a copy */
+  hpView(): Int32Array {
+    return this.hp;
+  }
+
+  /** HP back from a snapshot (hpList); a snapshot without them starts every structure as the map has it */
   restore(hp: readonly number[] | undefined): void {
-    this.list.forEach((s, i) => {
+    for (let i = 0; i < this.structures.length; i++) {
       const saved = hp?.[i];
-      s.hp = typeof saved === 'number' && Number.isFinite(saved) ? Math.min(s.maxHp, Math.max(0, saved)) : s.maxHp;
-    });
+      this.hp[i] = typeof saved === 'number' && Number.isFinite(saved)
+        ? Math.min(this.maxHp[i], Math.max(0, Math.round(saved)))
+        : this.startHp[i];
+    }
+    this.restage();
+  }
+
+  /** The stages from the HP, and the main thread hears all of them */
+  private restage(): void {
+    for (let i = 0; i < this.structures.length; i++) this.stage[i] = structureStage(this.hp[i], this.maxHp[i]);
     this.publish();
   }
 
-  /** Tell the main thread which structures lie fallen now, all of them */
+  /** Tell the main thread every structure's stage, one byte each in the run rules' order */
   publish(): void {
-    if (this.list.length === 0) return;
-    this.sink.structures.setFallen(this.list.filter((s) => s.hp <= 0).map((s) => s.id));
+    if (this.structures.length === 0) return;
+    this.sink.structures.setStages(this.stage.slice());
+  }
+
+  /** Every structure's stage, a view in the run rules' order */
+  stages(): Uint8Array {
+    return this.stage;
   }
 }

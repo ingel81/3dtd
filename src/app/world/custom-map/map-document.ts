@@ -217,6 +217,16 @@ export interface MapObject {
    * nothing; only drawn, the game ignores it
    */
   sign?: MapSign;
+  /** False: a building, wall or structure of a destructible map that never takes damage (a town hall that stands) */
+  destructible?: boolean;
+  /**
+   * The stage a destructible map's structure starts the run at, damaged
+   * beforehand (1 battered, 2 heavily damaged, 3 a ruin with its rubble,
+   * destruction.config.ts); standing when missing
+   */
+  damage?: 1 | 2 | 3;
+  /** Rolls how the damage beforehand looks (cracks, the bite, the ruin), a whole number; from the id when missing */
+  damageSeed?: number;
   /** Objects with the same group are picked and moved together in the editor; the game ignores it */
   group?: string;
   /**
@@ -507,6 +517,12 @@ export interface MapGameplay {
   lanes?: MapLanes;
   /** Buildings, walls and structures take damage from shots and fall (TODO E131); off when missing */
   destructible?: boolean;
+  /** Impacts dig craters the enemies walk through (docs/DESTRUCTION_PLAN.md); as `destructible` when missing */
+  craters?: boolean;
+  /** The enemies passing by wear the structures down; off when missing */
+  wear?: boolean;
+  /** Percent on every structure's HP, STRUCTURE_HP_SCALE.min to max; 100 when missing */
+  structureHp?: number;
   /**
    * Percent on the wave budget of the game's waves (budget source), MAP_DIFFICULTY.min to max; 100 when
    * missing. The pressure loop still works on top. A list of the map's own keeps its HP
@@ -536,6 +552,9 @@ export type MapWaveEventKind = MapWaveEvent['kind'];
 
 /** Wave events a map may have, the last wave one may name, and a message's length */
 export const WAVE_EVENT_LIMITS = { events: 64, wave: 200, text: 200, objects: 500 } as const;
+
+/** The percent on the structures' HP a map may set (MapGameplay.structureHp) */
+export const STRUCTURE_HP_SCALE = { min: 50, max: 300, normal: 100 } as const;
 
 /** The difficulty a map may set, percent on the wave budget (MapGameplay.difficulty) */
 export const MAP_DIFFICULTY = { min: 50, max: 200, normal: 100 } as const;

@@ -443,16 +443,35 @@ describe('CustomMapWorld', () => {
     // The simulation gets the barn in the run rules
     expect(world.runRules()!.structures).toEqual([expect.objectContaining({ id: 'barn', lat: geo.lat, lon: geo.lon, radius: 5, height: 6 })]);
 
-    const fallen = world.destruction!.setFallen(['barn']);
-    expect(fallen.map((s) => s.id)).toEqual(['barn']);
+    // Craters with it, no wear unless the map says so
+    expect(world.runRules()!.destruction).toEqual({ craters: true, wear: false });
+
+    // Battered: it stands and blocks as before
+    world.destruction!.setStage(0, 1);
+    expect(world.doc.objects[0].scale).toBe(1);
+    world.destruction!.setStage(0, 3);
     // Gone from the run's map and its build blocking; the opened map keeps its barn
     expect(world.doc.objects[0].scale).toBe(FALLEN_SCALE);
     expect(world.surface.buildBlocker(geo.lat, geo.lon, 1)).toBeNull();
     expect(doc.objects[0].scale).toBe(1);
 
-    world.destruction!.setFallen([]);
+    world.destruction!.setStages(new Uint8Array([0]));
     expect(world.doc.objects[0].scale).toBe(1);
     expect(world.surface.buildBlocker(geo.lat, geo.lon, 1)).toBe(BUILD_BLOCKED_OBJECT);
+
+    // A map that keeps the barn standing, digs no craters, but wears what the enemies pass
+    doc.objects[0].destructible = false;
+    doc.gameplay = { destructible: true, craters: false, wear: true };
+    const kept = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
+    kept.useCatalog(catalog);
+    expect(kept.runRules()!.structures).toBeNull();
+    expect(kept.runRules()!.destruction).toEqual({ craters: false, wear: true });
+    // Craters alone on a map whose buildings stand
+    doc.gameplay = { craters: true };
+    const craters = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
+    craters.useCatalog(catalog);
+    expect(craters.destruction).toBeNull();
+    expect(craters.runRules()!.destruction).toEqual({ craters: true, wear: false });
   });
 
   it('hands its wave events to the simulation with the objects placed, and shows sky and objects as far as it says (TODO E170)', () => {

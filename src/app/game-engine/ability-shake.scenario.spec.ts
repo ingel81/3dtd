@@ -67,6 +67,7 @@ describe('Nuclear strike with Screen Shake switched off, playtest 320 replayed',
       routeSweep: () => null,
       // A missile silo stands: the nuclear strike has its launch site
       launchSite: () => ({ towerId: 'silo', position: { lat: 0, lon: 0, height: 0 } }),
+      damageWorld: () => undefined,
     } as unknown as AbilityWorld);
     abilities.setPhaseProvider(() => 'wave');
     simBus.emit({

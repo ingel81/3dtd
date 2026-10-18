@@ -92,6 +92,7 @@ describe('Refused hires and abilities in the context hint box, open point 13 rep
       routeSweep: () => null,
       // A missile silo stands: the nuclear strike has its launch site
       launchSite: () => (siloStands ? { towerId: 'silo', position: { lat: 0, lon: 0, height: 0 } } : null),
+      damageWorld: () => undefined,
     } as unknown as AbilityWorld);
     abilities.setPhaseProvider(() => phase);
     hero = new HeroManager(bus, {

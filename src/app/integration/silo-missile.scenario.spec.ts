@@ -57,6 +57,7 @@ describe('Missile silo: the missile standing in it', () => {
     siloId = null;
     const world: AbilityWorld = {
       launchSite: () => (siloId ? { towerId: siloId, position: { lat: 48.09, lon: 9.08, height: 12 } } : null),
+      damageWorld: () => undefined,
       snapToRoute: (target) => target,
       enemiesInRadius: (_center, _radius, out) => out,
       strike: () => 0,

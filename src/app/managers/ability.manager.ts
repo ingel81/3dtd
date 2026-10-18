@@ -96,6 +96,12 @@ export interface AbilityWorld {
    * long, or null
    */
   routeSweep(target: GeoPosition, maxDistanceM: number, lengthM: number): RouteSweep | null;
+  /**
+   * What ability `id` does to the world at `at` (structures, ground,
+   * docs/DESTRUCTION_PLAN.md) over the game ms from `fromMs` to `toMs` of
+   * its strike: 0 to 0 where it lands, a beam's burnt time per sub-step
+   */
+  damageWorld(id: AbilityId, at: GeoPosition, fromMs: number, toMs: number): void;
 }
 
 /** A strike between command and its end: the warning, and for a beam the burn. */
@@ -403,6 +409,7 @@ export class AbilityManager implements IGameManager {
       this.burn(strike, stepMs);
       return;
     }
+    this.world.damageWorld(strike.abilityId, strike.target, 0, 0);
 
     const targets = this.world.enemiesInRadius(strike.target, config.radiusM, this.targetScratch);
     const hits = targets.length;
@@ -446,6 +453,7 @@ export class AbilityManager implements IGameManager {
     }
 
     const at = pointAlongSweep(sweep, (effect.speedMps * strike.burntMs) / 1000, this.beamPoint);
+    this.world.damageWorld(strike.abilityId, at, strike.burntMs, strike.burntMs + stepMs);
     const inRadius = this.world.enemiesInRadius(at, config.radiusM, this.targetScratch);
     const targets = this.beamTargets;
     const shares = this.beamShares;

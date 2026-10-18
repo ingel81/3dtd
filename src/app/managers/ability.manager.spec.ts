@@ -69,6 +69,7 @@ describe('AbilityManager', () => {
     sites = { 'missile-silo': SILO };
     world = {
       launchSite: vi.fn((typeId: string) => sites[typeId] ?? null),
+      damageWorld: vi.fn(),
       snapToRoute: vi.fn((target: GeoPosition) => (routeInReach ? { ...target, height: 5 } : null)),
       enemiesInRadius: vi.fn((_center: GeoPosition, _radius: number, out: Enemy[]) => {
         out.length = 0;

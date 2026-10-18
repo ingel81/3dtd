@@ -1,6 +1,7 @@
 import type { Signal } from '@angular/core';
 import type { Group, Matrix4, Object3D, PerspectiveCamera, Raycaster, Scene, Texture, Vector2, Vector3, Vector4, WebGLRenderer } from 'three';
 import type { LaneChoice } from './custom-map/lane-choice';
+import type { StructureStage } from '../configs/destruction.config';
 import type { TilesRenderer } from '3d-tiles-renderer';
 import type { CameraRig } from '../three-engine/camera-rig';
 import type { ColumnHit, ColumnSample } from '../three-engine/column-sample';
@@ -463,22 +464,25 @@ export interface WorldStructure {
   /** Height above its ground, m */
   readonly height: number;
   readonly maxHp: number;
-  hp: number;
+  /** As the simulation has it: 0 standing, 1 battered, 2 heavily damaged, 3 fallen (destruction.config.ts) */
+  stage: StructureStage;
 }
 
 /**
  * The hook of a destructible world (capabilities.destructible): which of its
- * structures can fall, and showing the ones that lie fallen, out of the
- * picture and the build blocking. The simulation keeps their HP
- * (StructureLedger, RunRules.structures) and says which lie fallen
- * (`structures.setFallen`, presentation/world-damage-presenter.ts); a
- * fallen one's `hp` reads 0, a standing one's its full HP.
+ * structures can fall, and showing each as the simulation has it, a fallen
+ * one out of the picture and the build blocking. The simulation keeps their
+ * HP (StructureLedger, RunRules.structures, in the order of `structures()`)
+ * and says their stages (`structures.setStages`, `structures.stage`,
+ * presentation/world-damage-presenter.ts).
  */
 export interface WorldDestruction {
-  /** Every structure that can take damage, standing or fallen */
+  /** Every structure that can take damage, standing or fallen, in the run rules' order */
   structures(): readonly WorldStructure[];
-  /** These lie fallen now, all others stand; the ones that fell with this call */
-  setFallen(ids: readonly string[]): WorldStructure[];
+  /** Every structure's stage, one byte each in that order (after a load, a new run, a restore, a seek) */
+  setStages(stages: Uint8Array): void;
+  /** Structure `index` reached `stage` by damage just now */
+  setStage(index: number, stage: StructureStage): void;
 }
 
 /**

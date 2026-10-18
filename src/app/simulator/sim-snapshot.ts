@@ -35,6 +35,8 @@ export interface SimSnapshot {
   baseHealth: number;
   /** The HP of a destructible world's structures, in the run rules' order (StructureLedger); absent before them */
   structures?: number[];
+  /** The craters of the run, four whole numbers each (CraterLedger); absent where there are none */
+  craters?: number[];
   waveNumber: number;
   phase: GamePhase;
   /** A wave has started in this run (game:started went out) */

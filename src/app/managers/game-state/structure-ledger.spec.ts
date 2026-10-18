@@ -1,54 +1,115 @@
 import { describe, expect, it, vi } from 'vitest';
-import { IMPACT_DAMAGE, IMPACT_REACH_M, StructureLedger } from './structure-ledger';
+import { STRUCTURE_CELL_M, StructureLedger } from './structure-ledger';
 import { MAP_METERS_PER_DEGREE as K } from '../../world/custom-map/map-document';
+import { presetHp, structureStage } from '../../configs/destruction.config';
+import type { RunStructure } from '../../sim/protocol/run-rules';
 
-function setup() {
-  const sink = { structures: { setFallen: vi.fn() }, main: { structureFell: vi.fn() } };
-  const onFall = vi.fn();
-  const ledger = new StructureLedger(sink as never, onFall);
+function setup(structures: RunStructure[] = [
   // A barn of radius 5 at map (100, 0), a wall of radius 1 at (300, 0)
-  ledger.load([
-    { id: 'barn', lat: 0, lon: 100 / K, radius: 5, height: 6, hp: 2 * IMPACT_DAMAGE },
-    { id: 'wall', lat: 0, lon: 300 / K, radius: 1, height: 2, hp: 1000 },
-  ]);
-  return { sink, onFall, ledger };
+  { id: 'barn', lat: 0, lon: 100 / K, radius: 5, height: 6, hp: 100 },
+  { id: 'wall', lat: 0, lon: 300 / K, radius: 1, height: 2, hp: 1000 },
+]) {
+  const sink = { structures: { setStages: vi.fn(), stage: vi.fn() } };
+  const staged = vi.fn();
+  const carried = vi.fn((_index: number) => false);
+  const ledger = new StructureLedger(sink as never, { staged, carried });
+  ledger.load(structures);
+  return { sink, staged, carried, ledger };
 }
 
-describe('StructureLedger (TODO E131)', () => {
-  it('wears down what an impact reaches, its reach plus the radius, and lets it fall at zero once', () => {
-    const { sink, onFall, ledger } = setup();
-    expect(sink.structures.setFallen).toHaveBeenLastCalledWith([]);
-    // Just in reach of the barn: 5 + IMPACT_REACH_M
-    const edge = (100 + 5 + IMPACT_REACH_M - 0.1) / K;
-    ledger.impact(0, edge);
-    expect(ledger.hpList()).toEqual([IMPACT_DAMAGE, 1000]);
-    // Just out of reach: nothing
-    ledger.impact(0, (100 + 5 + IMPACT_REACH_M + 0.1) / K);
-    expect(ledger.hpList()).toEqual([IMPACT_DAMAGE, 1000]);
-    ledger.impact(0, edge);
+describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
+  it('reaches what lies within the reach plus its radius, in whole HP, through its stages to the fall', () => {
+    const { sink, staged, ledger } = setup();
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([0, 0]));
+    // Just in reach of the barn (100 + 5 + 4), and just out of it
+    expect(ledger.hit(108.9, 0, 4, 20)).toBe(0);
+    expect(ledger.hpList()).toEqual([80, 1000]);
+    ledger.hit(109.1, 0, 4, 20);
+    expect(ledger.hpList()).toEqual([80, 1000]);
+    // 75 % and below: battered, one op of two numbers
+    expect(ledger.hit(100, 0, 0, 5)).toBe(1);
+    expect(sink.structures.stage).toHaveBeenLastCalledWith(0, 1);
+    expect(staged).toHaveBeenLastCalledWith(0, 0, 1);
+    // Within a stage no op
+    ledger.hit(100, 0, 0, 10);
+    expect(sink.structures.stage).toHaveBeenCalledTimes(1);
+    // 40 % and below: heavily damaged; 0: fallen, once
+    ledger.hit(100, 0, 0, 30);
+    expect(staged).toHaveBeenLastCalledWith(0, 1, 2);
+    ledger.hit(100, 0, 0, 1000);
+    expect(staged).toHaveBeenLastCalledWith(0, 2, 3);
     expect(ledger.hpList()).toEqual([0, 1000]);
-    expect(sink.structures.setFallen).toHaveBeenLastCalledWith(['barn']);
-    expect(sink.main.structureFell).toHaveBeenCalledWith(0, 100 / K, 5, 6);
-    expect(onFall).toHaveBeenCalledWith(100, 0, 5);
-    // Fallen: no second fall
-    ledger.impact(0, edge);
-    expect(sink.main.structureFell).toHaveBeenCalledTimes(1);
+    expect(ledger.hit(100, 0, 10, 1000)).toBe(0);
+    expect(staged).toHaveBeenCalledTimes(3);
+    // The stage sets went out with load only: the rest were deltas
+    expect(sink.structures.setStages).toHaveBeenCalledTimes(1);
   });
 
-  it('stands everything up on a new run and from a snapshot, and holds nothing for a world without structures', () => {
-    const { sink, ledger } = setup();
-    ledger.hit(0, 100 / K, 0, 1e6);
-    ledger.reset();
-    expect(ledger.hpList()).toEqual([2 * IMPACT_DAMAGE, 1000]);
-    expect(sink.structures.setFallen).toHaveBeenLastCalledWith([]);
-    ledger.restore([0, 500]);
+  it('fells what stands in reach, but a structure that carries a tower on its roof', () => {
+    const roofed: RunStructure = { id: 'hall', lat: 0, lon: 120 / K, radius: 6, height: 9, hp: 500, roof: true, box: [120, 0, 4, 3, 0] };
+    const { carried, ledger } = setup([
+      { id: 'barn', lat: 0, lon: 100 / K, radius: 5, height: 6, hp: 100 },
+      roofed,
+    ]);
+    carried.mockImplementation((i: number) => i === 1);
+    expect(ledger.fell(110, 0, 25)).toBe(1);
     expect(ledger.hpList()).toEqual([0, 500]);
-    expect(sink.structures.setFallen).toHaveBeenLastCalledWith(['barn']);
-    // A snapshot from before structures stands them all
+    // The towers are asked about the roofed one only, as it is hit
+    expect(carried).toHaveBeenCalledWith(1);
+    expect(carried).not.toHaveBeenCalledWith(0);
+    carried.mockReturnValue(false);
+    expect(ledger.fell(110, 0, 25)).toBe(1);
+    // Its box: within, a roof; just past its half width, not
+    expect(ledger.onRoof(1, 123.9, 2.9)).toBe(true);
+    expect(ledger.onRoof(1, 124.1, 0)).toBe(false);
+    expect(ledger.onRoof(0, 100, 0)).toBe(false);
+  });
+
+  it('starts a structure the map damaged beforehand at its stage, and goes back there on a new run and from a snapshot without HP', () => {
+    const { sink, ledger } = setup([
+      { id: 'ruin', lat: 0, lon: 0, radius: 4, height: 6, hp: 200, start: 0 },
+      { id: 'crack', lat: 0, lon: 50 / K, radius: 4, height: 6, hp: 200, start: presetHp(200, 1) },
+      { id: 'whole', lat: 0, lon: 100 / K, radius: 4, height: 6, hp: 200 },
+    ]);
+    expect(ledger.hpList()).toEqual([0, 120, 200]);
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 1, 0]));
+    ledger.hit(100, 0, 0, 200);
+    ledger.reset();
+    expect(ledger.hpList()).toEqual([0, 120, 200]);
+    ledger.restore([0, 10, 50]);
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 2, 2]));
     ledger.restore(undefined);
-    expect(ledger.hpList()).toEqual([2 * IMPACT_DAMAGE, 1000]);
+    expect(ledger.hpList()).toEqual([0, 120, 200]);
     ledger.load(null);
     expect(ledger.size).toBe(0);
-    expect(ledger.hit(0, 0, 1000, 1e6)).toEqual([]);
+    expect(ledger.hit(0, 0, 1000, 1e6)).toBe(0);
+  });
+
+  it('finds the structures near a point through its grid, as a scan of all of them does, in their order', () => {
+    // A town of 2 000 structures, one of them a long wall over many cells
+    let seed = 7;
+    const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const list: RunStructure[] = Array.from({ length: 2000 }, (_, i) => ({
+      id: `s${i}`, lat: (rand() * 800 - 400) / K, lon: (rand() * 800 - 400) / K, radius: 2 + rand() * 10, height: 6, hp: 100,
+    }));
+    list.push({ id: 'wall', lat: 0, lon: 0, radius: 6 * STRUCTURE_CELL_M, height: 3, hp: 100 });
+    const { ledger } = setup(list);
+    for (let n = 0; n < 200; n++) {
+      const x = rand() * 900 - 450;
+      const y = rand() * 900 - 450;
+      const reach = rand() * 30;
+      const scan = list.flatMap((s, i) => {
+        const r = reach + s.radius;
+        const dx = s.lon * K - x;
+        const dy = s.lat * K - y;
+        return dx * dx + dy * dy <= r * r ? [i] : [];
+      });
+      expect([...ledger.near(x, y, reach)]).toEqual(scan);
+    }
+  });
+
+  it('keeps its stage a function of the HP: 75 and 40 per cent', () => {
+    expect([100, 76, 75, 41, 40, 1, 0].map((hp) => structureStage(hp, 100))).toEqual([0, 0, 1, 1, 2, 2, 3]);
+    expect([0, 1, 2, 3].map((s) => structureStage(presetHp(333, s as 0 | 1 | 2 | 3), 333))).toEqual([0, 1, 2, 3]);
   });
 });

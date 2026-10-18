@@ -98,9 +98,8 @@ export function computeBuildAreas(input: BuildAreaInput): BuildAreas {
   // The game's surface of this map, its frame at the map's middle (scene x = -map x, z = map y)
   const frame = new CustomMapFrame();
   const surface = new CustomMapSurface(doc as CustomMapDocument, frame);
-  const category = new Map(input.catalog.map((e) => [e.id, e.category]));
-  // Destructible as the game starts the map: by its own say (CustomMapWorld's default, the only one a run uses)
-  surface.setObjectCatalog(input.catalog, passingObjectIds(doc, (asset) => category.get(asset), doc.gameplay?.destructible === true));
+  // As the game starts the map: the objects of its wave events carry no tower (destructible roofs do)
+  surface.setObjectCatalog(input.catalog, passingObjectIds(doc));
   const geo = (p: MapPoint) => ({ lat: p.y / MAP_METERS_PER_DEGREE, lon: p.x / MAP_METERS_PER_DEGREE });
   const M = MAP_METERS_PER_DEGREE;
   const ctx: TowerPlacementContext = {

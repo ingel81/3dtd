@@ -30,6 +30,14 @@ interface ShotSound {
 }
 
 /**
+ * A shot came down on its target (not a free shot's end): the logic of the
+ * world it lands in (WorldDamage), `air` for a target in the air
+ */
+export type ProjectileImpactListener = (projectile: Projectile, air: boolean) => void;
+
+const NO_IMPACTS: ProjectileImpactListener = () => undefined;
+
+/**
  * Projectiles in flight. Their renderers and trails are the main thread's:
  * created and removed by ops (SimSink), moved from the packet's projectile
  * table.
@@ -45,6 +53,8 @@ export class ProjectileManager extends EntityManager<Projectile> {
   constructor(
     private eventBus: GameEventBus,
     private readonly sink: SimSink,
+    /** Every impact as logic, beside the show's `vfx:projectile-impact` */
+    private readonly onImpact: ProjectileImpactListener = NO_IMPACTS,
   ) {
     super();
   }
@@ -240,6 +250,9 @@ export class ProjectileManager extends EntityManager<Projectile> {
             damageType: projectile.damageType,
           });
         }
+
+        // The world it lands in (craters, structures), as logic and at once
+        this.onImpact(projectile, target.typeConfig.isAirUnit === true);
 
         // Emit VFX event for projectile impact (deferred, not critical)
         this.eventBus.emitDeferred({

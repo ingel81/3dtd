@@ -178,11 +178,24 @@ export interface SimSink {
   };
   readonly structures: {
     /**
-     * The structures lying fallen now, all of them (StructureLedger, TODO
-     * E131): the player hands them to the world's destruction, which shows
-     * the new ones falling and stands up any no longer in the set
+     * Every structure's stage (0 standing to 3 fallen, destruction.config.ts),
+     * one byte each in the run rules' order (StructureLedger), after a load,
+     * a new run, a restore or a replay's seek: the player hands them to the
+     * world's destruction, which shows each as it stands now
      */
-    setFallen(ids: readonly string[]): void;
+    setStages(stages: Uint8Array): void;
+    /** Structure `index` (run rules' order) reached `stage` by damage just now */
+    stage(index: number, stage: number): void;
+  };
+  readonly craters: {
+    /**
+     * Every crater of the run, four whole numbers each (CraterLedger: middle
+     * x and y in map dm, radius dm, depth cm), after a load, a new run, a
+     * restore or a replay's seek
+     */
+    setAll(craters: Int32Array): void;
+    /** Crater `index` was dug or deepened just now: its four numbers as they are now */
+    dig(index: number, x: number, y: number, radius: number, depth: number): void;
   };
   readonly waveEvents: {
     /**

@@ -379,10 +379,10 @@ describe('GameStateManager order of operations (characterization)', () => {
         'enemy:reached-base', 'enemy:leaking', 'enemy:died',
         'research:completed', 'wave:completed',
         'research:completed', 'hero:kill',
-        // GameStateManager: LOS masks for the re-simulation, AA retrofit, structures hit, guard turns, kill reward
+        // GameStateManager: LOS masks for the re-simulation, AA retrofit, guard turns, kill reward
         'enemy:reached-base', 'enemy:leaking',
         'tower:los-resolved',
-        'research:completed', 'vfx:projectile-impact', 'wave:completed',
+        'research:completed', 'wave:completed',
         'enemy:died', 'enemy:reached-base', 'enemy:died',
         // GameCommandsHandler
         'command:place-tower', 'command:sell-tower', 'command:upgrade-tower', 'command:choose-path', 'command:set-targeting',

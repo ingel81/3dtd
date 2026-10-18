@@ -21,7 +21,8 @@ import { FramePresenter } from './frame-presenter';
 import { TowerLoopSounds } from './tower-loop-sounds';
 import { FLAME_SOUND, LASER_SOUND, SAW_SOUND, STREAM_SOUND } from './combat-sounds';
 import { HqDamagePresenter } from './hq-damage-presenter';
-import { WorldDamagePresenter } from './world-damage-presenter';
+import { WorldDamagePresenter, type StampGround } from './world-damage-presenter';
+import type { StructureStage } from '../configs/destruction.config';
 import { DEFAULT_RUN_RULES } from '../sim/protocol/run-rules';
 import { registerCombatSounds } from './combat-sounds';
 import { ManualShots } from './manual-shots';
@@ -43,6 +44,8 @@ export interface PresentationHostOptions {
   source: PresentationSource;
   /** The main thread's route grid: ground of the oozes, the heroes, the scorch marks, the beam, the ability loops */
   ground: ScorchGround;
+  /** The same grid, whose sight probes stand on the craters and rubble the simulation's enemies walk on */
+  stampGround?: StampGround;
 }
 
 /**
@@ -82,7 +85,7 @@ export class PresentationHost implements SimPresenterApi {
   private readonly towerAt = new Vector3();
 
   constructor(options: PresentationHostOptions) {
-    const { engine, bus, source, ground } = options;
+    const { engine, bus, source, ground, stampGround } = options;
     this.engine = engine;
 
     if (engine.spatialAudio) registerCombatSounds(engine.spatialAudio);
@@ -98,7 +101,7 @@ export class PresentationHost implements SimPresenterApi {
     this.bloodMoon = new BloodMoonService(bus, engine.bloodMoon);
     this.hq = new HqDamagePresenter(engine, bus, () => (engine.world.runRules() ?? DEFAULT_RUN_RULES).hqHealth);
     this.manualShots = new ManualShots(bus, source);
-    this.worldDamage = new WorldDamagePresenter(engine, bus);
+    this.worldDamage = new WorldDamagePresenter(engine, bus, stampGround ?? null);
 
     // Scorch marks sit on route cells at the grid's ground height, the hero
     // and the foot of the orbital laser's beam stand on it like the enemies
@@ -396,7 +399,13 @@ export class PresentationHost implements SimPresenterApi {
     ops.override('show.clear', () => this.clearShow());
     ops.override('main.iceDecal', (args) => iceDecal(engine, args[0] as number, args[1] as number, args[2] as number));
     // The structures of a destructible world as the simulation has them (TODO E131)
-    ops.override('structures.setFallen', (args) => this.worldDamage.setFallen(args[0] as string[]));
+    ops.override('structures.setStages', (args) => this.worldDamage.setStages(args[0] as Uint8Array));
+    ops.override('structures.stage', (args) => this.worldDamage.setStage(args[0] as number, args[1] as StructureStage));
+    ops.override('craters.setAll', (args) => this.worldDamage.setCraters(args[0] as Int32Array));
+    ops.override('craters.dig', (args) => {
+      const [index, x, y, radius, depth] = args as [number, number, number, number, number];
+      this.worldDamage.dig(index, x, y, radius, depth);
+    });
     // A custom map's wave events as far as the simulation reached them (TODO E170)
     ops.override('waveEvents.setReached', (args) => engine.world.showWaveEvents?.(args[0] as number));
     ops.override('main.structureFell', (args) =>

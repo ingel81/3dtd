@@ -9,8 +9,9 @@
  * Rules for the simulation side:
  *  - Fire and forget: a sink call returns undefined. Nothing may be read back.
  *  - Arguments are plain data: numbers, strings, booleans, null, arrays and
- *    plain objects of those. A vector goes as `{ x, y, z }`; the player makes
- *    a THREE.Vector3 of every plain object with exactly the keys x, y, z.
+ *    plain objects of those, a Uint8Array or Int32Array for a whole set at
+ *    once. A vector goes as `{ x, y, z }`; the player makes a THREE.Vector3
+ *    of every plain object with exactly the keys x, y, z.
  *  - No entities, no functions, no three.js objects.
  */
 export type PlainValue =
@@ -20,6 +21,8 @@ export type PlainValue =
   | null
   | undefined
   | readonly PlainValue[]
+  | Uint8Array
+  | Int32Array
   | { readonly [key: string]: PlainValue };
 
 /** [engine member path, ...arguments] */

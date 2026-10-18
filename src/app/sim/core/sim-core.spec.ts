@@ -249,7 +249,7 @@ describe('SimCore in the same thread', () => {
     }
   });
 
-  it("wears down a destructible world's structures, shows the fallen set, makes towers near it look anew, and restores it (TODO E131)", () => {
+  it("wears down a destructible world's structures, shows their stages, makes towers near a fall look anew, and restores it (TODO E131)", () => {
     const main = mainWorld();
     const barn = { id: 'barn', lat: 140 / M, lon: 20 / M, radius: 5, height: 6, hp: 100 };
     const rules = { startCredits: 100, hqHealth: 500, towers: null, structures: [barn], start: null };
@@ -270,13 +270,13 @@ describe('SimCore in the same thread', () => {
     // Two hits of 60 in reach: the barn falls with the second
     drive.send({ type: 'debug:hit-structures', lat: 140 / M, lon: 22 / M, reach: 1, amount: 60 });
     let packet = drive.tick();
-    // Worn down, still standing: nothing for the main thread yet
-    expect(packet.ops.filter((op) => op[0] === 'structures.setFallen')).toEqual([]);
+    // Worn down to 40 %, still standing: its stage, a delta of two numbers
+    expect(packet.ops.filter((op) => op[0].startsWith('structures.'))).toEqual([['structures.stage', 0, 2]]);
     expect(core.gsm.stateHash()).not.toBe(hashBefore);
     drive.send({ type: 'debug:hit-structures', lat: 140 / M, lon: 22 / M, reach: 1, amount: 60 });
     packet = drive.tick();
     expect(packet.ops.filter((op) => op[0].startsWith('structures.') || op[0] === 'main.structureFell')).toEqual([
-      ['structures.setFallen', ['barn']],
+      ['structures.stage', 0, 3],
       ['main.structureFell', barn.lat, barn.lon, 5, 6],
     ]);
     // The cannon 29 m off asks for its sight again (still its first, so as 'place'), to see past where the barn stood
@@ -288,7 +288,7 @@ describe('SimCore in the same thread', () => {
     core.gsm.restoreSnapshot(before, 'live');
     expect(core.gsm.captureSnapshot().structures).toEqual([100]);
     expect(core.gsm.stateHash()).toBe(hashBefore);
-    expect(drive.tick().ops.filter((op) => op[0] === 'structures.setFallen')).toEqual([['structures.setFallen', []]]);
+    expect(drive.tick().ops.filter((op) => op[0] === 'structures.setStages')).toEqual([['structures.setStages', new Uint8Array([0])]]);
   });
 
   it("runs a custom map's wave events: a lane that opens later, objects that go, messages; quietly on a restore; bit for bit in a replay (TODO E170)", () => {

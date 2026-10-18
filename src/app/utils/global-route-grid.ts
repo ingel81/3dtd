@@ -6,6 +6,7 @@ import type { ColumnSample, ColumnSampler, TerrainPeekLOD } from '../three-engin
 import type { PortalClipUniforms } from '../three-engine/renderers/portal-clip';
 import { LosResolveContext } from './gpu-cube-resolve';
 import { RouteCell } from './route-cell';
+import type { CellSpan, StampField } from './stamp-field';
 import { LOS_SLOT_AIR, LOS_SLOT_GROUND, LosMask, createLosBits, readLosSlot, writeLosSlot } from './los-mask';
 import { resolveTowerLos, resolveTowerLosIncremental, countSight, SightCount } from './route-grid-los';
 import { RouteCellLattice, claimRouteCells } from './route-grid-builder';
@@ -190,9 +191,36 @@ export class GlobalRouteGrid {
    * overlay draws the cell there, and the tower LOS samples above it.
    */
   private readonly standHeight = (cell: RouteCell): number => {
-    if (cell.heightSampled) return cell.terrainHeight;
-    return this.estimateTerrainY(cell.x, cell.z) ?? cell.terrainHeight;
+    const ground = cell.heightSampled ? cell.terrainHeight : this.estimateTerrainY(cell.x, cell.z) ?? cell.terrainHeight;
+    return this.stamps === null ? ground : ground + this.stamps.heightAt(cell.x, cell.z);
   };
+
+  /** Craters and rubble under the routes the enemies stand in or on (StampField), null while there are none */
+  private stamps: StampField | null = null;
+
+  /**
+   * The field of craters and rubble under the routes, as the simulation's
+   * enemies stand on it: from now on the tower sight probes and the overlay
+   * stand there too (standHeight). Null: the ground as built.
+   */
+  setStampField(field: StampField | null): void {
+    this.stamps = field;
+  }
+
+  /** The grid indices the cells span, first and last on each axis; null without cells (StampField's extent) */
+  cellSpan(): CellSpan | null {
+    if (this.cells.size === 0) return null;
+    let minIx = Infinity, minIz = Infinity, maxIx = -Infinity, maxIz = -Infinity;
+    for (const cell of this.cells.values()) {
+      const ix = this.cellIndex(cell.x);
+      const iz = this.cellIndex(cell.z);
+      if (ix < minIx) minIx = ix;
+      if (ix > maxIx) maxIx = ix;
+      if (iz < minIz) minIz = iz;
+      if (iz > maxIz) maxIz = iz;
+    }
+    return { minIx, minIz, maxIx, maxIz };
+  }
 
   /** See RouteCellNeighbours.medianOfStable */
   private medianOfStableNeighbourY(cell: RouteCell, minDepth = 0): number | null {

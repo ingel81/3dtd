@@ -24,6 +24,7 @@ import type { SimSink } from '../sim/core/sim-sink';
 import type { KilledBy } from '../game-engine/game-event-bus';
 import type { EnemiesState, SavedEnemy } from '../simulator/wave-snapshot';
 import { assignPlainFields, decodeNumber, encodeNumber, plainFields } from '../simulator/plain-fields';
+import type { StampField } from '../utils/stamp-field';
 
 /**
  * How fast an enemy's feet may follow a corrected ground height (m/s).
@@ -127,6 +128,14 @@ export class EnemyManager extends EntityManager<Enemy> {
 
   // Debug toggle: skip movement + visual updates when false
   movementEnabled = true;
+
+  /**
+   * What craters and rubble did to the ground under the routes (WorldDamage,
+   * docs/DESTRUCTION_PLAN.md): the enemies stand that much higher or lower
+   * and walk slower on rubble. Null while the ground lies as built, and then
+   * nothing here costs a thing.
+   */
+  private stamps: StampField | null = null;
 
   // Cached alive enemies array (invalidated on spawn/kill/remove/clear)
   private cachedAliveEnemies: Enemy[] | null = null;
@@ -688,6 +697,11 @@ export class EnemyManager extends EntityManager<Enemy> {
     }
   }
 
+  /** See `stamps` */
+  setStampField(field: StampField | null): void {
+    this.stamps = field;
+  }
+
   /**
    * Update all enemies — movement and rendering. Called once per gameplay
    * sub-step (~16ms game-time). `gameTimeMs` is the engine game-clock used
@@ -714,6 +728,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.toRemove.length = 0;
     const sync = this.coords.sync;
     const originHeight = sync.getOrigin().height;
+    const stamps = this.stamps;
 
     for (const enemy of this.getAllActive()) {
       // `alive` reads a mirror kept on the enemy (Enemy.deadFlag), so this
@@ -753,9 +768,16 @@ export class EnemyManager extends EntityManager<Enemy> {
       }
       // A boss's rage
       if (enemy.traits !== null && tickBossTraits(enemy, enemy.traits) === 'enraged') this.announceRage(enemy);
-      // A worm segment goes where its chain put it (worms.tick above)
+      // A worm segment goes where its chain put it (worms.tick above). On
+      // rubble the walk is slower: where it stands before the step, the same
+      // after a restore as in the run
+      let slow = statusFlags.slowMultiplier;
+      if (stamps !== null && enemy.worm === null && enemy.body === null) {
+        sync.geoToLocalSimpleInto(enemy.position.lat, enemy.position.lon, 0, this._tempLocalPos);
+        slow *= stamps.brakeAt(this._tempLocalPos.x, this._tempLocalPos.z);
+      }
       const moveResult = enemy.worm === null
-        ? enemy.movement.move(deltaTime, gameTimeMs, statusFlags.slowMultiplier)
+        ? enemy.movement.move(deltaTime, gameTimeMs, slow)
         : stepWormSegment(enemy, enemy.worm);
       if (sample) tMove += performance.now() - t0;
 
@@ -838,7 +860,9 @@ export class EnemyManager extends EntityManager<Enemy> {
         if (cellY !== null) {
           // Air units carry their spread here rather than in the movement
           // component, where it used to be folded into terrainHeight each step.
-          const target = cellY + originHeight + enemy.movement.getHeightVariation();
+          let target = cellY + originHeight + enemy.movement.getHeightVariation();
+          // Down into a crater, up onto rubble
+          if (stamps !== null) target += stamps.heightAt(this._tempLocalPos.x, this._tempLocalPos.z);
           // Cell refreshes can move ground by metres in one frame. Ease into
           // it so a streaming correction reads as the enemy settling rather
           // than teleporting.

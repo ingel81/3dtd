@@ -50,6 +50,7 @@ function source(
     killRewards: () => ({ remainingKillBudget: wave.killBudget ?? 120, paidRewardWeight: 30 }),
     baseHealth: () => 480,
     structureHp: () => [],
+    craters: () => [],
     waveNumber: () => 3,
     spawner: () => (wave.running === false ? null
       : { accumulatedMs: 400, nextDelayMs: wave.nextDelayMs ?? 800, spawnIndex: wave.spawnIndex ?? 5 }),
@@ -99,6 +100,19 @@ describe('StateHasher', () => {
     // A projectile tower carrying such fields hashes as without them
     const plain = tower('tower-1', 10);
     expect(hash({ ...plain, laserHold: { targetId: 'x', heldMs: 5 }, streamDrive: 0.5 } as unknown as Tower)).toBe(hash(plain));
+  });
+
+  it("reads a destructible world's structure HP and craters, in the health part, and nothing of them where there are none", () => {
+    const plain = source([]);
+    const withDamage = (hp: number[], craters: number[]) => ({ ...plain, structureHp: () => hp, craters: () => craters });
+    const base = hasher.breakdown(plain);
+    // A world without destruction: what it hashes does not change with the craters' part
+    expect(hasher.hash(withDamage([], []))).toBe(base.total);
+    const crater = hasher.breakdown(withDamage([], [10, 20, 15, 21]));
+    expect(crater.total).not.toBe(base.total);
+    expect(HASH_PARTS.filter((_, i) => crater.parts[i] !== base.parts[i])).toEqual(['health']);
+    expect(hasher.hash(withDamage([], [10, 20, 15, 22]))).not.toBe(crater.total);
+    expect(hasher.hash(withDamage([100], []))).not.toBe(hasher.hash(withDamage([99], [])));
   });
 
   it('notices a tower cooldown', () => {

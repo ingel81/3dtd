@@ -8,6 +8,7 @@ import type { ColumnSampler, TerrainPeekLOD } from '../../three-engine/column-sa
 import { LosResolveContext } from '../../utils/gpu-cube-resolve';
 import type { SightCount } from '../../utils/route-grid-los';
 import type { LosMask } from '../../utils/los-mask';
+import type { CellSpan, StampField } from '../../utils/stamp-field';
 import { Vector3 } from 'three';
 
 /** What happened to the cells, see GlobalRouteGridService.onCellsChanged */
@@ -98,6 +99,16 @@ export class GlobalRouteGridService {
   /**
    * Check if grid is initialized
    */
+  /** See GlobalRouteGrid.cellSpan */
+  cellSpan(): CellSpan | null {
+    return this.grid.cellSpan();
+  }
+
+  /** See GlobalRouteGrid.setStampField */
+  setStampField(field: StampField | null): void {
+    this.grid.setStampField(field);
+  }
+
   isInitialized(): boolean {
     return this.initialized;
   }

@@ -240,7 +240,7 @@ export class CustomMapWorld implements WorldProvider {
     this.capabilities = destructible ? { ...CUSTOM_MAP_CAPABILITIES, destructible: true } : CUSTOM_MAP_CAPABILITIES;
     this.laneChoice = laneChoiceOf(this.doc.spawns, this.doc.gameplay, spawnLimit);
     this.destruction = destructible
-      ? new CustomMapDestruction(() => this.doc.objects, (fallen) => this.fell(fallen), (risen) => this.rose(risen))
+      ? new CustomMapDestruction(() => this.doc, (fallen) => this.fell(fallen), (risen) => this.rose(risen))
       : null;
     this.sync = new EllipsoidSync(origin.lat, origin.lon, origin.height);
     this.frame.setOrigin(origin.lat, origin.lon);
@@ -476,10 +476,13 @@ export class CustomMapWorld implements WorldProvider {
     const play = this.doc.gameplay;
     // A destructible map's structures: the simulation keeps their HP (TODO E131)
     const structures = this.destruction?.asRunStructures() ?? [];
+    // Craters where the map is destructible unless it says no, or where it asks for them alone
+    const destruction = { craters: play?.craters ?? this.destruction !== null, wear: this.destruction !== null && play?.wear === true };
+    const damaged = destruction.craters || destruction.wear;
     const start = this.runStart();
     const events = this.runEvents();
-    if (!structures.length && !start && !events.length && (!play || (play.startCredits === undefined && play.hqHealth === undefined && !play.towers?.length))) return null;
-    return runRulesOf({ ...play, structures, start, events });
+    if (!structures.length && !damaged && !start && !events.length && (!play || (play.startCredits === undefined && play.hqHealth === undefined && !play.towers?.length))) return null;
+    return runRulesOf({ ...play, structures, destruction, start, events });
   }
 
   /**
@@ -711,8 +714,7 @@ export class CustomMapWorld implements WorldProvider {
   /** The catalogue's objects: what blocks building, what carries a tower, what can fall */
   useCatalog(objects: readonly (StructureEntry & BuildCatalogEntry)[]): void {
     this.catalogObjects = objects;
-    const category = new Map(objects.map((e) => [e.id, e.category]));
-    this.passingIds = passingObjectIds(this.doc, (asset) => category.get(asset), this.destruction !== null);
+    this.passingIds = passingObjectIds(this.doc);
     this.surface.setObjectCatalog(objects, this.passingIds);
     if (!this.destruction) return;
     this.destruction.setCatalog(objects);

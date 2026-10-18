@@ -79,6 +79,7 @@ describe('Frost bomb, EMP and orbital laser against the ooze body', () => {
     status.setGameClockProvider(() => clock);
     const world: AbilityWorld = {
       launchSite: () => null,
+      damageWorld: () => undefined,
       snapToRoute: (target) => ({ ...target }),
       enemiesInRadius: (center, radiusM, out) => grid.getEnemiesInRadiusGeo(center, radiusM, undefined, out),
       // The share of max HP, as DamageApplicationService.applyMaxHpFraction takes it
