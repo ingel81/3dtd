@@ -6,8 +6,7 @@
  * well under a second, where the global ones take seconds or are at capacity.
  * The boxes are drawn inside the region's border, measured 2026-10-18 with
  * small queries along the borders (overpass.osm.ch has ways about 3 to 5 km
- * past the Swiss border, overpass.atownsend.org.uk a few of northern France,
- * overpass.maprva.org none past Virginia's).
+ * past the Swiss border, overpass.atownsend.org.uk a few of northern France).
  *
  * Every origin here is also in the CSP of public/.htaccess and of the desktop
  * app (desktop/src/protocol.js) and in its User-Agent hosts
@@ -55,17 +54,6 @@ export const OVERPASS_SERVERS: readonly OverpassServer[] = [
       box(49.85, -8.7, 61, 1.0), // Great Britain west of Dover's longitude, Northern Ireland
       box(51.05, 1.0, 61, 1.8), // Kent north of Folkestone, East Anglia
       box(51.3, -10.7, 55.5, -5.3), // Ireland
-    ],
-  },
-  {
-    url: 'https://overpass.maprva.org/api/interpreter',
-    name: 'overpass.maprva.org (Virginia)',
-    coverage: [
-      box(36.55, -80.0, 37.95, -75.8), // Richmond, Lynchburg, Roanoke, Hampton Roads
-      box(37.95, -78.95, 38.95, -77.6), // Charlottesville, Shenandoah
-      box(37.95, -77.6, 38.7, -77.35), // Fredericksburg, Quantico
-      box(38.7, -77.6, 38.98, -77.15), // Fairfax, Reston
-      box(36.6, -83.6, 37.0, -80.0), // Southwest Virginia, Bristol
     ],
   },
   { url: 'https://overpass-api.de/api/interpreter', name: 'overpass-api.de', coverage: null },

@@ -18,11 +18,10 @@ describe('overpass-servers', () => {
     ['London', 51.5074, -0.1278, 'overpass.atownsend.org.uk'],
     ['Edinburgh', 55.9533, -3.1883, 'overpass.atownsend.org.uk'],
     ['Dublin', 53.3498, -6.2603, 'overpass.atownsend.org.uk'],
-    ['Richmond', 37.5407, -77.436, 'overpass.maprva.org'],
     ['Miltenberg', 49.7036, 9.2647, null],
     ['Calais', 50.9513, 1.8587, null],
     ['Konstanz', 47.6603, 9.1758, null],
-    ['Washington', 38.9072, -77.0369, null],
+    ['Richmond', 37.5407, -77.436, null],
   ])('%s: the regional server where one holds the whole box, then the global ones', (_place, lat, lon, regional) => {
     expect(hostsFor(lat, lon)).toEqual(regional ? [regional, ...GLOBAL] : GLOBAL);
   });

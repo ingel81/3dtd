@@ -18,7 +18,6 @@ const IDENTIFIED_HOSTS = [
   'https://overpass.private.coffee',
   'https://overpass.osm.ch',
   'https://overpass.atownsend.org.uk',
-  'https://overpass.maprva.org',
   'https://nominatim.openstreetmap.org',
 ];
 

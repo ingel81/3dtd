@@ -21,7 +21,7 @@ describe('identified hosts', () => {
   it('take in every Overpass server the game asks', () => {
     const servers = fs.readFileSync(path.join(__dirname, '../../src/app/world/osm/overpass-servers.ts'), 'utf8');
     const origins = [...servers.matchAll(/url: '(https:\/\/[^']+)'/g)].map(([, url]) => new URL(url).origin);
-    assert.ok(origins.length >= 6);
+    assert.ok(origins.length >= 5);
     for (const origin of origins) {
       assert.ok(IDENTIFIED_HOSTS.includes(origin), origin);
       assert.ok(CONNECT_HOSTS.includes(origin), origin);

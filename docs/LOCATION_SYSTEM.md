@@ -676,12 +676,11 @@ global oder eine Reihe Boxen. Stand 2026-10-18 (Quelle: Liste der öffentlichen 
 |--------|-----------|---------------------|
 | overpass.osm.ch | Schweiz | 0,1 bis 0,4 s; Ways etwa 3 bis 5 km über die Grenze hinaus, lückenhaft |
 | overpass.atownsend.org.uk | Großbritannien und Irland | 2 bis 7 s; einzelne Ways in Nordfrankreich |
-| overpass.maprva.org | Virginia | 0,3 bis 0,7 s; nichts über die Grenze (Washington DC leer) |
 | overpass-api.de | global | meist 502 „at capacity“, manchmal 200 nach 20 bis 30 s |
 | maps.mail.ru | global | 200 nach 13 bis 19 s, einmal 504; letzter Rückfall |
 | overpass.private.coffee | global | meist 500; overpass.kumi.systems ist derselbe Rechner |
 
-Nicht aufgenommen: overpass.openstreetmap.fr und .ru (403, nur für freigeschaltete Nutzer), overpass.osm.jp (504),
+Nicht aufgenommen: overpass.maprva.org (nur Virginia, zu klein für den Nutzen), overpass.openstreetmap.fr und .ru (403, nur für freigeschaltete Nutzer), overpass.osm.jp (504),
 overpass.openstreetmap.ie (keine Antwort), z./lz4.overpass-api.de (derselbe Pool wie overpass-api.de), Anbieter mit
 Schlüssel oder Bezahlung. Alle aufgenommenen senden `Access-Control-Allow-Origin: *`.
 
