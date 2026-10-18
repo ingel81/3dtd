@@ -497,6 +497,10 @@ export class ParticleEffectsRenderer {
     return this.laysGroundMarks;
   }
 
+  /** Whether muzzle flashes show (VFX setting muzzleFlash): their light on the land follows it */
+  get muzzleFlashesEnabled(): boolean {
+    return this.muzzleFlashes;
+  }
   private get laysGroundMarks(): boolean {
     return this.groundMarks;
   }

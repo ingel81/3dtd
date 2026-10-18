@@ -11,6 +11,7 @@ import { DISPLAY_OUTPUT_GLSL } from '../display-output';
 import { createPortalClipUniforms, PORTAL_CLIP_GLSL, type PortalClipUniforms } from '../portal-clip';
 import type { ClothVariants } from '../../../configs/enemy-types.config';
 import { CLOTH_FRAGMENT_GLSL, CLOTH_VERTEX_GLSL, CLOTH_VERTEX_MAIN_GLSL, clothUniforms } from './vat-cloth';
+import { SHOT_LIGHT_PARS, SHOT_LIGHT_UNIFORMS } from '../../shot-lights/shot-light-shader';
 
 /** Shader switch per VAT alpha mode. */
 const ALPHA_DEFINES: Record<VATAlphaMode, Record<string, string>> = {
@@ -79,6 +80,10 @@ export interface VATMaterialOptions {
  * Rim light (rimLight, shared by every type): a cool edge on custom maps,
  * none on tiles.
  *
+ * Shot light (SHOT_LIGHT_UNIFORMS, shared by every material that takes it):
+ * the light of muzzle flashes, glowing projectiles and blasts near the body
+ * (docs/SHOT_LIGHTS.md).
+ *
  * Blood moon (VATBloodMoonUniforms, shared by every type): a rim glow while
  * bloodMoonGlow is above 0, and for blending types the mood's multiplier.
  *
@@ -103,6 +108,8 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
     // The same uniform objects in every material (see VATBloodMoonUniforms, PortalClipUniforms)
     ...bloodMoon,
     ...portalClip,
+    // The shots' light, the same objects in every material of the game (shot-light-shader.ts)
+    ...SHOT_LIGHT_UNIFORMS,
     uStateLerp: options?.stateLerp ?? { value: 1 },
     uCamoTime: options?.camoTime ?? { value: 0 },
     uRimLight: options?.rimLight ?? { value: 0 },
@@ -251,6 +258,8 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
 
       ${CLOTH_FRAGMENT_GLSL}
 
+      ${SHOT_LIGHT_PARS}
+
       void main() {
         #include <logdepthbuf_fragment>
 
@@ -327,6 +336,12 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
 
           vec3 totalLight = sun + fill + hemi + ambientColor;
           litColor = baseColor * totalLight;
+        }
+
+        // The shots' light: a body near a blast or under a gatling's stream lights up in its colour
+        if (uShotLightCount > 0) {
+          vec3 shotN = normalize(vNormal) * (gl_FrontFacing ? 1.0 : -1.0);
+          litColor += baseColor * shotLightAt(vWorldPosition, shotN);
         }
 
         // Color multiplier: darken overly bright models

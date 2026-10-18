@@ -8,6 +8,7 @@ import {
   Object3D,
 } from 'three';
 import type { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
+import { addShotLightTo } from '../shot-lights/shot-light-shader';
 
 /**
  * The hero's model: the one place that decides what he looks like.
@@ -66,6 +67,8 @@ export async function loadHeroModel(assets: AssetManagerService, config: HeroMod
   const cached = await assets.loadModel(url);
   const scene = assets.cloneModel(url, { preserveSkeleton: true });
   if (!scene) throw new Error(`[HeroModel] ${url} did not clone`);
+  // Lit by the shots around him, his own rounds too (docs/SHOT_LIGHTS.md)
+  addShotLightTo(scene);
 
   const root = new Group();
   root.name = 'hero-model';

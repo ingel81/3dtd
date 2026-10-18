@@ -22,6 +22,8 @@ import {
 import { ORBITAL_BEAM_LOOK as LOOK, type EffectRgb } from '../../configs/visual-effects.config';
 import { DISPLAY_OUTPUT_GLSL } from './display-output';
 import { DrawGate } from './draw-gate';
+import { BEAM_LIGHTS } from '../../configs/shot-lights.config';
+import type { ShotLights, ShotLightSource } from '../shot-lights/shot-lights';
 import { PARTICLE_POINT_SCALE, type ParticleShaderMaterials } from './particle-shaders';
 import { commitParticles, particleBuffer, radialTexture, unpickable, type ParticleBuffer } from './effect-buffers';
 
@@ -302,7 +304,7 @@ function particleHash(k: number, beam: number, channel: number): number {
  * route grid's ground where the grid has a cell (setGround), else on the
  * path's own height. Fixed buffers, nothing allocated per frame.
  */
-export class OrbitalBeamRenderer {
+export class OrbitalBeamRenderer implements ShotLightSource {
   private readonly beams: Beam[] = [];
   private activeCount = 0;
   private sequence = 0;
@@ -338,6 +340,8 @@ export class OrbitalBeamRenderer {
 
   private sizePerMetre = 0;
   private readonly foot = new Vector3();
+  /** Where shotLights puts a beam's light */
+  private readonly lightAt = new Vector3();
   private readonly mark = new Vector3();
   private readonly origin = new Vector3();
   private readonly emberPosition = new Vector3();
@@ -641,6 +645,17 @@ export class OrbitalBeamRenderer {
     sprite.frustumCulled = false;
     sprite.renderOrder = order;
     return sprite;
+  }
+
+  /** Each burning beam lights the ground at its foot, a little above it, as wide as it burns and more */
+  shotLights(lights: ShotLights): void {
+    if (this.activeCount === 0) return;
+    for (const beam of this.beams) {
+      if (!beam.active || beam.t >= beam.burnS) continue;
+      const at = this.footAt(beam, beam.speedMps * beam.t, this.lightAt);
+      const flicker = 0.9 + 0.1 * Math.sin(beam.t * 41);
+      lights.add(at.x, at.y + 3, at.z, BEAM_LIGHTS.orbital, flicker * Math.max(1, beam.radiusM / 8));
+    }
   }
 
   /** The point `s` metres along the beam's path, on the ground, into `out`. */

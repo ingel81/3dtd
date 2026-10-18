@@ -1,6 +1,8 @@
 import { Vector3, Color } from 'three';
 import { ThreeEffectsRenderer } from './three-effects.renderer';
 import { SCORCH_DECAL_CONFIG } from '../../configs/visual-effects.config';
+import { BEAM_LIGHTS } from '../../configs/shot-lights.config';
+import type { ShotLights, ShotLightSource } from '../shot-lights/shot-lights';
 
 /**
  * Active beam state
@@ -21,7 +23,7 @@ interface ActiveBeam {
  * Instead of a shader cone, this spawns a continuous stream of fire particles
  * from the tower to the target, creating an organic flamethrower effect.
  */
-export class ThreeFlameBeamRenderer {
+export class ThreeFlameBeamRenderer implements ShotLightSource {
   private effectsRenderer: ThreeEffectsRenderer | null = null;
 
   // Active beams per tower
@@ -118,6 +120,24 @@ export class ThreeFlameBeamRenderer {
         const target = beam.targetPosition;
         this.effectsRenderer.markScorch(target.x, target.y, target.z, 'fire');
       }
+    }
+  }
+
+  /**
+   * Each burning flame lights where it lands and, less, halfway along it,
+   * flickering as fire does (two sines per tower, out of step)
+   */
+  shotLights(lights: ShotLights): void {
+    if (this.activeBeams.size === 0) return;
+    const t = performance.now() / 1000;
+    let k = 0;
+    for (const beam of this.activeBeams.values()) {
+      const flicker = 0.8 + 0.12 * Math.sin(t * 17 + k * 2.1) + 0.08 * Math.sin(t * 31 + k * 5.3);
+      const a = beam.sourcePosition;
+      const b = beam.targetPosition;
+      lights.add(b.x, b.y, b.z, BEAM_LIGHTS.flame, flicker);
+      lights.add((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2, BEAM_LIGHTS.flame, flicker * 0.5);
+      k++;
     }
   }
 

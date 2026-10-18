@@ -17,6 +17,7 @@ import {
 import { geoDistanceFast } from '../utils/geo-utils';
 import { TOWER_TYPES, type TowerTypeId } from '../configs/tower-types.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
+import { IMPACT_LIGHTS, MUZZLE_LIGHTS } from '../configs/shot-lights.config';
 import { ABILITY_IDS, lockedAbilityStatus } from '../configs/abilities.config';
 import type { TowerRenderData } from '../three-engine/renderers/three-tower.renderer';
 
@@ -25,8 +26,8 @@ function setup() {
   const tilesEngine = {
     towers: {
       get: vi.fn(() => ({ lat: 0, lon: 0, height: 0, tipY: 12 })),
-      triggerMuzzleFlash: vi.fn(),
     },
+    shotLights: { active: true, pulse: vi.fn() },
     sync: {
       geoToLocal: vi.fn(() => ({ x: 1, y: 0, z: 2 })),
       geoToLocalSimpleInto: vi.fn((_lat: number, _lon: number, _h: number, target: Vector3) => target.set(7, 8, 9)),
@@ -37,6 +38,8 @@ function setup() {
       spawnBurstAtGeo: vi.fn(),
       spawnExplosionAtGeo: vi.fn(),
       spawnBloodSplatter: vi.fn(),
+      muzzleFlashesEnabled: true,
+      impactEffectsEnabled: true,
     },
   };
   const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
@@ -60,18 +63,28 @@ describe('VFXService muzzle flash', () => {
     const { tilesEngine, service, fire } = setup();
     fire(typeId);
     expect(tilesEngine.effects.spawnMuzzleFlash).not.toHaveBeenCalled();
-    expect(tilesEngine.towers.triggerMuzzleFlash).not.toHaveBeenCalled();
+    expect(tilesEngine.shotLights.pulse).not.toHaveBeenCalled();
     service.destroy();
   });
 
-  it('lights the cannon brighter than the gatling and leaves the bow dark', () => {
+  it('lights the land at the barrel, the cannon brighter than the gatling, the bow not at all', () => {
     const { tilesEngine, service, fire } = setup();
     fire('archer');
-    expect(tilesEngine.towers.triggerMuzzleFlash).not.toHaveBeenCalled();
+    expect(tilesEngine.shotLights.pulse).not.toHaveBeenCalled();
     fire('cannon');
     fire('dual-gatling');
-    const [[, cannon], [, gatling]] = tilesEngine.towers.triggerMuzzleFlash.mock.calls;
-    expect(cannon).toBeGreaterThan(gatling);
+    const [cannon, gatling] = tilesEngine.shotLights.pulse.mock.calls;
+    expect(cannon.slice(0, 4)).toEqual([1, 12, 2, MUZZLE_LIGHTS.cannon]);
+    expect(gatling[3]).toBe(MUZZLE_LIGHTS['dual-gatling']);
+    expect(MUZZLE_LIGHTS.cannon!.intensity).toBeGreaterThan(MUZZLE_LIGHTS['dual-gatling']!.intensity);
+    service.destroy();
+  });
+
+  it('throws no light while muzzle flashes are off', () => {
+    const { tilesEngine, service, fire } = setup();
+    tilesEngine.effects.muzzleFlashesEnabled = false;
+    fire('cannon');
+    expect(tilesEngine.shotLights.pulse).not.toHaveBeenCalled();
     service.destroy();
   });
 });
@@ -96,6 +109,13 @@ describe('VFXService hero ammo impacts', () => {
   it('sparks in arcane colours for rune rounds', () => {
     expect(impact('hero-rune').spawnBurstAtGeo)
       .toHaveBeenCalledWith(1, 2, 3, EXPLOSION_PRESETS.heroRune.particles, BURST_PALETTES.arcane);
+  });
+
+  it.each(['hero-round', 'hero-shell', 'hero-rune'])('lights the land where a %s hits, in its own look', (projectileType) => {
+    const { eventBus, tilesEngine, service } = setup();
+    eventBus.emit({ type: 'vfx:projectile-impact', lat: 1, lon: 2, height: 3, projectileType, targetLost: false });
+    expect(tilesEngine.shotLights.pulse).toHaveBeenCalledWith(7, 8, 9, IMPACT_LIGHTS[projectileType]);
+    service.destroy();
   });
 });
 
@@ -229,6 +249,7 @@ describe('VFXService nuclear strike', () => {
       frostBursts: { burst: vi.fn(), clear: vi.fn() },
       empPulses: { pulse: vi.fn(), clear: vi.fn() },
       orbitalBeams: { fire: vi.fn(), clear: vi.fn() },
+      shotLights: { active: true, pulse: vi.fn() },
     };
     const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
     const used = () => eventBus.emit({

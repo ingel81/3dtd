@@ -1209,7 +1209,7 @@ export const BURST_PALETTES = {
   ],
 } as const satisfies Record<string, BurstPalette>;
 
-/** Muzzle flash of one tower type: particle burst at the shoot point plus the pooled flash light. */
+/** Muzzle flash of one tower type: particle burst at the shoot point (its light: MUZZLE_LIGHTS, shot-lights.config.ts). */
 export interface MuzzleFlashProfile {
   countMin: number;
   countMax: number;
@@ -1218,8 +1218,6 @@ export interface MuzzleFlashProfile {
   /** Particle lifetime in seconds */
   lifeMin: number;
   lifeMax: number;
-  /** Intensity of the tower renderer's single muzzle PointLight (0 = no light) */
-  lightIntensity: number;
 }
 
 /**
@@ -1231,14 +1229,14 @@ export interface MuzzleFlashProfile {
  */
 export const MUZZLE_FLASH_PROFILES: Partial<Record<TowerTypeId, MuzzleFlashProfile>> = {
   // A bow has no muzzle: a faint glint, no light
-  archer: { countMin: 1, countMax: 2, sizeMin: 0.6, sizeMax: 1.2, lifeMin: 0.03, lifeMax: 0.05, lightIntensity: 0 },
+  archer: { countMin: 1, countMax: 2, sizeMin: 0.6, sizeMax: 1.2, lifeMin: 0.03, lifeMax: 0.05 },
   // 5 shots/s from two barrels: small and short, or the stream turns into a strobe
-  'dual-gatling': { countMin: 2, countMax: 3, sizeMin: 1.0, sizeMax: 2.0, lifeMin: 0.03, lifeMax: 0.05, lightIntensity: 2 },
+  'dual-gatling': { countMin: 2, countMax: 3, sizeMin: 1.0, sizeMax: 2.0, lifeMin: 0.03, lifeMax: 0.05 },
   // Launch flash: the values every tower shared before
-  rocket: { countMin: 3, countMax: 5, sizeMin: 1.5, sizeMax: 3.0, lifeMin: 0.04, lifeMax: 0.06, lightIntensity: 3 },
+  rocket: { countMin: 3, countMax: 5, sizeMin: 1.5, sizeMax: 3.0, lifeMin: 0.04, lifeMax: 0.06 },
   // Heavy gun at 0.5 shots/s: the biggest and longest flash
-  cannon: { countMin: 6, countMax: 8, sizeMin: 2.5, sizeMax: 4.5, lifeMin: 0.06, lifeMax: 0.1, lightIntensity: 5 },
+  cannon: { countMin: 6, countMax: 8, sizeMin: 2.5, sizeMax: 4.5, lifeMin: 0.06, lifeMax: 0.1 },
   // Iron Bastion: a heavy gun at 0.75 shots/s, a little smaller than the cannon's
-  bastion: { countMin: 5, countMax: 7, sizeMin: 2.0, sizeMax: 3.8, lifeMin: 0.05, lifeMax: 0.09, lightIntensity: 4 },
+  bastion: { countMin: 5, countMax: 7, sizeMin: 2.0, sizeMax: 3.8, lifeMin: 0.05, lifeMax: 0.09 },
 };
 

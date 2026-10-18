@@ -30,11 +30,11 @@ import { TurretPitch, createTurretPitch, drawTurretAim } from './tower-turret-ai
 import { SawArms } from './tower-saw-arms';
 import { DonerStream } from './tower-doner-stream';
 import type { TowerAim } from '../../entities/tower-aim';
-import { TowerMuzzleFlash } from './tower-muzzle-flash';
 import { TowerFiring } from './tower-firing-motion';
 import { setTowerGreyedOut } from './tower-hold-fire';
 import { TowerBuild, scaffoldWarmUp } from './tower-scaffold';
 import { TOWER_PATHS, getTowerPath, towerConfigOf } from '../../configs/tower-paths.config';
+import { addShotLightTo } from '../shot-lights/shot-light-shader';
 
 /** Every model a tower can wear: each type's, its paths' swaps and attachments */
 function towerModelUrls(): string[] {
@@ -191,9 +191,6 @@ export class ThreeTowerRenderer {
   private static sharedSelectionGeometry: RingGeometry | null = null;
   private static sharedRefCount = 0;
 
-  // Muzzle flash (pooled - single reusable light)
-  private readonly muzzleFlash: TowerMuzzleFlash;
-
   // Debug mode - shows LOS rings and aim arrows for all towers
   private debugMode = false;
 
@@ -214,10 +211,6 @@ export class ThreeTowerRenderer {
     this.scene = scene;
     this.sync = sync;
     this.assetManager = assetManager;
-
-    // The muzzle flash light lives in the scene for good, dark between shots
-    // (see TowerMuzzleFlash).
-    this.muzzleFlash = new TowerMuzzleFlash(this.scene);
 
     this.previewRange = this.rangeRings.create();
     this.scene.add(this.previewRange);
@@ -317,6 +310,7 @@ export class ThreeTowerRenderer {
     }
     for (const path of Object.values(TOWER_PATHS)) {
       const model = path.attachment ? this.assetManager.cloneModel(path.attachment.modelUrl) : null;
+      if (model) addShotLightTo(model);
       if (model) out.push(model);
     }
     const selectionRing = new Mesh(ThreeTowerRenderer.sharedSelectionGeometry!, ThreeTowerRenderer.sharedSelectionMaterial!);
@@ -333,6 +327,8 @@ export class ThreeTowerRenderer {
   private buildModel(config: TowerTypeConfig): { mesh: Object3D; turretPart: Object3D | null; turretBaseY: number } | null {
     const mesh = this.assetManager.cloneModel(config.modelUrl);
     if (!mesh) return null;
+    // Lit by its own muzzle flash and the shots and blasts around it (docs/SHOT_LIGHTS.md)
+    addShotLightTo(mesh);
     mesh.scale.setScalar(config.scale);
     const isTurretNode = (name: string): boolean => config.turretNode
       ? name === config.turretNode
@@ -601,6 +597,7 @@ export class ThreeTowerRenderer {
     if (this.towers.get(data.id) !== data || data.mesh.getObjectByName(`path:${pathId}`)) return;
     const model = this.assetManager.cloneModel(attachment.modelUrl);
     if (!model) return;
+    addShotLightTo(model);
     model.name = `path:${pathId}`;
     data.mesh.add(model);
     const sweep = attachment.sweepNode ? model.getObjectByName(attachment.sweepNode) : undefined;
@@ -1157,31 +1154,6 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Switch the muzzle flash light on or off (VFX setting muzzleFlash). The
-   * light stays in the scene, dark as between shots: taking it out would
-   * give every lit material a new shader program (see TowerMuzzleFlash).
-   */
-  setMuzzleFlashEnabled(enabled: boolean): void {
-    this.muzzleFlash.setEnabled(enabled);
-  }
-
-  /**
-   * Light the tower's shoot position with the pooled muzzle flash light for
-   * 50 ms. The particles are spawned separately (ThreeEffectsRenderer).
-   * Nothing while muzzle flashes are off.
-   *
-   * @param intensity - Light intensity, from the tower's MUZZLE_FLASH_PROFILES entry
-   */
-  triggerMuzzleFlash(towerId: string, intensity: number): void {
-    if (!this.muzzleFlash.isEnabled) return;
-    const data = this.towers.get(towerId);
-    if (!data) return;
-
-    const terrainPos = this.sync.geoToLocal(data.lat, data.lon, data.height);
-    this.muzzleFlash.flash(terrainPos.x, data.tipY, terrainPos.z, intensity);
-  }
-
-  /**
    * Recursively dispose Three.js object
    */
   private disposeObject(obj: Object3D): void {
@@ -1236,9 +1208,6 @@ export class ThreeTowerRenderer {
       ThreeTowerRenderer.sharedSelectionMaterial = null;
       ThreeTowerRenderer.sharedRefCount = 0;
     }
-
-    // Clean up muzzle flash
-    this.muzzleFlash.dispose();
 
     // Clear map reference to allow GC
     this.towers.clear();

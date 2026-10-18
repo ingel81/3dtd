@@ -251,8 +251,11 @@ export class SettingsSectionsComponent {
 
   /** What the level sets on custom maps and no switch here changes */
   readonly mapFixed = computed(() => {
-    const c = this.quality.knobsFor('custom-map').customMaps;
-    return `The level alone sets fire, smoke and sparks (${Math.round(c.particles * 100)} %) and lamp lights at night (${c.pointLights}).`;
+    const knobs = this.quality.knobsFor('custom-map');
+    const c = knobs.customMaps;
+    const shots = knobs.general.shotLights;
+    return `The level alone sets fire, smoke and sparks (${Math.round(c.particles * 100)} %), lamp lights at night (${c.pointLights}) ` +
+      `and the light of shots and blasts on the land (${shots > 0 ? `${shots} at once` : 'off'}).`;
   });
 
   stepValue(id: QualityStep): QualityLevel {

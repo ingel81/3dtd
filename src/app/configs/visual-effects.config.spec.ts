@@ -23,7 +23,6 @@ describe('MUZZLE_FLASH_PROFILES', () => {
       expect(p.sizeMin).toBeLessThanOrEqual(p.sizeMax);
       expect(p.lifeMin).toBeGreaterThan(0);
       expect(p.lifeMin).toBeLessThanOrEqual(p.lifeMax);
-      expect(p.lightIntensity).toBeGreaterThanOrEqual(0);
     });
   });
 
@@ -33,6 +32,5 @@ describe('MUZZLE_FLASH_PROFILES', () => {
     expect(cannon!.sizeMax).toBeGreaterThan(rocket!.sizeMax);
     expect(rocket!.sizeMax).toBeGreaterThan(gatling!.sizeMax);
     expect(gatling!.sizeMax).toBeGreaterThan(archer!.sizeMax);
-    expect(archer!.lightIntensity).toBe(0); // a bow does not light up its surroundings
   });
 });

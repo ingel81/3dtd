@@ -4,7 +4,7 @@
  * three groups that never mix:
  *
  * - `general`: every world (render resolution with its dynamic range,
- *   antialiasing, whether bloom may run)
+ *   antialiasing, whether bloom may run, places for the shots' light)
  * - `customMaps`: custom maps only (shadow map, detail and draw distance,
  *   impostors, grass, the map's particles and point lights)
  * - `tiles`: the 3D tiles only (their detail target)
@@ -40,6 +40,12 @@ export interface GeneralQuality {
   antialias: 'msaa' | 'fxaa';
   /** Bloom may run where the effect switch has it on */
   bloom: boolean;
+  /**
+   * Places for the light of shots, blasts and beams (three-engine/shot-lights,
+   * at most SHOT_LIGHTS_MAX): on a custom map's ground and objects, on towers
+   * and units everywhere; 0 none
+   */
+  shotLights: number;
 }
 
 export interface CustomMapQuality {
@@ -123,7 +129,7 @@ export interface QualityKnobs {
 export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
   low: {
     level: 'low',
-    general: { scale: 0.6, dynamic: { min: 0.5, max: 0.8 }, pixelRatioCap: 1, antialias: 'fxaa', bloom: false },
+    general: { scale: 0.6, dynamic: { min: 0.5, max: 0.8 }, pixelRatioCap: 1, antialias: 'fxaa', bloom: false, shotLights: 0 },
     customMaps: {
       pixelRatioCap: 1, shadowMapSize: 1024, shadowRadius: 1.5, lodBias: 0.5, impostorFrom: 200,
       grassBlades: 0, grassDistance: 0, grassFarBlades: 0, grassFarDistance: 0, particles: 0.4, pointLights: 2, life: 0,
@@ -133,7 +139,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
   },
   medium: {
     level: 'medium',
-    general: { scale: 0.8, dynamic: { min: 0.6, max: 1 }, pixelRatioCap: 1, antialias: 'fxaa', bloom: true },
+    general: { scale: 0.8, dynamic: { min: 0.6, max: 1 }, pixelRatioCap: 1, antialias: 'fxaa', bloom: true, shotLights: 8 },
     customMaps: {
       pixelRatioCap: 1, shadowMapSize: 2048, shadowRadius: 1.5, lodBias: 0.75, impostorFrom: 280,
       grassBlades: 35_000, grassDistance: 90, grassFarBlades: 30_000, grassFarDistance: 200, particles: 0.7, pointLights: 4, life: 0.7,
@@ -143,7 +149,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
   },
   high: {
     level: 'high',
-    general: { scale: 1, dynamic: null, pixelRatioCap: 2, antialias: 'msaa', bloom: true },
+    general: { scale: 1, dynamic: null, pixelRatioCap: 2, antialias: 'msaa', bloom: true, shotLights: 16 },
     customMaps: {
       pixelRatioCap: 1.5, shadowMapSize: 4096, shadowRadius: 1.5, lodBias: 1, impostorFrom: 380,
       grassBlades: 70_000, grassDistance: 140, grassFarBlades: 60_000, grassFarDistance: 300, particles: 1, pointLights: 6, life: 1,
@@ -153,7 +159,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
   },
   ultra: {
     level: 'ultra',
-    general: { scale: 1, dynamic: null, pixelRatioCap: 2, antialias: 'msaa', bloom: true },
+    general: { scale: 1, dynamic: null, pixelRatioCap: 2, antialias: 'msaa', bloom: true, shotLights: 32 },
     customMaps: {
       pixelRatioCap: 2, shadowMapSize: 4096, shadowRadius: 2.5, lodBias: 1.25, impostorFrom: 500,
       grassBlades: 100_000, grassDistance: 180, grassFarBlades: 90_000, grassFarDistance: 400, particles: 1, pointLights: 6, life: 1,

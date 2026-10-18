@@ -13,6 +13,7 @@ import {
   type ScorchSource,
 } from '../configs/visual-effects.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
+import { BLAST_LIGHTS, IMPACT_LIGHTS, LIGHTNING_LIGHT, MUZZLE_LIGHTS } from '../configs/shot-lights.config';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import { ABILITIES, ABILITY_IDS, type AbilityId } from '../configs/abilities.config';
 import { createMissileStart, launchSiteLoaded, missileStartAt } from '../three-engine/renderers/missile-silo';
@@ -244,6 +245,8 @@ export class VFXService {
 
     const ground = this.tilesEngine.sync.geoToLocalSimpleInto(target.lat, target.lon, target.height ?? 0, this.tmpA);
     this.tilesEngine.mushroomClouds.detonate(ground, radiusM);
+    // The flash over the land, high over the ground point
+    this.tilesEngine.shotLights.pulse(ground.x, ground.y + radiusM * 0.5, ground.z, BLAST_LIGHTS.nuke, radiusM);
 
     const { x, y, z } = ground;
     const effects = this.tilesEngine.effects;
@@ -270,6 +273,7 @@ export class VFXService {
     const effect = ABILITIES['frost-bomb'].effect;
     const holdS = effect.kind === 'freeze' ? effect.durationMs / 1000 : 0;
     this.tilesEngine.frostBursts.burst(ground, radiusM, holdS);
+    this.tilesEngine.shotLights.pulse(ground.x, ground.y + 4, ground.z, BLAST_LIGHTS.frost, radiusM);
 
     const effects = this.tilesEngine.effects;
     if (!effects.groundMarksEnabled) return;
@@ -315,6 +319,7 @@ export class VFXService {
     this.tilesEngine.abilityMarkers.removeStrike(strikeId);
     const ground = this.tilesEngine.sync.geoToLocalSimpleInto(target.lat, target.lon, target.height ?? 0, this.tmpA);
     this.tilesEngine.empPulses.pulse(ground, radiusM);
+    this.tilesEngine.shotLights.pulse(ground.x, ground.y + 4, ground.z, BLAST_LIGHTS.emp, radiusM);
   }
 
   private clearStrikes(): void {
@@ -340,12 +345,16 @@ export class VFXService {
     if (points.length < 2) return;
 
     const now = performance.now() / 1000;
+    const lights = this.tilesEngine.shotLights;
     for (let i = 0; i < points.length - 1; i++) {
       this.tmpA.set(points[i].x, points[i].y, points[i].z);
       this.tmpB.set(points[i + 1].x, points[i + 1].y, points[i + 1].z);
       this.tilesEngine.lightningBolts.spawnBolt(this.tmpA, this.tmpB, now, {
         attachLight: true,
       });
+      // The bolt lights the land at both ends: where it leaves the tower and where it strikes
+      if (i === 0) lights.pulse(this.tmpA.x, this.tmpA.y, this.tmpA.z, LIGHTNING_LIGHT);
+      lights.pulse(this.tmpB.x, this.tmpB.y, this.tmpB.z, LIGHTNING_LIGHT);
     }
   }
 
@@ -394,6 +403,12 @@ export class VFXService {
   }): void {
     const { lat, lon, height, projectileType } = event;
     const effects = this.tilesEngine.effects;
+    // The impact's light (docs/SHOT_LIGHTS.md), as its burst only while impact effects are on
+    const light = IMPACT_LIGHTS[projectileType];
+    if (light && this.tilesEngine.shotLights.active && effects.impactEffectsEnabled) {
+      const at = this.tilesEngine.sync.geoToLocalSimpleInto(lat, lon, height, this.tmpA);
+      this.tilesEngine.shotLights.pulse(at.x, at.y, at.z, light);
+    }
 
     if (projectileType === 'rocket' || projectileType.includes('homing')) {
       // Rocket explosion - large fire effect, the radius is visual only
@@ -448,8 +463,8 @@ export class VFXService {
   /**
    * Handle muzzle flash for projectile towers.
    * Only towers with a MUZZLE_FLASH_PROFILES entry flash (Archer, Gatling, Iron Bastion,
-   * Cannon, Rocket); the profile sizes the additive particles and the pooled
-   * PointLight on the tower renderer.
+   * Cannon, Rocket); the profile sizes the additive particles, MUZZLE_LIGHTS the light the
+   * flash throws on the land, the tower and the enemies around it (the bow throws none).
    */
   private handleMuzzleFlash(towerId: string, towerTypeId: string): void {
     const profile = MUZZLE_FLASH_PROFILES[towerTypeId as TowerTypeId];
@@ -471,10 +486,9 @@ export class VFXService {
     // 1. Additive particles (bright yellow/white, a few ten ms)
     this.tilesEngine.effects.spawnMuzzleFlash(shootX, shootY, shootZ, profile);
 
-    // 2. Pooled PointLight (always in the scene, lit for 50 ms)
-    if (profile.lightIntensity > 0) {
-      this.tilesEngine.towers.triggerMuzzleFlash(towerId, profile.lightIntensity);
-    }
+    // 2. Its light (docs/SHOT_LIGHTS.md), as the particles only while muzzle flashes are on
+    const look = MUZZLE_LIGHTS[towerTypeId as TowerTypeId];
+    if (look && this.tilesEngine.effects.muzzleFlashesEnabled) this.tilesEngine.shotLights.pulse(shootX, shootY, shootZ, look);
   }
 
   /** Dust thrown out round the foot of a tower whose firing motion has some, on the ground it stands on */

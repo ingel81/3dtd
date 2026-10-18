@@ -437,6 +437,10 @@ export class ThreeEffectsRenderer {
     return this.particleEffects.groundMarksEnabled;
   }
 
+  /** Whether muzzle flashes show, see ParticleEffectsRenderer */
+  get muzzleFlashesEnabled(): boolean {
+    return this.particleEffects.muzzleFlashesEnabled;
+  }
   /** Blood moon look at `amount` (BloodMoonLook): the ground marks take the mood's tint. */
   setBloodMoon(amount: number, linearOutput: boolean): void {
     this.particleEffects.setBloodMoon(amount, linearOutput);

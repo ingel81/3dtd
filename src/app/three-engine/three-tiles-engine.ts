@@ -38,6 +38,7 @@ import {
 } from './renderers';
 import { InstancedEnemyRenderer } from './renderers/instanced-enemy/instanced-enemy.renderer';
 import { LaserBeamRenderer } from './renderers/laser-beam.renderer';
+import { ShotLights } from './shot-lights/shot-lights';
 import { disposeBlobShadows, setBlobGround } from './renderers/instanced-enemy/blob-shadow';
 import { plinthCrown } from './renderers/tower-plinth/plinth-braces';
 import { TowerPlinthRenderer } from './renderers/tower-plinth/tower-plinth.renderer';
@@ -199,6 +200,8 @@ export class ThreeTilesEngine {
   readonly frostBursts: FrostBurstRenderer;
   readonly empPulses: EmpPulseRenderer;
   readonly orbitalBeams: OrbitalBeamRenderer;
+  /** The light of shots, blasts and beams on a custom map's ground and objects, towers, units (docs/SHOT_LIGHTS.md) */
+  readonly shotLights = new ShotLights();
 
   // Spatial audio manager
   readonly spatialAudio: SpatialAudioManager;
@@ -439,6 +442,8 @@ export class ThreeTilesEngine {
     this.empPulses = new EmpPulseRenderer(this.scene, this.effects.particleShaderMaterials);
     // Its embers take the ground marks' blood moon tint
     this.orbitalBeams = new OrbitalBeamRenderer(this.scene, this.effects.particleShaderMaterials, this.effects.groundMarkTint);
+    // The glowing projectiles and the beams hold their own lights
+    for (const source of [this.projectiles, this.flameBeams, this.laserBeams, this.orbitalBeams]) this.shotLights.addSource(source);
 
     // Initialize spatial audio with camera listener
     this.spatialAudio = new SpatialAudioManager(this.scene, this.camera);
@@ -1030,6 +1035,9 @@ export class ThreeTilesEngine {
     this.hero.update(deltaTime, gameDeltaSeconds * 1000);
     for (const partner of this.partnerHeroes) partner.update(deltaTime, gameDeltaSeconds * 1000);
 
+    // The shots' light, once every effect above has moved: the pulses age on wall time
+    this.shotLights.update(realDeltaSeconds, this.camera);
+
     // Screen shake is applied in render() (drawFrame), not to the camera
   }
 
@@ -1141,6 +1149,7 @@ export class ThreeTilesEngine {
     this.postProcessing?.setAntialias(knobs.general.antialias, this.canvasMsaa);
     this.postProcessing?.setBloomEnabled(this.bloomWanted && knobs.general.bloom);
     this.world.applyQuality?.(knobs);
+    this.shotLights.setMax(knobs.general.shotLights);
     if (hold) {
       void this.qualityCompile
         .hold(() => this.compilingForFrames(() => this.renderer.compileAsync(this.scene, this.camera)))
@@ -1255,7 +1264,6 @@ export class ThreeTilesEngine {
     this.empPulses.setFull(settings.impactEffects);
     this.orbitalBeams.setFull(settings.impactEffects);
     this.trailStreaks.setEnabled(settings.projectileTrails);
-    this.towers.setMuzzleFlashEnabled(settings.muzzleFlash);
     this.enemies.setFreezeTintEnabled(settings.freezeTint);
     // The quality level may hold bloom off (Low)
     this.bloomWanted = settings.bloom;
@@ -1662,6 +1670,7 @@ export class ThreeTilesEngine {
     this.effects.dispose();
     this.flameBeams.dispose();
     this.laserBeams.dispose();
+    this.shotLights.clear();
     this.tentacles.dispose();
     this.trailStreaks.dispose();
     this.lightningBolts.dispose();

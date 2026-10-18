@@ -34,6 +34,8 @@ import {
 import { InstanceSlotAllocator } from './instance-slot-allocator';
 import { DrawGate } from './draw-gate';
 import type { StateLerp } from './state-lerp';
+import { FLIGHT_LIGHTS, type ShotLightLook } from '../../configs/shot-lights.config';
+import type { ShotLights, ShotLightSource } from '../shot-lights/shot-lights';
 
 /**
  * A projectile further than this from where it is shown has jumped (a
@@ -43,6 +45,9 @@ import type { StateLerp } from './state-lerp';
  * there at once, metres ahead of the barrel, instead of flying out of it.
  */
 export const PROJECTILE_JUMP_M = 60;
+
+/** The looks of projectiles that glow in flight */
+const FLIGHT_LIGHT_TYPES = Object.keys(FLIGHT_LIGHTS) as ProjectileVisualType[];
 
 /**
  * Simple instanced entity manager for projectiles
@@ -228,6 +233,16 @@ export class ProjectileInstanceManager {
     return this.entities.size;
   }
 
+  /** A light of `look` where each projectile of the pool is shown (its matrix's translation) */
+  shotLights(lights: ShotLights, look: ShotLightLook): void {
+    if (this.entities.size === 0) return;
+    const te = this.instancedMesh.instanceMatrix.array as Float32Array;
+    for (const index of this.entities.values()) {
+      const m = index * 16;
+      lights.add(te[m + 12], te[m + 13], te[m + 14], look);
+    }
+  }
+
   /**
    * Upload the matrices written since the last flush, once per frame (see
    * ThreeProjectileRenderer.commitToGPU). (0, activeCount) covers every
@@ -361,7 +376,7 @@ export function createBoltGeometry(): BufferGeometry {
 /**
  * ThreeProjectileRenderer - Renders projectiles using GPU instancing
  */
-export class ThreeProjectileRenderer {
+export class ThreeProjectileRenderer implements ShotLightSource {
   private scene: Scene;
   private sync: CoordinateSync;
   private loader: GLTFLoader;
@@ -901,6 +916,14 @@ export class ThreeProjectileRenderer {
       this.chaosManager.count +
       this.shellManager.count
     );
+  }
+
+  /** The glowing projectiles' light (FLIGHT_LIGHTS) where they are shown this frame: after commitToGPU */
+  shotLights(lights: ShotLights): void {
+    for (const type of FLIGHT_LIGHT_TYPES) {
+      const manager = this.getManager(type);
+      if (manager) manager.shotLights(lights, FLIGHT_LIGHTS[type]!);
+    }
   }
 
   /**

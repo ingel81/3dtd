@@ -37,6 +37,7 @@ import { TowerPlinthPreview } from './tower-plinth-preview';
 import { plinthCrown } from '../three-engine/renderers/tower-plinth/plinth-braces';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import { uiSound } from './ui-sound';
+import { addShotLightTo } from '../three-engine/shot-lights/shot-light-shader';
 
 /** One row of `__footprintDebug()`: how the last preview footprint was decided, heights in m. */
 export interface FootprintDebugRow {
@@ -343,6 +344,8 @@ export class TowerPlacementService {
         console.error(`[TowerPlacement] Failed to clone model: ${typeId}`);
         return;
       }
+      // The programs of the placed towers (ThreeTowerRenderer.buildModel): the preview links none of its own
+      addShotLightTo(model);
 
       model.scale.setScalar(config.scale);
       // Apply base rotation from config

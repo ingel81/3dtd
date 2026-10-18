@@ -18,6 +18,7 @@ import {
 import type { MapWaterKind } from '../../map-document';
 import { HEIGHT_FOG_PARS, HEIGHT_FOG_UNIFORMS, heightFogFragment } from '../environment/height-fog';
 import { LAMP_LIGHT_PARS, LAMP_LIGHT_UNIFORMS } from '../effects/lamp-light';
+import { SHOT_LIGHT_PARS, SHOT_LIGHT_UNIFORMS } from '../../../../three-engine/shot-lights/shot-light-shader';
 import { SKY_FUNCTIONS, SKY_TEXTURE_GLSL } from '../environment/sky-dome';
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
@@ -122,7 +123,7 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
   if (o.kind === 'lava') material.uniforms['uLavaNoise'].value = lavaNoiseTexture();
   else if (o.kind !== 'ice') material.uniforms['uFoam'].value = foamNoiseTexture();
   // Shared objects (merge above copied them): fog and terrain heights follow their owners
-  Object.assign(material.uniforms, HEIGHT_FOG_UNIFORMS, LAMP_LIGHT_UNIFORMS, o.heights.uniforms, GROUND_COLOR_UNIFORMS);
+  Object.assign(material.uniforms, HEIGHT_FOG_UNIFORMS, LAMP_LIGHT_UNIFORMS, SHOT_LIGHT_UNIFORMS, o.heights.uniforms, GROUND_COLOR_UNIFORMS);
   material.name = `custom-map-water-${o.kind}`;
   setWaterColor(material, o.kind, o.color);
   return material;
@@ -404,6 +405,7 @@ uniform mat4 uReflectMatrix;
 #endif
 ${HEIGHT_FOG_PARS}
 ${LAMP_LIGHT_PARS}
+${SHOT_LIGHT_PARS}
 ${SHADER_NOISE}
 ${SKY_FUNCTIONS}
 ${SKY_TEXTURE_GLSL}
@@ -703,8 +705,9 @@ void main() {
   color = mix(body * uLight * mix(0.6, 1.0, sunShade), sky, fresnel * 0.5);
   color += uSunColor * pow(max(dot(r, uSunDir), 0.0), 80.0) * 0.6 * sunShade;
   color += pointGlints(n, v) * 0.5;
-  // The baked light of lamps and fires on the bank (lamp-light.ts) on the ice
+  // The baked light of lamps and fires on the bank (lamp-light.ts) on the ice, and the shots' (shot-lights)
   color += body * lampLightAt(vWorldPos) * 0.8;
+  if (uShotLightCount > 0) color += body * shotLightAt(vWorldPos, n) * 0.8;
   alpha = edge;
 #else
   // Water, sea, swamp
@@ -881,8 +884,10 @@ void main() {
   color += uShallow * vec3(0.7, 1.15, 1.0) * uSunColor * scatter * 0.3 * sunShade;
   #endif
   color += pointGlints(n, v);
-  // The baked light of lamps and fires on the bank (lamp-light.ts): a warm sheen on the water near them
+  // The baked light of lamps and fires on the bank (lamp-light.ts): a warm sheen on the water near them; the
+  // shots' light (shot-lights) the same, a flash over a river shimmers on it
   color += lampLightAt(vWorldPos) * 0.18;
+  if (uShotLightCount > 0) color += shotLightAt(vWorldPos, n) * 0.25;
   // Foam along the shore (foam-noise.ts): lace with holes that gathers at the waterline and thins out to open
   // water. How far out it reaches changes along the shore, it leaves gaps, and its front breathes up the bank
   // and back; nowhere a closed line of one width. Its distance from the waterline in metres is the depth over

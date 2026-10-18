@@ -1,5 +1,6 @@
 import { Color, MeshStandardMaterial, type IUniform, type WebGLProgramParametersWithUniforms } from 'three';
 import { PLINTH_EMBED_M } from './plinth-geometry';
+import { addShotLight } from '../../shot-lights/shot-light-shader';
 
 /**
  * Rubble masonry for the tower plinths: weathered quarry stones in lime
@@ -230,5 +231,7 @@ export function createPlinthMaterial(): MeshStandardMaterial {
   }
   material.onBeforeCompile = (shader) => patchPlinthShader(shader, uniforms);
   material.customProgramCacheKey = () => PLINTH_PROGRAM_KEY;
+  // Lit by the shots like the tower on it (docs/SHOT_LIGHTS.md)
+  addShotLight(material);
   return material;
 }

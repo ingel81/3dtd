@@ -171,6 +171,12 @@ export class PerformanceProfilerService {
    * (forceContextRestore()), to check what comes back, e.g. the enemy VATs
    * InstancedEnemyRenderer bakes again.
    *
+   * `__perf.shotLights(on?)` switches the shots' light on a custom map on or
+   * off (ShotLights, docs/SHOT_LIGHTS.md) for a comparison in one session,
+   * and returns its state: on, places, the lights of the last frame.
+   * `__perf.gpuFrames(ms = 3000)` resolves with the GPU time of every frame
+   * drawn over `ms` (the engine's timer query, empty without one).
+   *
    * `__bloom.marks(on = true)` paints every NaN pixel the scene writes as a
    * magenta square and every infinite one cyan, with bloom on or off
    * (PostProcessingPipeline.setPixelMarks); where a square shows, a shader
@@ -200,6 +206,21 @@ export class PerformanceProfilerService {
         const rows = await this.engine.runShakeBenchmark(seconds);
         console.table(rows);
         return rows;
+      },
+      shotLights: (on?: boolean) => {
+        const lights = this.engine?.shotLights;
+        if (!lights) return null;
+        if (on !== undefined) lights.setEnabled(on);
+        return { on: lights.isEnabled, active: lights.active, places: lights.places, ...lights.stats };
+      },
+      gpuFrames: (ms = 3000) => {
+        const reader = this.engine?.gpuMeter.open();
+        if (!reader) return Promise.resolve([]);
+        return new Promise<number[]>((resolve) => setTimeout(() => {
+          const times = reader.take();
+          reader.close();
+          resolve(times);
+        }, ms));
       },
       loseContext: (ms = 2000) => {
         const renderer = this.engine?.getRenderer();

@@ -26,6 +26,8 @@ import {
 } from 'three';
 import { DISPLAY_OUTPUT_GLSL } from './display-output';
 import { radialTexture, unpickable } from './effect-buffers';
+import { BEAM_LIGHTS } from '../../configs/shot-lights.config';
+import type { ShotLights, ShotLightSource } from '../shot-lights/shot-lights';
 
 /** Lasers shown at once at most */
 const MAX_BEAMS = 64;
@@ -106,7 +108,7 @@ interface Beam {
   glow: Sprite;
 }
 
-export class LaserBeamRenderer {
+export class LaserBeamRenderer implements ShotLightSource {
   private readonly geometry = new InstancedBufferGeometry();
   private readonly material: ShaderMaterial;
   private readonly mesh: Mesh;
@@ -210,6 +212,13 @@ export class LaserBeamRenderer {
     this.start.needsUpdate = true;
     this.end.needsUpdate = true;
     this.heat.needsUpdate = true;
+  }
+
+  /** Each laser lights where it burns, brighter as it heats up */
+  shotLights(lights: ShotLights): void {
+    for (let i = 0; i < this.slots.length; i++) {
+      lights.add(this.end.getX(i), this.end.getY(i), this.end.getZ(i), BEAM_LIGHTS.laser, 1 + 1.4 * this.heat.getX(i));
+    }
   }
 
   /** Lasers on now */
