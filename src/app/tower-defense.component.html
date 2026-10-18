@@ -393,11 +393,11 @@
               }
             </span>
             <span class="td-inline td-end-actions">
-              <button type="button" class="td-btn-secondary" (click)="openMainMenu()">Main menu</button>
+              <button type="button" class="td-btn-secondary" (click)="openMainMenu()">Menu</button>
               <!-- A custom map: straight into the editor on it, or back to the editor that tests it -->
               @if (mainMenu.editableMapId() !== null) {
                 <button type="button" class="td-btn-secondary" [attr.aria-disabled]="mainMenu.editWhy() ? true : null" [matTooltip]="mainMenu.editWhy() ?? ''"
-                        (click)="mainMenu.editThisMap()">{{ mainMenu.fromEditor ? 'Back to editor' : 'Edit map' }}</button>
+                        (click)="mainMenu.editThisMap()">{{ mainMenu.editMapLabel }}</button>
               }
               <!-- The wave that broke the HQ, once more, while the replay is offered -->
               @if (replay.offered()) {

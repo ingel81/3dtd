@@ -72,6 +72,9 @@ function prefersReducedMotion(): boolean {
 /** What the game's path shows (WorldPathComponent): the world, the way into the editor, the chips */
 export interface GamePath {
   world: string;
+  /** "Play" in a run, "Trial" in the editor's test of its map (never saved, no run) */
+  playLabel: string;
+  playHint: string;
   /** "Edit" on a map, "Make map" on a real place */
   editLabel: string;
   editHint: string;

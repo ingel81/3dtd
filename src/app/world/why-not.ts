@@ -1,5 +1,4 @@
-import type { WorldRef } from './world-ref';
-import type { WorldId } from '../worlds/world-rules';
+import { WORLD_NAMES, type WorldId } from '../worlds/world-rules';
 
 /**
  * A way the path and the menus offer (docs/WORLDS_NAVIGATION_PLAN.md, 3.2).
@@ -61,16 +60,12 @@ export function whyNot(way: PathWay, facts: WhyNotFacts): string | null {
   }
 }
 
-/** The world as the path names it */
-export function worldName(ref: WorldRef): string {
-  switch (ref.kind) {
-    case 'tiles':
-      return 'Real places';
-    case 'custom-map':
-      return 'Built Worlds';
-    case 'tileset':
-      return 'Own tilesets';
-    case 'devworld':
-      return 'DevWorld';
-  }
+/**
+ * The world as the path names it: the globes' world the page plays in
+ * (worldOfPage), so an OpenStreetMap map is OpenStreetMap's and an own
+ * tileset the real places', as their menus and the pause menu say; DevWorld
+ * is none of them
+ */
+export function worldName(world: WorldId | null): string {
+  return world ? WORLD_NAMES[world] : 'DevWorld';
 }

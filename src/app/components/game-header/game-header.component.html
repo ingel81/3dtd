@@ -15,7 +15,7 @@
       </button>
     </ng-template>
     @if (path(); as p) {
-      <app-world-path class="header-path" [world]="p.world" mode="play" [editLabel]="p.editLabel" [editWhy]="p.editWhy"
+      <app-world-path class="header-path" [world]="p.world" mode="play" [playLabel]="p.playLabel" [playHint]="p.playHint" [editLabel]="p.editLabel" [editWhy]="p.editWhy"
                       [editHint]="p.editHint" [chips]="p.chips" (go)="pathGo.emit($event)">
         <ng-container *ngTemplateOutlet="placeButton" />
       </app-world-path>

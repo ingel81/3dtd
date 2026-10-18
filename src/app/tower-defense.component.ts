@@ -327,8 +327,17 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     const ref = this.worldContext.ref();
     const onMap = ref.kind === 'custom-map';
     // The editor's test: Edit goes back to the editor, which waits with its map
+    const world = worldName(worldOfPage(ref));
     if (this.mainMenu.fromEditor) {
-      return { world: worldName(ref), editLabel: 'Edit', editHint: 'Back to the editor, the map as you left it', editWhy: null, chips: [] };
+      return {
+        world,
+        playLabel: 'Trial',
+        playHint: 'A test of the map: never saved, no run',
+        editLabel: 'Edit',
+        editHint: 'Back to the editor, the map as you left it',
+        editWhy: null,
+        chips: [],
+      };
     }
     const editWhy = whyNot('edit', {
       mapsOpen: this.mapsOpen,
@@ -337,7 +346,9 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
       replay: this.uiStore.replayMode(),
     });
     return {
-      world: worldName(ref),
+      world,
+      playLabel: 'Play',
+      playHint: 'Play',
       editLabel: onMap ? 'Edit' : 'Make map',
       editHint: onMap ? 'Edit this map in the editor' : 'Make a map of this place from OpenStreetMap',
       editWhy: editWhy ?? (onMap || ref.kind === 'tiles' ? null : 'There is no map to edit here'),
@@ -355,7 +366,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     }
     else if (action === 'edit') this.editFromPath();
     else if (action !== 'play' && action.chip === 'editor') void this.mainMenu.openMapEditor();
-    else if (action !== 'play') void this.mainMenu.goElsewhere(() => this.stage.goChip(action.chip));
+    else if (action !== 'play') this.mainMenu.goElsewhere(() => this.stage.goChip(action.chip));
   }
 
   /**
@@ -1088,7 +1099,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.facade.restartGame();
   }
 
-  /** "Main menu" on the game-over screen: the menu over the game */
+  /** "Menu" on the game-over screen: the menu over the game, the same as Esc and the sidebar's Menu */
   openMainMenu(): void {
     this.mainMenu.open();
   }

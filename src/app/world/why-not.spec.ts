@@ -35,9 +35,10 @@ describe('whyNot', () => {
     }
   });
 
-  it('names the worlds as the path does', () => {
-    expect(worldName({ kind: 'tiles', source: 'google' })).toBe('Real places');
-    expect(worldName({ kind: 'custom-map', mapId: 'bay', contentHash: '' })).toBe('Built Worlds');
-    expect(worldName({ kind: 'tileset', id: 'campus' })).toBe('Own tilesets');
+  it('names the worlds as the path does: the world the page plays in, as its menu and the pause menu name it', () => {
+    expect(worldName('real')).toBe('Real places');
+    expect(worldName('osm')).toBe('OpenStreetMap');
+    expect(worldName('maps')).toBe('Built Worlds');
+    expect(worldName(null)).toBe('DevWorld');
   });
 });
