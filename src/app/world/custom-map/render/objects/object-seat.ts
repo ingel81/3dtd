@@ -1,5 +1,6 @@
 import type { MapObject } from '../../map-document';
 import { groundRing, type GroundBox } from '../../object-ground';
+import { massBox, massOf, massRadius } from '../../object-mass';
 import type { ObjectCategory } from '../asset-catalog';
 
 /** What standing an object on the map needs of its catalogue entry (a `CatalogObject` is one) */
@@ -46,7 +47,9 @@ export function seatHeight(
   if (f.float) return waterAt(o.x, o.y) ?? ground;
   if (f.category === 'building' || f.category === 'wall' || f.category === 'prop') {
     let low = ground;
-    const ring = groundRing(f.footprint, f.box, o, RING);
+    // A raised building (object-mass.ts) on its outline's rectangle, not on its catalogue entry's
+    const mass = massOf(o);
+    const ring = mass ? groundRing(massRadius(mass), massBox(mass), o, RING) : groundRing(f.footprint, f.box, o, RING);
     for (let k = 0; k < ring.length; k += 2) low = Math.min(low, groundAt(ring[k], ring[k + 1]));
     return low;
   }

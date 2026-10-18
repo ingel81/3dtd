@@ -8,7 +8,9 @@ import { BUILD_BLOCKED_OBJECT } from '../world-provider';
 import { computeBuildAreas, BuildCell } from '../../map-ops/validation/build-areas';
 import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { createMapDocument } from './map-create';
-import { type CustomMapDocument, type MapObject, MAP_METERS_PER_DEGREE, mapToGeo } from './map-document';
+import { type CustomMapDocument, type MapMass, type MapObject, MAP_METERS_PER_DEGREE, MASS_ASSET, mapToGeo } from './map-document';
+import { MASS_PARAPET } from './object-mass';
+import { seatHeight } from './render/objects/object-seat';
 import { type CatalogRoof, PlacedRoof } from './object-roof';
 import { crownBraces, plinthCrown } from '../../three-engine/renderers/tower-plinth/plinth-braces';
 import type { CatalogObject } from './render/asset-catalog';
@@ -277,5 +279,49 @@ describe('Towers on crowns, houses, towers, corners and gates (E217)', () => {
     // A 2 m wide ridge along x, 8 m up, as the tiles would show it
     const columns = offsets.map(([, dz]) => (Math.abs(dz) <= 1 ? { groundY: 0, topY: 8 } : { groundY: 0, topY: 0 }));
     expect(resolveTowerFootprint(8, radius, columns, undefined, () => true).refusal).toBe('edge');
+  });
+});
+
+describe('CustomMapSurface: buildings raised from their footprint (E235)', () => {
+  const frame = new CustomMapFrame();
+  // 40 x 30 m round a courtyard of 20 x 10 m, turned 0.4 rad, flat roof at 12 m less its parapet
+  const mass: MapMass = {
+    rings: [
+      [-20, -15, 20, -15, 20, 15, -20, 15],
+      [-10, -5, 10, -5, 10, 5, -10, 5],
+    ],
+    height: 12,
+    floors: 4,
+    roof: 'flat',
+    facade: 'plaster',
+  };
+  const home: MapObject = { id: 'home', asset: MASS_ASSET, x: -20, y: 10, z: 0, rotation: 0.4, scale: 1, mass };
+  const c = Math.cos(home.rotation);
+  const s = Math.sin(home.rotation);
+  /** A point in the building's own x and z, on the map (object-ground.ts) */
+  const at = (x: number, z: number) => ({ x: home.x - (x * c + z * s), y: home.y - x * s + z * c });
+  const geo = (x: number, z: number): [number, number] => {
+    const g = mapToGeo(at(x, z));
+    return [g.lat, g.lon];
+  };
+  const doc = slopeMap([home]);
+  const surface = new CustomMapSurface(doc, frame);
+  surface.setObjectCatalog([{ id: MASS_ASSET, footprint: 16.7, height: 4, blocksBuild: true, category: 'building' }]);
+
+  it('forbids building by its outline: near its walls, not in the middle of the courtyard nor across the street', () => {
+    expect(surface.buildBlocker(...geo(0, 0), 2)).toBeNull();
+    expect(surface.buildBlocker(...geo(0, 0), 6)).toBe(BUILD_BLOCKED_OBJECT);
+    expect(surface.buildBlocker(...geo(0, 19), 3)).toBeNull();
+    expect(surface.buildBlocker(...geo(0, 16.5), 3)).toBe(BUILD_BLOCKED_OBJECT);
+  });
+
+  it('carries towers on its roof inside the parapet, none over the courtyard', () => {
+    const wing = at(15, 0);
+    const seat = seatHeight({ category: 'building', footprint: 16.7, height: 4 }, home, (x, y) => surface.heightAtMap(x, y), () => null);
+    expect(surface.roofTopAtMap(wing.x, wing.y)).toBeCloseTo(seat + 12 - MASS_PARAPET, 1);
+    const yard = at(0, 0);
+    expect(surface.roofTopAtMap(yard.x, yard.y)).toBeNaN();
+    // On the roof the building blocks nothing: the roof carries the tower
+    expect(surface.buildBlocker(...geo(15, 0), 2)).toBeNull();
   });
 });

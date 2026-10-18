@@ -9,6 +9,7 @@ import {
   MAP_WATER_KINDS,
   MAP_WAVE_EVENT_KINDS,
   MAP_WEATHERS,
+  MASS_ASSET,
   MAX_MAP_PREFABS,
   WAVE_EVENT_LIMITS,
   isTypedArray,
@@ -22,6 +23,7 @@ import {
 } from './map-document';
 import type { MapProblem } from './map-file';
 import { introProblems } from './map-intro';
+import { massProblem } from './object-mass';
 import { BIRD_SPECIES, lifeProblems, MAX_LIFE_AREAS } from './map-life';
 import { markingProblems, MAX_SURFACES, surfaceProblems } from './map-surfaces';
 
@@ -285,6 +287,10 @@ function objectProblem(o: unknown, ids: ReadonlySet<string>): string | null {
   if (![o['x'], o['y'], o['z'], o['rotation'], o['scale']].every(finite) || (o['scale'] as number) <= 0) return `object ${id} has a bad placement`;
   if (o['group'] !== undefined && typeof o['group'] !== 'string') return `object ${id} has a bad group`;
   if ((o['pitch'] !== undefined && !finite(o['pitch'])) || (o['roll'] !== undefined && !finite(o['roll']))) return `object ${id} has a bad tilt`;
+  if (o['mass'] !== undefined || o['asset'] === MASS_ASSET) {
+    const problem = massProblem(o['mass']);
+    if (problem) return `object ${id}: ${problem}`;
+  }
   return null;
 }
 

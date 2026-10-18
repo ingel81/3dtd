@@ -1,6 +1,7 @@
 import type { WorldDestruction, WorldStructure } from '../world-provider';
 import type { RunStructure } from '../../sim/protocol/run-rules';
 import { type CustomMapDocument, type MapObject, MAP_METERS_PER_DEGREE } from './map-document';
+import { massArea, massOf, massTop } from './object-mass';
 
 /** Catalogue categories whose objects take damage and fall */
 export const DESTRUCTIBLE_CATEGORIES: ReadonlySet<string> = new Set(['building', 'wall', 'structure']);
@@ -82,8 +83,10 @@ export class CustomMapDestruction implements WorldDestruction {
     for (const object of this.objects()) {
       const entry = byId.get(object.asset);
       if (!entry || !DESTRUCTIBLE_CATEGORIES.has(entry.category) || object.scale <= FALLEN_SCALE) continue;
-      const radius = entry.footprint * object.scale;
-      const height = entry.height * object.scale;
+      // A raised building (object-mass.ts) as a cylinder of its own ground and height
+      const mass = massOf(object);
+      const radius = (mass ? Math.sqrt(massArea(mass) / Math.PI) : entry.footprint) * object.scale;
+      const height = (mass ? massTop(mass) : entry.height) * object.scale;
       const maxHp = structureHp(radius, height);
       this.list.push({
         id: object.id,

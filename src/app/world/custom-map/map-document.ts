@@ -212,6 +212,41 @@ export interface MapObject {
   tint?: string;
   /** Objects with the same group are picked and moved together in the editor; the game ignores it */
   group?: string;
+  /**
+   * A building raised from its own footprint instead of a catalogue model
+   * (asset MASS_ASSET, object-mass.ts): an OSM footprint no model fits
+   */
+  mass?: MapMass;
+}
+
+/** Asset of the objects that carry their own building (MapObject.mass): its catalogue entry gives only what all share */
+export const MASS_ASSET = 'building-mass';
+
+/** Wall looks of a raised building */
+export const MAP_MASS_FACADES = ['plaster', 'concrete', 'metal', 'brick', 'stone'] as const;
+export type MapMassFacade = (typeof MAP_MASS_FACADES)[number];
+
+/** Roofs of a raised building: flat with a parapet, or pitched over a rectangle (a ridge along the model's x axis) */
+export const MAP_MASS_ROOFS = ['flat', 'gable', 'hip'] as const;
+export type MapMassRoof = (typeof MAP_MASS_ROOFS)[number];
+
+/**
+ * A building raised from its footprint (MapObject.mass): walls up the
+ * outline and round each courtyard, a roof over it. In the object's own x
+ * and z at scale 1 like a catalogue model's box (object-ground.ts), seated
+ * like a building (object-seat.ts); the scale and turn of the object apply.
+ */
+export interface MapMass {
+  /** The outline, then its courtyards: x, z pairs, metres, either way round, not closed (the last point is not the first) */
+  rings: number[][];
+  /** Height of the walls over the seat, m: the eaves of a pitched roof, the top of a flat roof's parapet */
+  height: number;
+  /** Storeys, one row of windows each (a hall has one) */
+  floors: number;
+  roof: MapMassRoof;
+  /** A pitched roof's ridge over the eaves, m */
+  ridge?: number;
+  facade: MapMassFacade;
 }
 
 /**

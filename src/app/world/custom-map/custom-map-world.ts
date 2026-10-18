@@ -37,6 +37,7 @@ import type { CustomMapQuality, QualityKnobs } from '../../three-engine/render-q
 import { Soundscape } from './ambience/soundscape';
 import { sceneToMap } from './render/map-coords';
 import { emptyPose, introPoseAt } from './map-intro';
+import { massRadius } from './object-mass';
 
 /** A map of its own: no real place, nothing streams, no credentials, nothing to roll again */
 export const CUSTOM_MAP_CAPABILITIES: WorldCapabilities = {
@@ -488,7 +489,7 @@ export class CustomMapWorld implements WorldProvider {
       const objects = e.ids.flatMap((id) => {
         const o = byId.get(id);
         if (!o) return [];
-        const radius = Math.round((footprint.get(o.asset) ?? 1) * (this.outScale.get(id) ?? o.scale) * 100) / 100;
+        const radius = Math.round((o.mass ? massRadius(o.mass) : (footprint.get(o.asset) ?? 1)) * (this.outScale.get(id) ?? o.scale) * 100) / 100;
         return [{ id, ...mapToGeo(o), radius }];
       });
       return { ...e, objects };

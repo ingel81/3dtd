@@ -4,6 +4,7 @@
  * what it is; nothing on the map moves, grows or gets painted. The editor
  * opens with it, and Esc comes back to it once nothing is half done.
  */
+import { objectRadius } from '../../map-ops/asset-catalog';
 import { withGroups } from '../../map-ops/object-ops';
 import { describeGround, describePick } from '../ops/describe';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
@@ -65,7 +66,7 @@ export class LookTool implements EditorTool {
     const picked = ctx.pick(p);
     const o = picked?.kind === 'object' ? ctx.editor.doc.objects.find((x) => x.id === picked.id) : undefined;
     if (!o) ctx.overlay.hover.clear();
-    else ctx.overlay.hover.set(o, ctx.catalog.object(o.asset).radius * o.scale * 1.15);
+    else ctx.overlay.hover.set(o, objectRadius(o, ctx.catalog) * o.scale * 1.15);
   }
 
   hint(): string {

@@ -13,7 +13,7 @@ import { type BridgeDeck, bridgeDecks, deckHeightAt } from '../../world/custom-m
 import { HeightField } from '../../world/custom-map/render/height-field';
 import { waterLevelAt } from '../../world/custom-map/water-level';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
-import type { CatalogIndex } from '../../map-ops/asset-catalog';
+import { objectRadius, type CatalogIndex } from '../../map-ops/asset-catalog';
 import { selectedEdges, selectedNodes, selectedSpawns, type EditorDocument, type Selection } from '../model/editor-document';
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { heightAt as gridHeight } from '../../map-ops/grid';
@@ -197,9 +197,9 @@ export class EditorViewport {
       markers: () => {
         const doc = editor.doc;
         this.overlay.markers.set(doc, editor.selection);
-        this.overlay.selection.set(doc, editor.selection, (asset) => catalog.object(asset).radius);
+        this.overlay.selection.set(doc, editor.selection, (o) => objectRadius(o, catalog));
       },
-      selection: () => this.overlay.selection.set(editor.doc, editor.selection, (asset) => catalog.object(asset).radius),
+      selection: () => this.overlay.selection.set(editor.doc, editor.selection, (o) => objectRadius(o, catalog)),
     });
     this.topDown = new TopDownRenderer({
       renderer: this.renderer,

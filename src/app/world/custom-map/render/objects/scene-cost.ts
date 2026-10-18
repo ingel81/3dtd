@@ -1,4 +1,6 @@
 import type { CatalogObject } from '../asset-catalog';
+import type { MapMass } from '../../map-document';
+import { massTriangles } from '../../object-mass';
 
 /**
  * What a map's objects cost the picture, in points: per object about the
@@ -68,14 +70,18 @@ export function objectCost(entry: CostEntry | undefined, area: number): number {
   return cost;
 }
 
-/** What a list of objects costs together, from the cost of each asset */
-export function sceneCost(objects: readonly { asset: string }[], costOf: (asset: string) => number): number {
+/**
+ * What a list of objects costs together, from the cost of each asset; a
+ * building raised from its footprint (object-mass.ts) adds its own
+ * triangles, drawn as far as any building (the whole map)
+ */
+export function sceneCost(objects: readonly { asset: string; mass?: MapMass }[], costOf: (asset: string) => number): number {
   const known = new Map<string, number>();
   let sum = 0;
   for (const o of objects) {
     let c = known.get(o.asset);
     if (c === undefined) known.set(o.asset, (c = costOf(o.asset)));
-    sum += c;
+    sum += c + (o.mass ? massTriangles(o.mass) : 0);
   }
   return sum;
 }

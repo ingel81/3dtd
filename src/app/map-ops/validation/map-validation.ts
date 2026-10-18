@@ -15,7 +15,8 @@ import { heightAt, insideMap, sampleX, sampleY, slopeAt } from '../grid';
 import { components, EdgeIndex, nearestOnPolyline, routeBetween } from '../path-graph';
 import { undersideGap } from '../object-ops';
 import { seatHeight, type ObjectFooting } from '../../world/custom-map/render/objects/object-seat';
-import { boxDistance } from '../../world/custom-map/object-ground';
+import { boxDistance, toModel } from '../../world/custom-map/object-ground';
+import { massOf, massRadius, massSegmentDistance, objectFooting } from '../../world/custom-map/object-mass';
 import { waterLevelAt } from '../../world/custom-map/water-level';
 import { bridgeDecks, deckHeight, deckHeightAt, type BridgeDeck } from '../../world/custom-map/bridge-decks';
 import { HeightField } from '../../world/custom-map/render/height-field';
@@ -460,7 +461,9 @@ const WIDEST_PATH = 40;
  */
 function groundOnPath(o: MapObject, footing: ObjectFooting | undefined, edges: EdgeIndex, under: (edge: MapPathEdge) => boolean = () => false): boolean {
   const s = o.scale || 1;
-  const r = (footing?.footprint ?? 0) * s;
+  // A raised building stands on its own outline (object-mass.ts)
+  const mass = massOf(o);
+  const r = (mass ? massRadius(mass) : (footing?.footprint ?? 0)) * s;
   // A rock stands on its underside (its measured plate), not on the disc of its widest overhang
   const box = footing?.box ?? (footing?.base ? ([0, 0, footing.base[0], footing.base[1]] as const) : undefined);
   const cos = Math.cos(o.rotation);
@@ -468,6 +471,13 @@ function groundOnPath(o: MapObject, footing: ObjectFooting | undefined, edges: E
   for (const { edge, a, b } of edges.segmentsNear(o, r + Math.min(widestHalf(edges), WIDEST_PATH))) {
     if (under(edge)) continue;
     const half = (edge.width / 2) * (edge.kind === 'path' ? PATH_WALL_SHARE : 1);
+    if (mass) {
+      // The centre line against the building's walls, in its own axes
+      const p = toModel(a.x - o.x, a.y - o.y, cos, sin);
+      const q = toModel(b.x - o.x, b.y - o.y, cos, sin);
+      if (massSegmentDistance(mass, p.x / s, p.z / s, q.x / s, q.z / s) * s < half) return true;
+      continue;
+    }
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const len = Math.hypot(dx, dy);
@@ -648,7 +658,7 @@ export function objectsInAir(doc: CustomMapDocument, footingOf: (asset: string) 
   const hanging: { solid: Solid; gap: number }[] = [];
   const sunk: { o: MapObject; gap: number }[] = [];
   for (const o of doc.objects) {
-    const f = footingOf(o.asset);
+    const f = objectFooting(o, footingOf(o.asset));
     if (!f || f.category === 'fx' || f.aloft) continue;
     const s = o.scale || 1;
     const seat = seatHeight(f, o, ground, water);
@@ -736,7 +746,7 @@ export function objectsOnMoverWays(
   const ways = moverWays(doc.life);
   if (!ways.length) return [];
   return doc.objects.filter((o) => {
-    const f = footingOf(o.asset);
+    const f = objectFooting(o, footingOf(o.asset));
     if (!f || !categories.has(f.category)) return false;
     const reach = MOVER_CLEARANCE + f.footprint * (o.scale || 1);
     return ways.some((loop) => (nearestOnPolyline([...loop, loop[0]], o)?.dist ?? Infinity) < reach);

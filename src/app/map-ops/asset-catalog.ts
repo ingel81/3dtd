@@ -8,6 +8,8 @@ import type { CatalogRoof } from '../world/custom-map/object-roof';
 import type { ObjectFooting } from '../world/custom-map/render/objects/object-seat';
 import { MapAssetLibrary } from '../world/custom-map/render/map-asset-library';
 import type { CostEntry } from '../world/custom-map/render/objects/scene-cost';
+import { MASS_ASSET, type MapObject } from '../world/custom-map/map-document';
+import { massOf, massRadius } from '../world/custom-map/object-mass';
 
 export interface GroundMaterialEntry {
   id: string;
@@ -84,8 +86,8 @@ export function tagName(tag: string): string {
   return tag.charAt(0).toUpperCase() + tag.slice(1);
 }
 
-/** Catalogue objects the renderer places itself */
-const INTERNAL_OBJECTS = new Set(['bridge-deck']);
+/** Catalogue objects the renderer places itself: bridge decks, the surfaces of the buildings raised from their footprint (object-mass.ts) */
+const INTERNAL_OBJECTS = new Set(['bridge-deck', MASS_ASSET]);
 
 export interface MapAssetCatalog {
   materials: GroundMaterialEntry[];
@@ -182,6 +184,12 @@ export function normalizeCatalog(json: RawCatalog, assetsUrl: string): MapAssetC
       };
     }),
   };
+}
+
+/** An object's ground radius at scale 1: a raised building's outline (object-mass.ts), else its catalogue entry's */
+export function objectRadius(o: Pick<MapObject, 'asset' | 'mass'>, catalog: CatalogIndex): number {
+  const mass = massOf(o);
+  return mass ? massRadius(mass) : catalog.object(o.asset).radius;
 }
 
 export class CatalogIndex {

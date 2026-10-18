@@ -27,7 +27,7 @@ import {
 } from 'three';
 import { SPAWN_COLORS } from '../../../configs/map-constants.config';
 import { TD_THEME } from '../../../styles/td-theme';
-import type { CustomMapDocument, MapPoint } from '../../../world/custom-map/map-document';
+import type { CustomMapDocument, MapObject, MapPoint } from '../../../world/custom-map/map-document';
 import { pointAt, polylineLength, type Route } from '../../../map-ops/path-graph';
 import { selectedEdges, selectedNodes, selectedSpawns, type Selection } from '../../model/editor-document';
 import { RING_SEGMENTS, clearGroup, drape, drapedLine, relift, ring, type GroundHeight, type OverlayLayer } from './draping';
@@ -264,7 +264,7 @@ export class SelectionLayer implements OverlayLayer {
     private readonly walk: GroundHeight,
   ) {}
 
-  set(doc: CustomMapDocument, selection: Selection, radiusOf: (asset: string) => number): void {
+  set(doc: CustomMapDocument, selection: Selection, radiusOf: (o: MapObject) => number): void {
     clearGroup(this.group);
     if (selection?.kind === 'objects') {
       const ids = new Set(selection.ids);
@@ -272,7 +272,7 @@ export class SelectionLayer implements OverlayLayer {
         if (!ids.has(o.id)) continue;
         const r = ring(TD_THEME.brassLight, 1);
         r.material = this.material;
-        drape(r, o, Math.max(1, radiusOf(o.asset) * o.scale * 1.15), this.height);
+        drape(r, o, Math.max(1, radiusOf(o) * o.scale * 1.15), this.height);
         this.group.add(r);
       }
     }

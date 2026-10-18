@@ -1,4 +1,5 @@
 import { createMapDocument } from './map-create';
+import { MASS_ASSET, type MapMass } from './map-document';
 import { packMapFile, unpackMapFile } from './map-file';
 import { MAX_MAP_TEXT, mapRepairs } from './map-repair';
 import { MapStore, MemoryMapBackend } from './map-store';
@@ -50,6 +51,18 @@ describe('soft map values (warn and set right)', () => {
     expect(issues.every((i) => i.severity === 'warning')).toBe(true);
     expect(issues.find((i) => i.message.includes('tint red'))).toMatchObject({ part: 'environment' });
     expect(issues.find((i) => i.message.includes('object o1: tint'))).toMatchObject({ target: { kind: 'object', id: 'o1' } });
+  });
+
+  it('keeps a building raised from its footprint and leaves out one whose outline is broken (E235)', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 64, depth: 64, starter: false, now: new Date(0) });
+    const mass: MapMass = { rings: [[-5, -4, 5, -4, 5, 4, -5, 4]], height: 7, floors: 2, roof: 'flat', facade: 'brick' };
+    doc.objects.push({ id: 'good', asset: MASS_ASSET, x: 0, y: 0, z: 0, rotation: 0, scale: 1, mass });
+    doc.objects.push({ id: 'bad', asset: MASS_ASSET, x: 10, y: 0, z: 0, rotation: 0, scale: 1, mass: { ...mass, rings: [[0, 0, 1]] } });
+    doc.objects.push({ id: 'none', asset: MASS_ASSET, x: 20, y: 0, z: 0, rotation: 0, scale: 1 });
+    const { doc: read, repaired } = unpackMapFile(packMapFile(doc));
+    expect(read.objects.map((o) => o.id)).toEqual(['good']);
+    expect(read.objects[0].mass).toEqual(mass);
+    expect(repaired?.length).toBe(2);
   });
 
   it('gives the corrected map its own content hash on loading, so a coop guest can confirm it', async () => {

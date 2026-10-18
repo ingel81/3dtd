@@ -12,7 +12,9 @@ import { HeightField } from './render/height-field';
 import { waterLevelAt } from './water-level';
 import { type BridgeDeck, bridgeDecks, deckHeightAt } from './bridge-decks';
 import { FALLEN_SCALE } from './custom-map-destruction';
-import type { GroundBox } from './object-ground';
+import { toModel, type GroundBox } from './object-ground';
+import { massDistance, massOf, objectShape } from './object-mass';
+import type { MapMass } from './map-document';
 import { type CatalogRoof, PlacedRoof } from './object-roof';
 import type { ObjectCategory } from './render/asset-catalog';
 import { seatHeight } from './render/objects/object-seat';
@@ -112,8 +114,9 @@ export class CustomMapSurface implements WorldSurface {
    * The ground of the objects that forbid building (object-ground.ts), in
    * 16 m buckets, BLOCKER_STRIDE numbers each: the disc (x, y, radius), the
    * top (NaN without a height), the rectangle's middle (x, y), half sides
-   * (Infinity without one), turn (cos, sin) and 1 where it carries a tower
-   * on its roof, else 0
+   * (Infinity without one), turn (cos, sin), 1 where it carries a tower
+   * on its roof, else 0, and for a raised building (object-mass.ts) its
+   * index in `masses` (its outline decides, not its rectangle), else -1
    */
   private blockers: {
     cell: number;
@@ -123,6 +126,7 @@ export class CustomMapSurface implements WorldSurface {
     rows: number;
     buckets: (number[] | undefined)[];
     maxRadius: number;
+    masses: { mass: MapMass; scale: number }[];
   } | null = null;
   /** The roofs that carry towers (object-roof.ts), and per 16 m bucket of the blockers' grid the ones over it */
   private roofs: PlacedRoof[] = [];
@@ -447,7 +451,7 @@ export class CustomMapSurface implements WorldSurface {
         for (let k = 0; k < bucket.length; k += BLOCKER_STRIDE) {
           const top = bucket[k + 3];
           if (Number.isNaN(top) || (best !== null && top <= best)) continue;
-          if (covers(bucket, k, x, y, 0)) best = top;
+          if (covers(bucket, k, x, y, 0, g.masses)) best = top;
         }
       }
     }
@@ -530,7 +534,7 @@ export class CustomMapSurface implements WorldSurface {
         const bucket = g.buckets[j * g.columns + i];
         if (!bucket) continue;
         for (let k = 0; k < bucket.length; k += BLOCKER_STRIDE) {
-          if (!(onRoof && bucket[k + 10] === 1) && covers(bucket, k, x, y, radius)) return true;
+          if (!(onRoof && bucket[k + 10] === 1) && covers(bucket, k, x, y, radius, g.masses)) return true;
         }
       }
     }
@@ -556,27 +560,36 @@ export class CustomMapSurface implements WorldSurface {
     const rows = Math.max(1, Math.ceil(t.depth / cell));
     const buckets: (number[] | undefined)[] = new Array(columns * rows);
     let maxRadius = 0;
+    const masses: { mass: MapMass; scale: number }[] = [];
     const roofs: PlacedRoof[] = [];
     const roofBuckets: (PlacedRoof[] | undefined)[] = new Array(columns * rows);
     for (const o of this.doc.objects) {
       const entry = byId.get(o.asset);
       // A fallen structure (FALLEN_SCALE, CustomMapDestruction) blocks nothing
       if (!(o.blocksBuild ?? entry?.blocksBuild ?? false) || o.scale <= FALLEN_SCALE) continue;
-      const r = (entry?.footprint ?? 1) * o.scale;
+      // A raised building's own ground, height, rectangle and roof (object-mass.ts), else its entry's
+      const mass = massOf(o);
+      const shape = mass ? objectShape(o, entry) : null;
+      const r = (shape?.footprint ?? entry?.footprint ?? 1) * o.scale;
       maxRadius = Math.max(maxRadius, r);
       const i = Math.min(columns - 1, Math.max(0, Math.floor((o.x - minX) / cell)));
       const j = Math.min(rows - 1, Math.max(0, Math.floor((o.y - minY) / cell)));
-      const top = entry?.height === undefined ? NaN : this.field.heightAt(o.x, o.y) + o.z + entry.height * o.scale;
-      const box = entry?.box;
+      const height = shape?.height ?? entry?.height;
+      const top = height === undefined ? NaN : this.field.heightAt(o.x, o.y) + o.z + height * o.scale;
+      const box = shape?.box ?? entry?.box;
+      const roofOf = shape?.roof ?? entry?.roof;
       const cos = Math.cos(o.rotation);
       const sin = Math.sin(o.rotation);
       // The rectangle's middle from the model's x and z to the map (object-ground.ts)
       const bx = box ? o.x - (box[0] * cos + box[1] * sin) * o.scale : o.x;
       const by = box ? o.y - box[0] * sin * o.scale + box[1] * cos * o.scale : o.y;
-      const roof = entry?.roof && entry.category && !o.pitch && !o.roll && !passing.has(o.id)
-        ? new PlacedRoof(entry.roof, o.x, o.y, o.rotation, o.scale || 1, this.seatOf(entry, o) + o.z)
+      const roof = roofOf && entry?.category && !o.pitch && !o.roll && !passing.has(o.id)
+        ? new PlacedRoof(roofOf, o.x, o.y, o.rotation, o.scale || 1, this.seatOf(entry, o) + o.z)
         : null;
-      (buckets[j * columns + i] ??= []).push(o.x, o.y, r, top, bx, by, box ? box[2] * o.scale : Infinity, box ? box[3] * o.scale : Infinity, cos, sin, roof ? 1 : 0);
+      if (mass) masses.push({ mass, scale: o.scale || 1 });
+      (buckets[j * columns + i] ??= []).push(
+        o.x, o.y, r, top, bx, by, box ? box[2] * o.scale : Infinity, box ? box[3] * o.scale : Infinity, cos, sin, roof ? 1 : 0, mass ? masses.length - 1 : -1,
+      );
       if (!roof) continue;
       roofs.push(roof);
       const i0 = Math.max(0, Math.floor((roof.cx - roof.radius - minX) / cell));
@@ -585,7 +598,7 @@ export class CustomMapSurface implements WorldSurface {
       const j1 = Math.min(rows - 1, Math.floor((roof.cy + roof.radius - minY) / cell));
       for (let jj = j0; jj <= j1; jj++) for (let ii = i0; ii <= i1; ii++) (roofBuckets[jj * columns + ii] ??= []).push(roof);
     }
-    this.blockers = { cell, minX, minY, columns, rows, buckets, maxRadius };
+    this.blockers = { cell, minX, minY, columns, rows, buckets, maxRadius, masses };
     this.roofs = roofs;
     this.roofBuckets = roofBuckets;
     this.pickVersion++;
@@ -632,16 +645,26 @@ export class CustomMapSurface implements WorldSurface {
 }
 
 /** Numbers per object in the surface's blocker buckets */
-const BLOCKER_STRIDE = 11;
+const BLOCKER_STRIDE = 12;
 
 const NO_IDS: ReadonlySet<string> = new Set();
 
-/** Whether the ground of the blocker at `k` (its disc and its rectangle) comes within `reach` of map (x, y) */
-function covers(bucket: readonly number[], k: number, x: number, y: number, reach: number): boolean {
+/**
+ * Whether the ground of the blocker at `k` (its disc and its rectangle, a
+ * raised building's outline) comes within `reach` of map (x, y)
+ */
+function covers(bucket: readonly number[], k: number, x: number, y: number, reach: number, masses: readonly { mass: MapMass; scale: number }[]): boolean {
   const r = bucket[k + 2] + reach;
   const dx = bucket[k] - x;
   const dy = bucket[k + 1] - y;
   if (dx * dx + dy * dy >= r * r) return false;
+  const m = bucket[k + 11];
+  if (m >= 0) {
+    // The outline in the building's own axes (a courtyard is ground a tower may take)
+    const { mass, scale } = masses[m];
+    const p = toModel(x - bucket[k], y - bucket[k + 1], bucket[k + 8], bucket[k + 9]);
+    return massDistance(mass, p.x / scale, p.z / scale) * scale <= reach;
+  }
   const hx = bucket[k + 6];
   if (hx === Infinity) return true;
   // In the model's x and z (object-ground.ts toModel), inline: buildBlocker runs per cell of the build areas

@@ -1,5 +1,5 @@
 import { CustomMapDestruction, STRUCTURE_HP, structureHp } from './custom-map-destruction';
-import { MAP_METERS_PER_DEGREE, type MapObject } from './map-document';
+import { MAP_METERS_PER_DEGREE, MASS_ASSET, type MapMass, type MapObject } from './map-document';
 
 const CATALOG = [
   { id: 'house', category: 'building', footprint: 4, height: 6 },
@@ -39,6 +39,16 @@ describe('CustomMapDestruction', () => {
     expect(h2.maxHp).toBeGreaterThan(h1.maxHp);
     expect(structureHp(0.1, 0.1)).toBe(STRUCTURE_HP.min);
     expect(structureHp(100, 100)).toBe(STRUCTURE_HP.max);
+  });
+
+  it('wears down a building raised from its footprint as a cylinder of its own ground and height (E235)', () => {
+    const mass: MapMass = { rings: [[-10, -5, 10, -5, 10, 5, -10, 5]], height: 9, floors: 3, roof: 'flat', facade: 'plaster' };
+    objects = [{ ...object('m1', MASS_ASSET, 0, 0), mass }];
+    destruction.setCatalog([...CATALOG, { id: MASS_ASSET, category: 'building', footprint: 16.7, height: 4 }]);
+    const [m1] = destruction.structures();
+    expect(m1.radius).toBeCloseTo(Math.sqrt(200 / Math.PI));
+    expect(m1.height).toBe(9);
+    expect(m1.maxHp).toBe(structureHp(m1.radius, 9));
   });
 
   it('shows the fallen set the simulation says, each fall once, and stands up what is no longer in it (TODO E131)', () => {

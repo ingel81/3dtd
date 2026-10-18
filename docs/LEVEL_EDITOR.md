@@ -1069,7 +1069,8 @@ der nicht aktualisiert hat):
 3. **Zwei Prüfungen.** Hart ist nur die Struktur (`validateMapDocument`): Raster, Höhen, Splat- und Wassermasken,
    Gewässer, Listen, Wegknoten und Kanten mit ihren Ids, Spawn- und HQ-Positionen, Meta, Spielregeln und Wellenliste.
    Eine solche Karte wird weder geschrieben noch gelesen (`MapFileError`, „The map is broken: …“). Weich ist der Inhalt
-   (`map-repair.ts`): ein kaputtes Objekt (fehlende oder doppelte Id, kein Asset, Lage, Gruppe oder Neigung keine Zahl),
+   (`map-repair.ts`): ein kaputtes Objekt (fehlende oder doppelte Id, kein Asset, Lage, Gruppe oder Neigung keine Zahl,
+   ein Bau aus dem Grundriss ohne gültige Ringe, Höhe, Geschosse, Dach- oder Fassadenart, `object-mass.ts`),
    ein kaputter Fluss, Lebensbereich, ein kaputtes Wellen-Ereignis, Prefab oder ein kaputter Intro-Flug fällt weg; ein
    kaputter Schalter des Lebens fällt auf den Standard; Zahlen der Umgebung kommen in ihren Bereich, eine Tönung, die
    keine `#rrggbb`-Farbe ist, wird weiß, `blocksLos`/`blocksBuild`/`optional`, die nicht true oder false sind, fallen
