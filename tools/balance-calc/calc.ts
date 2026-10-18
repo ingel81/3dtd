@@ -28,6 +28,18 @@ export interface ScenarioOptions {
   readonly recordedLoss?: boolean;
   /** Stop after this wave. */
   readonly lastWave?: number;
+  /**
+   * Rubble on the road (docs/DESTRUCTION_PLAN.md): `share` of the metres
+   * under fire slow the bodies on the ground to `brake` of their pace. The
+   * planner does not see it (it sizes by the types' speeds); the leak
+   * estimate does, as more time under fire.
+   */
+  readonly rubble?: { readonly share: number; readonly brake: number };
+}
+
+/** The share of its pace a body on the ground walks the metres under fire at, on average, with `rubble` on part of them */
+export function rubblePace(rubble: ScenarioOptions['rubble']): number {
+  return rubble ? 1 / (1 - rubble.share + rubble.share / rubble.brake) : 1;
 }
 
 export interface WaveRow {
@@ -102,7 +114,7 @@ export function runScenario(trajectory: Trajectory, options: ScenarioOptions): W
     let planned: PlannedWave = source.plan({ wave: w.wave, state: planState, random });
     if (source.sizeAtStart) planned = source.sizeAtStart(planned, { wave: w.wave, state: startState, random });
     const config = planned.config;
-    const bodies = waveBodies(w.wave, config, startMetres);
+    const bodies = waveBodies(w.wave, config, startMetres, rubblePace(options.rubble));
     const leak = estimateLeak(w.wave, bodies, startDps, startMetres, model);
     const recordedLoss = Math.max(0, w.actual.healthStart - w.actual.healthEnd);
     const buildUp = w.wave <= options.model.buildUpWaves ? recordedLoss : 0;

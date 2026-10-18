@@ -62,8 +62,10 @@ export interface WaveBody {
  * The bodies of a wave as shipped: counts, HP factors and speed from the
  * config, the rest from the enemy types. `metres` under fire: a regenerating
  * body counts its healing over REGEN_TIME_SHARE of its time on the route.
+ * `groundPace`: the share of its pace a body on the ground walks at on
+ * average there (rubble on the road, calc.ts rubbleSpeed); 1 as shipped.
  */
-export function waveBodies(wave: number, config: Pick<WaveConfig, 'enemies'>, metres = 0): WaveBody[] {
+export function waveBodies(wave: number, config: Pick<WaveConfig, 'enemies'>, metres = 0, groundPace = 1): WaveBody[] {
   const regenWave = planMutator(wave)?.regenPerSecond ?? 0;
   const out: WaveBody[] = [];
   for (const group of config.enemies) {
@@ -83,7 +85,7 @@ export function waveBodies(wave: number, config: Pick<WaveConfig, 'enemies'>, me
     for (const part of parts) {
       const n = group.count * part.bodies;
       const elites = cfg.chain ? 0 : Math.min(n, group.elite?.count ?? 0);
-      const speed = part.speed * (group.speedMultiplier ?? 1);
+      const speed = part.speed * (group.speedMultiplier ?? 1) * (cfg.isAirUnit ? 1 : groundPace);
       const heal = 1 + regen * REGEN_TIME_SHARE * (metres / Math.max(0.1, speed));
       const body = { type: group.type, armor: part.armor, air: !!cfg.isAirUnit, speed, leak };
       const eliteHp = part.hp * (group.elite?.healthMultiplier ?? 0);

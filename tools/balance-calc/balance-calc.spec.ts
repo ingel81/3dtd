@@ -14,7 +14,8 @@ import { describe, it, expect } from 'vitest';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runScenario, type WaveRow } from './calc';
+import { rubblePace, runScenario, type WaveRow } from './calc';
+import { RUBBLE } from '../../src/app/configs/destruction.config';
 import { HUMAN_RUN_MODEL, type LeakModel } from './model';
 import { targetPressure } from '../../src/app/director/pressure-controller';
 import type { Trajectory } from './trajectory';
@@ -57,7 +58,32 @@ function table(rows: readonly WaveRow[], start: number): string {
   return [head, ...lines.map((l) => `| ${l} |`)].join('\n');
 }
 
+/** Shares of the metres under fire that rubble covers (docs/DESTRUCTION_PLAN.md), for the brake's table */
+const RUBBLE_SHARES = [0, 0.05, 0.1, 0.2, 0.3] as const;
+
 describe('balance-calc', () => {
+  it("rubble's brake on the road: the run with 0 to 30 % of the metres under fire slowed (docs/DESTRUCTION_PLAN.md)", () => {
+    const start = TRAJECTORY.startHealth;
+    const rows = RUBBLE_SHARES.map((share) => [share, runScenario(TRAJECTORY, { strength: 1, model: MODEL, rubble: { share, brake: RUBBLE.brake } })] as const);
+    for (const [, r] of rows) expect(r.length).toBeGreaterThan(0);
+    if (!OUT) return;
+    const doc = [
+      `# Bremse auf Schutt: ${RUBBLE.brake} des Tempos am Boden`,
+      '',
+      `Abwehr aus ${TRAJECTORY.source}, Mensch ×1; Anteil = Teil der Meter unter Feuer, auf dem Schutt liegt. Der Planer sieht den Schutt nicht.`,
+      '',
+      '| Anteil | Tempo am Boden | HQ nach W10 / 20 / 30 / 40 / 50 / 60 | Tod in | Wellen ohne Verlust (ab W8) | Wellen > 10 % HP |',
+      '|---|---|---|---|---|---|',
+      ...rows.map(([share, r]) => summary(`${Math.round(share * 100)} % | ${r2(rubblePace({ share, brake: RUBBLE.brake }))}`, r, start)),
+      '',
+      '| W | ' + RUBBLE_SHARES.map((s) => `${Math.round(s * 100)} %: R / Leck / HQ`).join(' | ') + ' |',
+      '|---|' + RUBBLE_SHARES.map(() => '---').join('|') + '|',
+      ...rows[0][1].map((row, i) => `| ${row.wave} | ` + rows.map(([, r]) => (r[i] ? `${r2(r[i].regulator)} / ${r1(r[i].leak)} / ${r0(r[i].hpEnd)}` : '-')).join(' | ') + ' |'),
+    ].join('\n');
+    mkdirSync(OUT, { recursive: true });
+    writeFileSync(resolve(OUT, 'balance-rubble-brake.md'), doc + '\n');
+  });
+
   it('rebuilds the recorded run: the loop moves as it did', () => {
     const rows = runScenario(TRAJECTORY, { strength: 1, model: MODEL, recordedLoss: true });
     // Only meaningful while the planner is the one the run played; a change to it moves these on purpose
