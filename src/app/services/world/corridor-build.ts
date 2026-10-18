@@ -1,4 +1,4 @@
-import { MEASUREMENT_KEYS, corridorConfig, sizeRouteCorners } from '../../utils/route-corridor';
+import { MEASUREMENT_KEYS, corridorConfig } from '../../utils/route-corridor';
 import { corridorTrace, widthProfile, type CorridorSnapshot } from '../../utils/corridor-trace';
 import {
   MUTED_CAMERA_ERROR_TARGET,
@@ -98,7 +98,6 @@ const TILES_STEP = 'Loading the corridor tiles';
 const MEASURE_STEP = 'Measuring the corridor';
 const FALLBACK_STEP = 'Loading coarser tiles for the gaps';
 const BUILD_STEP = 'Building the corridor';
-const CORNERS_STEP = 'Rounding the corners';
 
 const percentOf = ({ done, total }: { done: number; total: number }) => (total > 0 ? Math.floor((100 * done) / total) : 100);
 
@@ -123,9 +122,9 @@ const percentOf = ({ done, total }: { done: number; total: number }) => (total >
  *    columns, not the cells.
  * 5. Cells without a height: the coarse level for them. No way back:
  *    what follows reads the cells, not the columns.
- * 6. The route line on the final cells, and the corner arcs of these routes
- *    (RouteProfile.corners) in slices of SLICE_MS a frame; frozen. Camera
- *    back, and the region down to the coarse level (unmute).
+ * 6. The route line on the final cells; frozen. Camera back, and the region
+ *    down to the coarse level (unmute). The simulation sizes the corner arcs
+ *    of the routes it gets (GameStateManager.loadWorld), in its worker.
  *
  * Afterwards no tile load, camera move or tower changes routes, cells or
  * heights; the next build does. Towers and waves wait for it (pending),
@@ -261,7 +260,7 @@ export class CorridorBuild {
     const start = this.now();
     const engine = this.deps.engineInit.getEngine();
     const tiles = engine?.tilesLodDebug() ?? null;
-    const ms = { tiles: 0, measure: 0, fallback: 0, build: 0, corners: 0, lines: 0 };
+    const ms = { tiles: 0, measure: 0, fallback: 0, build: 0, lines: 0 };
     try {
       traced(() => corridorTrace.log('build.start', { reason, tiles: tiles !== null }));
 
@@ -378,24 +377,6 @@ export class CorridorBuild {
       let t = this.now();
       traced(() => corridorTrace.within('lines', () => pathRoute.refreshRouteLines(spawns)));
       ms.lines = this.now() - t;
-      // The arcs enemies round the corners on (RouteProfile.corners), for the
-      // very arrays the enemies get, in slices of SLICE_MS a frame: a long
-      // route takes a tenth of a second and more, the first enemy of a wave
-      // would otherwise pay it
-      const paths = [...pathRoute.getCachedPaths().values()];
-      for (let sized = 0; ; ) {
-        const slice = this.now();
-        while (sized < paths.length) {
-          const left = CorridorBuild.SLICE_MS - (this.now() - slice);
-          if (left <= 0 || !sizeRouteCorners(paths[sized], left, this.now)) break;
-          sized++;
-        }
-        ms.corners += this.now() - slice;
-        if (sized === paths.length) break;
-        report({ step: CORNERS_STEP, percent: percentOf({ done: sized, total: paths.length }) });
-        await this.nextFrame();
-        if (dropped()) return null;
-      }
       t = this.now();
       const gridViz = this.deps.gridViz;
       gridViz.initSpatialGridVisualizationIfEnabled();
@@ -421,7 +402,7 @@ export class CorridorBuild {
       const f = (value: number) => value.toFixed(1);
       console.log(
         `[Corridor] build: reason=${reason} tiles=${f(ms.tiles)} measure=${f(ms.measure)} fallback=${f(ms.fallback)} ` +
-        `band=${band.stations} (${f(ms.build)}) corners=${f(ms.corners)} lines=${f(ms.lines)} wall=${f(result.ms)}ms stations=${measured} ` +
+        `band=${band.stations} (${f(ms.build)}) lines=${f(ms.lines)} wall=${f(result.ms)}ms stations=${measured} ` +
         `unmeasured=${result.unmeasured} cells=${result.cells}${timedOut ? ' tiles timed out' : ''}`,
       );
       // Built on nothing: no station had a tile, or no cell got a height.
@@ -450,7 +431,6 @@ export class CorridorBuild {
         const bareCells = result.cellsWithoutHeight > 0 ? grid.describeCellsWithoutHeight() : {};
         corridorTrace.log('build.freeze', {
           ...result, ...bareCells, tilesMs: ms.tiles, measureMs: ms.measure, fallbackMs: ms.fallback, buildMs: ms.build,
-          cornersMs: ms.corners,
         });
       });
       // Frozen: the simulation stands on this world from here (docs/SIM_WORKER.md)

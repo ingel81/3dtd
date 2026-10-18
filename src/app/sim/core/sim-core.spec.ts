@@ -22,6 +22,8 @@ import { buildRoute } from '../../integration/sim-step-bench';
 import { worldKeyOf } from '../protocol/world-key';
 import { losMaskToJson } from '../../utils/los-mask';
 import { METERS_PER_DEGREE_LAT as M } from '../../utils/geo-utils';
+import { sizeRouteCorners } from '../../utils/route-corridor';
+import type { RouteWaypoint } from '../../models/game.types';
 import { mulberry32 } from '../../utils/game-rng';
 import { GameObject } from '../../core/game-object';
 import type { SimWorld, SimInput, SimOutput, QueuedCommand } from '../protocol/messages';
@@ -126,6 +128,29 @@ function newCore(world: SimWorld): SimCore {
 }
 
 describe('SimCore in the same thread', () => {
+  it('sizes the corner arcs of the routes it walks as the world comes, not on the first enemy of a wave', () => {
+    // Twenty right angles 20 m apart: more than one step of sizing
+    const route: RouteWaypoint[] = Array.from({ length: 22 }, (_, i) => ({ lat: (20 * Math.ceil(i / 2)) / M, lon: (20 * Math.floor(i / 2)) / M }));
+    const sync = new OriginSync(0, 0, 0);
+    const grid = new GlobalRouteGridService();
+    grid.initialize((() => ({ groundY: 0, topY: 0, tileDepth: 20, tileGeometricError: 1 })) as never, sync);
+    grid.generateFromRoutes([route]);
+    const core = newCore({
+      origin: { lat: 0, lon: 0, height: 0 },
+      hq: route[route.length - 1],
+      spawns: [{ id: 'spawn-1', name: 'Spawn 1', ...route[0] }],
+      paths: [['spawn-1', route]],
+      heights: grid.exportHeights(),
+      worldKey: worldKeyOf(grid.snapshotHeights(), [route], sync.getOrigin()),
+      spawnGround: { 'spawn-1': 0 },
+    });
+    const [walked] = [...core.gsm.getCachedPaths().values()] as RouteWaypoint[][];
+    // Nothing left to size: a budget used up at once would still size a step
+    let steps = 0;
+    expect(sizeRouteCorners(walked, -1, () => steps++)).toBe(true);
+    expect(steps).toBe(1);
+  });
+
   it('refuses a world whose key it does not come to', () => {
     const { world } = mainWorld();
     const core = new SimCore();

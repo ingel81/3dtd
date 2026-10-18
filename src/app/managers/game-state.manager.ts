@@ -39,6 +39,7 @@ import { TowerLifecycle } from './game-state/tower-lifecycle';
 import { CommandLog, LOCAL_PLAYER_ID, toPlainData, type CommandLogEntry } from './game-state/command-log';
 import { summarizeWaveGroups } from './game-state/wave-preview';
 import { routeSweepToward } from '../utils/route-sweep';
+import { sizeRouteCorners } from '../utils/route-corridor';
 import { SimRecorder } from '../simulator/sim-recorder';
 import { StateHasher, type HashBreakdown, type StateHashSource } from '../simulator/state-hash';
 import type { SimSnapshot, SnapshotRefusal } from '../simulator/sim-snapshot';
@@ -735,6 +736,10 @@ export class GameStateManager {
       throw new Error(`SimWorld: world key ${key}, the main thread has ${world.worldKey}`);
     }
     this.initialize(world.hq, world.spawns, this.routeWorld.cachedPaths());
+    // The arcs enemies round the corners on (RouteProfile.corners), for the very arrays they walk, as the
+    // world comes: in the simulation's worker, not the page's thread; else the first enemy of a wave on a
+    // route paid it (80 to 170 ms, seconds on a large OSM world)
+    for (const path of this.routeWorld.cachedPaths().values()) sizeRouteCorners(path, Infinity);
     this.applyRunStart();
     // The events before the first wave to play: wave 1's as the run begins, those of a later start quietly
     this.syncWaveEvents(true);

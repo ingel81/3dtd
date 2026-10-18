@@ -1368,15 +1368,14 @@ Stuttgart 1068 spitz, 286 mit Bögen; Berlin 485, 135; Paris 326, 52.
 **Kosten** (Node ohne DOM, nicht eingecheckt; der Heap im Spiel verhält sich
 anders, ein Chrome-Trace entscheidet):
 
-- **Bögen bauen:** einmal je Pfad-Array. `CorridorBuild` baut sie in
-  Schritt 6 für die Routen, die er einfriert, in Scheiben von `SLICE_MS`
-  (32 ms) je Frame (`sizeRouteCorners`): `RouteCornerBuilder.step` hört
-  nach jedem geprüften Bogen auf, wenn die Scheibe um ist. Die Gegner einer
-  Welle, ihre Split-Kinder und die Segmente eines Wurms bekommen genau diese
-  Arrays (`WaveManager` liest die Map von `PathAndRouteService`, ein
-  Split-Kind den Pfad des Elternteils), HQ- und Spawn-Umzug bauen über
-  `CorridorBuild`. Wer `RouteProfile.corners` vorher liest, baut den Rest
-  am Stück. Snapshots, am Stück: Stuttgart (369 Waypoints, 650 m, 190
+- **Bögen bauen:** einmal je Pfad-Array, in der Simulation: `GameStateManager.loadWorld`
+  baut sie am Stück für die Routen der Welt, die sie bekommt (`sizeRouteCorners`), also im
+  Worker der Simulation und nicht im Hauptthread (seit 2026-10-19; vorher baute `CorridorBuild`
+  sie in Schritt 6 für die Arrays des Hauptthreads in Scheiben, die die Simulation als Kopien
+  bekam und neu baute). Die Gegner einer Welle, ihre Split-Kinder und die Segmente eines Wurms
+  bekommen genau diese Arrays (`WaveManager` liest die Routen der Welt, ein Split-Kind den Pfad
+  des Elternteils); HQ- und Spawn-Umzug schicken eine neue Welt. Wer `RouteProfile.corners`
+  vorher liest, baut den Rest am Stück. Snapshots, am Stück: Stuttgart (369 Waypoints, 650 m, 190
   Bögen) 140 bis 170 ms, Berlin (259 Waypoints, 445 m) 80 ms, Paris (258
   Waypoints, 477 m) 63 ms. In Scheiben: 6, 3 und 2 Scheiben, die längste
   33 bis 34 ms (die Scheibe plus ein Bogen; der teuerste einzelne Bogen 9,
@@ -1474,10 +1473,10 @@ Ein Bau (`build`) läuft in dieser Reihenfolge:
    feinste Stufe über zwei Nachbarn oder drei (siehe Zellhöhe, Lücken
    füllen) oder über die Straße des Bands (Portal ohne Treffer) füllt, zählt
    als Zelle mit Höhe und schickt den Bau nicht mehr auf die grobe Stufe.
-6. **Einfrieren:** rote Linie auf den fertigen Zellen, die Bögen an den
-   Ecken dieser Routen in Scheiben von `SLICE_MS` (siehe "Ecken", Kosten),
-   Overlays, laufende Routenanimation neu; Kamera zurück, Region auf die
-   grobe Stufe (5 m, siehe "Feine Tiles im Korridor").
+6. **Einfrieren:** rote Linie auf den fertigen Zellen, Overlays, laufende
+   Routenanimation neu; Kamera zurück, Region auf die grobe Stufe (5 m,
+   siehe "Feine Tiles im Korridor"). Die Bögen an den Ecken baut die
+   Simulation, wenn sie die Welt bekommt (siehe "Ecken", Kosten).
 
 Danach ändert nichts mehr Routen, Waypoints, Zellen oder Höhen: kein
 Tile-Schub, keine Kamerafahrt, kein Tower. Erst der nächste Bau tut es.

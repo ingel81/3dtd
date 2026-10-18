@@ -947,9 +947,9 @@ function buildRouteProfile(path: readonly RouteWaypoint[]): RouteProfile {
 
 /**
  * Size the corner arcs of `path` (RouteProfile.corners) for about
- * `budgetMs`, a group of knicks at a time and at least one, for a caller
- * that spreads them over frames (CorridorBuild). True once they stand, at
- * once where they already do.
+ * `budgetMs`, a group of knicks at a time and at least one (the
+ * simulation sizes them all as its world comes, GameStateManager.loadWorld).
+ * True once they stand, at once where they already do.
  */
 export function sizeRouteCorners(path: readonly RouteWaypoint[], budgetMs: number, now: () => number = () => performance.now()): boolean {
   const start = now();
