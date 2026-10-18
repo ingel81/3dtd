@@ -11,6 +11,24 @@ export function boxAround(lat: number, lon: number, radiusMeters: number): GeoBo
   return { minLat: lat - latDelta, maxLat: lat + latDelta, minLon: lon - lonDelta, maxLon: lon + lonDelta };
 }
 
+/** The smallest box around all of `boxes`; undefined for none. */
+export function boxAroundBoxes(boxes: readonly GeoBox[]): GeoBox | undefined {
+  if (!boxes.length) return undefined;
+  let { minLat, minLon, maxLat, maxLon } = boxes[0];
+  for (const box of boxes) {
+    minLat = Math.min(minLat, box.minLat);
+    minLon = Math.min(minLon, box.minLon);
+    maxLat = Math.max(maxLat, box.maxLat);
+    maxLon = Math.max(maxLon, box.maxLon);
+  }
+  return { minLat, minLon, maxLat, maxLon };
+}
+
+/** The box that holds every point within `radiusMeters` of one of `points`; undefined for none. */
+export function boxAroundPoints(points: readonly { lat: number; lon: number }[], radiusMeters: number): GeoBox | undefined {
+  return boxAroundBoxes(points.map((p) => boxAround(p.lat, p.lon, radiusMeters)));
+}
+
 /** Area of a box in km², for the log. */
 export function boxAreaKm2(box: GeoBox): number {
   const midLat = (box.minLat + box.maxLat) / 2;

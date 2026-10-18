@@ -54,7 +54,10 @@ const CONNECT_HOSTS = [
   'https://tile.googleapis.com',
   'https://nominatim.openstreetmap.org',
   'https://overpass-api.de',
+  'https://maps.mail.ru',
   'https://overpass.private.coffee',
+  'https://overpass.osm.ch',
+  'https://overpass.atownsend.org.uk',
 ];
 
 /**

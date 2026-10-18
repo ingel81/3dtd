@@ -14,7 +14,10 @@
 
 const IDENTIFIED_HOSTS = [
   'https://overpass-api.de',
+  'https://maps.mail.ru',
   'https://overpass.private.coffee',
+  'https://overpass.osm.ch',
+  'https://overpass.atownsend.org.uk',
   'https://nominatim.openstreetmap.org',
 ];
 

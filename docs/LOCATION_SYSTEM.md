@@ -423,13 +423,16 @@ STEP 3: Load Streets
   - OSM-Straßendaten laden (2000m Radius)
   - Cache-Check: Wenn gleiche Location (~100m), Cache wiederverwenden
   - Sonst OsmStreetService.loadStreets(): erst IndexedDB (StreetCacheService,
-    Key v2_<lat>_<lon>_<radius>, max. 5 Orte, LRU), dann Overpass mit drei
-    Servern der Reihe nach (`OsmStreetService.fetchOverpass`): Scheitert
+    Key v2_<lat>_<lon>_<radius>, max. 5 Orte, LRU), dann Overpass mit den
+    Servern, die die Abfrage-Box halten, regionale zuerst, sortiert nach ihrer
+    Gesundheit (`world/osm/overpass-client.ts`, `fetchOverpass`, siehe "Server" unten): Scheitert
     einer, kommt sofort der nächste dran; hat einer nach 4 s noch nicht zu
-    antworten begonnen (`OVERPASS_HEDGE_MS`, eine Annahme), wird der nächste
-    zusätzlich gefragt. Die erste brauchbare Antwort gewinnt, die anderen
-    Anfragen werden abgebrochen. Jeder Server hat 15 s bis zu den Headern
-    und danach 30 s für den Body, sonst kommt der nächste dran. Jeder Versuch steht als
+    antworten begonnen (`STREET_LIMITS.hedgeMs`, eine Annahme), wird der nächste
+    zusätzlich gefragt, höchstens zwei Anfragen zugleich (`MAX_PARALLEL`). Die erste brauchbare Antwort gewinnt, die anderen
+    Anfragen werden abgebrochen. Jeder Server hat 30 s bis zu den Headern
+    und danach 30 s für den Body, sonst kommt der nächste dran. Das ist eine
+    Runde; scheitert sie und darf einer der Fehler vorübergehen, folgt nach
+    einer Wartezeit die nächste, siehe "Wiederholen" unten. Jeder Versuch steht als
     `[OSM] streets from ...` in der Konsole, siehe "Zeiten" unten
   - Überlappt die Box die zuletzt geladenen Straßen (`lastLoaded`, eine im
     Speicher, aus Overpass oder dem IndexedDB-Cache), übernimmt
@@ -651,15 +654,95 @@ Jeder Versuch bei einem Overpass-Server (`OsmStreetService.fetchOverpass`, für 
 
 ```
 [OSM] streets from <host>: headers= body=ms size=MB ways= nodes= [remark="..."]
-[OSM] streets from <host> failed after ms: <Grund>
+[OSM] streets from <host> failed after ms (try <Runde> of 8): <Art>, <Grund>
+[OSM] streets: no server answered (<Art>), trying again in 1.5s (try 2 of 8)
+[OSM] streets: every server asked for a pause, waiting 12.0s
+[OSM] streets: no time left to ask again (...)
+[OSM] streets: the answer had a remark, not kept in the cache
 ```
 
-- `headers` = Anfrage bis zu den Headern, also bis der Server zu antworten beginnt; bis dahin wartet der Versuch höchstens 15 s (`OVERPASS_HEADER_TIMEOUT_MS`, Grund dann `no answer within 15000ms`). `body` = von dort bis zum Ende der Antwort, höchstens 30 s (`OVERPASS_BODY_TIMEOUT_MS`, Grund dann `answer not complete within 30000ms`)
+- `headers` = Anfrage bis zu den Headern, also bis der Server zu antworten beginnt; bis dahin wartet der Versuch höchstens 30 s (`STREET_LIMITS.headerTimeoutMs`, Grund dann `timeout, no answer within 30000ms`; die Abfrage selbst darf auf dem Server 25 s laufen). `body` = von dort bis zum Ende der Antwort, höchstens 30 s (`STREET_LIMITS.bodyTimeoutMs`, Grund dann `timeout, answer not complete within 30000ms`)
 - `size` = Länge des JSON-Texts in Millionen Zeichen, bei OSM-Daten etwa die Bytes entpackt. `ways`/`nodes` = was kam, vor dem Filter auf die Routen (`[OSM] Filtered: ...`)
-- `remark` nur, wenn der Server an eine Grenze stieß (Speicher `maxsize` 4 MB, Zeit 25 s); die Antwort kann dann unvollständig sein und wird trotzdem genommen, sobald sie Straßen enthält
-- Gründe beim Scheitern: `OSM API error: <Status>` (z. B. 429, 504), `no answer within 15000ms`, `answer not complete within 30000ms`, `No streets found ...` (Antwort ohne Straßen, der nächste Server wird gefragt) oder der Netzwerkfehler des Browsers
+- `remark` nur, wenn der Server an eine Grenze stieß (Speicher `maxsize` 4 MB, Zeit 25 s); die Antwort kann dann unvollständig sein und wird trotzdem gespielt, sobald sie Straßen enthält, aber weder im IndexedDB-Cache noch als `lastLoaded` behalten: der nächste Besuch des Orts fragt neu
+- Gründe beim Scheitern, je mit ihrer Art (`OverpassFailureKind`): `busy, HTTP <Status>`, `server, HTTP <Status>`, `refused, HTTP <Status>`, `timeout, ...`, `network, <Fehler des Browsers>`, `malformed, ...`, `busy, too busy: "<remark>"`, `rejected, No streets found ...` (Antwort ohne Straßen, der nächste Server wird gefragt), `rejected, no data for this area` (ein regionaler Server ohne ein Element, siehe "Server")
 - Ein Server, der abgebrochen wird, weil ein anderer zuerst antwortete, schreibt keine Zeile. Zwei Antwortzeilen zu einer Ladung heißen, dass beide fast gleichzeitig kamen
 - Beginnt ein Server erst nach mehr als 4 s zu antworten (`headers=` über 4000), wurde der nächste schon zusätzlich gefragt
+
+#### Server
+
+Die Liste steht an einem Ort, `world/osm/overpass-servers.ts` (`OVERPASS_SERVERS`): je Server URL, Name und Abdeckung,
+global oder eine Reihe Boxen. Stand 2026-10-18 (Quelle: Liste der öffentlichen Instanzen im OSM-Wiki, „Overpass API“):
+
+| Server | Abdeckung | Gemessen 2026-10-18 |
+|--------|-----------|---------------------|
+| overpass.osm.ch | Schweiz | 0,1 bis 0,4 s; Ways etwa 3 bis 5 km über die Grenze hinaus, lückenhaft |
+| overpass.atownsend.org.uk | Großbritannien und Irland | 2 bis 7 s; einzelne Ways in Nordfrankreich |
+| overpass-api.de | global | meist 502 „at capacity“, manchmal 200 nach 20 bis 30 s |
+| maps.mail.ru | global | 200 nach 13 bis 19 s, einmal 504 |
+| overpass.private.coffee | global | meist 500; overpass.kumi.systems ist derselbe Rechner |
+
+Nicht aufgenommen: overpass.openstreetmap.fr und .ru (403, nur für freigeschaltete Nutzer), overpass.osm.jp (504),
+overpass.openstreetmap.ie (keine Antwort), z./lz4.overpass-api.de (derselbe Pool wie overpass-api.de), Anbieter mit
+Schlüssel oder Bezahlung. Alle aufgenommenen senden `Access-Control-Allow-Origin: *`.
+
+- Jede Abfrage nennt ihre Box (`OverpassRequest.box`): die Straßen die Hülle ihrer Teil-Boxen, die Gebäude die Routen
+  samt Radius. Ein regionaler Server wird nur gefragt, wenn die Box ganz in
+  einer seiner Boxen liegt (`serversFor`); ohne Box nur die globalen. Die Boxen liegen innerhalb der Landesgrenze,
+  ausgemessen mit kleinen Abfragen an der Grenze entlang, damit eine Box über die Grenze nicht halbe Daten bekommt
+- Antwortet ein regionaler Server mit null Elementen, hat er keine Daten für die Box: `rejected`, kein Erfolg, und für
+  den Rest dieser Ladung wird er nicht mehr gefragt. Scheitert die Ladung, nennt die Meldung die anderen Server
+- Gesundheit (`world/osm/overpass-health.ts`, `overpassHealth`): je Server die letzten sechs Versuche (Antwort oder
+  wiederholbarer Fehler, Dauer) und eine Pause. Im Speicher für die Sitzung, auf der Seite zusätzlich in localStorage
+  (`3dtd-overpass-health`, 30 min gültig, jeder Zugriff in try/catch). Ein abgelehnter Query (`refused`) und eine Antwort, die `accept` verwirft, zählen nicht
+- Reihenfolge je Runde (`OverpassHealth.order`): ein pausierter Server zuletzt und in der Runde gar nicht gefragt; einer,
+  dessen letzter Versuch vor weniger als 2 min scheiterte (`FAILED_BEHIND_MS`), hinter die übrigen, auch ein regionaler
+  hinter die globalen; dann regionale vor globalen, mehr Antworten als Fehler, schnellere Antworten; sonst die Reihenfolge
+  der Liste
+- Pause: nach 429 oder 406 mindestens 30 s (`PAUSE_AFTER_REFUSAL_MS`, die Regel von overpass-api.de), länger, wenn
+  `Retry-After` mehr verlangt; nach einem anderen Status mit `Retry-After` dessen Dauer. Die anderen Server werden
+  währenddessen weiter gefragt; haben alle eine Pause, wartet die Ladung auf das Ende der ersten
+- Höchstens zwei Anfragen einer Ladung zugleich (`MAX_PARALLEL`): auch wenn beide über die 4 s hängen, kommt der
+  dritte erst dran, wenn einer scheitert
+
+Neue Server: Eintrag in `overpass-servers.ts`, dazu die Herkunft in `public/.htaccess` (`connect-src`),
+`desktop/src/protocol.js` (`CONNECT_HOSTS`, in derselben Reihenfolge, `tools/web-csp/web-csp.spec.ts`),
+`desktop/src/user-agent.js` (`IDENTIFIED_HOSTS`) und die Datenempfänger in `landing/legal.html` und
+`landing/rechtliches.html`. `overpass-servers.spec.ts` und `desktop/test/user-agent.test.js` prüfen die ersten drei.
+
+#### Wiederholen
+
+Die öffentlichen Overpass-Server sind oft voll: am 2026-10-16 antwortete overpass-api.de mit 502 „server is
+currently at capacity, request queue full“ (manchmal 406), overpass.private.coffee mit 500; Minuten später lud derselbe
+Ort. Am 2026-10-18 lud mit diesen beiden nur etwa jede fünfzehnte Ladung. Ihre Fehlerseiten tragen keinen CORS-Header,
+der Browser meldet dann nur `TypeError: Failed to fetch` statt des Status. Darum sortiert `overpass-client.ts` jeden
+Fehler in eine Art und wiederholt, solange einer vorübergehen kann:
+
+| Art | Woran | Wiederholt |
+|-----|-------|------------|
+| `busy` | HTTP 429, 502, 503, 504, 406, 408, 425; eine 200 mit `remark` „too busy“/`Dispatcher_Client`/`rate_limited` | ja |
+| `server` | HTTP 500 und die übrigen 5xx | ja |
+| `network` | keine lesbare Antwort (Status 0, `TypeError`, auch die CORS-verdeckten Fehlerseiten), Body abgerissen | ja |
+| `timeout` | keine Header in 30 s, kein Body-Ende in 30 s danach | ja |
+| `malformed` | kein JSON (abgeschnitten, HTML), kein `elements` | ja |
+| `refused` | HTTP 400 und die übrigen 4xx | nein |
+| `rejected` | `accept` warf (Antwort ohne Straßen); ein regionaler Server ohne ein Element | nein |
+| `cancelled` | der Aufrufer brach ab (`OverpassRequest.signal`; die Straßen-Ladung setzt keins) | nein |
+
+- Eine Runde fragt alle passenden Server wie oben, nach Gesundheit sortiert. Hat sie mindestens einen wiederholbaren
+  Fehler, wartet die Ladung und fragt neu; die k-te Runde beginnt beim k-ten Server der sortierten Liste. Wartezeit
+  nach Runde r: `min(20 s, 2 s · 2^(r-1))`, davon zufällig zwischen der Hälfte und dem Ganzen (Jitter), länger nur,
+  wenn jeder Server eine längere Pause hat. Die Straßen haben `STREET_RETRY`: höchstens 8 Runden, keine neue Runde nach
+  180 s ab Beginn (eine laufende darf länger dauern), Wartezeiten also etwa 1 bis 2, 2 bis 4, 4 bis 8, 8 bis 16 und dann
+  10 bis 20 s; jeder der drei globalen Server ist so bis zu achtmal dran. Die Gebäude-Abfrage wiederholt genauso
+- Scheitern alle Runden, wirft die Ladung `OverpassError` mit dem, was jeder Server zuletzt sagte
+  (`overpass-api.de: HTTP 502; maps.mail.ru: HTTP 504; overpass.private.coffee: Failed to fetch; 8 tries`);
+  `OsmStreetService` macht daraus `STREETS_UNREACHABLE`. Lehnte jeder Server ab, weil die Antwort keine Straßen hatte,
+  bleibt es bei „No streets found“
+- Während gewartet wird, steht `OsmStreetService.retrying` (Runde, von wie vielen, Art, über
+  `WorldStreetSource.retrying`). Die Ladeplatte im Menü zeigt darunter „The map server is busy, trying again (2 of 8)…“.
+  Ein Ortswechsel bricht eine laufende Straßen-Ladung nicht ab, sie läuft im Hintergrund zu Ende
+- Gespeicherte Kopie: jede geladene Box liegt schon im IndexedDB-Cache (5 Orte) und wird vor Overpass genommen. Ein zweiter Speicher „letzte Antwort je Abfrage-Box“ für den Fall, dass alle
+  Server scheitern, ist nicht gebaut: er hülfe nur bei einer Box, die schon einmal kam, und die nimmt der Cache schon
 
 ### HQ-Placement-Validierung (`MapPlacementService`)
 
