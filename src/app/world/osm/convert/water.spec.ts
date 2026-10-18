@@ -4,7 +4,7 @@ import type { MapPaths, MapPoint, MapTerrain } from '../../custom-map/map-docume
 import { landClassOf, waterClassOf, waterwayOf } from '../land-tags';
 import { OsmFrame, type OsmArea, type OsmFeatures, type OsmWay } from '../osm-parse';
 import { ringArea } from '../square-clip';
-import { carveWater, coastMask, settleWater } from './water';
+import { carveWater, coastMask, isQuayWater, settleWater } from './water';
 import { sampleGrid } from './raster';
 
 const SIDE = 400;
@@ -46,6 +46,38 @@ describe('OSM world water', () => {
     expect(landClassOf({ landuse: 'forest', leaf_type: 'needleleaved' })).toBe('conifers');
     expect(landClassOf({ natural: 'mountain_range' })).toBeNull();
     expect(landClassOf({ landuse: 'residential' })).toBeNull();
+  });
+
+  it('walls a canal in with quays: the bed drops at the wall and the land stands a quay over the water, a pond keeps its bank', () => {
+    expect(isQuayWater({ natural: 'water', water: 'canal' })).toBe(true);
+    expect(isQuayWater({ natural: 'water', water: 'harbour' })).toBe(true);
+    expect(isQuayWater({ natural: 'water', water: 'pond' })).toBe(false);
+    // A canal 20 m wide running north and south, a pond to the east, on flat ground
+    const t = terrain(() => 3);
+    const canal: MapPoint[] = [{ x: -10, y: -150 }, { x: 10, y: -150 }, { x: 10, y: 150 }, { x: -10, y: 150 }];
+    carveWater(t, features({ areas: [{ tags: { natural: 'water', water: 'canal' }, outer: [canal] }, { tags: { natural: 'water', water: 'pond' }, outer: [square(120, 0, 25)] }] }), noPaths, 0);
+    const canalWater = [t.water, ...(t.waterBodies ?? [])].find((w) => w && w.mask[Math.round(SIDE / 4) * t.grid.columns + Math.round(SIDE / 4)] > 0) ?? t.water!;
+    const level = canalWater.level;
+    // A metre and a half in from the wall the canal is already deep; the land beside it a quay over the water
+    expect(heightAt(t, -8, 0)).toBeLessThan(level - 2);
+    expect(heightAt(t, -12, 0)).toBeGreaterThan(level + 0.8);
+    // The pond shelves in from its bank and its rim stands low
+    const pond = (t.waterBodies ?? []).concat(t.water ? [t.water] : []).find((w) => w.mask[Math.round(SIDE / 4) * t.grid.columns + Math.round((120 + SIDE / 2) / 2)] > 0)!;
+    expect(heightAt(t, 120 - 23, 0)).toBeGreaterThan(pond.level - 1.5);
+    expect(heightAt(t, 120 - 27, 0)).toBeLessThan(pond.level + 0.5);
+  });
+
+  it('walls a pond in where a street runs beside it, and leaves the bank where nothing is built', () => {
+    const t = terrain(() => 3);
+    // A street 5 m west of the pond's west shore, running north and south
+    const paths: MapPaths = { nodes: [{ id: 'a', x: -35, y: -100 }, { id: 'b', x: -35, y: 100 }], edges: [{ id: 'e', a: 'a', b: 'b', width: 6, kind: 'road' }] };
+    carveWater(t, features({ areas: [{ tags: { natural: 'water', water: 'pond' }, outer: [square(0, 0, 27)] }] }), paths, 0);
+    const level = (t.water ?? t.waterBodies![0]).level;
+    // West, by the street: deep at once and a quay; east, open land: a shelving bank with a low rim
+    expect(heightAt(t, -25, 0)).toBeLessThan(level - 2);
+    expect(heightAt(t, -28, 0)).toBeGreaterThan(level + 0.8);
+    expect(heightAt(t, 25, 0)).toBeGreaterThan(level - 1.5);
+    expect(heightAt(t, 28, 0)).toBeLessThan(level + 0.5);
   });
 
   it('closes a coastline into the sea on its right along the map edge, and puts the map zero on the sea level', () => {

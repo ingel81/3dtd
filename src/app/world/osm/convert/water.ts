@@ -13,6 +13,12 @@
  *   in the heights, the bed dug below it; under 50 m² left out, past 64
  *   bodies the smallest fall.
  * - **Wetlands:** a swamp body with pools where noise opens them.
+ * - **Quays:** canals, docks, harbour basins, locks and moats (`isQuayWater`),
+ *   and any water that a street or a building comes within QUAY_BUILT_M of
+ *   (a town's river runs between walls), have walls, not shelving banks:
+ *   their bed drops at once and the land at their edge stands a quay's
+ *   height over the water, so the water renders as deep to the wall (a fine
+ *   line there, not the foam of a beach).
  * - **Waterways** (rivers, canals, streams, drains, ditches without a
  *   culvert): river lines (`terrain.rivers`) on the real course, the surface
  *   from the banks (never rising downstream), a channel dug and banks shaped.
@@ -45,6 +51,17 @@ const RIM_OVER = 0.2;
 /** Metres from a body's edge the rim is raised over its level, then fading into the land */
 const RIM_WIDTH = 2;
 const RIM_FADE = 3;
+/** Metres a quay's land stands over its water, and the depth its bed falls to per metre from the wall */
+const QUAY_OVER = 0.9;
+const QUAY_SLOPE = 2;
+/** Water this close (m) to a street or a building is walled in: in a town a bank has no room */
+const QUAY_BUILT_M = 8;
+
+/** Water walled in by quays rather than banks: canals, docks, harbour basins, locks, moats */
+export function isQuayWater(tags: Readonly<Record<string, string>>): boolean {
+  return /^(canal|harbour|dock|lock|moat)$/.test(tags['water'] ?? '') || tags['waterway'] === 'dock' || tags['waterway'] === 'canal';
+}
+
 /** Shortest stretch of a waterway kept outside the water areas, metres */
 const MIN_RIVER_RUN = 12;
 /** Metres between the points a waterway's surface is read at */
@@ -122,6 +139,10 @@ export function carveWater(terrain: MapTerrain, features: OsmFeatures, paths: Ma
   const wet = new Uint8Array(n * n);
   const sea = new Uint8Array(n * n);
   const roads = roadMask(paths, grid);
+  // How far each sample lies from a street or a building: water close to them is walled in (quays)
+  const built = Uint8Array.from(roads);
+  for (const a of features.areas) if (a.tags['building']) fillRings([...a.outer, ...a.inner], grid, (i, j) => (built[j * n + i] = 1));
+  const toBuilt = distanceField(built, n, grid.step, QUAY_BUILT_M + grid.step, false);
 
   // The sea first: it may move the map's zero, and the rest is read on the moved ground
   const coast = coastMask(features, grid);
@@ -146,6 +167,9 @@ export function carveWater(terrain: MapTerrain, features: OsmFeatures, paths: Ma
 
   // Areas: rivers into one mask, lakes and pools each, wetlands each
   const riverMask = new Uint8Array(n * n);
+  // The cells of walled water, whichever body they end up in (a canal's cells join the river mask)
+  const quay = new Uint8Array(n * n);
+  for (let k = 0; k < quay.length; k++) if (toBuilt[k] <= QUAY_BUILT_M && !sea[k]) quay[k] = 1;
   const standing: Body[] = [];
   const wetlands: Body[] = [];
   for (const a of features.areas) {
@@ -158,6 +182,9 @@ export function carveWater(terrain: MapTerrain, features: OsmFeatures, paths: Ma
     }
     if (wetland && a.area < MIN_WETLAND_POOLS) continue;
     const cells = areaCells(a, grid, sea);
+    if (cls && isQuayWater(a.tags)) for (const k of cells) quay[k] = 1;
+    // A wetland's edge is no quay, whatever stands by it
+    else if (wetland) for (const k of cells) quay[k] = 0;
     if (cls === 'river') {
       for (const k of cells) riverMask[k] = 1;
       continue;
@@ -196,7 +223,7 @@ export function carveWater(terrain: MapTerrain, features: OsmFeatures, paths: Ma
     b.cells = b.cells.slice(0, free);
   });
   const noiseSeed = Math.round(features.frame.lat * 1000 + features.frame.lon * 7);
-  all.forEach((b, index) => (b.cells = carveBody(terrain, grid, b, index, owner, paint, noiseSeed)));
+  all.forEach((b, index) => (b.cells = carveBody(terrain, grid, b, index, owner, paint, noiseSeed, quay)));
   const masks = all.map((b) => {
     const mask = new Uint8Array(n * n);
     for (const k of b.cells) {
@@ -403,6 +430,7 @@ function carveBody(
   owner: Int16Array,
   paint: Record<WaterPaintRole, Float32Array>,
   seed: number,
+  quay: Uint8Array,
 ): Int32Array {
   const n = grid.n;
   const h = terrain.grid.heights;
@@ -456,6 +484,10 @@ function carveBody(
   const shore = distanceField(local, side, grid.step, 40);
   const dry = distanceField(local, side, grid.step, RIM_WIDTH + RIM_FADE, false);
   const sea = b.kind === 'sea';
+  // Land next to walled water (within the rim): a quay over the water, not a bank
+  const walled = new Uint8Array(side * side);
+  for (const k of cells) if (quay[k]) walled[toLocal(k)] = 1;
+  const nearWall = distanceField(walled, side, grid.step, RIM_WIDTH + RIM_FADE, false);
   for (let j = j0; j <= j1; j++) {
     for (let i = i0; i <= i1; i++) {
       const k = j * n + i;
@@ -463,7 +495,7 @@ function carveBody(
       if (local[l]) {
         // The bed: a shelf at the shore, deeper inward
         const dIn = shore[l];
-        const slope = sea ? 0.08 : b.cls === 'pool' ? 1 : b.cls === 'wetland' ? 0.25 : 0.3;
+        const slope = quay[k] ? QUAY_SLOPE : sea ? 0.08 : b.cls === 'pool' ? 1 : b.cls === 'wetland' ? 0.25 : 0.3;
         const bed = b.level - 0.25 - Math.min(b.depth, dIn * slope);
         if (h[k] > bed) h[k] = bed;
         if (b.cls !== 'pool') paint[sea ? 'beach' : 'bed'][k] = 1;
@@ -472,11 +504,12 @@ function carveBody(
       if (owner[k] >= 0) continue;
       const dOut = dry[l];
       if (dOut >= RIM_WIDTH + RIM_FADE) continue;
-      // The rim: over the level, fading into the land
-      const rim = b.level + RIM_OVER - Math.max(0, dOut - RIM_WIDTH) * 0.6;
+      // The rim: over the level, fading into the land; at a quay the quay's height, and no bank painted
+      const atQuay = nearWall[l] <= dOut + grid.step * 0.5;
+      const rim = b.level + (atQuay ? QUAY_OVER : RIM_OVER) - Math.max(0, dOut - RIM_WIDTH) * 0.6;
       if (h[k] < rim) h[k] = h[k] + (rim - h[k]) * (dOut <= RIM_WIDTH ? 1 : 1 - smooth(RIM_WIDTH, RIM_WIDTH + RIM_FADE, dOut));
       const role: WaterPaintRole = sea ? 'beach' : 'bank';
-      if (b.cls !== 'pool' && b.cls !== 'wetland') paint[role][k] = Math.max(paint[role][k], 1 - smooth(0, RIM_WIDTH + RIM_FADE, dOut));
+      if (b.cls !== 'pool' && b.cls !== 'wetland' && !atQuay) paint[role][k] = Math.max(paint[role][k], 1 - smooth(0, RIM_WIDTH + RIM_FADE, dOut));
     }
   }
   if (sea) {
