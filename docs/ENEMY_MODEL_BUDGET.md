@@ -556,10 +556,10 @@ trifft; JPEG hat kein Alpha. Die Tabelle nennt die Typen, die nicht opak sind od
 
 | Gegner | Alpha | Texel unter 0,05 |
 | --- | --- | ---: |
-| Dragon | Maske 0,50 | 80.170 (7,6 %) |
+| Dragon | Maske 0,50 | nicht dekodiert |
 | Hornet | Blend | 0 |
 | Ghost | Blend | 0 |
-| Bear | Blend | 33.852 (3,2 %) |
+| Bear | Blend | nicht dekodiert |
 
 Opak ohne Texel unter 0,05 (21): Herbert, Stone Golem, Wraith, Mammoth, Tank, Zombie v2, Mech, Zombie Soldier, Bat, Wallsmasher, Spider, Penguin, Skarnax, Zombie, Skarnax Tail, Skeleton, Skeleton Minion, Rat, Skarnax Segment, Ooze, Slime Clump.
 Texel unter 0,05, die der Shader deckend zeichnet (opak oder Maske mit Cutoff bis 0,05): **keine**.
@@ -572,28 +572,28 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 
 | Gegner | Datei | MB | Meshes (skinned) | Knochen | Morph | Materialien | Bilder im Modell | Clips | Weld |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
-| Herbert | `herbert_optimized.glb` | 2,1 | 1 (1) | 24 | 0 | 1 | 512² | 1 | 30.831 / 30.208 / 26.048 |
-| Stone Golem | `stone_golem.glb` | 3,1 | 1 (1) | 24 | 0 | 1 | 1024² | 2 | 13.612 / 13.415 / 5.205 |
-| Dragon | `dragon.glb` | 5,9 | 1 (1) | 220 | 0 | 1 | 4× 1024² | 1 | 12.082 / 11.868 / 10.208 |
-| Wraith | `wraith.glb` | 1,8 | 1 (1) | 25 | 0 | 1 | 1024² | 1 | 8.126 / 8.126 / 3.268 |
-| Mammoth | `mammoth.glb` | 2,6 | 1 (1) | 43 | 0 | 1 | 2× 1024² | 2 | 5.557 / 5.541 / 5.121 |
-| Tank | `tank.glb` | 0,5 | 1 (1) | 45 | 0 | 1 | 1024² | 1 | 4.932 / 4.893 / 2.439 |
-| Hornet | `hornet.glb` | 1,1 | 16 (0) | 0 | 0 | 4 | 512², 2× 1024² | 1 | 4.915 / 4.913 / 3.370 |
-| Zombie v2 | `zombie_v2.glb` | 1,9 | 1 (1) | 24 | 0 | 1 | 1024² | 4 | 4.870 / 4.870 / 1.827 |
-| Mech | `mech.glb` | 0,6 | 1 (1) | 62 | 0 | 1 | 1024² | 1 | 4.771 / 4.300 / 1.723 |
-| Ghost | `ghost.glb` | 2,4 | 2 (2) | 26 | 0 | 2 | 3× 1024² | 1 | 4.270 / 3.894 / 3.467 |
-| Zombie Soldier | `zombie_soldier.glb` | 3,5 | 1 (1) | 56 | 0 | 1 | 3× 1024² | 6 | 4.249 / 4.249 / 3.603 |
-| Bear | `bear.glb` | 2,0 | 1 (1) | 36 | 0 | 1 | 1024², 512² | 1 | 4.083 / 3.838 / 3.243 |
-| Bat | `bat.glb` | 0,3 | 1 (1) | 28 | 0 | 1 | 512² | 1 | 3.559 / 3.559 / 2.520 |
-| Wallsmasher | `wallsmasher.glb` | 0,4 | 1 (1) | 61 | 0 | 1 | 512² | 3 | 3.444 / 3.025 / 2.956 |
-| Spider | `spider.glb` | 0,6 | 2 (2) | 113 | 0 | 2 | 512² | 1 | 2.140 / 2.133 / 1.716 |
-| Penguin | `penguin.glb` | 0,3 | 1 (1) | 21 | 0 | 1 | 512² | 2 | 1.993 / 1.993 / 1.723 |
+| Herbert | `herbert_optimized.glb` | 0,7 | 1 (1) | 24 | 0 | 1 | 512² | 1 | 30.831 / 30.133 / 26.048 |
+| Stone Golem | `stone_golem.glb` | 0,6 | 1 (1) | 24 | 0 | 1 | 1024² | 2 | 13.527 / 13.415 / 5.205 |
+| Dragon | `dragon.glb` | 1,9 | 1 (1) | 220 | 0 | 1 | 4× 1024² | 1 | 11.946 / 11.841 / 10.208 |
+| Wraith | `wraith.glb` | 0,4 | 1 (1) | 25 | 0 | 1 | 1024² | 1 | 8.126 / 8.126 / 3.268 |
+| Mammoth | `mammoth.glb` | 1,6 | 1 (1) | 43 | 0 | 1 | 2× 1024² | 2 | 5.541 / 5.541 / 5.121 |
+| Tank | `tank.glb` | 0,3 | 1 (1) | 45 | 0 | 1 | 1024² | 1 | 4.893 / 4.893 / 2.439 |
+| Hornet | `hornet.glb` | 0,4 | 16 (0) | 0 | 0 | 4 | 512², 2× 1024² | 1 | 4.909 / 4.907 / 3.370 |
+| Zombie v2 | `zombie_v2.glb` | 0,5 | 1 (1) | 24 | 0 | 1 | 1024² | 4 | 4.870 / 4.870 / 1.827 |
+| Mech | `mech.glb` | 0,3 | 1 (1) | 62 | 0 | 1 | 1024² | 1 | 4.768 / 4.300 / 1.723 |
+| Ghost | `ghost.glb` | 1,2 | 2 (2) | 26 | 0 | 2 | 3× 1024² | 1 | 4.267 / 3.894 / 3.467 |
+| Zombie Soldier | `zombie_soldier.glb` | 1,7 | 1 (1) | 56 | 0 | 1 | 3× 1024² | 6 | 4.220 / 4.220 / 3.603 |
+| Bear | `bear.glb` | 0,7 | 1 (1) | 36 | 0 | 1 | 1024², 512² | 1 | 4.083 / 3.838 / 3.243 |
+| Bat | `bat.glb` | 0,2 | 1 (1) | 28 | 0 | 1 | 512² | 1 | 3.559 / 3.559 / 2.520 |
+| Wallsmasher | `wallsmasher.glb` | 0,2 | 1 (1) | 61 | 0 | 1 | 512² | 3 | 3.389 / 2.956 / 2.956 |
+| Spider | `spider.glb` | 0,2 | 2 (2) | 113 | 0 | 2 | 512² | 1 | 2.101 / 2.089 / 1.716 |
+| Penguin | `penguin.glb` | 0,1 | 1 (1) | 21 | 0 | 1 | 512² | 2 | 1.993 / 1.993 / 1.723 |
 | Skarnax | `worm_head.glb` | 0,2 | 1 (1) | 5 | 0 | 1 | 1024² | 1 | 1.700 / 1.627 / 873 |
-| Zombie | `zombie.glb` | 1,8 | 1 (1) | 49 | 0 | 1 | 1024² | 13 | 1.453 / 1.453 / 1.086 |
+| Zombie | `zombie.glb` | 0,8 | 1 (1) | 49 | 0 | 1 | 1024² | 13 | 1.445 / 1.445 / 1.086 |
 | Skarnax Tail | `worm_tail.glb` | 0,1 | 1 (1) | 7 | 0 | 1 | 512² | 1 | 1.214 / 1.137 / 633 |
-| Skeleton | `skeleton.glb` | 0,2 | 6 (0) | 0 | 0 | 1 | 512² | 32 | 737 / 363 / 347 |
-| Skeleton Minion | `skeleton.glb` | 0,2 | 6 (0) | 0 | 0 | 1 | 512² | 32 | 737 / 363 / 347 |
-| Rat | `rat.glb` | 0,2 | 1 (1) | 21 | 0 | 1 | 512² | 1 | 999 / 999 / 767 |
+| Skeleton | `skeleton.glb` | 0,1 | 6 (0) | 0 | 0 | 1 | 512² | 32 | 737 / 363 / 347 |
+| Skeleton Minion | `skeleton.glb` | 0,1 | 6 (0) | 0 | 0 | 1 | 512² | 32 | 737 / 363 / 347 |
+| Rat | `rat.glb` | 0,1 | 1 (1) | 21 | 0 | 1 | 512² | 1 | 999 / 999 / 767 |
 | Skarnax Segment | `worm_segment.glb` | 0,1 | 1 (1) | 5 | 0 | 1 | 512² | 1 | 634 / 580 / 296 |
 | Ooze | `slime.glb` | 0,0 | 2 (0) | 0 | 0 | 2 | – | 2 | 282 / 282 / 282 |
 | Slime Clump | `slime.glb` | 0,0 | 2 (0) | 0 | 0 | 2 | – | 2 | 282 / 282 / 282 |
