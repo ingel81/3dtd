@@ -38,7 +38,7 @@ import { SCENE_BUDGET } from '../../custom-map/render/objects/scene-cost';
 import { BUILDING_MODELS } from '../building-tags';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
 import { AWNING_COLOURS, BOARD_COLOURS, poiCategory, signLanguage, type PoiCategory, type SignLanguage } from '../poi-tags';
-import { pointInRing } from './buildings';
+import { pointInRing } from './raster';
 import { facadeDistance, facadesOf, facadeTurn, massFacades, type FacadeAnchor } from './facades';
 
 /** Share of the scene budget the POIs' objects may take */
@@ -279,7 +279,7 @@ export function placePois(doc: CustomMapDocument, features: OsmFeatures, options
 
 /** The fronts of a building object: a catalogue model's, a raised footprint's */
 function frontsOf(o: MapObject): FacadeAnchor[] {
-  if (o.asset === MASS_ASSET) return o.mass ? massFacades(o, o.mass) : [];
+  if (o.asset === MASS_ASSET) return o.mass ? massFacades(o) : [];
   return facadesOf(o, BUILDING_MODELS[o.asset]);
 }
 
@@ -345,9 +345,14 @@ function frontWishes(
   if (f.panel && alone) {
     out.push({ o: { asset: building.asset, x: 0, y: 0, z: 0, rotation: 0, scale: 1, sign }, step: 0, sign: true, panelOf: building });
   } else {
+    // A raised building's wall takes shop windows of its own (the mass shader's) instead of a shopfront model
+    if (kind.front && f.edge !== undefined && building.mass && slotW >= 3.0) {
+      const shop = building.mass.shop ?? [];
+      if (!shop.includes(f.edge)) building.mass.shop = [...shop, f.edge].sort((p, q) => p - q);
+    }
     // A shopfront where the wall has no shop windows of its own, as high as the ground floor lets it
     const fs = Math.min(1, (f.ground - 0.15) / SHOPFRONT_HEIGHT);
-    const front = kind.front && !f.shopFloor && slotW >= 3.0 * fs && fs >= 0.8;
+    const front = kind.front && !f.shopFloor && f.edge === undefined && slotW >= 3.0 * fs && fs >= 0.8;
     if (front) out.push({ o: put(slotW >= 6.3 * fs ? 'shopfront-wide' : 'shopfront-narrow', at.x, at.y, 0, { scale: round3(fs) }), step: 0, sign: false });
     // The board where the front has room for it, out by its fascia
     const scale = round3(Math.min(f.boardH / BOARD_HEIGHT, (slotW * 0.8) / BOARD_WIDTH));

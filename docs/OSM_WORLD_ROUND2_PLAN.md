@@ -461,9 +461,10 @@ Burg, drei Boote auf 2,4 km Fluss. Bilder und Clips liegen lokal, nicht im Repo.
   häufigste `addr:country`, sonst grobe Landesumrisse (Belgien und Schweiz nach Sprachgebiet), sonst Englisch.
 - **Fassadenanker** `convert/facades.ts` (`FacadeAnchor`): Straßenfront und, bei freistehenden Häusern, die Seiten;
   Erdgeschosshöhe, Platz und Höhe für das Brett, Tiefe des Gesimses und ob das Erdgeschoss eigene Schaufenster oder ein
-  eigenes Schildband hat, je Katalogmodell gemessen. Bauten aus dem Grundriss (E235, `building-mass`): jede Kante
-  des Umrisses ab 3 m, Geschosse wie der Fassaden-Shader sie legt (Brett unter den Fenstern des ersten Stocks, in Hallen
-  auf 3 m); Straßenfront ist eine Kante mit einer Straße bis 24 m davor.
+  eigenes Schildband hat, je Katalogmodell gemessen. Bauten aus dem Grundriss (E235, `building-mass`): ihre Wände
+  aus `massFronts` (object-mass.ts) ab 3 m, das Brett zwischen Erdgeschoss und den Brüstungen des ersten Stocks; eine
+  Wand mit Laden kommt in `MapMass.shop` und zeigt die Schaufenster des Shaders statt eines Ladenfront-Modells.
+  Straßenfront ist eine Wand mit einer Straße bis 24 m davor.
 - **Zuordnung und Gestaltung** `convert/pois.ts`: Punkt im Grundriss, sonst nächster Grundriss bis 8 m; nächste
   Front, die Straßenfront zuerst; mehrere Läden teilen die Front in Felder (je 2,8 m, sonst fallen die niedrigeren
   Ränge weg). Je Feld: Brett mit Wort und Piktogramm (ein einzelner Laden schreibt auf das eigene Schildband), Ladenfront

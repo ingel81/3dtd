@@ -164,11 +164,14 @@ describe('OSM POIs: placing', () => {
     const sign = placed(doc).find((o) => o.asset === 'sign-facade')!;
     expect(sign.sign!.text).toBe('Bäckerei');
     // On the south edge (to the road), facing it
-    expect(sign.y).toBeCloseTo(9 - 0.03);
+    expect(sign.y).toBeCloseTo(9 - 0.02);
     expect(sign.rotation).toBeCloseTo(Math.PI);
     // Over the ground floor: plinth 0.45 and a storey of (7.4 - 0.45 - 1.15) / 2
     expect(sign.z).toBeCloseTo(0.45 + 2.9 + 0.08);
     expect(sign.group).toBe('osm-b5');
+    // The wall takes the mass shader's shop windows, no shopfront model before it
+    expect(doc.objects.find((o) => o.id === 'osm-b1')!.mass!.shop).toEqual([0]);
+    expect(placed(doc).some((o) => o.asset.startsWith('shopfront'))).toBe(false);
   });
 
   it('writes a single shop on the building’s own sign panel', () => {
