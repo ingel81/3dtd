@@ -40,6 +40,7 @@ import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_
 import { InstanceList, type InstanceSource } from './instance-list';
 import { MassLayer } from './mass-layer';
 import { FarBoxes } from './far-boxes';
+import { nextFrameOrTimeout } from '../../../../utils/next-frame';
 
 /**
  * The placed objects of a map, drawn instanced: per asset, detail level and
@@ -88,6 +89,8 @@ function distance(xyz: Float32Array, at: number, p: Vector3): number {
 
 /** An object outside every band (AssetBatch.nextOf) */
 const NO_NEXT = -2;
+/** Milliseconds of batches built before setObjects gives the page a frame: a town's assets were built in one */
+const BUILD_SLICE_MS = 8;
 /** Strongest glow of an object surface (emissive colour times intensity, linear) */
 const MAX_EMISSIVE = 0.55;
 /** Instances an asset's lists have room for: half again of its objects, at least 16, so a brush adds without building anew */
@@ -179,6 +182,10 @@ export class MapObjectLayer {
   private farBoundsStale = false;
   private disposed = false;
   private generation = 0;
+  /** While setObjects builds its batches over frames: settles when they are all in */
+  private building: Promise<void> | null = null;
+  /** Ids removed while setObjects builds, of objects not built yet: they go once the batches are in */
+  private dropLater: Set<string> | null = null;
   private readonly camPos = new Vector3();
   private readonly focus = new Vector3();
   /** How far the bands have settled at rest (lod-fade.ts settleBlend): 0 while the camera moves, 1 at rest */
@@ -269,13 +276,34 @@ export class MapObjectLayer {
     await far;
     if (generation !== this.generation) return;
     this.clear();
-    // One after the other into the layer: a building's far boxes make room for those before it (farDraw)
-    for (const { key, list, parts: [model, lods] } of loaded) {
-      const b = this.buildBatch(model, lods, key.endsWith('|1'), list);
-      this.batches.push(b);
-      b.objects.forEach((o, index) => this.byId.set(o.id, { batch: b, index }));
+    const dropped = new Set<string>();
+    let built = (): void => undefined;
+    const building = new Promise<void>((resolve) => (built = resolve));
+    this.building = building;
+    this.dropLater = dropped;
+    try {
+      // One after the other into the layer: a building's far boxes make room for those before it (farDraw). A
+      // frame for the page every BUILD_SLICE_MS; a newer setObjects (generation) drops this one there
+      let slice = performance.now();
+      for (let k = 0; k < loaded.length; k++) {
+        const { key, list, parts: [model, lods] } = loaded[k];
+        const b = this.buildBatch(model, lods, key.endsWith('|1'), list);
+        this.batches.push(b);
+        b.objects.forEach((o, index) => this.byId.set(o.id, { batch: b, index }));
+        if (k < loaded.length - 1 && performance.now() - slice > BUILD_SLICE_MS) {
+          await nextFrameOrTimeout();
+          if (generation !== this.generation) return;
+          slice = performance.now();
+        }
+      }
+      this.dropLater = null;
+      if (dropped.size) this.removeObjects([...dropped]);
+      this.applyLevels(true);
+    } finally {
+      if (this.dropLater === dropped) this.dropLater = null;
+      if (this.building === building) this.building = null;
+      built();
     }
-    this.applyLevels(true);
     await shown;
   }
 
@@ -321,6 +349,8 @@ export class MapObjectLayer {
       await Promise.all([this.masses.change(masses, []), this.addObjects(objects)]);
       return;
     }
+    // New ones after the batches setObjects is building: an asset it has not built yet would get a second batch
+    while (this.building) await this.building;
     const generation = this.generation;
     const catalog = await this.assets.catalog();
     await this.ensureFarBoxes(catalog, objects);
@@ -365,7 +395,11 @@ export class MapObjectLayer {
     if (masses.length) void this.masses.change([], masses);
     for (const id of ids) {
       const slot = this.byId.get(id);
-      if (!slot) continue;
+      if (!slot) {
+        // Not built yet: setObjects takes it out once its batch is in
+        this.dropLater?.add(id);
+        continue;
+      }
       const b = slot.batch;
       const i = slot.index;
       this.byId.delete(id);
