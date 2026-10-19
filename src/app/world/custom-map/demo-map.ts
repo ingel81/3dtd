@@ -368,12 +368,16 @@ export function createDemoMap(seed = 7): CustomMapDocument {
       w[L.sand] = smoothstep(21, 14, dr) * 2.6 * (0.6 + n2 * 0.8);
       const dv = Math.hypot(x - villageCenter.x, y - villageCenter.y);
       // Packed earth in each yard and on the village square around the well, worn verges along the
-      // village roads; smooth weights, the terrain's height blend frays their edges
+      // village roads; smooth weights, the terrain's height blend frays their edges. A yard is no round stamp:
+      // its edge wanders with the noise, worn bare in patches and grassed over in others, smaller and fainter
       let yard = 0;
-      for (const [hx, hy] of houses) yard = Math.max(yard, smoothstep(13, 7, Math.hypot(x - hx, y - hy)));
+      for (const [hx, hy] of houses) {
+        const d = Math.hypot(x - hx, y - hy) + (n2 - 0.5) * 9 + (n - 0.5) * 5;
+        yard = Math.max(yard, smoothstep(11, 5, d) * (0.45 + 0.55 * smoothstep(0.3, 0.6, n2)));
+      }
       yard = Math.max(yard, smoothstep(15, 8, Math.hypot(x - 32, y + 148)));
       w[L.dirt] =
-        yard * 2.4 +
+        yard * 1.8 +
         smoothstep(9, 5, roadDist.at(x, y)) * 0.8 * smoothstep(90, 50, dv) +
         smoothstep(16, 10, dr) * 0.9;
       let sum = 0;
