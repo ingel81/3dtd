@@ -1,5 +1,6 @@
 import { createMapDocument } from './map-create';
-import { MapFileError, contentHash, packMapFile, unpackMapFile } from './map-file';
+import { contentHash, packMapFile, unpackMapFile } from './map-file';
+import { MapFileError } from './map-file-kind';
 import { fingerprint, packErrorReply, packForSave, packOffThread, packReplyError } from './map-pack';
 
 describe('packOffThread', () => {

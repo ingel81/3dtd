@@ -1,7 +1,6 @@
 import { isDevMode } from '@angular/core';
 import { defaultOpenLanes, laneChoiceOf, laneChoiceProblem, type LaneChoice } from './lane-choice';
 import { type Group, type Matrix4, type Object3D, type PerspectiveCamera, type Scene, Vector3, type WebGLRenderer, WebGLRenderTarget } from 'three';
-import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { STORM_STRIKE_LIGHT } from '../../configs/shot-lights.config';
 import type { CameraBounds, CameraRig } from '../../three-engine/camera-rig';
 import { EllipsoidSync } from '../../three-engine/ellipsoid-sync';
@@ -21,7 +20,8 @@ import type {
 } from '../world-provider';
 import type { WorldRef } from '../world-ref';
 import { runRulesOf, type RunRules, type RunWaveEvent } from '../../sim/protocol/run-rules';
-import { MAX_START_WAVE, runStartAt, type RunStart } from '../../sim/protocol/run-start';
+import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
+import { runStartAt, type RunStart } from '../../sim/protocol/run-start';
 import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
 import { createWaveSource, initialWaveSourceId } from '../../director/wave-source.registry';
 import { type BuildCatalogEntry, CustomMapFrame, CustomMapSurface } from './custom-map-surface';
@@ -40,20 +40,7 @@ import { Soundscape } from './ambience/soundscape';
 import { sceneToMap } from './render/map-coords';
 import { emptyPose, introPoseAt } from './map-intro';
 import { massRadius } from './object-mass';
-
-/** A map of its own: no real place, nothing streams, no credentials, nothing to roll again */
-export const CUSTOM_MAP_CAPABILITIES: WorldCapabilities = {
-  realPlace: false,
-  streaming: false,
-  ecef: false,
-  credentials: false,
-  regenerate: false,
-  destructible: false,
-  ownEnvironment: true,
-  enemyRimLight: true,
-  groundShadows: true,
-  controls: 'environment',
-};
+import { CUSTOM_MAP_CAPABILITIES, keepOpenedMap, type LoadedCustomMap } from './custom-map-start';
 
 /**
  * Roads the map draws itself into its ground: the debug street overlay and
@@ -72,44 +59,6 @@ export const CUSTOM_MAP_STREET_STYLE: StreetStyle = {
 /** The credit line's note on the assets a custom map is drawn with (public/maps/assets/LICENSES.md) */
 export const CUSTOM_MAP_ASSET_CREDIT = 'Assets: CC0, see licences';
 
-/** A map as the game plays it: the document and the hash its WorldRef carries */
-export interface LoadedCustomMap {
-  doc: CustomMapDocument;
-  contentHash: string;
-  /** What reading the file set right or left out (map-repair.ts), in words: the game says it as the world opens */
-  repaired?: readonly string[];
-}
-
-/**
- * How many of the map's spawns a run uses: `?spawns=N` in the link (1 to
- * MAX_SPAWN_PORTALS), else all of them up to that cap. The game shows a
- * portal for at most MAX_SPAWN_PORTALS; spawns past it stay unused.
- */
-export function customMapSpawnLimit(search: string): number {
-  const n = Number.parseInt(new URLSearchParams(search).get('spawns') ?? '', 10);
-  return Number.isFinite(n) && n >= 1 ? Math.min(n, MAX_SPAWN_PORTALS) : MAX_SPAWN_PORTALS;
-}
-
-/** The link's parameter of the wave a test run starts at (the editor's "Test map" from wave N) */
-export const START_WAVE_PARAM = 'fromWave';
-
-/**
- * The wave a run on the map starts at: `?fromWave=N` in the link (2 to
- * MAX_START_WAVE), else 1. A test parameter of the editor for one player; a
- * coop guest opens the map without it and would not match the host's world.
- */
-export function customMapStartWave(search: string): number {
-  const n = Number.parseInt(new URLSearchParams(search).get(START_WAVE_PARAM) ?? '', 10);
-  return Number.isFinite(n) && n > 1 ? Math.min(n, MAX_START_WAVE) : 1;
-}
-
-/**
- * The map opened before its world is made (WorldFactory.startHq loads,
- * create takes; the coop host packs it), by map id. Only the last one:
- * a page plays one map at a time, another world closes it (closeCustomMaps)
- */
-const opened = new Map<string, LoadedCustomMap>();
-
 /** Metres the map's own intro flight keeps above the ground under the camera */
 const INTRO_GROUND_CLEARANCE = 3;
 
@@ -125,14 +74,8 @@ export async function openCustomMap(ref: WorldRef & { kind: 'custom-map' }, stor
     throw new Error(`the map "${doc.meta.name}" here is not the one this run was played on`);
   }
   const loaded = { doc, contentHash: summary.contentHash, ...(repaired?.length ? { repaired } : {}) };
-  opened.clear();
-  opened.set(ref.mapId, loaded);
+  keepOpenedMap(ref.mapId, loaded);
   return loaded;
-}
-
-/** The opened map goes with its world (WorldSession): the next world opens its own */
-export function closeCustomMaps(): void {
-  opened.clear();
 }
 
 /**
@@ -153,11 +96,6 @@ export function prefetchCustomMapAssets(doc: CustomMapDocument): void {
       }
     })
     .catch(() => undefined);
-}
-
-/** The map `openCustomMap` loaded for this ref, null before */
-export function openedCustomMap(ref: WorldRef & { kind: 'custom-map' }): LoadedCustomMap | null {
-  return opened.get(ref.mapId) ?? null;
 }
 
 /**

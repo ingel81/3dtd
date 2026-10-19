@@ -1,6 +1,7 @@
 import { createMapDocument } from './map-create';
 import type { CustomMapDocument } from './map-document';
-import { MapFileError, contentHash, packMapFile, unpackMapFile } from './map-file';
+import { contentHash, packMapFile, unpackMapFile } from './map-file';
+import { MapFileError } from './map-file-kind';
 import { fingerprint, packErrorReply } from './map-pack';
 import { unpackForLoad, unpackOffThread, unpackedTransferables, type UnpackRequest } from './map-unpack';
 

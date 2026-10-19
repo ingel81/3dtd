@@ -7,7 +7,8 @@
  * its own that gets a copy of it; inline where there are no workers (tests).
  */
 import type { CustomMapDocument } from './map-document';
-import { MapFileError, contentHash, packMapFile, type PackOptions } from './map-file';
+import type { PackOptions } from './map-file';
+import { MapFileError } from './map-file-kind';
 import type { MapSummary } from './map-store';
 import { summarize } from './map-summary';
 
@@ -62,6 +63,7 @@ export function fingerprint(bytes: Uint8Array): number {
  */
 export async function packForSave(request: PackRequest): Promise<PackedMap> {
   const { doc } = request;
+  const { contentHash, packMapFile } = await import('./map-file');
   const file = packMapFile(doc, request.options);
   const summary = summarize(doc, 'own', '');
   const hash = request.hash ? contentHash(doc) : null;

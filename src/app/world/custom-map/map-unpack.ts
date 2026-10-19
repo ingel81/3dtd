@@ -9,7 +9,7 @@
  * no workers (tests).
  */
 import { documentTransferables } from './map-document';
-import { contentHash, unpackMapFile, type UnpackedMap } from './map-file';
+import type { UnpackedMap } from './map-file';
 import { packReplyError, type PackError } from './map-pack';
 
 export interface UnpackRequest {
@@ -36,6 +36,7 @@ export interface UnpackOptions {
 
 /** What the worker does with a request; also the inline path */
 export async function unpackForLoad(request: UnpackRequest): Promise<UnpackedFile> {
+  const { contentHash, unpackMapFile } = await import('./map-file');
   const unpacked = unpackMapFile(request.bytes);
   const hash = request.hash || unpacked.repaired.length ? await contentHash(unpacked.doc) : '';
   return { ...unpacked, contentHash: hash };

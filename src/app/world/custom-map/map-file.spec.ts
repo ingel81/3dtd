@@ -4,7 +4,6 @@ import { MAP_VERSION, difficultyFactor, fitSplatMaps, type CustomMapDocument } f
 import {
   MAX_ENTRY_BYTES,
   MAX_GRID_SIDE,
-  MapFileError,
   canonicalJson,
   cloneMapDocument,
   contentHash,
@@ -13,6 +12,7 @@ import {
   unpackMapFile,
   validateMapDocument,
 } from './map-file';
+import { MapFileError } from './map-file-kind';
 import { mapRepairs } from './map-repair';
 
 /** What reading would set right or leave out, in words */

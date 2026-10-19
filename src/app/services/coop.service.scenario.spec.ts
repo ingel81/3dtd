@@ -99,7 +99,8 @@ import { MAP_PART_BYTES } from '../coop/protocol';
 import { packOffThread } from '../world/custom-map/map-pack';
 import { createMapDocument } from '../world/custom-map/map-create';
 import { MapStore, MemoryMapBackend } from '../world/custom-map/map-store';
-import { closeCustomMaps, openCustomMap } from '../world/custom-map/custom-map-world';
+import { openCustomMap } from '../world/custom-map/custom-map-world';
+import { closeCustomMaps } from '../world/custom-map/custom-map-start';
 
 const HQ = { lat: 48.7758, lon: 9.1829 };
 const SPAWNS = [

@@ -12,7 +12,8 @@
 import { mapDataFetch, mapDataRoot } from './map-data';
 import { defaultMapBackend, FolderMapBackend, mapFolderId } from './folder-map-backend';
 import type { CustomMapDocument, MapBiome, MapMeta } from './map-document';
-import { contentHash, mapFileMeta, packMapFile, withMapFileMeta } from './map-file';
+/** The map file's code (zip, repair, check), loaded when a map is read or written: listing needs none of it */
+const mapFile = () => import('./map-file');
 import { unpackOffThread } from './map-unpack';
 import { newMapUid, slugMapId } from './map-create';
 import { summarize } from './map-summary';
@@ -181,7 +182,7 @@ export class MapStore {
     const stored = await this.backend.get(id);
     if (!stored || stored.summary.origin !== 'own') throw new MapStoreError(`There is no own map "${id}" to delete.`);
     // Only the date the map was made, read without the full check: a map that no longer opens can still go
-    const created = mapFileMeta(stored.file)?.createdAt;
+    const created = (await mapFile()).mapFileMeta(stored.file)?.createdAt;
     if (typeof created !== 'string') throw new MapStoreError(`The map "${id}" is not readable; it cannot go to the trash.`);
     const key = `${TRASH_PREFIX}${now.getTime()}-${id}`;
     const summary: MapSummary = { ...stored.summary, id: key, origin: 'trashed', trash: { from: id, at: now.toISOString(), created } };
@@ -197,7 +198,7 @@ export class MapStore {
     const { trash, ...summary } = stored.summary;
     const id = await this.freeId(trash.from, key);
     // The file comes back as it went, not read through the full check: a map that no longer opens comes back too
-    const file = id === trash.from ? stored.file : withMapFileMeta(stored.file, { id });
+    const file = id === trash.from ? stored.file : (await mapFile()).withMapFileMeta(stored.file, { id });
     if (!file) throw new MapStoreError(`The map "${summary.name}" is not readable; it cannot come back.`);
     // Under another id the content hash is another (it covers the id): loading works it out
     await this.backend.put({ summary: { ...summary, id, origin: 'own', ...(id === trash.from ? {} : { contentHash: '' }) }, file, preview: stored.preview });
@@ -272,6 +273,7 @@ export class MapStore {
       packed = undefined;
     }
     if (!file) packed = undefined;
+    const { contentHash, packMapFile } = await mapFile();
     file ??= packMapFile(doc);
     const summary = packed
       ? { ...packed, origin: 'own' as const }
@@ -287,7 +289,7 @@ export class MapStore {
    * (map-share.ts decides); `hash` is its content hash where the caller has it
    */
   async saveShared(doc: CustomMapDocument, preview: Uint8Array | null, file: Uint8Array, hash?: string): Promise<MapSummary> {
-    const summary = summarize(doc, 'shared', hash ?? (await contentHash(doc)));
+    const summary = summarize(doc, 'shared', hash ?? (await (await mapFile()).contentHash(doc)));
     await this.backend.put({ summary, file, preview });
     return summary;
   }
@@ -338,7 +340,7 @@ export class MapStore {
     const stored = await this.backend.get(id);
     if (!stored || stored.summary.origin !== 'own') throw new MapStoreError(`There is no own map "${id}" to replace.`);
     // Identity and creation time read without the full check: a map that no longer opens can still be replaced
-    const old = mapFileMeta(stored.file);
+    const old = (await mapFile()).mapFileMeta(stored.file);
     const created = typeof old?.createdAt === 'string' ? old.createdAt : doc.meta.createdAt;
     doc.meta = { ...doc.meta, id, uid: (typeof old?.uid === 'string' ? old.uid : undefined) ?? doc.meta.uid, createdAt: created, updatedAt: new Date().toISOString() };
     await this.save(doc, preview);

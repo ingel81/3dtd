@@ -3,7 +3,7 @@ import { devWorldRef } from '../devworld/dev-world-provider';
 import { DevWorldService } from '../devworld/devworld.service';
 import type { SavedSpawn } from '../models/location.types';
 import { UrlLocationService } from '../services/location/url-location.service';
-import { customMapSpawnLimit, customMapStartWave } from './custom-map/custom-map-world';
+import { customMapSpawnLimit, customMapStartWave } from './custom-map/custom-map-start';
 import { BENCHMARK_FLAG, isBenchmarkSearch } from '../benchmark/benchmark-report';
 import { isRenderBenchmarkSearch } from '../benchmark/render-benchmark';
 import { customMapsByLink } from './custom-maps-open';

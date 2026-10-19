@@ -5,7 +5,8 @@
  * maps or as another version of one.
  */
 import { signal } from '@angular/core';
-import { MAP_FILE_EXTENSION, MAX_FILE_BYTES } from '../../world/custom-map/map-file';
+import { MAX_FILE_BYTES } from '../../world/custom-map/map-file';
+import { MAP_FILE_EXTENSION } from '../../world/custom-map/map-file-kind';
 import { unpackOffThread } from '../../world/custom-map/map-unpack';
 import { slugMapId } from '../../world/custom-map/map-create';
 import { repairedMapText } from '../../world/custom-map/map-repair';

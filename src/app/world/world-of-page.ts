@@ -1,5 +1,5 @@
 import { worldOfMap, type WorldId } from '../worlds/world-rules';
-import { openedCustomMap } from './custom-map/custom-map-world';
+import { openedCustomMap } from './custom-map/custom-map-start';
 import type { WorldRef } from './world-ref';
 
 /**

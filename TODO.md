@@ -33,8 +33,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
 - [ ] **E246 Rest**: nach dem Leeren der Kartenbibliothek dekodiert sie Bilder statt KTX2 (Probe: 34 beim ersten,
       18 beim zweiten Teststart, vermutlich noch WebP-Bäume); beim Öffnen des Editors linkt ein Tiefenprogramm im Bild
       (`MeshDepthMaterial` bzw. `far-box-depth`, 210 bis 280 ms).
-- [ ] **E247 Startpaket 2,65 MB** (Ziel 2,54): Custom-Map-Welt (156 kB) per `import()` vom Startpfad, englisches
-      Wörterbuch (120 kB) prüfen, der Template-Worker des Editors bündelt `en.ts` mit (`tmp/plan/r8/WIP_r8-ktx2.md`).
 - [ ] **E251 Laden nach Bedarf, Rest**: Freischalten im Lauf per Probe geprüft (0 Links, längstes Bild 14 ms; ein
       Zeitvorteil des Vorziehens ist nicht nachweisbar); rund 65 Links direkt bei ready (Grafikstufen noch im
       Aufwärmen, zu E246); Bildspitzen unter Ruhe nachmessen (`tmp/plan/r6/MESSUNGEN_SPAETER.md`).
@@ -203,6 +201,8 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 - [ ] **K9 Entscheidungen vom 2026-10-19**: E252 Kantenglättung je Stufe (war gebaut; Hinweis nur bei abweichender
       Ansicht, kein Knopf im Spiel), E254 Witch Marsh nachts heller (Sumpf-Look: Nebel dünner und heller, mehr
       Nachtlicht und Belichtung; User sieht es im Spiel an), E255 Spielplatz ohne Angabe auf Rasen (K9, K10).
+- [ ] **K10 Startpaket** (E247, 2026-10-19): 2,65 → 2,50 MB (gzip 693 → 645 kB); die Custom-Map-Welt und der
+      Kartendatei-Code kommen per `import()` mit der ersten Karte. Nachtest: Karte aus dem Menü starten, Editor öffnen.
 
 ### Licht durch Munition (2026-10-18, Branch `wt/r7-muzzle`, Nachtests in PLAYTEST.md I)
 

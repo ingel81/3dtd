@@ -2,7 +2,7 @@ import { vi } from 'vitest';
 import { computed, signal } from '@angular/core';
 import { DEV_WORLD_CAPABILITIES } from '../app/devworld/dev-world-provider';
 import { TILES_CAPABILITIES } from '../app/world/tiles/tiles-world';
-import { CUSTOM_MAP_CAPABILITIES } from '../app/world/custom-map/custom-map-world';
+import { CUSTOM_MAP_CAPABILITIES } from '../app/world/custom-map/custom-map-start';
 import type { WorldContext } from '../app/world/world-context.service';
 import type { WorldProvider, WorldStreetSource } from '../app/world/world-provider';
 import type { WorldRef } from '../app/world/world-ref';

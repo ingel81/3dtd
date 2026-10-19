@@ -3,7 +3,7 @@ import { pageQuery } from '../core/page-switches';
 import { startMenuSkipped } from '../components/main-menu/start-menu-skipped';
 import { LocationManagementService } from '../services/location/location-management.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
-import { closeCustomMaps } from './custom-map/custom-map-world';
+import { closeCustomMaps } from './custom-map/custom-map-start';
 import { bringMapToFront } from './custom-map/map-in-front';
 import { AppScreen } from './app-screen.service';
 import { WorldStartService, type WorldStart } from './world-start';

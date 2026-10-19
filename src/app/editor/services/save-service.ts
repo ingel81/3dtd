@@ -7,7 +7,8 @@
 import { signal } from '@angular/core';
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { newMapUid } from '../../world/custom-map/map-create';
-import { MAP_FILE_EXTENSION, MapFileError, type PackOptions } from '../../world/custom-map/map-file';
+import type { PackOptions } from '../../world/custom-map/map-file';
+import { MAP_FILE_EXTENSION, MapFileError } from '../../world/custom-map/map-file-kind';
 import { unpackOffThread } from '../../world/custom-map/map-unpack';
 import type { PackedMap } from '../../world/custom-map/map-pack';
 import { FolderWriteError } from '../../world/custom-map/folder-map-backend';

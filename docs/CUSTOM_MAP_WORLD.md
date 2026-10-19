@@ -22,6 +22,11 @@ Import aus Warcraft 3 [W3X_IMPORT.md](W3X_IMPORT.md).
   Ladebildschirms ohne Ende
 - `create` baut die Welt aus der geöffneten Karte; `WorldContext.open` übernimmt danach `contentHash`
   und Namen der Karte in den Ref
+- Der erste Seitenaufruf lädt den Code der Welt nicht (E247, Startpaket 2,65 → 2,50 MB): `startHq` holt
+  `custom-map-world.ts` und `map-repair.ts` per `import()`, `create` nimmt sie von dort. Was der Start vorher braucht
+  (Fähigkeiten, `?spawns`, `?fromWave`, die geöffnete Karte), steht in `custom-map-start.ts`. Der `MapStore` listet
+  ohne den Dateicode; `map-file.ts` (Zip, Reparatur, Prüfung) kommt erst beim Lesen oder Schreiben einer Karte,
+  Dateiendung und `MapFileError` stehen in `map-file-kind.ts`
 - Ursprung des Laufs ist das HQ der Karte. `EllipsoidSync` legt den Ursprung einmal über Grad, Bogenmaß,
   Grad fest; Hauptthread und Simulation rechnen mit denselben Bits, sodass Wegpunkte auf 2-m-Zellgrenzen
   (Knoten einer Karte auf ganzen Metern) auf beiden Seiten in derselben Zelle liegen

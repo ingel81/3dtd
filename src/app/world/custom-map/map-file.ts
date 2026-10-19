@@ -33,20 +33,11 @@ import {
 } from './map-document';
 import { MAP_ID_PATTERN } from './map-create';
 import { mapRepairs, prefabProblems } from './map-repair';
+import { MapFileError } from './map-file-kind';
 
-export const MAP_FILE_EXTENSION = '.3dtdmap';
 export const MAP_JSON_ENTRY = 'map.json';
 export const MAP_PREVIEW_ENTRY = 'preview.png';
 
-export class MapFileError extends Error {
-  constructor(
-    message: string,
-    readonly problems: string[] = [message],
-  ) {
-    super(message);
-    this.name = 'MapFileError';
-  }
-}
 
 /** A migration lifts the parsed `map.json` of version n to n + 1 */
 export type MapMigration = (json: Record<string, unknown>) => Record<string, unknown>;

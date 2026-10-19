@@ -1,5 +1,5 @@
 import { readDesktopBridge, type DesktopMapFolder } from '../../core/desktop-bridge';
-import { contentHash, MAP_FILE_EXTENSION, packMapFile } from './map-file';
+import { MAP_FILE_EXTENSION } from './map-file-kind';
 import { unpackOffThread } from './map-unpack';
 import { MAP_ID_PATTERN, slugMapId } from './map-create';
 import { IndexedDbMapBackend, type MapStorageBackend, type MapSummary, type StoredMap } from './map-store';
@@ -193,6 +193,7 @@ export class FolderMapBackend implements MapStorageBackend {
         // The store's copy carries the id it goes by; the file stays as the player has it
         const renamed = doc.meta.id !== id;
         doc.meta.id = id;
+        const { contentHash, packMapFile } = await import('./map-file');
         const copy = renamed ? packMapFile(doc, preview ? { preview } : {}) : bytes;
         await this.inner.put({ summary: summarize(doc, 'own', renamed ? await contentHash(doc) : hash), file: copy, preview });
         marks[id] = { file: f.name, mtime: f.mtime };

@@ -4,15 +4,8 @@ import { UIStore } from '../store/ui.store';
 import { DEV_WORLD_CAPABILITIES, DevWorldProvider } from '../devworld/dev-world-provider';
 import { DevWorldService } from '../devworld/devworld.service';
 import { OsmStreetService } from '../services/location/osm-street.service';
-import {
-  CUSTOM_MAP_CAPABILITIES,
-  CustomMapWorld,
-  openCustomMap,
-  openedCustomMap,
-  prefetchCustomMapAssets,
-} from './custom-map/custom-map-world';
+import { CUSTOM_MAP_CAPABILITIES, openedCustomMap } from './custom-map/custom-map-start';
 import { mapToGeo } from './custom-map/map-document';
-import { repairedMapText } from './custom-map/map-repair';
 import { FLAT_WORLD_ORIGIN } from './flat-frame';
 import { OWN_TILESET_CAPABILITIES, TILES_CAPABILITIES, TILES_DATA_CREDIT, TilesWorld, tilesLogos } from './tiles/tiles-world';
 import type { OwnTileset } from './tileset/own-tileset';
@@ -120,17 +113,25 @@ const DEV_WORLD_FACTORY: WorldFactory = {
   startHq: () => Promise.resolve({ lat: FLAT_WORLD_ORIGIN.lat, lon: FLAT_WORLD_ORIGIN.lon }),
 };
 
+/** The custom map world's code (world, map store, repair), loaded with the first map a run opens: the page's first load does without it */
+let customMapCode: [typeof import('./custom-map/custom-map-world'), typeof import('./custom-map/map-repair')] | null = null;
+async function loadCustomMapCode(): Promise<NonNullable<typeof customMapCode>> {
+  customMapCode ??= await Promise.all([import('./custom-map/custom-map-world'), import('./custom-map/map-repair')]);
+  return customMapCode;
+}
+
 /**
  * A custom map from the map store (own maps in IndexedDB, then the shipped
- * ones): `startHq` loads it, `create` makes the world of the loaded map.
- * How many of its spawns a run uses and the wave a test run starts at come
- * from the start order (WorldStart.spawnLimit, startWave).
+ * ones): `startHq` loads its code and the map, `create` makes the world of
+ * the loaded map. How many of its spawns a run uses and the wave a test run
+ * starts at come from the start order (WorldStart.spawnLimit, startWave).
  */
 const CUSTOM_MAP_FACTORY: WorldFactory = {
   capabilities: CUSTOM_MAP_CAPABILITIES,
   create: (ref, { injector, origin }) => {
     const map = ref.kind === 'custom-map' ? openedCustomMap(ref) : null;
-    if (!map) throw new WorldUnavailableError(ref, 'the map was not opened before the world was made');
+    if (!map || !customMapCode) throw new WorldUnavailableError(ref, 'the map was not opened before the world was made');
+    const [{ CustomMapWorld }, { repairedMapText }] = customMapCode;
     const { spawnLimit, startWave } = injector.get(WorldStartService).current();
     // Said here, as the world opens: the banner of the world before is gone by now (UIStore.resetWorld)
     if (map.repaired?.length) {
@@ -142,6 +143,7 @@ const CUSTOM_MAP_FACTORY: WorldFactory = {
   startHq: async (ref) => {
     if (ref.kind !== 'custom-map') throw new WorldUnavailableError(ref, 'not a custom map');
     try {
+      const [{ openCustomMap, prefetchCustomMapAssets }] = await loadCustomMapCode();
       const { doc } = await openCustomMap(ref);
       // Textures and models load while the engine, streets and routes are built
       prefetchCustomMapAssets(doc);

@@ -2,7 +2,7 @@ import { Injectable, InjectionToken, computed, inject } from '@angular/core';
 import { ConfigService } from '../core/services/config.service';
 import { readDesktopBridge } from '../core/desktop-bridge';
 import { MapStore, type MapSummary } from './custom-map/map-store';
-import { MAP_FILE_EXTENSION, packMapFile } from './custom-map/map-file';
+import { MAP_FILE_EXTENSION } from './custom-map/map-file-kind';
 import { downloadBlob } from '../utils/download';
 import type { OwnTileset } from './tileset/own-tileset';
 import type { WorldRef } from './world-ref';
@@ -144,6 +144,7 @@ export class WorldChoiceService {
   /** A map as a .3dtdmap file to save */
   async downloadMap(id: string, origin: MapSummary['origin']): Promise<void> {
     const loaded = await this.store.load(id, origin);
+    const { packMapFile } = await import('./custom-map/map-file');
     downloadBlob(new Blob([packMapFile(loaded.doc, { preview: loaded.preview ?? undefined }) as Uint8Array<ArrayBuffer>], { type: 'application/zip' }), `${id}${MAP_FILE_EXTENSION}`);
   }
 
