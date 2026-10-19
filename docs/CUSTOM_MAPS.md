@@ -195,9 +195,15 @@ Nebel der Szene wieder her.
   Höhennebel-Patch dieselbe Lavanähe an seiner Stelle (ein Lookup, nur auf Karten mit Lava; quadratisch über die 12 m),
   am stärksten auf Flächen nach unten und zur Seite, ohne Lichter
 - **Gebrauchsspuren** (`ground-decals.ts`): nach Kartenregeln gebackene Decals, ein instanziertes Netz, ein Draw
-  Call (höchstens 3000): Laub unter jedem zweiten Laubbaum (nicht unter Nadelbäumen, Höllen- und Endzeitbäumen),
-  festgetretene dunkle Erde vor Hauseingängen und alle 9 bis 15 m an den Rändern von Straßen und Pfaden, Pfützen dort
-  bei Regen oder im Sumpf. Jedes ein kleines Gitter, im Vertex-Shader über die Höhentextur auf den Boden gelegt
+  Call: Laub unter jedem zweiten Laubbaum, Nadelstreu unter drei von vier Nadelbäumen, unter verschneiten Bäumen (oder
+  auf einer Schneekarte unter allen) eine Mulde im Schnee mit hineingefallenen Nadeln (nicht unter Höllen- und
+  Endzeitbäumen); ein Trampelpfad von der Tür jedes Katalog-Hauses (Vorderkante seines `box`, etwas aus der Mitte) zum
+  Rand der nächsten Straße oder des nächsten Pfads bis 32 m, in Stücken von etwa 2,5 m, die leicht pendeln und sich
+  überlappen (gestreckte Decals, `stretch`), ohne Straße in Reichweite keiner; festgetretene Erde alle 9 bis 15 m an den
+  Rändern von Straßen und Pfaden, Pfützen dort bei Regen oder im Sumpf. Geplant werden alle der Karte, gezeichnet nur
+  die bis 320 m um den Fokus der Kamera, die nächsten zuerst und höchstens 4096, neu gewählt nach 24 m Bewegung, zum
+  Rand hin ausgeblendet: eine Stadt mit 8000 Häusern behält ihre Pfade überall, wo die Kamera hinsieht (vorher ein
+  fester Deckel von 3000 für die ganze Karte). Jedes ein kleines Gitter, im Vertex-Shader über die Höhentextur auf den Boden gelegt
   (mit dem Abstand etwas höher, gegen die gröberen Geländestufen), beleuchtet, beschattet und im Nebel wie der Boden;
   die Form je Art im Fragment-Shader, am Rand vom Rauschen ausgefranst. Ändern sich Objekte oder Wege (Hinzufügen,
   Entfernen), werden sie nach einer Pause von 0,4 s neu gelegt; ein Verschieben behält sie. Die Erdteppiche um die
@@ -634,7 +640,14 @@ um die Hochachse kommt aus dem Dokument (Biom-Pinsel und Pinsel mit Zufallsdrehu
 Fensterglas der Gebäude (Materialien `window-glass…`, `window`; in zusammengelegten Teilen je Vertex `nightGlow`)
 leuchtet mit der Dunkelheit warm, etwa jedes zweite Fenster nach einem Hash seiner Zelle in der Welt (2,5 m breit,
 3 m hoch), auch an Teilen, die schaukeln oder sich drehen (ein Schiff auf dem Wasser): wenige Shaderzeilen, kein Licht, kein Draw Call. Gebäude stehen auf dem tiefsten von acht Punkten ihres Fußabdrucks (Ecken und Seitenmitten ihres gedrehten Rechtecks `box`, in die Scheibe gezogen, `object-ground.ts`; ohne `box` acht Punkte der Scheibe), ihre
-Fundamente reichen bis 1,5 m in den Boden.
+Fundamente reichen bis 1,5 m in den Boden. Zäune und Mauern, die keine Sicht sperren und keinen Tower tragen, folgen
+dem Hang (`wallShear` in `object-seat.ts`): die Steigung zwischen dem Boden unter ihren beiden Enden (lange Seite des
+`box`) als Scherung der Instanzmatrix, Pfosten bleiben senkrecht, Latten und Fuß laufen am Boden entlang, der Fuß sitzt
+an beiden Enden 4 cm tief und sinkt mit, wo der Boden dazwischen tiefer liegt (Steigung höchstens 0,7). Vorher steckte
+ein Zaun am Hang mit einem Ende im Boden. Sichtsperren (Burgmauern, Palisaden) und was Tower trägt bleiben waagerecht:
+was Sichtlinie und Bauregeln sehen, ändert sich nicht. Die Größen im Katalog prüft `asset-scale.spec.ts` gegen die Welt
+(Pilze eine Hand hoch, Laterne 3,4 bis 6 m, Bank, Auto, Fass, Zaun, Tür, Bäume); Pilze sind darauf kleiner gebaut
+(0,2 statt 0,5 m), die Laterne steht auf einem Pfosten von 14 statt 20 cm.
 
 **Gebäude aus dem Grundriss (E235, `mass-layer.ts`):** ein Objekt kann seinen Bau selbst tragen (`mass`, Asset
 `building-mass`): Außenring und Höfe in den Achsen des Objekts, Wandhöhe, Geschosse, Dach (flach mit Attika, Sattel

@@ -745,9 +745,10 @@ def models():
         'flowers-blue': lambda: grass('flowers-blue', 'flowers-blue.png', 1.0, 0.5, 48),
         'flowers-yellow': lambda: grass('flowers-yellow', 'flowers-yellow.png', 1.0, 0.5, 49),
         'lily-pads': lambda: lily_pads('lily-pads', 50),
-        'mushrooms': lambda: mushrooms('mushrooms', 51, (0.55, 0.36, 0.2)),
-        'mushrooms-red': lambda: mushrooms('mushrooms-red', 52, (0.75, 0.08, 0.05)),
-        'mushrooms-glow': lambda: mushrooms('mushrooms-glow', 53, (0.25, 0.6, 0.7), glow=(0.2, 0.75, 0.9)),
+        # A cluster a hand high (catalogue scale spec: up to 0.2 m); the glowing kind of a fairy wood a little taller
+        'mushrooms': lambda: mushrooms('mushrooms', 51, (0.55, 0.36, 0.2), scale=0.32),
+        'mushrooms-red': lambda: mushrooms('mushrooms-red', 52, (0.75, 0.08, 0.05), scale=0.32),
+        'mushrooms-glow': lambda: mushrooms('mushrooms-glow', 53, (0.25, 0.6, 0.7), glow=(0.2, 0.75, 0.9), scale=0.5),
         'mushroom-giant': lambda: mushrooms('mushroom-giant', 54, (0.42, 0.26, 0.48), glow=(0.45, 0.2, 0.75), scale=6.0, count=3),
         # Deadwood
         'stump-old': lambda: import_model('tree_stump_01', None, 1500, 'stump-old', keep_scale=True),

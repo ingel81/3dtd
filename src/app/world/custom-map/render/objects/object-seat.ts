@@ -55,3 +55,45 @@ export function seatHeight(
   }
   return f.category === 'tree' ? ground - 0.15 * s : ground;
 }
+
+/** A wall follows the slope at most this steep (rise over run) */
+const MAX_WALL_SHEAR = 0.7;
+
+/**
+ * How a wall or fence follows the ground along its length (its ground
+ * rectangle's long side, model x): the slope between the ground under its
+ * two ends, as a shear that keeps its posts upright and runs its rails and
+ * foot along the ground, and the height its origin stands at so its foot
+ * lies on the ground at both ends (sunk where the ground between them dips).
+ * On a slope a level fence stuck into the hill at one end and floated at
+ * the other. Null for anything else, for a wall turned by hand (pitch,
+ * roll) and on level ground. The caller keeps sight blockers and what
+ * towers stand on level: what the line of sight and the build rules see
+ * stays as it was.
+ */
+export function wallShear(
+  f: ObjectFooting,
+  o: MapObject,
+  groundAt: (x: number, y: number) => number,
+): { height: number; shear: number } | null {
+  if (f.category !== 'wall' || !f.box || o.pitch || o.roll) return null;
+  const s = o.scale || 1;
+  const cos = Math.cos(o.rotation);
+  const sin = Math.sin(o.rotation);
+  // Model x and z in map space (object-ground.ts toModel, inverted)
+  const xx = -cos;
+  const xy = -sin;
+  const zx = -sin;
+  const zy = cos;
+  const half = f.box[2] * s;
+  const cx = o.x + xx * f.box[0] * s + zx * f.box[1] * s;
+  const cy = o.y + xy * f.box[0] * s + zy * f.box[1] * s;
+  const h0 = groundAt(cx - xx * half, cy - xy * half);
+  const h1 = groundAt(cx + xx * half, cy + xy * half);
+  const shear = Math.min(MAX_WALL_SHEAR, Math.max(-MAX_WALL_SHEAR, (h1 - h0) / (2 * half)));
+  if (Math.abs(shear) < 0.005) return null;
+  // The foot's line through the middle of the ends, lowered where the ground in the middle lies below it
+  const mid = (h0 + h1) / 2;
+  const sink = Math.max(0, mid - groundAt(cx, cy)) + 0.04;
+  return { height: mid - shear * f.box[0] * s - sink, shear };
+}

@@ -4605,7 +4605,7 @@
       "file": "models/mushrooms.glb",
       "triangles": 640,
       "footprint": 0.2,
-      "height": 0.5,
+      "height": 0.2,
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -4629,8 +4629,8 @@
       "category": "plant",
       "file": "models/mushrooms-red.glb",
       "triangles": 640,
-      "footprint": 0.3,
-      "height": 0.5,
+      "footprint": 0.2,
+      "height": 0.2,
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -4653,8 +4653,8 @@
       "category": "plant",
       "file": "models/mushrooms-glow.glb",
       "triangles": 640,
-      "footprint": 0.3,
-      "height": 0.7,
+      "footprint": 0.2,
+      "height": 0.3,
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [

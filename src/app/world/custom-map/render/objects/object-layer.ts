@@ -24,7 +24,7 @@ import type { MapAssetLibrary, ModelPart, ObjectModel } from '../map-asset-libra
 import { addHeightFog } from '../environment/height-fog';
 import { WIND_GLSL, WIND_UNIFORMS, windSwayAtTop } from '../environment/wind';
 import { mapToScene } from '../map-coords';
-import { seatHeight } from './object-seat';
+import { seatHeight, wallShear } from './object-seat';
 import { addAtlasVariants } from './atlas-variants';
 import { instanceVariation } from './instance-variation';
 import type { ImpostorCache } from './impostor-cache';
@@ -261,6 +261,7 @@ export class MapObjectLayer {
   /** A packed cell waits for its sort: the next frame sorts on though the camera stands */
   private repackDue = false;
   private readonly tmpMatrix = new Matrix4();
+  private readonly shear = new Matrix4();
   private readonly tmpPos = new Vector3();
   /** Ground and water for seatHeight, bound once */
   private readonly seatGround = (x: number, y: number): number => this.field.heightAt(x, y);
@@ -1211,6 +1212,13 @@ export class MapObjectLayer {
    */
   private reseat(b: AssetBatch, i: number): boolean {
     const o = b.objects[i];
+    if (this.sheared(b)) {
+      // A wall that follows the slope takes its shear anew with its height
+      const at = i * 16;
+      const before = b.matrices.slice(at, at + 16);
+      this.writeInstance(b, i);
+      return before.some((v, k) => v !== b.matrices[at + k]);
+    }
     const y = Math.fround(seatHeight(b.entry, o, this.seatGround, this.seatWater) + o.z);
     const at = i * 16 + 13;
     const lift = y - b.matrices[at];
@@ -1220,6 +1228,14 @@ export class MapObjectLayer {
     return true;
   }
 
+  /**
+   * Whether an asset's objects follow the slope (wallShear): walls and fences that block no sight and carry no
+   * tower; what the line of sight and the build rules see stays level
+   */
+  private sheared(b: AssetBatch): boolean {
+    return b.entry.category === 'wall' && !b.blocksLos && !b.entry.roof;
+  }
+
   /** Instance matrix, bounding sphere and colour of object i from the document */
   private writeInstance(b: AssetBatch, i: number): void {
     const o = b.objects[i];
@@ -1227,7 +1243,8 @@ export class MapObjectLayer {
     // Vegetation varies in size and shade, trees also in lean (instance-variation.ts): in the matrix and colour only
     const look = instanceVariation(o.id, e.category, e.tags);
     const s = (o.scale || 1) * look.size;
-    const ground = seatHeight(e, o, this.seatGround, this.seatWater);
+    const lean = this.sheared(b) ? wallShear(e, o, this.seatGround) : null;
+    const ground = lean ? lean.height : seatHeight(e, o, this.seatGround, this.seatWater);
     mapToScene(o.x, o.y, ground + o.z, this.tmpPos);
     this.tmpQuat.setFromAxisAngle(this.up, o.rotation);
     if (o.pitch || o.roll) this.tmpQuat.multiply(this.tilt.setFromEuler(this.tiltEuler.set(o.pitch ?? 0, 0, o.roll ?? 0, 'XZY')));
@@ -1238,6 +1255,8 @@ export class MapObjectLayer {
     }
     this.tmpScale.setScalar(s);
     this.tmpMatrix.compose(this.tmpPos, this.tmpQuat, this.tmpScale);
+    // Along a slope (wallShear): model y rises with model x, the posts stay upright
+    if (lean) this.tmpMatrix.multiply(this.shear.set(1, 0, 0, 0, lean.shear, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1));
     this.tmpMatrix.toArray(b.matrices, i * 16);
     const radius = Math.max(e.footprint, b.model.height * 0.6) * s;
     b.spheres[i * 4] = this.tmpPos.x;
