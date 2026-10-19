@@ -8,17 +8,19 @@ import { insideRings } from '../square-clip';
  * The pavements of an OSM world's streets (MapPathEdge.sidewalk), drawn by
  * the road surface beyond the carriageway behind a kerb. As the way tags
  * them (sidewalkTag); a way that says nothing has one where streets have
- * them in German towns: every residential street, and the main roads
- * through a settlement (their middle within residential, retail or
- * commercial land). Narrowed where a building stands closer, so a pavement
+ * them in German towns: residential streets and main roads inside a
+ * settlement (their middle within residential, retail or commercial land,
+ * or among houses: TOWN_HOUSES buildings within TOWN_REACH), none out in
+ * the country. Narrowed where a building stands closer, so a pavement
  * never runs under a house: the road surface would cover its walls' feet;
  * none where less than MIN_WIDTH is left.
  */
 
-/** Street types with a pavement wherever their way says nothing */
-const ALWAYS = new Set(['residential']);
-/** Street types with one inside a settlement */
-const IN_TOWN = new Set(['primary', 'secondary', 'tertiary', 'unclassified', 'primary_link', 'secondary_link', 'tertiary_link']);
+/** Street types with a pavement inside a settlement where their way says nothing */
+const IN_TOWN = new Set(['residential', 'primary', 'secondary', 'tertiary', 'unclassified', 'primary_link', 'secondary_link', 'tertiary_link']);
+/** Buildings within TOWN_REACH metres of a street's middle that make it a street among houses */
+const TOWN_HOUSES = 4;
+const TOWN_REACH = 40;
 /** Land that makes a settlement */
 const TOWN_LAND = new Set(['residential', 'retail', 'commercial']);
 /** Metres left between a pavement and a wall */
@@ -43,7 +45,9 @@ export interface PavementStats {
 export function layPavements(paths: MapPaths, said: ReadonlyMap<string, number | null>, features: OsmFeatures): PavementStats {
   const stats: PavementStats = { tagged: 0, assumed: 0, narrowed: 0, dropped: 0 };
   const town = new AreaIndex(features.areas.filter((a) => TOWN_LAND.has(a.tags['landuse'] ?? '')));
-  const walls = new WallIndex(features.areas.filter((a) => !!a.tags['building']));
+  const buildings = features.areas.filter((a) => !!a.tags['building']);
+  const walls = new WallIndex(buildings);
+  const houses = new AreaIndex(buildings);
   const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
   for (const e of paths.edges) {
     const tag = said.get(e.id);
@@ -54,7 +58,10 @@ export function layPavements(paths: MapPaths, said: ReadonlyMap<string, number |
     const line = [a, ...(e.via ?? []), b];
     const type = e.street ?? '';
     let width = tag;
-    if (width === null) width = ALWAYS.has(type) || (IN_TOWN.has(type) && town.contains(middleOf(line))) ? SIDEWALK_WIDTH : 0;
+    if (width === null) {
+      const middle = middleOf(line);
+      width = IN_TOWN.has(type) && (town.contains(middle) || houses.near(middle, TOWN_REACH) >= TOWN_HOUSES) ? SIDEWALK_WIDTH : 0;
+    }
     if (width <= 0) continue;
     const room = walls.room(line, e.width / 2) - WALL_GAP;
     if (room < MIN_WIDTH) {
@@ -96,6 +103,18 @@ class AreaIndex {
         else this.cells.set(key, [area]);
       });
     }
+  }
+
+  /** Areas with a point of their outline within `r` metres of `p` (by their outline's first point, near enough for houses) */
+  near(p: MapPoint, r: number): number {
+    const seen = new Set<OsmArea>();
+    forCells(p.x - r, p.y - r, p.x + r, p.y + r, (key) => {
+      for (const area of this.cells.get(key) ?? []) {
+        const q = area.outer[0]?.[0];
+        if (q && Math.hypot(q.x - p.x, q.y - p.y) <= r) seen.add(area);
+      }
+    });
+    return seen.size;
   }
 
   contains(p: MapPoint): boolean {

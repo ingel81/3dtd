@@ -33,19 +33,22 @@ describe('sidewalkTag', () => {
 });
 
 describe('layPavements', () => {
-  it('gives a residential street one where its way says nothing, a main road only within a settlement', () => {
-    expect(lay('residential', null).sidewalk).toBe(1.8);
+  it('gives a street one where its way says nothing only in a settlement: town land or among houses', () => {
+    expect(lay('residential', null).sidewalk).toBeUndefined();
     expect(lay('tertiary', null).sidewalk).toBeUndefined();
     expect(lay('tertiary', null, [square(-100, -100, 100, 100, { landuse: 'residential' })]).sidewalk).toBe(1.8);
+    const houses = [-30, -10, 10, 30].map((x) => square(x, 10, x + 8, 18, { building: 'house' }));
+    expect(lay('residential', null, houses).sidewalk).toBe(1.8);
+    expect(lay('residential', null, houses.slice(0, 3)).sidewalk).toBeUndefined();
     expect(lay('residential', 0).sidewalk).toBeUndefined();
     expect(lay('service', 2.2).sidewalk).toBe(2.2);
   });
 
   it('narrows a pavement where a house stands close and drops it where none fits', () => {
     // A wall 4.5 m off the middle: 1.5 m beyond the carriageway, less the gap to the wall
-    expect(lay('residential', null, [square(-10, 4.5, 10, 14, { building: 'house' })]).sidewalk).toBe(1.3);
-    expect(lay('residential', null, [square(-10, 3.5, 10, 14, { building: 'house' })]).sidewalk).toBeUndefined();
+    expect(lay('residential', 1.8, [square(-10, 4.5, 10, 14, { building: 'house' })]).sidewalk).toBe(1.3);
+    expect(lay('residential', 1.8, [square(-10, 3.5, 10, 14, { building: 'house' })]).sidewalk).toBeUndefined();
     // Through a building: none
-    expect(lay('residential', null, [square(-10, -8, 10, 8, { building: 'yes' })]).sidewalk).toBeUndefined();
+    expect(lay('residential', 1.8, [square(-10, -8, 10, 8, { building: 'yes' })]).sidewalk).toBeUndefined();
   });
 });
