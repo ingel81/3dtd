@@ -14,6 +14,10 @@ for (const weight of [500, 600, 700]) {
   void document.fonts?.load(`${weight} 16px ${TD_FONTS.ui}`).catch(() => undefined);
 }
 
+// The custom maps' noise textures (ground variation, waves, shore foam, lava) bake in workers from the start: a
+// map opened later finds them done instead of waiting for them
+void import('./app/world/custom-map/render/noise-textures').then((m) => m.prepareNoiseTextures());
+
 // The showreel hook (tools/showreel): development builds only, where `?showreel` asks for it. A production
 // build defines ngDevMode as false, so the branch and its chunk drop out of the bundle.
 const showreel =
