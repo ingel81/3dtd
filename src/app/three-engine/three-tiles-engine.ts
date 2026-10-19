@@ -27,7 +27,7 @@ import { SkyBackground, addSceneLights } from './scene-environment';
 import { DiveView, FOG_FAR, FOG_NEAR, VIEW_DISTANCE } from './dive-view';
 import { ScreenPicker } from './screen-picker';
 import type { RendererLease } from './renderer-host';
-import { boundTexturesOf } from './texture-upload';
+import { boundTexturesOf, uploadTextures } from './texture-upload';
 import { isSharedGpu } from './shared-gpu';
 import {
   CoordinateSync,
@@ -1612,6 +1612,13 @@ export class ThreeTilesEngine {
       ...(urgent ? {} : { pace: () => this.quietMoment(gone) }),
     });
     if (await frame.compiled) this.pins.pinPrograms(this.renderer);
+    // compileOnly draws nothing: the textures the meshes bind (an enemy's VAT, a large float texture) went up in
+    // the frame that first drew them, the boss's spawn frame (the jumper's: 15 ms)
+    if (gone()) return;
+    const textures = new Set<Texture>();
+    for (const root of objects) for (const texture of boundTexturesOf(this.renderer, root)) textures.add(texture);
+    if (!urgent) await this.quietMoment(gone);
+    await uploadTextures(this.renderer, textures, gone);
   }
 
   /** Since when the game has been calm: no enemy, no switch being made ready (quietMoment) */

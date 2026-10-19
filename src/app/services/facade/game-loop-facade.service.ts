@@ -42,6 +42,7 @@ import { COOP } from '../coop.token';
 import { newRunSeed } from '../../utils/game-rng';
 import type { CommandEvent } from '../../game-engine/events/command-events';
 import { injectT } from '../../i18n/i18n.service';
+import { ENEMY_TYPES, type EnemyTypeId } from '../../configs/enemy-types.config';
 
 /** See GameLoopFacadeService.loadHandle */
 export type LoadHandle = ReturnType<GameLoopFacadeService['createLoadHandle']>;
@@ -218,6 +219,23 @@ export class GameLoopFacadeService {
         if (this.sim.started && this.sim.hasWorld && this.mirror.scalars.enemiesAlive > 0) {
           this.sim.bus.emit({ type: 'debug:enemy-speed', speedMps });
         }
+      });
+    }, { injector });
+
+    // Effect: the enemies the next wave brings and the ones Wave Debug is set to send get their models and
+    // programs ready now, ahead of the background's turn (ThreeTilesEngine.warmNow): their first draw links
+    // nothing (a boss sent from the panel right after the load waited 50 ms for its turret's program)
+    effect(() => {
+      const next = this.store.waveNumber() + 1;
+      const debug = [this.waveDebug.enemyType(), ...this.waveDebug.mixedGroups().map((g) => g.enemyType)];
+      untracked(() => {
+        const engine = this.bridge?.getEngine();
+        if (!engine) return;
+        const enemies = new Set<EnemyTypeId>(debug);
+        for (const wave of this.waveDirector.peek({ fromWave: next, count: 1 })) {
+          for (const [type] of wave.enemies) if (type in ENEMY_TYPES) enemies.add(type as EnemyTypeId);
+        }
+        engine.warmNow({ enemies: [...enemies] });
       });
     }, { injector });
 
