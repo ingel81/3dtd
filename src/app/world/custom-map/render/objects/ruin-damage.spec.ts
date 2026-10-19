@@ -7,7 +7,7 @@ import { MapAssetLibrary } from '../map-asset-library';
 import { CRACK_SIZE, crackTexels } from './crack-texture';
 import { massShape, splitWalls } from './mass-layer';
 import { MapObjectLayer } from './object-layer';
-import { DAMAGE_LOS, FELL_LONG_AGO, ruinShape, structureSeed } from './ruin-damage';
+import { DAMAGE_LOS, FELL_LONG_AGO, ruinSeed, ruinShape, structureSeed } from './ruin-damage';
 
 const entry = (id: string, category: CatalogObject['category'], file: string, extra: Partial<CatalogObject> = {}): CatalogObject => ({
   id,
@@ -65,9 +65,11 @@ const massMeshes = (g: Group, ruin: boolean): InstancedMesh[] =>
 describe('ruin damage: the shape of a ruin', () => {
   const frame = { cx: 10, cz: -4, ax: 3, az: 0, bx: 0, bz: 2, seatY: 5, height: 8 };
 
-  it('rolls the same ruin from the same id, another from another', () => {
+  it("rolls the same ruin from the same id, another from another or from the map's own seed", () => {
     expect(ruinShape(structureSeed('h1'), frame)).toEqual(ruinShape(structureSeed('h1'), frame));
     expect(ruinShape(structureSeed('h1'), frame).heading).not.toBe(ruinShape(structureSeed('h2'), frame).heading);
+    expect(ruinSeed({ id: 'h1' })).toBe(structureSeed('h1'));
+    expect(ruinSeed({ id: 'h1', damageSeed: 3 })).not.toBe(ruinSeed({ id: 'h1', damageSeed: 4 }));
   });
 
   it('breaks 1.5 to 4 m up but never above 55 % of the building, bites the top corner it gives way to', () => {

@@ -45,7 +45,7 @@ import { nextFrameOrTimeout } from '../../../../utils/next-frame';
 import { DESTRUCTIBLE_CATEGORIES } from '../../custom-map-destruction';
 import { rubbleMaterialOf } from '../../rubble-material';
 import { RuinSlabs } from './ruin-slabs';
-import { addDamage, DAMAGE_LOS, damageDepthMaterial, emberPoint, FELL_LONG_AGO, readDamage, RUIN_EMBERS, ruinShape, structureSeed, writeDamage, type DamageArrays } from './ruin-damage';
+import { addDamage, DAMAGE_LOS, damageDepthMaterial, emberPoint, FELL_LONG_AGO, readDamage, RUIN_EMBERS, ruinSeed, ruinShape, writeDamage, type DamageArrays } from './ruin-damage';
 
 /**
  * The placed objects of a map, drawn instanced: per asset, detail level and
@@ -1200,7 +1200,7 @@ export class MapObjectLayer {
       seatY: m[at + 13],
       height: b.model.height * Math.hypot(m[at + 4], m[at + 5], m[at + 6]),
     };
-    const shape = ruinShape(structureSeed(o.id), frame);
+    const shape = ruinShape(ruinSeed(o), frame);
     const stage = d?.stage ?? 0;
     const fallStart = d?.fallStart ?? FELL_LONG_AGO;
     writeDamage(b.damage!, i, stage, fallStart, shape);

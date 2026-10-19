@@ -29,7 +29,7 @@ import { NIGHT_WINDOW_UNIFORMS } from './night-windows';
 import { seatHeight, type ObjectFooting } from './object-seat';
 import { rubbleMaterialOf } from '../../rubble-material';
 import type { RuinSlabs } from './ruin-slabs';
-import { addDamage, DAMAGE_LOS, damageDepthMaterial, emberPoint, FELL_LONG_AGO, ruinShape, structureSeed, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
+import { addDamage, DAMAGE_LOS, damageDepthMaterial, emberPoint, FELL_LONG_AGO, ruinSeed, ruinShape, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
 
 /**
  * The buildings a map raises from their own footprint (MapObject.mass,
@@ -842,7 +842,7 @@ export class MassLayer {
       seatY: e[13],
       height: massTop(mass) * scale,
     };
-    return { frame, shape: ruinShape(structureSeed(o.id), frame) };
+    return { frame, shape: ruinShape(ruinSeed(o), frame) };
   }
 
   /** The sun's shadow of ruined roofs and copings */

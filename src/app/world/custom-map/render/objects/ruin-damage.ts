@@ -73,6 +73,11 @@ export function structureSeed(id: string): number {
   return h >>> 0;
 }
 
+/** The number an object's ruin is rolled from: its map's `damageSeed` where it sets one, else its id */
+export function ruinSeed(o: { id: string; damageSeed?: number }): number {
+  return o.damageSeed === undefined ? structureSeed(o.id) : structureSeed(`${o.id}#${o.damageSeed}`);
+}
+
 /** The k-th roll of a seed, 0 to 1 */
 function roll(seed: number, k: number): number {
   let h = Math.imul(seed ^ Math.imul(k + 1, 0x9e3779b1), 0x85ebca6b);
