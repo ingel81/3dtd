@@ -561,7 +561,8 @@ misst der Lead nach (tmp/plan/r6/MESSUNGEN_SPAETER.md).
 | Dreiecke der Flächen, Draw Calls | 14 536, 15 | 35 397, 14 | 857, 9 |
 | Objekte der Flächen, Szenenkosten | 2 653, 1,20 M (Budget voll: 1 539 Autos ausgelassen) | 377, 0,16 M | 2 315, 0,72 M |
 | Datei vorher → nachher | 3,46 → 3,45 MB | 4,38 → 4,25 MB | 1,72 → 1,74 MB |
-DRAWCALLS_ROW
+| Draw Calls | Flächen: einer je Kachel im Bild (höchstens 15 je Karte), kein Schattenpass; ihre Objekte instanziert je Modell (31 Modelle, je Modell Haupt-, Schatten- und Fernstufe) | | |
+
 ## Entschieden (User, 2026-10-18)
 
 1. **Hydranten und Brunnen als Spielmechanik:** nicht in dieser Runde.
