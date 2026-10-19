@@ -71,6 +71,11 @@ export interface LosVertexPatch {
   pars: string;
   vertex: string;
   uniforms: Record<string, IUniform>;
+  /** Declarations and GLSL run first in the fragment's main (a ruin's broken parts discarded, ruin-damage.ts) */
+  fragmentPars?: string;
+  fragment?: string;
+  /** Both sides block: a ruin shows its inside (ruin-damage.ts) */
+  doubleSided?: boolean;
 }
 
 export class TowerShadowMapper {
@@ -185,8 +190,10 @@ export class TowerShadowMapper {
       varying vec3 vWorldPosition;
       uniform vec3 uReferencePosition;
       uniform float uFarDistance;
+      ${patch?.fragmentPars ?? ''}
 
       void main() {
+        ${patch?.fragment ?? ''}
         #include <logdepthbuf_fragment>
         float dist = length(vWorldPosition - uReferencePosition);
         float encoded = clamp(dist / uFarDistance, 0.0, 1.0);
@@ -204,7 +211,8 @@ export class TowerShadowMapper {
       transparent: false,
       depthWrite: true,
       depthTest: true,
-      side: 0, // FrontSide — Backfaces sind okay zu droppen, sind keine Blocker
+      // FrontSide — Backfaces sind okay zu droppen, sind keine Blocker; eine Ruine zeigt ihr Inneres (DoubleSide)
+      side: patch?.doubleSided ? 2 : 0,
     });
   }
 
