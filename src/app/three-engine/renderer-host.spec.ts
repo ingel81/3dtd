@@ -1,34 +1,9 @@
 import { BufferGeometry, MeshBasicMaterial, type WebGLRenderer } from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { KEEP_LEASES, RendererHost } from './renderer-host';
+import { KEEP_LEASES, onGpuReset, RendererHost } from './renderer-host';
 import type { ProgramPins } from './program-pins';
 import { settleContexts } from './context-release';
-
-/** A renderer that records what is done to it; its canvas a real element */
-function fakeRenderer() {
-  const r = {
-    domElement: document.createElement('canvas'),
-    shadowMap: { enabled: true, autoUpdate: false, needsUpdate: true, type: 0 },
-    info: { autoReset: false, reset: vi.fn() },
-    toneMapping: 4,
-    toneMappingExposure: 2,
-    outputColorSpace: 'srgb-linear',
-    localClippingEnabled: true,
-    clippingPlanes: [{}],
-    autoClear: false,
-    setRenderTarget: vi.fn(),
-    setClearColor: vi.fn(),
-    setPixelRatio: vi.fn(),
-    resetState: vi.fn(),
-    getContext: () => ({ getExtension: () => null, deleteProgram: () => undefined }),
-    dispose: vi.fn(),
-    forceContextLoss: vi.fn(),
-    renderBufferDirect: vi.fn(),
-    compile: vi.fn(() => new Set()),
-    properties: { get: () => ({}) },
-  };
-  return r;
-}
+import { fakeRenderer } from '../../test/fake-renderer';
 
 describe('RendererHost', () => {
   afterEach(() => {
@@ -122,5 +97,25 @@ describe('RendererHost', () => {
     host.acquire(document.createElement('div'), true);
     stale.keep(pins(9));
     expect(given).toContain(9);
+  });
+
+  it('tells when the GPU lost what the page uploaded: a renderer made anew, a context back after a loss', () => {
+    const host = new RendererHost(() => fakeRenderer() as unknown as WebGLRenderer);
+    const heard = vi.fn();
+    const stop = onGpuReset(heard);
+    host.acquire(document.createElement('div'), true).release();
+    // The first renderer and one lent again lose nothing
+    host.acquire(document.createElement('div'), true).release();
+    expect(heard).not.toHaveBeenCalled();
+    const old = host.renderer!;
+    host.acquire(document.createElement('div'), false).release();
+    expect(heard).toHaveBeenCalledTimes(1);
+    // The old renderer's canvas no longer counts
+    old.domElement.dispatchEvent(new Event('webglcontextrestored'));
+    expect(heard).toHaveBeenCalledTimes(1);
+    host.renderer!.domElement.dispatchEvent(new Event('webglcontextrestored'));
+    expect(heard).toHaveBeenCalledTimes(2);
+    stop();
+    host.dispose();
   });
 });

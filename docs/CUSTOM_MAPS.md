@@ -1310,7 +1310,17 @@ und, nur wo sie ohne KTX2 laden, die Bodenmaterialien als Pixel (8 MB je Materia
 Ebenen behält sie nicht, ihre Dateien liegen im Cache der Kartendaten. Die
 Textur-Arrays der offenen Ansicht behalten keine Kopie: nach dem Hochladen setzt `onUpdate` ihre Pixel auf `null`
 (`terrain-textures.ts`); nach einem Kontextverlust lassen sie sich nicht neu hochladen, die Ansicht muss neu gebaut
-werden.
+werden. Ebenso die Texturen der Modelle und der Fern-Atlas: nach dem Hochladen gehen ihre transcodierten Ebenen
+(`keepOnGpuOnly` in `model-loader.ts`; OSM-Stuttgart nach vollem Laden 978 → 915 MB Heap, Demo-Tal und Bergpass
+im Wechsel 362 → 324 MB). Darum gehören sie der Seite (`shareGpu`, in `keep`): eine Leihe des Renderers, die sie
+zeichnete, lässt sie auf der GPU, frei werden sie nur mit `clear()`; das spart auch das zweite Hochladen beim Wechsel
+Editor ⇄ Testlauf. Das Fern-LOD eines Modells gibt seine eigenen Materialien frei, ihre Texturen nicht: es sind die
+geteilten Dateien, die das volle Modell zeichnet (`sharedMaterials`). Die Paletten-Bilder des Editors zeichnen in
+einem eigenen Kontext und darum aus einer eigenen Bibliothek, die mit diesem Kontext leer wird (`thumbnail-renderer.ts`).
+Ist die GPU-Kopie weg, weil der Renderer mit anderem MSAA neu entsteht oder der Kontext nach einem Verlust zurückkommt,
+meldet `RendererHost` das (`onGpuReset`), und jede geteilte Bibliothek leert sich (`clear()`); die nächste Ansicht lädt
+die Modelle aus dem Cache der Kartendaten neu. Der Editor baut seine Ansicht nach einem Kontextverlust neu, ein
+laufendes Spiel nicht: dort fehlen danach Boden und Modelltexturen bis zum nächsten Start der Karte.
 Er bleibt, solange seine Karte vorn steht (`map-in-front.ts`: der Editor dieser Karte und ihre Testläufe), so lädt
 und dekodiert der Wechsel Editor ⇄ Test nichts neu; jede Ansicht hält ihn mit `retain(mapId)` und lässt ihn mit
 `release()`. Leer wird er, sobald keine Ansicht ihn hält und eine andere Karte, ein echter Ort oder die Globen nach vorn

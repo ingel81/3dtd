@@ -138,7 +138,16 @@ class Ktx2TexturePlugin implements GLTFLoaderPlugin {
         ? sharedTexture(this.resolve(imageDef.uri), this.options.sharedTextures, this.options.fetch)
         : decodeKtx2(this.bytes(imageDef), this.keepFiles.has(source));
       promise = base
-        .then((texture) => (texture ? withSampler(texture, sampler, textureDef.name || imageDef.name || '') : null))
+        .then(async (texture) => {
+          if (!texture) return null;
+          // A copy for another sampler needs the levels a texture kept on the GPU only no longer has: its file again
+          if (texture.userData['released'] === true && !fitsSampler(texture, sampler)) {
+            texture = await decodeKtx2(this.bytes(imageDef), false);
+            if (!texture) return null;
+            keepOnGpuOnly(texture);
+          }
+          return withSampler(texture, sampler, textureDef.name || imageDef.name || '');
+        })
         .then((texture) => {
           if (texture) this.parser.associations.set(texture, { textures: textureIndex });
           return texture;
@@ -185,6 +194,10 @@ export function sharedTexture(url: string, cache: Map<string, Promise<Texture | 
         if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
         return decodeKtx2(res.arrayBuffer(), false);
       })
+      .then((texture) => {
+        if (texture) keepOnGpuOnly(texture);
+        return texture;
+      })
       .catch((error: unknown) => {
         cache.delete(url);
         throw error;
@@ -192,6 +205,22 @@ export function sharedTexture(url: string, cache: Map<string, Promise<Texture | 
     cache.set(url, promise);
   }
   return promise;
+}
+
+/**
+ * The texture's transcoded levels go once it is on the GPU (the map's shared
+ * textures held some 80 MB on an OSM city): who keeps such a texture loads
+ * it again when the GPU's copy goes (onGpuReset). A copy for another
+ * sampler made before the upload keeps the levels until its own
+ */
+export function keepOnGpuOnly(texture: Texture): void {
+  texture.onUpdate = releaseLevels;
+}
+
+function releaseLevels(texture: Texture): void {
+  texture.mipmaps = [];
+  texture.userData['released'] = true;
+  texture.onUpdate = null;
 }
 
 /** A KTX2 file of its own (an atlas, not a model's) through `fetchFn` and the page's transcoder; null without one */
@@ -218,17 +247,32 @@ async function decodeKtx2(bytes: Promise<ArrayBuffer>, keepFile: boolean): Promi
   return texture;
 }
 
-/** The texture with the sampler's filters and wrapping: itself the first time, a copy sharing its image when they differ */
-function withSampler(texture: Texture, sampler: SamplerDef, name: string): Texture {
+/** three's filters and wrapping of a glTF sampler */
+function samplerValues(sampler: SamplerDef) {
   const FILTERS = filters();
   const WRAPPINGS = wrappings();
-  const magFilter = (FILTERS[sampler.magFilter ?? -1] ?? LinearFilter) as MagnificationTextureFilter;
-  const minFilter = (FILTERS[sampler.minFilter ?? -1] ?? LinearMipmapLinearFilter) as MinificationTextureFilter;
-  const wrapS = WRAPPINGS[sampler.wrapS ?? -1] ?? RepeatWrapping;
-  const wrapT = WRAPPINGS[sampler.wrapT ?? -1] ?? RepeatWrapping;
-  const fresh = texture.userData['sampled'] !== true;
+  return {
+    magFilter: (FILTERS[sampler.magFilter ?? -1] ?? LinearFilter) as MagnificationTextureFilter,
+    minFilter: (FILTERS[sampler.minFilter ?? -1] ?? LinearMipmapLinearFilter) as MinificationTextureFilter,
+    wrapS: WRAPPINGS[sampler.wrapS ?? -1] ?? RepeatWrapping,
+    wrapT: WRAPPINGS[sampler.wrapT ?? -1] ?? RepeatWrapping,
+  };
+}
+
+/** Whether withSampler gives the texture itself for `sampler`, not a copy */
+function fitsSampler(texture: Texture, sampler: SamplerDef): boolean {
+  const { magFilter, minFilter, wrapS, wrapT } = samplerValues(sampler);
   const same = texture.magFilter === magFilter && texture.minFilter === minFilter && texture.wrapS === wrapS && texture.wrapT === wrapT;
-  const out = fresh || same ? texture : texture.clone();
+  return texture.userData['sampled'] !== true || same;
+}
+
+/** The texture with the sampler's filters and wrapping: itself the first time, a copy sharing its image when they differ */
+function withSampler(texture: Texture, sampler: SamplerDef, name: string): Texture {
+  const { magFilter, minFilter, wrapS, wrapT } = samplerValues(sampler);
+  const fresh = texture.userData['sampled'] !== true;
+  const out = fitsSampler(texture, sampler) ? texture : texture.clone();
+  // A copy of a texture kept on the GPU only lets its levels go after its own upload
+  if (out !== texture && texture.onUpdate === releaseLevels) keepOnGpuOnly(out);
   out.magFilter = magFilter;
   out.minFilter = minFilter;
   out.wrapS = wrapS;

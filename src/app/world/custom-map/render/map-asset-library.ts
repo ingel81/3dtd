@@ -18,10 +18,11 @@ import {
   type Object3D,
 } from 'three';
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { createModelLoader, loadKtx2Texture, sharedTexture } from '../../../three-engine/models/model-loader';
+import { createModelLoader, keepOnGpuOnly, loadKtx2Texture, sharedTexture } from '../../../three-engine/models/model-loader';
 import { mapDataFetch, mapDataUrl } from '../map-data';
 import { mapInFront, onMapInFront } from '../map-in-front';
-import { KEEP_LEASES, onLeaseBegin } from '../../../three-engine/renderer-host';
+import { KEEP_LEASES, onGpuReset, onLeaseBegin } from '../../../three-engine/renderer-host';
+import { shareGpu, unshareGpu } from '../../../three-engine/shared-gpu';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { hexToRgb, parseCatalog, type AssetCatalog, type CatalogMaterial, type CatalogObject } from './asset-catalog';
 
@@ -154,7 +155,7 @@ export class MapAssetLibrary {
 
   /** The far boxes' atlas, once; null (with a warning) when it does not load: the buildings keep their LOD models */
   farAtlas(): Promise<Texture | null> {
-    this.farAtlasPromise ??= this.loadTextureFn(this.url(FAR_ATLAS_FILE)).catch((error) => {
+    this.farAtlasPromise ??= this.loadTextureFn(this.url(FAR_ATLAS_FILE)).then(shareGpu).catch((error) => {
       console.warn('[MapAssetLibrary] far box atlas not loaded', error);
       return null;
     });
@@ -336,7 +337,10 @@ export class MapAssetLibrary {
     this.models.clear();
     this.loaded.clear();
     this.materials.clear();
-    void this.farAtlasPromise?.then((t) => t?.dispose());
+    void this.farAtlasPromise?.then((t) => {
+      if (t) unshareGpu(t);
+      t?.dispose();
+    });
     this.farAtlasPromise = null;
     this.sharedTextures.clear();
     this.idleLeases = 0;
@@ -350,10 +354,10 @@ export class MapAssetLibrary {
   }
 
   /**
-   * Frees the GPU side of every loaded model, LOD models included: geometry, material and its textures. The
-   * models stay loaded; the next renderer to draw them uploads them again
+   * Frees the GPU side of every loaded model, LOD models included: geometry, material and its textures. Their
+   * textures keep no pixels after the upload (keepOnGpuOnly): the models are forgotten with it (clear)
    */
-  releaseGpu(): void {
+  private releaseGpu(): void {
     for (const m of this.loaded) {
       for (const part of m.parts) {
         part.geometry.dispose();
@@ -367,7 +371,12 @@ export class MapAssetLibrary {
     return [...MapAssetLibrary.instances.values()].includes(this);
   }
 
+  /**
+   * A loaded model is the library's until clear(): its textures are the page's (shareGpu), a lease that drew
+   * them leaves them on the GPU. They keep no pixels past the upload (keepOnGpuOnly), so only clear() frees them
+   */
   private keep(model: ObjectModel): ObjectModel {
+    for (const part of model.parts) forEachTexture(part.material, shareGpu);
     this.loaded.add(model);
     return model;
   }
@@ -502,6 +511,7 @@ async function loadTexture(url: string, fetchFn: typeof fetch): Promise<Texture>
   if (!texture) throw new Error(`no KTX2 transcoder for ${url}`);
   texture.colorSpace = SRGBColorSpace;
   texture.anisotropy = 4;
+  keepOnGpuOnly(texture);
   return texture;
 }
 
@@ -525,8 +535,11 @@ function prepareMaterial(material: Material): void {
 /** Every mesh of a model with its node transform baked into a copy of the geometry */
 /**
  * `parts` with each textured material that has the name of one of
- * `full`'s replaced by that one, the replaced material and its textures
- * freed (never drawn, so never uploaded). Only textured parts with UVs: a
+ * `full`'s replaced by that one, the replaced material freed (never
+ * drawn). Its textures stay: they are the shared files the full model and
+ * other models draw too (sharedTexture), the library's until clear(); one
+ * freed here was uploaded again from its pixels, which a texture kept on the
+ * GPU only no longer has. Only textured parts with UVs: a
  * plain-coloured copy (the builders' flat LODs, no UVs) keeps its own
  * colour, and merges with its like as before
  */
@@ -541,10 +554,7 @@ export function sharedMaterials(parts: ModelPart[], full: readonly ModelPart[]):
     freed.add(p.material);
     return { geometry: p.geometry, material: shared };
   });
-  for (const m of freed) {
-    for (const value of Object.values(m)) if (value instanceof Texture) value.dispose();
-    m.dispose();
-  }
+  for (const m of freed) m.dispose();
   return out;
 }
 
@@ -659,11 +669,20 @@ function placeholderParts(entry: CatalogObject): ModelPart[] {
   }
 }
 
-/** Disposes every texture a material holds (map, normalMap, roughnessMap, ...) */
-function disposeTextures(material: Material): void {
-  for (const value of Object.values(material)) if (value instanceof Texture) value.dispose();
+function forEachTexture(material: Material, fn: (texture: Texture) => void): void {
+  for (const value of Object.values(material)) if (value instanceof Texture) fn(value);
 }
 
-// The shared libraries hear the map in front and the renderer's leases (retain, release)
+/** Disposes every texture a material holds (map, normalMap, roughnessMap, ...), no longer the page's */
+function disposeTextures(material: Material): void {
+  forEachTexture(material, (texture) => {
+    unshareGpu(texture);
+    texture.dispose();
+  });
+}
+
+// The shared libraries hear the map in front and the renderer's leases (retain, release); their textures keep no
+// CPU copy past the upload (keepOnGpuOnly), so what they hold goes when the GPU's copy does and loads again
 onMapInFront((front) => MapAssetLibrary.forEachShared((lib) => lib.frontChanged(front)));
 onLeaseBegin(() => MapAssetLibrary.forEachShared((lib) => lib.leaseBegan()));
+onGpuReset(() => MapAssetLibrary.forEachShared((lib) => lib.clear()));

@@ -40,6 +40,23 @@ export function onLeaseBegin(listener: () => void): () => void {
   return () => leaseBegins.delete(listener);
 }
 
+const gpuResets = new Set<() => void>();
+
+/**
+ * `listener` hears when what the page uploaded is gone from the GPU: the
+ * renderer was made anew (the other MSAA) or its context came back after a
+ * loss. What keeps no CPU copy after its upload (the map models' textures)
+ * has to be loaded again then; returns the unsubscribe
+ */
+export function onGpuReset(listener: () => void): () => void {
+  gpuResets.add(listener);
+  return () => gpuResets.delete(listener);
+}
+
+function gpuReset(): void {
+  for (const listener of [...gpuResets]) listener();
+}
+
 /** A renderer lent to one owner: give it back with `release`, never dispose it */
 export interface RendererLease {
   readonly renderer: WebGLRenderer;
@@ -158,6 +175,7 @@ export class RendererHost {
     this.kept = [];
     this.ledger?.freeAll();
     this.ledger = null;
+    renderer.domElement.removeEventListener('webglcontextrestored', gpuReset);
     renderer.domElement.remove();
     renderer.dispose();
     renderer.forceContextLoss();
@@ -174,6 +192,8 @@ export class RendererHost {
     const gl = renderer.getContext() as WebGL2RenderingContext;
     skipLostContextDeletes(gl, renderer.domElement);
     deferPendingProgramDeletes(gl);
+    // Heard after three's own listener has made its state anew, before the owners' (they rebuild from what is loaded)
+    renderer.domElement.addEventListener('webglcontextrestored', gpuReset);
     // What a lease drew and compiled, but the page's (shareGpu)
     const oldLedger = this.ledger;
     this.ledger = new DrawLedger(renderer, isSharedGpu);
@@ -186,6 +206,8 @@ export class RendererHost {
       old.renderer.domElement.remove();
       old.renderer.dispose();
       releaseContext(old.renderer);
+      old.renderer.domElement.removeEventListener('webglcontextrestored', gpuReset);
+      gpuReset();
     }
   }
 }

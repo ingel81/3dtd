@@ -1,10 +1,13 @@
-import { BoxGeometry, DoubleSide, Group, Mesh, MeshStandardMaterial, PlaneGeometry, Texture } from 'three';
+import { BoxGeometry, DoubleSide, Group, Mesh, MeshStandardMaterial, PlaneGeometry, Texture, type WebGLRenderer } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseCatalog } from './asset-catalog';
 import { MapAssetLibrary, packMaterial, sharedMaterials, type ImagePixels } from './map-asset-library';
 import { mergeParts } from './objects/merge-parts';
+import { RendererHost } from '../../../three-engine/renderer-host';
+import { isSharedGpu } from '../../../three-engine/shared-gpu';
+import { fakeRenderer } from '../../../../test/fake-renderer';
 
 const catalog = {
   version: 1,
@@ -102,9 +105,9 @@ describe('MapAssetLibrary', () => {
     expect(disposed.every((spy) => spy.mock.calls.length === 1)).toBe(true);
   });
 
-  it('frees the GPU side of its models for a renderer that goes and keeps them loaded', async () => {
+  it('forgets its models when the GPU loses its copies (a new renderer, a restored context): the next view loads them again', async () => {
     let loads = 0;
-    const lib = new MapAssetLibrary('base/', {
+    const lib = MapAssetLibrary.shared('gpu-reset/', {
       fetch: (() => Promise.resolve(jsonResponse(catalog))) as unknown as typeof fetch,
       loadModel: () => {
         loads++;
@@ -120,11 +123,24 @@ describe('MapAssetLibrary', () => {
       target.addEventListener('dispose', spy);
       return spy;
     });
-    lib.releaseGpu();
-    // At once, not a tick later: the renderer that goes is disposed right after
-    expect(spies.every((spy) => spy.mock.calls.length === 1)).toBe(true);
+    // Its textures are the page's: a lease that drew them leaves them on the GPU
+    expect(isSharedGpu(material.map!)).toBe(true);
+    // The renderer made anew for the other MSAA
+    const host = new RendererHost(() => fakeRenderer() as unknown as WebGLRenderer);
+    host.acquire(document.createElement('div'), true).release();
     expect(await lib.model('pine')).toBe(model);
-    expect(loads).toBe(1);
+    host.acquire(document.createElement('div'), false);
+    expect(spies.every((spy) => spy.mock.calls.length === 1)).toBe(true);
+    expect(isSharedGpu(material.map!)).toBe(false);
+    const again = await lib.model('pine');
+    expect(again).not.toBe(model);
+    expect(loads).toBe(2);
+    // A lost context back
+    host.renderer!.domElement.dispatchEvent(new Event('webglcontextrestored'));
+    expect(await lib.model('pine')).not.toBe(again);
+    expect(loads).toBe(3);
+    host.dispose();
+    lib.dispose();
   });
 
   it('disposes after a detail model failed to load without an unhandled rejection', async () => {
@@ -204,7 +220,7 @@ describe('MapAssetLibrary', () => {
 });
 
 describe('sharedMaterials', () => {
-  it("draws a far copy's parts with the full model's materials of the same name, and frees its own", () => {
+  it("draws a far copy's parts with the full model's materials of the same name, and frees its own but not their shared textures", () => {
     const named = (name: string, map?: Texture): MeshStandardMaterial => Object.assign(new MeshStandardMaterial({ map: map ?? null }), { name });
     const bark = named('bark-oak');
     const leaves = named('foliage-oak');
@@ -230,6 +246,7 @@ describe('sharedMaterials', () => {
     // A material the model does not have stays the copy's own
     expect(lod[1].material).toBe(other);
     expect(lod[2].material).toBe(flatBark);
-    expect(disposed).toHaveBeenCalled();
+    // The texture files are the library's, drawn by the full model too
+    expect(disposed).not.toHaveBeenCalled();
   });
 });

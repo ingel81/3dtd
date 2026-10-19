@@ -36,7 +36,8 @@ import {
 } from 'three';
 import { idle } from './idle';
 import { texturesOf } from '../../three-engine/texture-upload';
-import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
+import { DEFAULT_ASSET_BASE, MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
+import { mapDataUrl } from '../../world/custom-map/map-data';
 import type { CatalogIndex, GroundMaterialEntry, ObjectAssetEntry } from '../../map-ops/asset-catalog';
 import type { BiomeDef } from '../ops/landscape/biomes';
 import { hashCell } from '../../map-ops/landscape-noise';
@@ -81,7 +82,11 @@ export class ThumbnailRenderer {
 
   constructor(
     private readonly onPicture: () => void,
-    private readonly library = MapAssetLibrary.shared(),
+    /**
+     * Its own, not the page's (MapAssetLibrary.shared): this renderer has a context of its own, and the
+     * library's textures keep no pixels past their upload to one; emptied with the context (release)
+     */
+    private readonly library = new MapAssetLibrary(mapDataUrl(DEFAULT_ASSET_BASE)),
   ) {
     this.scene.add(new HemisphereLight(0xdfe8ff, 0x4a4030, 2.2), new AmbientLight(0xffffff, 0.5));
     const sun = new DirectionalLight(0xfff2dd, 2.4);
@@ -120,6 +125,7 @@ export class ThumbnailRenderer {
     this.swatches.plain.dispose();
     this.swatches.textured.dispose();
     this.uploaded = new WeakSet();
+    this.library.clear();
     const renderer = this.renderer;
     this.renderer = null;
     if (renderer) {

@@ -18,7 +18,8 @@ describe('thumbnail renderer', () => {
   });
 
   it('gives its GPU context back when the editor goes and keeps the pictures; a new one comes only when asked for', () => {
-    const thumbs = new ThumbnailRenderer(() => undefined, {} as MapAssetLibrary);
+    const library = { clear: vi.fn() };
+    const thumbs = new ThumbnailRenderer(() => undefined, library as unknown as MapAssetLibrary);
     const inside = thumbs as unknown as { renderer: unknown; pictures: Map<string, string>; queued: Set<string>; gl: unknown };
     const renderer = { dispose: vi.fn(), forceContextLoss: vi.fn() };
     inside.renderer = renderer;
@@ -27,6 +28,8 @@ describe('thumbnail renderer', () => {
     vi.useFakeTimers();
     thumbs.release();
     expect(renderer.dispose).toHaveBeenCalled();
+    // Its models' textures went with the context (they keep no pixels past the upload): loaded again for the next
+    expect(library.clear).toHaveBeenCalled();
     // Its context goes once the next view stands (context-release.ts)
     expect(renderer.forceContextLoss).not.toHaveBeenCalled();
     settleContexts();
