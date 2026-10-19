@@ -747,7 +747,7 @@ siege: {
 },
 crabGait: {
   sideAnimation: 'Scuttle',       // Clip zur linken Seite des Körpers, Schritt und Takt wie walkAnimation
-  turnRate: 0.8,                  // rad je Sekunde Spielzeit, von einer Seite zur anderen
+  turnRate: 1.2,                  // rad je Sekunde Spielzeit, von einer Seite zur anderen
   reverseFootstepPhases: [0, 0.5], // Clip-Phasen, an denen rückwärts ein Fuß aufsetzt
 },
 ```

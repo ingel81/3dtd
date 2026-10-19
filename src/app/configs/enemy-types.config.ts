@@ -1605,8 +1605,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     crabGait: {
       // Scuttle: Walk's legs stepping across (tools/blender/jumper_boss.py); its pairs lift at 0 and 0.5
       sideAnimation: 'Scuttle',
-      // Half a turn, one side to the other, in about 4 s
-      turnRate: 0.8,
+      // Half a turn, one side to the other, in about 2.6 s: in a street it turns to a target on each side in turn
+      turnRate: 1.2,
       reverseFootstepPhases: [0, 0.5],
     },
     previewScale: 1.25,
