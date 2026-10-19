@@ -20,7 +20,7 @@ describe('CoverMap', () => {
         ['tree', tree],
       ]),
     );
-    const top = (i: number, j: number): number => (cover.texture.image.data as Float32Array)[(j * n + i) * 2];
+    const top = (i: number, j: number): number => (cover.texture.image.data as Float32Array)[j * n + i];
     expect(top(10, 10)).toBe(11); // map (0, 0): ground 3 + roof 8
     expect(top(0, 0)).toBe(3);
     expect(top(15, 15)).toBe(3); // trees let rain through
@@ -46,7 +46,7 @@ describe('CoverMap', () => {
       cliffAngle: 40,
       cliffMaterial: 'rock',
     });
-    const top = (i: number, j: number): number => (cover.texture.image.data as Float32Array)[(j * n + i) * 2];
+    const top = (i: number, j: number): number => (cover.texture.image.data as Float32Array)[j * n + i];
     expect(top(2, 2)).toBe(4); // the lake's sample
     expect(top(3, 3)).toBe(3);
     expect(top(15, 10)).toBe(5); // on the river line at map x 10
@@ -72,10 +72,10 @@ describe('CoverMap', () => {
       ]),
     );
     // Map (x, y) sits at sample (x + 10, y + 10)
-    const rim = (x: number, y: number): number => (cover.texture.image.data as Float32Array)[((y + 10) * n + x + 10) * 2 + 1];
+    const rim = (x: number, y: number): number => ((cover.rim.image.data as Uint8Array)[(y + 10) * n + x + 10] / 255) * COVER_RIM;
     expect(rim(0, 0)).toBe(0);
-    expect(rim(0, 2)).toBeCloseTo(1, 6); // a metre off the long side
-    expect(rim(4, 0)).toBeCloseTo(2, 6); // two off the short side
+    expect(rim(0, 2)).toBeCloseTo(1, 1); // a metre off the long side
+    expect(rim(4, 0)).toBeCloseTo(2, 1); // two off the short side
     expect(rim(0, 9)).toBe(COVER_RIM); // further than the rim reaches
     expect(rim(-8, -8)).toBe(COVER_RIM); // a fence keeps no rim
     cover.dispose();

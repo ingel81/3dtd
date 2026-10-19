@@ -1,4 +1,4 @@
-import { ClampToEdgeWrapping, DataTexture, FloatType, NearestFilter, NoColorSpace, RGFormat, Vector2, Vector4 } from 'three';
+import { ClampToEdgeWrapping, DataTexture, FloatType, NearestFilter, NoColorSpace, RedFormat, UnsignedByteType, Vector2, Vector4 } from 'three';
 import type { MapObject, MapTerrain } from '../../map-document';
 import type { CatalogObject } from '../asset-catalog';
 import { massContains, massDistance, massOf, massRadius, massTop } from '../../object-mass';
@@ -15,18 +15,20 @@ export const COVER_RIM = 3;
  * particles below it are not drawn, so it does not rain indoors or through
  * the ground; grass grows only where the top is the ground itself. Coarse
  * by design (the grid's cells, a footprint circle per object, a raised
- * building's outline). The second channel holds how far the sample lies
- * from the nearest ground of a building, structure, standing wall or rock
- * (its rectangle or outline where it has one), up to COVER_RIM: grass grows
- * shorter towards it.
+ * building's outline). A second texture (`rim`, a byte per sample) holds
+ * how far the sample lies from the nearest ground of a building,
+ * structure, standing wall or rock (its rectangle or outline where it has
+ * one), up to COVER_RIM: grass grows shorter towards it. A byte is 1.2 cm
+ * of it; in the top's float texture it held 5.8 MB more on an OSM world.
  */
 export class CoverMap {
   readonly texture: DataTexture;
+  /** Metres to the nearest footprint per sample, over COVER_RIM in 255 steps (normalised: 1 is COVER_RIM or more) */
+  readonly rim: DataTexture;
   private readonly tops: Float32Array;
   /** Metres to the nearest footprint, per sample */
   private readonly rims: Float32Array;
-  /** Top and rim interleaved, as the texture holds them */
-  private readonly data: Float32Array;
+  private readonly rimBytes: Uint8Array;
   /** Uniforms for a shader that includes COVER_GLSL; uCoverFrame xy is the map group's scene offset */
   readonly uniforms: {
     uCover: { value: DataTexture };
@@ -38,8 +40,15 @@ export class CoverMap {
   constructor(private readonly field: HeightField) {
     this.tops = new Float32Array(field.columns * field.rows);
     this.rims = new Float32Array(field.columns * field.rows);
-    this.data = new Float32Array(field.columns * field.rows * 2);
-    this.texture = new DataTexture(this.data, field.columns, field.rows, RGFormat, FloatType);
+    this.rimBytes = new Uint8Array(field.columns * field.rows);
+    this.texture = new DataTexture(this.tops, field.columns, field.rows, RedFormat, FloatType);
+    this.rim = new DataTexture(this.rimBytes, field.columns, field.rows, RedFormat, UnsignedByteType);
+    for (const t of [this.rim]) {
+      t.colorSpace = NoColorSpace;
+      t.magFilter = t.minFilter = NearestFilter;
+      t.wrapS = t.wrapT = ClampToEdgeWrapping;
+      t.generateMipmaps = false;
+    }
     this.texture.colorSpace = NoColorSpace;
     this.texture.magFilter = this.texture.minFilter = NearestFilter;
     this.texture.wrapS = this.texture.wrapT = ClampToEdgeWrapping;
@@ -94,11 +103,9 @@ export class CoverMap {
       }
     }
     if (bare) for (let k = 0; k < bare.length; k++) if (bare[k]) this.rims[k] = 0;
-    for (let k = 0; k < this.tops.length; k++) {
-      this.data[k * 2] = this.tops[k];
-      this.data[k * 2 + 1] = this.rims[k];
-    }
+    for (let k = 0; k < this.rims.length; k++) this.rimBytes[k] = Math.round((Math.min(this.rims[k], COVER_RIM) / COVER_RIM) * 255);
     this.texture.needsUpdate = true;
+    this.rim.needsUpdate = true;
   }
 
   /** The distance of the samples round an object to its ground (outline, rectangle or footprint disc) into the rims */
@@ -171,6 +178,7 @@ export class CoverMap {
 
   dispose(): void {
     this.texture.dispose();
+    this.rim.dispose();
   }
 }
 

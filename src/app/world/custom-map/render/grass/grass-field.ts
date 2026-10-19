@@ -12,7 +12,7 @@ import {
 } from 'three';
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
-import type { CoverMap } from '../environment/cover-map';
+import { COVER_RIM, type CoverMap } from '../environment/cover-map';
 import { MAX_FAR_GRASS_BLADES, MAX_GRASS_BLADES } from '../../../../three-engine/render-quality';
 import { addHeightFog } from '../environment/height-fog';
 import { WIND_GLSL, WIND_UNIFORMS } from '../environment/wind';
@@ -163,6 +163,8 @@ export class GrassField {
     /** Per splat channel the blades of its layer: height from and to, width, seed heads (0 or 1), metres */
     uGrassBlades: { value: Array.from({ length: 12 }, () => new Vector4(DEFAULT_BLADES.height[0], DEFAULT_BLADES.height[1], DEFAULT_BLADES.width, 1)) },
     uGrassCover: { value: null as Texture | null },
+    /** The cover's distance to the nearest footprint (CoverMap.rim), 1 for COVER_RIM */
+    uGrassRim: { value: null as Texture | null },
     uGrassHasCover: { value: 0 },
     /** Wider blades at a lower density (setBlades), so the meadow keeps its cover */
     uGrassWidth: { value: 1 },
@@ -255,6 +257,7 @@ export class GrassField {
   /** Footprints and water surfaces (the CoverMap shares the height grid) */
   setCover(cover: CoverMap): void {
     this.uniforms.uGrassCover.value = cover.texture;
+    this.uniforms.uGrassRim.value = cover.rim;
     this.uniforms.uGrassHasCover.value = 1;
   }
 
@@ -304,6 +307,7 @@ uniform vec4 uGrassMask0;
 uniform vec4 uGrassMask1;
 uniform vec4 uGrassBlades[12];
 uniform sampler2D uGrassCover;
+uniform sampler2D uGrassRim;
 uniform float uGrassHasCover;
 uniform float uGrassWidth;
 varying vec3 vBladeColor;
@@ -324,7 +328,7 @@ float grassFade(vec2 p, vec2 center, float tile) {
 }
 
 // x: 1 where something stands on the ground or water lies over it, 0 on open ground; y: metres to the nearest
-// footprint of a building, wall or rock (CoverMap's second channel); bilinear over the grid
+// footprint of a building, wall or rock (CoverMap.rim); bilinear over the grid
 vec2 grassCovered(vec2 m) {
   if (uGrassHasCover < 0.5) return vec2(0.0, 1e3);
   vec2 g = (m - uTerrainGrid.xy) / uTerrainGrid.z;
@@ -334,8 +338,7 @@ vec2 grassCovered(vec2 m) {
   vec2 c[4];
   for (int k = 0; k < 4; k++) {
     ivec2 p = clamp(ivec2(g0) + ivec2(k & 1, k >> 1), ivec2(0), hi);
-    vec2 cover = texelFetch(uGrassCover, p, 0).rg;
-    c[k] = vec2(step(0.05, cover.r - texelFetch(uTerrainHeights, p, 0).r), cover.g);
+    c[k] = vec2(step(0.05, texelFetch(uGrassCover, p, 0).r - texelFetch(uTerrainHeights, p, 0).r), texelFetch(uGrassRim, p, 0).r * ${COVER_RIM.toFixed(1)});
   }
   return mix(mix(c[0], c[1], fr.x), mix(c[2], c[3], fr.x), fr.y);
 }
