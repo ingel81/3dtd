@@ -399,6 +399,11 @@ aussieht wie beim ersten Mal (die geteilten Texturen und Materialien laden je We
   Gegnern, Schaum am Ufer, Lava und Wasserwellen wie beim ersten Mal; Vorschaubilder der Seitenleiste da; keine
   schwarzen oder weißen Flächen.*
 - **J2 Editor und Test:** Demo Valley im Editor, Test, zurück, zweimal. *Paletten-Bilder, Wasser und Gelände wie vorher.*
+- **J3 Ladeschirm:** Demo Valley kalt laden (F5). *Nach dem Korridor steht „Compiling Shaders“ mit hochzählendem
+  „x / y“, nicht sekundenlang „Preparing Intro Flight“; die Schritte springen ohne spürbare Pausen.*
+- **J4 Gelände und Wasser aus dem Worker:** eine OSM-Welt (Miltenberg) und Ember Crater laden. *Mulden und Hangfüße
+  dunkler, Rinnen grüner, Ufer mit Schaum und Strömung, Lava-Rand erkaltet und glüht wie vorher; kein Moment mit
+  hellem, flachem Boden nach dem Ladeschirm.*
 
 ## Eichtabelle
 
