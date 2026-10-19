@@ -470,7 +470,10 @@ describe('CustomMapWorld', () => {
     doc.gameplay = { craters: true };
     const craters = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
     craters.useCatalog(catalog);
-    expect(craters.destruction).toBeNull();
+    // No structure falls there, but the ground takes the craters on the run's own heights
+    expect(craters.destruction!.structures()).toEqual([]);
+    expect(craters.destruction!.ground).not.toBeNull();
+    expect(craters.doc.terrain.grid.heights).not.toBe(doc.terrain.grid.heights);
     expect(craters.runRules()!.destruction).toEqual({ craters: true, wear: false });
   });
 

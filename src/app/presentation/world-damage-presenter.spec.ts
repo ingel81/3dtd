@@ -71,6 +71,31 @@ describe('WorldDamagePresenter (docs/DESTRUCTION_PLAN.md)', () => {
     presenter.destroy();
   });
 
+  it("hands every stamp to the world's drawn ground, and the towers that hold it", () => {
+    const drawn = { crater: vi.fn(), rubble: vi.fn(), clear: vi.fn(), holdTower: vi.fn(), releaseTower: vi.fn() };
+    const tower = { id: 't1', position: { lat: 2 / M, lon: 3 / M } };
+    let listener: ((change: { kind: 'state' | 'removed'; tower: typeof tower }) => void) | null = null;
+    const towers = { towers: () => [tower], onTowerChange: (l: typeof listener) => ((listener = l), () => undefined) };
+    const engine = {
+      world: { capabilities: { destructible: true }, destruction: { structures: () => [], setStages: vi.fn(), setStage: vi.fn(), ground: drawn }, runRules: () => ({ structures: [BARN] }) },
+      effects: { spawnExplosion: vi.fn() },
+      sync: { geoToLocalSimple: () => ({ x: 0, y: 0, z: 0 }), geoToLocalSimpleInto: (_a: number, _b: number, _h: number, out: Vector3) => out.set(0, 0, 0) },
+      getTerrainHeightAtGeo: () => 0,
+    };
+    const presenter = new WorldDamagePresenter(engine as never, createMainEventBus(), null, towers as never);
+    presenter.setStages(new Uint8Array([0]));
+    expect(drawn.clear).toHaveBeenCalledTimes(1);
+    expect(drawn.holdTower).toHaveBeenCalledWith('t1', expect.closeTo(3, 6), expect.closeTo(2, 6));
+    presenter.setStage(0, 3);
+    expect(drawn.rubble).toHaveBeenCalledWith(BARN, 1);
+    presenter.dig(0, 10, 20, 15, 21);
+    presenter.dig(0, 10, 20, 15, 42);
+    expect(drawn.crater.mock.calls).toEqual([[10, 20, 15, 21, 1], [10, 20, 15, 21, -1], [10, 20, 15, 42, 1]]);
+    listener!({ kind: 'removed', tower });
+    expect(drawn.releaseTower).toHaveBeenCalledWith('t1');
+    presenter.destroy();
+  });
+
   it('stays out of a world where nothing falls', () => {
     const { destruction, engine, presenter } = setup(false);
     presenter.setStages(new Uint8Array([3]));

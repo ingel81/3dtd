@@ -1,4 +1,4 @@
-import type { WorldDestruction, WorldStructure } from '../world-provider';
+import type { WorldDestruction, WorldGroundDamage, WorldStructure } from '../world-provider';
 import { RUN_STRUCTURE_ROUNDING, type RunStructure } from '../../sim/protocol/run-rules';
 import { presetHp, type StructureStage } from '../../configs/destruction.config';
 import { type CustomMapDocument, type MapObject, MAP_METERS_PER_DEGREE, STRUCTURE_HP_SCALE } from './map-document';
@@ -81,6 +81,10 @@ export class CustomMapDestruction implements WorldDestruction {
     private readonly doc: () => Pick<CustomMapDocument, 'objects' | 'gameplay'>,
     private readonly fall: (fallen: readonly MapObject[]) => void,
     private readonly rise: (risen: readonly MapObject[]) => void,
+    /** Its buildings, walls and structures fall; a map that only digs craters has none that do */
+    private readonly structuresFall = true,
+    /** The ground the craters and the rubble go into (custom-map-ground-damage.ts), null for none */
+    readonly ground: WorldGroundDamage | null = null,
   ) {}
 
   /** The catalogue's entries: from now on the map's buildings, walls and structures take damage */
@@ -93,6 +97,7 @@ export class CustomMapDestruction implements WorldDestruction {
       ? Math.min(STRUCTURE_HP_SCALE.max, Math.max(STRUCTURE_HP_SCALE.min, asked))
       : STRUCTURE_HP_SCALE.normal) / 100;
     this.list = [];
+    if (!this.structuresFall) return;
     for (const object of doc.objects) {
       const entry = byId.get(object.asset);
       if (!entry || !DESTRUCTIBLE_CATEGORIES.has(entry.category) || object.scale <= FALLEN_SCALE) continue;

@@ -190,3 +190,34 @@ export function rubbleStampOf(s: RunStructure, toLocal: ToLocal): RubbleStamp {
     peakCm,
   };
 }
+
+/** A heap of rubble in map metres (the ground's own frame, x east as the map has it): RubbleStamp's numbers, `z` the map's y */
+export type RubbleShape = RubbleStamp;
+
+/** The heap of rubbleStampOf in map metres, for the ground the main thread draws (custom-map-ground-damage.ts) */
+export function rubbleShapeOf(s: RunStructure): RubbleShape {
+  return rubbleStampOf(s, (lat, lon, out) => {
+    out.x = lon * MAP_METERS_PER_DEGREE;
+    out.z = lat * MAP_METERS_PER_DEGREE;
+  });
+}
+
+/**
+ * Centimetres heap `shape` (rubbleShapeOf) raises map point (`x`, `y`):
+ * the same as StampField's local rubbleHeap, the map's x being local -x
+ */
+export function rubbleCmAt(shape: RubbleShape, x: number, y: number): number {
+  const dx = x - shape.x;
+  const dy = y - shape.z;
+  const mx = Math.max(0, Math.abs(-dx * shape.cos - dy * shape.sin) - shape.coreX);
+  const mz = Math.max(0, Math.abs(-dx * shape.sin + dy * shape.cos) - shape.coreZ);
+  return rubbleCm(mx * mx + mz * mz, shape.falloff, shape.peakCm);
+}
+
+/** How far heap `shape` reaches from its middle along each axis, m (the box of samples it touches) */
+export function rubbleReach(shape: RubbleShape): { x: number; z: number } {
+  return {
+    x: Math.abs(shape.cos) * shape.coreX + Math.abs(shape.sin) * shape.coreZ + shape.falloff,
+    z: Math.abs(shape.sin) * shape.coreX + Math.abs(shape.cos) * shape.coreZ + shape.falloff,
+  };
+}

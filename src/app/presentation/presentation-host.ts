@@ -21,7 +21,7 @@ import { FramePresenter } from './frame-presenter';
 import { TowerLoopSounds } from './tower-loop-sounds';
 import { FLAME_SOUND, LASER_SOUND, SAW_SOUND, STREAM_SOUND } from './combat-sounds';
 import { HqDamagePresenter } from './hq-damage-presenter';
-import { WorldDamagePresenter, type StampGround } from './world-damage-presenter';
+import { WorldDamagePresenter, type StampGround, type TowerSource } from './world-damage-presenter';
 import type { StructureStage } from '../configs/destruction.config';
 import { DEFAULT_RUN_RULES } from '../sim/protocol/run-rules';
 import { registerCombatSounds } from './combat-sounds';
@@ -46,6 +46,8 @@ export interface PresentationHostOptions {
   ground: ScorchGround;
   /** The same grid, whose sight probes stand on the craters and rubble the simulation's enemies walk on */
   stampGround?: StampGround;
+  /** The mirror's towers: the drawn ground under them holds when craters and rubble come (WorldDamagePresenter) */
+  towers?: TowerSource;
 }
 
 /**
@@ -85,7 +87,7 @@ export class PresentationHost implements SimPresenterApi {
   private readonly towerAt = new Vector3();
 
   constructor(options: PresentationHostOptions) {
-    const { engine, bus, source, ground, stampGround } = options;
+    const { engine, bus, source, ground, stampGround, towers } = options;
     this.engine = engine;
 
     if (engine.spatialAudio) registerCombatSounds(engine.spatialAudio);
@@ -101,7 +103,7 @@ export class PresentationHost implements SimPresenterApi {
     this.bloodMoon = new BloodMoonService(bus, engine.bloodMoon);
     this.hq = new HqDamagePresenter(engine, bus, () => (engine.world.runRules() ?? DEFAULT_RUN_RULES).hqHealth);
     this.manualShots = new ManualShots(bus, source);
-    this.worldDamage = new WorldDamagePresenter(engine, bus, stampGround ?? null);
+    this.worldDamage = new WorldDamagePresenter(engine, bus, stampGround ?? null, towers ?? null);
 
     // Scorch marks sit on route cells at the grid's ground height, the hero
     // and the foot of the orbital laser's beam stand on it like the enemies

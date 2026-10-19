@@ -19,7 +19,7 @@ import type { NearestStreetPoint, Street, StreetNetwork, StreetNode } from '../i
 import type { RandomSpawnCandidate } from '../models/location.types';
 import type { BuildingData } from '../services/location/osm-street.service';
 import type { WorldRef } from './world-ref';
-import type { RunRules } from '../sim/protocol/run-rules';
+import type { RunRules, RunStructure } from '../sim/protocol/run-rules';
 import type { WorldCoverage } from './world-coverage';
 import type { WaveSourceId } from '../director/wave-source';
 import type { QualityKnobs } from '../three-engine/render-quality';
@@ -485,6 +485,25 @@ export interface WorldDestruction {
   setStages(stages: Uint8Array): void;
   /** Structure `index` reached `stage` by damage just now */
   setStage(index: number, stage: StructureStage): void;
+  /** The ground that takes the craters and the rubble, drawn; null where the world's ground stays as built */
+  readonly ground: WorldGroundDamage | null;
+}
+
+/**
+ * The drawn ground of a world that takes damage (docs/DESTRUCTION_PLAN.md,
+ * Z4): the presenter hands it every stamp as the simulation has it (map dm
+ * and cm for a crater as CraterLedger keeps it, the run rules' structure for
+ * a heap of rubble), each added (1) or taken away (-1), and the towers that
+ * hold the ground under them. The world writes it over frames.
+ */
+export interface WorldGroundDamage {
+  crater(xDm: number, yDm: number, rDm: number, depthCm: number, sign: 1 | -1): void;
+  rubble(structure: RunStructure, sign: 1 | -1): void;
+  /** Every stamp off, every hold let go */
+  clear(): void;
+  /** Map metres */
+  holdTower(id: string, x: number, y: number): void;
+  releaseTower(id: string): void;
 }
 
 /**

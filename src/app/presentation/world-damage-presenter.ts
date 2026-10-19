@@ -2,7 +2,10 @@ import { isDevMode } from '@angular/core';
 import { Vector3 } from 'three';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { MainEventBus } from '../sim/client/view-events';
-import type { WorldDestruction } from '../world/world-provider';
+import type { WorldDestruction, WorldGroundDamage } from '../world/world-provider';
+import type { Tower } from '../entities/tower.entity';
+import type { TowerChange } from '../sim/client/mirror/sim-mirror';
+import { MAP_METERS_PER_DEGREE } from '../world/custom-map/map-document';
 import type { RunStructure } from '../sim/protocol/run-rules';
 import type { StructureStage } from '../configs/destruction.config';
 import { CRATER_STRIDE } from '../managers/game-state/crater-ledger';
@@ -16,6 +19,12 @@ export interface StampGround {
   setStampField(field: StampField | null): void;
   /** Hear when the cells are built anew or dropped; returns the unsubscribe */
   onCellsChanged(listener: () => void): () => void;
+}
+
+/** The towers as the main thread mirrors them: the ground under them holds (WorldGroundDamage.holdTower) */
+export interface TowerSource {
+  towers(): readonly Tower[];
+  onTowerChange(listener: (change: TowerChange) => void): () => void;
 }
 
 /** What the DevTools hit takes by default: a point, and as much as a rocket */
@@ -56,13 +65,26 @@ export class WorldDamagePresenter {
   private readonly local = new Vector3();
   private readonly toLocal: ToLocal;
   private readonly unsubscribe: (() => void) | null;
+  private readonly unsubscribeTowers: (() => void) | null;
+  /** The world's drawn ground under craters and rubble, null where it stays as built */
+  private readonly drawn: WorldGroundDamage | null;
 
   constructor(
     private readonly engine: DamageEngine,
     bus: MainEventBus,
     private readonly ground: StampGround | null = null,
+    private readonly towerSource: TowerSource | null = null,
   ) {
     this.destruction = engine.world.capabilities.destructible ? engine.world.destruction : null;
+    this.drawn = this.destruction?.ground ?? null;
+    const drawn = this.drawn;
+    this.unsubscribeTowers = drawn && towerSource
+      ? towerSource.onTowerChange((change) => {
+        const t = change.tower;
+        if (change.kind === 'removed') drawn.releaseTower(t.id);
+        else drawn.holdTower(t.id, t.position.lon * MAP_METERS_PER_DEGREE, t.position.lat * MAP_METERS_PER_DEGREE);
+      })
+      : null;
     this.toLocal = (lat, lon, out) => {
       const at = this.engine.sync.geoToLocalSimpleInto(lat, lon, 0, this.local);
       out.x = at.x;
@@ -97,6 +119,7 @@ export class WorldDamagePresenter {
     this.destruction?.setStage(index, stage);
     const s = this.runStructures()[index];
     if (stage !== 3 || was === 3 || !s) return;
+    this.drawn?.rubble(s, 1);
     // A field made now stamps its rubble with the rest
     if (this.field) this.field.rubbleHeap(rubbleStampOf(s, this.toLocal), 1);
     else this.restamp(this.newField());
@@ -115,6 +138,7 @@ export class WorldDamagePresenter {
     if (k < this.craters.length) {
       const c = this.craters;
       field?.crater(craterStampOf(c[k], c[k + 1], c[k + 2], c[k + 3], this.toLocal), -1);
+      this.drawn?.crater(c[k], c[k + 1], c[k + 2], c[k + 3], -1);
     } else {
       const grown = new Int32Array(k + CRATER_STRIDE);
       grown.set(this.craters);
@@ -122,6 +146,7 @@ export class WorldDamagePresenter {
     }
     this.craters.set([x, y, radius, depth], k);
     field?.crater(craterStampOf(x, y, radius, depth, this.toLocal), 1);
+    this.drawn?.crater(x, y, radius, depth, 1);
   }
 
   /** A structure fell just now (op `main.structureFell`): it goes up in an explosion of its size */
@@ -148,8 +173,23 @@ export class WorldDamagePresenter {
     return (this.structures ??= this.engine.world.runRules()?.structures ?? []);
   }
 
+  /** The drawn ground as everything stands now: every stamp anew, the standing towers holding it */
+  private redraw(): void {
+    const drawn = this.drawn;
+    if (!drawn) return;
+    drawn.clear();
+    const list = this.runStructures();
+    for (let i = 0; i < this.stages.length && i < list.length; i++) if (this.stages[i] === 3) drawn.rubble(list[i], 1);
+    const c = this.craters;
+    for (let k = 0; k + CRATER_STRIDE <= c.length; k += CRATER_STRIDE) drawn.crater(c[k], c[k + 1], c[k + 2], c[k + 3], 1);
+    for (const t of this.towerSource?.towers() ?? []) {
+      drawn.holdTower(t.id, t.position.lon * MAP_METERS_PER_DEGREE, t.position.lat * MAP_METERS_PER_DEGREE);
+    }
+  }
+
   /** The field as everything stands now, as WorldDamage builds it: none where the ground lies as built */
   private rebuild(): void {
+    this.redraw();
     const fallen = this.stages.indexOf(3) >= 0;
     if (!fallen && this.craters.length === 0) this.useField(null);
     else this.restamp(this.field ?? this.newField());
@@ -184,6 +224,7 @@ export class WorldDamagePresenter {
 
   destroy(): void {
     this.unsubscribe?.();
+    this.unsubscribeTowers?.();
     this.useField(null);
     const global = globalThis as Record<string, unknown>;
     if (this.debugApi && global['__worldDamage'] === this.debugApi) delete global['__worldDamage'];

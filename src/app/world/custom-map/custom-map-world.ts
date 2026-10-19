@@ -30,6 +30,7 @@ import { MapGroundPick } from './custom-map-ground-pick';
 import { type CustomMapDocument, type MapEnvironment, type MapObject, difficultyFactor, geoToMap, mapToGeo } from './map-document';
 import { environmentAt, hiddenObjectsAt, messagesOf } from './wave-events';
 import { CustomMapDestruction, FALLEN_SCALE, passingObjectIds, type StructureEntry } from './custom-map-destruction';
+import { CustomMapGroundDamage } from './custom-map-ground-damage';
 import { renderMinimapPicture } from './custom-map-minimap';
 import { MapStore } from './map-store';
 import type { MapAssetLibrary } from './render/map-asset-library';
@@ -179,6 +180,12 @@ export class CustomMapWorld implements WorldProvider {
   readonly doc: CustomMapDocument;
   /** Its buildings, walls and structures that fall; null unless the map says so (gameplay.destructible) */
   readonly destruction: CustomMapDestruction | null;
+  /** Buildings, walls and structures fall (gameplay.destructible) */
+  private readonly structuresFall: boolean;
+  /** Impacts dig craters (gameplay.craters, as destructible when missing) */
+  private readonly cratersDug: boolean;
+  /** The run's ground under craters and rubble, null where it stays as built */
+  private readonly groundDamage: CustomMapGroundDamage | null;
 
   private view: CustomMapView | null = null;
   /** The quality level's custom-map part, kept for a view made after it came */
@@ -235,14 +242,29 @@ export class CustomMapWorld implements WorldProvider {
     /** The wave runs start at (customMapStartWave), 1 for a normal run */
     private readonly startWave = 1,
   ) {
-    // A fallen object, one a wave event hides and a sky the events change leave the run's own copy, never the opened map
+    // A fallen object, one a wave event hides and a sky the events change leave the run's own copy, never the opened
+    // map; so do the heights the craters and the rubble change
     const events = map.doc.gameplay?.events ?? [];
-    this.doc = destructible || events.length ? { ...map.doc, objects: map.doc.objects.map((o) => ({ ...o })) } : map.doc;
+    this.structuresFall = destructible;
+    this.cratersDug = map.doc.gameplay?.craters ?? destructible;
+    const damaged = destructible || this.cratersDug;
+    const terrain = map.doc.terrain;
+    this.doc = destructible || damaged || events.length
+      ? {
+        ...map.doc,
+        objects: map.doc.objects.map((o) => ({ ...o })),
+        ...(damaged ? { terrain: { ...terrain, grid: { ...terrain.grid, heights: terrain.grid.heights.slice() } } } : {}),
+      }
+      : map.doc;
     this.baseEnvironment = map.doc.environment;
-    this.capabilities = destructible ? { ...CUSTOM_MAP_CAPABILITIES, destructible: true } : CUSTOM_MAP_CAPABILITIES;
+    this.capabilities = damaged ? { ...CUSTOM_MAP_CAPABILITIES, destructible: true } : CUSTOM_MAP_CAPABILITIES;
     this.laneChoice = laneChoiceOf(this.doc.spawns, this.doc.gameplay, spawnLimit);
-    this.destruction = destructible
-      ? new CustomMapDestruction(() => this.doc, (fallen) => this.fell(fallen), (risen) => this.rose(risen))
+    const ground = damaged
+      ? new CustomMapGroundDamage(this.doc.terrain.grid, this.doc.terrain.width, this.doc.terrain.depth, (rect) => this.view?.updateHeights(rect))
+      : null;
+    this.groundDamage = ground;
+    this.destruction = damaged
+      ? new CustomMapDestruction(() => this.doc, (fallen) => this.fell(fallen), (risen) => this.rose(risen), destructible, ground)
       : null;
     this.sync = new EllipsoidSync(origin.lat, origin.lon, origin.height);
     this.frame.setOrigin(origin.lat, origin.lon);
@@ -392,6 +414,8 @@ export class CustomMapWorld implements WorldProvider {
     // A ray past a ridge into the sky (or from beyond the map) hits nothing: the box goes on the ground ahead,
     // not around the camera in the air, where no tree cast and every shadow went at once
     if (!this.surface.groundAlong(this.focus, this.lookDirection, this.focus)) this.surface.groundAhead(this.focus, this.lookDirection, this.focus);
+    // The craters and the rubble of the last frames, a few tiles at a time
+    this.groundDamage?.flush();
     this.view.update(dt, camera, this.focus);
     this.hear(dt, camera);
   }
@@ -483,7 +507,7 @@ export class CustomMapWorld implements WorldProvider {
     // A destructible map's structures: the simulation keeps their HP (TODO E131)
     const structures = this.destruction?.asRunStructures() ?? [];
     // Craters where the map is destructible unless it says no, or where it asks for them alone
-    const destruction = { craters: play?.craters ?? this.destruction !== null, wear: this.destruction !== null && play?.wear === true };
+    const destruction = { craters: this.cratersDug, wear: this.structuresFall && play?.wear === true };
     const damaged = destruction.craters || destruction.wear;
     const start = this.runStart();
     const events = this.runEvents();
