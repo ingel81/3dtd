@@ -91,16 +91,22 @@ describe('EngineInitializationService loading steps', () => {
 });
 
 describe('EngineInitializationService shaders compiled ahead', () => {
-  it('shows them under their own step with the count, then marks it done and asks about loading again', () => {
+  it('shows them under their own step with the count as they begin, then marks it done and asks about loading again', () => {
     vi.useFakeTimers();
     const init = create();
-    let progress: { ready: number; total: number } | null = { ready: 3, total: 10 };
+    let progress: { ready: number; total: number } | null = null;
     init.setEngine({ compileProgress: () => progress } as never);
     const recheck = vi.fn();
-    (init as unknown as { recheck: () => void }).recheck = recheck;
+    const inside = init as unknown as { recheck: () => void; watchCompile(): void };
+    inside.recheck = recheck;
+    inside.watchCompile();
     const shaders = () => init.loadingSteps().find((s) => s.id === 'shaders')!;
 
-    expect(init.compilingAhead()).toBe(true);
+    // Nothing compiles yet: the step waits
+    vi.advanceTimersByTime(250);
+    expect(shaders().status).toBe('pending');
+    progress = { ready: 3, total: 10 };
+    vi.advanceTimersByTime(250);
     expect(shaders()).toMatchObject({ status: 'current', meta: '3 / 10' });
     progress = { ready: 8, total: 12 };
     vi.advanceTimersByTime(250);
@@ -108,9 +114,10 @@ describe('EngineInitializationService shaders compiled ahead', () => {
     expect(recheck).not.toHaveBeenCalled();
     progress = null;
     vi.advanceTimersByTime(250);
-    expect(shaders().status).toBe('done');
+    expect(shaders()).toMatchObject({ status: 'done', meta: '8 / 12' });
     expect(recheck).toHaveBeenCalledTimes(1);
-    // Nothing left to read
+    // Loading ends: no more looks
+    init.loading.set(false);
     vi.advanceTimersByTime(1000);
     expect(recheck).toHaveBeenCalledTimes(1);
     vi.useRealTimers();

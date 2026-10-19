@@ -164,26 +164,37 @@ export class EngineInitializationService {
   /**
    * Whether programs compile ahead of the first frame (the engine's models,
    * a custom map's scene): the loading screen shows it under its own step
-   * meanwhile, with the count of programs ready, read again every
-   * COMPILE_POLL_MS; once they are in the step is done and loading is asked
-   * about again (initEngine's onCheckAllLoaded).
+   * meanwhile, with the count of programs ready; once they are in the step
+   * is done. Before a compile began the step waits.
    */
   compilingAhead(): boolean {
     const progress = this.engine?.compileProgress() ?? null;
     const step = this.loadingSteps().find((s) => s.id === 'shaders');
-    if (!progress) {
-      if (this.compilePoll !== null) clearTimeout(this.compilePoll);
-      this.compilePoll = null;
-      if (step && step.status !== 'done') void this.setStepDone('shaders');
-      return false;
+    if (progress) {
+      if (step?.status !== 'current') void this.setStepCurrent('shaders');
+      this.updateStepMeta('shaders', `${progress.ready} / ${progress.total}`);
+      return true;
     }
-    if (step?.status !== 'current') void this.setStepCurrent('shaders');
-    this.updateStepMeta('shaders', `${progress.ready} / ${progress.total}`);
-    this.compilePoll ??= setTimeout(() => {
+    if (step?.status === 'current') void this.setStepDone('shaders', step.meta);
+    return false;
+  }
+
+  /**
+   * While the world loads, compilingAhead every COMPILE_POLL_MS: a compile
+   * begins and ends without a call of its own (the map's after its assets,
+   * the models' after the first ground), and once one ended loading is asked
+   * about again (initEngine's onCheckAllLoaded)
+   */
+  private watchCompile(): void {
+    if (this.compilePoll !== null) clearTimeout(this.compilePoll);
+    const tick = (): void => {
       this.compilePoll = null;
-      if (!this.compilingAhead()) this.recheck?.();
-    }, COMPILE_POLL_MS);
-    return true;
+      if (!this.loading() || !this.engine) return;
+      const was = this.loadingSteps().find((s) => s.id === 'shaders')?.status === 'current';
+      if (!this.compilingAhead() && was) this.recheck?.();
+      this.compilePoll = setTimeout(tick, COMPILE_POLL_MS);
+    };
+    this.compilePoll = setTimeout(tick, COMPILE_POLL_MS);
   }
 
   /**
@@ -296,6 +307,7 @@ export class EngineInitializationService {
       this.building = this.engine;
       // The game's sound files once the world stands (checkAllLoaded), or as a sound plays before
       this.engine.spatialAudio.holdLoads();
+      this.watchCompile();
       this.quality.attach(this.engine, this.world.ref);
       // Behind the menu globe the game draws nothing, not even its first frame
       if (this.globe?.coversGame()) this.engine.setDrawSuppressed(true);
@@ -465,6 +477,8 @@ export class EngineInitializationService {
     if (!this.tilesLoading() && !this.osmLoading() && !this.warmupLoading() && !heightsLoading()) {
       if (this.loading()) {
         loadMark('ready');
+        // A compile too short for a look of the poll: its step is done all the same
+        if (this.loadingSteps().find((s) => s.id === 'shaders')?.status !== 'done') void this.setStepDone('shaders');
         this.engine?.spatialAudio.releaseLoads();
         if (this.engine) this.quality.worldStood(this.engine);
         // The world stands: the context of the view before it (the editor, the world before) goes now
