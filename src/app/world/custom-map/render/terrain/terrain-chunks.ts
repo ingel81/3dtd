@@ -131,10 +131,14 @@ export interface TerrainChunkOptions {
   /** Coarsest level: step 2^maxLod samples, pieces 2^maxLod finest pieces a side */
   maxLod?: number;
   /**
-   * Edge lengths of a finest piece of distance per level (level n from n *
-   * this). The default keeps the finest level, unmorphed, out to about 290 m
-   * around the camera (2 m cells): the game camera's ground, where units
-   * stand on `heightAt`, which is the finest level.
+   * Edge lengths of a finest piece of distance per level (level n from
+   * 2^(n-1) times this). The default keeps the finest level, unmorphed (the
+   * geomorph's band is the last MORPH_BAND of a level's reach), out to about
+   * 270 m around the camera and its focus (2 m cells): the game camera's
+   * ground, where units stand on `heightAt`, which is the finest level. A
+   * coarse piece takes the level of its nearest finest piece, so the
+   * quadtree draws more of the finest level than pieces of one size did:
+   * 3.5 there, 2.625 here, about the triangles of then.
    */
   lodDistance?: number;
   /**
@@ -146,6 +150,9 @@ export interface TerrainChunkOptions {
    */
   buildCells?: number;
 }
+
+/** Share of a level's reach over which its vertices blend towards the next coarser level */
+const MORPH_BAND = 0.2;
 
 /** Cells built per update by default: about eight pieces */
 const BUILD_CELLS = 8 * 64 * 64;
@@ -256,7 +263,7 @@ export class TerrainChunks {
   ) {
     this.chunkCells = options.chunkCells ?? 64;
     this.maxLod = options.maxLod ?? 3;
-    this.lodDistance = options.lodDistance ?? 3.5;
+    this.lodDistance = options.lodDistance ?? 2.625;
     this.buildCells = options.buildCells ?? BUILD_CELLS;
     if (this.chunkCells % (1 << this.maxLod)) throw new Error('Pieces must start on samples of every level');
     this.across = Math.ceil((field.columns - 1) / this.chunkCells);
@@ -676,7 +683,7 @@ export class TerrainChunks {
       pos[v * 3 + 1] = -drop;
       pos[v * 3 + 2] = f.originY + j * f.cellSize;
       morph[v * 3] = coarsest ? 0 : step * 2;
-      morph[v * 3 + 1] = coarsest ? 1e9 : switchAt * 0.65;
+      morph[v * 3 + 1] = coarsest ? 1e9 : switchAt * (1 - MORPH_BAND);
       morph[v * 3 + 2] = coarsest ? 1e9 + 1 : switchAt;
     };
     for (let b = 0; b < ny; b++) for (let a = 0; a < nx; a++) put(b * nx + a, is[a], js[b], 0);
