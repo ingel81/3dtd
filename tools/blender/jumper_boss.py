@@ -31,7 +31,7 @@ here:
            and lies still from 1.4 s; the clip ends at 1.5 s.
   root     an empty `jumper` turns the model to look along glTF +z, the
            game's forward (headingOffset 0), and scales it by ROOT_SCALE:
-           model units of decimetres, so the game's scale (3.5) and preview
+           model units of decimetres, so the game's scale (3.25) and preview
            sizes stay in the range of the other enemies.
 
 Headless (Blender 5.1):

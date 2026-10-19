@@ -1525,10 +1525,11 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     deathSound: 'jumper',
     hitSound: 'metal',
     footstep: JUMPER_FOOTSTEP,
-    // In decimetres, 4.2 long and 2.8 high to the antennas: at 3.5 about 15 m wide and 9.9 m high, over a
-    // street's width (Ruined City probe, 2026-10-19: at 3 it stood small beside the blocks)
+    // In decimetres, 4.2 long and 2.8 high to the antennas: at 3.25 about 14 m wide and 9.2 m high, over a
+    // street's width (Ruined City probe, 2026-10-19: at 3 it stood small beside the blocks). Up to 3.25 its VAT
+    // stays half-float (2 mm, VAT_HALF_FLOAT_MAX_ERROR; at 3.5 it would be RGBA32F, twice the memory)
     modelUrl: 'assets/models/enemies/jumper.glb',
-    scale: 3.5,
+    scale: 3.25,
     modelRangeY: { min: -0.012, max: 2.834 },
     armorType: 'fortified',
     // About a golem king; the wave's budget sets what it brings (sources/budget)
@@ -1537,8 +1538,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hasAnimations: true,
     walkAnimation: 'Walk',
     deathAnimation: 'Death',
-    // Walk moves the ground under its feet at 1.04 model units a second (3.65 m/s at scale 3.5): 0.55 at 2 m/s
-    animationSpeed: 0.55,
+    // Walk moves the ground under its feet at 1.04 model units a second (3.39 m/s at scale 3.25): 0.59 at 2 m/s
+    animationSpeed: 0.59,
     deathAnimationSpeed: 1,
     // Death (1.5 s) lies still from 1.4 s and holds its last frame until the jumper goes
     deathDuration: 2600,
@@ -1547,7 +1548,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     movingSoundRefDistance: 60,
     randomSoundStart: true,
     heightOffset: 0,
-    healthBarOffset: 11.5,
+    healthBarOffset: 11,
     canBleed: false,
     mechanical: true,
     headingOffset: 0,
@@ -1555,7 +1556,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // Only as a boss, in its run plan rows, Custom Wave and Enemy Debug
     isBoss: true,
     traits: { rage: { belowHp: 0.4, speed: 1.25, damageTaken: 0.8 } },
-    // 15 m wide: it keeps to the middle of the road
+    // 14 m wide: it keeps to the middle of the road
     lateralSpread: 0.15,
     spawnStartDelay: 3000,
     turret: {
@@ -1564,7 +1565,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
       muzzleNodes: ['muzzle_L', 'muzzle_R'],
       pivotHeight: 2.085,
       pitchRange: { min: -0.2, max: 0.35 },
-      // About 40 cm at scale 3.5
+      // About 40 cm at scale 3.25
       recoil: 0.12,
     },
     siege: {

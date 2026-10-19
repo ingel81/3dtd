@@ -469,7 +469,7 @@ erzeugt und nach Messwerten ausgewählt, nicht angehört: bei jedem Klang sagen,
   Lauf-Loop hörbar. In DevWorld schießt er nicht, der Turm schaut nach vorn.*
 - **L2 Aussehen:** dieselbe Welle, um ihn herum drehen. *Gesicht mit Augen vorn, rote Raketenkästen am Turm, zwei
   Rohre, Farben wie im Blender-Bild (dunkelgrauer Rumpf, helle Beine, rote Teile); keine Löcher, keine Flecken, die
-  flackern; gut 15 m breit, knapp 10 m hoch.*
+  flackern; gut 14 m breit, gut 9 m hoch.*
 - **L3 Beschuss in Ruined City:** Built Worlds › Ruined City › Play, Wave Debug „Single“, Jumper, 1, „Start Custom
   Wave“. *Der Turm dreht mit Surren zum nächsten Gebäude, die Rohre heben sich etwas; dann ein schwerer Doppelschuss:
   Rohre fahren zurück, großes Mündungsfeuer, Licht, Rauch vor den Rohren, Staub um die Füße, ein Beben; ein glühender
