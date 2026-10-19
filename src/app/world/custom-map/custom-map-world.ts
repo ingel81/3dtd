@@ -207,7 +207,7 @@ export class CustomMapWorld implements WorldProvider {
   /** Objects lying fallen (destruction) and objects a wave event keeps out of the picture now */
   private readonly fallenIds = new Set<string>();
   /** Each damaged structure's stage, for a view that comes later */
-  private readonly stages = new Map<string, number>();
+  private readonly stages = new Map<string, { stage: number; heading: number }>();
   private eventHidden = new Set<string>();
   /** The scale an object out of the picture had, to stand it up again */
   private readonly outScale = new Map<string, number>();
@@ -312,7 +312,7 @@ export class CustomMapWorld implements WorldProvider {
     });
     this.view = view;
     // Stages that came before the view: the ruins as they lie
-    if (this.stages.size) view.setObjectDamage([...this.stages].map(([id, stage]) => ({ id, stage, now: false })));
+    if (this.stages.size) view.setObjectDamage([...this.stages].map(([id, s]) => ({ id, stage: s.stage, heading: s.heading, now: false })));
     if (this.quality) view.applyQuality(this.quality);
     this.placeView();
     const before = new Set(ctx.scene.children);
@@ -780,12 +780,12 @@ export class CustomMapWorld implements WorldProvider {
   }
 
   /** The structures' stages to the view's buildings (docs/DESTRUCTION_PLAN.md, Z2): `now` falls as it happens */
-  private damageChanged(changes: readonly { object: MapObject; stage: number }[], now: boolean): void {
+  private damageChanged(changes: readonly { object: MapObject; stage: number; heading: number }[], now: boolean): void {
     for (const c of changes) {
-      if (c.stage > 0) this.stages.set(c.object.id, c.stage);
+      if (c.stage > 0) this.stages.set(c.object.id, { stage: c.stage, heading: c.heading });
       else this.stages.delete(c.object.id);
     }
-    this.view?.setObjectDamage(changes.map((c) => ({ id: c.object.id, stage: c.stage, now })));
+    this.view?.setObjectDamage(changes.map((c) => ({ id: c.object.id, stage: c.stage, heading: c.heading, now })));
   }
 
   /**

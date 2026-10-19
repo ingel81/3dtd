@@ -42,7 +42,7 @@ import { CoverMap } from './environment/cover-map';
 import { setPlantSway, WIND_UNIFORMS } from './environment/wind';
 import { prepareNoiseTextures } from './noise-textures';
 import { MapObjectLayer, type ObjectDamage, type ObjectHit } from './objects/object-layer';
-import { DAMAGE_UNIFORMS, FELL_LONG_AGO } from './objects/ruin-damage';
+import { DAMAGE_UNIFORMS, FELL_LONG_AGO, sceneHeading } from './objects/ruin-damage';
 import { fontsReady, SignLayer } from './objects/sign-text';
 import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
@@ -745,10 +745,17 @@ export class CustomMapView {
 
   /**
    * Damage of buildings, walls and structures (MapObjectLayer.setDamage):
-   * a stage-3 one `now` falls from this moment, else it lies as it fell
+   * a stage-3 one `now` falls from this moment, else it lies as it fell;
+   * each gives way to the `heading` of the hit that brought its stage
+   * (STRUCTURE_HEADING_STEPS in map space, -1 none: its id rolls one)
    */
-  setObjectDamage(changes: readonly { id: string; stage: number; now: boolean }[]): void {
-    this.objects.setDamage(changes.map((c): ObjectDamage => ({ id: c.id, stage: c.stage, fallStart: c.now && c.stage >= 3 ? this.damageTime : FELL_LONG_AGO })));
+  setObjectDamage(changes: readonly { id: string; stage: number; heading?: number; now: boolean }[]): void {
+    this.objects.setDamage(changes.map((c): ObjectDamage => ({
+      id: c.id,
+      stage: c.stage,
+      fallStart: c.now && c.stage >= 3 ? this.damageTime : FELL_LONG_AGO,
+      heading: sceneHeading(c.heading ?? -1),
+    })));
     this.effects.setRuinEmbers(this.objects.embers(), !!this.options.ruins);
   }
 

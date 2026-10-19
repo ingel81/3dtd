@@ -106,19 +106,19 @@ export class WorldDamagePresenter {
     };
   }
 
-  /** Every structure's stage (op `structures.setStages`) */
-  setStages(stages: Uint8Array): void {
+  /** Every structure's stage (op `structures.setStages`), with the heading of the hit that brought it */
+  setStages(stages: Uint8Array, headings?: Int16Array): void {
     this.stages = stages.slice();
-    this.destruction?.setStages(stages);
+    this.destruction?.setStages(stages, headings);
     this.rebuild();
   }
 
-  /** Structure `index` reached `stage` by damage just now (op `structures.stage`) */
-  setStage(index: number, stage: StructureStage): void {
+  /** Structure `index` reached `stage` by damage just now, pushed the way of `heading` (op `structures.stage`) */
+  setStage(index: number, stage: StructureStage, heading = -1): void {
     if (index < 0 || index >= this.stages.length) return;
     const was = this.stages[index];
     this.stages[index] = stage;
-    this.destruction?.setStage(index, stage);
+    this.destruction?.setStage(index, stage, heading);
     const s = this.runStructures()[index];
     if (stage !== 3 || was === 3 || !s) return;
     this.drawn?.rubble(s, 1);

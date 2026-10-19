@@ -9,7 +9,7 @@ import { massShape, splitWalls } from './mass-layer';
 import { MapObjectLayer } from './object-layer';
 import { RuinSlabs } from './ruin-slabs';
 import { CustomMapDestruction } from '../../custom-map-destruction';
-import { DAMAGE_LOS, FELL_LONG_AGO, ruinSeed, ruinShape, structureSeed } from './ruin-damage';
+import { DAMAGE_LOS, FELL_LONG_AGO, ruinSeed, ruinShape, sceneHeading, structureSeed } from './ruin-damage';
 
 const entry = (id: string, category: CatalogObject['category'], file: string, extra: Partial<CatalogObject> = {}): CatalogObject => ({
   id,
@@ -88,6 +88,17 @@ describe('ruin damage: the shape of a ruin', () => {
       expect(s.fallS).toBeGreaterThanOrEqual(1.2);
       expect(s.fallS).toBeLessThanOrEqual(2.5);
     }
+  });
+
+  it('gives way to the heading of the hit that brought its stage, its bite on that side; the seed only without one', () => {
+    // Map heading 0 (pushed east, map +x) is scene -x: a half turn in the scene
+    expect(sceneHeading(0)).toBeCloseTo(Math.PI);
+    expect(sceneHeading(64)).toBeCloseTo(Math.PI / 2);
+    expect(sceneHeading(-1)).toBeNull();
+    const pushed = ruinShape(structureSeed('h1'), frame, Math.PI);
+    expect(pushed.heading).toBe(Math.PI);
+    expect(pushed.biteX).toBeLessThan(frame.cx);
+    expect(ruinShape(structureSeed('h1'), frame, null)).toEqual(ruinShape(structureSeed('h1'), frame));
   });
 
   it('leaves a low shed a stump of 55 % of its height', () => {

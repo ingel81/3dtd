@@ -38,10 +38,11 @@ function setup(destructible: boolean) {
 describe('WorldDamagePresenter (docs/DESTRUCTION_PLAN.md)', () => {
   it("shows the simulation's stages and blows up a structure as it falls", () => {
     const { destruction, engine, presenter } = setup(true);
-    presenter.setStages(new Uint8Array([1]));
-    expect(destruction.setStages).toHaveBeenCalledWith(new Uint8Array([1]));
-    presenter.setStage(0, 2);
-    expect(destruction.setStage).toHaveBeenCalledWith(0, 2);
+    presenter.setStages(new Uint8Array([1]), new Int16Array([40]));
+    expect(destruction.setStages).toHaveBeenCalledWith(new Uint8Array([1]), new Int16Array([40]));
+    // With the heading of the hit that brought the stage
+    presenter.setStage(0, 2, 64);
+    expect(destruction.setStage).toHaveBeenCalledWith(0, 2, 64);
     presenter.fell(0, 0.001, 0.002, 5, 6);
     // At the barn's middle: a small break where it breaks, a dust wall wider than the barn over the ground,
     // a column of dust up its height, grit of its class thrown up

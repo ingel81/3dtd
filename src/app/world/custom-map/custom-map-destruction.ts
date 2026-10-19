@@ -51,9 +51,22 @@ export interface StructureEntry {
   tags?: readonly string[];
 }
 
+/**
+ * A structure's change of stage for its looks: the heading of the hit that
+ * brought it (STRUCTURE_HEADING_STEPS, -1 none), the stage it had
+ */
+export interface StageChange {
+  object: MapObject;
+  stage: StructureStage;
+  heading: number;
+  was?: StructureStage;
+}
+
 /** A map structure: its object, its stage and what the run rules get of it */
 interface MapStructure extends WorldStructure {
   readonly object: MapObject;
+  /** The heading of the hit that brought its stage, -1 none */
+  heading: number;
   readonly run: RunStructure;
   /** What its rubble, dust and pieces are of */
   readonly material: RubbleMaterial;
@@ -95,7 +108,7 @@ export class CustomMapDestruction implements WorldDestruction {
      * damage did it just now (setStage), false when the stages came whole
      * (a load, a new run, a restore, a seek: a fallen one lies as it fell)
      */
-    private readonly damaged: (changes: readonly { object: MapObject; stage: StructureStage }[], now: boolean) => void = () => undefined,
+    private readonly damaged: (changes: readonly StageChange[], now: boolean) => void = () => undefined,
   ) {}
 
   /** The catalogue's entries: from now on the map's buildings, walls and structures take damage */
@@ -136,7 +149,7 @@ export class CustomMapDestruction implements WorldDestruction {
       };
       // Standing until the simulation says otherwise: a structure the map damaged beforehand comes with its first stages
       const material = rubbleMaterialOf(object, entry.tags);
-      this.list.push({ id: object.id, object, run, lat: run.lat, lon: run.lon, radius, height, maxHp, stage: 0, material });
+      this.list.push({ id: object.id, object, run, lat: run.lat, lon: run.lon, radius, height, maxHp, stage: 0, heading: -1, material });
     }
   }
 
@@ -144,26 +157,27 @@ export class CustomMapDestruction implements WorldDestruction {
     return this.list;
   }
 
-  setStages(stages: Uint8Array): void {
-    const changes: { object: MapObject; stage: StructureStage }[] = [];
-    for (let i = 0; i < this.list.length; i++) this.change(i, (stages[i] ?? 0) as StructureStage, changes);
+  setStages(stages: Uint8Array, headings?: Int16Array): void {
+    const changes: StageChange[] = [];
+    for (let i = 0; i < this.list.length; i++) this.change(i, (stages[i] ?? 0) as StructureStage, headings?.[i] ?? -1, changes);
     this.tell(changes, false);
   }
 
-  setStage(index: number, stage: StructureStage): void {
+  setStage(index: number, stage: StructureStage, heading = -1): void {
     if (index < 0 || index >= this.list.length) return;
-    const changes: { object: MapObject; stage: StructureStage }[] = [];
-    this.change(index, stage, changes);
+    const changes: StageChange[] = [];
+    this.change(index, stage, heading, changes);
     this.tell(changes, true);
   }
 
-  private change(i: number, stage: StructureStage, changes: { object: MapObject; stage: StructureStage; was?: StructureStage }[]): void {
+  private change(i: number, stage: StructureStage, heading: number, changes: StageChange[]): void {
     const s = this.list[i];
-    if (stage !== s.stage) changes.push({ object: s.object, stage, was: s.stage });
+    if (stage !== s.stage || heading !== s.heading) changes.push({ object: s.object, stage, heading, was: s.stage });
     s.stage = stage;
+    s.heading = heading;
   }
 
-  private tell(changes: readonly { object: MapObject; stage: StructureStage; was?: StructureStage }[], now: boolean): void {
+  private tell(changes: readonly StageChange[], now: boolean): void {
     if (!changes.length) return;
     this.damaged(changes, now);
     const fallen = changes.filter((c) => c.stage === 3).map((c) => c.object);

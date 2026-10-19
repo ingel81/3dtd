@@ -374,7 +374,7 @@ export class MassLayer {
   /** Each building's instances in the intact batches, which a damaged one leaves */
   private readonly ranges = new Map<string, { batch: Batch; start: number; count: number }[]>();
   /** Damaged buildings by id (setDamage) */
-  private readonly damaged = new Map<string, { stage: number; fallStart: number }>();
+  private readonly damaged = new Map<string, { stage: number; fallStart: number; heading: number | null }>();
   /** The ruins as last built, with their seats */
   private readonly ruinShapes = new Map<string, { shape: RuinShape; seat: number }>();
   private ruinDepth: MeshDepthMaterial | null = null;
@@ -491,12 +491,12 @@ export class MassLayer {
    * from stage 1 leaves the intact batches for the ruins'; one that stands
    * whole again builds everything anew (a new run, a seek back)
    */
-  setDamage(changes: readonly { id: string; stage: number; fallStart: number }[]): void {
+  setDamage(changes: readonly { id: string; stage: number; fallStart: number; heading?: number | null }[]): void {
     let healed = false;
     const hide: string[] = [];
     for (const c of changes) {
       const was = this.damaged.has(c.id);
-      if (c.stage > 0) this.damaged.set(c.id, { stage: c.stage, fallStart: c.fallStart });
+      if (c.stage > 0) this.damaged.set(c.id, { stage: c.stage, fallStart: c.fallStart, heading: c.heading ?? null });
       else {
         this.damaged.delete(c.id);
         this.damageOptions.slabs?.delete(c.id);
@@ -640,7 +640,7 @@ export class MassLayer {
     if (ruin) {
       for (const o of objects) {
         const d = this.damaged.get(o.id);
-        const { frame, shape } = this.ruinOf(o);
+        const { frame, shape } = this.ruinOf(o, d?.heading ?? null);
         ruins.set(o, { shape, stage: d?.stage ?? 0, fallStart: d?.fallStart ?? FELL_LONG_AGO });
         if (!d) continue;
         this.ruinShapes.set(o.id, { shape, seat: frame.seatY });
@@ -820,7 +820,7 @@ export class MassLayer {
   }
 
   /** A raised building's ruin: its outline's rectangle in the frame `build` set up (this.m), rolled from its id */
-  private ruinOf(o: MapObject): { frame: RuinFrame; shape: RuinShape } {
+  private ruinOf(o: MapObject, heading: number | null): { frame: RuinFrame; shape: RuinShape } {
     const mass = o.mass!;
     const scale = o.scale || 1;
     mapToScene(o.x, o.y, this.seatOf(o), this.v);
@@ -842,7 +842,7 @@ export class MassLayer {
       seatY: e[13],
       height: massTop(mass) * scale,
     };
-    return { frame, shape: ruinShape(ruinSeed(o), frame) };
+    return { frame, shape: ruinShape(ruinSeed(o), frame, heading) };
   }
 
   /** The sun's shadow of ruined roofs and copings */

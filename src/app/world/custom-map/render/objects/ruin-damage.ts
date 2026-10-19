@@ -1,5 +1,6 @@
 import { MeshDepthMaterial, RGBADepthPacking, type Material, type Texture } from 'three';
 import type { LosVertexPatch } from '../../../../three-engine/tower-shadow-mapper';
+import { STRUCTURE_HEADING_STEPS } from '../../../../configs/destruction.config';
 import { CRACK_TILE_M, crackTexture } from './crack-texture';
 
 /**
@@ -87,9 +88,23 @@ function roll(seed: number, k: number): number {
   return (h >>> 0) / 4294967296;
 }
 
-/** A structure's ruin from its seed and frame */
-export function ruinShape(seed: number, f: RuinFrame): RuinShape {
-  const heading = roll(seed, 0) * Math.PI * 2;
+/**
+ * The scene heading (radians in the x, z plane) of a structure's heading
+ * step in map space (STRUCTURE_HEADING_STEPS, structureHeading), null for
+ * none: scene x is map -x, scene z map y
+ */
+export function sceneHeading(step: number): number | null {
+  if (step < 0) return null;
+  const a = (step / STRUCTURE_HEADING_STEPS) * Math.PI * 2;
+  return Math.atan2(Math.sin(a), -Math.cos(a));
+}
+
+/**
+ * A structure's ruin from its seed and frame; it gives way to `heading`
+ * (scene radians, the hit that brought its stage), or one its seed rolls
+ */
+export function ruinShape(seed: number, f: RuinFrame, heading: number | null = null): RuinShape {
+  heading ??= roll(seed, 0) * Math.PI * 2;
   const dx = Math.cos(heading);
   const dz = Math.sin(heading);
   const da = f.ax * dx + f.az * dz;

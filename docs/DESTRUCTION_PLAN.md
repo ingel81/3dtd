@@ -144,9 +144,13 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   Welt zielt (`TowerPlacementService.onRoof`, auch der Bot). Ist das Gebäude unter diesem Dach gefallen, wenn der Befehl
   wirkt, setzt die Simulation keinen Tower (`WorldDamage.roofFallen`); in der Reihenfolge der Befehle des Ticks, auf
   jedem Client gleich. Ein Tower, der zuerst steht, hält sein Gebäude.
-- **Ops:** `structures.setStages(Uint8Array)` nach Laden, Neustart, Restore und Sprung (ein Byte je Bauwerk);
-  `structures.stage(index, stufe)` je Stufenwechsel (höchstens drei je Bauwerk und Lauf); `main.structureFell` im
-  Moment des Falls (flüchtig).
+- **Ops:** `structures.setStages(Uint8Array, Int16Array)` nach Laden, Neustart, Restore und Sprung (ein Byte je
+  Bauwerk, dazu die Richtungen); `structures.stage(index, stufe, richtung)` je Stufenwechsel (höchstens drei je Bauwerk
+  und Lauf); `main.structureFell` im Moment des Falls (flüchtig).
+- **Richtung:** jede Stufe, die ein Treffer auslöst, merkt sich dessen Richtung vom Einschlag zur Mitte des Bauwerks
+  (`structureHeading`, 256 Schritte je Umdrehung aus `DetMath.atan2`, -1 ohne: Vorschaden, Treffer genau auf die
+  Mitte). Spielstand (`structureHeadings`) und Prüfsumme tragen sie, sobald eine bekannt ist; eine Welt ohne Treffer
+  speichert und prüft wie vorher.
 - **Schaden als Logik:** der `ProjectileManager` ruft beim Einschlag seinen Listener (`WorldDamage.impact`), im selben
   Teilschritt; `vfx:projectile-impact` bleibt reine Darstellung.
 
@@ -199,8 +203,8 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   `aDamageC`: Mitte, Abstand zur Kippkante, Falldauer), im Rahmen der Gruppe, für Modelle und Wände gleich. Die Form
   würfelt `ruinShape` auf der CPU aus der Id (oder `damageSeed`) und dem Grundrechteck: Richtung, Stumpf 1,5 bis 4 m
   (höchstens 55 % der Höhe), Biss in der oberen Ecke zur Kipprichtung, Falldauer 1,2 bis 2,5 s. Jeder Partner und jedes
-  Replay sieht dieselbe Ruine. Die Richtung kommt aus der Saat, nicht vom stärksten Treffer (die Simulation meldet nur
-  Stufen).
+  Replay sieht dieselbe Ruine. Die Richtung ist die des Treffers, der die Stufe ausgelöst hat (siehe „Richtung“),
+  die Saat würfelt sie nur, wo keiner bekannt ist.
 - **Stufe 1:** Risse aus einer gezeichneten Kachel (`crack-texture.ts`: Linien, die laufen und knicken, rot Haarrisse,
   grün lange Risse; im Code gezeichnet, kein Rauschen) von drei Seiten in Metern, dichter zur Kipprichtung; Ruß in
   Flecken, matt; Nachtfenster aus.
@@ -345,7 +349,7 @@ samt GPU wie in `hitch-probe.ts`; Budgets in `npm run test:perf` für Ledger und
 | Posten | Kosten |
 |---|---|
 | Treffer eines Projektils | eine Rasterabfrage über die 16-m-Felder in Reichweite (Rakete: Splash 5 m plus 1 m, 1 bis 4 Felder), Abstandsquadrat je Bauwerk darin; Dach-Prüfung nur für ein getroffenes Bauwerk mit `roof`, O(Tower) |
-| Ops je Treffer | keiner, solange keine Stufe wechselt; je Stufenwechsel `structures.stage` (2 Zahlen), höchstens 3 je Bauwerk und Lauf; je Krater-Treffer `craters.dig` (5 Zahlen), bis der Krater seine Höchsttiefe hat |
+| Ops je Treffer | keiner, solange keine Stufe wechselt; je Stufenwechsel `structures.stage` (3 Zahlen), höchstens 3 je Bauwerk und Lauf; je Krater-Treffer `craters.dig` (5 Zahlen), bis der Krater seine Höchsttiefe hat |
 | Ganze Menge | `structures.setStages` ein Byte je Bauwerk (7 928 Gebäude einer OSM-Stadt: 7,9 KB), nur nach Laden, Neustart, Restore, Sprung; vorher bei jedem Fall alle gefallenen Ids als Strings |
 | Gegner je Teilschritt | ohne Stempel nichts (Raster `null`); mit: ein Nachschlag für die Höhe, für Läufer am Boden ein Umrechnen nach lokal und ein zweiter für die Bremse |
 | Verschleiß | einmal je Sekunde Spielzeit eine Rasterabfrage je Gegner am Boden, nur mit `wear` |

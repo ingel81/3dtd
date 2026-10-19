@@ -401,8 +401,8 @@ export class PresentationHost implements SimPresenterApi {
     ops.override('show.clear', () => this.clearShow());
     ops.override('main.iceDecal', (args) => iceDecal(engine, args[0] as number, args[1] as number, args[2] as number));
     // The structures of a destructible world as the simulation has them (TODO E131)
-    ops.override('structures.setStages', (args) => this.worldDamage.setStages(args[0] as Uint8Array));
-    ops.override('structures.stage', (args) => this.worldDamage.setStage(args[0] as number, args[1] as StructureStage));
+    ops.override('structures.setStages', (args) => this.worldDamage.setStages(args[0] as Uint8Array, args[1] as Int16Array | undefined));
+    ops.override('structures.stage', (args) => this.worldDamage.setStage(args[0] as number, args[1] as StructureStage, (args[2] as number | undefined) ?? -1));
     ops.override('craters.setAll', (args) => this.worldDamage.setCraters(args[0] as Int32Array));
     ops.override('craters.dig', (args) => {
       const [index, x, y, radius, depth] = args as [number, number, number, number, number];

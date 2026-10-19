@@ -487,10 +487,14 @@ export interface WorldStructure {
 export interface WorldDestruction {
   /** Every structure that can take damage, standing or fallen, in the run rules' order */
   structures(): readonly WorldStructure[];
-  /** Every structure's stage, one byte each in that order (after a load, a new run, a restore, a seek) */
-  setStages(stages: Uint8Array): void;
-  /** Structure `index` reached `stage` by damage just now */
-  setStage(index: number, stage: StructureStage): void;
+  /**
+   * Every structure's stage, one byte each in that order (after a load, a
+   * new run, a restore, a seek), with the heading of the hit that brought
+   * each (STRUCTURE_HEADING_STEPS, -1 none)
+   */
+  setStages(stages: Uint8Array, headings?: Int16Array): void;
+  /** Structure `index` reached `stage` by damage just now, pushed the way of `heading` (-1 none) */
+  setStage(index: number, stage: StructureStage, heading?: number): void;
   /** The ground that takes the craters and the rubble, drawn; null where the world's ground stays as built */
   readonly ground: WorldGroundDamage | null;
 }

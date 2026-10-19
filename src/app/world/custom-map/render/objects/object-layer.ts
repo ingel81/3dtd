@@ -196,11 +196,16 @@ export interface ObjectLayerOptions {
   standingAt?: (x: number, y: number) => number;
 }
 
-/** A building's damage for setDamage: the simulation's stage, the view's clock at which a fall began */
+/**
+ * A building's damage for setDamage: the simulation's stage, the view's
+ * clock at which a fall began, the scene heading it gives way to (null: its
+ * seed rolls one)
+ */
 export interface ObjectDamage {
   id: string;
   stage: number;
   fallStart: number;
+  heading?: number | null;
 }
 
 export class MapObjectLayer {
@@ -214,7 +219,7 @@ export class MapObjectLayer {
   private batches: AssetBatch[] = [];
   private readonly byId = new Map<string, { batch: AssetBatch; index: number }>();
   /** Damaged objects by id (setDamage), also those not built yet */
-  private readonly damaged = new Map<string, { stage: number; fallStart: number }>();
+  private readonly damaged = new Map<string, { stage: number; fallStart: number; heading: number | null }>();
   /** The sun's shadow of every ruin (ruin-damage.ts) */
   private ruinDepth: Material | null = null;
   /** The floors inside the ruins, raised buildings' too (with options.ruins) */
@@ -466,7 +471,7 @@ export class MapObjectLayer {
     for (const c of changes) {
       // The latest damage last: the smouldering nests are the newest ruins' (embers)
       this.damaged.delete(c.id);
-      if (c.stage > 0) this.damaged.set(c.id, { stage: c.stage, fallStart: c.fallStart });
+      if (c.stage > 0) this.damaged.set(c.id, { stage: c.stage, fallStart: c.fallStart, heading: c.heading ?? null });
       else this.slabs?.delete(c.id);
       if (this.masses.has(c.id)) {
         masses.push(c);
@@ -1241,7 +1246,7 @@ export class MapObjectLayer {
       seatY: m[at + 13],
       height: b.model.height * Math.hypot(m[at + 4], m[at + 5], m[at + 6]),
     };
-    const shape = ruinShape(ruinSeed(o), frame);
+    const shape = ruinShape(ruinSeed(o), frame, d?.heading ?? null);
     const stage = d?.stage ?? 0;
     const fallStart = d?.fallStart ?? FELL_LONG_AGO;
     writeDamage(b.damage!, i, stage, fallStart, shape);

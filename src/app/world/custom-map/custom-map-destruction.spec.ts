@@ -59,22 +59,22 @@ describe('CustomMapDestruction', () => {
   });
 
   it('tells every change of stage for the looks, as it happens or as the stages came whole', () => {
-    const heard: [string, number, boolean][] = [];
+    const heard: [string, number, number, boolean][] = [];
     destruction = new CustomMapDestruction(
       () => ({ objects, gameplay }),
       () => undefined,
       () => undefined,
       true,
       null,
-      (changes, now) => heard.push(...changes.map((c): [string, number, boolean] => [c.object.id, c.stage, now])),
+      (changes, now) => heard.push(...changes.map((c): [string, number, number, boolean] => [c.object.id, c.stage, c.heading, now])),
     );
     destruction.setCatalog(CATALOG);
-    destruction.setStages(new Uint8Array([2, 0, 3]));
-    destruction.setStage(0, 3);
-    // Unchanged stages say nothing
-    destruction.setStage(0, 3);
-    destruction.setStages(new Uint8Array([3, 0, 0]));
-    expect(heard).toEqual([['h1', 2, false], ['w1', 3, false], ['h1', 3, true], ['w1', 0, false]]);
+    destruction.setStages(new Uint8Array([2, 0, 3]), new Int16Array([10, -1, 20]));
+    destruction.setStage(0, 3, 30);
+    // Unchanged stages and headings say nothing
+    destruction.setStage(0, 3, 30);
+    destruction.setStages(new Uint8Array([3, 0, 0]), new Int16Array([30, -1, -1]));
+    expect(heard).toEqual([['h1', 2, 10, false], ['w1', 3, 20, false], ['h1', 3, 30, true], ['w1', 0, -1, false]]);
   });
 
   it('shows the stages the simulation says, each fall once, and stands up what no longer lies fallen', () => {
