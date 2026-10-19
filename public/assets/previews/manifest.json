@@ -8,56 +8,56 @@
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"fly.001\",\"animationTimeScale\":0.7,\"cameraAngle\":0.26,\"cameraDistance\":7,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/bat.glb\",\"offsetY\":0,\"scale\":2.908}",
-      "model": "342040afb68f3505a4136dce5bece609176caa80df2fadc064c03ab6e5f251db"
+      "model": "4a6981e0d5c80fc37e3b62e0352d3b40467cae4706f47457d49362ec9bb85f77"
     },
     "enemy-bear": {
       "file": "enemy-bear.webp",
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"GltfAnimation 0\",\"animationTimeScale\":0.7,\"cameraAngle\":0.26,\"cameraDistance\":6,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/bear.glb\",\"offsetY\":-0.2,\"scale\":0.075}",
-      "model": "3bc206620f0d44c2cb9ec61b163bdc4e8fefe9078918c9726768e956197460bf"
+      "model": "ae62dc7c99d94c5b46b4cddaa25d7928ae7e62e1fae83c23d75e541b7aa59dad"
     },
     "enemy-dragon": {
       "file": "enemy-dragon.webp",
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"flying\",\"animationTimeScale\":0.7,\"cameraAngle\":0.26,\"cameraDistance\":7,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/dragon.glb\",\"offsetY\":0.6,\"scale\":1}",
-      "model": "440a76207d723ac0cf9a4451d129031e780518768994010d83f8c45e1e5d911a"
+      "model": "ff7c6d183d04ee154d4c14f29c170b9af187a557c43a3696ca57f2966c1a266a"
     },
     "enemy-ghost": {
       "file": "enemy-ghost.webp",
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"Take 001\",\"animationTimeScale\":0.7,\"cameraAngle\":0,\"cameraDistance\":15,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/ghost.glb\",\"offsetY\":1.1,\"scale\":0.271}",
-      "model": "58d61fc7e5a492468192cf5d2e50993388e04b0842843a695a8e676e0ae3d050"
+      "model": "dc948e792e2cf0f2e4cd485c4cc300ec045d399f4f681de6ec8c3b0076aee1fe"
     },
     "enemy-herbert": {
       "file": "enemy-herbert.webp",
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"Armature|walking_man|baselayer\",\"animationTimeScale\":0.7,\"cameraAngle\":0,\"cameraDistance\":3,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/herbert_optimized.glb\",\"offsetY\":-0.1,\"scale\":1.05}",
-      "model": "22eacd243f87e454a1d1bb2bbe0d62a7f0dc47c1c81aea149d86ae5ad39d3032"
+      "model": "e1d8e1924578e000f298990937a5573418b2bf9118f499b1d2cf7e5acbcaf27c"
     },
     "enemy-hornet": {
       "file": "enemy-hornet.webp",
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"Take 001\",\"animationTimeScale\":0.7,\"cameraAngle\":0.26,\"cameraDistance\":7,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/hornet.glb\",\"offsetY\":0,\"scale\":0.122}",
-      "model": "67de0c6782e63daeaffae03b98f1ef942297e319466d6b13391515e03a3742db"
+      "model": "64262be5ab86cb0d21c332587f9e72e25d56b4f41150f185a6c8bc2eba943b19"
     },
     "enemy-mammoth": {
       "file": "enemy-mammoth.webp",
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"Walk\",\"animationTimeScale\":0.7,\"cameraAngle\":0.26,\"cameraDistance\":6,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/mammoth.glb\",\"offsetY\":-0.3,\"scale\":0.882}",
-      "model": "06d6ffc0dca3d9c1d623fee0d9c1dc2364ebc1e51776dc98edb77aead09507a1"
+      "model": "2d8cf8633354fb6107a2b7c0eb2846dca080eb782da7e3f4e26cd9def3e2b03e"
     },
     "enemy-mech": {
       "file": "enemy-mech.webp",
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"Armature|Walk\",\"animationTimeScale\":0.7,\"cameraAngle\":0.2617993877991494,\"cameraDistance\":7,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/mech.glb\",\"offsetY\":0,\"scale\":0.35400000000000004}",
-      "model": "7dd00ce1df9556798d3ab198fbf391e151e9e10dd224de5ab1dc12e17216a1ef"
+      "model": "ac8c056fc1dee58722033767faa6cf0e222dafad000c42b6a227fc2d2ea0db6d"
     },
     "enemy-ooze": {
       "file": "enemy-ooze.webp",
@@ -71,7 +71,7 @@
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"Walk\",\"animationTimeScale\":0.7,\"cameraAngle\":0,\"cameraDistance\":7,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/penguin.glb\",\"offsetY\":0,\"scale\":0.008}",
-      "model": "045080d723a6bc61a27baedc227a85c77c50b539fb8974f3041517602667ac07"
+      "model": "acb52eaf5cb9bef16110ac71f96084e976583ecfee696b3e46a1e13c4d9c7514"
     },
     "enemy-rat": {
       "file": "enemy-rat.webp",
@@ -85,7 +85,7 @@
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"sprint\",\"animationTimeScale\":0.7,\"cameraAngle\":0.2,\"cameraDistance\":6,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/skeleton.glb\",\"offsetY\":0,\"scale\":2.5}",
-      "model": "cc2adc74d0bb94d2198b88f99481bee02ee7feac4d8b96d299fbb6e393b5f45b"
+      "model": "aee73f3aec8e68ffc15b43b1cedc14b0bad138780588e9c9b5cefb69dcc47297"
     },
     "enemy-slime-clump": {
       "file": "enemy-slime-clump.webp",
@@ -106,70 +106,70 @@
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"Casual_Walk\",\"animationTimeScale\":0.7,\"cameraAngle\":0.26,\"cameraDistance\":6,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/stone_golem.glb\",\"offsetY\":-0.1,\"scale\":2.149}",
-      "model": "baa3e659e9358e5e7fbf9a1404d2d77f0d329c020703e92297937be5b5452a3b"
+      "model": "a4763a40dad85ce28e80d0262c065fa625f95200fefe5220a96d26cdfd344f80"
     },
     "enemy-tank": {
       "file": "enemy-tank.webp",
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"TankArmature|Tank_Forward\",\"animationTimeScale\":0.7,\"cameraAngle\":0.26,\"cameraDistance\":7,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/tank.glb\",\"offsetY\":0,\"scale\":0.65}",
-      "model": "f675e599f053e5be008b83fa44adeafdd52b8157aaa429b9acc695e23b52e923"
+      "model": "7395f9f5c5a019baaa4517fbc60f83df11fa2246e338a449934e4747b1f9277c"
     },
     "enemy-wallsmasher": {
       "file": "enemy-wallsmasher.webp",
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"CharacterArmature|Walk\",\"animationTimeScale\":0.7,\"cameraAngle\":0.26,\"cameraDistance\":4,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/wallsmasher.glb\",\"offsetY\":0,\"scale\":1.5}",
-      "model": "3418e2b3a93ff4d4a5816bb7c4e94ab7f5d152848d83a8c64ae245e1015d1cfc"
+      "model": "e4e5b8c2fa77af956079bcc0e932bd9e9b63b8c4c5ad7646b0c7d87d1589fcac"
     },
     "enemy-worm": {
       "file": "enemy-worm.webp",
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"Jaws\",\"animationTimeScale\":0.7,\"cameraAngle\":0.26,\"cameraDistance\":7,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/worm_head.glb\",\"offsetY\":1,\"scale\":2}",
-      "model": "30271edda4c5f7258a79727ef20e7436a6514212d57a4157e63dd9f9a06f9824"
+      "model": "d7d85cca08cace827a67d817a82ce343208f5425869c97611ddea51efef9e31d"
     },
     "enemy-worm-segment": {
       "file": "enemy-worm-segment.webp",
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"Crawl\",\"animationTimeScale\":0.7,\"cameraAngle\":0.26,\"cameraDistance\":7,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/worm_segment.glb\",\"offsetY\":1,\"scale\":2}",
-      "model": "4bae1fe94b26a53570112348541216eb0fbb432c60f44922709e986c3a438a9a"
+      "model": "7e5b9d67f9214638208cd07b0c6301c634abfbbe70d04d463258d55b9c659b4f"
     },
     "enemy-worm-tail": {
       "file": "enemy-worm-tail.webp",
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"Crawl\",\"animationTimeScale\":0.7,\"cameraAngle\":0.26,\"cameraDistance\":7,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/worm_tail.glb\",\"offsetY\":1,\"scale\":2}",
-      "model": "c7e84ef9af8478d4076e7785736d0e9b7c3be8ae77938b3934cdf00e46d10ce6"
+      "model": "15d2ae2f621f7be628f7a1fe92610138d13f30a721c105e55c99fa1954b17212"
     },
     "enemy-wraith": {
       "file": "enemy-wraith.webp",
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"Armature|RunFast|baselayer\",\"animationTimeScale\":0.7,\"cameraAngle\":0,\"cameraDistance\":6.5,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/wraith.glb\",\"offsetY\":0.1,\"scale\":2.732}",
-      "model": "a1455dbf8b7ea3622906675be955bf61db74f72aac4e040d95c41a00c1f0d04a"
+      "model": "a1bb50470d2a28c1da3442feddb8ae91f9f4371c2b2f6146baee8bc6cbc72f39"
     },
     "enemy-zombie": {
       "file": "enemy-zombie.webp",
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"Armature|Walk\",\"animationTimeScale\":0.7,\"cameraAngle\":0.2617993877991494,\"cameraDistance\":7,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/zombie.glb\",\"offsetY\":0,\"scale\":1}",
-      "model": "e23696c4714f028dd2b97e21b7bde7f0a2562d3769969d2ef680f27da63bc347"
+      "model": "ed45b731538742827211bc308b8e1de5ffc59cc5f28473552c243ea74bfe0cd5"
     },
     "enemy-zombie-soldier": {
       "file": "enemy-zombie-soldier.webp",
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"zombie_02_Run\",\"animationTimeScale\":0.7,\"cameraAngle\":0.26,\"cameraDistance\":7,\"groundModel\":true,\"lightIntensity\":5,\"modelUrl\":\"assets/models/enemies/zombie_soldier.glb\",\"offsetY\":0.3,\"scale\":2.571}",
-      "model": "d69411cc70133c70a1d16f5cf0610bbf27555c260a6a9597540306c1f0789dcd"
+      "model": "977c9396bfc14f10b3b1389a352eba9c31f4939c7b23d5ba58bf0d7d43c7f6bb"
     },
     "enemy-zombie-v2": {
       "file": "enemy-zombie-v2.webp",
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"Unsteady_Walk\",\"animationTimeScale\":0.7,\"cameraAngle\":0.12,\"cameraDistance\":12.5,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/zombie_v2.glb\",\"offsetY\":0.7,\"scale\":5}",
-      "model": "d4e6af5d1509ead535274b62f4b82555e49a91c41d7a35a5598f8885bdc25be4"
+      "model": "62bad7870f05e857969e006130c4307a2c13198d5ec712d430bec46b2ed9dad1"
     },
     "tower-archer": {
       "file": "tower-archer.webp",
@@ -183,7 +183,7 @@
       "width": 168,
       "height": 100,
       "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/bastion.glb\",\"scale\":6.5}",
-      "model": "cb604e97d2225f0d6784c4554010035025b5db09bb2a05a204d1fc8d88accfd6"
+      "model": "ae99abccff79deb635fbedc080a78126aa26f2becc39444a29d4f91838d7538d"
     },
     "tower-cannon": {
       "file": "tower-cannon.webp",
@@ -211,14 +211,14 @@
       "width": 168,
       "height": 100,
       "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/gatling_tilt.glb\",\"scale\":5.5}",
-      "model": "75355485c209b822ebdb05c3c6e7a81ee5b9af2c64660a36d85d634c76dae765"
+      "model": "f2c5b4bc5ff096bee6a1a47d2dec61ff2a132e35d8adb995898c4d8e4dc4d28c"
     },
     "tower-fire": {
       "file": "tower-fire.webp",
       "width": 168,
       "height": 100,
       "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/fire.glb\",\"scale\":9.8}",
-      "model": "2eac091c80b24d1b60e5cd26c2aa8d408940a1be0548bb4c993d7d8c2dd51bfa"
+      "model": "d2603ccc0141c2ee99bc769d9a9b3a8a9975037f782fe66d94c4b596c7f764a8"
     },
     "tower-ice": {
       "file": "tower-ice.webp",
@@ -239,14 +239,14 @@
       "width": 168,
       "height": 100,
       "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/magic.glb\",\"scale\":14}",
-      "model": "8d02d0e5fe31de9afa2d7b467ec1f0e30a66310c2090303d2dcb1a05401e3e28"
+      "model": "d9931ef69daaea14f4ce85ab2a1d4b8e7b6350a357bdfe3cf64767a6a732454a"
     },
     "tower-missile-silo": {
       "file": "tower-missile-silo.webp",
       "width": 168,
       "height": 100,
       "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/buildings/missile_silo.glb\",\"scale\":5}",
-      "model": "e4f2e3eff441ff8df8095ff2a0a0d15dac595f9c1eecd19d782ec734397e802c"
+      "model": "7959ef72ebc719c79c45460c30fc0492317b70b1b577eefb20e77bc933e4043c"
     },
     "tower-poison": {
       "file": "tower-poison.webp",
@@ -274,14 +274,14 @@
       "width": 168,
       "height": 100,
       "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/sentinel.glb\",\"scale\":5.5}",
-      "model": "2bc4185e694d81de37a8541765ad5fa85573b405dd2529c191e5e033da39bcbc"
+      "model": "89a117ecdfe577ed4dc8fe7131322e40e57ec2ed60a7d949dc6aba6512aada98"
     },
     "tower-shawarma": {
       "file": "tower-shawarma.webp",
       "width": 168,
       "height": 100,
       "view": "{\"cameraAngle\":0.6283185307179586,\"cameraDistance\":20,\"lightIntensity\":1.2,\"modelUrl\":\"assets/models/towers/shawarma.glb\",\"scale\":6}",
-      "model": "e065aaef5d5318ad6c39b36bf36610201ed007f67f311cd061dcb334f55dd529"
+      "model": "626e6b999a2e40dc4cf4904ff1f21c5b6c63ffeafdcab5e0967cf7c1d7414bc6"
     },
     "tower-tentacle": {
       "file": "tower-tentacle.webp",
