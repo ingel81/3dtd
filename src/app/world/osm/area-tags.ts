@@ -141,7 +141,9 @@ export function areaLookOf(tags: Readonly<Record<string, string>>): AreaLook | n
     if (hard) look.material = look.kind === 'tennis' ? 'hard-court-green' : 'hard-court-blue';
     return look;
   }
-  if (leisure === 'playground') return { kind: 'playground', material: surface ?? 'rubber-safety' };
+  // Most playgrounds are lawn with a sandpit and devices on it (the devices come with the area, PLAYGROUND_SETS):
+  // rubber, sand or bark only where `surface` says so
+  if (leisure === 'playground') return { kind: 'playground', material: surface ?? 'grass-lush' };
   if (leisure === 'swimming_pool' && tags['indoor'] !== 'yes') return { kind: 'pool', material: 'pool-tiles' };
   if (leisure === 'outdoor_seating') return { kind: 'seating', material: null };
   if (tags['amenity'] === 'parking' && (tags['parking'] ?? 'surface') === 'surface') return { kind: 'parking', material: surface ?? 'asphalt', marking: 'parking', level: true };

@@ -429,6 +429,11 @@ Nur Augen und Ohren; Logik, Prüfsummen und Strukturzahlen sind per Spec und Pro
   Bild, das sichtbar hält (E246, 2026-10-19).*
 - **K7 Sprache und Editor:** Settings, Gameplay, Sprache auf Deutsch. *Editor und Seitenleiste deutsch, Turm- und
   Gegnernamen englisch; nichts abgeschnitten (bekannt: „Ungepanzert“ im Wellen-Tooltip).*
+- **K9 Witch Marsh nachts:** Witch Marsh spielen, Spielkamera und nah. *Wege, Inseln, Tower und Gegner aus der
+  Spielkamera lesbar, Laternen bleiben die hellsten Stellen, Sumpfstimmung bleibt. Wasser noch fast schwarz: reicht es,
+  oder soll es nachts einen matten Mondschimmer bekommen?*
+- **K10 Spielplatz:** OSM-Welt mit Wohngebiet (z. B. Stuttgart). *Spielplätze ohne Bodenangabe grün mit Sandkasten,
+  Schaukel und weiteren Geräten je nach Größe; roter Gummi nur, wo OSM ihn nennt.*
 - **K8 Adresssuche:** Neues Spiel, einen Ort suchen. *Tippen sucht nicht, Hinweis „Enter drücken, um zu suchen“;
   Enter oder die Lupe rechts im Feld suchen, die Liste kommt; die Lupe ist unter drei Zeichen ausgegraut.*
 

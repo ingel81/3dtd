@@ -38,13 +38,11 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
 - [ ] **E251 Laden nach Bedarf, Rest**: Freischalten im Lauf per Probe geprüft (0 Links, längstes Bild 14 ms; ein
       Zeitvorteil des Vorziehens ist nicht nachweisbar); rund 65 Links direkt bei ready (Grafikstufen noch im
       Aufwärmen, zu E246); Bildspitzen unter Ruhe nachmessen (`tmp/plan/r6/MESSUNGEN_SPAETER.md`).
-- [ ] **E252 Kantenglättung nach Grafikstufe** (User 2026-10-19): MSAA nur High und Ultra, Low und Medium FXAA, auch
-      im Editor; der gemeinsame Renderer legt MSAA beim Anlegen fest (Wechsel der Stufe baut ihn neu).
-- [ ] **E253 Schärfere Texturen** (User 2026-10-19: ja): häufigste Fassadentexturen und Wahrzeichen auf 1024 px
-      (`textureSize` in `tools/map-assets/objects.json`, Packlauf), etwa +1 MiB je Textur und Karte.
-- [ ] **E254 Witch Marsh nachts heller** (User 2026-10-19): mehr Mondlicht, hellerer Bodennebel, Wege lesbar.
-- [ ] **E255 Flächen-Zuordnung prüfen** (User 2026-10-19: „Spielplatz mit rotem Boden gesehen“): Bodenart je
-      Nutzungsfläche in OSM-Welten gegen echte Orte durchsehen (E237).
+- [ ] **E253 Schärfere Texturen** (User 2026-10-19: ja, als Nachtlauf ohne ihn): Fassaden-Familien (Putz, Ziegel,
+      Schiefer, Fachwerk, Naturstein, Burgmauer, Beton, Bohlen; Quelle Poly Haven 1k, gepackt auf 512) und die sieben
+      Wahrzeichen auf 1024 px. Weg: Regel je Textur-Familie im Packwerkzeug (Farbe und ARM 1024, Normalen klein;
+      `textureSize` gilt sonst je Modell und hübe alle Texturen), die betroffenen Modelle aus den Quellen in Blender neu
+      bauen und packen (Beton in 82 Modellen, Bohlen 58, Burgmauer 50, Putz 39 …); Vorher-Nachher, Speicher und Download.
 - Entschieden 2026-10-19: Schildgrenze 512 bleibt; Fähigkeiten, Held und Mutatoren bleiben übersetzt (nur Turm- und
   Gegnernamen englisch); Nachtlicht ohne Mond aufgehellt (gebaut).
 
@@ -202,6 +200,9 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 - [ ] **K8 Erster Teststart und Adresssuche** (2026-10-19): E246 längstes Bild 2,6 s → 0,13 bis 0,31 s (beide
       Geländevarianten und die Platzhalter vor dem ersten Bild übersetzt); Adresssuche nur auf Enter oder Lupe, mit
       Cache, höchstens eine Anfrage je Sekunde (Nominatim-Richtlinie) (K6, K8).
+- [ ] **K9 Entscheidungen vom 2026-10-19**: E252 Kantenglättung je Stufe (war gebaut; Hinweis nur bei abweichender
+      Ansicht, kein Knopf im Spiel), E254 Witch Marsh nachts heller (Sumpf-Look: Nebel dünner und heller, mehr
+      Nachtlicht und Belichtung; User sieht es im Spiel an), E255 Spielplatz ohne Angabe auf Rasen (K9, K10).
 
 ### Licht durch Munition (2026-10-18, Branch `wt/r7-muzzle`, Nachtests in PLAYTEST.md I)
 

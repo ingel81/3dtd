@@ -45,6 +45,9 @@ describe('OSM areas: the table', () => {
     expect(areaLookOf({ leisure: 'pitch', sport: 'basketball;soccer' })?.kind).toBe('basketball');
     expect(areaLookOf({ leisure: 'pitch', sport: 'curling' })).toMatchObject({ kind: 'pitch', material: 'grass-lush' });
     expect(areaLookOf({ leisure: 'playground', surface: 'sand' })?.material).toBe('sand');
+    // A playground without a surface is lawn (rubber only where OSM says so)
+    expect(areaLookOf({ leisure: 'playground' })?.material).toBe('grass-lush');
+    expect(areaLookOf({ leisure: 'playground', surface: 'rubber' })?.material).toBe('rubber-safety');
     expect(areaLookOf({ amenity: 'parking' })).toMatchObject({ kind: 'parking', marking: 'parking' });
     expect(areaLookOf({ amenity: 'parking', parking: 'multi-storey' })).toBeNull();
     expect(areaLookOf({ highway: 'pedestrian', area: 'yes' })).toMatchObject({ kind: 'square', material: 'paving' });

@@ -263,7 +263,7 @@ auf die nächste ähnliche (Vorrang: Wasser vor Straße vor Gebäude vor Landnut
 | `natural=wetland` | `swamp-ground` | Schilf, flaches Sumpfgewässer |
 | `natural=glacier` | `ice`, `snow` | |
 | `amenity=parking` (Fläche) | `asphalt` | wenige Autos |
-| `leisure=pitch`, `playground` | `grass-lush` bzw. `wood-chips` | Tore, Spielgerät (fehlt) |
+| `leisure=pitch`, `playground` | `grass-lush` (Spielplatz ohne `surface` Rasen, Gummi nur mit Angabe) | Tore, Spielgerät (fehlt) |
 
 Einzelbäume (`natural=tree`) nach `leaf_type` und `genus` (Nadel, Laub, Birke, Weide), Baumreihen (`tree_row`) mit
 `objectsAlong`. Biom der Stimmung (`environment.biome`): `city` bei hohem Gebäudeanteil, sonst `temperate`; Sonne nach
