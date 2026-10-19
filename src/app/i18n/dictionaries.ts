@@ -9,4 +9,5 @@ import { en, type Messages } from './messages/en';
 export const DICTIONARIES: Readonly<Record<Locale, () => Promise<Messages>>> = {
   en: () => Promise.resolve(en),
   de: () => import('./messages/de').then((m) => m.de),
+  xx: () => import('./pseudo').then((m) => m.pseudo(en)),
 };

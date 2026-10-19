@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, isDevMode, output, signal } from '@angular/core';
+import { I18n, injectT } from '../../../../i18n/i18n.service';
+import { LOCALES, LOCALE_NAMES, PSEUDO_LOCALE, isLocalePreference, type Locale, type LocalePreference } from '../../../../i18n/locale';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent, type TdIconName } from '../../../icon/icon.component';
 import { RovingGroupDirective } from '../../../roving-group.directive';
@@ -96,6 +98,18 @@ let lastTab: SettingsTab = 'audio';
 })
 export class SettingsSectionsComponent {
   readonly ui = inject(UIStore);
+  private readonly i18n = inject(I18n);
+  protected readonly t = injectT();
+  /** The languages to pick: the system's (named in the language it stands for), each language in its own words; the pseudo language in a development build */
+  readonly locales = computed((): { id: LocalePreference; label: string }[] => [
+    { id: 'system', label: this.t().settings.languageSystem(LOCALE_NAMES[this.i18n.systemLocale]) },
+    ...([...LOCALES, ...(isDevMode() ? [PSEUDO_LOCALE] : [])] as Locale[]).map((id) => ({ id, label: LOCALE_NAMES[id] })),
+  ]);
+
+  setLocale(e: Event): void {
+    const value = (e.target as HTMLSelectElement).value;
+    if (isLocalePreference(value)) this.ui.localePreference.set(value);
+  }
   private readonly store = inject(GameStore);
   private readonly config = inject(ConfigService);
   private readonly display = inject(DebugFacadeService);

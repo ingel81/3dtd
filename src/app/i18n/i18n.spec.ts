@@ -10,6 +10,7 @@ import { LOCALES, SOURCE_LOCALE, detectLocale, resolveLocale } from './locale';
 import { en, type Messages } from './messages/en';
 import { RUN_PLAN } from '../director/sources/budget/run-plan';
 import { WAVE_TABLE } from '../director/sources/table/wave-table';
+import { pseudoText } from './pseudo';
 
 /** Every leaf of a dictionary by its key path: a text, or a function and its number of values */
 function leaves(node: unknown, path = '', out = new Map<string, string | number>()): Map<string, string | number> {
@@ -105,6 +106,20 @@ describe('detectLocale', () => {
   });
 });
 
+describe('the pseudo language', () => {
+  it('accents, brackets and lengthens every text, functions included, and keeps the shape of English', async () => {
+    const xx = await DICTIONARIES.xx();
+    expect(xx.common.cancel).toBe(pseudoText('Cancel'));
+    expect(xx.common.cancel).toMatch(/^\[Çáñçél ~+\]$/);
+    expect(xx.units.waves(3)).toBe(pseudoText('3 waves'));
+    expect(Object.keys(xx)).toEqual(Object.keys(en));
+  });
+
+  it('is never detected from the browser', () => {
+    expect(detectLocale(['xx', 'de'])).toBe('de');
+  });
+});
+
 describe('formatters', () => {
   it('plurals by the language rule', () => {
     expect(en.units.waves(1)).toBe('1 wave');
@@ -186,7 +201,7 @@ describe('UIStore.localePreference', () => {
   it('reads the stored choice, and keeps "system" for anything else', () => {
     localStorage.setItem('td-ui-state', JSON.stringify({ infoOverlayVisible: false, streetsVisible: false, routesVisible: true, spatialGridDebugVisible: false, locale: 'de' }));
     expect(new UIStore().localePreference()).toBe('de');
-    localStorage.setItem('td-ui-state', JSON.stringify({ infoOverlayVisible: false, streetsVisible: false, routesVisible: true, spatialGridDebugVisible: false, locale: 'xx' }));
+    localStorage.setItem('td-ui-state', JSON.stringify({ infoOverlayVisible: false, streetsVisible: false, routesVisible: true, spatialGridDebugVisible: false, locale: 'zz' }));
     expect(new UIStore().localePreference()).toBe('system');
   });
 });

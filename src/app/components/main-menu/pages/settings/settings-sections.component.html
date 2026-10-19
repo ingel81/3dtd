@@ -154,6 +154,14 @@
       </div>
     }
     @case ('gameplay') {
+      <label class="td-setting">
+        <span>{{ t().settings.language }}</span>
+        <select class="td-select set-select is-auto" (change)="setLocale($event)" [attr.aria-label]="t().settings.language" data-test="language">
+          @for (l of locales(); track l.id) {
+            <option [value]="l.id" [selected]="ui.localePreference() === l.id">{{ l.label }}</option>
+          }
+        </select>
+      </label>
       <div class="td-setting">
         <span id="td-set-speed">Game speed</span>
         <div class="td-seg is-compact" role="radiogroup" aria-labelledby="td-set-speed" tdRovingGroup>

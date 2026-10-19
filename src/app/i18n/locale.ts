@@ -1,10 +1,16 @@
+import { isDevMode } from '@angular/core';
+
 /**
  * The languages the game speaks (TODO E245, docs/I18N_PLAN.md). A new one is
  * a code here, its own name below and a file under `messages/`; the compiler
  * then asks for every text.
  */
 export const LOCALES = ['en', 'de'] as const;
-export type Locale = (typeof LOCALES)[number];
+
+/** The pseudo language for developers (pseudo.ts): chosen in a development build only, never detected */
+export const PSEUDO_LOCALE = 'xx' as const;
+
+export type Locale = (typeof LOCALES)[number] | typeof PSEUDO_LOCALE;
 
 /** The player's choice in Settings: a language, or the system's */
 export type LocalePreference = Locale | 'system';
@@ -16,10 +22,11 @@ export const SOURCE_LOCALE: Locale = 'en';
 export const LOCALE_NAMES: Readonly<Record<Locale, string>> = {
   en: 'English',
   de: 'Deutsch',
+  xx: 'Pseudo (xx)',
 };
 
 export function isLocale(value: unknown): value is Locale {
-  return typeof value === 'string' && (LOCALES as readonly string[]).includes(value);
+  return typeof value === 'string' && ((LOCALES as readonly string[]).includes(value) || (value === PSEUDO_LOCALE && isDevMode()));
 }
 
 export function isLocalePreference(value: unknown): value is LocalePreference {
@@ -33,7 +40,7 @@ export function isLocalePreference(value: unknown): value is LocalePreference {
 export function detectLocale(languages: readonly string[]): Locale {
   for (const tag of languages) {
     const main = tag.split('-')[0].toLowerCase();
-    if (isLocale(main)) return main;
+    if ((LOCALES as readonly string[]).includes(main)) return main as Locale;
   }
   return SOURCE_LOCALE;
 }

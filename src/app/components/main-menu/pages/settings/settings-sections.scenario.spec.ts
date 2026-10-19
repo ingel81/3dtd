@@ -21,6 +21,7 @@ import { ConfigService } from '../../../../core/services/config.service';
 import { DebugFacadeService } from '../../../../services/debug/debug-facade.service';
 import { VFX_PRESETS, type VfxSettings } from '../../../../three-engine/vfx-settings';
 import { SettingsSectionsComponent } from './settings-sections.component';
+import { I18n } from '../../../../i18n/i18n.service';
 
 const template = readFileSync(resolve('src/app/components/main-menu/pages/settings/settings-sections.component.html'), 'utf8');
 
@@ -288,6 +289,21 @@ describe('Settings page', () => {
     fast.click();
     expect(TestBed.inject(GameStore).gameSpeed()).toBe(1);
     expect(guest.el.textContent).toContain('The host sets the speed.');
+  });
+
+  it('picks the language: the one of the system named in it, each language in its own words, the choice kept in UIStore (E245)', async () => {
+    const { el, show, settle } = await setup();
+    show('Gameplay');
+    const select = el.querySelector<HTMLSelectElement>('[data-test="language"]')!;
+    const options = [...select.options].map((o) => o.textContent?.trim());
+    expect(options.slice(0, 3)).toEqual(['System (English)', 'English', 'Deutsch']);
+    select.value = 'de';
+    select.dispatchEvent(new Event('change'));
+    expect(TestBed.inject(UIStore).localePreference()).toBe('de');
+    TestBed.tick();
+    await TestBed.inject(I18n).ready();
+    await settle();
+    expect(el.querySelector('[data-test="language"]')!.closest('label')!.textContent).toContain('Sprache');
   });
 
   it('names the tile provider; Change key asks for the key step and makes way', async () => {
