@@ -356,6 +356,11 @@ dem Build fehlt, aus dem `public/maps` des Checkouts (`mapDataRoot` in `createAp
   aller im Renderer (`ThreeTilesEngine.compileProgress`, alle 250 ms gelesen, `EngineInitializationService.compilingAhead`);
   vorher stand dort sekundenlang „Preparing Intro Flight“. Zwischen den Ladeschritten wartet der Ablauf nur dann ein
   gezeichnetes Bild ab, wenn sich ein Schritt geändert hat (`afterNextPaint`), statt fest 50 ms je Wechsel
+- Vor dem ersten Bild sind alle Programme gebaut, die es zeichnet: der Gelände-Quadtree hält je Material (nah, fern)
+  ein verborgenes Stück (`TerrainChunks` twins), weil zu Beginn nur die gröbsten Stücke im fernen Material stehen und
+  das erste Spielbild das nahe linkte; die Platzhalter der Engine (Tower, Sockel, Held) bleiben verborgen, bis ihre
+  Programme gelinkt sind, weil ein Ladebild sie sonst zeichnete und auf den Link wartete. Erster Teststart im
+  Demo-Tal: längstes Bild 2,7 s → 0,13 bis 0,16 s, Hafenstadt 2,6 → 0,31 s, Autumn Keep 2,6 → 0,18 s (Probe, Rechner A)
 - Die geteilte `MapAssetLibrary` bleibt über den Wechsel zum Editor derselben Karte; eine andere Karte, ein echter Ort
   oder die Globen leeren sie (etwa 88 MB Materialpixel, `CUSTOM_MAPS.md`, Speicher)
 - Höhen für das Overlay: eine Runde sofort statt vier Runden zu 500 ms, weil der Boden nicht streamt

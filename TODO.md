@@ -30,9 +30,9 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
 
 ### Reste der Nachtschicht 2026-10-18/19
 
-- [ ] **E246 Erstes Bild beim ersten Teststart hält 5 bis 11 s**: das Gelände-Programm wird erst im Ziel des Composers
-      übersetzt; Vorübersetzen je Zeichenziel, Beleg „0 Links im ersten Bild“ (`tmp/plan/r8/WIP_r8-scene.md`). Dazu
-      prüfen: nach dem Leeren der Kartenbibliothek dekodierte sie 258 Bilder statt KTX2 (vermutlich noch WebP-Bäume).
+- [ ] **E246 Rest**: nach dem Leeren der Kartenbibliothek dekodiert sie Bilder statt KTX2 (Probe: 34 beim ersten,
+      18 beim zweiten Teststart, vermutlich noch WebP-Bäume); beim Öffnen des Editors linkt ein Tiefenprogramm im Bild
+      (`MeshDepthMaterial` bzw. `far-box-depth`, 210 bis 280 ms).
 - [ ] **E247 Startpaket 2,65 MB** (Ziel 2,54): Custom-Map-Welt (156 kB) per `import()` vom Startpfad, englisches
       Wörterbuch (120 kB) prüfen, der Template-Worker des Editors bündelt `en.ts` mit (`tmp/plan/r8/WIP_r8-ktx2.md`).
 - [ ] **E251 Laden nach Bedarf, Rest**: Freischalten im Lauf per Probe geprüft (0 Links, längstes Bild 14 ms; ein
@@ -199,6 +199,9 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       der Zerstörung (Einsturz je Material und Größe, Nachrieseln, Krater), E250 Impostor-Ton.
 - [ ] **K7 Kettensäge** (E241, 2026-10-19): Schaden erst, wenn die Säge am Gegner ist, Arme behalten ihren
       Gegner und folgen der Zielwahl des Towers, eigener Takt je Arm, ruhiger beim Wechsel, Blut beim Sägen (F5.3).
+- [ ] **K8 Erster Teststart und Adresssuche** (2026-10-19): E246 längstes Bild 2,6 s → 0,13 bis 0,31 s (beide
+      Geländevarianten und die Platzhalter vor dem ersten Bild übersetzt); Adresssuche nur auf Enter oder Lupe, mit
+      Cache, höchstens eine Anfrage je Sekunde (Nominatim-Richtlinie) (K6, K8).
 
 ### Licht durch Munition (2026-10-18, Branch `wt/r7-muzzle`, Nachtests in PLAYTEST.md I)
 

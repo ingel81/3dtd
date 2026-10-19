@@ -425,10 +425,12 @@ Nur Augen und Ohren; Logik, Prüfsummen und Strukturzahlen sind per Spec und Pro
   Glutkanten und Decken und Innenwänden, dann ein Fall mit stehendem Stumpf; Krater mit verbrannter Sohle; Schutt.
   Noch ohne Klang.*
 - **K6 Laden und Wechsel:** Demo Valley kalt laden, dann Editor, Test, Editor, Test. *Spielbar nach wenigen Sekunden;
-  der zweite Teststart deutlich schneller als der erste; Bäume fern ohne Aufpoppen. Bekannt: der erste Teststart
-  hält ein Bild mehrere Sekunden (E246).*
+  der zweite Teststart deutlich schneller als der erste; Bäume fern ohne Aufpoppen; auch der erste Teststart ohne
+  Bild, das sichtbar hält (E246, 2026-10-19).*
 - **K7 Sprache und Editor:** Settings, Gameplay, Sprache auf Deutsch. *Editor und Seitenleiste deutsch, Turm- und
   Gegnernamen englisch; nichts abgeschnitten (bekannt: „Ungepanzert“ im Wellen-Tooltip).*
+- **K8 Adresssuche:** Neues Spiel, einen Ort suchen. *Tippen sucht nicht, Hinweis „Enter drücken, um zu suchen“;
+  Enter oder die Lupe rechts im Feld suchen, die Liste kommt; die Lupe ist unter drei Zeichen ausgegraut.*
 
 ## Eichtabelle
 

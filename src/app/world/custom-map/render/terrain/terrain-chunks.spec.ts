@@ -37,6 +37,27 @@ describe('TerrainChunks', () => {
     expect(new Set(chunks.meshes.map((m) => (m as Mesh<BufferGeometry>).geometry.getIndex()!.count)).size).toBe(1);
   });
 
+  it('holds a hidden piece in each material, so a warm-up builds the near one while only far pieces draw', () => {
+    const n = 513;
+    const field = new HeightField({ columns: n, rows: n, cellSize: 2, heights: new Float32Array(n * n) }, 1024, 1024);
+    const near = new MeshBasicMaterial();
+    const far = new MeshBasicMaterial();
+    const chunks = new TerrainChunks(field, new HeightTexture(field), near);
+    chunks.setMaterial(near, far);
+    // At first only the coarsest piece draws, in the far material
+    expect(chunks.meshes.map((m) => m.material)).toEqual([far]);
+    // What three's compile walks (hidden ones too): both materials, the twins hidden and out of the pieces drawn
+    const materials = new Set<unknown>();
+    chunks.group.traverse((o) => { if ((o as Mesh).isMesh) materials.add((o as Mesh).material); });
+    expect(materials).toEqual(new Set([near, far]));
+    const twins = chunks.group.children.filter((o) => !chunks.meshes.includes(o as Mesh));
+    expect(twins.map((o) => o.visible)).toEqual([false, false]);
+    expect(twins.every((t) => (t as Mesh).geometry === chunks.meshes[0].geometry)).toBe(true);
+    // Without a far material one twin is left
+    chunks.setMaterial(near);
+    expect(chunks.group.children.filter((o) => !chunks.meshes.includes(o as Mesh))).toHaveLength(1);
+  });
+
   it('keeps the finest, unmorphed level under a game camera, where units stand on heightAt', () => {
     // 1 km at 2 m cells, a game camera 200 m above the map's centre
     const n = 513;

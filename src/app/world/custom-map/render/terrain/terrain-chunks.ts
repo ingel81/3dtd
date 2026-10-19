@@ -242,6 +242,15 @@ export class TerrainChunks {
   private farMaterial: Material | null = null;
   /** The finest level drawn with the far ground's material (setFarFrom) */
   private farLevel = 1;
+  /**
+   * One hidden piece in each of the ground's materials (syncTwins), so a
+   * warm-up builds the programs of both though only one draws: the pieces
+   * start coarsest, all in the far material, and the game's first frame from
+   * the camera's start linked the near one (2.5 s on the demo valley's first
+   * test run). three's compile walks hidden objects, the view's withAllShown
+   * draws them
+   */
+  private readonly twins: Mesh[] = [];
   private readonly chunkCells: number;
   private readonly maxLod: number;
   private readonly lodDistance: number;
@@ -299,6 +308,34 @@ export class TerrainChunks {
       for (const c of n.children) visit(c);
     };
     for (const r of this.roots) visit(r);
+    this.syncTwins();
+  }
+
+  /** The hidden twins (twins): one per material, on the geometry of a piece drawn */
+  private syncTwins(): void {
+    const geometry = this.shownList[0]?.geometry;
+    const materials = this.farMaterial ? [this.material, this.farMaterial] : [this.material];
+    while (this.twins.length > materials.length) this.group.remove(this.twins.pop()!);
+    if (!geometry) return;
+    materials.forEach((material, k) => {
+      let twin = this.twins[k];
+      if (!twin) {
+        twin = new Mesh(geometry, material);
+        twin.name = 'terrain-chunk-twin';
+        twin.visible = false;
+        twin.frustumCulled = false;
+        twin.receiveShadow = true;
+        twin.castShadow = true;
+        twin.customDepthMaterial = this.depthMaterial;
+        twin.matrixAutoUpdate = false;
+        twin.raycast = noRaycast;
+        twin.userData['losVertex'] = this.losVertex;
+        this.twins.push(twin);
+        this.group.add(twin);
+      }
+      twin.geometry = geometry;
+      twin.material = material;
+    });
   }
 
   /**
@@ -399,6 +436,7 @@ export class TerrainChunks {
     this.next = this.shownList;
     this.shownList = next;
     this.version++;
+    this.syncTwins();
   }
 
   /** Builds the waiting pieces nearest first, within the cells an update may build; the rest wait for the next */
@@ -464,6 +502,7 @@ export class TerrainChunks {
     this.roots.length = 0;
     this.leaves.length = 0;
     this.shownList = [];
+    this.twins.length = 0;
     this.group.clear();
     this.depthMaterial.dispose();
   }

@@ -1453,6 +1453,9 @@ export class ThreeTilesEngine {
     for (const o of [...this.towers.warmUpObjects(first?.towers), this.plinths.warmUpObject(), this.tentacles.warmUpObject(), this.oozes.warmUpObject(), ...lineStandIns(this.portalClip)]) standIns.add(o);
     if (hero) standIns.add(hero);
     standIns.scale.setScalar(1e-4);
+    // Hidden while their programs link (three's compile walks hidden objects): a loading frame that drew them
+    // meanwhile waited for the link on the main thread (the plinth's, 200 ms of the loading screen standing still)
+    standIns.visible = false;
     this.scene.add(standIns);
     const shadows = this.renderer.shadowMap;
     let warmup: SceneWarmupResult;
@@ -1464,6 +1467,8 @@ export class ThreeTilesEngine {
           this.scene,
           this.camera,
           () => {
+            // Every program built: the warm-up frame draws them
+            standIns.visible = true;
             shadows.needsUpdate = shadows.enabled;
             return this.renderLoop.waitForRenderedFrame();
           },
