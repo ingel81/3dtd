@@ -4,6 +4,7 @@ import type { CatalogObject } from '../asset-catalog';
 import { massContains, massDistance, massOf, massRadius, massTop } from '../../object-mass';
 import { boxDistance, toModel } from '../../object-ground';
 import type { HeightField } from '../height-field';
+import { uploadRect, type TexelRect } from '../terrain/texture-ranges';
 
 /** How far from a footprint the second channel measures, m (grass grows full from 1.5 m) */
 export const COVER_RIM = 3;
@@ -29,6 +30,8 @@ export class CoverMap {
   /** Metres to the nearest footprint, per sample */
   private readonly rims: Float32Array;
   private readonly rimBytes: Uint8Array;
+  /** The objects of the last set that cover or hold a rim, each with its entry (object, entry, ...) */
+  private readonly found: (MapObject | CatalogObject)[] = [];
   /** Uniforms for a shader that includes COVER_GLSL; uCoverFrame xy is the map group's scene offset */
   readonly uniforms: {
     uCover: { value: DataTexture };
@@ -66,32 +69,73 @@ export class CoverMap {
    * Terrain heights plus the roofs of buildings, structures and rocks, and
    * the surfaces of water bodies and rivers. `bare`: samples where the fight
    * tore the ground up (a crater, a heap of rubble, custom-map-ground-damage.ts),
-   * which grow no grass, as at a footprint
+   * which grow no grass, as at a footprint. With `rect` (samples, inclusive)
+   * (the heights changed there) only those samples are worked out and go
+   * up, each as the whole map's would come out, and the whole roof of an
+   * object standing on them (its top follows the ground under its middle):
+   * a crater's few metres instead of every footprint of the map
    */
-  set(objects: MapObject[], entries: Map<string, CatalogObject>, terrain?: MapTerrain, bare?: Uint8Array | null): void {
+  set(objects: MapObject[], entries: Map<string, CatalogObject>, terrain?: MapTerrain, bare?: Uint8Array | null, rect?: TexelRect): void {
     const f = this.field;
-    this.tops.set(f.grid.heights);
-    this.rims.fill(COVER_RIM);
-    if (terrain) this.addWater(terrain);
+    const w: TexelRect = rect
+      ? { i0: Math.max(0, rect.i0), j0: Math.max(0, rect.j0), i1: Math.min(f.columns - 1, rect.i1), j1: Math.min(f.rows - 1, rect.j1) }
+      : { i0: 0, j0: 0, i1: f.columns - 1, j1: f.rows - 1 };
+    if (w.i1 < w.i0 || w.j1 < w.j0) return;
+    // What stops rain or keeps grass short: buildings, structures and rocks, and standing walls (not a fence or a
+    // hedge row) that let rain through
+    const found = this.found;
+    found.length = 0;
     for (const o of objects) {
       const e = entries.get(o.asset);
       if (!e) continue;
-      // A standing wall (not a fence or a hedge row) keeps the grass short at its foot too, but lets rain through
-      if (e.category === 'wall' && e.height >= 1.5) this.addRim(o, e);
-      if (e.category !== 'building' && e.category !== 'structure' && e.category !== 'rock') continue;
-      this.addRim(o, e);
+      if (e.category === 'building' || e.category === 'structure' || e.category === 'rock' || (e.category === 'wall' && e.height >= 1.5)) found.push(o, e);
+    }
+    if (rect) {
+      const changed = { ...w };
+      for (let n = 0; n < found.length; n += 2) {
+        const o = found[n] as MapObject;
+        const e = found[n + 1] as CatalogObject;
+        if (e.category === 'wall') continue;
+        const ci = (o.x - f.originX) / f.cellSize;
+        const cj = (o.y - f.originY) / f.cellSize;
+        // The samples its middle's height comes from
+        if (Math.ceil(ci) < changed.i0 || Math.floor(ci) > changed.i1 || Math.ceil(cj) < changed.j0 || Math.floor(cj) > changed.j1) continue;
+        const mass = massOf(o);
+        const rc = ((mass ? massRadius(mass) : e.footprint) * (o.scale || 1)) / f.cellSize;
+        w.i0 = Math.max(0, Math.min(w.i0, Math.floor(ci - rc)));
+        w.j0 = Math.max(0, Math.min(w.j0, Math.floor(cj - rc)));
+        w.i1 = Math.min(f.columns - 1, Math.max(w.i1, Math.ceil(ci + rc)));
+        w.j1 = Math.min(f.rows - 1, Math.max(w.j1, Math.ceil(cj + rc)));
+      }
+    }
+    const heights = f.grid.heights;
+    for (let j = w.j0; j <= w.j1; j++) {
+      const row = j * f.columns;
+      this.tops.set(heights.subarray(row + w.i0, row + w.i1 + 1), row + w.i0);
+      this.rims.fill(COVER_RIM, row + w.i0, row + w.i1 + 1);
+    }
+    if (terrain) this.addWater(terrain, w);
+    for (let n = 0; n < found.length; n += 2) {
+      const o = found[n] as MapObject;
+      const e = found[n + 1] as CatalogObject;
+      const covers = e.category !== 'wall';
       const s = o.scale || 1;
       // A raised building (object-mass.ts): its own height over its outline, not its entry's disc
       const mass = massOf(o);
       const r = (mass ? massRadius(mass) : e.footprint) * s;
-      const top = f.heightAt(o.x, o.y) + o.z + (mass ? massTop(mass) : e.height) * s;
       const ci = (o.x - f.originX) / f.cellSize;
       const cj = (o.y - f.originY) / f.cellSize;
+      // Nothing of it reaches the window: its rim is the farthest it reaches
+      const reach = (r + COVER_RIM) / f.cellSize + 1;
+      if (ci + reach < w.i0 || ci - reach > w.i1 || cj + reach < w.j0 || cj - reach > w.j1) continue;
+      this.addRim(o, e, w);
+      if (!covers) continue;
+      const top = f.heightAt(o.x, o.y) + o.z + (mass ? massTop(mass) : e.height) * s;
       const rc = r / f.cellSize;
       const cos = Math.cos(o.rotation);
       const sin = Math.sin(o.rotation);
-      for (let j = Math.max(0, Math.floor(cj - rc)); j <= Math.min(f.rows - 1, Math.ceil(cj + rc)); j++) {
-        for (let i = Math.max(0, Math.floor(ci - rc)); i <= Math.min(f.columns - 1, Math.ceil(ci + rc)); i++) {
+      for (let j = Math.max(w.j0, Math.floor(cj - rc)); j <= Math.min(w.j1, Math.ceil(cj + rc)); j++) {
+        for (let i = Math.max(w.i0, Math.floor(ci - rc)); i <= Math.min(w.i1, Math.ceil(ci + rc)); i++) {
           if (Math.hypot(i - ci, j - cj) > rc) continue;
           if (mass) {
             const m = toModel(f.originX + i * f.cellSize - o.x, f.originY + j * f.cellSize - o.y, cos, sin);
@@ -102,14 +146,19 @@ export class CoverMap {
         }
       }
     }
-    if (bare) for (let k = 0; k < bare.length; k++) if (bare[k]) this.rims[k] = 0;
-    for (let k = 0; k < this.rims.length; k++) this.rimBytes[k] = Math.round((Math.min(this.rims[k], COVER_RIM) / COVER_RIM) * 255);
-    this.texture.needsUpdate = true;
-    this.rim.needsUpdate = true;
+    for (let j = w.j0; j <= w.j1; j++) {
+      for (let k = j * f.columns + w.i0, end = j * f.columns + w.i1; k <= end; k++) {
+        if (bare?.[k]) this.rims[k] = 0;
+        this.rimBytes[k] = Math.round((Math.min(this.rims[k], COVER_RIM) / COVER_RIM) * 255);
+      }
+    }
+    found.length = 0;
+    uploadRect(this.texture, rect && w);
+    uploadRect(this.rim, rect && w);
   }
 
   /** The distance of the samples round an object to its ground (outline, rectangle or footprint disc) into the rims */
-  private addRim(o: MapObject, e: CatalogObject): void {
+  private addRim(o: MapObject, e: CatalogObject, w: TexelRect): void {
     const f = this.field;
     const s = o.scale || 1;
     const mass = massOf(o);
@@ -119,8 +168,8 @@ export class CoverMap {
     const rc = r / f.cellSize;
     const cos = Math.cos(o.rotation);
     const sin = Math.sin(o.rotation);
-    for (let j = Math.max(0, Math.floor(cj - rc)); j <= Math.min(f.rows - 1, Math.ceil(cj + rc)); j++) {
-      for (let i = Math.max(0, Math.floor(ci - rc)); i <= Math.min(f.columns - 1, Math.ceil(ci + rc)); i++) {
+    for (let j = Math.max(w.j0, Math.floor(cj - rc)); j <= Math.min(w.j1, Math.ceil(cj + rc)); j++) {
+      for (let i = Math.max(w.i0, Math.floor(ci - rc)); i <= Math.min(w.i1, Math.ceil(ci + rc)); i++) {
         const dx = f.originX + i * f.cellSize - o.x;
         const dy = f.originY + j * f.cellSize - o.y;
         let d: number;
@@ -138,12 +187,14 @@ export class CoverMap {
     }
   }
 
-  private addWater(t: MapTerrain): void {
+  private addWater(t: MapTerrain, w: TexelRect): void {
     const f = this.field;
     const tops = this.tops;
     for (const body of [t.water, ...(t.waterBodies ?? [])]) {
       if (!body) continue;
-      for (let k = 0; k < tops.length; k++) if (body.mask[k] && body.level > tops[k]) tops[k] = body.level;
+      for (let j = w.j0; j <= w.j1; j++) {
+        for (let k = j * f.columns + w.i0, end = j * f.columns + w.i1; k <= end; k++) if (body.mask[k] && body.level > tops[k]) tops[k] = body.level;
+      }
     }
     // Rivers: a disc of the surface's width every half cell along the line
     for (const river of t.rivers ?? []) {
@@ -159,8 +210,8 @@ export class CoverMap {
           const rc = ((a.width + (b.width - a.width) * u) * 0.5) / f.cellSize;
           const ci = (x - f.originX) / f.cellSize;
           const cj = (y - f.originY) / f.cellSize;
-          for (let j = Math.max(0, Math.floor(cj - rc)); j <= Math.min(f.rows - 1, Math.ceil(cj + rc)); j++) {
-            for (let i = Math.max(0, Math.floor(ci - rc)); i <= Math.min(f.columns - 1, Math.ceil(ci + rc)); i++) {
+          for (let j = Math.max(w.j0, Math.floor(cj - rc)); j <= Math.min(w.j1, Math.ceil(cj + rc)); j++) {
+            for (let i = Math.max(w.i0, Math.floor(ci - rc)); i <= Math.min(w.i1, Math.ceil(ci + rc)); i++) {
               if (Math.hypot(i - ci, j - cj) > rc) continue;
               const k = j * f.columns + i;
               if (level > tops[k]) tops[k] = level;

@@ -80,4 +80,42 @@ describe('CoverMap', () => {
     expect(rim(-8, -8)).toBe(COVER_RIM); // a fence keeps no rim
     cover.dispose();
   });
+
+  it('works out a rectangle of changed heights as the whole map would, the roofs standing on it whole', () => {
+    const n = 41;
+    const heights = new Float32Array(n * n).fill(3);
+    const field = new HeightField({ columns: n, rows: n, cellSize: 2, heights }, 80, 80);
+    const entries = new Map<string, CatalogObject>([
+      ['house', { id: 'house', category: 'building', footprint: 6, height: 8 } as CatalogObject],
+      ['shed', { id: 'shed', category: 'building', footprint: 3, height: 4, box: [0, 0, 3, 2] } as CatalogObject],
+      ['wall', { id: 'wall', category: 'wall', footprint: 4, height: 2, box: [0, 0, 4, 0.3] } as CatalogObject],
+    ]);
+    const objects = [
+      { id: 'h', asset: 'house', x: 0, y: 0, z: 0, rotation: 0, scale: 1 },
+      { id: 's', asset: 'shed', x: 9, y: -3, z: 0, rotation: 0.4, scale: 1 },
+      { id: 'w', asset: 'wall', x: -10, y: 8, z: 0, rotation: 0, scale: 1 },
+    ];
+    const regional = new CoverMap(field);
+    regional.set(objects, entries);
+    // As the renderer's upload of the whole textures tells them
+    for (const t of [regional.texture, regional.rim]) t.onUpdate?.(t);
+    // A crater under the house's middle and the shed's edge: samples 19..23 by 18..21
+    const rect = { i0: 19, j0: 18, i1: 23, j1: 21 };
+    for (let j = rect.j0; j <= rect.j1; j++) for (let i = rect.i0; i <= rect.i1; i++) heights[j * n + i] = 1.5;
+    const bare = new Uint8Array(n * n);
+    bare[20 * n + 21] = 1;
+    regional.set(objects, entries, undefined, bare, rect);
+    const whole = new CoverMap(field);
+    whole.set(objects, entries, undefined, bare);
+    // The house's whole roof came down with the ground under its middle, beyond the rectangle too
+    expect(regional.texture.image.data).toEqual(whole.texture.image.data);
+    expect(regional.rim.image.data).toEqual(whole.rim.image.data);
+    expect((regional.texture.image.data as Float32Array)[20 * n + 17]).toBeCloseTo(heights[20 * n + 20] + 8, 5);
+    // Only rows the change reached go up, those of the house's roof included
+    const rows = regional.texture.updateRanges.map((r) => Math.floor(r.start / 4 / n));
+    expect(Math.min(...rows)).toBeLessThan(rect.j0);
+    expect(Math.max(...rows)).toBeLessThan(n - 10);
+    regional.dispose();
+    whole.dispose();
+  });
 });

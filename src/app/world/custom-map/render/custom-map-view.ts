@@ -222,9 +222,10 @@ export class CustomMapView {
   private readonly haze: LifeHaze;
   /** The quality level's share of the map's life (render-quality.ts `life`) */
   private lifeShare = 1;
-  /** Terrain and roof tops for the weather; rebuilt lazily (coverDirty) */
+  /** Terrain and roof tops for the weather; rebuilt lazily (markCover): the samples of `coverRect`, all while it is null */
   private readonly cover: CoverMap;
   private coverDirty = true;
+  private coverRect: GridRect | null = null;
   private coverAge = 0;
   private readonly camPos = new Vector3();
   private readonly hitPoint = new Vector3();
@@ -840,8 +841,11 @@ export class CustomMapView {
    * kept by reference and read with the next cover: no grass grows there
    */
   setGroundBare(bare: Uint8Array | null): void {
+    // Its samples change with the heights of their rectangle (CustomMapGroundDamage.flush, updateHeights);
+    // a first one is bare nowhere else yet, only another one in its place can change the rest
+    const had = this.groundBare;
     this.groundBare = bare;
-    this.coverDirty = true;
+    if (had && bare !== had) this.markCover();
   }
 
   /**
@@ -866,7 +870,7 @@ export class CustomMapView {
     if (this.signs.count) void this.refreshSigns();
     // The openings sit where their objects sit
     if (this.cutObjects.length) this.refreshCuts();
-    this.coverDirty = true;
+    this.markCover(rect && this.gridRect(rect));
     // Water and bridges only when the change reaches them: a brush on a big map must stay cheap
     if (!rect) this.updateWater();
     else this.refreshWaterNear(rect, apron);
@@ -931,7 +935,7 @@ export class CustomMapView {
       // Only the tiles the change reaches; the part beyond the border on the apron as it is now
       surface.set(body, k === 0 && apron ? this.terrain.apronProfile : null, g);
       lava ||= body.kind === 'lava';
-      this.coverDirty = true;
+      this.markCover(g);
     });
     if (lava) this.refreshLava();
   }
@@ -998,7 +1002,7 @@ export class CustomMapView {
     if (this.watersPlaced) this.terrain.refreshWater();
     this.watersPlaced = true;
     // Rain stops and grass ends at the new surfaces, the mirrored trees beyond the border at the sea
-    this.coverDirty = true;
+    this.markCover();
     this.edgeTreesLater(this.shownObjects());
     const bodies = [this.doc.terrain.water, ...(this.doc.terrain.waterBodies ?? [])];
     // Slot 0 is the main body (it may be null); further bodies follow
@@ -1048,7 +1052,7 @@ export class CustomMapView {
     if (border) this.terrain.refreshWater();
     else this.terrain.refreshWaterMask(g);
     surface.set(water, border ? this.terrain.apronProfile : null, g);
-    this.coverDirty = true;
+    this.markCover();
     if (border) this.edgeTreesLater(this.shownObjects());
     if (wasLava || water.kind === 'lava') this.effects.setLavaLights(this.lavaLightPoints());
     this.objects.refreshHeights(rect, true);
@@ -1064,7 +1068,7 @@ export class CustomMapView {
     }
     const wasLava = surface.kind === 'lava';
     surface.set(water, null, rect ? this.gridRect(rect) : undefined);
-    this.coverDirty = true;
+    this.markCover();
     if (wasLava || water.kind === 'lava') this.refreshLava();
     this.objects.refreshHeights(rect, true);
     if (!rect || this.bridgeNear(rect)) void this.refreshBridges();
@@ -1497,12 +1501,23 @@ export class CustomMapView {
     return out.slice(0, 256);
   }
 
+  /** The cover changed in a sample rectangle (all of it when omitted): rebuilt with a later frame */
+  private markCover(rect?: GridRect): void {
+    const was = this.coverRect;
+    if (!rect) this.coverRect = null;
+    else if (!this.coverDirty) this.coverRect = { ...rect };
+    else if (was) this.coverRect = { i0: Math.min(was.i0, rect.i0), j0: Math.min(was.j0, rect.j0), i1: Math.max(was.i1, rect.i1), j1: Math.max(was.j1, rect.j1) };
+    this.coverDirty = true;
+  }
+
   private async refreshCover(): Promise<void> {
+    const rect = this.coverRect;
     this.coverDirty = false;
+    this.coverRect = null;
     this.coverAge = 0;
     const catalog = await this.assets.catalog();
     if (this.disposed) return;
-    this.cover.set(this.shownObjects(), this.catalogEntries(catalog), this.doc.terrain, this.groundBare);
+    this.cover.set(this.shownObjects(), this.catalogEntries(catalog), this.doc.terrain, this.groundBare, rect ?? undefined);
   }
 
   /** Contact shadows of the objects in the baked ground occlusion */
@@ -1539,7 +1554,7 @@ export class CustomMapView {
   }
 
   private async refreshContact(changed?: MapObject[]): Promise<void> {
-    this.coverDirty = true;
+    this.markCover();
     const catalog = await this.assets.catalog();
     if (this.disposed) return;
     const entries = this.catalogEntries(catalog);
