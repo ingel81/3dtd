@@ -1,7 +1,13 @@
-import { ShaderLib, UniformsUtils, Vector3 } from 'three';
-import { IMPOSTOR_FRAMES, hemiOctDirection, hemiOctPoint, impostorCell, measureLook, turnToCamera } from './impostor';
+import { Matrix3, MeshStandardMaterial, ShaderLib, UniformsUtils, Vector3 } from 'three';
+import { IMPOSTOR_FRAMES, hemiOctDirection, hemiOctPoint, impostorCell, measureLook, normalDepthMaterial, turnToCamera } from './impostor';
 
 describe('octahedral impostor', () => {
+  it('gives an untextured part a matrix for its map transform, as three uploads the mat3 on every draw', () => {
+    const material = normalDepthMaterial(new MeshStandardMaterial(), new Vector3(), 1);
+    expect(material.uniforms['uMapTransform'].value).toBeInstanceOf(Matrix3);
+    material.dispose();
+  });
+
   it('finds each baked view again from its direction, and every direction from above lies on the grid', () => {
     const d = new Vector3();
     for (let j = 0; j < IMPOSTOR_FRAMES; j++) {

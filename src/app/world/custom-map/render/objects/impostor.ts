@@ -9,6 +9,7 @@ import {
   HemisphereLight,
   LinearFilter,
   LinearMipmapLinearFilter,
+  Matrix3,
   Mesh,
   MeshBasicMaterial,
   MeshDepthMaterial,
@@ -310,7 +311,7 @@ function prepareBake(model: ObjectModel, renderer: WebGLRenderer): Bake | null {
 }
 
 /** The normal (model frame) and the depth along the view of a part, cut where its colour map is clear like its albedo */
-function normalDepthMaterial(src: MeshStandardMaterial, center: Vector3, radius: number): ShaderMaterial {
+export function normalDepthMaterial(src: MeshStandardMaterial, center: Vector3, radius: number): ShaderMaterial {
   const map = src.map ?? null;
   map?.updateMatrix();
   return new ShaderMaterial({
@@ -318,7 +319,8 @@ function normalDepthMaterial(src: MeshStandardMaterial, center: Vector3, radius:
     side: DoubleSide,
     uniforms: {
       uMap: { value: map },
-      uMapTransform: { value: map ? map.matrix.clone() : null },
+      // A mat3 uniform must hold a matrix even unused: three reads its elements on every draw
+      uMapTransform: { value: map ? map.matrix.clone() : new Matrix3() },
       uHasMap: { value: map ? 1 : 0 },
       uAlphaTest: { value: src.alphaTest > 0 ? src.alphaTest : 0 },
       uCard: { value: isCard(src) ? 1 : 0 },
