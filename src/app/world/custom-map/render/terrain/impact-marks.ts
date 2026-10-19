@@ -71,7 +71,7 @@ export class ImpactMarks {
     material.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, heights.uniforms, { uRubbleGrit: { value: grit }, uRubbleDust: { value: dust } });
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', `#include <common>\n${TERRAIN_HEIGHT_GLSL}\nattribute vec4 aMark;\nattribute vec4 aMarkLook;\nvarying vec2 vMarkUv;\nvarying vec4 vMarkLook;`)
+        .replace('#include <common>', `#include <common>\n${TERRAIN_HEIGHT_GLSL}\nattribute vec4 aMark;\nattribute vec4 aMarkLook;\nvarying vec2 vMarkUv;\nvarying vec4 vMarkLook;\nvarying float vMarkSize;`)
         .replace(
           '#include <begin_vertex>',
           /* glsl */ `
@@ -83,16 +83,19 @@ export class ImpactMarks {
           vec3 transformed = vec3(-mapAt.x, terrainHeightAt(mapAt), mapAt.y);
           transformed.y += 0.06 + length((modelMatrix * vec4(transformed, 1.0)).xyz - cameraPosition) * 0.002;
           vMarkUv = position.xz * 2.0;
+          vMarkSize = aMark.z;
           vMarkLook = aMarkLook;`,
         )
         .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3(0.0, 1.0, 0.0);');
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', `#include <common>\n${SHADER_NOISE}\nvarying vec2 vMarkUv;\nvarying vec4 vMarkLook;\nuniform vec3 uRubbleGrit[${RUBBLE_MATERIALS.length}];\nuniform vec3 uRubbleDust[${RUBBLE_MATERIALS.length}];\n${SHARDS_GLSL}`)
+        .replace('#include <common>', `#include <common>\n${SHADER_NOISE}\nvarying vec2 vMarkUv;\nvarying vec4 vMarkLook;\nvarying float vMarkSize;\nuniform vec3 uRubbleGrit[${RUBBLE_MATERIALS.length}];\nuniform vec3 uRubbleDust[${RUBBLE_MATERIALS.length}];\n${SHARDS_GLSL}`)
         .replace(
           '#include <map_fragment>',
           /* glsl */ `
           {
             vec2 uv = vMarkUv;
+            // Metres from the middle: the look's grain stays the same on a rocket's crater and the nuke's
+            vec2 mm = uv * vMarkSize * 0.5;
             float r = length(uv);
             float seed = vMarkLook.y;
             float strength = clamp(vMarkLook.z, 0.0, 1.0);
@@ -105,18 +108,18 @@ export class ImpactMarks {
               // churned earth in clods; beyond it soot thrown out in rays that thin with distance
               float rim = 0.71 + fray * 0.12;
               float floorMask = smoothstep(rim, rim - 0.18, r);
-              float char = mix(0.55, 1.0, valueNoise(uv * 6.0 + seed)) * floorMask;
-              float clods = smoothstep(0.55, 0.75, valueNoise(uv * 11.0 + seed * 3.1)) * smoothstep(rim - 0.25, rim, r) * smoothstep(rim + 0.22, rim + 0.02, r);
-              float rays = smoothstep(0.62, 0.9, valueNoise(vec2(angle * 9.0 + seed, r * 1.3)));
+              float char = mix(0.75, 1.0, valueNoise(mm * 1.7 + seed)) * floorMask;
+              float clods = smoothstep(0.55, 0.75, valueNoise(mm * 3.1 + seed * 3.1)) * smoothstep(rim - 0.25, rim, r) * smoothstep(rim + 0.22, rim + 0.02, r);
+              float rays = smoothstep(0.62, 0.9, valueNoise(vec2(angle * (9.0 + vMarkSize * 0.3) + seed, r * 1.3)));
               float thrown = rays * smoothstep(1.0, rim, r) * step(rim - 0.05, r) * 0.8;
               float dust = smoothstep(1.0, 0.55, r) * 0.35;
-              vec3 burnt = mix(vec3(0.035, 0.03, 0.026), vec3(0.11, 0.075, 0.045), valueNoise(uv * 3.0 + seed * 1.7));
-              vec3 earth = mix(vec3(0.2, 0.14, 0.085), vec3(0.3, 0.22, 0.14), valueNoise(uv * 7.0 + seed));
+              vec3 burnt = mix(vec3(0.018, 0.016, 0.014), vec3(0.07, 0.048, 0.03), valueNoise(mm * 0.85 + seed * 1.7));
+              vec3 earth = mix(vec3(0.24, 0.17, 0.1), vec3(0.36, 0.27, 0.17), valueNoise(mm * 2.0 + seed));
               vec3 soot = vec3(0.05, 0.045, 0.04);
-              float a = max(max(char * 0.92, clods * 0.85), max(thrown, dust * 0.6));
+              float a = max(max(char * 0.97, clods * 0.9), max(thrown, dust * 0.6));
               vec3 colour = char > clods ? burnt : earth;
               colour = mix(colour, soot, thrown * (1.0 - floorMask) * (1.0 - clods));
-              diffuseColor = vec4(colour, a * mix(0.55, 1.0, strength));
+              diffuseColor = vec4(colour, a * mix(0.75, 1.0, strength));
             } else {
               // Rubble: broken plates and lumps of its class, cracks of shadow between them, crumbs and dust
               // thrown out past the heap's foot
@@ -125,12 +128,12 @@ export class ImpactMarks {
               vec3 dustColour = uRubbleDust[m];
               float rim = 0.78 + fray * 0.22;
               float body = smoothstep(rim, rim - 0.22, r);
-              vec3 shard = shards(uv * (5.0 + strength * 3.0) + seed);
+              vec3 shard = shards(mm * 1.1 + seed);
               float crack = smoothstep(0.02, 0.09, shard.y);
               vec3 colour = grit * (0.72 + shard.x * 0.5);
               // Darker underside where plates lie on each other, a sprinkle of crumbs
               colour = mix(colour, grit * 0.35, (1.0 - crack) * 0.85);
-              float crumbs = step(0.86, hash12(floor(uv * 38.0 + seed)));
+              float crumbs = step(0.86, hash12(floor(mm * 6.0 + seed)));
               colour = mix(colour, dustColour, crumbs * 0.6);
               float dust = smoothstep(1.0, rim - 0.05, r) * (0.55 + 0.45 * valueNoise(uv * 5.0 + seed));
               colour = mix(dustColour * 0.85, colour, body);
@@ -140,7 +143,7 @@ export class ImpactMarks {
           }`,
         );
     };
-    material.customProgramCacheKey = () => 'custom-map-impact-marks-2';
+    material.customProgramCacheKey = () => 'custom-map-impact-marks-4';
     addHeightFog(material);
     this.mesh = new InstancedMesh(geometry, material, MAX_IMPACT_MARKS);
     this.mesh.name = 'custom-map-impact-marks';
