@@ -29,7 +29,7 @@ import { EXTMeshoptCompression, KHRTextureBasisu } from '@gltf-transform/extensi
 import { dedup, listTextureInfo, quantize, reorder } from '@gltf-transform/functions';
 import { MeshoptEncoder } from 'meshoptimizer';
 import { createIO, glbJson } from './glb.mjs';
-import { encodeKtx2, encodingOf, ktxTool, texturePixels } from './textures.mjs';
+import { encodeKtx2, encodingOf, ktxTool, textureKind, texturePixels } from './textures.mjs';
 import sharp from 'sharp';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -45,11 +45,16 @@ const QUANTIZED = /^(NORMAL|TEXCOORD|JOINTS|WEIGHTS|COLOR)(_\d+)?$/;
  */
 const TEXTURES_AS_BUILT = new Set(['structures/spawn_portal.glb']);
 /**
+ * Longest edge of an enemy's normal map, px: the game draws enemies through
+ * their VAT with the colour map only, the normals serve the sidebar preview
+ */
+const ENEMY_NORMAL_SIZE = 256;
+/**
  * The PSNR gate of ETC1S (textures.mjs) for these models: their atlases are
  * seen at a hundred or two pixels, where ETC1S softening at 28 to 31 dB stays
  * under a pixel (sight check V9); the map gate keeps print and signs sharp
  */
-const MIN_PSNR_GAME = { color: 28, data: 28 };
+const MIN_PSNR_GAME = { color: 28, data: 25 };
 /** Edge up to which a texture counts as a palette */
 const PALETTE_MAX = 64;
 
@@ -104,7 +109,9 @@ for (const path of paths) {
   // Without meshopt's filters: their quaternion filter turns the bones 0.8 degrees off, the hero's muzzle 8 cm
   doc.createExtension(EXTMeshoptCompression).setRequired(true);
   let basisu = null;
-  const asBuilt = TEXTURES_AS_BUILT.has(relative(join(ROOT, 'public', 'assets', 'models'), path).split(sep).join('/'));
+  const name = relative(join(ROOT, 'public', 'assets', 'models'), path).split(sep).join('/');
+  const asBuilt = TEXTURES_AS_BUILT.has(name);
+  const enemy = name.startsWith('enemies/');
   for (const texture of doc.getRoot().listTextures()) {
     if (texture.getMimeType() === 'image/ktx2') continue;
     if (asBuilt) {
@@ -116,7 +123,7 @@ for (const path of paths) {
       texture.setImage(new Uint8Array(png)).setMimeType('image/png').setURI('').setExtras({ ...texture.getExtras(), kept: 'palette' });
       continue;
     }
-    const pixels = await texturePixels(texture);
+    const pixels = await texturePixels(texture, enemy && textureKind(texture) === 'normal' ? ENEMY_NORMAL_SIZE : Infinity);
     const encoding = encodingOf(texture, pixels, { minPsnr: MIN_PSNR_GAME });
     const ktx = await encodeKtx2(tool, pixels, encoding);
     basisu ??= doc.createExtension(KHRTextureBasisu).setRequired(true);

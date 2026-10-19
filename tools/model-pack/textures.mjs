@@ -27,10 +27,17 @@ import { getTextureColorSpace, listTextureInfo, listTextureSlots } from '@gltf-t
 import sharp from 'sharp';
 
 /** Bump when an encoding setting changes: it is part of every texture's content hash, so all are made again */
-export const ENCODING_VERSION = 2;
+export const ENCODING_VERSION = 3;
 
-/** ETC1S quality (1..255) and effort (0..6) */
-export const ETC1S = { qlevel: 255, clevel: 4 };
+/**
+ * ETC1S quality (1..255) and effort (0..6); `ladder`: the lower qualities
+ * tried after the full one, smallest first, for the smallest file within
+ * LADDER_DB of the full one's PSNR (and above MIN_PSNR). Smooth plaster or
+ * planks keep their look at a third less.
+ */
+export const ETC1S = { qlevel: 255, clevel: 4, ladder: [96, 128, 192] };
+/** How far below the full quality's PSNR a lower ETC1S quality may fall, dB */
+export const LADDER_DB = 1;
 /** UASTC effort (0..4), RDO lambda for colour and data and for normals (0.25..0.75), Zstandard level */
 export const UASTC = { quality: 2, rdo: 1, rdoNormal: 0.5, zstd: 18 };
 /**
@@ -38,10 +45,11 @@ export const UASTC = { quality: 2, rdo: 1, rdoNormal: 0.5, zstd: 18 };
  * below it the texture takes UASTC. Colour: photographed surfaces at 30 to
  * 32 dB look as before (reed, gravel, bark), print breaks up there and asks
  * for UASTC by name (objects.json textureCodec). Data: baked occlusion at 29
- * to 31 dB looks as before, a metal/rough/occlusion map with three
- * independent channels falls to 25 to 28 dB and takes UASTC.
+ * to 31 dB looks as before, and so does a metal/rough/occlusion map with
+ * three independent channels at 25 to 28 dB (roughness and occlusion are
+ * felt, not read); only below 25 dB it takes UASTC, at three times the bytes.
  */
-export const MIN_PSNR = { color: 30, data: 28 };
+export const MIN_PSNR = { color: 30, data: 25 };
 
 const REPEAT = 10497;
 
@@ -155,27 +163,32 @@ export async function encodeKtx2(tool, pixels, encoding) {
     const channels = encoding.alpha ? 4 : 3;
     const raw = channels === 4 ? pixels.data : stripAlpha(pixels.data);
     await sharp(raw, { raw: { width: pixels.width, height: pixels.height, channels } }).png({ compressionLevel: 1 }).toFile(png);
-    const run = async (codec) => {
-      const out = join(dir, `${codec}.ktx2`);
-      create(tool, png, out, encoding, codec, channels);
+    const run = async (codec, qlevel = ETC1S.qlevel) => {
+      const out = join(dir, `${codec}-${qlevel}.ktx2`);
+      create(tool, png, out, encoding, codec, channels, qlevel);
       return { bytes: readFileSync(out), codec, psnr: await psnr(tool, out, pixels, encoding, dir) };
     };
     if (encoding.codec === 'uastc') return await run('uastc');
     const etc1s = await run('etc1s');
-    return etc1s.psnr >= encoding.minPsnr ? etc1s : { ...(await run('uastc')), etc1sPsnr: etc1s.psnr };
+    if (etc1s.psnr < encoding.minPsnr) return { ...(await run('uastc')), etc1sPsnr: etc1s.psnr };
+    for (const qlevel of ETC1S.ladder) {
+      const lower = await run('etc1s', qlevel);
+      if (lower.psnr >= encoding.minPsnr && lower.psnr >= etc1s.psnr - LADDER_DB && lower.bytes.length < etc1s.bytes.length) return lower;
+    }
+    return etc1s;
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 }
 
-function create(tool, png, out, encoding, codec, channels) {
+function create(tool, png, out, encoding, codec, channels, qlevel) {
   const srgb = encoding.kind === 'color';
   const format = `R8G8B8${channels === 4 ? 'A8' : ''}_${srgb ? 'SRGB' : 'UNORM'}`;
   const args =
     codec === 'uastc'
       ? ['--encode', 'uastc', '--uastc-quality', String(UASTC.quality), '--uastc-rdo', '--uastc-rdo-l',
           String(encoding.kind === 'normal' ? UASTC.rdoNormal : UASTC.rdo), '--uastc-rdo-m', '--zstd', String(UASTC.zstd)]
-      : ['--encode', 'basis-lz', '--clevel', String(ETC1S.clevel), '--qlevel', String(ETC1S.qlevel)];
+      : ['--encode', 'basis-lz', '--clevel', String(ETC1S.clevel), '--qlevel', String(qlevel)];
   execFileSync(tool, ['create', '--format', format, '--assign-tf', srgb ? 'srgb' : 'linear', ...args, '--generate-mipmap',
     '--mipmap-wrap', encoding.wrap ? 'wrap' : 'clamp', '--testrun', png, out], { stdio: 'ignore' });
 }

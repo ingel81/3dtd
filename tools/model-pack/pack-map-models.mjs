@@ -4,7 +4,9 @@
 //
 // Every texture of models/<id>.glb goes to textures/<name>-<hash>.ktx2, no
 // larger than the model's texture size (512 px, `"textureSize": 1024` in
-// tools/map-assets/objects.json, half of it for a -lod1 copy, at least 256), and
+// tools/map-assets/objects.json, half of it for a -lod1 copy, at least 256;
+// normals NORMAL_SIZE: UASTC weighs three to four times ETC1S, and the map
+// download stays where it was with WebP), and
 // the GLB points at it by URI ("../textures/..."): the hash is the texture's
 // content (pixels and encoding, textures.mjs), so the brick or plaster that
 // dozens of buildings use is one file, downloaded once and, in the game, one
@@ -22,7 +24,7 @@ import { dirname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { KHRTextureBasisu } from '@gltf-transform/extensions';
 import { createIO, glbJson, writeGlbKeepingUris } from './glb.mjs';
-import { encodeKtx2, encodingOf, ktxTool, textureHash, texturePixels } from './textures.mjs';
+import { encodeKtx2, encodingOf, ktxTool, textureHash, textureKind, texturePixels } from './textures.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OBJECTS = join(HERE, '..', 'map-assets', 'objects.json');
@@ -53,6 +55,9 @@ for (const file of readdirSync(texturesDir)) {
   if (m) library.set(m[1], file);
 }
 
+/** Longest edge of a normal map, px */
+const NORMAL_SIZE = 256;
+
 /** Longest texture edge of a model */
 function textureSize(id) {
   const lod = /-lod\d+$/.exec(id);
@@ -81,7 +86,7 @@ for (const id of chosen) {
   for (const texture of doc.getRoot().listTextures()) {
     if (isShared(texture.getURI()) && texture.getMimeType() === 'image/ktx2') continue;
     if (texture.getMimeType() === 'image/ktx2') throw new Error(`${id}: embedded KTX2 texture ${texture.getName()}, no pixels to share`);
-    const pixels = await texturePixels(texture, textureSize(id));
+    const pixels = await texturePixels(texture, textureKind(texture) === 'normal' ? Math.min(NORMAL_SIZE, textureSize(id)) : textureSize(id));
     const encoding = encodingOf(texture, pixels, { uastc });
     const hash = textureHash(pixels, encoding).slice(0, HASH_DIGITS);
     let file = library.get(hash);
