@@ -93,6 +93,14 @@ export interface AssetLibraryOptions {
   loadTexture?: (url: string) => Promise<Texture>;
 }
 
+/**
+ * How long a shared library stays once no view draws from it, ms: the
+ * switch between the editor and a test run of its map (the game's view
+ * goes, the editor's comes) finds its models, textures and material pixels
+ * loaded and on the GPU; leaving the custom maps frees them after this
+ */
+export const LIBRARY_LINGER_MS = 15_000;
+
 /** The atlas of the buildings' far stage (objects/far-boxes.ts, tools/map-assets/bake_far_boxes.mjs) */
 export const FAR_ATLAS_FILE = 'models/far-boxes.webp';
 
@@ -110,6 +118,9 @@ export class MapAssetLibrary {
   }
 
   readonly textureSize: number;
+  /** Views that draw from the library now (retain), and the dispose due once none does */
+  private users = 0;
+  private lingering: ReturnType<typeof setTimeout> | null = null;
   private catalogPromise: Promise<AssetCatalog> | null = null;
   private readonly materials = new Map<string, Promise<MaterialPixels>>();
   private readonly models = new Map<string, Promise<ObjectModel>>();
@@ -269,8 +280,31 @@ export class MapAssetLibrary {
     return loaded.filter((l): l is { model: ObjectModel; screen: number } => l !== null);
   }
 
+  /** A view draws from the library: it stays while one does */
+  retain(): void {
+    this.users++;
+    if (this.lingering) clearTimeout(this.lingering);
+    this.lingering = null;
+  }
+
+  /**
+   * A view no longer draws from it. A shared library (shared()) goes once
+   * none has for LIBRARY_LINGER_MS (some 88 MB of material pixels with its
+   * models); one made for a single owner stays that owner's to dispose
+   */
+  release(): void {
+    this.users = Math.max(0, this.users - 1);
+    if (this.users > 0 || this.lingering || ![...MapAssetLibrary.instances.values()].includes(this)) return;
+    this.lingering = setTimeout(() => {
+      this.lingering = null;
+      if (this.users === 0) this.dispose();
+    }, LIBRARY_LINGER_MS);
+  }
+
   /** Frees the GPU side of every loaded model and forgets them */
   dispose(): void {
+    if (this.lingering) clearTimeout(this.lingering);
+    this.lingering = null;
     this.releaseGpu();
     this.models.clear();
     this.loaded.clear();

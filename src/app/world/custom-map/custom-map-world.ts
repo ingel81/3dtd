@@ -723,8 +723,8 @@ export class CustomMapWorld implements WorldProvider {
     this.disposed = true;
     this.rig?.setBounds(null);
     this.rig = null;
-    // The shared library keeps every material's pixels (some 88 MB); the next map's shared() makes a new one
-    if (this.view && !this.assets) this.view.assets.dispose();
+    // The view lets go of the shared library: it stays a while for the editor's view of this map, then goes
+    // (MapAssetLibrary.release; some 88 MB of material pixels with its models)
     this.view?.dispose();
     this.view = null;
     this.groundPick.removeFromParent();

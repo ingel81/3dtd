@@ -301,6 +301,7 @@ export class CustomMapView {
     readonly assets: MapAssetLibrary,
     private readonly options: CustomMapViewOptions = {},
   ) {
+    assets.retain();
     const t = doc.terrain;
     this.env = doc.environment;
     this.heights = new HeightField(t.grid, t.width, t.depth);
@@ -1758,6 +1759,8 @@ export class CustomMapView {
   }
 
   dispose(): void {
+    // The library stays a while for the next view of its map (MapAssetLibrary.release)
+    if (!this.disposed) this.assets.release();
     this.disposed = true;
     if (LAVA_GLOW_UNIFORMS.uLavaGlowTex.value === this.terrain.occlusion.texture) LAVA_GLOW_UNIFORMS.uLavaGlowOn.value = 0;
     this.terrain.dispose();
