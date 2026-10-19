@@ -6,7 +6,7 @@ import { ApronMaterial } from './apron-material';
 import { TerrainMaterial, type TerrainMaterialParams } from './terrain-material';
 
 /** The ground's materials as MapTerrainLayer builds them, on a map of `splatMaps` splat maps (8 or 12 layers) */
-function params(splatMaps: 2 | 3, albedoBake = false): TerrainMaterialParams {
+function params(splatMaps: 2 | 3, albedoBake = false, far = false): TerrainMaterialParams {
   const tex = new DataTexture(new Uint8Array(4), 1, 1);
   const layers = new DataArrayTexture(new Uint8Array(64), 1, 1, 16);
   return {
@@ -25,11 +25,12 @@ function params(splatMaps: 2 | 3, albedoBake = false): TerrainMaterialParams {
     depth: 100,
     cliffAngle: 40,
     albedoBake,
+    far,
   };
 }
 
-function ground(splatMaps: 2 | 3, albedoBake = false): TerrainMaterial {
-  const m = new TerrainMaterial(params(splatMaps, albedoBake));
+function ground(splatMaps: 2 | 3, albedoBake = false, far = false): TerrainMaterial {
+  const m = new TerrainMaterial(params(splatMaps, albedoBake, far));
   addHeightFog(m);
   return m;
 }
@@ -50,8 +51,20 @@ describe('texture units of the ground programs (report-gperf 5)', () => {
     ['apron, 8 layers', () => apron(2)],
     ['apron, 12 layers', () => apron(3)],
     ['colour bake, 12 layers', () => ground(3, true)],
+    ['far ground', () => ground(3, false, true)],
   ])('%s takes at most 13', (_, make) => {
     const units = programSamplers(make());
     expect(units.length, units.join(', ')).toBeLessThanOrEqual(MAX_UNITS);
+  });
+});
+
+describe('the far ground', () => {
+  it('reads the baked colour, the grid and the light, none of the layers or the splat', () => {
+    const units = programSamplers(ground(3, false, true));
+    expect(units).toContain('uGroundAlbedo');
+    for (const name of ['uColorArray', 'uDataArray', 'uSplats', 'uApronPaint']) expect(units).not.toContain(name);
+    expect(units.length).toBeLessThanOrEqual(11);
+    // The near ground does not read the bake
+    expect(programSamplers(ground(3))).not.toContain('uGroundAlbedo');
   });
 });

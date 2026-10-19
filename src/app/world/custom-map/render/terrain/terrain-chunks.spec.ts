@@ -11,28 +11,30 @@ function settle(chunks: TerrainChunks, eye: Vector3, focus?: Vector3): void {
 }
 
 describe('TerrainChunks', () => {
-  /** A view's first frame built the finest level of every chunk of the map (45 ms on 2048 m in a dev build) */
-  it('starts at the coarsest level and refines the nearest chunks first, a few each update', () => {
+  /** A view's first frame built the finest level of every piece of the map (45 ms on 2048 m in a dev build) */
+  it('starts with the coarsest pieces and refines the nearest first, a few each update', () => {
     const n = 513;
     const field = new HeightField({ columns: n, rows: n, cellSize: 2, heights: new Float32Array(n * n) }, 1024, 1024);
     const chunks = new TerrainChunks(field, new HeightTexture(field), new MeshBasicMaterial(), { buildCells: 2 * 64 * 64 });
     chunks.group.updateMatrixWorld();
-    const cells = () => chunks.meshes.map((m) => (m as Mesh<BufferGeometry>).geometry.getIndex()!.count / 6);
-    // Every chunk at step 8: 8 x 8 cells and its skirts
-    expect(new Set(cells())).toEqual(new Set([cells()[0]]));
-    expect(cells()[0]).toBeLessThan(200);
+    const names = () => chunks.meshes.map((m) => m.name);
+    // One piece of the coarsest level over all 512 cells, at step 8
+    expect(names()).toEqual(['terrain-chunk-0-0-3']);
     expect(chunks.settled).toBe(false);
-    // Low over the map's corner (-512, -512): the chunk there first
+    // Low over the map's corner (-512, -512): the pieces there first, the rest stays coarse until built
     const eye = mapToScene(-500, -500, 20, new Vector3());
     chunks.update(eye, eye);
-    const first = cells();
-    expect(first[0]).toBeGreaterThan(64 * 64);
-    expect(first.filter((c) => c > 64 * 64).length).toBeLessThanOrEqual(2);
     settle(chunks, eye, eye);
     const ref = new TerrainChunks(field, new HeightTexture(field), new MeshBasicMaterial(), { buildCells: Infinity });
     ref.group.updateMatrixWorld();
-    ref.update(eye, eye);
-    expect(cells()).toEqual(ref.meshes.map((m) => (m as Mesh<BufferGeometry>).geometry.getIndex()!.count / 6));
+    settle(ref, eye, eye);
+    expect(names()).toEqual(ref.meshes.map((m) => m.name));
+    // The corner's finest piece, coarser ones beyond: under half the draws of the 64 finest pieces
+    expect(names()).toContain('terrain-chunk-0-0');
+    expect(names().some((name) => /-\d+-\d+-[1-3]$/.test(name))).toBe(true);
+    expect(names().length).toBeLessThan(32);
+    // Every piece the same cells at its own step
+    expect(new Set(chunks.meshes.map((m) => (m as Mesh<BufferGeometry>).geometry.getIndex()!.count)).size).toBe(1);
   });
 
   it('keeps the finest, unmorphed level under a game camera, where units stand on heightAt', () => {
@@ -71,8 +73,8 @@ describe('TerrainChunks brush update', () => {
     const other = mapToScene(0, 0, 1000 - height, new Vector3());
     a.group.updateMatrixWorld();
     // Both levels built before the brush: the one shown after it was built on the heights before
-    a.update(other, other);
-    a.update(far, far);
+    settle(a, other, other);
+    settle(a, far, far);
     // A brush in the middle
     for (let j = 60; j <= 70; j++) for (let i = 55; i <= 66; i++) heights[j * n + i] += 2.5;
     const rect = { i0: 55, j0: 60, i1: 66, j1: 70 };
@@ -80,8 +82,9 @@ describe('TerrainChunks brush update', () => {
     const b = new TerrainChunks(field, new HeightTexture(field), new MeshBasicMaterial());
     b.group.updateMatrixWorld();
     for (const eye of [far, other]) {
-      a.update(eye, eye);
-      b.update(eye, eye);
+      settle(a, eye, eye);
+      settle(b, eye, eye);
+      expect(a.meshes.map((m) => m.name)).toEqual(b.meshes.map((m) => m.name));
       const ga = a.meshes.map((m) => (m as Mesh<BufferGeometry>).geometry);
       const gb = b.meshes.map((m) => (m as Mesh<BufferGeometry>).geometry);
       for (let k = 0; k < ga.length; k++) {
@@ -129,6 +132,8 @@ describe('TerrainChunks rays and line of sight', () => {
     const chunks = new TerrainChunks(field, new HeightTexture(field), new MeshBasicMaterial(), { chunkCells: 32 });
     chunks.group.position.set(10, 0, -4);
     chunks.group.updateMatrixWorld(true);
+    const near = mapToScene(40, 20, 5, new Vector3());
+    settle(chunks, near, near);
     const raycaster = new Raycaster(new Vector3(10 - 40, 300, -4 + 20), new Vector3(0, -1, 0));
     const hits = raycaster.intersectObject(chunks.group, true);
     expect(hits).toHaveLength(1);

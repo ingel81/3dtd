@@ -10,6 +10,7 @@ import { TERRAIN_CUT_GLSL } from './terrain-cuts';
 import type { MaterialCategory } from '../asset-catalog';
 import type { MapBiome } from '../../map-document';
 import { groundMood } from './ground-mood';
+import { GROUND_COLOR_UNIFORMS } from './ground-color';
 
 /**
  * How a ground material of a catalogue category blends and shines: `soft`
@@ -129,6 +130,11 @@ export interface TerrainMaterialParams {
   layers?: number;
   /** Draws the ground's colour alone, unlit, as from a few dozen metres (ground-albedo.ts bakes the map with it) */
   albedoBake?: boolean;
+  /**
+   * The far ground's variant (TERRAIN_FAR_SAMPLE): the colour baked from above (ground-albedo.ts) over the grid's
+   * normal and occlusion, no layer texture, splat or mask of paint; the coarser pieces of the terrain draw with it
+   */
+  far?: boolean;
 }
 
 export class TerrainMaterial extends MeshStandardMaterial {
@@ -197,6 +203,9 @@ export class TerrainMaterial extends MeshStandardMaterial {
     /** Replaced by TerrainCuts.uniforms (MapTerrainLayer); none without */
     uCutMap: { value: null as Texture | null },
     uCutGrid: { value: new Vector4() },
+    /** The ground's colour baked from above, shared (ground-color.ts): what the far ground draws */
+    uGroundAlbedo: GROUND_COLOR_UNIFORMS.uGroundAlbedo,
+    uGroundAlbedoOn: GROUND_COLOR_UNIFORMS.uGroundAlbedoOn,
   };
 
   /**
@@ -213,6 +222,9 @@ export class TerrainMaterial extends MeshStandardMaterial {
   /** The colour bake's variant (TerrainMaterialParams.albedoBake) */
   readonly albedoBake: boolean;
 
+  /** The far ground's variant (TerrainMaterialParams.far) */
+  readonly far: boolean;
+
   constructor(params: TerrainMaterialParams) {
     super({ roughness: 1, metalness: 0 });
     this.name = 'custom-map-terrain';
@@ -221,6 +233,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
     this.layerCount = terrainLayerCount(params.layers ?? params.colorArray.image.depth);
     this.splatLayers = (params.splatLayers ?? params.splat.image.depth * 4) > 8 ? 12 : 8;
     this.albedoBake = !!params.albedoBake;
+    this.far = !!params.far && !this.albedoBake;
     this.setParams(params);
     this.setGroundMood('temperate');
     this.onBeforeCompile = (shader) => {
@@ -238,7 +251,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
           '#include <common>',
           `#include <common>\n#define TERRAIN_LAYERS ${this.layerCount}\n#define TERRAIN_SPLATS ${this.splatLayers}\n${this.albedoBake ? '#define TERRAIN_ALBEDO_BAKE\n' : ''}${TERRAIN_FRAGMENT_PARS}`,
         )
-        .replace('#include <map_fragment>', TERRAIN_SAMPLE)
+        .replace('#include <map_fragment>', this.far ? TERRAIN_FAR_SAMPLE : TERRAIN_SAMPLE)
         // The marker lets addHeightFog add wetness after the terrain's own roughness
         .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = terrainRough;\n// map-roughness-done')
         // The far cascade dims the sun where the land hides it beyond the cached shadow map
@@ -334,7 +347,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
   }
 
   override customProgramCacheKey(): string {
-    return `custom-map-terrain-4-${this.layerCount}-${this.splatLayers}${this.albedoBake ? '-albedo' : ''}`;
+    return `custom-map-terrain-4-${this.layerCount}-${this.splatLayers}${this.albedoBake ? '-albedo' : ''}${this.far ? '-far' : ''}`;
   }
 }
 
@@ -352,6 +365,9 @@ uniform sampler2D uApronPaint;
 #endif
 uniform sampler2D uGridNormals;
 uniform sampler2D uGridOcclusion;
+// The ground's colour baked from above (ground-albedo.ts; GROUND_COLOR_UNIFORMS), for the far ground
+uniform sampler2D uGroundAlbedo;
+uniform float uGroundAlbedoOn;
 // The map's wind direction in the scene (wind.ts), for snow drifts
 uniform vec2 uDriftWind;
 uniform vec4 uFarShadowArea;
@@ -973,8 +989,51 @@ terrainAO *= 1.0 - 0.55 * smoothstep(0.04, 0.45, coverNear);
 diffuseColor.rgb = albedo;
 }
 #ifdef TERRAIN_ALBEDO_BAKE
-// The bake keeps the colour alone (linear; the target's sRGB encodes it): nothing of the lighting below
-gl_FragColor = vec4(diffuseColor.rgb, 1.0);
+// The bake keeps the colour alone (linear; the target's sRGB encodes it), nothing of the lighting below; its alpha the
+// glow of lava cracks and cooled rock, which the far ground (TERRAIN_FAR_SAMPLE) shows from it
+gl_FragColor = vec4(diffuseColor.rgb, clamp(dot(accGlow, vec3(0.3333)) * 2.0, 0.0, 1.0));
 return;
 #endif
+`;
+
+/**
+ * The far ground (TerrainMaterial.far): what TERRAIN_SAMPLE paints, baked
+ * from above as a camera a few dozen metres off sees it (ground-albedo.ts,
+ * one lookup), leaning towards its own blur by distance as the near ground
+ * leans towards its layers' mean colours; the grid's normal, its baked
+ * occlusion and the contact shade along road surfaces. A texture unit for
+ * each, nothing of the layers: the coarser pieces of the terrain, which lie
+ * where the near ground draws its layers' mean colours anyway.
+ */
+const TERRAIN_FAR_SAMPLE = /* glsl */ `
+vec3 tPos = vTerrainPos;
+vec2 mapPos = vec2(-tPos.x, tPos.z);
+if (terrainCut(mapPos, tPos.y)) discard;
+float terrainFarSun = 1.0;
+if (uFarShadowArea.w > 0.5) {
+  float beyond = smoothstep(0.7, 0.95, length(mapPos - uFarShadowArea.xy) / uFarShadowArea.z);
+  if (beyond > 0.0) terrainFarSun = mix(1.0, texture(uLampGrid, vec3(mapPos * uLampGridUv.xy + uLampGridUv.zw, 1.0)).a, beyond);
+}
+vec2 tuv = mapPos / uMapSize + 0.5;
+vec4 gridSample = texture2D(uGridNormals, mapPos * uGridUv.xy + uGridUv.zw);
+vec3 terrainNormal = safeNormalize(gridSample.xyz, vec3(0.0, 1.0, 0.0));
+vec4 shape = texture2D(uGridOcclusion, mapPos * uGridUv.xy + uGridUv.zw);
+vec4 baked = uGroundAlbedoOn > 0.5 ? textureLod(uGroundAlbedo, tuv, 0.0) : vec4(0.25, 0.3, 0.17, 0.0);
+// Towards the bake's blur (about 16 texels) by distance, with the macro variation, as the near ground leans towards
+// its layers' mean colours (far * 0.45 there)
+float viewDist = length(vViewPosition);
+float far = smoothstep(120.0, 900.0, viewDist);
+vec4 varCoarse = variationAt(mapPos);
+float macro = varCoarse.r * 0.6 + varCoarse.g * 0.4;
+vec3 blur = uGroundAlbedoOn > 0.5 ? textureLod(uGroundAlbedo, tuv, 4.0).rgb : baked.rgb;
+diffuseColor.rgb = mix(baked.rgb, blur * mix(0.8, 1.15, macro), far * 0.45);
+vec3 accGlow = vec3(1.0, 0.32, 0.06) * baked.a * 0.5;
+float terrainRough = 0.9;
+float terrainSpec = 0.25;
+float grazing = 1.0 - max(dot(normalize((viewMatrix * vec4(terrainNormal, 0.0)).xyz), normalize(vViewPosition)), 0.0);
+terrainSpec *= 1.0 - 0.6 * pow(grazing, 4.0);
+float terrainAO = shape.r;
+float maskTexel = uMapSize.x / float(textureSize(uPathMask, 0).x);
+vec4 halo4 = textureLod(uPathMask, tuv, log2(max(2.2 / maskTexel, 1.0)));
+terrainAO *= 1.0 - 0.55 * smoothstep(0.04, 0.45, clamp(halo4.b - 2.0 * (halo4.r + halo4.g), 0.0, 1.0));
 `;

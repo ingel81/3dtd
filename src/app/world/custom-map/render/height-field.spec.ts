@@ -227,14 +227,16 @@ describe('TerrainChunks', () => {
   });
 
   it('switches far chunks to coarser levels and keeps fine ones near', () => {
-    const f = field(129, 129, 2, () => 0);
+    const f = field(257, 257, 2, () => 0);
     const chunks = new TerrainChunks(f, new HeightTexture(f), new MeshBasicMaterial(), { chunkCells: 32 });
     const fine = finest(new TerrainChunks(f, new HeightTexture(f), new MeshBasicMaterial(), { chunkCells: 32 })).meshes[0].geometry.index!.count;
-    const corner = new Vector3(120, 10, -120); // above map corner (-120, -120)
+    const corner = new Vector3(250, 10, -250); // above map corner (-250, -250)
     for (let k = 0; k < 100 && !(k > 0 && chunks.settled); k++) chunks.update(corner);
-    const counts = chunks.meshes.map((m) => m.geometry.index!.count);
-    expect(counts[0]).toBe(fine);
-    expect(Math.min(...counts)).toBeLessThan(fine);
+    // Metres between a piece's first two vertices: 2 for the finest, more for a coarser piece over a larger area
+    const spacing = chunks.meshes.map((m) => Math.abs(m.geometry.getAttribute('position').getX(1) - m.geometry.getAttribute('position').getX(0)));
+    expect(spacing).toContain(2);
+    expect(Math.max(...spacing)).toBeGreaterThan(2);
+    expect(chunks.meshes.every((m) => m.geometry.index!.count <= fine)).toBe(true);
     chunks.dispose();
   });
 });

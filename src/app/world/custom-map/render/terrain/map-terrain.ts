@@ -120,6 +120,7 @@ export class MapTerrainLayer {
   setFarDistances(single: number, flat: number, steep = single): void {
     this.far = [single, flat, steep];
     this.material?.setFarDistances(single, flat, steep);
+    this.chunks.setFarFrom(flat);
   }
   /** The far shadow bake under way (bakeFarShadowSliced): a newer one stops it */
   private farShadowBake = 0;
@@ -147,6 +148,8 @@ export class MapTerrainLayer {
   readonly albedo: GroundAlbedo;
   /** The ground's material in its colour bake's variant, on the ground material's own uniforms */
   private albedoMaterial: TerrainMaterial | null = null;
+  /** The far ground's material (TerrainMaterial.far) for the terrain's coarser pieces, on the ground material's own uniforms */
+  private farMaterial: TerrainMaterial | null = null;
   /** The height grid on the GPU (water depth, grass) */
   readonly heightTexture: HeightTexture;
   /** The ground cut away inside the openings of models set into it (tunnel portals), shared with the material */
@@ -322,6 +325,10 @@ export class MapTerrainLayer {
     this.albedoMaterial.onBeforeRender = this.flushSplat;
     Object.assign(this.albedoMaterial.terrainUniforms, material.terrainUniforms);
     addHeightFog(this.albedoMaterial);
+    this.farMaterial?.dispose();
+    this.farMaterial = new TerrainMaterial({ ...params, far: true });
+    Object.assign(this.farMaterial.terrainUniforms, material.terrainUniforms);
+    addHeightFog(this.farMaterial);
     this.albedo.invalidate();
     this.arrays?.dispose();
     this.splat?.dispose();
@@ -329,7 +336,8 @@ export class MapTerrainLayer {
     this.splat = splat;
     this.materialParams = params;
     this.material = material;
-    this.chunks.setMaterial(material);
+    this.chunks.setMaterial(material, this.farMaterial);
+    this.chunks.setFarFrom(this.far[1]);
     this.roads.setAssets(assets, anisotropy);
     this.surfaces.setAssets(assets, anisotropy);
     this.apronMaterial = apronMaterial;
@@ -534,6 +542,7 @@ export class MapTerrainLayer {
     this.material?.dispose();
     this.apronMaterial?.dispose();
     this.albedoMaterial?.dispose();
+    this.farMaterial?.dispose();
     this.albedo.dispose();
     for (const pair of this.twins.values()) for (const twin of pair) twin.dispose();
     this.placeholder.dispose();

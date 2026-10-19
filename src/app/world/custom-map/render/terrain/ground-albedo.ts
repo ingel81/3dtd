@@ -1,4 +1,4 @@
-import { LinearFilter, Mesh, OrthographicCamera, Scene, SRGBColorSpace, WebGLRenderTarget, type BufferGeometry, type WebGLRenderer } from 'three';
+import { LinearFilter, LinearMipmapLinearFilter, Mesh, OrthographicCamera, Scene, SRGBColorSpace, WebGLRenderTarget, type BufferGeometry, type WebGLRenderer } from 'three';
 import type { TerrainMaterial } from './terrain-material';
 import { GROUND_COLOR_UNIFORMS } from './ground-color';
 
@@ -42,8 +42,11 @@ export class GroundAlbedo {
     const aspect = width / depth;
     this.target = new WebGLRenderTarget(aspect >= 1 ? side : Math.ceil(side * aspect), aspect >= 1 ? Math.ceil(side / aspect) : side, { depthBuffer: false });
     this.target.texture.colorSpace = SRGBColorSpace;
-    this.target.texture.minFilter = this.target.texture.magFilter = LinearFilter;
-    this.target.texture.generateMipmaps = false;
+    this.target.texture.magFilter = LinearFilter;
+    // Mipmaps for the far ground's lean towards its blur (terrain-material.ts TERRAIN_FAR_SAMPLE); the grass and the
+    // water read the finest level
+    this.target.texture.minFilter = LinearMipmapLinearFilter;
+    this.target.texture.generateMipmaps = true;
     this.target.texture.name = 'ground-albedo';
     // Looking down, its right along map +x (scene -x) and its up along map +y (scene +z): texel u, v is map x, y
     this.camera = new OrthographicCamera(-width / 2, width / 2, depth / 2, -depth / 2, 1, 1e5);

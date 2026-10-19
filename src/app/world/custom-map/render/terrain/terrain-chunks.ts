@@ -126,47 +126,53 @@ export interface GridRect {
 }
 
 export interface TerrainChunkOptions {
-  /** Cells per chunk edge at the finest level; a multiple of 2^maxLod */
+  /** Cells per edge of a piece of the finest level (every piece has as many at its own step); a multiple of 2^maxLod */
   chunkCells?: number;
-  /** Coarsest level: step 2^maxLod samples */
+  /** Coarsest level: step 2^maxLod samples, pieces 2^maxLod finest pieces a side */
   maxLod?: number;
   /**
-   * Chunk edge lengths of distance per level (level n from n * this). The
-   * default keeps the finest level, unmorphed, out to about 290 m around the
-   * camera (2 m cells): the game camera's ground, where units stand on
-   * `heightAt`, which is the finest level.
+   * Edge lengths of a finest piece of distance per level (level n from n *
+   * this). The default keeps the finest level, unmorphed, out to about 290 m
+   * around the camera (2 m cells): the game camera's ground, where units
+   * stand on `heightAt`, which is the finest level.
    */
   lodDistance?: number;
   /**
-   * Cells of geometry (at their level's step) built at most per update: a
-   * view starts every chunk at the coarsest level and refines the nearest
-   * first, a few chunks a frame, instead of building the finest level of all
-   * of them in the frame it opens (45 ms on a 2048 m map in a dev build).
-   * Levels built once are kept and switch freely.
+   * Cells of geometry built at most per update: a view starts with the
+   * coarsest pieces and refines the nearest first, a few pieces a frame,
+   * instead of building the finest level of all of them in the frame it
+   * opens (45 ms on a 2048 m map in a dev build). Pieces built once are
+   * kept and switch freely.
    */
   buildCells?: number;
 }
 
-/** Cells built per update by default: about eight chunks of the finest level */
+/** Cells built per update by default: about eight pieces */
 const BUILD_CELLS = 8 * 64 * 64;
 
-/** One level of detail of a chunk: its geometry and the cells whose diagonal waits to be picked anew */
-interface Level {
-  geometry: BufferGeometry;
-  /** Sample rectangle whose heights changed since the diagonals were picked; null when they hold */
-  stale: GridRect | null;
-}
 
-interface Chunk {
-  mesh: Mesh;
+
+/**
+ * A piece of the quadtree: level n covers 2^n finest pieces a side at every
+ * 2^n-th sample (the same cells as a finest piece), its children the next
+ * finer level over its quarters
+ */
+interface Node {
+  level: number;
   i0: number;
   j0: number;
   i1: number;
   j1: number;
-  lod: number;
-  /** Geometry per level, built on demand and kept: it holds no heights */
-  levels: (Level | null)[];
+  mesh: Mesh;
+  /** Built on demand and kept: it holds no heights */
+  geometry: BufferGeometry | null;
+  /** Sample rectangle whose heights changed since the diagonals were picked; null when they hold */
+  stale: GridRect | null;
   box: Box3;
+  children: Node[];
+  parent: Node | null;
+  /** Whether it is drawn now */
+  shown: boolean;
 }
 
 /** The smallest rectangle holding both (b when a is null) */
@@ -177,51 +183,67 @@ function unite(a: GridRect | null, b: GridRect): GridRect {
 const noRaycast = (): void => undefined;
 
 /**
- * The terrain as a grid of chunk meshes. Each chunk picks a level of detail
- * by its detail distance (every 2^lod-th sample): the nearer of the camera
- * and, across the ground, the camera's focus. A game camera hangs 150 m and
- * more over the action; measured from the camera alone, the ground units
- * stand on (`heightAt`, the finest level) was drawn coarser or morphed and
- * they floated or sank. Skirts hang down from chunk edges and hide the
- * cracks between neighbours of different levels.
+ * The terrain as a quadtree of pieces: each of the same cells at its own
+ * step, so a piece four times the area farther off costs one draw call as a
+ * finest piece near the camera does (report-gperf 6: pieces of one size drew
+ * some 260 pieces of terrain on a 2.4 km map). A piece is split into its
+ * children by its detail distance (in levels, as levelFor counts them): the
+ * nearer of the camera and, across the ground, the camera's focus. A game
+ * camera hangs 150 m and more over the action; measured from the camera
+ * alone, the ground units stand on (`heightAt`, the finest level) was drawn
+ * coarser or morphed and they floated or sank. Skirts hang down from the
+ * pieces' edges and hide the cracks between neighbours of different levels;
+ * the geomorph towards the next coarser level (aMorph, uMorphEye) hides the
+ * switch.
  *
  * The heights live on the GPU (HeightTexture): the vertex stage reads each
  * vertex's height, its normal from the full grid at every level (lighting
- * does not jump when a chunk changes level) and the geomorph's target. On
- * the CPU a chunk keeps its box and, per level, the index buffer: each cell
- * splits along the diagonal `cellSplit` picks from its corner heights, as
+ * does not jump when a piece changes level) and the geomorph's target. On
+ * the CPU a piece keeps its box and its index buffer: each cell splits along
+ * the diagonal `cellSplit` picks from its corner heights, as
  * HeightField.heightAt assumes, so a height change picks the diagonals of
- * the cells it reached anew (the shown level at once, the others when they
- * show). Rays meet the surface `heightAt` reports (HeightField.raycast), the
- * line-of-sight cube draws the heights through `userData.losVertex`.
+ * the cells it reached anew (in the pieces shown at once, the others when
+ * they show). Rays meet the surface `heightAt` reports (HeightField.raycast),
+ * the line-of-sight cube draws the heights through `userData.losVertex`.
  */
 export class TerrainChunks {
   readonly group = new Group();
-  /** Counts level switches and rebuilds: the sun's shadow map renders again after one */
+  /** Counts piece switches and rebuilds: the sun's shadow map renders again after one */
   version = 0;
   /** Camera and focus in world space for the geomorph, shared by the terrain material and the shadow pass */
   readonly morphEye = { value: new Vector3() };
   readonly morphFocus = { value: new Vector3(1e9, 0, 1e9) };
-  /** What a material drawing the chunks binds: the height grid and the geomorph's camera */
+  /** What a material drawing the pieces binds: the height grid and the geomorph's camera */
   readonly uniforms: Record<string, IUniform>;
   /**
-   * What the line-of-sight cube adds to a chunk vertex (tower-shadow-mapper.ts, each mesh's `userData.losVertex`):
+   * What the line-of-sight cube adds to a piece's vertex (tower-shadow-mapper.ts, each mesh's `userData.losVertex`):
    * its height at its level's sample, without the geomorph
    */
   private readonly losVertex: LosVertexPatch;
   private readonly focusLocal = new Vector3(1e9, 0, 1e9);
-  /** The chunks' shadow depth with the heights and the geomorph, so the terrain shades itself where it is drawn */
+  /** The pieces' shadow depth with the heights and the geomorph, so the terrain shades itself where it is drawn */
   private readonly depthMaterial: MeshDepthMaterial;
-  private readonly chunks: Chunk[] = [];
-  /** Chunks per row of the chunk grid */
+  /** The coarsest pieces, row by row */
+  private readonly roots: Node[] = [];
+  /** The finest pieces, row by row (rays find theirs) */
+  private readonly leaves: Node[] = [];
+  /** Finest pieces per row */
   private readonly across: number;
+  /** The pieces drawn now, in the tree's order */
+  private shownList: Node[] = [];
+  /** The far ground's material (TerrainMaterial.far) for the pieces of `farLevel` and coarser; null: all draw `material` */
+  private farMaterial: Material | null = null;
+  /** The finest level drawn with the far ground's material (setFarFrom) */
+  private farLevel = 1;
   private readonly chunkCells: number;
   private readonly maxLod: number;
   private readonly lodDistance: number;
   private readonly buildCells: number;
-  /** Chunks whose wanted level waits to be built, with their distance (update's scratch, kept) */
-  private readonly waiting: { c: Chunk; lod: number; d: number }[] = [];
+  /** update's scratch, kept: the pieces it draws and those that wait to be built, with their distance */
+  private next: Node[] = [];
+  private readonly waiting: { n: Node; d: number }[] = [];
   private readonly tmp = new Vector3();
+  private readonly cameraLocal = new Vector3();
   private readonly ray = new Ray();
   private readonly inverse = new Matrix4();
   private readonly hit = new Vector3();
@@ -236,7 +258,7 @@ export class TerrainChunks {
     this.maxLod = options.maxLod ?? 3;
     this.lodDistance = options.lodDistance ?? 3.5;
     this.buildCells = options.buildCells ?? BUILD_CELLS;
-    if (this.chunkCells % (1 << this.maxLod)) throw new Error('Chunks must start on samples of every level');
+    if (this.chunkCells % (1 << this.maxLod)) throw new Error('Pieces must start on samples of every level');
     this.across = Math.ceil((field.columns - 1) / this.chunkCells);
     this.uniforms = { ...heights.uniforms, uMorphEye: this.morphEye, uMorphFocus: this.morphFocus };
     this.losVertex = {
@@ -256,97 +278,192 @@ export class TerrainChunks {
     this.build();
   }
 
+  /** The pieces drawn now; together they cover the map once */
   get meshes(): readonly Mesh[] {
-    return this.chunks.map((c) => c.mesh);
+    return this.shownList.map((n) => n.mesh);
   }
 
-  setMaterial(material: Material): void {
+  /** The ground's material, and the far ground's for the coarser pieces (setFarFrom) when there is one */
+  setMaterial(material: Material, far: Material | null = null): void {
     this.material = material;
-    for (const c of this.chunks) c.mesh.material = material;
+    this.farMaterial = far;
+    const visit = (n: Node): void => {
+      n.mesh.material = this.materialOf(n);
+      for (const c of n.children) visit(c);
+    };
+    for (const r of this.roots) visit(r);
   }
 
-  /** `cameraPos` and the camera's ground `focus` in the chunks' own (map) space: picks each chunk's level */
+  /**
+   * Metres of detail distance from which the ground may draw with the far ground's material: from the first level
+   * whose pieces start there (a piece of level n from 2^(n-1) x lodDistance finest edges), so the near material,
+   * which draws its layers' mean colours from about there (uFarFlat), meets the far one where both draw alike
+   */
+  setFarFrom(metres: number): void {
+    const unit = this.chunkCells * this.field.cellSize * this.lodDistance;
+    let level = 1;
+    while (level < this.maxLod && unit * 2 ** (level - 1) < metres) level++;
+    if (level === this.farLevel) return;
+    this.farLevel = level;
+    this.setMaterial(this.material, this.farMaterial);
+  }
+
+  private materialOf(n: Node): Material {
+    return this.farMaterial && n.level >= this.farLevel ? this.farMaterial : this.material;
+  }
+
+  /** `cameraPos` and the camera's ground `focus` in the pieces' own (map) space: picks the pieces drawn */
   update(cameraPos: Vector3, focus?: Vector3): void {
     this.morphEye.value.copy(cameraPos).applyMatrix4(this.group.matrixWorld);
     if (focus) this.focusLocal.copy(focus);
     this.morphFocus.value.copy(this.focusLocal).applyMatrix4(this.group.matrixWorld);
-    const edge = this.chunkCells * this.field.cellSize;
-    for (const c of this.chunks) {
-      // Across the ground from the focus: its height is the box's own
-      this.tmp.set(this.focusLocal.x, Math.min(Math.max(this.focusLocal.y, c.box.min.y), c.box.max.y), this.focusLocal.z);
-      const d = Math.min(c.box.distanceToPoint(cameraPos), c.box.distanceToPoint(this.tmp)) / (edge * this.lodDistance);
-      // Coarser only when clearly past the threshold, so a chunk on the line does not flip every frame
-      let lod = this.levelFor(d);
-      if (lod > c.lod && this.levelFor(d * 0.9) <= c.lod) lod = c.lod;
-      if (lod === c.lod) continue;
-      if (c.levels[lod]) this.setLevel(c, lod);
-      else this.waiting.push({ c, lod, d });
-    }
+    this.cameraLocal.copy(cameraPos);
+    this.next.length = 0;
+    this.waiting.length = 0;
+    for (const r of this.roots) this.place(r);
+    this.show();
+    this.unsettled = this.waiting.length;
     this.buildWaiting();
   }
 
-  /** Whether every chunk shows the level it wants (none waits to be built) */
+  /** Whether every piece shows the level it wants (none waits to be built) */
   get settled(): boolean {
     return this.unsettled === 0;
   }
 
-  /** Chunks still waiting for their level after the last update; -1 before the first */
+  /** Pieces still waiting to be built after the last update; -1 before the first */
   private unsettled = -1;
 
-  /** Builds the waiting levels nearest first, within the cells an update may build; the rest wait for the next */
+  /** A piece's detail distance in levels' units (edges of a finest piece times lodDistance) */
+  private distanceOf(n: Node): number {
+    // Across the ground from the focus: its height is the box's own
+    this.tmp.set(this.focusLocal.x, Math.min(Math.max(this.focusLocal.y, n.box.min.y), n.box.max.y), this.focusLocal.z);
+    const d = Math.min(n.box.distanceToPoint(this.cameraLocal), n.box.distanceToPoint(this.tmp));
+    return d / (this.chunkCells * this.field.cellSize * this.lodDistance);
+  }
+
+  /**
+   * Puts the pieces that draw `n`'s area into `next`: its children where it
+   * is wanted finer and they can draw, else itself where it is built; what
+   * is missing waits to be built. False when nothing over its area is built
+   * (its parent draws it meanwhile)
+   */
+  private place(n: Node): boolean {
+    const d = this.distanceOf(n);
+    // Finer at once; coarser only when clearly past the threshold, so a piece on the line does not flip every frame
+    const finer = n.level > 0 && (this.levelFor(d) < n.level || (!n.shown && this.levelFor(d * 0.9) < n.level));
+    if (!finer && n.geometry) {
+      this.next.push(n);
+      return true;
+    }
+    if (!finer) this.waiting.push({ n, d });
+    if (n.level > 0) {
+      // Wanted finer, or itself not built yet: its children while they can draw all of it
+      const mark = this.next.length;
+      let all = true;
+      for (const c of n.children) all = this.place(c) && all;
+      if (all) return true;
+      this.next.length = mark;
+    }
+    if (n.geometry) {
+      this.next.push(n);
+      return true;
+    }
+    return false;
+  }
+
+  /** Draws the pieces `place` put into `next` and no others */
+  private show(): void {
+    const next = this.next;
+    let changed = next.length !== this.shownList.length;
+    for (const n of this.shownList) n.shown = false;
+    for (let k = 0; k < next.length; k++) {
+      next[k].shown = true;
+      if (this.shownList[k] !== next[k]) changed = true;
+    }
+    if (!changed) return;
+    for (const n of this.shownList) if (!n.shown) this.group.remove(n.mesh);
+    for (const n of next) {
+      if (n.mesh.parent === this.group) continue;
+      this.fitBounds(n);
+      this.pickDiagonals(n);
+      this.group.add(n.mesh);
+    }
+    this.next = this.shownList;
+    this.shownList = next;
+    this.version++;
+  }
+
+  /** Builds the waiting pieces nearest first, within the cells an update may build; the rest wait for the next */
   private buildWaiting(): void {
     const waiting = this.waiting;
-    this.unsettled = waiting.length;
     if (!waiting.length) return;
     waiting.sort((a, b) => a.d - b.d);
     let budget = this.buildCells;
     for (const w of waiting) {
-      const cells = ((w.c.i1 - w.c.i0) * (w.c.j1 - w.c.j0)) >> (2 * w.lod);
-      // The first always goes in, so a budget below a chunk still moves on
+      const step = 1 << w.n.level;
+      const cells = Math.ceil((w.n.i1 - w.n.i0) / step) * Math.ceil((w.n.j1 - w.n.j0) / step);
+      // The first always goes in, so a budget below a piece still moves on
       if (budget < cells && budget < this.buildCells) break;
       budget -= cells;
-      this.setLevel(w.c, w.lod);
-      this.unsettled--;
+      this.ensureGeometry(w.n);
     }
     waiting.length = 0;
   }
 
-  /** Level for a distance in units of `lodDistance` chunk edges: 0 below 1, then one more per doubling */
+  private ensureGeometry(n: Node): void {
+    if (n.geometry) return;
+    n.geometry = this.buildGeometry(n);
+    n.mesh.geometry = n.geometry;
+  }
+
+  /** Level for a distance in units of `lodDistance` piece edges: 0 below 1, then one more per doubling */
   private levelFor(d: number): number {
     return d < 1 ? 0 : Math.min(this.maxLod, Math.floor(Math.log2(d)) + 1);
   }
 
   /**
-   * Heights changed inside a sample rectangle (all when omitted; the height texture uploads them): the chunks
-   * there take their new boxes, the shown level picks the diagonals of the cells reached, the others when shown
+   * Heights changed inside a sample rectangle (all when omitted; the height texture uploads them): the pieces
+   * there take their new boxes, the shown ones pick the diagonals of the cells reached, the others when shown
    */
   rebuild(rect?: GridRect): void {
     const f = this.field;
-    const all = { i0: 0, j0: 0, i1: f.columns - 1, j1: f.rows - 1 };
-    const r = rect ?? all;
-    for (const c of this.chunks) {
-      if (r.i1 < c.i0 || r.i0 > c.i1 || r.j1 < c.j0 || r.j0 > c.j1) continue;
-      this.computeBox(c);
-      c.levels.forEach((level, lod) => {
-        if (!level) return;
-        level.stale = unite(level.stale, r);
-        this.fitBounds(c, level.geometry, 1 << lod);
-        if (lod === c.lod) this.pickDiagonals(c, level, 1 << lod);
-      });
-      this.version++;
-    }
+    const r = rect ?? { i0: 0, j0: 0, i1: f.columns - 1, j1: f.rows - 1 };
+    const visit = (n: Node): void => {
+      if (r.i1 < n.i0 || r.i0 > n.i1 || r.j1 < n.j0 || r.j0 > n.j1) return;
+      for (const c of n.children) visit(c);
+      if (n.children.length) {
+        n.box.makeEmpty();
+        for (const c of n.children) n.box.union(c.box);
+      } else {
+        this.computeBox(n);
+      }
+      if (n.geometry) {
+        n.stale = unite(n.stale, r);
+        this.fitBounds(n);
+        if (n.shown) this.pickDiagonals(n);
+      }
+    };
+    for (const root of this.roots) visit(root);
+    this.version++;
   }
 
   dispose(): void {
-    for (const c of this.chunks) for (const l of c.levels) l?.geometry.dispose();
-    this.chunks.length = 0;
+    const visit = (n: Node): void => {
+      n.geometry?.dispose();
+      for (const c of n.children) visit(c);
+    };
+    for (const r of this.roots) visit(r);
+    this.roots.length = 0;
+    this.leaves.length = 0;
+    this.shownList = [];
     this.group.clear();
     this.depthMaterial.dispose();
   }
 
   /**
-   * The first point where a ray meets the surface, as heightAt reports it (the finest level), on the chunk it
-   * lies in: the chunks' geometry holds no heights to test. The chunk meshes answer nothing themselves
+   * The first point where a ray meets the surface, as heightAt reports it (the finest level), on the piece drawn
+   * there: the pieces' geometry holds no heights to test. The meshes answer nothing themselves
    */
   private raycast(raycaster: Raycaster, intersects: Intersection[]): void {
     const f = this.field;
@@ -360,84 +477,93 @@ export class TerrainChunks {
     const edge = f.cellSize * this.chunkCells;
     const ci = Math.min(this.across - 1, Math.max(0, Math.floor((-local.x - f.originX) / edge)));
     const cj = Math.max(0, Math.floor((local.z - f.originY) / edge));
-    const chunk = this.chunks[Math.min(this.chunks.length - 1, cj * this.across + ci)];
-    intersects.push({ distance, point, object: chunk.mesh });
+    let n = this.leaves[Math.min(this.leaves.length - 1, cj * this.across + ci)];
+    while (!n.shown && n.parent) n = n.parent;
+    intersects.push({ distance, point, object: n.mesh });
   }
 
   private build(): void {
     const f = this.field;
-    const n = this.chunkCells;
-    for (let j0 = 0; j0 < f.rows - 1; j0 += n) {
-      for (let i0 = 0; i0 < f.columns - 1; i0 += n) {
-        const c: Chunk = {
-          mesh: new Mesh(undefined, this.material),
-          i0,
-          j0,
-          i1: Math.min(i0 + n, f.columns - 1),
-          j1: Math.min(j0 + n, f.rows - 1),
-          lod: -1,
-          levels: new Array<Level | null>(this.maxLod + 1).fill(null),
-          box: new Box3(),
-        };
-        c.mesh.name = `terrain-chunk-${i0}-${j0}`;
-        c.mesh.receiveShadow = true;
-        c.mesh.castShadow = true;
-        c.mesh.customDepthMaterial = this.depthMaterial;
-        c.mesh.matrixAutoUpdate = false;
-        c.mesh.raycast = noRaycast;
-        c.mesh.userData['losVertex'] = this.losVertex;
-        this.computeBox(c);
-        // The coarsest level at first, cheap for all; update refines the near ones (buildCells a frame)
-        this.setLevel(c, this.maxLod);
-        this.chunks.push(c);
-        this.group.add(c.mesh);
-      }
+    const span = this.chunkCells << this.maxLod;
+    for (let j0 = 0; j0 < f.rows - 1; j0 += span) {
+      for (let i0 = 0; i0 < f.columns - 1; i0 += span) this.roots.push(this.node(this.maxLod, i0, j0, null));
     }
+    // The coarsest pieces at first, cheap for all; update refines the near ones (buildCells a frame)
+    for (const r of this.roots) {
+      this.ensureGeometry(r);
+      this.next.push(r);
+    }
+    this.show();
   }
 
-  private computeBox(c: Chunk): void {
+  /** The piece of `level` from sample (i0, j0), with the pieces below it */
+  private node(level: number, i0: number, j0: number, parent: Node | null): Node {
+    const f = this.field;
+    const span = this.chunkCells << level;
+    const n: Node = {
+      level,
+      i0,
+      j0,
+      i1: Math.min(i0 + span, f.columns - 1),
+      j1: Math.min(j0 + span, f.rows - 1),
+      mesh: new Mesh(undefined, this.material),
+      geometry: null,
+      stale: null,
+      box: new Box3(),
+      children: [],
+      parent,
+      shown: false,
+    };
+    n.mesh.name = level ? `terrain-chunk-${i0}-${j0}-${level}` : `terrain-chunk-${i0}-${j0}`;
+    n.mesh.receiveShadow = true;
+    n.mesh.castShadow = true;
+    n.mesh.customDepthMaterial = this.depthMaterial;
+    n.mesh.matrixAutoUpdate = false;
+    n.mesh.raycast = noRaycast;
+    n.mesh.userData['losVertex'] = this.losVertex;
+    if (level > 0) {
+      const half = span >> 1;
+      for (const [di, dj] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+        if (i0 + di * half < n.i1 && j0 + dj * half < n.j1) n.children.push(this.node(level - 1, i0 + di * half, j0 + dj * half, n));
+      }
+      for (const c of n.children) n.box.union(c.box);
+    } else {
+      this.computeBox(n);
+      this.leaves[(j0 / this.chunkCells) * this.across + i0 / this.chunkCells] = n;
+    }
+    return n;
+  }
+
+  private computeBox(n: Node): void {
     const f = this.field;
     const h = f.grid.heights;
     let lo = Infinity;
     let hi = -Infinity;
-    for (let j = c.j0; j <= c.j1; j++) {
+    for (let j = n.j0; j <= n.j1; j++) {
       const row = j * f.columns;
-      for (let i = c.i0; i <= c.i1; i++) {
+      for (let i = n.i0; i <= n.i1; i++) {
         const v = h[row + i];
         if (v < lo) lo = v;
         if (v > hi) hi = v;
       }
     }
-    const x0 = f.originX + c.i0 * f.cellSize;
-    const x1 = f.originX + c.i1 * f.cellSize;
-    const y0 = f.originY + c.j0 * f.cellSize;
-    const y1 = f.originY + c.j1 * f.cellSize;
-    c.box.min.set(-x1, lo, y0);
-    c.box.max.set(-x0, hi, y1);
+    const x0 = f.originX + n.i0 * f.cellSize;
+    const x1 = f.originX + n.i1 * f.cellSize;
+    const y0 = f.originY + n.j0 * f.cellSize;
+    const y1 = f.originY + n.j1 * f.cellSize;
+    n.box.min.set(-x1, lo, y0);
+    n.box.max.set(-x0, hi, y1);
   }
 
-  /** A level's bounds for culling: the chunk's box down to its skirts */
-  private fitBounds(c: Chunk, g: BufferGeometry, step: number): void {
+  /** A piece's bounds for culling: its box down to its skirts */
+  private fitBounds(n: Node): void {
+    const g = n.geometry;
+    if (!g) return;
     g.boundingBox ??= new Box3();
-    g.boundingBox.copy(c.box);
-    g.boundingBox.min.y -= TerrainChunks.skirtDrop(this.field.cellSize, step);
+    g.boundingBox.copy(n.box);
+    g.boundingBox.min.y -= TerrainChunks.skirtDrop(this.field.cellSize, 1 << n.level);
     g.boundingSphere ??= new Sphere();
     g.boundingBox.getBoundingSphere(g.boundingSphere);
-  }
-
-  private setLevel(c: Chunk, lod: number): void {
-    c.lod = lod;
-    this.version++;
-    let level = c.levels[lod];
-    const step = 1 << lod;
-    if (!level) {
-      level = { geometry: this.buildGeometry(c, step), stale: null };
-      c.levels[lod] = level;
-    } else {
-      this.fitBounds(c, level.geometry, step);
-      this.pickDiagonals(c, level, step);
-    }
-    c.mesh.geometry = level.geometry;
   }
 
   /** Metres the skirts of a level hang below its edge: whole metres, as the shadow pass reads them from a byte */
@@ -457,14 +583,15 @@ export class TerrainChunks {
    * The cells of a level whose corners lie in its stale rectangle pick their diagonal anew from the heights now;
    * only the index rows they lie in go to the GPU
    */
-  private pickDiagonals(c: Chunk, level: Level, step: number): void {
-    const rect = level.stale;
-    if (!rect) return;
-    level.stale = null;
+  private pickDiagonals(c: Node): void {
+    const rect = c.stale;
+    if (!rect || !c.geometry) return;
+    c.stale = null;
+    const step = 1 << c.level;
     const is = TerrainChunks.axis(c.i0, c.i1, step);
     const js = TerrainChunks.axis(c.j0, c.j1, step);
     const nx = is.length;
-    const index = level.geometry.getIndex() as BufferAttribute;
+    const index = c.geometry.getIndex() as BufferAttribute;
     const idx = index.array as Uint16Array | Uint32Array;
     // The cells from the first whose right corner reaches the rectangle to the last whose left corner lies in it
     let a0 = 0;
@@ -527,9 +654,10 @@ export class TerrainChunks {
    * A level's geometry: each vertex at its sample at height 0 (a skirt vertex its drop below), the geomorph's
    * step and band, the skirts' drop for the shadow pass, and the index with every cell's diagonal picked
    */
-  private buildGeometry(c: Chunk, step: number): BufferGeometry {
+  private buildGeometry(c: Node): BufferGeometry {
     const f = this.field;
-    const lod = Math.round(Math.log2(step));
+    const lod = c.level;
+    const step = 1 << lod;
     const is = TerrainChunks.axis(c.i0, c.i1, step);
     const js = TerrainChunks.axis(c.j0, c.j1, step);
     const nx = is.length;
@@ -595,7 +723,9 @@ export class TerrainChunks {
     lift.fill(skirt, skirtBase);
     g.setAttribute('aSkirt', new BufferAttribute(lift, 1));
     g.setIndex(new BufferAttribute(index, 1));
-    this.fitBounds(c, g, step);
+    g.boundingBox = new Box3().copy(c.box);
+    g.boundingBox.min.y -= skirt;
+    g.boundingSphere = g.boundingBox.getBoundingSphere(new Sphere());
     return g;
   }
 }

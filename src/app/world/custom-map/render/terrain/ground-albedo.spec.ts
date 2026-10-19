@@ -43,7 +43,7 @@ describe('GroundAlbedo', () => {
     bake.onBeforeCompile(shader as never, null as never);
     expect(shader.fragmentShader).toContain('#define TERRAIN_ALBEDO_BAKE');
     expect(shader.fragmentShader).toContain('float viewDist = TERRAIN_VIEW_DIST;');
-    expect(shader.fragmentShader).toContain('gl_FragColor = vec4(diffuseColor.rgb, 1.0);');
+    expect(shader.fragmentShader).toContain('gl_FragColor = vec4(diffuseColor.rgb, clamp(dot(accGlow, vec3(0.3333)) * 2.0, 0.0, 1.0));');
     bake.dispose();
     ground.dispose();
   });
