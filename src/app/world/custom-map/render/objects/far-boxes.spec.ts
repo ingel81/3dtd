@@ -70,4 +70,34 @@ describe('far boxes', () => {
     expect(boxes.count).toBe(0);
     layer.dispose();
   });
+
+  it('shows a damaged building far off as its ruin, never as a whole box', async () => {
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
+    const los = new Group();
+    const layer = new MapObjectLayer(field, library(), los, { ruins: true });
+    await layer.setObjects([
+      { id: 'a', asset: 'house', x: 600, y: 0, z: 0, rotation: 0, scale: 1 },
+      { id: 'b', asset: 'house', x: 600, y: 20, z: 0, rotation: 0, scale: 1 },
+    ]);
+    const camera = new PerspectiveCamera(60);
+    camera.position.set(0, 5, 0);
+    camera.updateMatrixWorld();
+    layer.update(0.016, camera);
+    const boxes = los.children.find((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === 'far-boxes')!;
+    const ruin = (): number => los.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh && c.name.startsWith('house-damaged')).reduce((n, m) => n + (m.visible ? m.count : 0), 0);
+    expect(boxes.count).toBe(2);
+    // Battered, holed and fallen: out of the boxes into its asset's ruin batch, drawn with its model however far
+    for (const stage of [1, 2, 3]) {
+      layer.setDamage([{ id: 'b', stage, fallStart: -1e6 }]);
+      layer.update(0.016, camera);
+      expect(boxes.count).toBe(1);
+      expect(ruin()).toBe(1);
+    }
+    // Whole again (a new run): its box again
+    layer.setDamage([{ id: 'b', stage: 0, fallStart: -1e6 }]);
+    layer.update(0.016, camera);
+    expect(boxes.count).toBe(2);
+    expect(ruin()).toBe(0);
+    layer.dispose();
+  });
 });
