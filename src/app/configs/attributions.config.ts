@@ -118,6 +118,13 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
         sourceUrl: 'https://kenney.nl/assets/graveyard-kit',
       },
       {
+        name: 'Jumper (reduced, turret split off, animated)',
+        author: 'KingKong Robotics',
+        license: 'Apache 2.0',
+        licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0',
+        sourceUrl: 'https://github.com/KingKongRobotics/jumper',
+      },
+      {
         name: 'Stone Golem',
         author: 'ingel81',
         license: 'Original work',
