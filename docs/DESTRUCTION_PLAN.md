@@ -1,7 +1,8 @@
 # Zerstörung in eigenen Welten (Plan)
 
-**Status:** Z1 (Unterbau Simulation) gebaut 2026-10-19 auf `wt/r8-destroy`, dazu aus Z5 die Regeln, der OSM-Schalter
-und der Vorschaden im Format; Z2 bis Z6 offen (Darstellung, Schutt- und Kraterbild, Editor-Werkzeuge). Baut auf
+**Status:** Z1 (Unterbau Simulation) gebaut 2026-10-19, dazu aus Z5 die Regeln, der OSM-Schalter und der Vorschaden
+im Format. Z3 und Z4 (Schutt, Effekte, Gelände) gebaut bis auf den Ton; Z2 (Gebäude-Stufen im Objekt-Shader), die
+Editor-Werkzeuge (Z5) und das Nachstellen des Verschleißes (Z6) offen. Baut auf
 [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md) (Zerstörbarkeit E131), [OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md),
 [LEVEL_EDITOR.md](LEVEL_EDITOR.md), [SIM_WORKER.md](SIM_WORKER.md), [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md) und
 [LOS_PIPELINE.md](LOS_PIPELINE.md) auf.
@@ -218,19 +219,44 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
 - **Zufall:** jede Ruine würfelt aus der Bauwerks-Id und dem Tick ihres Falls. Alle Partner und jedes Replay sehen
   dieselbe Ruine.
 
-**Gelände**
+**Gelände** (gebaut, Z4)
 
-- **Eine Stempelfunktion** (`map-ops/impact-stamp.ts`, gebaut, ohne three und Angular): Mulde und Schutthaufen in ganzen
-  Zentimetern aus dem Abstandsquadrat (siehe „Stempelraster“), dazu ein Splat-Abdruck (verbrannte Erde, Gras weg). Krater
-  und Schutt liegen auch auf der Straße (Entscheid 1); das Bild muss dort dieselben Zentimeter zeigen wie das Raster der
-  Simulation, daneben darf es feiner sein (der Fuß eines Towers bleibt aus der Mulde). Editor und Spiel benutzen sie gleich.
-- **Grundraster behalten:** beim Laden eine Kopie der Höhen (264 KB bei 512 m und 2 m, 1 MB bei 1024 m). Ein Krater
-  schreibt in das Raster; ein Wiederherstellen setzt die Kopie zurück und stempelt die Liste neu.
-- **Gebündelt aufbauen:** gemessen kostet `updateHeights(rect)` 1 bis 3 ms, ganz 118 bis 174 ms. Ein Kraterbuch auf dem
-  Hauptthread sammelt die Rechtecke eines Bilds in Kacheln von 64 x 64 Samples und baut höchstens eine Kachelmenge je
-  Bild; Wiederherstellen stempelt alles in unter 1 ms und baut die berührten Kacheln über einige Bilder, nicht das
-  ganze Raster.
-- Wasser, Brücken, Gras und Objektsitze folgen schon heute einem Rechteck (`custom-map-view.ts:714`).
+- **Eine Stempelfunktion** (`map-ops/impact-stamp.ts`): Mulde und Schutthaufen in ganzen Zentimetern aus dem
+  Abstandsquadrat (siehe „Stempelraster“), ein Haufen klumpig in Feldern von 1,6 m (`rubbleLump`, Faktor 0,7 bis 1,15
+  aus einem Ganzzahl-Hash des Felds). Simulation und Bild fragen sie nach dem Kartenpunkt; Krater und Schutt liegen auch
+  auf der Straße (Entscheid 1), die Straßenbänder folgen der Höhentextur.
+- **Eigene Höhen je Lauf:** eine Karte mit Zerstörung oder Kratern spielt auf einer Kopie von `grid.heights`
+  (`CustomMapWorld`); `CustomMapGroundDamage` behält die Höhen vom Start (`base`) und summiert jeden Stempel in
+  Zentimetern (`sum`). Ein Stempel heraus und wieder hinein lässt die Proben, wie sie waren; ein Restore stempelt alles
+  neu und kommt auf dieselben Höhen (Spec).
+- **Gebündelt aufbauen:** geänderte Proben schreiben in Kacheln von 32 x 32, höchstens zwei Kacheln je Bild als ein
+  Rechteck an `CustomMapView.updateHeights` (gemessen 1 bis 3 ms je Aufruf); ein Raketenkrater steht im nächsten Bild,
+  der Neuaufbau nach einem Sprung verteilt sich über Bilder statt des ganzen Rasters (118 bis 174 ms).
+- **Tower im Bild gehalten:** unter einem stehenden Tower (3 m) behält der Boden die Höhe, die er hatte, als der Tower
+  kam; ein Krater daneben lässt ihm seinen Fuß, einer unter einem Tower, der in einem Krater gebaut wurde, hebt ihn nicht.
+  Die Simulation braucht das nicht: dort liegt das Raster nur über Routenzellen, auf denen nie ein Tower steht.
+- **Spuren** (`render/terrain/impact-marks.ts`): ein instanziertes, über den Boden gelegtes Netz für alle. Krater:
+  verbrannte Sohle, Erdklumpen am Rand, Ruß in Strahlen; Schutt: zerbrochene Platten der Materialklasse mit Schattenfugen,
+  Krümel, Staub über den Fuß hinaus; Korn je Meter, nicht je Spur. Ein Draw Call.
+- **Kein Gras auf aufgerissenem Boden:** Proben mit 10 cm oder mehr Stempel kommen als Maske in die Cover-Map
+  (`CustomMapView.setGroundBare`), die dort Gras wie an einem Grundriss weglässt.
+- **Verdeckung und Krümmung:** der Ground-Worker des Spiels bekommt die geänderten Höhen als Patch, bevor er sie schattiert
+  (`GroundWorker.heightsChanged`).
+- Wasser, Brücken, Objektsitze, Straßenbänder und Gras folgen dem Rechteck von `updateHeights`.
+
+**Schutt und Effekte** (gebaut, Z3, Ton offen)
+
+- **Materialklassen** (`world/custom-map/rubble-material.ts`): Putz, Beton, Metall, Ziegel, Stein, Holz aus der Fassade
+  eines Baus aus dem Grundriss oder den Wörtern des Katalogeintrags; Farben von Schutt und Staub linear.
+- **Brocken** (`render/terrain/rubble-pieces.ts`): Platten mit Bewehrung, Ziegel im Mörtel, gebrochene Balken,
+  Mauerbrocken, je Klasse eine eigene Mischung, nach der Saat des Haufens gewürfelt; vier instanzierte Netze für alle
+  Haufen, der Vertex-Shader setzt jeden auf die Höhentextur.
+- **Fliegende Brocken** (`render/terrain/flying-debris.ts`): ein Pool von 768, Parabel, Drehung und Landung im
+  Vertex-Shader aus Start, Geschwindigkeit und Zeit; die CPU setzt die Uhr.
+- **Fall:** Staubwand über dem Boden, Staubsäule die Höhe hinauf, Splitter in den Farben der Klasse, Rauch, ein kleiner
+  Blitz (vorhandene Effekt-Pools, `WorldDamagePresenter.fell`); der Op `main.structureFell` trägt dafür den Index.
+- Alle Programme werden im Warm-up mit denen der Karte übersetzt (je eine Instanz ohne Größe).
+- **Offen:** Ton für Einsturz und Krater (es gibt keine Klänge dafür), Glutnester bei Stufe 2 (mit Z2).
 
 ### 3. Editor
 
@@ -330,8 +356,8 @@ Zeitmessungen stehen aus (Rechner unter Last), vorgemerkt in den Messnotizen.
 |---|---|---|
 | Z1 Unterbau (gebaut) | Ledger v2 (Raster, Stufen, Delta-Ops, Logik statt VFX), Schadenswerte je Projektiltyp, Fähigkeiten, `CraterLedger`, Stempelfunktion und -raster mit Höhe und Bremse der Gegner, Verschleiß in der Simulation; aus Z5 Regeln, OSM-Schalter, Vorschaden im Format | Specs, gleiche Prüfsummen ohne Zerstörung, Koop, Replay, Sprung, Spielstand |
 | Z2 Gebäude | `aDamage`, Stufen 1 und 2 im Shader, Ruinen-Pool, Fall, Decken und Innenwände, Rissatlas, vorab übersetzen | Vorher/Nachher-Bilder Ruined City und OSM-Stadt |
-| Z3 Schutt und Effekte | Schutthaufen ins Höhenraster (dieselbe Stempelfunktion), Brocken, fliegende Brocken, Staub, Glut, Ton | Clip eines Falls je Materialklasse |
-| Z4 Gelände | Kraterbuch mit Kachelaufbau, Grundraster, Brandflecken, Tower-Fuß aus der Mulde | Clip Raketenserie und Atomschlag, Sprung im Replay |
+| Z3 Schutt und Effekte (gebaut bis auf Ton) | Schutthaufen ins Höhenraster (dieselbe Stempelfunktion), Brocken, fliegende Brocken, Staub, Spuren; offen Glut (mit Z2) und Ton | Clip eines Falls |
+| Z4 Gelände (gebaut) | eigene Höhen je Lauf, Kachelaufbau über Bilder, Grundraster, Krater-Spuren, Tower-Fuß gehalten, kein Gras, Worker-Patch | Clip Kraterserie und Atomschlag |
 | Z5 Editor | Vorschaden je Objekt im Editor, Treffer-Werkzeug, Einschlag-Pinsel, Materialklassen | Ruined City mit Vorschaden |
 | Z6 Verschleiß | Werte nachstellen, Playtest (die Simulation ist gebaut) | Rechnung in `tools/balance-calc`, Playtest |
 
