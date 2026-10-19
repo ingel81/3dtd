@@ -24,7 +24,7 @@ describe.skipIf(mode !== 'w3x')('template maps', () => {
       const biome = biomeById(template.biome);
       const base = biome.ground[0].material.find((m) => catalog.materials.has(m))!;
       const t = demo.terrain;
-      const doc = createMapDocument({ id: `tpl-${template.id}`, name: `Template ${template.label}`, width: t.width, depth: t.depth, cellSize: t.grid.cellSize, baseMaterial: base, now: new Date(0) });
+      const doc = createMapDocument({ id: `tpl-${template.id}`, name: `Template ${template.id}`, width: t.width, depth: t.depth, cellSize: t.grid.cellSize, baseMaterial: base, now: new Date(0) });
       await applyTemplate(doc, template, catalog, 7);
       doc.paths = structuredClone(demo.paths);
       doc.spawns = structuredClone(demo.spawns);
