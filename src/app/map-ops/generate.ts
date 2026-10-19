@@ -20,13 +20,14 @@ import { HEIGHT_LIMITS } from './terrain-ops';
 
 export type TerrainPreset = 'flat' | 'hills' | 'valleys' | 'islands' | 'canyon' | 'terraces';
 
-export const TERRAIN_PRESETS: readonly { id: TerrainPreset; label: string; hint: string }[] = [
-  { id: 'flat', label: 'Flat', hint: 'Level ground' },
-  { id: 'hills', label: 'Hills', hint: 'Rolling ground in two scales' },
-  { id: 'valleys', label: 'Valleys', hint: 'Broad hills cut by sharp valleys' },
-  { id: 'islands', label: 'Islands', hint: 'Land rising from the sea, water all around' },
-  { id: 'canyon', label: 'Canyon', hint: 'A high plain with a winding canyon' },
-  { id: 'terraces', label: 'Terraces', hint: 'Hills in flat steps with steep risers' },
+/** The generator's presets in their order; their names and hints are the dictionary's (i18n `editor.presets`) */
+export const TERRAIN_PRESETS: readonly { id: TerrainPreset }[] = [
+  { id: 'flat' },
+  { id: 'hills' },
+  { id: 'valleys' },
+  { id: 'islands' },
+  { id: 'canyon' },
+  { id: 'terraces' },
 ];
 
 export interface GenerateOptions {

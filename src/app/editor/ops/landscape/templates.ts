@@ -11,10 +11,11 @@ import { biomeBand } from './biome-brush';
 import { biomeById, type BiomeId } from './biomes';
 import { LandscapeContext } from './landscape-context';
 
+export type MapTemplateId = 'meadows' | 'woods' | 'mountains' | 'swamp' | 'desert' | 'arctic' | 'city' | 'hell' | 'wasteland' | 'moon' | 'mars';
+
+/** A template; its name and hint are the dictionary's (i18n `editor.templates`) */
 export interface MapTemplate {
-  id: string;
-  label: string;
-  hint: string;
+  id: MapTemplateId;
   biome: BiomeId;
   terrain: TerrainPreset;
   /** 0..1, how high and rough the terrain */
@@ -33,8 +34,6 @@ export interface MapTemplate {
 export const MAP_TEMPLATES: readonly MapTemplate[] = [
   {
     id: 'meadows',
-    label: 'Meadows',
-    hint: 'Rolling green hills under a summer sky',
     biome: 'meadow',
     terrain: 'hills',
     strength: 0.5,
@@ -42,8 +41,6 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
   },
   {
     id: 'woods',
-    label: 'Woods',
-    hint: 'Forested valleys',
     biome: 'forest',
     terrain: 'valleys',
     strength: 0.6,
@@ -51,8 +48,6 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
   },
   {
     id: 'mountains',
-    label: 'Mountains',
-    hint: 'High ridges, scree and lone pines',
     biome: 'mountains',
     // Broad hills under the biome's ridges: sharp valleys on top made the whole map a field of pits
     terrain: 'hills',
@@ -62,8 +57,6 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
   },
   {
     id: 'swamp',
-    label: 'Swamp',
-    hint: 'Murky pools, reeds and dead trees in the mist',
     biome: 'swamp',
     terrain: 'flat',
     strength: 0.3,
@@ -71,8 +64,6 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
   },
   {
     id: 'desert',
-    label: 'Desert',
-    hint: 'Dunes and wind-cut rocks in a hot haze',
     biome: 'desert',
     terrain: 'hills',
     strength: 0.4,
@@ -80,8 +71,6 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
   },
   {
     id: 'arctic',
-    label: 'Arctic',
-    hint: 'Ice, drifts and frozen pools in falling snow',
     biome: 'arctic',
     terrain: 'hills',
     strength: 0.3,
@@ -89,8 +78,6 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
   },
   {
     id: 'city',
-    label: 'City',
-    hint: 'A street grid with blocks, at dusk',
     biome: 'city',
     terrain: 'flat',
     strength: 0.2,
@@ -98,8 +85,6 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
   },
   {
     id: 'hell',
-    label: 'Hell',
-    hint: 'Cinders, lava pools and glowing cracks under a black sky',
     biome: 'hell',
     terrain: 'hills',
     strength: 0.3,
@@ -107,8 +92,6 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
   },
   {
     id: 'wasteland',
-    label: 'Wasteland',
-    hint: 'Rubble, craters and smoke after the end',
     biome: 'wasteland',
     terrain: 'hills',
     strength: 0.3,
@@ -116,8 +99,6 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
   },
   {
     id: 'moon',
-    label: 'Moon',
-    hint: 'A cratered plain in hard light under black sky',
     biome: 'moon',
     terrain: 'flat',
     strength: 0.2,
@@ -125,8 +106,6 @@ export const MAP_TEMPLATES: readonly MapTemplate[] = [
   },
   {
     id: 'mars',
-    label: 'Mars',
-    hint: 'Rust dunes and a canyon in dusty light',
     biome: 'mars',
     terrain: 'canyon',
     strength: 0.7,

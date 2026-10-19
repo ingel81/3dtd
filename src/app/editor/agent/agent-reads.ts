@@ -166,8 +166,8 @@ export function catalogAsData(catalog: CatalogIndex, filter: { category?: string
     categories: [MATERIALS_CATEGORY, ...catalog.categories()],
     tags: catalog.biomes(),
     biomes: BIOMES.map((b) => ({ id: b.id, ...en.editor.landscape.biomes[b.id] })),
-    terrainPresets: TERRAIN_PRESETS.map((p) => ({ id: p.id, hint: p.hint })),
-    mapTemplates: MAP_TEMPLATES.map((t) => ({ id: t.id, label: t.label, hint: t.hint })),
+    terrainPresets: TERRAIN_PRESETS.map((p) => ({ id: p.id, hint: en.editor.presets[p.id].hint })),
+    mapTemplates: MAP_TEMPLATES.map((t) => ({ id: t.id, ...en.editor.templates[t.id] })),
     landforms: ['mountain', 'valley', 'plateau', 'crater', 'dunes'],
   };
   if (!filter.category && !filter.tag && !word) {

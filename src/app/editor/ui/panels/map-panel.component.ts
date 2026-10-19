@@ -9,6 +9,7 @@ import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { MapBudgetComponent } from './map-budget.component';
 import { IntroPanelComponent } from './intro-panel.component';
+import { injectT } from '../../../i18n/i18n.service';
 
 /** Name, author, description; budget; size and resize; the intro flight */
 @Component({
@@ -20,134 +21,134 @@ import { IntroPanelComponent } from './intro-panel.component';
   template: `
     @if (meta(); as m) {
       <label class="td-field">
-        <span class="td-label">Name</span>
+        <span class="td-label">{{ t().editor.mapPanel.name }}</span>
         <input class="td-input" type="text" maxlength="60" [value]="m.name" (change)="edit('name', $event)" data-test="map-name-input" />
       </label>
       <label class="td-field">
-        <span class="td-label">Author</span>
+        <span class="td-label">{{ t().editor.mapPanel.author }}</span>
         <input class="td-input" type="text" maxlength="60" [value]="m.author" (change)="edit('author', $event)" />
       </label>
       <label class="td-field">
-        <span class="td-label">Description</span>
+        <span class="td-label">{{ t().editor.mapPanel.description }}</span>
         <textarea class="td-input mp-text" rows="4" maxlength="600" [value]="m.description" (change)="edit('description', $event)"></textarea>
       </label>
-      <p class="td-note">Id {{ m.id }}@if (m.source?.kind === 'w3x') { | imported from {{ m.source.file }} } @else if (m.source?.kind === 'osm') { | made from OpenStreetMap at {{ m.source.address }} }</p>
+      <p class="td-note">{{ t().editor.mapPanel.idLine(m.id) }}@if (m.source?.kind === 'w3x') { {{ t().editor.mapPanel.importedFrom(m.source.file) }} } @else if (m.source?.kind === 'osm') { {{ t().editor.mapPanel.madeFromOsm(m.source.address) }} }</p>
     }
     <app-map-budget />
     @if (size(); as s) {
       <div class="td-group">
-        <h3 class="td-section">Size</h3>
-        <p class="td-note">{{ s.width }} x {{ s.depth }} m | {{ s.columns }} x {{ s.rows }} height points every {{ s.cell }} m | ground paint {{ s.splat }} px</p>
+        <h3 class="td-section">{{ t().editor.mapPanel.size }}</h3>
+        <p class="td-note">{{ t().editor.mapPanel.sizeLine(s) }}</p>
         <div class="mp-size">
           <label class="td-field">
-            <span class="td-label">Width</span>
+            <span class="td-label">{{ t().editor.mapPanel.width }}</span>
             <input class="td-input is-sm" type="number" min="64" max="8192" step="64" [value]="width() ?? s.width" (input)="width.set(num($event))" />
           </label>
           <label class="td-field">
-            <span class="td-label">Depth</span>
+            <span class="td-label">{{ t().editor.mapPanel.depth }}</span>
             <input class="td-input is-sm" type="number" min="64" max="8192" step="64" [value]="depth() ?? s.depth" (input)="depth.set(num($event))" />
           </label>
-          <button class="td-btn-secondary td-btn-sm" type="button" (click)="resize()">Resize</button>
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="resize()">{{ t().editor.mapPanel.resize }}</button>
         </div>
-        <p class="td-note">Resizing keeps the middle; smaller crops the edges, larger extends them at the edge height.</p>
+        <p class="td-note">{{ t().editor.mapPanel.resizeNote }}</p>
         @if (s.coarse) {
-          <p class="td-note mp-warn">This map's ground is coarser than new maps and the shipped levels have (height points every 2 m, ground paint {{ s.target }} px).</p>
-          <button class="td-btn-secondary td-btn-sm" type="button" (click)="increaseDetail()" data-test="increase-detail">Increase detail</button>
+          <p class="td-note mp-warn">{{ t().editor.mapPanel.coarse(s.target) }}</p>
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="increaseDetail()" data-test="increase-detail">{{ t().editor.mapPanel.increaseDetail }}</button>
         }
       </div>
     }
     <app-intro-panel />
     <div class="td-group">
-      <h3 class="td-section">Generate terrain</h3>
-      <div class="td-seg is-sm mp-presets" role="radiogroup" aria-label="Landscape">
+      <h3 class="td-section">{{ t().editor.mapPanel.generateHead }}</h3>
+      <div class="td-seg is-sm mp-presets" role="radiogroup" [attr.aria-label]="t().editor.mapPanel.presetsLabel">
         @for (p of presets; track p.id) {
           @if (p.id !== 'flat') {
-            <button type="button" role="radio" [attr.aria-checked]="preset() === p.id" [matTooltip]="p.hint" (click)="preset.set(p.id)">{{ p.label }}</button>
+            <button type="button" role="radio" [attr.aria-checked]="preset() === p.id" [matTooltip]="t().editor.presets[p.id].hint" (click)="preset.set(p.id)">{{ t().editor.presets[p.id].label }}</button>
           }
         }
       </div>
       <div class="mp-size">
         <label class="td-field">
-          <span class="td-label">Seed</span>
+          <span class="td-label">{{ t().editor.mapPanel.seed }}</span>
           <input class="td-input is-sm" type="number" min="0" [value]="seed()" (input)="seed.set(num($event))" />
         </label>
-        <button class="td-btn-secondary td-btn-sm" type="button" (click)="roll()">Roll</button>
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="roll()">{{ t().editor.mapPanel.roll }}</button>
       </div>
-      <app-editor-range label="Strength" unit="%" [min]="10" [max]="100" [value]="strength()" (changing)="strength.set($event)" />
-      <div class="td-seg is-sm" role="radiogroup" aria-label="Replace or add">
-        <button type="button" role="radio" [attr.aria-checked]="!add()" (click)="add.set(false)">Replace the ground</button>
-        <button type="button" role="radio" [attr.aria-checked]="add()" (click)="add.set(true)">Add to it</button>
+      <app-editor-range [label]="t().editor.mapPanel.strength" unit="%" [min]="10" [max]="100" [value]="strength()" (changing)="strength.set($event)" />
+      <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.mapPanel.replaceOrAdd">
+        <button type="button" role="radio" [attr.aria-checked]="!add()" (click)="add.set(false)">{{ t().editor.mapPanel.replace }}</button>
+        <button type="button" role="radio" [attr.aria-checked]="add()" (click)="add.set(true)">{{ t().editor.mapPanel.addTo }}</button>
       </div>
       <div class="td-setting">
-        <span>Repaint by slope and height</span>
-        <input class="td-switch" type="checkbox" [checked]="repaint()" (change)="repaint.set($any($event.target).checked)" aria-label="Repaint" />
+        <span>{{ t().editor.mapPanel.repaintLong }}</span>
+        <input class="td-switch" type="checkbox" [checked]="repaint()" (change)="repaint.set($any($event.target).checked)" [attr.aria-label]="t().editor.mapPanel.repaint" />
       </div>
       <!-- A running job shows above the panels (the shell), with Cancel -->
-      <button class="td-btn-secondary td-btn-sm" type="button" [disabled]="!!job()" (click)="generate()" data-test="generate">Generate</button>
-      <p class="td-note">Roads keep a level bed; one undo step takes it all back. Big maps build in the background, band by band.</p>
+      <button class="td-btn-secondary td-btn-sm" type="button" [disabled]="!!job()" (click)="generate()" data-test="generate">{{ t().editor.mapPanel.generate }}</button>
+      <p class="td-note">{{ t().editor.mapPanel.generateNote }}</p>
     </div>
     <div class="td-group">
-      <h3 class="td-section">Erode the whole map</h3>
-      <app-editor-range label="Rain" unit="%" [min]="10" [max]="100" [value]="rain()" (changing)="rain.set($event)" />
-      <button class="td-btn-secondary td-btn-sm" type="button" [disabled]="!!job()" (click)="erode()" data-test="erode-map">Erode</button>
-      <p class="td-note">Rain carves gullies down every slope and leaves fans of scree at their feet; flat land stays. Cancel or one undo step takes it back.</p>
+      <h3 class="td-section">{{ t().editor.mapPanel.erodeHead }}</h3>
+      <app-editor-range [label]="t().editor.mapPanel.rain" unit="%" [min]="10" [max]="100" [value]="rain()" (changing)="rain.set($event)" />
+      <button class="td-btn-secondary td-btn-sm" type="button" [disabled]="!!job()" (click)="erode()" data-test="erode-map">{{ t().editor.mapPanel.erode }}</button>
+      <p class="td-note">{{ t().editor.mapPanel.erodeNote }}</p>
     </div>
     <div class="td-group" data-test="heightmap">
-      <h3 class="td-section">Heightmap</h3>
+      <h3 class="td-section">{{ t().editor.mapPanel.heightmap }}</h3>
       <div class="td-actions is-start">
-        <button class="td-btn-secondary td-btn-sm" type="button" (click)="exportHeights('png')">Export 16-bit PNG</button>
-        <button class="td-btn-secondary td-btn-sm" type="button" (click)="exportHeights('raw')">Export RAW</button>
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="exportHeights('png')">{{ t().editor.mapPanel.exportPng }}</button>
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="exportHeights('raw')">{{ t().editor.mapPanel.exportRaw }}</button>
       </div>
       <div class="mp-size">
         <label class="td-field">
-          <span class="td-label">Lowest m</span>
+          <span class="td-label">{{ t().editor.mapPanel.lowest }}</span>
           <input class="td-input is-sm" type="number" step="0.5" [value]="low()" (input)="low.set(num($event))" data-test="heightmap-low" />
         </label>
         <label class="td-field">
-          <span class="td-label">Highest m</span>
+          <span class="td-label">{{ t().editor.mapPanel.highest }}</span>
           <input class="td-input is-sm" type="number" step="0.5" [value]="high()" (input)="high.set(num($event))" data-test="heightmap-high" />
         </label>
-        <label class="td-btn-secondary td-btn-sm mp-file" matTooltip="A 16-bit greyscale PNG or a square 16-bit RAW (Gaea, World Machine …), scaled to the map">
-          Import…
+        <label class="td-btn-secondary td-btn-sm mp-file" [matTooltip]="t().editor.mapPanel.importTip">
+          {{ t().editor.mapPanel.import }}
           <input type="file" accept=".png,.raw,.r16" (change)="importHeights($event)" data-test="heightmap-file" />
         </label>
       </div>
-      <p class="td-note">Black is the lowest, white the highest height. An exported file carries its range in its name, an import of it fills the fields; one undo step.</p>
+      <p class="td-note">{{ t().editor.mapPanel.heightmapNote }}</p>
     </div>
     <div class="td-group" data-test="storage">
-      <h3 class="td-section">Storage</h3>
+      <h3 class="td-section">{{ t().editor.mapPanel.storage }}</h3>
       @switch (storage()) {
         @case ('folder') {
-          <p class="td-note">Every save also goes to the map folder (Documents/3DTD/Maps) as a file.</p>
+          <p class="td-note">{{ t().editor.mapPanel.folder }}</p>
         }
         @case ('kept') {
-          <p class="td-note">This browser keeps your maps for good (persistent storage).</p>
+          <p class="td-note">{{ t().editor.mapPanel.kept }}</p>
         }
         @case ('evictable') {
-          <p class="td-note mp-warn">This browser has not promised to keep your maps: clearing site data or a full disk removes them, versions included. Download the map file now and then.</p>
-          <button class="td-btn-secondary td-btn-sm" type="button" (click)="download()" data-test="storage-download">Download map file</button>
+          <p class="td-note mp-warn">{{ t().editor.mapPanel.evictable }}</p>
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="download()" data-test="storage-download">{{ t().editor.mapPanel.downloadFile }}</button>
         }
         @default {
-          <p class="td-note">Checking how this browser keeps maps</p>
+          <p class="td-note">{{ t().editor.mapPanel.checking }}</p>
         }
       }
     </div>
     <div class="td-group">
-      <h3 class="td-section">Versions</h3>
+      <h3 class="td-section">{{ t().editor.mapPanel.versions }}</h3>
       <div class="td-rows" data-test="versions">
         @for (v of versions(); track v.key) {
           <div class="td-row mp-version" [attr.data-pinned]="v.pinned || null">
             <span class="td-trunc">{{ when(v.savedAt) }}</span>
-            <span class="td-muted">{{ v.manual ? 'Saved' : 'Autosave' }} | {{ kb(v.size) }}</span>
+            <span class="td-muted">{{ v.manual ? t().editor.mapPanel.saved : t().editor.mapPanel.autosave }} | {{ kb(v.size) }}</span>
             <button class="td-btn-ghost td-btn-sm" type="button" [attr.aria-pressed]="!!v.pinned" (click)="pin(v)"
-                    [matTooltip]="v.pinned ? 'Pinned: kept whatever happens to older versions. Click to let it go' : 'Pin: keep this version for good'" data-test="pin-version">{{ v.pinned ? 'Pinned' : 'Pin' }}</button>
-            <button class="td-btn-ghost td-btn-sm" type="button" (click)="restore(v)" [matTooltip]="'Put this version back (one undo step)'">Restore</button>
+                    [matTooltip]="v.pinned ? t().editor.mapPanel.pinnedTip : t().editor.mapPanel.pinTip" data-test="pin-version">{{ v.pinned ? t().editor.mapPanel.pinned : t().editor.mapPanel.pin }}</button>
+            <button class="td-btn-ghost td-btn-sm" type="button" (click)="restore(v)" [matTooltip]="t().editor.mapPanel.restoreTip">{{ t().editor.mapPanel.restore }}</button>
           </div>
         } @empty {
-          <p class="td-note">Every save and an autosave every few minutes land here.</p>
+          <p class="td-note">{{ t().editor.mapPanel.noVersions }}</p>
         }
       </div>
-      <p class="td-note">Older versions thin out: all of the last hour, one an hour for a day, one a day for a month, one a week before. Pinned ones stay.</p>
+      <p class="td-note">{{ t().editor.mapPanel.thinNote }}</p>
     </div>
   `,
   styles: [
@@ -157,6 +158,7 @@ import { IntroPanelComponent } from './intro-panel.component';
   ],
 })
 export class MapPanelComponent {
+  protected readonly t = injectT();
   private readonly session = inject(EditorSession);
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('meta', 'terrain');
@@ -215,13 +217,11 @@ export class MapPanelComponent {
   }
 
   when(iso: string): string {
-    const d = new Date(iso);
-    const today = new Date().toDateString() === d.toDateString();
-    return today ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+    return this.t().editor.mapPanel.versionTime(iso, new Date().toDateString() === new Date(iso).toDateString());
   }
 
   kb(bytes: number): string {
-    return bytes > 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1000))} kB`;
+    return this.t().editor.mapPanel.bytes(bytes);
   }
 
   pin(v: MapVersion): void {
@@ -262,11 +262,11 @@ export class MapPanelComponent {
 
   async generate(): Promise<void> {
     const done = await this.session.jobs.generate({ preset: this.preset(), seed: this.seed(), strength: this.strength() / 100, add: this.add() }, this.repaint());
-    if (done) this.session.notices.flash('Terrain generated; Ctrl+Z takes it back');
+    if (done) this.session.notices.flash(this.t().editor.mapPanel.generated);
   }
 
   async erode(): Promise<void> {
-    if (await this.session.jobs.erodeWholeMap(this.rain() / 100)) this.session.notices.flash('The map is eroded; Ctrl+Z takes it back');
+    if (await this.session.jobs.erodeWholeMap(this.rain() / 100)) this.session.notices.flash(this.t().editor.mapPanel.eroded);
   }
 
   num(e: Event): number {
