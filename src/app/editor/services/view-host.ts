@@ -17,6 +17,7 @@ import type { EditorDocument } from '../model/editor-document';
 import { patch, type EditorSettings, type EditorTool, type ToolContext } from '../tools/tool';
 import { EditorViewport, type CameraBookmark, type FrameStats, type HoverInfo } from '../view/editor-viewport';
 import type { EditorNotices } from './editor-notices';
+import type { RendererLease } from '../../three-engine/renderer-host';
 
 const BOOKMARK_KEY = '3dtd-editor-views:';
 
@@ -92,6 +93,8 @@ export interface ViewHostDeps {
   pathMask: EditorPathMask;
   /** The view's ground shape and height lines, worked out by the editor's worker */
   ground: EditorGround;
+  /** The page's renderer (RendererHost) with its canvas in `slot` */
+  renderer(slot: HTMLElement): RendererLease;
 }
 
 export class ViewHost implements EditorViewPort {
@@ -124,12 +127,12 @@ export class ViewHost implements EditorViewPort {
 
   // ------------------------------------------------------------------ the session's side
 
-  /** Makes the view of `editor`'s map on the page's canvas */
-  attach(canvas: HTMLCanvasElement, editor: EditorDocument): void {
+  /** Makes the view of `editor`'s map with the page's canvas in `slot` */
+  attach(slot: HTMLElement, editor: EditorDocument): void {
     const d = this.deps;
     this.viewShown.set(false);
     d.zone.runOutsideAngular(() => {
-      const vp = new EditorViewport(canvas, editor, d.catalog(), d.settings, {
+      const vp = new EditorViewport(d.renderer(slot), editor, d.catalog(), d.settings, {
         status: (m) => d.notices.flash(m),
         hintChanged: () => d.hintChanged(),
         box: (b) => this.box.set(b),

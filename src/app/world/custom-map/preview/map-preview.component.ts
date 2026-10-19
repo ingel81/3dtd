@@ -1,6 +1,6 @@
 import { QUALITY_TABLE, type QualityLevel } from '../../../three-engine/render-quality';
 import { ChangeDetectionStrategy, Component, ElementRef, NgZone, OnDestroy, afterNextRender, inject, signal, viewChild } from '@angular/core';
-import { PCFShadowMap, PerspectiveCamera, SRGBColorSpace, Scene, Timer, Vector3, WebGLRenderer } from 'three';
+import { PCFShadowMap, PerspectiveCamera, SRGBColorSpace, Scene, Timer, Vector3, type WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { PostProcessingPipeline } from '../../../three-engine/post-processing/post-processing-pipeline';
 import { createDemoMap } from '../demo-map';
@@ -11,6 +11,8 @@ import { createSurfaceShowcase } from './surface-showcase';
 import { MapStore } from '../map-store';
 import { CustomMapView } from '../render/custom-map-view';
 import { ShotLights } from '../../../three-engine/shot-lights/shot-lights';
+import type { RendererLease } from '../../../three-engine/renderer-host';
+import { RendererHostService } from '../../../services/infrastructure/renderer-host.service';
 import { chooseSkyImage } from '../render/environment/sky-images';
 import { MapAssetLibrary } from '../render/map-asset-library';
 import { mapToScene } from '../render/map-coords';
@@ -52,7 +54,7 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
   selector: 'app-map-preview',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <canvas #canvas class="canvas"></canvas>
+    <div #canvas class="canvas"></div>
     @if (!clean) {
       <div class="stats">{{ stats() }}</div>
     }
@@ -69,7 +71,10 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
   `,
 })
 export class MapPreviewComponent implements OnDestroy {
-  private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
+  /** Where the page's canvas goes (RendererHost) */
+  private readonly canvas = viewChild.required<ElementRef<HTMLDivElement>>('canvas');
+  private readonly renderers = inject(RendererHostService);
+  private lease: RendererLease | null = null;
   private readonly zone = inject(NgZone);
   /** `?map=` is a link parameter the page's start takes out of the address before this page reads it: the start keeps it */
   private readonly mapId = inject(WorldStartService).editorMap;
@@ -99,20 +104,19 @@ export class MapPreviewComponent implements OnDestroy {
     this.controls?.dispose();
     this.view?.dispose();
     this.lights?.clear();
-    this.renderer?.dispose();
+    // The page's renderer goes back to the host with its context
+    this.lease?.release();
+    this.lease = null;
+    this.renderer = null;
   }
 
   private async start(): Promise<void> {
-    const canvas = this.canvas().nativeElement;
     const params = pageSwitches();
-    const renderer = new WebGLRenderer({
-      canvas,
-      // As the game's canvas (CANVAS_RENDERER_OPTIONS): the map must look right with log depth
-      antialias: true,
-      logarithmicDepthBuffer: true,
-      powerPreference: 'high-performance',
-      stencil: true,
-    });
+    // The game's renderer (RendererHost): the map looks as in the game, log depth and the game's MSAA
+    const lease = this.renderers.acquire(this.canvas().nativeElement, 'custom-map');
+    this.lease = lease;
+    const renderer = lease.renderer;
+    const canvas = renderer.domElement;
     this.renderer = renderer;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = SRGBColorSpace;

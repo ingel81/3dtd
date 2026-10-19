@@ -187,7 +187,8 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
     const square = !doc || doc.terrain.grid.columns === doc.terrain.grid.rows;
     return m.id === 'rot4' && !square ? 'Turn 4 needs a square map: this one turns by 180 degrees' : `${m.hint} (M cycles)`;
   });
-  private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
+  /** Where the page's canvas goes (RendererHost) */
+  private readonly canvas = viewChild.required<ElementRef<HTMLDivElement>>('canvas');
 
   readonly title = computed(() => this.session.state.meta()?.name ?? '');
   readonly toolLabel = computed(() => TOOL_INFO.get(this.session.tools.tool())?.label ?? '');
@@ -201,7 +202,7 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
   constructor() {
     afterNextRender(() => {
       this.session.attachViewport(this.canvas().nativeElement);
-      this.canvas().nativeElement.focus();
+      this.canvas().nativeElement.querySelector('canvas')?.focus();
       if (tourPending()) this.startTour();
     });
     effect(() => {

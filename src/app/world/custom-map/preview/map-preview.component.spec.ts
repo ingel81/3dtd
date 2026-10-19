@@ -49,6 +49,8 @@ vi.mock('../render/custom-map-view', () => ({
 }));
 
 import { MapPreviewComponent } from './map-preview.component';
+import { RendererHostService } from '../../../services/infrastructure/renderer-host.service';
+import { WebGLRenderer } from 'three';
 import { createMapDocument } from '../map-create';
 
 // The query annotation the JIT transform adds for viewChild(); plain vitest runs without it
@@ -67,11 +69,16 @@ describe('Map preview page', () => {
   it('builds nothing when it is left while its map still loads', async () => {
     history.replaceState(null, '', '/map-preview?map=valley');
     const listen = vi.spyOn(window, 'addEventListener');
+    // The page's renderer (RendererHost), lent to the page and given back when it goes
+    const renderer = Object.assign(new WebGLRenderer(), { domElement: document.createElement('canvas') });
+    const lease = { renderer, msaa: true, release: vi.fn() };
+    TestBed.configureTestingModule({ providers: [{ provide: RendererHostService, useValue: { acquire: () => lease } }] });
     const fixture = TestBed.createComponent(MapPreviewComponent);
     fixture.detectChanges();
     await vi.waitFor(() => expect(load.resolve).not.toBeNull());
     fixture.destroy();
-    expect(built.renderers.at(-1)!.dispose).toHaveBeenCalled();
+    expect(lease.release).toHaveBeenCalled();
+    expect(renderer.dispose).not.toHaveBeenCalled();
 
     load.resolve!({ doc: createMapDocument({ id: 'valley', name: 'Valley', width: 32, depth: 32 }) });
     await new Promise((resolve) => setTimeout(resolve, 0));

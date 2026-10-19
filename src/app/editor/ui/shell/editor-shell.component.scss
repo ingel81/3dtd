@@ -145,6 +145,10 @@
   height: 100%;
   outline: none;
   cursor: crosshair;
+
+  canvas {
+    outline: none;
+  }
 }
 
 // Until the view drew the map once (its programs compile first), a quiet line instead of a black hole

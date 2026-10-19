@@ -53,10 +53,12 @@ import { MapLifecycle } from '../services/map-lifecycle';
 import { SaveService } from '../services/save-service';
 import { ToolHost } from '../services/tool-host';
 import { ViewHost, type EditorViewPort } from '../services/view-host';
+import { RendererHostService } from '../../services/infrastructure/renderer-host.service';
 
 @Injectable()
 export class EditorSession implements OnDestroy {
   private readonly zone = inject(NgZone);
+  private readonly renderers = inject(RendererHostService);
   readonly catalog = signal(new CatalogIndex(EMPTY_CATALOG));
   /** The asset catalogue is read before a map opens, so the view never swaps it */
   readonly catalogReady: Promise<void> = loadAssetCatalog().then((c) => this.catalog.set(new CatalogIndex(c)));
@@ -103,6 +105,7 @@ export class EditorSession implements OnDestroy {
       hintChanged: () => this.tools.hintChanged(),
       pathMask: this.pathMask,
       ground: this.ground,
+      renderer: (slot) => this.renderers.acquire(slot, 'custom-map'),
     });
     this.view = this.viewHost;
     this.routes = new EditorRoutes(this.core, (routes) => this.viewHost.showRoutes(routes));
@@ -212,10 +215,11 @@ export class EditorSession implements OnDestroy {
 
   // ---------------------------------------------------------------- the view on the page
 
-  attachViewport(canvas: HTMLCanvasElement): void {
+  /** The view of the open map, the page's canvas in `slot` */
+  attachViewport(slot: HTMLElement): void {
     const editor = this.editor;
     if (!editor) return;
-    this.viewHost.attach(canvas, editor);
+    this.viewHost.attach(slot, editor);
     this.check.show();
   }
 

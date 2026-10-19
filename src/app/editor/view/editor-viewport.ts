@@ -7,7 +7,7 @@
  * ahead), TopDownRenderer (the map from above) and ViewExtras (trial wave,
  * sound, intro flight, game view).
  */
-import { PCFShadowMap, PerspectiveCamera, SRGBColorSpace, Scene, Vector3, WebGLRenderer } from 'three';
+import { PCFShadowMap, PerspectiveCamera, SRGBColorSpace, Scene, Vector3, type WebGLRenderer } from 'three';
 import type { MapIntroView, MapObject, MapPoint } from '../../world/custom-map/map-document';
 import { type BridgeDeck, bridgeDecks, deckHeightAt } from '../../world/custom-map/bridge-decks';
 import { HeightField } from '../../world/custom-map/render/height-field';
@@ -30,8 +30,8 @@ import { TopDownRenderer } from './top-down-renderer';
 import { EDITOR_FOV, ViewExtras } from './view-extras';
 import { ViewPicker } from './view-picker';
 import { pixelRatioFor, readStoredQuality, storedKnobsFor, type QualityKnobs } from '../../three-engine/render-quality';
-import { releaseContext, settleContexts } from '../../three-engine/context-release';
-import { deferPendingProgramDeletes } from '../../three-engine/pending-program-deletes';
+import { settleContexts } from '../../three-engine/context-release';
+import type { RendererLease } from '../../three-engine/renderer-host';
 import { ShotLights } from '../../three-engine/shot-lights/shot-lights';
 import type { Contours } from '../ops/contours';
 import type { GroundBaker } from '../../world/custom-map/render/terrain/ground-shape';
@@ -118,22 +118,28 @@ export class EditorViewport {
   /** The game's quality level for custom maps (render-quality.ts) */
   private readonly quality: QualityKnobs;
 
+  /** The page's canvas (RendererHost), in the editor's place while the view lives */
+  readonly canvas: HTMLCanvasElement;
+
   constructor(
-    readonly canvas: HTMLCanvasElement,
+    /** The page's renderer, its canvas in the editor's place: the game's context, kept over the switch to a test run */
+    private readonly lease: RendererLease,
     readonly editor: EditorDocument,
     readonly catalog: CatalogIndex,
     readonly settings: EditorSettings,
     private readonly callbacks: ViewportCallbacks,
   ) {
-    this.renderer = new WebGLRenderer({ canvas, antialias: true, logarithmicDepthBuffer: true, preserveDrawingBuffer: false });
+    this.renderer = lease.renderer;
+    const canvas = lease.renderer.domElement;
+    this.canvas = canvas;
+    // Keys reach the view while its canvas has focus
+    canvas.tabIndex = 0;
+    canvas.setAttribute('aria-label', 'Map view');
     // The scene stands at the origin: without its own matrix composed every frame it forces no child's update,
     // and the map's StaticGroups recompute only after a change (three-engine/static-group.ts)
     this.scene.matrixAutoUpdate = false;
-    // Programs of the compile-ahead still linking when the editor goes are deleted once built: deleted at once they
-    // held the GPU process, and the game's first context waited 7 to 8.5 s for them
-    deferPendingProgramDeletes(this.renderer.getContext() as WebGL2RenderingContext);
     // The custom-map part of the game's quality level with the player's overrides, at a fixed resolution
-    // (no dynamic one) and always MSAA
+    // (no dynamic one); its MSAA is the page renderer's (RendererHostService.msaa)
     this.quality = storedKnobsFor(readStoredQuality(), gpuNameOf(this.renderer), 'custom-map');
     this.renderer.setPixelRatio(pixelRatioFor({ ...this.quality, general: { ...this.quality.general, scale: 1 } }, 'custom-map', window.devicePixelRatio));
     this.renderer.outputColorSpace = SRGBColorSpace;
@@ -339,9 +345,10 @@ export class EditorViewport {
     this.view.dispose();
     this.lights.clear();
     this.overlay.dispose();
-    this.renderer.dispose();
-    // Browsers keep only a few WebGL contexts: give this one back once the next view stands, not when it is collected
-    releaseContext(this.renderer);
+    this.canvas.removeAttribute('tabindex');
+    this.canvas.removeAttribute('aria-label');
+    // The renderer goes back to the page's host with its context: the test run draws with it
+    this.lease.release();
   }
 
   // -------------------------------------------------------------------------
