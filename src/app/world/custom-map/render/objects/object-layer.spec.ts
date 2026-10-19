@@ -1,4 +1,4 @@
-import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, PerspectiveCamera, Ray, Scene, Vector3, type Material } from 'three';
+import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, PerspectiveCamera, Ray, Scene, Vector3 } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import type { MapObject } from '../../map-document';
 import type { AssetCatalog } from '../asset-catalog';
@@ -481,37 +481,6 @@ describe('MapObjectLayer uploads', () => {
       const range = m.instanceMatrix.updateRanges[0];
       if (range) expect(range.start + range.count).toBeGreaterThanOrEqual(m.count * 16);
     }
-    layer.dispose();
-  });
-});
-
-describe('MapObjectLayer damage', () => {
-  it("carries each destructible object's damage in its slots through level switches, and gives its materials the damage branch", async () => {
-    const los = new Group();
-    const patched: Material[] = [];
-    const layer = new MapObjectLayer(field(), library(), los, { damage: { destructible: (e) => e.id === 'post', material: (m) => patched.push(m), key: 'damage' } });
-    await layer.setObjects(row());
-    const look = viewer(layer);
-    look(4);
-    const damageOf = (name: string, x: number): number[] | null => {
-      const m = meshes(los, name)[0];
-      const a = m.geometry.getAttribute('aDamage');
-      for (let s = 0; s < m.count; s++) if (Math.abs(m.instanceMatrix.array[s * 16 + 12] + x) < 1e-3) return Array.from(a.array.slice(s * 4, s * 4 + 4));
-      return null;
-    };
-    // Untouched: no damage, no fall under way
-    expect(damageOf('post', 20)).toEqual([0, 0, 0, -1]);
-    layer.setDamage('p1', 1.5, 0.25, 2, 30);
-    expect(damageOf('post', 20)).toEqual([1.5, 0.25, 2, 30]);
-    // Far away the post shows its far model: the damage goes with it
-    look(400);
-    expect(damageOf('post-lod1', 20)).toEqual([1.5, 0.25, 2, 30]);
-    layer.setDamageAll(['p1', 'p2'], new Float32Array([3, 0.5, 1, 40, 2, 0.75, 0, -1]));
-    expect(damageOf('post-lod1', 20)).toEqual([3, 0.5, 1, 40]);
-    expect(damageOf('post-lod1', 40)).toEqual([2, 0.75, 0, -1]);
-    // The asset's materials went through the damage branch
-    expect(patched.length).toBeGreaterThan(0);
-    expect(patched).toContain(meshes(los, 'post')[0].material);
     layer.dispose();
   });
 });

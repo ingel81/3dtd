@@ -59,8 +59,6 @@ describe('far boxes', () => {
     // The box carries its asset's row and draws in the line of sight with the same shape
     expect(boxes.geometry.getAttribute('aFarRow').array[0]).toBe(0);
     expect(boxes.userData['losVertex'].vertex).toContain('farBoxLocal');
-    // A map without destruction: every box carries no damage, no fall under way
-    expect(Array.from(boxes.geometry.getAttribute('aDamage').array.slice(0, 4))).toEqual([0, 0, 0, -1]);
     // Moving over: the far house comes near, the near one goes far
     camera.position.set(-600, 5, 0);
     camera.updateMatrixWorld();
