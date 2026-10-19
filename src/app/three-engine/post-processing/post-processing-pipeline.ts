@@ -209,8 +209,14 @@ export class PostProcessingPipeline {
     this.colorGrading.setIntensity(value);
   }
 
-  /** Dispose composer + LUT textures. Called from engine dispose(). */
+  /**
+   * Dispose composer, its passes and the LUT textures. Called from engine
+   * dispose(). three's composer frees only its own targets: the passes'
+   * (bloom's mip chain, FXAA, output) stayed on the GPU, which with the
+   * page's one renderer (RendererHost) would pile up world after world
+   */
   dispose(): void {
+    for (const pass of this.composer.passes) pass.dispose();
     this.colorGrading.dispose();
     this.composer.dispose();
   }
