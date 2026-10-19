@@ -40,6 +40,7 @@ import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_
 import { InstanceList, type InstanceSource } from './instance-list';
 import { MassLayer } from './mass-layer';
 import { FarBoxes } from './far-boxes';
+import { NO_DAMAGE, type ObjectDamage } from './object-damage';
 import { nextFrameOrTimeout } from '../../../../utils/next-frame';
 
 /**
@@ -132,8 +133,13 @@ interface AssetBatch {
   draws: LevelDraw[];
   /** Objects the lists have room for */
   capacity: number;
-  /** Instance matrices of all objects (16 per object), colours (3) when tinted: the lists' source */
+  /**
+   * Instance matrices of all objects (16 per object), colours (3) when tinted, the damage (4, `aDamage`:
+   * stage, seed, direction, start of the fall) of a destructible asset: the lists' source
+   */
   source: InstanceSource;
+  /** The damage per object, the source's extra; null for an asset that does not take any */
+  damage: Float32Array | null;
   /** Bounding sphere centre and radius per object (4 per object) */
   spheres: Float32Array;
   /** Bounds of every object, the frustum test of each of the asset's meshes */
@@ -158,6 +164,8 @@ export interface ObjectHit {
 export interface ObjectLayerOptions {
   /** The view's impostors (shared with its other object layers); without them far trees keep their model */
   impostors?: ImpostorCache;
+  /** Destructible buildings: an `aDamage` (vec4) per instance and the materials' damage branch */
+  damage?: ObjectDamage;
   /** Level of the water at a map point, null on dry ground (floating objects) */
   waterLevelAt?: (x: number, y: number) => number | null;
 }
@@ -410,6 +418,7 @@ export class MapObjectLayer {
         b.objects[i] = b.objects[last];
         b.source.matrices.copyWithin(i * 16, last * 16, last * 16 + 16);
         b.source.colors?.copyWithin(i * 3, last * 3, last * 3 + 3);
+        b.damage?.copyWithin(i * 4, last * 4, last * 4 + 4);
         b.spheres.copyWithin(i * 4, last * 4, last * 4 + 4);
         b.levelOf[i] = b.levelOf[last];
         b.nextOf[i] = b.nextOf[last];
@@ -584,6 +593,37 @@ export class MapObjectLayer {
     this.farBoxes?.nearOnly(on);
   }
 
+  /**
+   * The damage of one object (docs/DESTRUCTION_PLAN.md): its stage with the blend between stages (0..3), a seed
+   * (0..1), the direction of the strongest hit (rad) and when its fall began (s, game time; negative: none). Written
+   * into the slots it shows in, whatever its level; an object of an asset that takes no damage is left as it is
+   */
+  setDamage(objectId: string, stage: number, seed: number, direction: number, fallStart: number): void {
+    const slot = this.byId.get(objectId);
+    const b = slot?.batch;
+    if (!slot || !b?.damage) return;
+    b.damage.set([stage, seed, direction, fallStart], slot.index * 4);
+    for (const d of b.draws) if (d.slots[slot.index] >= 0) d.list.rewrite(d.slots, slot.index, d.source);
+    this.version++;
+    this.flushDamage(b);
+  }
+
+  /** The damage of many objects at once (a restore, a jump in the replay): four values per id in `values` */
+  setDamageAll(ids: readonly string[], values: Float32Array): void {
+    const touched = new Set<AssetBatch>();
+    ids.forEach((id, k) => {
+      const slot = this.byId.get(id);
+      const b = slot?.batch;
+      if (!slot || !b?.damage) return;
+      b.damage.set(values.subarray(k * 4, k * 4 + 4), slot.index * 4);
+      for (const d of b.draws) if (d.slots[slot.index] >= 0) d.list.rewrite(d.slots, slot.index, d.source);
+      touched.add(b);
+    });
+    if (!touched.size) return;
+    this.version++;
+    for (const b of touched) this.flushDamage(b);
+  }
+
   /** Meshes of objects that block no sight (scatter, props, small plants): what a water reflection leaves out */
   decorMeshes(): Object3D[] {
     const out: Object3D[] = [];
@@ -644,8 +684,9 @@ export class MapObjectLayer {
    */
   private levelsFor(model: ObjectModel, lods: { model: ObjectModel; screen: number }[]): Level[] {
     const entry = model.entry;
+    const damaged = this.destructible(entry);
     const drawn = (m: ObjectModel) =>
-      mergedParts(m).map((p) => ({ geometry: p.geometry, material: this.objectMaterial(p.material, entry), depthMaterial: isRotor(p.material) ? this.rotorShadow(entry) : undefined }));
+      mergedParts(m).map((p) => ({ geometry: p.geometry, material: this.objectMaterial(p.material, entry, damaged), depthMaterial: isRotor(p.material) ? this.rotorShadow(entry) : undefined }));
     const levels: Level[] = [{ from: 0, parts: drawn(model) }];
     for (const lod of lods) levels.push({ from: screenDistance(1, lod.screen), parts: drawn(lod.model) });
     const imp = this.options.impostors?.get(model);
@@ -677,6 +718,7 @@ export class MapObjectLayer {
       draws: [],
       capacity,
       source: { matrices: new Float32Array(capacity * 16), colors: tinted ? new Float32Array(capacity * 3) : null },
+      damage: null,
       spheres: new Float32Array(capacity * 4),
       bounds: new Sphere(),
       boundsStale: true,
@@ -686,6 +728,10 @@ export class MapObjectLayer {
       shadowOf: new Int8Array(capacity).fill(-1),
       dueAt: new Float64Array(capacity).fill(-Infinity),
     };
+    if (this.destructible(entry)) {
+      b.damage = noDamage(capacity);
+      b.source.extras = [b.damage];
+    }
     for (let i = 0; i < n; i++) this.writeInstance(b, i);
     b.draws = b.levels.map((level, li) => this.buildDraw(b, level, li));
     return b;
@@ -694,11 +740,13 @@ export class MapObjectLayer {
   /** The list and part meshes of one level, empty: the next pass fills them */
   private buildDraw(b: AssetBatch, level: Level, li: number): LevelDraw {
     if (level.far) return this.farDraw(b);
-    const list = new InstanceList(b.capacity, !!b.source.colors);
+    const list = new InstanceList(b.capacity, !!b.source.colors, b.damage ? [4] : []);
     const parent = b.blocksLos ? this.losGroup : this.group;
     const meshes = level.parts.map((part) => {
       // Made empty: the level's list brings the instances (three's own would be thrown away at once)
-      const mesh = new InstancedMesh(fadeGeometry(part.geometry, list.fades), part.material, 0);
+      const geometry = fadeGeometry(part.geometry, list.fades);
+      if (b.damage) geometry.setAttribute('aDamage', list.extras[0]);
+      const mesh = new InstancedMesh(geometry, part.material, 0);
       if (part.depthMaterial) mesh.customDepthMaterial = part.depthMaterial;
       mesh.instanceMatrix = list.matrices;
       if (list.colors) mesh.instanceColor = list.colors;
@@ -763,7 +811,9 @@ export class MapObjectLayer {
       get colors() {
         return b.source.colors;
       },
-      extras: [row],
+      get extras() {
+        return [row, b.damage ?? NO_DAMAGE];
+      },
     };
     this.farBoundsStale = true;
     return { list, slots: new Int32Array(b.capacity).fill(-1), meshes: [], source, shared: true };
@@ -776,7 +826,7 @@ export class MapObjectLayer {
     if (!objects.some((o) => entries.get(o.asset)?.far)) return;
     this.farAtlas ??= this.assets.farAtlas();
     const atlas = await this.farAtlas;
-    if (atlas && !this.farBoxes && !this.disposed) this.farBoxes = new FarBoxes(atlas, { blocking: this.losGroup, open: this.group });
+    if (atlas && !this.farBoxes && !this.disposed) this.farBoxes = new FarBoxes(atlas, { blocking: this.losGroup, open: this.group }, this.options.damage);
   }
 
   /** Room for `capacity` objects: the asset's arrays and lists anew, every object back into its levels */
@@ -790,6 +840,12 @@ export class MapObjectLayer {
     };
     b.source.matrices = keep(b.source.matrices, 16, 0);
     if (b.source.colors) b.source.colors = keep(b.source.colors, 3, 1);
+    if (b.damage) {
+      const grown = noDamage(capacity);
+      grown.set(b.damage.subarray(0, n * 4));
+      b.damage = grown;
+      b.source.extras = [grown];
+    }
     b.spheres = keep(b.spheres, 4, 0);
     b.levelOf = keep(b.levelOf, 1, -1).fill(-1, 0, n);
     b.nextOf = keep(b.nextOf, 1, NO_NEXT).fill(NO_NEXT, 0, n);
@@ -954,6 +1010,17 @@ export class MapObjectLayer {
     return true;
   }
 
+  /** Whether an asset's objects carry a damage (ObjectLayerOptions.damage): buildings of a destructible map */
+  private destructible(entry: CatalogObject): boolean {
+    return !!this.options.damage?.destructible(entry);
+  }
+
+  /** The damage written into an asset's lists goes up with the next frame */
+  private flushDamage(b: AssetBatch): void {
+    for (const d of b.draws) if (!d.shared) d.list.flush();
+    this.farBoxes?.sync();
+  }
+
   /**
    * Whether an asset's objects follow the slope (wallShear): walls and fences that block no sight and carry no
    * tower; what the line of sight and the build rules see stays level
@@ -1016,7 +1083,7 @@ export class MapObjectLayer {
    * for flames (foliage cards that glow). The per-asset numbers are
    * uniforms, so all of them share a handful of shader programs.
    */
-  private objectMaterial(source: Material, entry: CatalogObject): Material {
+  private objectMaterial(source: Material, entry: CatalogObject, damaged = false): Material {
     const m0 = source as MeshStandardMaterial;
     const card = m0.name.startsWith('foliage-');
     const waterfall = m0.name.startsWith('foliage-waterfall');
@@ -1033,7 +1100,8 @@ export class MapObjectLayer {
     const bob = !!entry.float && entry.category !== 'structure';
     // Several looks in one atlas (a herd of several breeds): only for objects that stay where they are
     const variants = !card && !bob && (entry.variants ?? 1) > 1 ? entry.variants! : 1;
-    const key = `${source.uuid}|${entry.grime ? 1 : 0}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin || rotor ? period : 0}|${rotor ? 1 : 0}|${variants}`;
+    const damage = damaged ? this.options.damage : undefined;
+    const key = `${source.uuid}|${damage ? damage.key : ''}|${entry.grime ? 1 : 0}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin || rotor ? period : 0}|${rotor ? 1 : 0}|${variants}`;
     const cached = this.materials.get(key);
     if (cached) return cached;
     // Always an own copy: the library's material is shared (other views, the editor's thumbnails)
@@ -1050,6 +1118,7 @@ export class MapObjectLayer {
       if (entry.grime && m.aoMap) addGrime(m);
       if (variants > 1) addAtlasVariants(m, variants);
       addWindowGlow(m, source);
+      damage?.material(m);
       addLodFade(m);
       addHeightFog(m);
       this.materials.set(key, m);
@@ -1297,6 +1366,13 @@ function mergedParts(model: ObjectModel): ModelPart[] {
     merged.set(model, parts);
   }
   return parts;
+}
+
+/** Damage values for `capacity` objects, each without damage (NO_DAMAGE) */
+function noDamage(capacity: number): Float32Array {
+  const a = new Float32Array(capacity * 4);
+  for (let i = 0; i < capacity; i++) a.set(NO_DAMAGE, i * 4);
+  return a;
 }
 
 /** Objects by asset and whether they block sight (`asset|1` or `asset|0`): one batch each */

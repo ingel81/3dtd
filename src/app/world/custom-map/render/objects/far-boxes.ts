@@ -17,6 +17,7 @@ import {
 } from 'three';
 import type { LosVertexPatch } from '../../../../three-engine/tower-shadow-mapper';
 import type { CatalogObject } from '../asset-catalog';
+import { NO_DAMAGE, type ObjectDamage } from './object-damage';
 import { addHeightFog } from '../environment/height-fog';
 import { addLodFade, fadeGeometry } from './lod-fade';
 import { InstanceList, type InstanceSource } from './instance-list';
@@ -168,6 +169,8 @@ export class FarBoxes {
   constructor(
     atlas: Texture,
     private readonly groups: { blocking: Group; open: Group },
+    /** A destructible map's damage: the boxes carry `aDamage` (vec4) and the material its branch */
+    damage?: ObjectDamage,
   ) {
     const image = atlas.image as { width: number; height: number };
     this.params = new DataTexture(new Float32Array(ROW_TEXELS * 4 * 16), ROW_TEXELS, 16, RGBAFormat, FloatType);
@@ -203,6 +206,7 @@ export class FarBoxes {
         );
     };
     m.customProgramCacheKey = () => 'custom-map-far-box';
+    damage?.material(m);
     addLodFade(m);
     addHeightFog(m);
     this.material = m;
@@ -248,9 +252,11 @@ export class FarBoxes {
     const old = this.draws[k];
     if (old && old.list.capacity >= capacity) return { list: old.list, renewed: false };
     if (old) this.disposeDraw(old);
-    const list = new InstanceList(Math.max(capacity, old ? old.list.capacity * 2 : 256), true, [1]);
+    // Per box its asset's row, and its damage (a destructible map's; NO_DAMAGE elsewhere)
+    const list = new InstanceList(Math.max(capacity, old ? old.list.capacity * 2 : 256), true, [1, 4]);
     const geometry = fadeGeometry(this.template, list.fades);
     geometry.setAttribute('aFarRow', list.extras[0]);
+    geometry.setAttribute('aDamage', list.extras[1]);
     const mesh = new InstancedMesh(geometry, this.material, 0);
     mesh.instanceMatrix = list.matrices;
     mesh.instanceColor = list.colors;
@@ -324,7 +330,7 @@ export class FarBoxes {
 const PLACEHOLDER: InstanceSource = {
   matrices: new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]),
   colors: null,
-  extras: [[0]],
+  extras: [[0], NO_DAMAGE],
 };
 
 export type { InstanceSource };
