@@ -121,6 +121,32 @@ export function roadTags(tags: Record<string, string>): RoadTags | null {
   };
 }
 
+/** Metres of pavement a way tagged with one but not its width has either side */
+export const SIDEWALK_WIDTH = 1.8;
+
+/**
+ * What a road's tags say of its pavements (`sidewalk`, `sidewalk:both`,
+ * `:left`, `:right`, their `:width`): metres either side, 0 for none or one
+ * mapped as a way of its own (`separate`), null when they say nothing. A
+ * pavement on one side only is drawn on both (the road surface is
+ * symmetric about the way).
+ */
+export function sidewalkTag(tags: Record<string, string>): number | null {
+  const yes = (v: string | undefined) => v === 'yes' || v === 'both' || v === 'left' || v === 'right';
+  const no = (v: string | undefined) => v === 'no' || v === 'none' || v === 'separate';
+  const main = tags['sidewalk'];
+  const sides = [tags['sidewalk:both'], tags['sidewalk:left'], tags['sidewalk:right']];
+  if (yes(main) || sides.some((v) => v === 'yes')) {
+    for (const key of ['sidewalk:width', 'sidewalk:both:width', 'sidewalk:right:width', 'sidewalk:left:width']) {
+      const m = /^\s*(\d+(?:[.,]\d+)?)\s*m?\s*$/.exec(tags[key] ?? '');
+      if (m) return Math.round(Math.min(5, Math.max(0.8, parseFloat(m[1].replace(',', '.')))) * 10) / 10;
+    }
+    return SIDEWALK_WIDTH;
+  }
+  if (no(main) || sides.some((v) => no(v))) return 0;
+  return null;
+}
+
 /**
  * A bridge's deck from its material (`bridge:material`, `material`): wood,
  * stone (masonry, brick, an arch), concrete (also steel); a road bridge

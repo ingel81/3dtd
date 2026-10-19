@@ -18,7 +18,9 @@ import { DRAPE_TILE, drapeTileKey } from '../drape/draped-layer';
  * the polygon between their ends is the junction's own surface, its texture
  * running on from the widest road's and blending into each other road's
  * towards its end (no seam at any), its kerbs quadratic curves from one
- * road's edge to the next.
+ * road's edge to the next. A road's pavement (MapPathEdge.sidewalk) widens
+ * its ribbon beyond the carriageway; the distance to the edge each vertex
+ * carries is the kerb's, negative over the pavement.
  *
  * Map space throughout: x east, y north, triangles counter-clockwise seen
  * from above (front faces up once in the scene, map-coords.ts). Heights come
@@ -62,7 +64,12 @@ export interface RoadNetwork {
   styles: RoadStyle[];
   /** The surfaces in the order the looks name their layers (encodeRoadStyle): new ones join at the end */
   surfaces: string[];
+  /** The layer of the pavements' surface among them, -1 while no road has one */
+  sidewalk: number;
 }
+
+/** The surface of every pavement beside a road */
+export const SIDEWALK_SURFACE = 'sidewalk';
 
 /** Whether an edge is drawn by the road surface */
 export function pavedEdge(edge: MapPathEdge): boolean {
@@ -79,7 +86,10 @@ interface Chain {
   /** Distance along at each point of `line` */
   at: number[];
   length: number;
+  /** Half the ribbon's width: the carriageway's and the pavement beyond it */
   half: number;
+  /** Metres of pavement either side */
+  walk: number;
   style: number;
   trim: [number, number];
   /** Cross sections at both ends of the drawn ribbon, right to left seen along the ribbon */
@@ -183,14 +193,14 @@ class TileBuilder {
 /** What an edge was when last laid: its fields and points, compared field by field (no strings built) */
 interface EdgeState {
   edge: MapPathEdge;
-  /** a.x, a.y, b.x, b.y, width, then the via points */
+  /** a.x, a.y, b.x, b.y, width, pavement, then the via points */
   numbers: number[];
 }
 
 function edgeNumbers(e: MapPathEdge, nodes: ReadonlyMap<string, MapPoint>): number[] {
   const a = nodes.get(e.a);
   const b = nodes.get(e.b);
-  const out = [a?.x ?? NaN, a?.y ?? NaN, b?.x ?? NaN, b?.y ?? NaN, e.width];
+  const out = [a?.x ?? NaN, a?.y ?? NaN, b?.x ?? NaN, b?.y ?? NaN, e.width, e.sidewalk ?? 0];
   for (const p of e.via ?? []) out.push(p.x, p.y);
   return out;
 }
@@ -341,7 +351,7 @@ export class RoadNetworkBuilder {
       const list = ends.get(node) ?? [];
       if (list.length > 1) this.putItem(`j${node}`, (out) => emitJunction(nodes.get(node)!, list, out, this.styleOf), rebuilt);
     }
-    return { tiles: [...rebuilt].map((key) => this.assemble(key)), styles: [...this.styles], surfaces: [...this.surfaces] };
+    return { tiles: [...rebuilt].map((key) => this.assemble(key)), styles: [...this.styles], surfaces: [...this.surfaces], sidewalk: this.surfaces.indexOf(SIDEWALK_SURFACE) };
   }
 
   /** The code of a look for the vertices, its surface given a layer on first sight */
@@ -365,7 +375,8 @@ export class RoadNetworkBuilder {
       const list = at.get(node) ?? [];
       if (list.length !== 2) return null;
       const o = list[0] === from ? list[1] : list[0];
-      if (taken.has(o) || this.chainOf.has(o.id) || Math.abs(o.width - from.width) > 0.3 || styleKey(roadStyle(o)) !== key) return null;
+      if (taken.has(o) || this.chainOf.has(o.id) || Math.abs(o.width - from.width) > 0.3 || Math.abs((o.sidewalk ?? 0) - (from.sidewalk ?? 0)) > 0.3) return null;
+      if (styleKey(roadStyle(o)) !== key) return null;
       return o;
     };
     const first0 = edgePolyline(first, nodes);
@@ -398,7 +409,10 @@ export class RoadNetworkBuilder {
       head = backward ? e.a : e.b;
     }
     const full = before.length ? [...before.reverse(), ...line] : line;
-    const half = first.width / 2;
+    const walk = Math.max(0, first.sidewalk ?? 0);
+    const half = first.width / 2 + walk;
+    // The pavements' texture joins the roads' at the end, as any new surface (their layers keep their place)
+    if (walk > 0 && !this.surfaces.includes(SIDEWALK_SURFACE)) this.surfaces.push(SIDEWALK_SURFACE);
     const clean = roundCorners(dropDoubles(full), half);
     if (clean.length < 2) return null;
     const ids = members.map((e) => e.id);
@@ -415,6 +429,7 @@ export class RoadNetworkBuilder {
       at: dist,
       length: dist[dist.length - 1] - dist[0],
       half,
+      walk,
       style: this.styleOf(roadStyle(first)),
       trim: [0, 0],
       ends: [null, null],
@@ -582,7 +597,7 @@ function emitRibbon(chain: Chain, out: TileBuilder): void {
       y: p.y + ny * u * h,
       across: u * h,
       along: d,
-      edge: h * (1 - Math.abs(u)),
+      edge: h * (1 - Math.abs(u)) - chain.walk,
       style: chain.style,
       dx: t.x,
       dy: t.y,
@@ -698,18 +713,21 @@ function emitJunction(c: MapPoint, list: End[], out: TileBuilder, styleOf: (s: R
     const a = side[side.length - 1];
     const b = sides[(k + 1) % n]![0];
     const cross = lineMeet(a, list[k], b, list[(k + 1) % n]);
+    // The outline runs round the pavements: from one road's to the next's
+    const walkA = list[k].chain.walk;
+    const walkB = list[(k + 1) % n].chain.walk;
     if (cross) {
       for (let s = 1; s < CURVE_POINTS; s++) {
         const t = s / CURVE_POINTS;
         const u = 1 - t;
-        ring.push({ x: u * u * a.x + 2 * u * t * cross.x + t * t * b.x, y: u * u * a.y + 2 * u * t * cross.y + t * t * b.y, edge: kerbEdge, arm: s * 2 <= CURVE_POINTS ? k : (k + 1) % n, side: false });
+        ring.push({ x: u * u * a.x + 2 * u * t * cross.x + t * t * b.x, y: u * u * a.y + 2 * u * t * cross.y + t * t * b.y, edge: kerbEdge - (walkA * u + walkB * t), arm: s * 2 <= CURVE_POINTS ? k : (k + 1) % n, side: false });
       }
     } else {
       // A straight kerb: its middle parts the two roads' frames
-      ring.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, edge: kerbEdge, arm: k, side: false });
+      ring.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, edge: kerbEdge - (walkA + walkB) / 2, arm: k, side: false });
     }
   }
-  const centre: RingPoint = { x: c.x, y: c.y, edge: Math.min(...list.map((e) => e.chain.half)), arm: main, side: false };
+  const centre: RingPoint = { x: c.x, y: c.y, edge: Math.min(...list.map((e) => e.chain.half - e.chain.walk)), arm: main, side: false };
   // Fanned from the node, each triangle in one road's frame: near a road's end its texture takes over from the
   // junction's (the weight, 1 on the end section, 0 at the node and on the kerbs), so no seam shows at any end
   const verts: Vertex[] = [];

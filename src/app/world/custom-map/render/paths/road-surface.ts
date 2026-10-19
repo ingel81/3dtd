@@ -63,6 +63,7 @@ export class RoadSurfaceLayer {
     // The surfaces only ever grow at the end (RoadNetworkBuilder): the layers loaded keep their place, a new one
     // draws its mean colour (layer >= uDrapeLayers) until the textures with it are in
     this.textures.setIds(net.surfaces);
+    this.material.sidewalk.value = net.sidewalk;
   }
 
   /** Where the surface hides the ground, as laid now (the path mask's covers) */
@@ -99,8 +100,13 @@ function drapedRoadTile(tile: RoadTile) {
 }
 
 export class RoadSurfaceMaterial extends DrapedMaterial {
+  /** The pavements' layer in the road textures (RoadNetwork.sidewalk), -1 while no road has one */
+  readonly sidewalk: { value: number };
+
   constructor(heights: HeightTexture, gridNormals: Texture, field: HeightField) {
-    super('custom-map-roads', roadLook(), MAX_ROAD_SURFACES, heights, gridNormals, field);
+    const sidewalk = { value: -1 };
+    super('custom-map-roads', roadLook(sidewalk), MAX_ROAD_SURFACES, heights, gridNormals, field);
+    this.sidewalk = sidewalk;
   }
 }
 
@@ -122,20 +128,28 @@ vRoadDir = aDir;
 `;
 
 const ROAD_FRAGMENT_PARS = /* glsl */ `
+uniform float uRoadSidewalk;
 varying vec3 vRoad;
 flat varying float vRoadLook;
 varying vec4 vRoadArm;
 varying vec2 vRoadDir;
 
-// A dash pattern along: 1 on the paint, soft over a pixel
-float roadDash(float along, float paint, float gap, float aa) {
-  float p = mod(along, paint + gap);
-  return smoothstep(-aa, aa, p) * (1.0 - smoothstep(paint - aa, paint + aa, p));
+// Metres of paint of a dash pattern from 0 to x: its integral, for the share a pixel covers
+float roadDashUpTo(float x, float paint, float period) {
+  return floor(x / period) * paint + min(mod(x, period), paint);
 }
 
-// A line across at offset c with width w: 1 on it, soft over a pixel
+// A dash pattern along: the share of the pixel's footprint (aa either side) on the paint. Up close 1 on the paint
+// with an edge a pixel soft; far off, where a pixel spans dashes and gaps, their mean rather than flicker
+float roadDash(float along, float paint, float gap, float aa) {
+  return (roadDashUpTo(along + aa, paint, paint + gap) - roadDashUpTo(along - aa, paint, paint + gap)) / (2.0 * aa);
+}
+
+// A line across at offset c with width w: the share of the pixel's footprint on it. A line narrower than a pixel
+// keeps its paint as a fainter line instead of vanishing (the markings of a far road)
 float roadLine(float across, float c, float w, float aa) {
-  return 1.0 - smoothstep(w * 0.5 - aa, w * 0.5 + aa, abs(across - c));
+  float d = abs(across - c);
+  return clamp((min(d + aa, w * 0.5) - max(d - aa, -w * 0.5)) / (2.0 * aa), 0.0, 1.0);
 }
 `;
 
@@ -167,6 +181,9 @@ float edgeDist = vRoad.z;
 // covers more than a few centimetres (far roads pay for one texture lookup and their markings)
 float aa = max(length(vec2(dFdx(along), dFdy(along))), length(vec2(dFdx(across), dFdy(across)))) * 0.75 + 1e-4;
 float near = 1.0 - smoothstep(0.04, 0.12, aa);
+// Far off (a pixel some decimetres and more) a road reads as aerial photographs show one: dark asphalt between
+// pale edges of kerb and pavement or verge (below)
+float farness = smoothstep(0.08, 0.45, aa);
 
 // The material along the road: u across, v along
 vec4 rc;
@@ -201,6 +218,8 @@ roadAlbedo *= mix(0.9, 1.1, blot);
 if (sealed) roadAlbedo *= vec3(1.04, 1.0, 0.93);
 float grey = dot(roadAlbedo, vec3(0.299, 0.587, 0.114));
 roadAlbedo = mix(roadAlbedo, vec3(grey) * 1.08, wear * 0.35);
+// Far off asphalt darkens, as it reads from above against the paler kerbs, pavements and verges (below)
+if (sealed) roadAlbedo *= mix(1.0, 0.72, farness);
 
 float halfW = abs(across) + edgeDist;
 // Lane width: a motorway's by its lanes, else a half of the road
@@ -292,6 +311,28 @@ if (gutterOn) {
   roadRough = mix(roadRough, 0.8, max(kerb, gutter));
 }
 
+// The pavement beyond the kerb (MapPathEdge.sidewalk: the distance to the edge is the kerb's, negative over it), its
+// own slabs read across from the kerb, their tone drifting as the asphalt's
+if (edgeDist < aa) {
+  int si = clamp(int(uRoadSidewalk), 0, ${MAX_ROAD_SURFACES - 1});
+  vec4 sc = vec4(uDrapeAverage[si], 0.5);
+  vec4 sd = vec4(0.5, 0.5, 0.8, 1.0);
+  if (uRoadSidewalk >= 0.0 && uRoadSidewalk < uDrapeLayers) drapeLookup(vec2(-edgeDist, along), uRoadSidewalk, uDrapeInvScale[si], near, sc, sd);
+  float pave = 1.0 - smoothstep(-aa, aa, edgeDist);
+  roadAlbedo = mix(roadAlbedo, sc.rgb * mix(0.92, 1.06, blot), pave);
+  roadRough = mix(roadRough, sd.b, pave);
+  roadAO = mix(roadAO, mix(1.0, sd.a, 0.8), pave);
+  roadNxy = mix(roadNxy, (sd.xy * 2.0 - 1.0) * vec2(1.2, -1.2), pave);
+}
+
+// Far off the edges turn pale (the asphalt darkened above), at least a pixel and a half wide however thin the kerb, so
+// the street keeps its light-dark-light against the ground around it
+if (farness > 0.0) {
+  float band = max(gutterOn ? 0.55 : 0.3, aa * 2.0);
+  float edgeBand = 1.0 - smoothstep(band - aa, band + aa, edgeDist);
+  roadAlbedo = mix(roadAlbedo, vec3(0.52, 0.51, 0.47), edgeBand * farness * (gutterOn ? 0.85 : 0.55));
+}
+
 diffuseColor.rgb *= roadAlbedo;
 // The road's frame: along and across in the scene (x = -map x), the normal from the terrain's grid
 vec3 roadUp = normalize(vDrapeNormal);
@@ -305,9 +346,10 @@ vec3 drapeNormal = roadNormal;
 `;
 
 /** The roads' part of their draped material: attributes, rank from the look's top bits, the look */
-function roadLook(): DrapeLook {
+function roadLook(sidewalk: { value: number }): DrapeLook {
   return {
-    key: 'custom-map-roads-2',
+    key: 'custom-map-roads-3',
+    uniforms: { uRoadSidewalk: sidewalk },
     vertexPars: ROAD_VERTEX_PARS,
     vertex: ROAD_VERTEX,
     // A higher road a little more than a lower one where two overlap without meeting (RoadStyle.rank, the code's top bits)

@@ -364,6 +364,12 @@ export interface MapPathEdge {
    */
   surface?: string;
   /**
+   * Metres of pavement either side beyond `width`, behind a kerb (an OSM
+   * world's `sidewalk`): drawn by the road surface over the ground, not part
+   * of the route corridor. A paved road only
+   */
+  sidewalk?: number;
+  /**
    * The outline of a square (an OSM world's pedestrian area, `area=yes`):
    * routes walk it as any road, but it is neither drawn nor painted, the
    * square's surface (MapSurface) shows the ground

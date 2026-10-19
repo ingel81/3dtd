@@ -21,6 +21,7 @@ import type { OverpassResponse, OverpassRetry } from './overpass-client';
 import { sizeText, type OsmProgress } from './osm-progress';
 import { buildRoads, levelRoads, paintRoads, roadPaintMaterials, type RoadStats } from './convert/roads';
 import { buildTunnels, seatPortals, type TunnelReport } from './convert/tunnels';
+import { layPavements, type PavementStats } from './convert/pavements';
 import { fillOsmTerrain } from './convert/terrain';
 import { paintGround, placeMood, type GroundReport } from './convert/ground';
 import { growVegetation, type VegetationReport } from './convert/vegetation';
@@ -103,6 +104,7 @@ export interface OsmImportReport {
   parse: OsmParseStats;
   terrain: { dem: string | null; zeroM: number; minM: number; maxM: number; demFailed: string[] };
   roads: RoadStats;
+  pavements: PavementStats;
   tunnels: TunnelReport;
   /** The railway: lines, crossings, bridges, tunnels, and how its beds were levelled */
   rails: RailStats & RailGroundReport;
@@ -172,6 +174,8 @@ export function convertOsm(
 
   const roads = buildRoads(features);
   doc.paths = roads.paths;
+  // The streets' pavements, narrowed where buildings stand close
+  const pavements = layPavements(doc.paths, roads.pavements, features);
   if (!roads.paths.edges.length) warnings.push('roads: no roads in this place; the map has nowhere for enemies to walk');
   const rails = planRails(features, doc.paths);
   // Before the water: a river over a tunnel still cuts its bed through the raised ground. The railway's tunnels get portals too
@@ -271,6 +275,7 @@ export function convertOsm(
       parse: features.stats,
       terrain: { dem, zeroM, minM: round1(terrain.min), maxM: round1(terrain.max), demFailed: input.demFailed ?? [] },
       roads: roads.stats,
+      pavements,
       tunnels: tunnels.report,
       rails: { ...rails.stats, ...railGround },
       ground: ground.report,

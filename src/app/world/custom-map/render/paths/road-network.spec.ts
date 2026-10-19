@@ -53,6 +53,29 @@ describe('road network', () => {
     expect(net.styles.find((s) => !s.junction && s.markings === 'centre-edges')).toBeTruthy();
   });
 
+  it('widens a road by its pavements, the kerb at distance 0 and the pavement beyond it negative', () => {
+    const net = buildRoadNetwork(
+      paths(
+        [
+          { a: 'w', b: 'c', street: 'residential', width: 6, sidewalk: 2 },
+          { a: 'c', b: 'e', street: 'residential', width: 6, sidewalk: 2 },
+          { a: 'c', b: 'n', street: 'residential', width: 6 },
+        ],
+        [['w', -100, 0], ['c', 0, 0], ['e', 100, 0], ['n', 0, 100]],
+      ),
+    );
+    const ys = triangles(net).flat().filter(([x]) => x < -40).map(([, y]) => y);
+    // 3 m of carriageway and 2 m of pavement either side
+    expect(Math.max(...ys)).toBeCloseTo(5, 3);
+    expect(Math.min(...ys)).toBeCloseTo(-5, 3);
+    const edges = net.tiles.flatMap((t) => Array.from({ length: t.road.length / 4 }, (_, k) => t.road[k * 4 + 2]));
+    expect(Math.min(...edges)).toBeCloseTo(-2, 3);
+    expect(Math.max(...edges)).toBeCloseTo(3, 3);
+    // The pavements' texture joins the roads', a kerb along the street whatever its class
+    expect(net.surfaces[net.sidewalk]).toBe('sidewalk');
+    expect(net.styles.every((s) => s.gutter)).toBe(true);
+  });
+
   it('runs edges of one look on as one ribbon, its distance along going on', () => {
     const net = buildRoadNetwork(paths([{ a: 'a', b: 'b' }, { a: 'c', b: 'b' }], [['a', 0, 0], ['b', 50, 0], ['c', 100, 0]]));
     const along = net.tiles.flatMap((t) => Array.from({ length: t.road.length / 4 }, (_, k) => t.road[k * 4 + 1]));

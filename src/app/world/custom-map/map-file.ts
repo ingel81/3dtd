@@ -461,6 +461,7 @@ function checkDocument(doc: CustomMapDocument, p: ProblemList): void {
     if (e.via !== undefined && (!Array.isArray(e.via) || e.via.some((v) => !finite(v?.x) || !finite(v?.y)))) p.push(`path edge ${e.id} has a bad curve point`);
     if (e.tunnel !== undefined && typeof e.tunnel !== 'boolean') p.push(`path edge ${e.id} has a bad tunnel flag`);
     if ((e.street !== undefined && typeof e.street !== 'string') || (e.surface !== undefined && typeof e.surface !== 'string')) p.push(`path edge ${e.id} has a bad street type or surface`);
+    if (e.sidewalk !== undefined && !(typeof e.sidewalk === 'number' && e.sidewalk >= 0 && e.sidewalk <= 8)) p.push(`path edge ${e.id} has a bad sidewalk width`);
   }
   p.part = 'spawns';
   for (const sp of doc.spawns) {

@@ -27,7 +27,7 @@ export interface RoadStyle {
   markings: RoadMarkings;
   /** Lanes the lane lines divide a motorway into */
   lanes: number;
-  /** Rows of setts along both edges (a town street's gutter) */
+  /** A kerb and rows of setts along both edges (a town street's gutter; every road with a pavement) */
   gutter: boolean;
   /** 0 new and even, 1 patched, cracked and pale */
   wear: number;
@@ -56,7 +56,7 @@ const RANKS: Readonly<Record<string, number>> = {
 };
 
 /** The look of a paved edge (one with a surface of PAVED_SURFACES) */
-export function roadStyle(edge: Pick<MapPathEdge, 'surface' | 'street' | 'width' | 'kind'>, junction = false): RoadStyle {
+export function roadStyle(edge: Pick<MapPathEdge, 'surface' | 'street' | 'width' | 'kind' | 'sidewalk'>, junction = false): RoadStyle {
   const surface = edge.surface ?? 'asphalt';
   const sealed = SEALED.has(surface);
   const street = (edge.street ?? '').replace(/_link$/, '');
@@ -91,6 +91,8 @@ export function roadStyle(edge: Pick<MapPathEdge, 'surface' | 'street' | 'width'
     default:
       style.wear = edge.kind === 'path' ? 0.4 : 0.45;
   }
+  // A pavement stands behind a kerb, whatever the class
+  if (sealed && (edge.sidewalk ?? 0) > 0) style.gutter = true;
   if (!sealed || junction) style.markings = 'none';
   // Narrow roads have no room for a centre line
   if (edge.width < 5.5 && style.markings !== 'lanes') style.markings = 'none';

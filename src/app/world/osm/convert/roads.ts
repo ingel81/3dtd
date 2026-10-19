@@ -18,7 +18,7 @@ import { flattenUnderPaths } from '../../../map-ops/path-terrain';
 import { MAX_LAYERS, readWeights, writeWeights } from '../../../map-ops/paint-ops';
 import { fitSplatMaps, type MapPathEdge, type MapPathNode, type MapPaths, type MapPoint, type MapTerrain } from '../../custom-map/map-document';
 import type { OsmFeatures } from '../osm-parse';
-import { bridgeStyle, roadTags, type RoadSurface } from '../osm-tags';
+import { bridgeStyle, roadTags, sidewalkTag, type RoadSurface } from '../osm-tags';
 import { roadPaintBands } from '../../custom-map/render/paths/road-style';
 
 export interface RoadStats {
@@ -59,6 +59,8 @@ export interface RoadBuild {
   paths: MapPaths;
   /** Name of the way each edge came from ('' without one), for the spawns' names */
   names: Map<string, string>;
+  /** What the way of each road edge says of its pavements (sidewalkTag): metres, 0 none, null when it says nothing */
+  pavements: Map<string, number | null>;
   stats: RoadStats;
   tunnels: TunnelLine[];
   mouths: TunnelMouth[];
@@ -105,6 +107,7 @@ export function buildRoads(features: OsmFeatures): RoadBuild {
   const nodes = new Map<string, MapPathNode>();
   const edges: MapPathEdge[] = [];
   const names = new Map<string, string>();
+  const pavements = new Map<string, number | null>();
   let borderCount = 0;
   const nodeFor = (v: Vertex, fallback: string): string => {
     const id = v.id !== null ? `n${v.id}` : fallback;
@@ -141,6 +144,7 @@ export function buildRoads(features: OsmFeatures): RoadBuild {
           if (way.tags['area'] === 'yes' && kind !== 'bridge' && !tags.tunnel) edge.area = true;
           edges.push(edge);
           names.set(edge.id, way.tags['name'] ?? '');
+          if (kind === 'road' && !tags.tunnel) pavements.set(edge.id, sidewalkTag(way.tags));
           stats.km[kind] += length / 1000;
           stats.kmByType[tags.type] = (stats.kmByType[tags.type] ?? 0) + length / 1000;
           if (kind === 'bridge') stats.bridges++;
@@ -153,7 +157,7 @@ export function buildRoads(features: OsmFeatures): RoadBuild {
   stats.edges = edges.length;
   for (const key of ['road', 'path', 'bridge'] as const) stats.km[key] = round2(stats.km[key]);
   for (const key of Object.keys(stats.kmByType)) stats.kmByType[key] = round2(stats.kmByType[key]);
-  return { paths: { nodes: [...nodes.values()], edges }, names, stats, tunnels, mouths };
+  return { paths: { nodes: [...nodes.values()], edges }, names, pavements, stats, tunnels, mouths };
 }
 
 type RoadWay = OsmFeatures['ways'][number];
