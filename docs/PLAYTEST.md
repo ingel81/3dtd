@@ -405,6 +405,28 @@ aussieht wie beim ersten Mal (die geteilten Texturen und Materialien laden je We
   dunkler, Rinnen grüner, Ufer mit Schaum und Strömung, Lava-Rand erkaltet und glüht wie vorher; kein Moment mit
   hellem, flachem Boden nach dem Ladeschirm.*
 
+## K Nachtschicht 2026-10-18/19
+
+Nur Augen und Ohren; Logik, Prüfsummen und Strukturzahlen sind per Spec und Probe gedeckt. Alles auf `next`.
+
+- **K1 OSM-Stadt:** eine OSM-Welt mit Altstadt laden (z. B. Miltenberg). *Jeder Grundriss steht als Gebäude, auch
+  große mit Innenhof; Fachwerk und Verwitterung; Hallen behalten fern ihr Dach; Läden mit Schildern; Bahn mit
+  Gleisbett und ebenerdigen Übergängen; Kaimauern statt Strand.*
+- **K2 Straßen und Gelände fern:** dieselbe Welt, auf den Horizont zoomen. *Straßen fern als Straßen lesbar (dunkler
+  Belag, helle Kanten, Markierung), Gehwege in Wohnstraßen; kein sichtbarer Übergang zwischen nahem und fernem Boden.*
+- **K3 Wetter:** eigene Karte, Environment auf Gewitter, dann Regen. *Blitz erhellt das Land, Donner nach Entfernung,
+  Regen mit Regenton; nachts ohne Mond bleibt die Karte lesbar.*
+- **K4 Tower:** Iron Bastion, Kanone, Ballista und Kettensäge feuern lassen. *Iron Bastion fährt sichtbar zurück und
+  federt, Staub am Fuß; Ballista spannt nach; Sägeblatt quer, Arme berühren sich nicht.*
+- **K5 Zerstörung:** Ruined City, eine Welle mit Explosivwaffen gegen Gebäude. *Risse und Ruß, dann ein Biss mit
+  Glutkanten und Decken und Innenwänden, dann ein Fall mit stehendem Stumpf; Krater mit verbrannter Sohle; Schutt.
+  Noch ohne Klang.*
+- **K6 Laden und Wechsel:** Demo Valley kalt laden, dann Editor, Test, Editor, Test. *Spielbar nach wenigen Sekunden;
+  der zweite Teststart deutlich schneller als der erste; Bäume fern ohne Aufpoppen. Bekannt: der erste Teststart
+  hält ein Bild mehrere Sekunden (E246).*
+- **K7 Sprache und Editor:** Settings, Gameplay, Sprache auf Deutsch. *Editor und Seitenleiste deutsch, Turm- und
+  Gegnernamen englisch; nichts abgeschnitten (bekannt: „Ungepanzert“ im Wellen-Tooltip).*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo

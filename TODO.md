@@ -17,9 +17,9 @@ Nach dem Test geht ein Eintrag **nur auf Zuruf des Users** nach DONE.md. Die Ken
 und werden nicht neu vergeben, Neues bekommt die nächste freie Nummer. Nichts Internes ins Repo (Adressen,
 Mitspielernamen, Gesprächsdetails).
 
-Stand 2026-10-17. 0.7.1 ist veröffentlicht (`origin/main` = `v0.7.1`). Die Arbeit seit 0.7.0 liegt lokal auf `next`,
-die Engine-Runde R4 darauf auf `eng/r4` (nicht gepusht; ein Push veröffentlicht auch die gesperrten eigenen Karten,
-Coop-Protokoll 5). Die Worker-Runden vom 2026-10-15 und die Engine-Runde R4 sind übernommen (Abschnitt 2).
+Stand 2026-10-19. Live ist 0.7.3 (`origin/main`). `origin/next` trägt alles seit 0.7.0 einschließlich der
+Nachtschicht vom 2026-10-18/19 (Abschnitt 2, „Nachtschicht 2026-10-18/19“); ihre offenen Reste stehen in Abschnitt 1
+unter „Reste der Nachtschicht“, die halben Stände als WIP-Notizen in `tmp/plan/r8/` und `tmp/plan/r6/`.
 
 ---
 
@@ -28,13 +28,23 @@ Coop-Protokoll 5). Die Worker-Runden vom 2026-10-15 und die Engine-Runde R4 sind
 Reihenfolge (User, 2026-10-17): erst die Engine-Runde (gebaut), dann das Showreel, dann die Karten. Maßstab: extrem
 performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Optik und Performance keine Kompromisse.
 
-### Engine: offen
+### Reste der Nachtschicht 2026-10-18/19
 
-- [ ] **E234 Editor-Pinsel halten 130 bis 320 ms** (Showreel R5, 2026-10-18; erster Biom-Strich auf einer Karte hält
-      ein Bild 13 bis 15 s): gemessen, Ursachen: neue Bodenschichten schalten die Gelände-Shader-Variante um, Gelände
-      und Schürze linken synchron (Vorkompilieren deckt Schürze, Spiegel-Ziel, Draufsicht nicht ab); Biom-Pflanzen
-      kompilieren beim ersten Tupfer; Teil-Upload einer Textur fragt die GPU synchron ab; am Kartenrand Schürze zweimal
-      je Bild, Ufer und Wasser über die ganze Karte, Programm-Neuermittlung je Bild. Fix in Arbeit (Worker r5-brush).
+- [ ] **E246 Erstes Bild beim ersten Teststart hält 5 bis 11 s**: das Gelände-Programm wird erst im Ziel des Composers
+      übersetzt; Vorübersetzen je Zeichenziel, Beleg „0 Links im ersten Bild“ (`tmp/plan/r8/WIP_r8-scene.md`). Dazu
+      prüfen: nach dem Leeren der Kartenbibliothek dekodierte sie 258 Bilder statt KTX2 (vermutlich noch WebP-Bäume).
+- [ ] **E247 Startpaket 2,65 MB** (Ziel 2,54): Custom-Map-Welt (156 kB) per `import()` vom Startpfad, englisches
+      Wörterbuch (120 kB) prüfen, der Template-Worker des Editors bündelt `en.ts` mit (`tmp/plan/r8/WIP_r8-ktx2.md`).
+- [ ] **E248 Grundstücke in OSM-Welten** (Vorgarten, Einfahrt, Hecke): Ansatz in
+      [OSM_WORLD_ROUND2_PLAN.md](docs/OSM_WORLD_ROUND2_PLAN.md); Hecken zuerst aus echten OSM-Linien, an mehreren Orten.
+- [ ] **E249 Zerstörung Rest**: Klänge (Auswahlseite `tmp/sound-audition`, Gruppe „Zerstörung“, User wählt),
+      Fallrichtung aus dem auslösenden Treffer (WIP `tmp/plan/r8/WIP_r8-destroy.md`), später Bewehrung und Glas.
+- [ ] **E250 Impostor-Ton Autumn Keep** 6 % dunkler als das Modell, Tonprobe mit den Kartenlichtern
+      (WIP `tmp/plan/r8/WIP_r8-veg.md`).
+- [ ] **E251 Laden nach Bedarf, Rest**: Vorziehen beim Freischalten im Browser auslösen; rund 65 Links direkt bei
+      ready (Grafikstufen noch im Aufwärmen); Bildspitzen unter Ruhe nachmessen (`tmp/plan/r6/MESSUNGEN_SPAETER.md`).
+- [ ] **Offene Entscheidungen beim User**: Witch Marsh nachts heller, Nachtlicht, schärfere Texturen
+      1024 px, Kantenglättung (MSAA), Schildgrenze, Fähigkeiten/Held/Mutatoren deutsch, Klänge der Zerstörung.
 
 ### Jetzt: Showreel Runde 5
 
@@ -59,16 +69,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
 
 Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/plan/osm-notizen/`).
 
-- [ ] **E235 Gebäude-Fallback**: jeder Grundriss wird ein Gebäude, auch große, verwinkelte mit Innenhof
-      (Multipolygon mit inner-Ring); Höhe aus `height`/`building:levels`, sonst geschätzt; Fassade nach Art.
-- [ ] **E236 Hallendach fehlt aus der Ferne**: große Halle zeigt weiter weg kein Dach (Fern-LOD oder Culling).
-- [ ] **E237 Nutzungsflächen gestalten**: Spielplatz, Sportplatz je Sportart, Park, Schwimmbad, Friedhof,
-      Kleingärten, Streuobst, Weinberg u. a. mit eigener Bodentextur und Objekten.
-- [ ] **E238 Bahn und Straße**: Bahnübergänge ebenerdig (`railway=level_crossing`), Brücken/Unterführungen nach
-      `bridge`/`tunnel`/`layer`, Damm nur bei `embankment`.
-- [ ] **E239 POIs**: Abfrage um `shop`, `tourism`, `amenity`, `craft`, `office`, `historic` (Knoten und Ways)
-      erweitern, Punkt dem Gebäude zuordnen, Gestaltung je Nutzung (Schild mit Namen, Markise, Bestuhlung,
-      Zapfsäulen …).
 - [ ] **E240 Daten für Level nutzen**: weitere Orte erheben; Spawns an Bahnhof/Haltestellen/Parkplätzen,
       Wahrzeichen als HQ, Engstellen an Schleusen/Brücken, Hydranten/Brunnen, Schiffe nach Schifffahrtszeichen.
 
@@ -94,11 +94,6 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       Vorschläge je Karte zusammen mit E184. Entschieden (User, 2026-10-15): allgemeine Mechanismen, auch im Editor
       setzbar und einstellbar (Katalog/Effekt-Objekte, Bereiche, Map-Kit- und MCP-Befehle); die mitgelieferten Karten
       bekommen ihr Leben nur über dieselben Editor-Funktionen, keine Sonderwege je Karte. Gilt ebenso für E184.
-- [ ] **E243 Gewitter als Wetter** (Lead, 2026-10-18): neuer Wert `storm` neben clear, rain, snow, fog, auch als
-      Wellen-Ereignis; Starkregen, Sturm, Blitz (verästelter Kanal, Himmels- und Szenenblitz, Lichthof am Einschlag)
-      und Donner nach Entfernung, nur Darstellung (eigener Zufall, nicht in der Simulation). Einstellung „Lightning
-      flashes“ (Soft) für Lichtblitz-Empfindliche. Nur eigene und OSM-Karten (Tiles haben kein Wetter). Gebaut auf
-      `wt/r7-storm`, wartet auf optische Abnahme; Fach-Doku CUSTOM_MAPS.md „Gewitter“.
 - [ ] **E195 Rest:** Menü und Weltwechsel sind gebaut (Abschnitt 2), das Leck beim Weltwechsel ist zu und gemessen
       (`docs/WORLDS_NAVIGATION_PLAN.md`, Nachtrag 2026-10-19). Offen: OSM-Karten heißen im Pfad noch „Maps“
       (`worldName` kennt nur den WorldRef).
@@ -114,12 +109,6 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 - [ ] **E241 Kettensägen-Tower feiner abstimmen** (User, 2026-10-18): die Sägen fahren am Gegner eher horizontal hin
       und her, die Sägeblätter drehen sich.
-- [ ] **E244 Rückstoß und Nachladen beim Feuern** (User, 2026-10-18, nur Darstellung): Iron Bastion fährt spürbar
-      zurück und federt heim, Staub am Fuß, leichtes Kamerawackeln nach Entfernung; Kanone minimal; weitere Tower, wo
-      es passt; Ballista: Bolzen weg, Sehne entspannt, spannt im Takt der Feuerrate, neuer Bolzen. Gebaut auf
-      `wt/r7-recoil` (Worker r7-recoil), wartet auf Abnahme; Profile und Mechanismus in
-      [TOWER_CREATION.md](docs/TOWER_CREATION.md#rückstoß-und-nachladen).
-
 - [ ] **E1 Balancing aufrollen**: Phase 1 und 2 gebaut, Baseline und sechs Tuning-Runden gelaufen. Offen: Zielbänder
       (3b) und Kampagnenende (3a), [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
 - [ ] **E105 Spieltiefe, Rest der Balance-Nacht**: Schild am Skarnax-Kopf, Gegnereigenschaften Shielded und Aura,
@@ -142,8 +131,8 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 ### Plattform
 
 - [ ] **E245 Mehrsprachigkeit Englisch und Deutsch** (User, 2026-10-18): Sprachwahl in Settings, Standard nach
-      System, weitere Sprachen später eine Datei. Phase 1 gebaut (Technik, Inventar, Glossar, Grundgerüst
-      `src/app/i18n/`); offen: Glossar-Abnahme, Phase 2 (Pakete I0 bis I9), [docs/I18N_PLAN.md](docs/I18N_PLAN.md).
+      System, weitere Sprachen später eine Datei. Phase 1, Editor und I0 (Sprachwahl, Wächter) gebaut;
+      offen: Menüs, Welten, Coop, Dialoge, Kartenprüfung, Editor-Reste, Layout in Deutsch, [docs/I18N_PLAN.md](docs/I18N_PLAN.md).
 - [ ] **E83 AppImage und AUR** (2026-09-30): gebaut 2026-10-05 (statische Laufzeit, Update-Information und `.zsync`,
       AUR-Paket `3dtd-bin` mit CI-Job). AUR ok, der Job lief im Release 0.7.0 grün. Offen beim User nur: das AppImage
       einmal auf Linux starten (PLAYTEST A3.2).
@@ -193,6 +182,18 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 ---
 
 ## 2. Gebaut, wartet auf Test
+
+### Nachtschicht 2026-10-18/19 (auf `origin/next`, Nachtests in PLAYTEST.md K)
+
+- [ ] **K1 OSM-Welten** E235 Gebäude aus jedem Grundriss mit Fassaden und Altstadt, E236 Dächer fern, E237 Flächen,
+      E238 Bahn, E239 POIs und Schilder, Kaimauern, Straßen fern lesbar mit Gehwegen, Gelände-Quadtree (K1, K2).
+- [ ] **K2 Wetter, Licht, Tower** E243 Gewitter, Regenton, E242 Munitionslicht, E244 Rückstoß und Ballista,
+      Kettensäge quer, Atmosphäre, Wasser, Laternen, Brandung nur am Ufer (K3, K4).
+- [ ] **K3 Zerstörung** Z1 bis Z4: Simulation, Einsturz, Krater, Stufen mit Rissen, Biss, Fall, Decken, Innenwände (K5).
+- [ ] **K4 Performance und Laden** E234 Editor-Pinsel, Objekte in einem Draw je Asset und Stufe, Fernkopien, Impostoren
+      aus Textur-Arrays, KTX2-Modelle (94,7 → 37,2 MiB), Laden nach Bedarf, ein Renderer, Caches über Editor⇄Test (K6).
+- [ ] **K5 Menüs, Editor, Sprache** Menü-Abläufe und Optik, Editor-Browser, Vegetation (Bestände, Gras), E245 Deutsch
+      im Editor und in den Settings wählbar (K7).
 
 ### Licht durch Munition (2026-10-18, Branch `wt/r7-muzzle`, Nachtests in PLAYTEST.md I)
 
