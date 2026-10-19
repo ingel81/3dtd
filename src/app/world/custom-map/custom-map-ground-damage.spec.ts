@@ -38,6 +38,20 @@ describe('CustomMapGroundDamage (docs/DESTRUCTION_PLAN.md, Z4)', () => {
     for (const r of applied) expect(r.maxX - r.minX).toBeLessThanOrEqual(2 * GROUND_TILE * 2);
   });
 
+  it('tells the view only the samples that changed, not the whole tiles round them', () => {
+    const { ground, applied, drain } = setup();
+    // A 2.5 m crater 10 m in from the map's south-west corner, in the corner's tile
+    ground.crater(-1180, -1180, 25, 40, 1);
+    drain();
+    expect(applied).toHaveLength(1);
+    const [r] = applied;
+    // The crater reaches 1.35 times its radius: a few samples, clear of the border (the apron stays)
+    expect(r.minX).toBeGreaterThan(-128 + 4);
+    expect(r.minY).toBeGreaterThan(-128 + 4);
+    expect(r.maxX).toBeLessThan(-118 + 4);
+    expect(r.maxY).toBeLessThan(-118 + 4);
+  });
+
   it('heaps the rubble of a fallen structure as the stamp field does', () => {
     const { ground, at, drain } = setup();
     ground.rubble(BARN, 1);

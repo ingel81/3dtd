@@ -59,8 +59,8 @@ export interface GroundRect {
  * crater does not see the floor rise under it.
  *
  * Changed samples are written per tile of GROUND_TILE samples, a few tiles a
- * frame (`flush`, GROUND_TILES_PER_FRAME), each frame's tiles as one
- * rectangle to the view (`apply`, CustomMapView.updateHeights): a rocket's
+ * frame (`flush`, GROUND_TILES_PER_FRAME), the samples changed in each frame's
+ * tiles as one rectangle to the view (`apply`, CustomMapView.updateHeights): a rocket's
  * crater shows the next frame, a restore with every crater of a run spreads
  * over frames instead of rebuilding the whole ground in one.
  */
@@ -82,6 +82,13 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
   private bare: Uint8Array | null = null;
   /** Tiles whose samples changed, in the order they came */
   private readonly dirty = new Set<number>();
+  /**
+   * Per tile the samples changed in it since its last write (i0, j0, i1, j1):
+   * the write and the view's rectangle cover those, not the whole tile. A
+   * crater in a tile on the border would otherwise rebuild the apron round
+   * the map (MapTerrainLayer.refreshApron) though no border sample moved.
+   */
+  private readonly changed: Int32Array;
   /** The towers holding the ground: map metres */
   private readonly towers = new Map<string, { x: number; y: number }>();
   /** The marks over the stamps (impact-marks.ts): a crater by its middle, a heap by its structure */
@@ -109,6 +116,7 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     this.originX = -width / 2;
     this.originY = -depth / 2;
     this.tilesX = Math.ceil(this.columns / GROUND_TILE);
+    this.changed = new Int32Array(this.tilesX * Math.ceil(this.rows / GROUND_TILE) * 4);
   }
 
   /** Tiles waiting to be written */
@@ -217,12 +225,11 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     for (const tile of this.dirty) {
       if (done++ >= maxTiles) break;
       this.dirty.delete(tile);
-      const ti = tile % this.tilesX;
-      const tj = (tile - ti) / this.tilesX;
-      const a0 = ti * GROUND_TILE;
-      const b0 = tj * GROUND_TILE;
-      const a1 = Math.min(this.columns - 1, a0 + GROUND_TILE - 1);
-      const b1 = Math.min(this.rows - 1, b0 + GROUND_TILE - 1);
+      const c = this.changed;
+      const a0 = c[tile * 4];
+      const b0 = c[tile * 4 + 1];
+      const a1 = c[tile * 4 + 2];
+      const b1 = c[tile * 4 + 3];
       for (let j = b0; j <= b1; j++) {
         for (let i = a0; i <= a1; i++) {
           const k = j * this.columns + i;
@@ -296,6 +303,18 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
   private markSample(k: number): void {
     const i = k % this.columns;
     const j = (k - i) / this.columns;
-    this.dirty.add(Math.floor(j / GROUND_TILE) * this.tilesX + Math.floor(i / GROUND_TILE));
+    const tile = Math.floor(j / GROUND_TILE) * this.tilesX + Math.floor(i / GROUND_TILE);
+    const c = this.changed;
+    const at = tile * 4;
+    if (!this.dirty.has(tile)) {
+      this.dirty.add(tile);
+      c[at] = c[at + 2] = i;
+      c[at + 1] = c[at + 3] = j;
+      return;
+    }
+    if (i < c[at]) c[at] = i;
+    if (j < c[at + 1]) c[at + 1] = j;
+    if (i > c[at + 2]) c[at + 2] = i;
+    if (j > c[at + 3]) c[at + 3] = j;
   }
 }
