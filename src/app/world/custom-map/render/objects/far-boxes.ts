@@ -20,6 +20,7 @@ import type { CatalogObject } from '../asset-catalog';
 import { addHeightFog } from '../environment/height-fog';
 import { addLodFade, fadeGeometry } from './lod-fade';
 import { InstanceList, type InstanceSource } from './instance-list';
+import type { SharedDraws } from './shared-draws';
 import { NIGHT_WINDOW_UNIFORMS } from './night-windows';
 
 /**
@@ -151,7 +152,11 @@ interface FarDraw {
   mesh: InstancedMesh;
 }
 
-export class FarBoxes {
+/** The keys of the boxes' two draws: those that block sight, the rest */
+export const FAR_BLOCKING = 'blocking';
+export const FAR_OPEN = 'open';
+
+export class FarBoxes implements SharedDraws {
   /** Per asset: its box and atlas tile, 5 texels a row (box, span, nine heights) */
   private params: DataTexture;
   private readonly rows = new Map<string, number>();
@@ -160,10 +165,10 @@ export class FarBoxes {
   private readonly depthMaterial: MeshDepthMaterial;
   private readonly uniforms: { uFarParams: { value: DataTexture }; uFarAtlas: { value: Vector2 } };
   private readonly losVertex: LosVertexPatch;
-  /** The boxes that block sight, and the rest */
-  private readonly draws: [FarDraw | null, FarDraw | null] = [null, null];
+  /** The boxes that block sight (key `blocking`), and the rest (`open`) */
+  private readonly draws = new Map<string, FarDraw>();
   /** Bounds of every building drawn as a box, per draw */
-  readonly bounds: [Sphere, Sphere] = [new Sphere(), new Sphere()];
+  private readonly boundsOf = new Map<string, Sphere>();
 
   constructor(
     atlas: Texture,
@@ -219,6 +224,12 @@ export class FarBoxes {
     this.depthMaterial = d;
   }
 
+  bounds(key: string): Sphere {
+    let b = this.boundsOf.get(key);
+    if (!b) this.boundsOf.set(key, (b = new Sphere()));
+    return b;
+  }
+
   /** The asset's row (its box and tile written on first use) */
   row(entry: CatalogObject): number {
     const known = this.rows.get(entry.id);
@@ -243,9 +254,9 @@ export class FarBoxes {
   }
 
   /** The list of the boxes that block sight or not, with room for at least `capacity`; a new one when it had less */
-  list(blocks: boolean, capacity: number): { list: InstanceList; renewed: boolean } {
-    const k = blocks ? 0 : 1;
-    const old = this.draws[k];
+  list(key: string, capacity: number): { list: InstanceList; renewed: boolean } {
+    const blocks = key === FAR_BLOCKING;
+    const old = this.draws.get(key);
     if (old && old.list.capacity >= capacity) return { list: old.list, renewed: false };
     if (old) this.disposeDraw(old);
     const list = new InstanceList(Math.max(capacity, old ? old.list.capacity * 2 : 256), true, [1]);
@@ -255,7 +266,7 @@ export class FarBoxes {
     mesh.instanceMatrix = list.matrices;
     mesh.instanceColor = list.colors;
     mesh.customDepthMaterial = this.depthMaterial;
-    mesh.boundingSphere = this.bounds[k];
+    mesh.boundingSphere = this.bounds(key);
     mesh.name = blocks ? 'far-boxes' : 'far-boxes-decor';
     mesh.matrixAutoUpdate = false;
     mesh.receiveShadow = true;
@@ -272,14 +283,13 @@ export class FarBoxes {
       mesh.count = drawn;
     };
     (blocks ? this.groups.blocking : this.groups.open).add(mesh);
-    this.draws[k] = { list, mesh };
+    this.draws.set(key, { list, mesh });
     return { list, renewed: true };
   }
 
   /** Uploads what the lists changed and draws what they hold (or, `warmUp`, one box each for a render that compiles them) */
   sync(warmUp = false): void {
-    for (const d of this.draws) {
-      if (!d) continue;
+    for (const d of this.draws.values()) {
       if (warmUp && d.list.count === 0) d.list.placeholder(PLACEHOLDER, 0);
       d.list.flush();
       d.mesh.count = warmUp ? Math.max(1, d.list.count) : d.list.count;
@@ -291,17 +301,18 @@ export class FarBoxes {
 
   /** While `on` the boxes near the focus alone (MapObjectLayer.nearOnly) */
   nearOnly(on: boolean): void {
-    for (const d of this.draws) if (d) d.mesh.count = on ? Math.min(d.list.count, d.list.casters) : d.list.count;
+    for (const d of this.draws.values()) d.mesh.count = on ? Math.min(d.list.count, d.list.casters) : d.list.count;
   }
 
   /** The meshes of the boxes that block no sight (a water reflection leaves them out) */
   openMeshes(): InstancedMesh[] {
-    return this.draws[1] ? [this.draws[1].mesh] : [];
+    const open = this.draws.get(FAR_OPEN);
+    return open ? [open.mesh] : [];
   }
 
   dispose(): void {
-    for (const d of this.draws) if (d) this.disposeDraw(d);
-    this.draws[0] = this.draws[1] = null;
+    for (const d of this.draws.values()) this.disposeDraw(d);
+    this.draws.clear();
     this.template.dispose();
     this.material.dispose();
     this.depthMaterial.dispose();

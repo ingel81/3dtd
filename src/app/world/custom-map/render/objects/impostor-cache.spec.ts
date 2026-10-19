@@ -7,7 +7,7 @@ const model = (category: string, height: number, placeholder = false): ObjectMod
 
 describe('impostor cache', () => {
   it('bakes far levels for trees and big rocks only, never for placeholders', () => {
-    const cache = new ImpostorCache({} as WebGLRenderer, () => undefined);
+    const cache = new ImpostorCache({} as WebGLRenderer);
     expect(cache.wants(model('tree', 12))).toBe(true);
     expect(cache.wants(model('rock', 2))).toBe(true);
     expect(cache.wants(model('rock', 1))).toBe(false);
@@ -15,11 +15,10 @@ describe('impostor cache', () => {
     expect(cache.wants(model('tree', 12, true))).toBe(false);
     // Nothing to bake: no impostor, and none asked for twice
     expect(cache.get(model('building', 9))).toBeNull();
-    const finished: unknown[] = [];
-    const empty = new ImpostorCache({} as WebGLRenderer, (imp) => finished.push(imp));
+    // A tree without parts bakes nothing: no place in the arrays, and no second bake
+    const empty = new ImpostorCache({} as WebGLRenderer);
     const tree = model('tree', 12);
     expect(empty.get(tree)).toBeNull();
     expect(empty.get(tree)).toBeNull();
-    expect(finished).toEqual([]);
   });
 });

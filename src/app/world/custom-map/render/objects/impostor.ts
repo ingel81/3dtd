@@ -109,6 +109,13 @@ export interface Impostor {
   normalDepth: Texture;
   /** The factor on the card's colour the bake measured (the model's mean lit colour over the card's) */
   tone: Color;
+  /** Pixels per view of the colour atlas (the normal-depth atlas has half) */
+  cell: number;
+  /** The card's centre and radius, and the crossed cards' half width and height (model frame) */
+  frame: { center: Vector3; radius: number; half: number; y0: number; y1: number };
+  /** How rough and metallic the model's surface is, as the card draws it */
+  roughness: number;
+  metalness: number;
   dispose(): void;
 }
 
@@ -557,6 +564,16 @@ function drawImpostor(renderer: WebGLRenderer, bake: Bake): Impostor {
     texture: albedo.texture,
     normalDepth: normalDepth.texture,
     tone,
+    cell: bake.cell,
+    frame: {
+      center: center.clone(),
+      radius,
+      half: Math.max(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z) / 2,
+      y0: bounds.min.y,
+      y1: bounds.max.y,
+    },
+    roughness: bake.roughness,
+    metalness: bake.metalness,
     dispose: () => {
       geometry.dispose();
       material.dispose();
@@ -748,10 +765,45 @@ function copyQuad(): CopyQuad {
   };
 }
 
+/**
+ * How the card's GLSL reads its asset: its centre and radius (IMP_CENTER, IMP_RADIUS) in the vertex shader,
+ * what it passes on (IMP_PASS, run with the card's setup), and in the fragment shader its views' colour and
+ * normal-depth (IMP_MAP, IMP_ND, IMP_ND_LOD) and its tone (IMP_TONE). One asset reads them from uniforms
+ * (SINGLE_IMPOSTOR); the map's draw of all impostors reads them from a layer of shared arrays
+ * (impostor-array.ts)
+ */
+export interface ImpostorAccess {
+  vertex: string;
+  fragment(lit: boolean): string;
+}
+
+/** One asset's impostor: its uniforms and its own atlases */
+export const SINGLE_IMPOSTOR: ImpostorAccess = {
+  vertex: /* glsl */ `
+uniform vec3 uImpCenter;
+uniform float uImpRadius;
+#define IMP_CENTER uImpCenter
+#define IMP_RADIUS uImpRadius
+#define IMP_PASS
+`,
+  fragment: (lit) => /* glsl */ `
+${lit ? 'uniform sampler2D uImpNormalDepth;\nuniform vec3 uImpTone;' : ''}
+#define IMP_MAP(uv) texture2D(map, uv)
+#define IMP_ND(uv) texture2D(uImpNormalDepth, uv)
+#define IMP_ND_LOD(uv, l) textureLod(uImpNormalDepth, uv, l)
+#define IMP_TONE uImpTone
+`,
+};
+
 /** The card's turn to the camera and the blend of its four nearest views, into a standard or a depth material */
-export function turnToCamera(shader: WebGLProgramParametersWithUniforms, uniforms: Record<string, { value: unknown }>, lit: boolean): void {
+export function turnToCamera(
+  shader: WebGLProgramParametersWithUniforms,
+  uniforms: Record<string, { value: unknown }>,
+  lit: boolean,
+  access: ImpostorAccess = SINGLE_IMPOSTOR,
+): void {
   Object.assign(shader.uniforms, uniforms, IMPOSTOR_SUN);
-  shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>\n${IMPOSTOR_VERTEX_PARS}`);
+  shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>\n${access.vertex}\n${IMPOSTOR_VERTEX_PARS}`);
   shader.vertexShader = lit
     ? shader.vertexShader
         // The vertex normal follows the card (the fragment takes the baked one): towards the camera and up
@@ -760,7 +812,7 @@ export function turnToCamera(shader: WebGLProgramParametersWithUniforms, uniform
         .replace('#include <shadowmap_vertex>', IMPOSTOR_SHADOW_LOOKUP)
     : shader.vertexShader.replace('#include <begin_vertex>', `${IMPOSTOR_SETUP}\n${IMPOSTOR_BEGIN}`);
   shader.fragmentShader = shader.fragmentShader
-    .replace('#include <common>', `#include <common>\n${IMPOSTOR_FRAGMENT_PARS}${lit ? IMPOSTOR_LIT_PARS : ''}`)
+    .replace('#include <common>', `#include <common>\n${access.fragment(lit)}\n${IMPOSTOR_FRAGMENT_PARS}${lit ? IMPOSTOR_LIT_PARS : ''}`)
     .replace('#include <map_fragment>', lit ? `${IMPOSTOR_MAP}\n${IMPOSTOR_SURFACE}` : IMPOSTOR_MAP);
   if (lit) {
     shader.fragmentShader = shader.fragmentShader
@@ -772,8 +824,6 @@ export function turnToCamera(shader: WebGLProgramParametersWithUniforms, uniform
 const IMPOSTOR_VERTEX_PARS = /* glsl */ `
 #define IMPOSTOR_FRAMES ${IMPOSTOR_FRAMES}.0
 attribute vec3 impCorner;
-uniform vec3 uImpCenter;
-uniform float uImpRadius;
 uniform vec3 uImpSun;
 flat varying vec2 vImpFrame;
 flat varying vec2 vImpBlend;
@@ -791,7 +841,8 @@ mat4 impToWorld = modelMatrix * instanceMatrix;
 #else
 mat4 impToWorld = modelMatrix;
 #endif
-vec3 impDir = (inverse(impToWorld) * vec4(cameraPosition, 1.0)).xyz - uImpCenter;
+IMP_PASS
+vec3 impDir = (inverse(impToWorld) * vec4(cameraPosition, 1.0)).xyz - IMP_CENTER;
 impDir.y = max(impDir.y, 0.0);
 impDir = normalize(impDir + vec3(0.0, 1e-5, 0.0));
 vec3 impRight = cross(vec3(0.0, 1.0, 0.0), impDir);
@@ -817,7 +868,7 @@ vImpAxisY = normalize(impToView[1]);
 // for what other hooks add after it (the detail band's fade)
 const IMPOSTOR_BEGIN = /* glsl */ `
 #include <begin_vertex>
-transformed = uImpCenter + (impRight * impCorner.x + impUp * impCorner.y) * uImpRadius * impCorner.z;
+transformed = IMP_CENTER + (impRight * impCorner.x + impUp * impCorner.y) * IMP_RADIUS * impCorner.z;
 `;
 
 // The card looks up its shadow a radius closer to the sun: the card the camera sees runs through the model's
@@ -826,7 +877,7 @@ transformed = uImpCenter + (impRight * impCorner.x + impUp * impCorner.y) * uImp
 const IMPOSTOR_SHADOW_LOOKUP = /* glsl */ `
 #ifdef USE_SHADOWMAP
 vec4 impWorldPosition = worldPosition;
-worldPosition.xyz += uImpSun * uImpRadius * length(impToWorld[0].xyz);
+worldPosition.xyz += uImpSun * IMP_RADIUS * length(impToWorld[0].xyz);
 #endif
 #include <shadowmap_vertex>
 #ifdef USE_SHADOWMAP
@@ -844,8 +895,6 @@ varying vec2 vImpUv;
 const IMPOSTOR_LIT_PARS = /* glsl */ `
 // Snow settles by the baked normal (height-fog.ts), not by the card's
 #define SURFACE_VIEW_NORMAL impViewNormal
-uniform sampler2D uImpNormalDepth;
-uniform vec3 uImpTone;
 uniform vec3 uImpSun;
 flat varying vec3 vImpDir;
 flat varying vec3 vImpAxisX;
@@ -876,7 +925,7 @@ float impSelfShade(vec4 shadowCoord, vec3 p, vec3 sunInModel) {
   impAxes(fd, fr, fu);
   vec2 at = vec2(dot(p, fr), dot(p, fu)) * 0.5 + 0.5;
   if (any(lessThan(at, vec2(0.0))) || any(greaterThan(at, vec2(1.0)))) return 1.0;
-  float front = textureLod(uImpNormalDepth, (frame + clamp(at, 0.002, 0.998)) / IMPOSTOR_FRAMES, 1.0).a * 2.0 - 1.0;
+  float front = IMP_ND_LOD((frame + clamp(at, 0.002, 0.998)) / IMPOSTOR_FRAMES, 1.0).a * 2.0 - 1.0;
   return 1.0 - smoothstep(0.04, 0.22, front - dot(p, fd)) * ${SELF_SHADOW.toFixed(2)};
 }
 `;
@@ -888,19 +937,19 @@ vec2 impTa = (vImpFrame + impUv) / IMPOSTOR_FRAMES;
 vec2 impTb = (vImpFrame + vec2(1.0, 0.0) + impUv) / IMPOSTOR_FRAMES;
 vec2 impTc = (vImpFrame + vec2(0.0, 1.0) + impUv) / IMPOSTOR_FRAMES;
 vec2 impTd = (vImpFrame + vec2(1.0, 1.0) + impUv) / IMPOSTOR_FRAMES;
-vec4 impA = texture2D(map, impTa);
-vec4 impB = texture2D(map, impTb);
-vec4 impC = texture2D(map, impTc);
-vec4 impD = texture2D(map, impTd);
+vec4 impA = IMP_MAP(impTa);
+vec4 impB = IMP_MAP(impTb);
+vec4 impC = IMP_MAP(impTc);
+vec4 impD = IMP_MAP(impTd);
 diffuseColor *= mix(mix(impA, impB, vImpBlend.x), mix(impC, impD, vImpBlend.x), vImpBlend.y);
 `;
 
 // The lit card's surface from the normal and depth atlas, blended as the colours are; the tone the bake measured
 const IMPOSTOR_SURFACE = /* glsl */ `
-diffuseColor.rgb *= uImpTone;
+diffuseColor.rgb *= IMP_TONE;
 vec4 impNd = mix(
-  mix(texture2D(uImpNormalDepth, impTa), texture2D(uImpNormalDepth, impTb), vImpBlend.x),
-  mix(texture2D(uImpNormalDepth, impTc), texture2D(uImpNormalDepth, impTd), vImpBlend.x),
+  mix(IMP_ND(impTa), IMP_ND(impTb), vImpBlend.x),
+  mix(IMP_ND(impTc), IMP_ND(impTd), vImpBlend.x),
   vImpBlend.y
 );
 vec3 impObjNormal = normalize(impNd.rgb * 2.0 - 1.0 + vec3(0.0, 1e-4, 0.0));

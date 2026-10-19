@@ -48,9 +48,8 @@ import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
 import type { RoadCover } from './paths/path-mask';
 import type { TexelRect } from './terrain/texture-ranges';
-import { addHeightFog, LAVA_GLOW_UNIFORMS } from './environment/height-fog';
+import { LAVA_GLOW_UNIFORMS } from './environment/height-fog';
 import { ImpostorCache } from './objects/impostor-cache';
-import { addLodFade } from './objects/lod-fade';
 import { groundCuts } from './terrain/terrain-cuts';
 import { MapTerrainLayer } from './terrain/map-terrain';
 import { ApronField, EDGE_TREE_BAND, edgeTreeObjects } from './objects/edge-trees';
@@ -328,13 +327,8 @@ export class CustomMapView {
     this.terrain.grass.setCover(this.cover);
     this.environment.setFogBase(lowGround(t.grid.heights, t.water?.level));
     this.updateWater();
-    // One bake per asset for both object layers; their materials as the layers draw them (detail band, height fog)
-    this.impostors = options.renderer
-      ? new ImpostorCache(options.renderer, (imp) => {
-          addLodFade(imp.material);
-          addHeightFog(imp.material);
-        })
-      : undefined;
+    // One bake per asset for both object layers, all of them in the view's texture arrays (impostor-array.ts)
+    this.impostors = options.renderer ? new ImpostorCache(options.renderer) : undefined;
     const standing = options.standingGround ? new HeightField(options.standingGround, t.width, t.depth) : null;
     this.objects = new MapObjectLayer(this.heights, assets, this.losBlockers, {
       impostors: this.impostors,

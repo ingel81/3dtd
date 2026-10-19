@@ -40,7 +40,9 @@ import { addNightWindows, isWindowGlass } from './night-windows';
 import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_S, settleBlend, type LodBlend } from './lod-fade';
 import { InstanceList, type InstanceSource } from './instance-list';
 import { MassLayer } from './mass-layer';
-import { FarBoxes } from './far-boxes';
+import { FAR_BLOCKING, FAR_OPEN, FarBoxes } from './far-boxes';
+import { ImpostorDraws } from './impostor-array';
+import type { SharedDraws } from './shared-draws';
 import { nextFrameOrTimeout } from '../../../../utils/next-frame';
 import { DESTRUCTIBLE_CATEGORIES } from '../../custom-map-destruction';
 import { rubbleMaterialOf } from '../../rubble-material';
@@ -117,8 +119,11 @@ interface Level {
   parts: { geometry: BufferGeometry; material: Material; depthMaterial?: Material }[];
   /** A far impostor: starts at the larger of `from` and the quality level's impostor distance */
   impostor?: boolean;
-  /** The far box of a building (far-boxes.ts): drawn with every other building's in one mesh, no parts of its own */
-  far?: boolean;
+  /**
+   * A level drawn with other assets' objects in one mesh (shared-draws.ts), no parts of its own: a building's far
+   * box, a tree's impostor. `extras`: the per-instance values its objects bring besides matrix and colour
+   */
+  shared?: { draws: SharedDraws; key: string; extras: () => readonly ArrayLike<number>[] };
 }
 
 /** What draws one level of an asset: its instances and the meshes of its parts */
@@ -127,10 +132,10 @@ interface LevelDraw {
   /** Slot of each object in the list, -1 for none */
   slots: Int32Array;
   meshes: InstancedMesh[];
-  /** Where its instances come from: the asset's matrices and colours, a far box's row too */
+  /** Where its instances come from: the asset's matrices and colours, a far box's row or an impostor's layer too */
   source: InstanceSource;
-  /** The far boxes' list, which every building asset shares (far-boxes.ts) */
-  shared: boolean;
+  /** The shared draw and key whose list this level fills with other assets (shared-draws.ts); null for its own */
+  shared: { draws: SharedDraws; key: string } | null;
 }
 
 interface AssetBatch {
@@ -220,8 +225,10 @@ export class MapObjectLayer {
   /** The buildings' far stage, once its atlas is in (ensureFarBoxes) */
   private farBoxes: FarBoxes | null = null;
   private farAtlas: Promise<Texture | null> | null = null;
-  /** A building's bounds changed: the far boxes' bounds follow */
-  private farBoundsStale = false;
+  /** Every impostor of the layer in a draw per view size and sight flag, once one comes (impostor-array.ts) */
+  private impostorDraws: ImpostorDraws | null = null;
+  /** An asset's bounds changed: the shared draws' bounds follow */
+  private sharedBoundsStale = false;
   private disposed = false;
   private generation = 0;
   /** While setObjects builds its batches over frames: settles when they are all in */
@@ -331,7 +338,7 @@ export class MapObjectLayer {
     this.building = building;
     this.dropLater = dropped;
     try {
-      // One after the other into the layer: a building's far boxes make room for those before it (farDraw). A
+      // One after the other into the layer: a building's far boxes make room for those before it (sharedDraw). A
       // frame for the page every BUILD_SLICE_MS; a newer setObjects (generation) drops this one there
       let slice = performance.now();
       for (let k = 0; k < loaded.length; k++) {
@@ -645,7 +652,7 @@ export class MapObjectLayer {
         }
       }
     }
-    this.farBoxes?.sync(on);
+    for (const draws of this.sharedDraws()) draws.sync(on);
   }
 
   /**
@@ -663,7 +670,7 @@ export class MapObjectLayer {
       const [model, lods] = await Promise.all([this.assets.model(id), this.assets.lodModels(id)]);
       await this.prepareImpostor(model);
       const vegetation = model.entry.category === 'tree' || model.entry.category === 'plant';
-      for (const level of this.levelsFor(model, lods)) {
+      for (const level of this.levelsFor(model, lods, model.entry.blocksLos)) {
         for (const part of level.parts) {
           // Vegetation always has instance colours; other assets only when tinted, so both variants
           for (const colored of vegetation ? [true] : [false, true]) {
@@ -729,14 +736,14 @@ export class MapObjectLayer {
    */
   nearOnly(on: boolean): void {
     for (const b of this.batches) for (const d of b.draws) for (const m of d.meshes) m.count = on ? Math.min(d.list.count, d.list.casters) : d.list.count;
-    this.farBoxes?.nearOnly(on);
+    for (const draws of this.sharedDraws()) draws.nearOnly(on);
   }
 
   /** Meshes of objects that block no sight (scatter, props, small plants): what a water reflection leaves out */
   decorMeshes(): Object3D[] {
     const out: Object3D[] = [];
     for (const b of this.batches) if (!b.blocksLos) for (const d of b.draws) out.push(...d.meshes);
-    if (this.farBoxes) out.push(...this.farBoxes.openMeshes());
+    for (const draws of this.sharedDraws()) out.push(...draws.openMeshes());
     return out;
   }
 
@@ -751,8 +758,9 @@ export class MapObjectLayer {
     this.slabs?.dispose();
     this.materials.clear();
     this.fades.length = 0;
-    this.farBoxes?.dispose();
+    for (const draws of this.sharedDraws()) draws.dispose();
     this.farBoxes = null;
+    this.impostorDraws = null;
     this.group.removeFromParent();
   }
 
@@ -777,7 +785,7 @@ export class MapObjectLayer {
 
   private disposeBatch(b: AssetBatch): void {
     for (const d of b.draws) {
-      // Its objects leave the far boxes' list, which stays for the other buildings
+      // Its objects leave a shared list, which stays for the other assets
       if (d.shared) for (let i = 0; i < b.objects.length; i++) if (d.slots[i] >= 0) d.list.remove(d.slots, i);
       for (const m of d.meshes) {
         m.removeFromParent();
@@ -797,7 +805,7 @@ export class MapObjectLayer {
    * Detail levels of an asset: its model, the catalogue's LOD models (each
    * from where an object fills its screen share), an impostor for far trees
    */
-  private levelsFor(model: ObjectModel, lods: { model: ObjectModel; screen: number }[], ruin = false): Level[] {
+  private levelsFor(model: ObjectModel, lods: { model: ObjectModel; screen: number }[], blocks: boolean, ruin = false): Level[] {
     const entry = model.entry;
     const drawn = (m: ObjectModel) =>
       mergedParts(m).map((p) => ({
@@ -809,16 +817,28 @@ export class MapObjectLayer {
     for (const lod of lods) levels.push({ from: screenDistance(1, lod.screen), parts: drawn(lod.model) });
     // A ruin keeps its models to its draw distance: no impostor or far box shows the damage
     if (ruin) return levels;
-    const imp = this.options.impostors?.get(model);
-    if (imp) {
+    const slot = this.options.impostors?.get(model);
+    if (slot) {
       // Beyond the game camera's usual distance (200 to 300 m, impostorFrom in High), where a tree is a few
-      // pixels wide: past its last LOD model, and no nearer than 25 heights of the model for its radius
+      // pixels wide: past its last LOD model, and no nearer than 25 heights of the model for its radius. Every
+      // impostor of its view size in one draw (impostor-array.ts)
       const radius = Math.max(entry.footprint, model.height * 0.6);
       const from = Math.max(lods.length ? levels[levels.length - 1].from * 1.5 : 0, (entry.height * 25) / radius);
-      levels.push({ from, impostor: true, parts: [{ geometry: imp.geometry, material: imp.material, depthMaterial: imp.depthMaterial }] });
+      this.impostorDraws ??= new ImpostorDraws({ blocking: this.losGroup, open: this.group });
+      const key = ImpostorDraws.key(slot, blocks);
+      this.impostorDraws.register(key, slot.set);
+      const layer = [slot.layer];
+      levels.push({ from, impostor: true, parts: [], shared: { draws: this.impostorDraws, key, extras: () => [layer] } });
     }
     // A building's box, drawn with every other's in one mesh, where the object fills its screen share
-    if (entry.far && this.farBoxes && !model.placeholder) levels.push({ from: screenDistance(1, entry.far.screen), far: true, parts: [] });
+    if (entry.far && this.farBoxes && !model.placeholder) {
+      const row = [this.farBoxes.row(entry)];
+      levels.push({
+        from: screenDistance(1, entry.far.screen),
+        parts: [],
+        shared: { draws: this.farBoxes, key: blocks ? FAR_BLOCKING : FAR_OPEN, extras: () => [row] },
+      });
+    }
     return levels;
   }
 
@@ -838,7 +858,7 @@ export class MapObjectLayer {
       damage,
       casts: entry.category !== 'plant' || entry.height > 0.8,
       objects: objects.slice(),
-      levels: this.levelsFor(model, lods, ruin),
+      levels: this.levelsFor(model, lods, blocksLos, ruin),
       draws: [],
       capacity,
       source: { matrices: new Float32Array(capacity * 16), colors: tinted ? new Float32Array(capacity * 3) : null, ...(damage ? { extras: damage } : {}) },
@@ -858,7 +878,7 @@ export class MapObjectLayer {
 
   /** The list and part meshes of one level, empty: the next pass fills them */
   private buildDraw(b: AssetBatch, level: Level, li: number): LevelDraw {
-    if (level.far) return this.farDraw(b);
+    if (level.shared) return this.sharedDraw(b, level, li);
     const list = new InstanceList(b.capacity, !!b.source.colors, b.ruin ? [4, 4, 4] : []);
     const parent = b.blocksLos ? this.losGroup : this.group;
     const meshes = level.parts.map((part) => {
@@ -897,37 +917,38 @@ export class MapObjectLayer {
       parent.add(mesh);
       return mesh;
     });
-    return { list, slots: new Int32Array(b.capacity).fill(-1), meshes, source: b.source, shared: false };
+    return { list, slots: new Int32Array(b.capacity).fill(-1), meshes, source: b.source, shared: null };
   }
 
   /**
-   * The far boxes' list for a building asset, its row with its matrices and
-   * colours. A list too small for every building that may stand in it is
-   * made anew, and every box of the other assets moves over
+   * The shared list of a level drawn with other assets (a far box, an
+   * impostor), its own extras with the asset's matrices and colours. A list
+   * too small for every object that may stand in it is made anew, and the
+   * other assets' objects move over
    */
-  private farDraw(b: AssetBatch): LevelDraw {
-    const boxes = this.farBoxes!;
+  private sharedDraw(b: AssetBatch, level: Level, li: number): LevelDraw {
+    const { draws, key, extras } = level.shared!;
+    const sharing = (other: AssetBatch) => other.draws.findIndex((d) => d.shared?.draws === draws && d.shared.key === key);
     let need = b.capacity;
-    for (const other of this.batches) if (other !== b && other.blocksLos === b.blocksLos && other.draws.some((d) => d.shared)) need += other.capacity;
-    const { list, renewed } = boxes.list(b.blocksLos, need);
+    for (const other of this.batches) if (other !== b && sharing(other) >= 0) need += other.capacity;
+    const { list, renewed } = draws.list(key, need);
     if (renewed) {
       for (const other of this.batches) {
-        if (other === b || other.blocksLos !== b.blocksLos) continue;
-        const li = other.draws.findIndex((d) => d.shared);
-        if (li < 0) continue;
-        const d = other.draws[li];
+        const oi = other === b ? -1 : sharing(other);
+        if (oi < 0) continue;
+        const d = other.draws[oi];
         d.list = list;
         d.slots.fill(-1);
         for (let i = 0; i < other.objects.length; i++) {
-          const level = other.levelOf[i];
+          const lv = other.levelOf[i];
           const next = other.nextOf[i];
-          if (level !== li && next !== li) continue;
-          const fade = next === NO_NEXT ? 0 : level === li ? other.fadeOf[i] : other.fadeOf[i] - 1;
-          list.insert(d.slots, i, d.source, other.shadowOf[i] === li, fade);
+          if (lv !== oi && next !== oi) continue;
+          const fade = next === NO_NEXT ? 0 : lv === oi ? other.fadeOf[i] : other.fadeOf[i] - 1;
+          list.insert(d.slots, i, d.source, other.shadowOf[i] === oi, fade);
         }
       }
     }
-    const row = [boxes.row(b.entry)];
+    void li;
     // The asset's arrays as they are when an object comes (resize replaces them)
     const source: InstanceSource = {
       get matrices() {
@@ -936,10 +957,20 @@ export class MapObjectLayer {
       get colors() {
         return b.source.colors;
       },
-      extras: [row],
+      get extras() {
+        return extras();
+      },
     };
-    this.farBoundsStale = true;
-    return { list, slots: new Int32Array(b.capacity).fill(-1), meshes: [], source, shared: true };
+    this.sharedBoundsStale = true;
+    return { list, slots: new Int32Array(b.capacity).fill(-1), meshes: [], source, shared: { draws, key } };
+  }
+
+  /** The draws other assets share: the far boxes, the impostors */
+  private sharedDraws(): SharedDraws[] {
+    const out: SharedDraws[] = [];
+    if (this.farBoxes) out.push(this.farBoxes);
+    if (this.impostorDraws) out.push(this.impostorDraws);
+    return out;
   }
 
   /** The far boxes, made once a building with a far stage comes and its atlas is in */
@@ -1025,7 +1056,7 @@ export class MapObjectLayer {
       }
       if (b.boundsStale) {
         this.updateBounds(b);
-        if (b.draws.some((d) => d.shared)) this.farBoundsStale = true;
+        if (b.draws.some((d) => d.shared)) this.sharedBoundsStale = true;
       }
       for (const d of b.draws) {
         if (d.shared) continue;
@@ -1039,23 +1070,29 @@ export class MapObjectLayer {
         }
       }
     }
-    if (this.farBoxes) {
-      if (this.farBoundsStale) this.updateFarBounds(this.farBoxes);
-      this.farBoxes.sync();
-    }
+    if (this.sharedBoundsStale) this.updateSharedBounds();
+    for (const draws of this.sharedDraws()) draws.sync();
   }
 
-  /** The far boxes' bounds: those of every building asset that has them, per draw */
-  private updateFarBounds(boxes: FarBoxes): void {
-    for (const [k, blocks] of [[0, true], [1, false]] as const) {
-      const bounds = boxes.bounds[k].makeEmpty();
+  /** The shared draws' bounds: per list, those of every asset that fills it */
+  private updateSharedBounds(): void {
+    for (const draws of this.sharedDraws()) {
+      const done = new Set<string>();
       for (const b of this.batches) {
-        if (b.blocksLos !== blocks || b.bounds.isEmpty() || !b.draws.some((d) => d.shared)) continue;
-        if (bounds.isEmpty()) bounds.copy(b.bounds);
-        else bounds.union(b.bounds);
+        for (const d of b.draws) {
+          if (d.shared?.draws !== draws) continue;
+          const bounds = draws.bounds(d.shared.key);
+          if (!done.has(d.shared.key)) {
+            done.add(d.shared.key);
+            bounds.makeEmpty();
+          }
+          if (b.bounds.isEmpty()) continue;
+          if (bounds.isEmpty()) bounds.copy(b.bounds);
+          else bounds.union(b.bounds);
+        }
       }
     }
-    this.farBoundsStale = false;
+    this.sharedBoundsStale = false;
   }
 
   /** Object i into the lists of `level` and `next` (in a band, dissolving by t), casting with `caster` */

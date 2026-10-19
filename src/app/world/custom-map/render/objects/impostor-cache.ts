@@ -1,24 +1,26 @@
 import type { WebGLRenderer } from 'three';
 import type { ObjectModel } from '../map-asset-library';
 import { bakeImpostor, bakeImpostorAsync, type Impostor } from './impostor';
+import { ImpostorArrays, type ImpostorSlot } from './impostor-array';
 
 /**
  * The impostors of a map's view, one bake per asset for every object layer
  * that draws it (the map's objects and the border's trees mirrored onto the
  * apron showed the same trees, and each baked its own: two atlases of a
- * tree twice in memory). `finish` readies a fresh impostor's materials as
- * the layers draw them, once.
+ * tree twice in memory). A fresh bake goes into a layer of the view's
+ * texture arrays (impostor-array.ts), where the layers draw all impostors
+ * of one view size at once; its own atlases are freed then.
  */
 export class ImpostorCache {
-  private readonly baked = new Map<string, Impostor | null>();
+  private readonly baked = new Map<string, ImpostorSlot | null>();
   /** Bakes under way, by asset */
   private readonly jobs = new Map<string, Promise<void>>();
+  private readonly arrays: ImpostorArrays;
   private disposed = false;
 
-  constructor(
-    readonly renderer: WebGLRenderer,
-    private readonly finish: (imp: Impostor) => void,
-  ) {}
+  constructor(readonly renderer: WebGLRenderer) {
+    this.arrays = new ImpostorArrays(renderer);
+  }
 
   /** Whether an asset's far level is an impostor: trees and big rocks (buildings get hand-made far models through the catalogue's lod) */
   wants(model: ObjectModel): boolean {
@@ -38,7 +40,7 @@ export class ImpostorCache {
       job = bakeImpostorAsync(this.renderer, model)
         .then((imp) => {
           if (this.disposed || this.baked.has(id)) imp?.dispose();
-          else this.baked.set(id, this.ready(imp));
+          else this.baked.set(id, this.store(imp));
         })
         .catch(() => undefined)
         .finally(() => this.jobs.delete(id));
@@ -47,26 +49,29 @@ export class ImpostorCache {
     return job;
   }
 
-  /** The asset's impostor, baked now if `prepare` has not (its programs then link in this frame); null for none */
-  get(model: ObjectModel): Impostor | null {
+  /** The asset's place in the arrays, baked now if `prepare` has not (its programs then link in this frame); null for none */
+  get(model: ObjectModel): ImpostorSlot | null {
     if (!this.wants(model)) return null;
     const id = model.entry.id;
-    let imp = this.baked.get(id);
-    if (imp === undefined) {
-      imp = this.ready(bakeImpostor(this.renderer, model));
-      this.baked.set(id, imp);
+    let slot = this.baked.get(id);
+    if (slot === undefined) {
+      slot = this.store(bakeImpostor(this.renderer, model));
+      this.baked.set(id, slot);
     }
-    return imp;
+    return slot;
   }
 
   dispose(): void {
     this.disposed = true;
-    for (const imp of this.baked.values()) imp?.dispose();
     this.baked.clear();
+    this.arrays.dispose();
   }
 
-  private ready(imp: Impostor | null): Impostor | null {
-    if (imp) this.finish(imp);
-    return imp;
+  /** A fresh bake into the arrays, its own atlases and materials freed */
+  private store(imp: Impostor | null): ImpostorSlot | null {
+    if (!imp) return null;
+    const slot = this.arrays.add(imp);
+    imp.dispose();
+    return slot;
   }
 }

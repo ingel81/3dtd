@@ -638,6 +638,16 @@ Hauptthreads, die Probe ohne Stau gelesen. Speicher (Atlanten mit Mipmaps): 1,7 
 128 px; die Karten mit 9 bis 12 Impostoren bei 900 px Zeichenhöhe 15 bis 20 MB statt 16 bis 24 MB vorher (dort backte
 jede Schicht ihre eigenen). Braucht den Renderer (Ansichtsoption `renderer`).
 
+**Alle Impostoren in einem Draw (`impostor-array.ts`):** frisch gebacken kopiert der Cache die beiden Atlanten eines
+Assets in je eine Ebene zweier Textur-Arrays seiner Ansichtsgröße (Farbe sRGB, Normale und Tiefe linear, mit Mipmaps)
+und gibt sie frei; je Ebene hält eine kleine Datentextur Mitte, Radius, Ton, Alpha-Schwelle, Rauheit, Metall und die
+Maße der gekreuzten Karten. Der Shader aus `impostor.ts` liest sein Asset über Makros (`ImpostorAccess`): die Probe
+beim Backen aus den eigenen Uniforms, die Karte aus Ebene und Zeile (`IMPOSTOR_ARRAY`). Jede Objektschicht zeichnet
+alle Impostoren einer Ansichtsgröße und eines Sichtflags in einem Mesh (`ImpostorDraws`, gemeinsamer Draw wie die
+Fern-Kästen, `shared-draws.ts`), Schatten und LOS-Würfel (`userData.losVertex`, die gekreuzten Karten aus der Zeile)
+mit derselben Form. Volle Arrays wachsen, indem ihre Ebenen in größere kopiert werden. Stuttgart und Oberbergen, High:
+14 bis 19 Draws weniger je Ansicht, Bild gleich.
+
 Materialien (`objectMaterial`): Bäume und Pflanzen bewegen sich im Wind der Karte: Stamm und Krone als Ganzes (der
 Stamm biegt sich quadratisch mit der Höhe, steif), sie neigen sich mit dem Druck des Windes an ihrem Ort (Böenfronten
 laufen über die Karte) und schwingen langsam um diese Neigung, etwas auch quer dazu; je höher die Pflanze, desto

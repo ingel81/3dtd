@@ -30,8 +30,10 @@ describe('octahedral impostor', () => {
       const shader = { uniforms: UniformsUtils.clone(lib.uniforms), vertexShader: lib.vertexShader, fragmentShader: lib.fragmentShader };
       turnToCamera(shader as never, { uImpCenter: { value: new Vector3() }, uImpRadius: { value: 1 } }, lit);
       expect(shader.vertexShader).toContain('vec3 impDir =');
-      expect(shader.vertexShader).toContain('transformed = uImpCenter');
-      expect(shader.vertexShader.indexOf('vec3 impDir =')).toBeLessThan(shader.vertexShader.indexOf('transformed = uImpCenter'));
+      expect(shader.vertexShader).toContain('transformed = IMP_CENTER');
+      // One asset reads its centre from its uniforms
+      expect(shader.vertexShader).toContain('#define IMP_CENTER uImpCenter');
+      expect(shader.vertexShader.indexOf('vec3 impDir =')).toBeLessThan(shader.vertexShader.indexOf('transformed = IMP_CENTER'));
       expect(shader.fragmentShader).toContain('impA');
       expect(shader.vertexShader.includes('objectNormal = normalize(impDir')).toBe(lit);
       // The seen card looks up its shadow nearer the sun, out of its own caster
