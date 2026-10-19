@@ -548,9 +548,10 @@ export class CustomMapSurface implements WorldSurface {
    * map's objects. Roofs come from the objects that forbid building and
    * stand upright; none from an object in `passing`, which may leave the map
    * during a run (it falls, a wave event hides it) and would leave a tower in
-   * the air: it blocks as before.
+   * the air: it blocks as before. A structure in `fallen` lies in ruins and
+   * blocks nothing.
    */
-  setObjectCatalog(entries: readonly BuildCatalogEntry[], passing: ReadonlySet<string> = NO_IDS): void {
+  setObjectCatalog(entries: readonly BuildCatalogEntry[], passing: ReadonlySet<string> = NO_IDS, fallen: ReadonlySet<string> = NO_IDS): void {
     const byId = new Map(entries.map((e) => [e.id, e]));
     const cell = OBJECT_CELL;
     const t = this.doc.terrain;
@@ -565,8 +566,8 @@ export class CustomMapSurface implements WorldSurface {
     const roofBuckets: (PlacedRoof[] | undefined)[] = new Array(columns * rows);
     for (const o of this.doc.objects) {
       const entry = byId.get(o.asset);
-      // A fallen structure (FALLEN_SCALE, CustomMapDestruction) blocks nothing
-      if (!(o.blocksBuild ?? entry?.blocksBuild ?? false) || o.scale <= FALLEN_SCALE) continue;
+      // A fallen structure (CustomMapDestruction) and one a wave event hides (FALLEN_SCALE) block nothing
+      if (!(o.blocksBuild ?? entry?.blocksBuild ?? false) || o.scale <= FALLEN_SCALE || fallen.has(o.id)) continue;
       // A raised building's own ground, height, rectangle and roof (object-mass.ts), else its entry's
       const mass = massOf(o);
       const shape = mass ? objectShape(o, entry) : null;

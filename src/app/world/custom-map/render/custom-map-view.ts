@@ -21,7 +21,7 @@ import {
   type ShadowMapType,
   type WebGLRenderer,
 } from 'three';
-import type { CustomMapDocument, MapEnvironment, MapLifeArea, MapObject, MapWaterKind } from '../map-document';
+import type { CustomMapDocument, MapEnvironment, MapHeightGrid, MapLifeArea, MapObject, MapWaterKind } from '../map-document';
 import { HeightField } from './height-field';
 import { StaticGroup } from '../../../three-engine/static-group';
 import type { ShotLights } from '../../../three-engine/shot-lights/shot-lights';
@@ -41,7 +41,8 @@ import type { MapBiome } from '../map-document';
 import { CoverMap } from './environment/cover-map';
 import { setPlantSway, WIND_UNIFORMS } from './environment/wind';
 import { prepareNoiseTextures } from './noise-textures';
-import { MapObjectLayer, type ObjectHit } from './objects/object-layer';
+import { MapObjectLayer, type ObjectDamage, type ObjectHit } from './objects/object-layer';
+import { DAMAGE_UNIFORMS, FELL_LONG_AGO } from './objects/ruin-damage';
 import { fontsReady, SignLayer } from './objects/sign-text';
 import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
@@ -177,6 +178,13 @@ export interface CustomMapViewOptions {
    * docs/DESTRUCTION_PLAN.md); their program is built with the map's, not in the game
    */
   impactMarks?: boolean;
+  /**
+   * Buildings take damage (docs/DESTRUCTION_PLAN.md, Z2): their ruins'
+   * programs are built with the map's, and they stand on `standingGround`,
+   * the heights as the map made them, not on the fight's craters and rubble
+   */
+  ruins?: boolean;
+  standingGround?: MapHeightGrid;
 }
 
 export class CustomMapView {
@@ -326,9 +334,12 @@ export class CustomMapView {
           addHeightFog(imp.material);
         })
       : undefined;
+    const standing = options.standingGround ? new HeightField(options.standingGround, t.width, t.depth) : null;
     this.objects = new MapObjectLayer(this.heights, assets, this.losBlockers, {
       impostors: this.impostors,
       waterLevelAt: (x, y) => this.waterLevelAt(x, y),
+      ruins: options.ruins,
+      ...(standing ? { standingAt: (x: number, y: number) => standing.heightAt(x, y) } : {}),
     });
     this.group.add(this.objects.group);
     this.group.add(this.signs.group);
@@ -351,6 +362,8 @@ export class CustomMapView {
       this.terrain.light,
     );
     this.effects.setLife(doc.life);
+    // A hidden nest of embers for the warm-up: the ruins' smoulder draws with programs built with the map's
+    if (options.ruins) this.effects.setRuinEmbers([], true);
     options.lights?.addSteadySource(this.effects);
     this.movers = new LifeMovers(assets, this.heights, (x, y) => this.waterLevelAt(x, y));
     this.group.add(this.movers.group);
@@ -717,10 +730,23 @@ export class CustomMapView {
     if (this.disposed) return;
     const t0 = performance.now();
     if (this.flyingDebris) this.flyingDebris.time += dtSeconds;
+    if (this.options.ruins) DAMAGE_UNIFORMS.uDamageTime.value = this.damageTime += dtSeconds;
     this.updateFrame(dtSeconds, camera, focus);
     const ms = performance.now() - t0;
     this.stats.updateMs = this.stats.frames ? this.stats.updateMs * 0.95 + ms * 0.05 : ms;
     this.stats.frames++;
+  }
+
+  /** The clock the buildings fall on, s (DAMAGE_UNIFORMS) */
+  private damageTime = 0;
+
+  /**
+   * Damage of buildings, walls and structures (MapObjectLayer.setDamage):
+   * a stage-3 one `now` falls from this moment, else it lies as it fell
+   */
+  setObjectDamage(changes: readonly { id: string; stage: number; now: boolean }[]): void {
+    this.objects.setDamage(changes.map((c): ObjectDamage => ({ id: c.id, stage: c.stage, fallStart: c.now && c.stage >= 3 ? this.damageTime : FELL_LONG_AGO })));
+    this.effects.setRuinEmbers(this.objects.embers(), !!this.options.ruins);
   }
 
   /** Main-thread cost of update(), smoothed, for measurements (sim-load --world, the preview) */

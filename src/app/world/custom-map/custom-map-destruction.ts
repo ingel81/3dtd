@@ -90,6 +90,12 @@ export class CustomMapDestruction implements WorldDestruction {
     private readonly structuresFall = true,
     /** The ground the craters and the rubble go into (custom-map-ground-damage.ts), null for none */
     readonly ground: WorldGroundDamage | null = null,
+    /**
+     * Hears every change of a structure's stage, for its looks: `now` when
+     * damage did it just now (setStage), false when the stages came whole
+     * (a load, a new run, a restore, a seek: a fallen one lies as it fell)
+     */
+    private readonly damaged: (changes: readonly { object: MapObject; stage: StructureStage }[], now: boolean) => void = () => undefined,
   ) {}
 
   /** The catalogue's entries: from now on the map's buildings, walls and structures take damage */
@@ -139,28 +145,29 @@ export class CustomMapDestruction implements WorldDestruction {
   }
 
   setStages(stages: Uint8Array): void {
-    const fallen: MapObject[] = [];
-    const risen: MapObject[] = [];
-    for (let i = 0; i < this.list.length; i++) this.change(i, (stages[i] ?? 0) as StructureStage, fallen, risen);
-    this.tell(fallen, risen);
+    const changes: { object: MapObject; stage: StructureStage }[] = [];
+    for (let i = 0; i < this.list.length; i++) this.change(i, (stages[i] ?? 0) as StructureStage, changes);
+    this.tell(changes, false);
   }
 
   setStage(index: number, stage: StructureStage): void {
     if (index < 0 || index >= this.list.length) return;
-    const fallen: MapObject[] = [];
-    const risen: MapObject[] = [];
-    this.change(index, stage, fallen, risen);
-    this.tell(fallen, risen);
+    const changes: { object: MapObject; stage: StructureStage }[] = [];
+    this.change(index, stage, changes);
+    this.tell(changes, true);
   }
 
-  private change(i: number, stage: StructureStage, fallen: MapObject[], risen: MapObject[]): void {
+  private change(i: number, stage: StructureStage, changes: { object: MapObject; stage: StructureStage; was?: StructureStage }[]): void {
     const s = this.list[i];
-    if (stage === 3 && s.stage !== 3) fallen.push(s.object);
-    else if (stage !== 3 && s.stage === 3) risen.push(s.object);
+    if (stage !== s.stage) changes.push({ object: s.object, stage, was: s.stage });
     s.stage = stage;
   }
 
-  private tell(fallen: readonly MapObject[], risen: readonly MapObject[]): void {
+  private tell(changes: readonly { object: MapObject; stage: StructureStage; was?: StructureStage }[], now: boolean): void {
+    if (!changes.length) return;
+    this.damaged(changes, now);
+    const fallen = changes.filter((c) => c.stage === 3).map((c) => c.object);
+    const risen = changes.filter((c) => c.was === 3).map((c) => c.object);
     if (fallen.length > 0) this.fall(fallen);
     if (risen.length > 0) this.rise(risen);
   }

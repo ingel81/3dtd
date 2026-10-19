@@ -206,6 +206,8 @@ export class CustomMapWorld implements WorldProvider {
   private passingIds: ReadonlySet<string> = new Set();
   /** Objects lying fallen (destruction) and objects a wave event keeps out of the picture now */
   private readonly fallenIds = new Set<string>();
+  /** Each damaged structure's stage, for a view that comes later */
+  private readonly stages = new Map<string, number>();
   private eventHidden = new Set<string>();
   /** The scale an object out of the picture had, to stand it up again */
   private readonly outScale = new Map<string, number>();
@@ -271,7 +273,7 @@ export class CustomMapWorld implements WorldProvider {
       : null;
     this.groundDamage = ground;
     this.destruction = damaged
-      ? new CustomMapDestruction(() => this.doc, (fallen) => this.fell(fallen), (risen) => this.rose(risen), destructible, ground)
+      ? new CustomMapDestruction(() => this.doc, (fallen) => this.fell(fallen), (risen) => this.rose(risen), destructible, ground, (changes, now) => this.damageChanged(changes, now))
       : null;
     this.sync = new EllipsoidSync(origin.lat, origin.lon, origin.height);
     this.frame.setOrigin(origin.lat, origin.lon);
@@ -305,8 +307,12 @@ export class CustomMapWorld implements WorldProvider {
       lights: ctx.lights,
       // Craters and rubble, their program built with the map's
       impactMarks: this.groundDamage !== null,
+      // Ruins likewise, standing on the map's own heights (the run's copy takes the craters and rubble)
+      ...(this.structuresFall ? { ruins: true, standingGround: this.map.doc.terrain.grid } : {}),
     });
     this.view = view;
+    // Stages that came before the view: the ruins as they lie
+    if (this.stages.size) view.setObjectDamage([...this.stages].map(([id, stage]) => ({ id, stage, now: false })));
     if (this.quality) view.applyQuality(this.quality);
     this.placeView();
     const before = new Set(ctx.scene.children);
@@ -754,33 +760,42 @@ export class CustomMapWorld implements WorldProvider {
   useCatalog(objects: readonly (StructureEntry & BuildCatalogEntry)[]): void {
     this.catalogObjects = objects;
     this.passingIds = passingObjectIds(this.doc);
-    this.surface.setObjectCatalog(objects, this.passingIds);
+    this.surface.setObjectCatalog(objects, this.passingIds, this.fallenIds);
     if (!this.destruction) return;
     this.destruction.setCatalog(objects);
     if (isDevMode()) console.log(`[CustomMap] ${this.destruction.structures().length} structures can fall`);
   }
 
-  /** Fallen structures shrink to next to nothing in the view (FALLEN_SCALE) and stop blocking the build */
+  /** Fallen structures lie in ruins (damageChanged) and stop blocking the build */
   private fell(objects: readonly MapObject[]): void {
     if (isDevMode()) console.log(`[CustomMap] fell: ${objects.map((o) => `${o.asset} ${o.id}`).join(', ')}`);
     for (const o of objects) this.fallenIds.add(o.id);
-    this.takeOut(objects);
+    this.surface.setObjectCatalog(this.catalogObjects, this.passingIds, this.fallenIds);
   }
 
   /** A reset stands them up again */
   private rose(objects: readonly MapObject[]): void {
     for (const o of objects) this.fallenIds.delete(o.id);
-    this.takeOut(objects);
+    this.surface.setObjectCatalog(this.catalogObjects, this.passingIds, this.fallenIds);
+  }
+
+  /** The structures' stages to the view's buildings (docs/DESTRUCTION_PLAN.md, Z2): `now` falls as it happens */
+  private damageChanged(changes: readonly { object: MapObject; stage: number }[], now: boolean): void {
+    for (const c of changes) {
+      if (c.stage > 0) this.stages.set(c.object.id, c.stage);
+      else this.stages.delete(c.object.id);
+    }
+    this.view?.setObjectDamage(changes.map((c) => ({ id: c.object.id, stage: c.stage, now })));
   }
 
   /**
-   * Objects out of the picture while fallen or hidden by a wave event:
-   * shrunk to next to nothing (FALLEN_SCALE), so they neither show, block
-   * sight nor block building; back at their scale once neither holds
+   * Objects a wave event hides, out of the picture: shrunk to next to
+   * nothing (FALLEN_SCALE), so they neither show, block sight nor block
+   * building; back at their scale once it shows them
    */
   private takeOut(objects: readonly MapObject[]): void {
     for (const o of objects) {
-      const out = this.fallenIds.has(o.id) || this.eventHidden.has(o.id);
+      const out = this.eventHidden.has(o.id);
       const kept = this.outScale.get(o.id);
       if (out && kept === undefined) {
         this.outScale.set(o.id, o.scale);
@@ -791,7 +806,7 @@ export class CustomMapWorld implements WorldProvider {
       }
     }
     void this.view?.objectsChanged(objects.map((o) => o.id));
-    this.surface.setObjectCatalog(this.catalogObjects, this.passingIds);
+    this.surface.setObjectCatalog(this.catalogObjects, this.passingIds, this.fallenIds);
   }
 
   /** The highest ground sample */

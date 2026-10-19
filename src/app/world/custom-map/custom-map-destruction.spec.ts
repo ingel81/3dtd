@@ -58,6 +58,25 @@ describe('CustomMapDestruction', () => {
     expect(destruction.asRunStructures()[0].mass).toEqual({ x: 0, y: 0, turn: 0, scale: 1, rings: mass.rings });
   });
 
+  it('tells every change of stage for the looks, as it happens or as the stages came whole', () => {
+    const heard: [string, number, boolean][] = [];
+    destruction = new CustomMapDestruction(
+      () => ({ objects, gameplay }),
+      () => undefined,
+      () => undefined,
+      true,
+      null,
+      (changes, now) => heard.push(...changes.map((c): [string, number, boolean] => [c.object.id, c.stage, now])),
+    );
+    destruction.setCatalog(CATALOG);
+    destruction.setStages(new Uint8Array([2, 0, 3]));
+    destruction.setStage(0, 3);
+    // Unchanged stages say nothing
+    destruction.setStage(0, 3);
+    destruction.setStages(new Uint8Array([3, 0, 0]));
+    expect(heard).toEqual([['h1', 2, false], ['w1', 3, false], ['h1', 3, true], ['w1', 0, false]]);
+  });
+
   it('shows the stages the simulation says, each fall once, and stands up what no longer lies fallen', () => {
     destruction.setStages(new Uint8Array([0, 0, 3]));
     expect(fell).toEqual([['w1']]);

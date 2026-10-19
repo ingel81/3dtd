@@ -450,10 +450,9 @@ describe('CustomMapWorld', () => {
     world.destruction!.setStage(0, 1);
     expect(world.doc.objects[0].scale).toBe(1);
     world.destruction!.setStage(0, 3);
-    // Gone from the run's map and its build blocking; the opened map keeps its barn
-    expect(world.doc.objects[0].scale).toBe(FALLEN_SCALE);
+    // In ruins: it stays in the picture (the view draws its stump), gone from the build blocking
+    expect(world.doc.objects[0].scale).toBe(1);
     expect(world.surface.buildBlocker(geo.lat, geo.lon, 1)).toBeNull();
-    expect(doc.objects[0].scale).toBe(1);
 
     world.destruction!.setStages(new Uint8Array([0]));
     expect(world.doc.objects[0].scale).toBe(1);

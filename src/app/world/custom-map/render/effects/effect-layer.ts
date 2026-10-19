@@ -114,6 +114,8 @@ export class EffectLayer implements SteadyLightSource {
   private fields: ParticleField[] = [];
   /** Embers and smoke over lava (setLavaLights), apart from the objects' effects */
   private lavaFields: ParticleField[] = [];
+  /** The smouldering nests of the ruins (setRuinEmbers) */
+  private ruinFields: ParticleField[] = [];
   /** Life the map's content brings by itself (setAmbient): fireflies at night, birds by day */
   private fireflies: ParticleField | null = null;
   private ambient: { fireflies: Vector3[]; flocks: Flock[] } = { fireflies: [], flocks: [] };
@@ -423,6 +425,36 @@ export class EffectLayer implements SteadyLightSource {
   }
 
   /**
+   * Smouldering nests in the ruins (docs/DESTRUCTION_PLAN.md, Z2): embers
+   * and a thin plume of smoke over each point (group space), a dozen at
+   * most. Built anew on each change, a few frames' grace for the old fields
+   * as everywhere here. `warm` keeps one hidden nest for the warm-up, which
+   * shows what is hidden and so builds the fields' program with the map's
+   */
+  setRuinEmbers(points: readonly Vector3[], warm = false): void {
+    for (const f of this.ruinFields) {
+      f.mesh.removeFromParent();
+      this.retired.push(() => f.dispose());
+    }
+    this.retiredFrames = 0;
+    this.ruinFields = [];
+    const shown = points.length ? points : warm ? [new Vector3()] : [];
+    if (!shown.length) return;
+    const embers: ParticleEmitter[] = [];
+    const smoke: ParticleEmitter[] = [];
+    for (const p of shown) {
+      embers.push({ kind: 'embers', origin: p.clone(), radius: 1.2, height: 0.3, count: 10, color: '#ff7a28', scale: 0.8, glow: '#ff5a18' });
+      smoke.push({ kind: 'smoke', origin: p.clone(), radius: 0.9, height: 0.6, count: 7, color: '#3c3430', scale: 1.6 });
+    }
+    for (const [kind, list] of [['embers', embers], ['smoke', smoke]] as const) {
+      const field = new ParticleField(kind, list, this.time, this.light);
+      field.mesh.visible = points.length > 0;
+      this.ruinFields.push(field);
+      this.group.add(field.mesh);
+    }
+  }
+
+  /**
    * Bakes every light onto the land (lamp-light.ts) and hands the textures to
    * the map materials. Lava points (5 m over their lava) light wider and
    * steadier than their point lights, which stand for a whole patch
@@ -644,6 +676,8 @@ export class EffectLayer implements SteadyLightSource {
     this.freeRetired();
     for (const f of this.lavaFields) f.dispose();
     this.lavaFields = [];
+    for (const f of this.ruinFields) f.dispose();
+    this.ruinFields = [];
     this.fireflies?.dispose();
     this.fireflies = null;
     this.birds.dispose();
