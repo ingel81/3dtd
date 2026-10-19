@@ -1,4 +1,4 @@
-import { BufferGeometry, Float32BufferAttribute } from 'three';
+import { BufferGeometry, Float32BufferAttribute, type BufferAttribute, type InterleavedBufferAttribute } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { PORTAL_DEPTH, PORTAL_OPENING_HEIGHT, PORTAL_OPENING_WIDTH } from '../../../configs/marker-geometry.config';
 
@@ -71,11 +71,24 @@ function createVoidGeometry(): BufferGeometry {
  * (portal-clip.ts). Without a frame (its asset still loading or failed)
  * the gate is the void alone; the frame's geometry is copied, not changed.
  */
+/**
+ * An attribute as floats, as the void's are: the packed asset (tools/model-pack)
+ * stores normals and UVs as normalised integers, and geometries merge only alike
+ */
+function asFloats(attribute: BufferAttribute | InterleavedBufferAttribute): BufferAttribute | InterleavedBufferAttribute {
+  if (attribute.array instanceof Float32Array && !attribute.normalized) return attribute;
+  const out = new Float32Array(attribute.count * attribute.itemSize);
+  for (let i = 0; i < attribute.count; i++) {
+    for (let c = 0; c < attribute.itemSize; c++) out[i * attribute.itemSize + c] = attribute.getComponent(i, c);
+  }
+  return new Float32BufferAttribute(out, attribute.itemSize);
+}
+
 export function createPortalGateGeometry(frame: BufferGeometry | null): BufferGeometry {
   const voidGeometry = createVoidGeometry();
   if (!frame) return voidGeometry;
   const stone = new BufferGeometry();
-  for (const name of FRAME_ATTRIBUTES) stone.setAttribute(name, frame.getAttribute(name));
+  for (const name of FRAME_ATTRIBUTES) stone.setAttribute(name, asFloats(frame.getAttribute(name)));
   stone.setIndex(frame.getIndex());
   stone.setAttribute('aPart', new Float32BufferAttribute(new Float32Array(frame.getAttribute('position').count), 1));
   const gate = mergeGeometries([stone, voidGeometry]);

@@ -5,6 +5,7 @@ import { BufferGeometry, DoubleSide, Mesh, MeshBasicMaterial, Object3D, Raycaste
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { SPAWN_PORTAL_FRAME_URL } from './spawn-portal-frame';
+import { createPortalGateGeometry } from './spawn-portal-geometry';
 import { SIGIL_LAYOUT, frameSigilCells } from './spawn-portal-sigils';
 import { createPortalClipUniforms, setPortalClips } from '../portal-clip';
 import {
@@ -128,6 +129,11 @@ beforeAll(async () => {
 });
 
 describe('Spawn-Portal-Rahmen (GLB)', () => {
+  it('fügt sich mit der Leere zum Tor, auch gepackt (Normalen und UVs als normierte Ganzzahlen)', () => {
+    const gate = createPortalGateGeometry(frame);
+    expect(gate.getAttribute('position').count).toBeGreaterThan(frame.getAttribute('position').count);
+  });
+
   it('bleibt in den Maßen, mit denen Intro und Totale rechnen', () => {
     const position = frame.getAttribute('position');
     let top = -Infinity;
