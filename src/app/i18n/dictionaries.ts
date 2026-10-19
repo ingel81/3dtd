@@ -9,5 +9,8 @@ import { en, type Messages } from './messages/en';
 export const DICTIONARIES: Readonly<Record<Locale, () => Promise<Messages>>> = {
   en: () => Promise.resolve(en),
   de: () => import('./messages/de').then((m) => m.de),
-  xx: () => import('./pseudo').then((m) => m.pseudo(en)),
+  // The pseudo language exists in a development build only: the production build defines ngDevMode false and drops it
+  xx: () => (typeof ngDevMode === 'undefined' || ngDevMode ? import('./pseudo').then((m) => m.pseudo(en)) : Promise.reject(new Error('xx is a development language'))),
 };
+
+declare const ngDevMode: unknown;
