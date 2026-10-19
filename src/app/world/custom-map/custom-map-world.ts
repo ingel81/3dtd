@@ -708,7 +708,7 @@ export class CustomMapWorld implements WorldProvider {
   private fell(objects: readonly MapObject[]): void {
     if (isDevMode()) console.log(`[CustomMap] fell: ${objects.map((o) => `${o.asset} ${o.id}`).join(', ')}`);
     for (const o of objects) this.fallenIds.add(o.id);
-    this.surface.setObjectCatalog(this.catalogObjects, this.passingIds, this.fallenIds);
+    this.surface.dropObjects(objects);
   }
 
   /** A reset stands them up again */

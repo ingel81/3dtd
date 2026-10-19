@@ -133,6 +133,8 @@ export class CustomMapSurface implements WorldSurface {
   /** Counts up whenever what pickRay can meet changes (the roofs, setObjectCatalog) */
   pickVersion = 0;
   private roofBuckets: (PlacedRoof[] | undefined)[] = [];
+  /** Per object in the blockers its bucket and its roof (dropObjects) */
+  private placed = new Map<MapObject, { bucket: number; roof: PlacedRoof | null }>();
   /** Height of the roof roofOver found last */
   private roofHeight = NaN;
   private readonly ray = new Ray();
@@ -564,6 +566,7 @@ export class CustomMapSurface implements WorldSurface {
     const masses: { mass: MapMass; scale: number }[] = [];
     const roofs: PlacedRoof[] = [];
     const roofBuckets: (PlacedRoof[] | undefined)[] = new Array(columns * rows);
+    const placed = new Map<MapObject, { bucket: number; roof: PlacedRoof | null }>();
     for (const o of this.doc.objects) {
       const entry = byId.get(o.asset);
       // A fallen structure (CustomMapDestruction) and one a wave event hides (FALLEN_SCALE) block nothing
@@ -588,6 +591,7 @@ export class CustomMapSurface implements WorldSurface {
         ? new PlacedRoof(roofOf, o.x, o.y, o.rotation, o.scale || 1, this.seatOf(entry, o) + o.z)
         : null;
       if (mass) masses.push({ mass, scale: o.scale || 1 });
+      placed.set(o, { bucket: j * columns + i, roof });
       (buckets[j * columns + i] ??= []).push(
         o.x, o.y, r, top, bx, by, box ? box[2] * o.scale : Infinity, box ? box[3] * o.scale : Infinity, cos, sin, roof ? 1 : 0, mass ? masses.length - 1 : -1,
       );
@@ -602,7 +606,47 @@ export class CustomMapSurface implements WorldSurface {
     this.blockers = { cell, minX, minY, columns, rows, buckets, maxRadius, masses };
     this.roofs = roofs;
     this.roofBuckets = roofBuckets;
+    this.placed = placed;
     this.pickVersion++;
+  }
+
+  /**
+   * Objects that fell (CustomMapDestruction) out of the blockers and roofs,
+   * as setObjectCatalog with them among `fallen` would leave them, without
+   * going over every object of the map again
+   */
+  dropObjects(objects: readonly MapObject[]): void {
+    const g = this.blockers;
+    if (!g) return;
+    let dropped = false;
+    for (const o of objects) {
+      const at = this.placed.get(o);
+      if (!at) continue;
+      this.placed.delete(o);
+      dropped = true;
+      const bucket = g.buckets[at.bucket];
+      for (let k = 0; bucket && k < bucket.length; k += BLOCKER_STRIDE) {
+        if (bucket[k] !== o.x || bucket[k + 1] !== o.y) continue;
+        bucket.splice(k, BLOCKER_STRIDE);
+        break;
+      }
+      const roof = at.roof;
+      if (!roof) continue;
+      this.roofs.splice(this.roofs.indexOf(roof), 1);
+      // The buckets it was laid into (setObjectCatalog)
+      const i0 = Math.max(0, Math.floor((roof.cx - roof.radius - g.minX) / g.cell));
+      const i1 = Math.min(g.columns - 1, Math.floor((roof.cx + roof.radius - g.minX) / g.cell));
+      const j0 = Math.max(0, Math.floor((roof.cy - roof.radius - g.minY) / g.cell));
+      const j1 = Math.min(g.rows - 1, Math.floor((roof.cy + roof.radius - g.minY) / g.cell));
+      for (let jj = j0; jj <= j1; jj++) {
+        for (let ii = i0; ii <= i1; ii++) {
+          const list = this.roofBuckets[jj * g.columns + ii];
+          const k = list ? list.indexOf(roof) : -1;
+          if (k >= 0) list!.splice(k, 1);
+        }
+      }
+    }
+    if (dropped) this.pickVersion++;
   }
 
   /** Where the renderer stands an object's origin before its own z (seatHeight) */

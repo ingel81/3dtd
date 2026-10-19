@@ -190,6 +190,37 @@ describe('CustomMapSurface', () => {
     expect(surface.buildBlocker(...local(0, 1.3 + 7.6 + 4), 3)).toBe(BUILD_BLOCKED_OBJECT);
   });
 
+  it('lets a fallen object out of the blockers and roofs as a catalogue that names it fallen would', () => {
+    const map = testMap();
+    map.objects = [
+      { id: 'o1', asset: 'house', x: -50, y: 20, z: 0, rotation: 0, scale: 1 },
+      { id: 'o2', asset: 'house', x: -47, y: 22, z: 0, rotation: 0, scale: 1 },
+      { id: 'o3', asset: 'house', x: 30, y: -30, z: 0, rotation: 0, scale: 1 },
+    ];
+    // A flat roof of 10 x 10 cells of 1 m at 8 m (bytes of 0.5 m steps)
+    const roof = { x: -5, z: -5, cell: 1, columns: 10, rows: 10, step: 0.5, heights: btoa(String.fromCharCode(...new Array(100).fill(16))) };
+    const entries = [{ id: 'house', footprint: 5, blocksBuild: true, height: 8, category: 'building' as const, roof }];
+    const dropped = new CustomMapSurface(map, frame);
+    dropped.setObjectCatalog(entries);
+    const version = dropped.pickVersion;
+    dropped.dropObjects([map.objects[0], map.objects[2]]);
+    const rebuilt = new CustomMapSurface(map, frame);
+    rebuilt.setObjectCatalog(entries, undefined, new Set(['o1', 'o3']));
+    expect(dropped.pickVersion).toBeGreaterThan(version);
+    const at = (x: number, y: number): [number, number] => {
+      const g = mapToGeo({ x, y });
+      return [g.lat, g.lon];
+    };
+    for (const [x, y] of [[-50, 20], [-53, 18], [-47, 22], [-44, 25], [30, -30], [33, -27], [0, 0]]) {
+      expect(dropped.buildBlocker(...at(x, y), 3)).toBe(rebuilt.buildBlocker(...at(x, y), 3));
+      expect(dropped.skylineAt(frame.sceneX(x), frame.sceneZ(y))).toBe(rebuilt.skylineAt(frame.sceneX(x), frame.sceneZ(y)));
+      expect(dropped.roofAt(frame.sceneX(x), frame.sceneZ(y))).toBe(rebuilt.roofAt(frame.sceneX(x), frame.sceneZ(y)));
+    }
+    // The one left still carries a tower on its roof, the dropped ones nothing
+    expect(dropped.roofAt(frame.sceneX(-47), frame.sceneZ(22))).not.toBeNull();
+    expect(dropped.roofAt(frame.sceneX(30), frame.sceneZ(-30))).toBeNull();
+  });
+
   it("knows the roofs of a map's houses for the intro flight's skyline", () => {
     const map = testMap();
     map.objects = [{ id: 'o1', asset: 'house', x: -50, y: 20, z: 0, rotation: 0, scale: 1.5 }];
