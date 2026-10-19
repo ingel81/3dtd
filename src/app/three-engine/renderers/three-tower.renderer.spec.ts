@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Group, Mesh, Object3D, PerspectiveCamera, Scene, Vector3 } from 'three';
+import { BoxGeometry, Group, Mesh, MeshStandardMaterial, Object3D, PerspectiveCamera, Scene, Vector3 } from 'three';
 import { ThreeTowerRenderer, type TowerRenderData } from './three-tower.renderer';
 import { TOWER_TYPES, type TowerTypeId } from '../../configs/tower-types.config';
 import { TOWER_PATHS, towerConfigOf } from '../../configs/tower-paths.config';
@@ -563,5 +563,23 @@ describe('ThreeTowerRenderer path swap', () => {
     await new Promise((done) => setTimeout(done, 0));
     expect(renderer.get('a')).toBe(data);
     expect(data.mesh.name).toBe(TOWER_TYPES.archer.modelUrl);
+  });
+});
+
+describe('ThreeTowerRenderer warm-up', () => {
+  it('builds the see-through build preview of each tower type with the placed models', () => {
+    const assetManager = {
+      cloneModel: () => {
+        const model = new Group();
+        model.add(new Mesh(new BoxGeometry(), new MeshStandardMaterial()));
+        return model;
+      },
+    };
+    const renderer = new ThreeTowerRenderer(new Scene(), { geoToLocal: () => new Vector3() } as never, assetManager as never);
+
+    const objects = renderer.warmUpObjects(['archer', 'cannon'], false);
+
+    const seeThrough = objects.filter((o) => ((o.children[0] as Mesh | undefined)?.material as MeshStandardMaterial | undefined)?.transparent);
+    expect(seeThrough.map((o) => o.scale.x)).toEqual([TOWER_TYPES.archer.scale, TOWER_TYPES.cannon.scale]);
   });
 });

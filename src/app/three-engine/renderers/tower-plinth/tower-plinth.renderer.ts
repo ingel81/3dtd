@@ -4,6 +4,7 @@ import type { CoordinateSync } from '../index';
 import { crownBraces, plinthBraces, type PlinthCrown } from './plinth-braces';
 import { createPlinthGeometry } from './plinth-geometry';
 import { createPlinthMaterial } from './plinth-material';
+import { makeModelTransparent, PREVIEW_OPACITY } from '../tower-preview-model';
 
 /**
  * A plinth mesh with a geometry of its own. Its origin is the lowest point
@@ -118,9 +119,15 @@ export class TowerPlinthRenderer {
     return this.plinths.size;
   }
 
-  /** A plinth with the shared material for the load-time warm-up, like ThreeTowerRenderer.warmUpObjects */
-  warmUpObject(): Object3D {
-    return createPlinthMesh(1, 1, this.material);
+  /**
+   * For the load-time warm-up, like ThreeTowerRenderer.warmUpObjects: a
+   * plinth with the shared material, and the build preview's see-through one
+   * (TowerPlinthPreview), whose program the first pick linked in its frame
+   */
+  warmUpObjects(): Object3D[] {
+    const preview = createPlinthMesh(1, 1, createPlinthMaterial());
+    makeModelTransparent(preview, PREVIEW_OPACITY);
+    return [createPlinthMesh(1, 1, this.material), preview];
   }
 
   dispose(): void {

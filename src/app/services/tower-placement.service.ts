@@ -17,7 +17,7 @@ import { TowerDefenseStore } from '../store/tower-defense.store';
 import { checkTowerPlacement, TowerPlacementContext, TowerPlacementResult, type TowerPlacementRefusal } from '../utils/tower-placement-rules';
 import { ResearchStore } from '../store/research.store';
 import { BuildPreviewLos } from './build-preview-los';
-import { makeModelTransparent, tintPreviewModel } from './tower-preview-model';
+import { buildPreviewModel, tintPreviewModel } from '../three-engine/renderers/tower-preview-model';
 import {
   CrownCarries,
   FootprintColumn,
@@ -37,7 +37,6 @@ import { TowerPlinthPreview } from './tower-plinth-preview';
 import { plinthCrown } from '../three-engine/renderers/tower-plinth/plinth-braces';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import { uiSound } from './ui-sound';
-import { addShotLightTo } from '../three-engine/shot-lights/shot-light-shader';
 
 /** One row of `__footprintDebug()`: how the last preview footprint was decided, heights in m. */
 export interface FootprintDebugRow {
@@ -338,19 +337,12 @@ export class TowerPlacementService {
       // Build mode was left (or switched to another type) while loading.
       if (token !== this.previewLoadToken || !this.engine) return;
 
-      // Clone the model for preview
-      const model = this.assetManager.cloneModel(config.modelUrl);
+      // Built as the load-time warm-up built it: its programs are ready
+      const model = buildPreviewModel(this.assetManager, config);
       if (!model) {
         console.error(`[TowerPlacement] Failed to clone model: ${typeId}`);
         return;
       }
-      // The programs of the placed towers (ThreeTowerRenderer.buildModel): the preview links none of its own
-      addShotLightTo(model);
-
-      model.scale.setScalar(config.scale);
-      // Apply base rotation from config
-      model.rotation.y = config.rotationY ?? 0;
-      makeModelTransparent(model, 0.7);
 
       this.previewTowerMesh = model;
       this.previewTowerMesh.visible = false;

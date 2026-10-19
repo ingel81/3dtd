@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Mesh, Scene, Vector3, type Material } from 'three';
+import { Mesh, MeshStandardMaterial, Scene, Vector3, type Material } from 'three';
 import { TowerPlinthRenderer, createPlinthMesh } from './tower-plinth.renderer';
 import { PLINTH_EMBED_M } from './plinth-geometry';
 import { footprintSampleOffsets } from '../../../utils/tower-footprint';
+import { PREVIEW_OPACITY } from '../tower-preview-model';
 
 /** Local frame of the test: x = lon, z = lat, y = height. */
 const sync = {
@@ -82,15 +83,21 @@ describe('TowerPlinthRenderer', () => {
     expect(dispose).toHaveBeenCalled();
   });
 
-  it('gives the warm-up a plinth with the shared material, outside the scene', () => {
+  it('gives the warm-up a plinth with the shared material and the see-through preview one, outside the scene', () => {
     const { scene, renderer, plinthOf } = setup();
     renderer.create('t1', 0, 0, 5, 1, 3.6);
-    const material = plinthOf('t1')!.material;
+    const material = plinthOf('t1')!.material as MeshStandardMaterial;
 
-    const warm = renderer.warmUpObject() as Mesh;
+    const [warm, preview] = renderer.warmUpObjects() as Mesh[];
 
     expect(warm.material).toBe(material);
+    // The preview's program differs only in being see-through (TowerPlinthPreview)
+    const seeThrough = preview.material as MeshStandardMaterial;
+    expect(seeThrough).not.toBe(material);
+    expect(seeThrough.customProgramCacheKey()).toBe(material.customProgramCacheKey());
+    expect([seeThrough.transparent, seeThrough.depthWrite, seeThrough.opacity]).toEqual([true, false, PREVIEW_OPACITY]);
     expect(scene.children).not.toContain(warm);
+    expect(scene.children).not.toContain(preview);
   });
 
   it('props a plinth over a drop with braces below it, and builds none without (E18)', () => {

@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial } from 'three';
-import { makeModelTransparent, tintPreviewModel } from './tower-preview-model';
+import { buildPreviewModel, makeModelTransparent, PREVIEW_OPACITY, tintPreviewModel } from './tower-preview-model';
 
 const model = () => {
   const root = new Group();
@@ -42,5 +42,23 @@ describe('tower preview model', () => {
     const basic = (multi.material as [MeshStandardMaterial, MeshBasicMaterial])[1];
     expect(() => tintPreviewModel(root, true)).not.toThrow();
     expect((basic as unknown as { emissive?: unknown }).emissive).toBeUndefined();
+  });
+
+  it('builds the preview from a clone at the type scale and base rotation, see-through', () => {
+    const { root, single } = model();
+    const assets = { cloneModel: vi.fn(() => root) };
+
+    const preview = buildPreviewModel(assets, { modelUrl: 'tower.glb', scale: 2.5, rotationY: 0.3 });
+
+    expect(assets.cloneModel).toHaveBeenCalledWith('tower.glb');
+    expect(preview).toBe(root);
+    expect(root.scale.x).toBe(2.5);
+    expect(root.rotation.y).toBeCloseTo(0.3);
+    const mat = single.material as MeshStandardMaterial;
+    expect([mat.transparent, mat.depthWrite, mat.opacity]).toEqual([true, false, PREVIEW_OPACITY]);
+  });
+
+  it('builds no preview while the model is not loaded', () => {
+    expect(buildPreviewModel({ cloneModel: () => null }, { modelUrl: 'x.glb', scale: 1 })).toBeNull();
   });
 });

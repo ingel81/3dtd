@@ -3,7 +3,7 @@ import { createPlinthMaterial } from '../three-engine/renderers/tower-plinth/pli
 import { createPlinthMesh } from '../three-engine/renderers/tower-plinth/tower-plinth.renderer';
 import type { PlinthCrown } from '../three-engine/renderers/tower-plinth/plinth-braces';
 import { sameOverhang } from '../utils/tower-footprint';
-import { makeModelTransparent, tintPreviewModel } from './tower-preview-model';
+import { makeModelTransparent, PREVIEW_OPACITY, tintPreviewModel } from '../three-engine/renderers/tower-preview-model';
 
 /**
  * The plinth under the build preview: the same stones and braces as the
@@ -59,7 +59,7 @@ export class TowerPlinthPreview {
       this.builtRadius = footprintRadius;
       this.builtHeight = height;
       this.builtOverhang = overhang;
-      makeModelTransparent(this.mesh, 0.7);
+      makeModelTransparent(this.mesh, PREVIEW_OPACITY);
     }
     if (this.mesh.parent !== parent) parent.add(this.mesh);
     if (this.tintedValid !== valid) {

@@ -1433,7 +1433,7 @@ export class ThreeTilesEngine {
    * the world's ground stands: its lights and output are known then
    * (compilingForFrames), and its own programs are built. What comes into the
    * scene only later (towers with their builds and paths, plinths,
-   * tentacles, ooze bands, the hero) is there as stand-ins meanwhile, drawn
+   * tentacles, ooze bands, the hero, the build preview) is there as stand-ins meanwhile, drawn
    * too small for a pixel in the warm-up frame; the shadow map renders in it
    * as well, then with all the world hides shown (drawHidden). Afterwards every program does its first-use work
    * (firstUsePrograms).
@@ -1462,7 +1462,13 @@ export class ThreeTilesEngine {
     if (this.disposed) return;
     const standIns = new Group();
     standIns.name = 'warm-up stand-ins';
-    for (const o of [...this.towers.warmUpObjects(first?.towers), this.plinths.warmUpObject(), this.tentacles.warmUpObject(), this.oozes.warmUpObject(), ...lineStandIns(this.portalClip)]) standIns.add(o);
+    for (const o of [
+      ...this.towers.warmUpObjects(first?.towers),
+      ...this.plinths.warmUpObjects(),
+      this.tentacles.warmUpObject(),
+      this.oozes.warmUpObject(),
+      ...lineStandIns(this.portalClip),
+    ]) standIns.add(o);
     if (hero) standIns.add(hero);
     standIns.scale.setScalar(1e-4);
     // Hidden while their programs link (three's compile walks hidden objects): a loading frame that drew them

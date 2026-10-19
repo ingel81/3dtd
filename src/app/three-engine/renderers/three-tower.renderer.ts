@@ -35,6 +35,7 @@ import { setTowerGreyedOut } from './tower-hold-fire';
 import { TowerBuild, scaffoldWarmUp } from './tower-scaffold';
 import { TOWER_PATHS, getTowerPath, towerConfigOf } from '../../configs/tower-paths.config';
 import { addShotLightTo } from '../shot-lights/shot-light-shader';
+import { buildPreviewModel } from './tower-preview-model';
 
 /** Every model a tower can wear: each type's, its paths' swaps and attachments */
 function towerModelUrls(types: readonly TowerTypeId[] = Object.keys(TOWER_TYPES) as TowerTypeId[]): string[] {
@@ -282,9 +283,11 @@ export class ThreeTowerRenderer {
    * tower's model built as `create` builds it, with its saw arms, doner
    * stream and shadow, a twin clipped as during its build (TowerBuild: the
    * number of clipping planes is part of a program), each path's attachment,
-   * the scaffold, the rings and markers. Their programs are the real
-   * towers', whose first placement linked them in its frame (archer 250 ms,
-   * tentacle 470 ms). `types`: only these towers and their paths (all by
+   * the scaffold, the rings and markers, and each tower's build preview
+   * (buildPreviewModel). Their programs are the real towers', whose first
+   * placement linked them in its frame (archer 250 ms, tentacle 470 ms), and
+   * the preview's, which the first pick of a tower linked in its frame (the
+   * archer's 250 to 550 ms on autumn keep and an OSM world, E258). `types`: only these towers and their paths (all by
    * default); `shared` false leaves out the scaffold, rings and markers (the
    * models loaded later, ThreeTilesEngine.warmRest).
    */
@@ -313,6 +316,10 @@ export class ThreeTowerRenderer {
         }
         out.push(mesh);
       }
+    }
+    for (const id of (Object.keys(TOWER_TYPES) as TowerTypeId[]).filter(wanted)) {
+      const preview = buildPreviewModel(this.assetManager, TOWER_TYPES[id]);
+      if (preview) out.push(preview);
     }
     for (const path of Object.values(TOWER_PATHS)) {
       const model = path.attachment && wanted(path.towerId) ? this.assetManager.cloneModel(path.attachment.modelUrl) : null;
