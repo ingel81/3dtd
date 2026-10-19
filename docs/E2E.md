@@ -133,6 +133,9 @@ node e2e/perf/sim-load.ts --url http://localhost:4244 --browser chromium --heade
   die Aufrufe der Darstellung (Schuss, Einschlag, Stufen und Krater der Zerstörung, die Schichten der Karte) mit ihrer
   Zeit; je langem Frame steht dabei, was in ihm lief. `--close` setzt die Kamera an den ersten Schuss, `--trace`
   listet jeden Aufruf benannter Methoden mit Argumenten, `--profile` das CPU-Profil langer Frames. Dev-Server nötig.
+- `e2e/perf/build-preview-probe.ts`: wählt einen Tower wie das Baumenü und fährt die echte Maus in Durchgängen neben
+  einer Route entlang (TODO E258); je Durchgang Bildabstände beim Wählen und beim Bewegen, gelinkte Programme,
+  Hauptthread-Zeit der Vorschau-Teile, GPU-Zeit des Würfels. Eigene Karten (OSM-Welten) mit `--seed`.
 
 ## Coop-Läufe mit Bots (`e2e/coop-bots/run.ts`)
 
