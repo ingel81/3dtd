@@ -182,6 +182,11 @@ describe('MapObjectLayer levels of detail', () => {
     expect(inShadow(mesh('post-lod1'))).toBe(2);
     // The main pass still draws every instance
     expect(mesh('post-lod1').count).toBe(16);
+    // The water's mirror draws those near the focus only, and the counts come back after it
+    layer.nearOnly(true);
+    expect(mesh('post-lod1').count).toBe(2);
+    layer.nearOnly(false);
+    expect(mesh('post-lod1').count).toBe(16);
     layer.dispose();
   });
 

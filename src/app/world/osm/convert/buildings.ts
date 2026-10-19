@@ -52,7 +52,7 @@ export type BuildingCatalogEntry = CostEntry & { id: string; footprint: number; 
 export function buildingCatalog(objects: readonly (BuildingCatalogEntry & { id: string })[]): BuildingCatalogEntry[] {
   return objects
     .filter((o) => BUILDING_MODELS[o.id] || o.id === RETAINING_ASSET || o.id === MASS_ASSET)
-    .map(({ id, category, height, drawDistance, file, triangles, lod, effects, footprint, box }) => ({ id, category, height, drawDistance, file, triangles, lod, effects, footprint, box }));
+    .map(({ id, category, height, drawDistance, file, triangles, lod, far, effects, footprint, box }) => ({ id, category, height, drawDistance, file, triangles, lod, far, effects, footprint, box }));
 }
 
 export interface BuildingOptions {

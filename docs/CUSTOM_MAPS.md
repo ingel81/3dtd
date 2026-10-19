@@ -586,7 +586,12 @@ der Zeile des Assets in einer kleinen Datentextur und der Instanzmatrix, gleich 
 nach derselben Zellregel wie am Modell. Gebaut von `tools/map-assets/bake_far_boxes.mjs` (Playwright-Chromium, three
 lädt die Modelle wie das Spiel, unbeleuchtet): das Raster ist die Kleinste-Quadrate-Fläche über der Oberseite, offene
 Randzeilen (Balkone, Vordächer) fallen weg; ein Modell, das der Kasten nicht trägt (L-Form, Turm, Kuppel, Ruine),
-bekommt keinen und behält sein LOD-Modell. 76 von 104 Gebäuden haben einen. Gebäude nehmen ihr LOD-Modell dafür
+bekommt keinen und behält sein LOD-Modell. 76 von 104 Gebäuden haben einen, dazu Rebzeilen und Hecken (fern ein
+Block; ihre Lücken im Atlas als Schatten im Laub): Oberbergen, Spielansicht High 7,1 → 1,6 M Dreiecke, 391 → 155 Draws.
+101 Modelle ohne LOD (über 1500 Dreiecke, Mauern ab 150) haben eine Fernkopie aus `make_far_lods.mjs`
+(meshoptimizer, flach schattiert, Farbe aus `match_lods.py`); Stützmauern 176 → 38 Dreiecke.
+Der Wasserspiegel zeichnet je Mesh nur die Instanzen nahe dem Fokus (`nearOnly`, die Schattenwerfer vorn): er reicht
+nicht weiter (Stuttgart, Spielansicht: 1,57 → 1,17 M Dreiecke im Spiegel). Gebäude nehmen ihr LOD-Modell dafür
 näher (bei 140 m statt 350 m für ein Objekt in Asset-Größe). Stuttgart, map-preview High, Spielansicht: 547 → 339
 Draws, 19,4 → 6,6 M Dreiecke; fern 11,6 → 3,4 M.
 Dazu werden die Teile eines Modells ohne

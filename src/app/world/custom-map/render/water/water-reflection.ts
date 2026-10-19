@@ -37,7 +37,8 @@ import type { SceneCopy } from './scene-copy';
  * the map's particles, heat shimmer and the objects that block no sight:
  * scatter, props, small plants) is hidden. Nothing beyond `far` is drawn,
  * the shadow map is not updated and the frame's copy is not taken in the
- * mirror's pass (`copy`, scene-copy.ts).
+ * mirror's pass (`copy`, scene-copy.ts). `around` brackets the pass: the
+ * map's objects draw only those near the focus there (MapObjectLayer.nearOnly).
  */
 export class WaterReflection {
   readonly uniforms = {
@@ -76,6 +77,8 @@ export class WaterReflection {
     private readonly keep: () => Object3D[],
     /** The frame's copy (refraction, heat haze): not taken in the mirror's pass */
     private readonly copy: SceneCopy | null = null,
+    /** Called with true before the mirror's pass and false after it (the objects draw only those near the focus) */
+    private readonly around: ((mirroring: boolean) => void) | null = null,
   ) {}
 
   /**
@@ -117,6 +120,7 @@ export class WaterReflection {
       if (child.visible && !keep.has(child) && !this.holdsLight(child)) hidden.push(child);
     }
     for (const o of hidden) o.visible = false;
+    this.around?.(true);
     const shadowAuto = renderer.shadowMap.autoUpdate;
     const shadowDue = renderer.shadowMap.needsUpdate;
     const xr = renderer.xr.enabled;
@@ -135,6 +139,7 @@ export class WaterReflection {
       renderer.shadowMap.needsUpdate = shadowDue;
       renderer.xr.enabled = xr;
       for (const o of hidden) o.visible = true;
+      this.around?.(false);
     }
   }
 

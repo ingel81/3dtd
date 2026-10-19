@@ -111,7 +111,7 @@ export async function loadAssetCatalog(library = MapAssetLibrary.shared()): Prom
 interface RawCatalog {
   materials?: (Partial<GroundMaterialEntry> & { id: string; average?: string; files?: { color?: string } })[];
   objects?: (Partial<ObjectAssetEntry> &
-    Partial<Pick<CatalogObject, 'drawDistance' | 'triangles' | 'lod' | 'effects' | 'aloft' | 'stilts' | 'roadThrough' | 'spin' | 'signPanel'>> & { id: string; footprint?: number; file?: string; category?: string })[];
+    Partial<Pick<CatalogObject, 'drawDistance' | 'triangles' | 'lod' | 'far' | 'effects' | 'aloft' | 'stilts' | 'roadThrough' | 'spin' | 'signPanel'>> & { id: string; footprint?: number; file?: string; category?: string })[];
 }
 
 const CATEGORY_NAMES: Record<string, string> = {
@@ -183,6 +183,7 @@ export function normalizeCatalog(json: RawCatalog, assetsUrl: string): MapAssetC
                 file: o.file ?? '',
                 triangles: o.triangles,
                 lod: o.lod,
+                far: o.far,
                 effects: o.effects,
               },
       };

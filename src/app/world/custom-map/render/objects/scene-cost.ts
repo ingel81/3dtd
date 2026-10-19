@@ -32,6 +32,8 @@ export const SCENE_BUDGET = 12_000_000;
 const INSTANCE_COST = 2;
 /** The two crossed cards of an impostor (impostor.ts) */
 const IMPOSTOR_TRIANGLES = 4;
+/** A building's far box (far-boxes.ts) */
+const FAR_BOX_TRIANGLES = 24;
 /** Impostors start no nearer than this at the High quality level (render-quality.ts), m */
 const IMPOSTOR_FROM = 380;
 /** Points per particle a second of an effect: sprites that live a few seconds and overdraw */
@@ -42,7 +44,10 @@ const UNKNOWN_TRIANGLES = 500;
 const UNKNOWN: CostEntry = { category: 'prop', height: 2, drawDistance: 500, file: '?' };
 
 /** The catalogue fields the cost reads */
-export type CostEntry = Pick<CatalogObject, 'category' | 'height' | 'drawDistance' | 'file' | 'triangles' | 'lod' | 'effects'> & { footprint?: number };
+export type CostEntry = Pick<CatalogObject, 'category' | 'height' | 'drawDistance' | 'file' | 'triangles' | 'lod' | 'effects'> & {
+  footprint?: number;
+  far?: { screen: number };
+};
 
 /** Share of a map of `area` m² between two distances from the camera (a ring, at most the whole map) */
 function ring(from: number, to: number, area: number): number {
@@ -64,6 +69,8 @@ export function objectCost(entry: CostEntry | undefined, area: number): number {
     const last = levels.length > 1 ? Math.max(...levels.slice(1).map((l) => l.from)) * 1.5 : 0;
     levels.push({ from: Math.max(last, entry.height * 25, IMPOSTOR_FROM), triangles: IMPOSTOR_TRIANGLES });
   }
+  // As levelsFor: a building's box where it fills its screen share
+  if (entry.far) levels.push({ from: screenDistance(radius, entry.far.screen), triangles: FAR_BOX_TRIANGLES });
   levels.sort((a, b) => a.from - b.from);
   for (let l = 0; l < levels.length; l++) {
     const to = Math.min(l + 1 < levels.length ? levels[l + 1].from : Infinity, entry.drawDistance);

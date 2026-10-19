@@ -289,6 +289,11 @@ export class FarBoxes {
     }
   }
 
+  /** While `on` the boxes near the focus alone (MapObjectLayer.nearOnly) */
+  nearOnly(on: boolean): void {
+    for (const d of this.draws) if (d) d.mesh.count = on ? Math.min(d.list.count, d.list.casters) : d.list.count;
+  }
+
   /** The meshes of the boxes that block no sight (a water reflection leaves them out) */
   openMeshes(): InstancedMesh[] {
     return this.draws[1] ? [this.draws[1].mesh] : [];

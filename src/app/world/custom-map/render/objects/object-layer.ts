@@ -540,6 +540,16 @@ export class MapObjectLayer {
     return mass && (!best || mass.distance < best.distance) ? mass : best;
   }
 
+  /**
+   * While `on`, every mesh draws only its first instances, those near the
+   * focus (the shadow's casters): a pass that reaches no farther, the water's
+   * mirror, does without the rest of the map. Off puts the counts back
+   */
+  nearOnly(on: boolean): void {
+    for (const b of this.batches) for (const d of b.draws) for (const m of d.meshes) m.count = on ? Math.min(d.list.count, d.list.casters) : d.list.count;
+    this.farBoxes?.nearOnly(on);
+  }
+
   /** Meshes of objects that block no sight (scatter, props, small plants): what a water reflection leaves out */
   decorMeshes(): Object3D[] {
     const out: Object3D[] = [];

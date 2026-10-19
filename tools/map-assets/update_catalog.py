@@ -97,8 +97,10 @@ def main():
             e['blocksLos'] = e['height'] >= 1.8
         if 'drawDistance' not in o and e['category'] in ('rock', 'prop') and e['height'] >= 3:
             e['drawDistance'] = 2500
-        if o['id'] + '-lod1' in report and 'lod' not in o:
-            # Decimated copy from the builders (export_lod); small plants vanish at their draw distance: switch well before that
+        lod_file = os.path.join(out, 'models', o['id'] + '-lod1.glb')
+        if 'lod' not in o and (o['id'] + '-lod1' in report or (not (kept and 'lod' in kept) and os.path.exists(lod_file))):
+            # Decimated copy from the builders (export_lod) or make_far_lods.mjs; small plants vanish at their draw distance:
+            # switch well before that
             distance = BUILDING_LOD_DISTANCE if e['category'] == 'building' else LOD_DISTANCE
             e['lod'] = [{'file': f'models/{o["id"]}-lod1.glb', 'screen': lod_screen(e, min(distance, round(e['drawDistance'] * 0.4)))}]
         elif kept and 'lod' in kept and 'lod' not in o:

@@ -38,11 +38,12 @@ describe('mapBudget', () => {
 });
 
 describe('mapSceneCost', () => {
-  it('lets a Large meadow of 90 000 tufts and flowers stay light, where as many houses would not', () => {
+  it('lets a Large meadow of 90 000 tufts and flowers stay light, where a few thousand heavy models without a far stage would not', () => {
     const meadow = mapOf(2048, { 'grass-clump': 45_000, flowers: 40_000, bush: 5_000, 'tree-oak': 800 });
     expect(mapSceneCost(meadow, catalog) / SCENE_BUDGET).toBeLessThan(0.1);
-    const town = mapOf(1024, { house: 3_000 });
-    expect(mapSceneCost(town, catalog) / SCENE_BUDGET).toBeGreaterThan(0.8);
+    // Houses take their LOD model and box early (far-boxes.ts): 3 000 of them stay light; a ruined keep has neither
+    expect(mapSceneCost(mapOf(1024, { house: 3_000 }), catalog) / SCENE_BUDGET).toBeLessThan(0.2);
+    expect(mapSceneCost(mapOf(1024, { 'keep-ruin': 3_000 }), catalog) / SCENE_BUDGET).toBeGreaterThan(0.8);
   });
 
   it('counts an asset the catalogue does not know as a mid-sized prop, so an old file still adds up', () => {
@@ -55,7 +56,7 @@ describe('mapSceneCost', () => {
   it('warns in the map check above 100 %, not below', () => {
     const issues = (doc: ReturnType<typeof mapOf>) => validateMap(doc, { costOf: assetCosts(catalog, doc) }).filter((i) => i.code === 'scene-cost');
     expect(issues(mapOf(1024, { house: 100 }))).toEqual([]);
-    const heavy = issues(mapOf(1024, { 'house-large': 2_000 }));
+    const heavy = issues(mapOf(1024, { 'keep-ruin': 4_000 }));
     expect(heavy).toHaveLength(1);
     expect(heavy[0]).toMatchObject({ severity: 'warning' });
     expect(heavy[0].message).toMatch(/^Scene cost \d+ %/);

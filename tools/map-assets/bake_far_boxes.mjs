@@ -1,4 +1,4 @@
-// Bakes the far stage of the buildings (object-layer.ts, far-boxes.ts): each building model as a box of 24
+// Bakes the far stage of the buildings and of rows of foliage (object-layer.ts, far-boxes.ts): each building model as a box of 24
 // triangles, its top a 3 x 3 grid of heights (a flat roof, a gable either way, a hip, a shed), its four walls
 // and its top textured with the model seen square on from that side, five tiles of TILE px in one atlas for all
 // buildings. A model the box cannot stand for (an L, a tower beside a hall, a spire) gets none and keeps its
@@ -42,7 +42,15 @@ const root = path.resolve(here, '../..');
 const e2e = process.env.E2E_DIR ?? path.join(root, 'e2e');
 const { chromium } = createRequire(path.join(e2e, 'package.json'))('playwright');
 const catalog = JSON.parse(readFileSync(path.join(assets, 'catalog.json'), 'utf8'));
-const buildings = catalog.objects.filter((o) => o.category === 'building' && o.file && (!only.size || only.has(o.id)));
+/**
+ * Rows of foliage that read as a solid line from afar (a vineyard's rows, hedges) get a box too, after the
+ * buildings so their tiles keep their places
+ */
+const ROWS = ['vine-row', 'hedge', 'hedge-long'];
+const buildings = [
+  ...catalog.objects.filter((o) => o.category === 'building'),
+  ...ROWS.map((id) => catalog.objects.find((o) => o.id === id)).filter(Boolean),
+].filter((o) => o.file && (!only.size || only.has(o.id)));
 
 const PAGE = /* html */ `<!doctype html><html><body>
 <script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
@@ -121,7 +129,7 @@ window.bake = async (list) => {
   const out = {};
   const report = [];
   let k = 0;
-  for (const { id, url } of list) {
+  for (const { id, url, row } of list) {
     const gltf = await loader.loadAsync(url);
     const scene = new THREE.Scene();
     scene.add(gltf.scene);
@@ -218,7 +226,8 @@ window.bake = async (list) => {
     }
     const topError = err / n / Math.max(1, height);
     report.push({ id, cover: +cover.toFixed(2), topError: +topError.toFixed(3) });
-    if (cover < ${MIN_COVER} || topError > ${MAX_TOP_ERROR}) continue;
+    // A row of foliage stands for a slab from afar, gaps and all
+    if (!row && (cover < ${MIN_COVER} || topError > ${MAX_TOP_ERROR})) continue;
     // Five views into five tiles: the colour, then the glass as alpha
     const parts = unlit(scene);
     const atlasTile = k;
@@ -243,7 +252,17 @@ window.bake = async (list) => {
       const px = colour.data;
       // Pixels the model covers at least partly keep their (straight) colour, the others are filled from beside
       for (let q = 0; q < px.length; q += 4) px[q + 3] = px[q + 3] > 24 ? 1 : 0;
+      const open = row ? px.filter((_, q) => q % 4 === 3).map((a) => 1 - a) : null;
       dilate(px, ${TILE});
+      if (open) {
+        // A row's gaps are the shade inside its foliage, and the unlit leaves are lighter than the lit crown
+        for (let q = 0; q < px.length; q += 4) {
+          const k = open[q / 4] ? 0.45 : 0.8;
+          px[q] *= k;
+          px[q + 1] *= k;
+          px[q + 2] *= k;
+        }
+      }
       for (let q = 0; q < px.length; q += 4) px[q + 3] = mask.data[q] > 127 ? 128 : 255;
       const t = atlasTile * 5 + view;
       actx.putImageData(colour, (t % ${COLUMNS}) * ${TILE}, Math.floor(t / ${COLUMNS}) * ${TILE});
@@ -290,7 +309,7 @@ try {
   page.on('pageerror', (e) => console.error('page:', e.message));
   await page.goto(`http://localhost:${port}/`);
   await page.waitForFunction(() => window.ready === true);
-  const list = buildings.map((o) => ({ id: o.id, url: `/assets/${o.file}` }));
+  const list = buildings.map((o) => ({ id: o.id, url: `/assets/${o.file}`, row: ROWS.includes(o.id) }));
   const { out, report, image } = await page.evaluate((l) => window.bake(l), list);
   for (const r of report) console.error(`${r.id.padEnd(28)} cover ${r.cover}  top error ${r.topError}${out[r.id] ? '' : '  (no box)'}`);
   writeFileSync(path.join(assets, 'models', 'far-boxes.webp'), Buffer.from(image.split(',')[1], 'base64'));

@@ -232,7 +232,7 @@ export class CustomMapView {
     this.movers.group,
     this.haze.group,
     ...this.objects.decorMeshes(),
-  ], () => [this.group, this.losBlockers, this.environment.lights, this.environment.skyDome.mesh], this.sceneCopy);
+  ], () => [this.group, this.losBlockers, this.environment.lights, this.environment.skyDome.mesh], this.sceneCopy, (on) => this.objects.nearOnly(on));
   /** Which level the reflection mirrors and how strongly (mirror-choice.ts) */
   private readonly mirrorChoice = new MirrorChoice<WaterSurface>();
   private readonly mirrorLevel = new Vector3();

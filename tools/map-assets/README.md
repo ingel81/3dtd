@@ -54,7 +54,12 @@ node tools/map-assets/measure_bases.mjs public/maps/assets
 node tools/map-assets/measure_boxes.mjs public/maps/assets
 node tools/map-assets/measure_roofs.mjs public/maps/assets
 
-# Fernstufe der Gebäude: Kasten mit 3 x 3 Dachhöhen und gebackenem Atlas (farboxes.json, models/far-boxes.webp);
+# Fernkopien (-lod1) für Modelle ohne LOD: über 1500 Dreiecke und Mauern ab 150 (meshoptimizer, flach schattiert, Farben
+# danach aus match_lods.py); komprimieren, dann update_catalog.py, match_lods.py <ids>, update_catalog.py
+node tools/map-assets/make_far_lods.mjs public/maps/assets [<id> ...]
+npx -y @gltf-transform/cli@4.5.1 meshopt public/maps/assets/models/<id>-lod1.glb public/maps/assets/models/<id>-lod1.glb
+
+# Fernstufe der Gebäude (und Rebzeilen, Hecken als Block): Kasten mit 3 x 3 Dachhöhen und gebackenem Atlas (farboxes.json, models/far-boxes.webp);
 # danach update_catalog.py (Feld `far`). Playwright aus e2e/node_modules
 node tools/map-assets/bake_far_boxes.mjs public/maps/assets
 
