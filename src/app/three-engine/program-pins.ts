@@ -25,7 +25,7 @@ export class ProgramPins {
   private readonly programs = new Set<object>();
 
   /** Pins the shaders of every ShaderMaterial under `root` not pinned yet; resolves once their programs are built */
-  pinShaders(renderer: WebGLRenderer, root: Object3D, camera: Camera, scene: Scene): Promise<unknown> {
+  pinShaders(renderer: WebGLRenderer, root: Object3D, camera: Camera, scene: Scene, builtOnly = false): Promise<unknown> {
     const added: Object3D[] = [];
     root.traverse((o) => {
       const material = (o as { material?: Material | Material[] }).material;
@@ -34,6 +34,8 @@ export class ProgramPins {
         const s = m as ShaderMaterial;
         const text = `${s.vertexShader}\u0000${s.fragmentShader}`;
         if (this.texts.has(text)) continue;
+        // `builtOnly`: a material whose program still links gets no twin (its twin would keep the linking program)
+        if (builtOnly && !programBuilt(renderer, s)) continue;
         this.texts.add(text);
         const pin = twinMaterial(s);
         const mesh = twinObject(o, pin);
@@ -63,7 +65,9 @@ export class ProgramPins {
    */
   pinPrograms(renderer: WebGLRenderer): void {
     for (const program of renderer.info.programs ?? []) {
-      if (this.programs.has(program)) continue;
+      // Not one still linking: kept past its owner and drawn by the next view before the link is through, its first
+      // draw waited for it (the editor's terrain, still linking when a test run started: a frame of 4 to 6 s)
+      if (this.programs.has(program) || (program as { isReady?: () => boolean }).isReady?.() === false) continue;
       this.programs.add(program);
       (program as unknown as { usedTimes: number }).usedTimes++;
     }
@@ -76,7 +80,7 @@ export class ProgramPins {
    * exist: nothing links
    */
   pinAll(renderer: WebGLRenderer, scene: Scene, camera: Camera): void {
-    void this.pinShaders(renderer, scene, camera, scene);
+    void this.pinShaders(renderer, scene, camera, scene, true);
     this.pinPrograms(renderer);
   }
 
@@ -104,6 +108,12 @@ export class ProgramPins {
     holder.material.dispose();
     holder.geometry.dispose();
   }
+}
+
+/** Whether the program `material` draws with now has finished linking */
+function programBuilt(renderer: WebGLRenderer, material: Material): boolean {
+  const program = (renderer.properties.get(material) as { currentProgram?: { isReady?: () => boolean } }).currentProgram;
+  return program?.isReady?.() !== false;
 }
 
 /** Marks a twin in its userData: a lease's end leaves it to the pins (RendererHost) */

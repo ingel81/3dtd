@@ -72,4 +72,13 @@ describe('ProgramPins', () => {
     expect(programs.map((p) => p.usedTimes)).toEqual([1, 3]);
     expect(pins.count.programs).toBe(0);
   });
+
+  it('pins no program still linking: the next view drawing it would wait for the link', () => {
+    const linking = { usedTimes: 1, isReady: () => false };
+    const built = { usedTimes: 1, isReady: () => true };
+    const { renderer } = fakeRenderer([linking, built]);
+    const pins = new ProgramPins();
+    pins.pinPrograms(renderer);
+    expect([linking.usedTimes, built.usedTimes]).toEqual([1, 2]);
+  });
 });
