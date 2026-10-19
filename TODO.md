@@ -35,16 +35,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       prüfen: nach dem Leeren der Kartenbibliothek dekodierte sie 258 Bilder statt KTX2 (vermutlich noch WebP-Bäume).
 - [ ] **E247 Startpaket 2,65 MB** (Ziel 2,54): Custom-Map-Welt (156 kB) per `import()` vom Startpfad, englisches
       Wörterbuch (120 kB) prüfen, der Template-Worker des Editors bündelt `en.ts` mit (`tmp/plan/r8/WIP_r8-ktx2.md`).
-- [ ] **E248 Grundstücke in OSM-Welten** (Vorgarten, Einfahrt, Hecke): gebaut, nicht übernommen, auf
-      `wt/r6-surface-b` 8672588f0 (Miltenberg +617 Vorgärten, +411 Einfahrten, +0,84 M Dreiecke vor allem durch Hecken,
-      Budget ausgeschöpft). Vor der Übernahme: Hecken aus echten OSM-Linien zuerst, Hecken billiger, mehrere Orte.
-- [ ] **E249 Zerstörung Rest**: Klänge (Auswahl in `tmp/sound-audition/choices.json`, User 2026-10-19): gewählt
-      Einsturz klein Mauerwerk 3, Holz 1, Metall 3, Nachrieseln 3; neu erzeugen alle großen Einstürze, Beton klein und
-      Krater („vieles zu dumpf und qualitativ zu schlecht“), dann `install.py` und einbauen. Fallrichtung aus dem Treffer
-      gebaut, nicht übernommen: `wt/r8-destroy-b` e8f7d03d8 und 3e4dbb40a, schräger Treffer im Bild ungeprüft.
-- [ ] **E250 Impostor-Ton**: Fix gebaut, nicht übernommen, `wt/r8-veg-c` c4f65db86 (Tonprobe unter Kartenlicht ohne
-      Schatten, Metall aus Maps 0): alle vier Karten im Flächenmaß in ±1 %, an Kanten Autumn Keep noch 4 %; nach dem
-      Rebase lief nur custom-map, die volle Suite vor der Übernahme.
 - [ ] **E251 Laden nach Bedarf, Rest**: Freischalten im Lauf per Probe geprüft (0 Links, längstes Bild 14 ms; ein
       Zeitvorteil des Vorziehens ist nicht nachweisbar); rund 65 Links direkt bei ready (Grafikstufen noch im
       Aufwärmen, zu E246); Bildspitzen unter Ruhe nachmessen (`tmp/plan/r6/MESSUNGEN_SPAETER.md`).
@@ -206,6 +196,9 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       aus Textur-Arrays, KTX2-Modelle (94,7 → 37,2 MiB), Laden nach Bedarf, ein Renderer, Caches über Editor⇄Test (K6).
 - [ ] **K5 Menüs, Editor, Sprache** Menü-Abläufe und Optik, Editor-Browser, Vegetation (Bestände, Gras), E245 Deutsch
       im Editor und in den Settings wählbar (K7).
+- [ ] **K6 Nachzug 2026-10-19**: E248 Grundstücke (Vorgarten, Einfahrt, Hecke; Hecken noch aus echten OSM-Linien
+      und billiger, mehrere Orte), E249 Fallrichtung aus dem Treffer (schräger Treffer im Bild ungeprüft) und Klänge
+      der Zerstörung (Einsturz je Material und Größe, Nachrieseln, Krater), E250 Impostor-Ton.
 
 ### Licht durch Munition (2026-10-18, Branch `wt/r7-muzzle`, Nachtests in PLAYTEST.md I)
 
