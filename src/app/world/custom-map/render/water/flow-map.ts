@@ -1,5 +1,6 @@
 import type { MapWater } from '../../map-document';
 import type { HeightField } from '../height-field';
+import type { GridRect } from '../terrain/terrain-chunks';
 
 /**
  * Baked flow of an area water body, four bytes per height sample. RG:
@@ -59,6 +60,33 @@ export function flowInput(field: HeightField, water: MapWater, copy = false): Fl
     originY: field.originY,
     heights: copy ? field.grid.heights.slice() : field.grid.heights,
     mask: copy ? water.mask.slice() : water.mask,
+    level: water.level,
+    lava: water.kind === 'lava',
+  };
+}
+
+/**
+ * The input of a bake of `window` of the grid only (copies of its samples, the origin moved to its corner): the
+ * same flow there as the whole grid's when the window holds the body with a margin past its shore field
+ */
+export function flowInputIn(field: HeightField, water: MapWater, window: GridRect): FlowInput {
+  const w = window.i1 - window.i0 + 1;
+  const h = window.j1 - window.j0 + 1;
+  const heights = new Float32Array(w * h);
+  const mask = new Uint8Array(w * h);
+  for (let j = 0; j < h; j++) {
+    const from = (j + window.j0) * field.columns + window.i0;
+    heights.set(field.grid.heights.subarray(from, from + w), j * w);
+    mask.set(water.mask.subarray(from, from + w), j * w);
+  }
+  return {
+    columns: w,
+    rows: h,
+    cellSize: field.cellSize,
+    originX: field.originX + window.i0 * field.cellSize,
+    originY: field.originY + window.j0 * field.cellSize,
+    heights,
+    mask,
     level: water.level,
     lava: water.kind === 'lava',
   };

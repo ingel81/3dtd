@@ -434,6 +434,8 @@ Nur Augen und Ohren; Logik, Prüfsummen und Strukturzahlen sind per Spec und Pro
   oder soll es nachts einen matten Mondschimmer bekommen?*
 - **K10 Spielplatz:** OSM-Welt mit Wohngebiet (z. B. Stuttgart). *Spielplätze ohne Bodenangabe grün mit Sandkasten,
   Schaukel und weiteren Geräten je nach Größe; roter Gummi nur, wo OSM ihn nennt.*
+- **K11 Wasser im Editor:** eigene Karte mit kleinem See, mit dem Wasser-Pinsel weit über den See hinaus malen.
+  *Ufer, Schaum und Strömung folgen sofort und überall; kein Fleck ohne Schaum oder mit hartem Rand.*
 - **K8 Adresssuche:** Neues Spiel, einen Ort suchen. *Tippen sucht nicht, Hinweis „Enter drücken, um zu suchen“;
   Enter oder die Lupe rechts im Feld suchen, die Liste kommt; die Lupe ist unter drei Zeichen ausgegraut.*
 

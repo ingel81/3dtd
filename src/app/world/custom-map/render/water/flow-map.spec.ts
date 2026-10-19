@@ -1,5 +1,5 @@
 import { HeightField } from '../height-field';
-import { bakeFlow, bakeFlowMap, bakeFlowOffThread, decodeFlow, flowInput, SHORE_FIELD_MAX, SLOPE_FIELD_MAX } from './flow-map';
+import { bakeFlow, bakeFlowMap, bakeFlowOffThread, decodeFlow, flowInput, flowInputIn, SHORE_FIELD_MAX, SLOPE_FIELD_MAX } from './flow-map';
 import type { MapWater } from '../../map-document';
 
 /** A round lake (radius 40 m, 20 cells) of 2 m cells on a 101² grid, an island of 10 m in its middle */
@@ -98,6 +98,22 @@ describe('the shore field', () => {
     // Next to the west wall (6 m up in one cell) against just off the east beach
     expect(shore(flow, 21, 50)[1]).toBeGreaterThan(1.5);
     expect(shore(flow, 77, 50)[1]).toBeLessThan(0.5);
+  });
+});
+
+describe('flowInputIn', () => {
+  it('bakes a window around the body as the whole grid does there (a water surface keeps only its body)', () => {
+    for (const kind of ['water', 'lava'] as const) {
+      const { field, water } = lake(kind);
+      const whole = bakeFlowMap(field, water);
+      // The lake's samples 30 to 70, with a margin past its shore field (SHORE_FIELD_MAX of 2 m cells)
+      const window = { i0: 10, j0: 12, i1: 90, j1: 88 };
+      const part = bakeFlow(flowInputIn(field, water, window));
+      const w = window.i1 - window.i0 + 1;
+      for (let j = window.j0; j <= window.j1; j++) {
+        expect(part.subarray((j - window.j0) * w * 4, (j - window.j0 + 1) * w * 4)).toEqual(whole.subarray((j * 101 + window.i0) * 4, (j * 101 + window.i1 + 1) * 4));
+      }
+    }
   });
 });
 

@@ -57,8 +57,9 @@ export const SHORE_CUT_RADIUS = SHORE_CUT_REACH + BLUR + TOOTH_SPREAD + 1;
 
 /**
  * Writes the mask (R) and the shore cut (G) of the samples in `rect` into
- * `out` (two bytes per sample). The cut there depends on the heights and
- * the level up to SHORE_CUT_RADIUS samples around.
+ * `out` (two bytes per sample), whose samples are those of `outWindow` of
+ * the grid (the whole grid without one). The cut there depends on the
+ * heights and the level up to SHORE_CUT_RADIUS samples around.
  */
 export function bakeShoreCut(
   heights: Float32Array,
@@ -69,7 +70,10 @@ export function bakeShoreCut(
   mask: Uint8Array,
   out: Uint8Array,
   rect: GridRect,
+  outWindow: GridRect = { i0: 0, j0: 0, i1: columns - 1, j1: rows - 1 },
 ): void {
+  const ow = outWindow.i1 - outWindow.i0 + 1;
+  const outAt = (k: number): number => ((Math.floor(k / columns) - outWindow.j0) * ow + (k % columns) - outWindow.i0) * 2;
   const { i0, j0, i1, j1 } = rect;
   // The distances are smoothed (BLUR passes reaching a sample each): measured that far around rect
   const a0 = Math.max(0, i0 - BLUR - TOOTH_SPREAD);
@@ -177,7 +181,7 @@ export function bakeShoreCut(
     for (let i = i0; i <= i1; i++) {
       const k = j * columns + i;
       let cells = signed[(j - b0) * w + i - a0];
-      out[k * 2] = mask[k];
+      out[outAt(k)] = mask[k];
       if (Math.abs(cells) < R) {
         // The steepest step to a neighbour around the sample: a wall moves the cut inward
         let step = 0;
@@ -195,7 +199,7 @@ export function bakeShoreCut(
         const teeth = tooth[(j - b0) * w + i - a0] - TOOTH_FREE;
         cells -= teeth > 0 ? Math.max(inset, Math.min(TOOTH_INSET_MAX, teeth * TOOTH_GAIN)) : inset;
       }
-      out[k * 2 + 1] = Math.max(0, Math.min(255, Math.round(128 + cells * SHORE_CUT_SCALE)));
+      out[outAt(k) + 1] = Math.max(0, Math.min(255, Math.round(128 + cells * SHORE_CUT_SCALE)));
     }
   }
 }
@@ -232,12 +236,16 @@ export function shoreCutInput(
   return { input: { heights: subHeights, columns: w, rows: h, cellSize, level, mask: subMask, rect: local }, window };
 }
 
-/** A cut bake (shoreCutInput's) into the whole grid's bytes `out` (two per sample, `columns` wide) */
-export function pasteShoreCut(cut: Uint8Array, window: GridRect, out: Uint8Array, columns: number): void {
+/** A cut bake (shoreCutInput's, of `window`) into the bytes `out` (two per sample) of `outWindow` of the grid, where they overlap */
+export function pasteShoreCut(cut: Uint8Array, window: GridRect, out: Uint8Array, outWindow: GridRect): void {
   const w = window.i1 - window.i0 + 1;
-  for (let j = window.j0; j <= window.j1; j++) {
-    const from = (j - window.j0) * w * 2;
-    out.set(cut.subarray(from, from + w * 2), (j * columns + window.i0) * 2);
+  const ow = outWindow.i1 - outWindow.i0 + 1;
+  const i0 = Math.max(window.i0, outWindow.i0);
+  const i1 = Math.min(window.i1, outWindow.i1);
+  if (i1 < i0) return;
+  for (let j = Math.max(window.j0, outWindow.j0); j <= Math.min(window.j1, outWindow.j1); j++) {
+    const from = ((j - window.j0) * w + i0 - window.i0) * 2;
+    out.set(cut.subarray(from, from + (i1 - i0 + 1) * 2), ((j - outWindow.j0) * ow + i0 - outWindow.i0) * 2);
   }
 }
 

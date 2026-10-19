@@ -371,7 +371,11 @@ darstellend wie die Bodendecals: Routen, Bauverbot und Simulation sehen sie nich
 Ein Material für alle Gewässer (`water-material.ts`). Die Tiefe je Pixel ist Spiegelhöhe minus Geländehöhe aus der
 Höhentextur: das Ufer liegt dort, wo das Gelände die Fläche schneidet, glatt, unabhängig vom Raster. Flächen-Gewässer
 werden über ihrer Maske plus zwei Zellen gezeichnet und mit der bilinearen Maske ausgeblendet (runde Kanten), mit
-weichem Saum. An steilen Ufern reicht das nicht: das Gelände hat je Zelle zwei Dreiecke, eine Wand, die innerhalb
+weichem Saum. Maske und Strömung eines Gewässers decken nur ein Fenster des Rasters, seine Ausdehnung plus Rand
+(`WaterSurface.window`, Rand 40 m plus `SHORE_CUT_RADIUS`: Uferband, Uferfeld der Brandung, der Blick 25 m nach
+außen), `uMaskUv` bildet darauf ab; ein Pinsel, der das Wasser darüber hinausträgt, legt ein größeres an
+(`fitWindow`). Vorher trug jeder Teich beide über die ganze Karte: Stuttgart (OSM, 1201² Proben, rund 16 Gewässer)
+8,6 MB je Gewässer im Speicher und ebenso auf der GPU, zusammen rund 130 MB je Seite. An steilen Ufern reicht das nicht: das Gelände hat je Zelle zwei Dreiecke, eine Wand, die innerhalb
 einer Zelle steigt (mit Terrain Lower gegrabene Grube, Kaimauer), schneidet den Spiegel in Stufen entlang der
 Samples, eine Fase je Zelle (`cellSplit`). Dafür trägt die Maskentextur (RG8 statt R8, ein Byte mehr je Sample und Gewässer) im G-Kanal den Uferschnitt
 (`shore-cut.ts`): je Sample der Abstand zur Wasserlinie des Dreiecksnetzes in Zellen (bis 3, nass positiv), zweimal mit

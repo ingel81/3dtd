@@ -125,9 +125,23 @@ describe('the shore cut of a pool, baked from its corner of the grid', () => {
       const whole = bakeShoreCutWhole({ heights, columns: n, rows: n, cellSize: 2, level: 2.5, mask, rect });
       const { input, window } = shoreCutInput(heights, n, n, 2, 2.5, mask, rect);
       const cut = new Uint8Array(n * n * 2);
-      pasteShoreCut(bakeShoreCutWhole(input), window, cut, n);
+      pasteShoreCut(bakeShoreCutWhole(input), window, cut, { i0: 0, j0: 0, i1: n - 1, j1: n - 1 });
       expect(cut).toEqual(whole);
       expect(input.heights.length).toBeLessThan(heights.length);
+      // Into a window of the grid (a water surface keeps only its body's): the same bytes there, pasted or baked
+      const into = { i0: Math.max(0, rect.i0 - 4), j0: Math.max(0, rect.j0 - 4), i1: Math.min(n - 1, rect.i1 + 4), j1: Math.min(n - 1, rect.j1 + 4) };
+      const w = into.i1 - into.i0 + 1;
+      const part = (bytes: Uint8Array) => {
+        const out = new Uint8Array(w * (into.j1 - into.j0 + 1) * 2);
+        for (let j = into.j0; j <= into.j1; j++) out.set(bytes.subarray((j * n + into.i0) * 2, (j * n + into.i1 + 1) * 2), (j - into.j0) * w * 2);
+        return out;
+      };
+      const pasted = new Uint8Array(part(whole).length);
+      pasteShoreCut(bakeShoreCutWhole(input), window, pasted, into);
+      expect(pasted).toEqual(part(whole));
+      const baked = new Uint8Array(pasted.length);
+      bakeShoreCut(heights, n, n, 2, 2.5, mask, baked, rect, into);
+      expect(baked).toEqual(part(whole));
     }
   });
 });

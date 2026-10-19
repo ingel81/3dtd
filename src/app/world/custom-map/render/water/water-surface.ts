@@ -25,7 +25,7 @@ import type { WaterReflection } from './water-reflection';
 import type { MapEffects } from '../map-effects';
 import type { SceneCopy } from './scene-copy';
 import { setHeatHaze } from './heat-haze';
-import { bakeFlowMap, bakeFlowOffThread, flowInput } from './flow-map';
+import { bakeFlow, bakeFlowOffThread, flowInputIn, SHORE_FIELD_MAX } from './flow-map';
 import { bakeShoreCut, bakeShoreCutOffThread, pasteShoreCut, SHORE_CUT_RADIUS, shoreCutInput } from './shore-cut';
 
 /**
@@ -46,14 +46,28 @@ import { bakeShoreCut, bakeShoreCutOffThread, pasteShoreCut, SHORE_CUT_RADIUS, s
  */
 const TILE = 64;
 
+/**
+ * Metres past a body's samples its mask and current reach (window): the
+ * shore cut's band, the shore field the surf reads (the material looks 25 m
+ * outward) and a little more
+ */
+const WINDOW_MARGIN_M = SHORE_FIELD_MAX + 8;
+
 export class WaterSurface {
   /** The tiles and the part beyond the border */
   readonly object = new Group();
   private material: ShaderMaterial;
   private readonly tiles = new Map<number, Mesh<BufferGeometry, ShaderMaterial>>();
   private apronMesh: Mesh<BufferGeometry, ShaderMaterial> | null = null;
-  /** The mask (R) and the shore cut (G) per height sample */
-  private readonly mask: DataTexture;
+  /**
+   * The samples of the grid mask and current cover: the body's with a
+   * margin (WINDOW_MARGIN_M), not the whole map (a pond on an OSM city's
+   * grid carried 8.6 MB of both, a city has a dozen bodies). Grows when an
+   * edit takes the water past it (fitWindow)
+   */
+  private window: GridRect;
+  /** The mask (R) and the shore cut (G) per height sample of the window */
+  private mask: DataTexture;
   /** The mask array the texture was last baked from (a new one, say after an undo, bakes all) */
   private maskSource: Uint8Array | null = null;
   /** The samples the mask sets (maskBounds, ungrown), worked out once per mask array and grown by its brushes */
@@ -65,8 +79,8 @@ export class WaterSurface {
   private shorePending = false;
   /** The samples baked here since that bake's arrays were copied out: baked again over its result */
   private shoreSince: GridRect | null = null;
-  /** Baked current of the body (flow-map.ts), on the mask's grid */
-  private readonly flow: DataTexture;
+  /** Baked current of the body (flow-map.ts), on the mask's window */
+  private flow: DataTexture;
   /** A later bake of the current (editing: a pool brush must not pay for the whole body each step) */
   private flowDue: ReturnType<typeof setTimeout> | null = null;
   private flowBaked = false;
@@ -95,24 +109,8 @@ export class WaterSurface {
     private readonly main = false,
   ) {
     this.kind = water.kind ?? 'water';
-    this.mask = new DataTexture(new Uint8Array(field.columns * field.rows * 2), field.columns, field.rows, RGFormat, UnsignedByteType);
-    this.mask.colorSpace = NoColorSpace;
-    this.mask.magFilter = this.mask.minFilter = LinearFilter;
-    this.mask.wrapS = this.mask.wrapT = ClampToEdgeWrapping;
-    this.mask.generateMipmaps = false;
-    this.mask.unpackAlignment = 1;
-    // Still water far from a shore until the first bake is in (bakeFlow): no current, no foam
-    const still = new Uint8Array(field.columns * field.rows * 4);
-    for (let k = 0; k < still.length; k += 4) {
-      still[k] = still[k + 1] = 128;
-      still[k + 2] = 255;
-    }
-    this.flow = new DataTexture(still, field.columns, field.rows, RGBAFormat, UnsignedByteType);
-    this.flow.colorSpace = NoColorSpace;
-    this.flow.magFilter = this.flow.minFilter = LinearFilter;
-    this.flow.wrapS = this.flow.wrapT = ClampToEdgeWrapping;
-    this.flow.generateMipmaps = false;
-    this.flow.unpackAlignment = 1;
+    this.window = this.windowAround(maskBounds(water.mask, field.columns, field.rows, 0), 1);
+    [this.mask, this.flow] = this.windowTextures();
     this.object.name = 'custom-map-water-body';
     this.object.matrixAutoUpdate = false;
     this.material = this.makeMaterial(water);
@@ -146,6 +144,7 @@ export class WaterSurface {
     this.level = water.level;
     const f = this.field;
     const bounds = this.waterBounds(water, rect);
+    this.fitWindow(bounds);
     // A tile's cells reach two samples past the mask (the grown mask) and one for their far corner; a whole
     // rebuild only where the mask has water, the tiles beyond go
     const reach = rect ?? bounds;
@@ -191,6 +190,81 @@ export class WaterSurface {
     return this.bounds;
   }
 
+  /** The window of `bounds` grown by `margins` times WINDOW_MARGIN_M, within the grid; a sample without bounds */
+  private windowAround(bounds: GridRect | null, margins: number): GridRect {
+    const f = this.field;
+    if (!bounds) return { i0: 0, j0: 0, i1: 0, j1: 0 };
+    const m = Math.ceil((WINDOW_MARGIN_M * margins) / f.cellSize) + SHORE_CUT_RADIUS;
+    return { i0: Math.max(0, bounds.i0 - m), j0: Math.max(0, bounds.j0 - m), i1: Math.min(f.columns - 1, bounds.i1 + m), j1: Math.min(f.rows - 1, bounds.j1 + m) };
+  }
+
+  /** Mask and current of the window, the current still far from a shore until the first bake is in (bakeFlow) */
+  private windowTextures(): [DataTexture, DataTexture] {
+    const w = this.window.i1 - this.window.i0 + 1;
+    const h = this.window.j1 - this.window.j0 + 1;
+    const mask = new DataTexture(new Uint8Array(w * h * 2), w, h, RGFormat, UnsignedByteType);
+    const still = new Uint8Array(w * h * 4);
+    for (let k = 0; k < still.length; k += 4) {
+      still[k] = still[k + 1] = 128;
+      still[k + 2] = 255;
+    }
+    const flow = new DataTexture(still, w, h, RGBAFormat, UnsignedByteType);
+    for (const t of [mask, flow]) {
+      t.colorSpace = NoColorSpace;
+      t.magFilter = t.minFilter = LinearFilter;
+      t.wrapS = t.wrapT = ClampToEdgeWrapping;
+      t.generateMipmaps = false;
+      t.unpackAlignment = 1;
+    }
+    return [mask, flow];
+  }
+
+  /**
+   * An edit took the water past the window (its margin no longer around it): a larger one, with room for more
+   * brushes, its mask and current baked whole again
+   */
+  private fitWindow(bounds: GridRect | null): void {
+    const need = this.windowAround(bounds, 1);
+    const w = this.window;
+    if (!bounds || (need.i0 >= w.i0 && need.j0 >= w.j0 && need.i1 <= w.i1 && need.j1 <= w.j1)) return;
+    this.window = this.windowAround(bounds, 2);
+    this.mask.dispose();
+    this.flow.dispose();
+    [this.mask, this.flow] = this.windowTextures();
+    this.setWindowUniforms(this.material);
+    this.maskSource = null;
+    this.flowBaked = false;
+  }
+
+  /** The window's textures in the material, map metres to their texel centres */
+  private setWindowUniforms(m: ShaderMaterial): void {
+    const f = this.field;
+    const w = this.window.i1 - this.window.i0 + 1;
+    const h = this.window.j1 - this.window.j0 + 1;
+    const sx = 1 / (f.cellSize * w);
+    const sy = 1 / (f.cellSize * h);
+    const x0 = f.originX + this.window.i0 * f.cellSize;
+    const y0 = f.originY + this.window.j0 * f.cellSize;
+    setWaterMask(m, this.mask, new Vector4(sx, sy, -x0 * sx + 0.5 / w, -y0 * sy + 0.5 / h));
+    setWaterFlow(m, this.kind === 'ice' ? null : this.flow);
+  }
+
+  /** `r` (grid samples) cut to the window, in the window's samples; null outside it */
+  private local(r: GridRect): GridRect | null {
+    const w = this.window;
+    const i0 = Math.max(r.i0, w.i0) - w.i0;
+    const j0 = Math.max(r.j0, w.j0) - w.j0;
+    const i1 = Math.min(r.i1, w.i1) - w.i0;
+    const j1 = Math.min(r.j1, w.j1) - w.j0;
+    return i1 < i0 || j1 < j0 ? null : { i0, j0, i1, j1 };
+  }
+
+  /** `r` cut to the window, in grid samples */
+  private clip(r: GridRect): GridRect | null {
+    const l = this.local(r);
+    return l && { i0: l.i0 + this.window.i0, j0: l.j0 + this.window.j0, i1: l.i1 + this.window.i0, j1: l.j1 + this.window.j0 };
+  }
+
   /** The tile meshes outside `r` (cells) go: no water there any more; all of them without one */
   private dropTilesBeyond(r: GridRect | null): void {
     for (const [key, mesh] of this.tiles) {
@@ -213,9 +287,10 @@ export class WaterSurface {
   /** The current of the whole body in a worker; a newer bake takes its place. A failed worker: baked here */
   private bakeFlow(water: MapWater): void {
     const job = ++this.flowJob;
-    this.flowBaking = bakeFlowOffThread(flowInput(this.field, water, true)).then((flow) => {
-      if (job !== this.flowJob) return;
-      this.flow.image.data = flow ?? bakeFlowMap(this.field, water, this.flow.image.data as Uint8Array);
+    const window = this.window;
+    this.flowBaking = bakeFlowOffThread(flowInputIn(this.field, water, window)).then((flow) => {
+      if (job !== this.flowJob || window !== this.window) return;
+      this.flow.image.data = flow ?? bakeFlow(flowInputIn(this.field, water, window));
       this.flow.needsUpdate = true;
     });
   }
@@ -237,11 +312,12 @@ export class WaterSurface {
       this.bakeWholeOffThread(water);
       return;
     }
-    const r = { i0: Math.max(0, rect.i0 - grow), j0: Math.max(0, rect.j0 - grow), i1: Math.min(f.columns - 1, rect.i1 + grow), j1: Math.min(f.rows - 1, rect.j1 + grow) };
-    bakeShoreCut(f.grid.heights, f.columns, f.rows, f.cellSize, water.level, water.mask, data, r);
+    const r = this.clip({ i0: rect.i0 - grow, j0: rect.j0 - grow, i1: rect.i1 + grow, j1: rect.j1 + grow });
+    if (!r) return;
+    bakeShoreCut(f.grid.heights, f.columns, f.rows, f.cellSize, water.level, water.mask, data, r, this.window);
     // A brush while a whole bake runs: its result misses this, baked again over it when it is back
     if (this.shorePending) this.shoreSince = this.shoreSince ? unionRect(this.shoreSince, r) : r;
-    uploadRect(this.mask, r);
+    uploadRect(this.mask, this.local(r) ?? undefined);
   }
 
   /**
@@ -254,7 +330,7 @@ export class WaterSurface {
     this.shorePending = true;
     this.shoreSince = null;
     const b = this.bounds;
-    const rect = b && { i0: Math.max(0, b.i0 - SHORE_CUT_RADIUS), j0: Math.max(0, b.j0 - SHORE_CUT_RADIUS), i1: Math.min(f.columns - 1, b.i1 + SHORE_CUT_RADIUS), j1: Math.min(f.rows - 1, b.j1 + SHORE_CUT_RADIUS) };
+    const rect = b && this.clip({ i0: b.i0 - SHORE_CUT_RADIUS, j0: b.j0 - SHORE_CUT_RADIUS, i1: b.i1 + SHORE_CUT_RADIUS, j1: b.j1 + SHORE_CUT_RADIUS });
     if (!rect) {
       // No water: nothing to wait for
       this.shorePending = false;
@@ -264,16 +340,18 @@ export class WaterSurface {
     }
     // Only the samples the bake reads go to the worker: a pool on a big map copies its corner, not the grid
     const { input, window } = shoreCutInput(f.grid.heights, f.columns, f.rows, f.cellSize, water.level, water.mask, rect);
+    const into = this.window;
     this.shoreBaking = bakeShoreCutOffThread(input).then((cut) => {
-      if (job !== this.shoreJob) return;
+      if (job !== this.shoreJob || into !== this.window) return;
       this.shorePending = false;
+      const data = new Uint8Array((into.i1 - into.i0 + 1) * (into.j1 - into.j0 + 1) * 2);
+      // The worker's samples reach past the window by its read margin: only those inside go in
+      if (cut) pasteShoreCut(cut, window, data, into);
       // A failed worker: the bake here after all
-      const data = new Uint8Array(f.columns * f.rows * 2);
-      if (cut) pasteShoreCut(cut, window, data, f.columns);
-      else bakeShoreCut(f.grid.heights, f.columns, f.rows, f.cellSize, water.level, water.mask, data, rect);
-      const since = this.shoreSince;
+      else bakeShoreCut(f.grid.heights, f.columns, f.rows, f.cellSize, water.level, water.mask, data, rect, into);
+      const since = this.shoreSince && this.clip(this.shoreSince);
       this.shoreSince = null;
-      if (since) bakeShoreCut(f.grid.heights, f.columns, f.rows, f.cellSize, water.level, water.mask, data, since);
+      if (since) bakeShoreCut(f.grid.heights, f.columns, f.rows, f.cellSize, water.level, water.mask, data, since, into);
       this.mask.image.data = data;
       uploadRect(this.mask, undefined);
     });
@@ -381,11 +459,7 @@ export class WaterSurface {
       color: water.color,
       mapHalf: new Vector2(((f.columns - 1) * f.cellSize) / 2, ((f.rows - 1) * f.cellSize) / 2),
     });
-    // Map metres to mask texel centres
-    const sx = 1 / (f.cellSize * f.columns);
-    const sy = 1 / (f.cellSize * f.rows);
-    setWaterMask(m, this.mask, new Vector4(sx, sy, -f.originX * sx + 0.5 / f.columns, -f.originY * sy + 0.5 / f.rows));
-    setWaterFlow(m, (water.kind ?? 'water') === 'ice' ? null : this.flow);
+    this.setWindowUniforms(m);
     m.uniforms['uWetFilm'].value = this.main ? 0 : 1;
     return m;
   }

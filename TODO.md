@@ -203,6 +203,9 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       Nachtlicht und Belichtung; User sieht es im Spiel an), E255 Spielplatz ohne Angabe auf Rasen (K9, K10).
 - [ ] **K10 Startpaket** (E247, 2026-10-19): 2,65 → 2,50 MB (gzip 693 → 645 kB); die Custom-Map-Welt und der
       Kartendatei-Code kommen per `import()` mit der ersten Karte. Nachtest: Karte aus dem Menü starten, Editor öffnen.
+- [ ] **K11 Speicher OSM-Städte** (2026-10-19): Stuttgart JS-Heap 1032 → 794 MB (Flächenstücke als Typed Arrays,
+      Wasser-Maske und Strömung nur im Fenster des Gewässers statt der ganzen Karte, auch GPU). Nachtest: Wasser im
+      Editor über den alten Rand hinaus malen, Ufer und Schaum bleiben (K11).
 
 ### Licht durch Munition (2026-10-18, Branch `wt/r7-muzzle`, Nachtests in PLAYTEST.md I)
 
