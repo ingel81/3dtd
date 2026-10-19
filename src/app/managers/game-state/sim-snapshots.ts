@@ -108,6 +108,7 @@ export class SimSnapshots {
       accounts: w.creditsLedger.saveAccounts(),
       baseHealth: w.healthLedger.baseHealth(),
       structures: w.worldDamage.structures.hpList(),
+      ...withHeadings(w.worldDamage.structures.headingList()),
       ...withCraters(w.worldDamage.captureCraters()),
       waveNumber: w.waveManager.waveNumber(),
       phase: w.waveManager.phase(),
@@ -203,7 +204,7 @@ export class SimSnapshots {
 
     w.creditsLedger.restore(snapshot.accounts ?? [[w.creditsLedger.players[0], snapshot.credits]]);
     w.healthLedger.restore(snapshot.baseHealth);
-    w.worldDamage.restore(snapshot.structures, snapshot.craters);
+    w.worldDamage.restore(snapshot.structures, snapshot.craters, snapshot.structureHeadings);
     w.economy.restorePerfectStreak(snapshot.economyPerfectStreak);
     w.waveManager.waveNumber.set(snapshot.waveNumber);
     w.waveManager.phase.set(snapshot.phase);
@@ -309,6 +310,11 @@ export class SimSnapshots {
     for (const event of wave.deferred) w.eventBus.emitDeferred(event as never);
     GameObject.setIdCounter(snapshot.base.idCounter);
   }
+}
+
+/** The structures' headings as a snapshot field, none while none is known (StructureLedger.headingList) */
+function withHeadings(structureHeadings: number[] | undefined): { structureHeadings?: number[] } {
+  return structureHeadings ? { structureHeadings } : {};
 }
 
 /** The craters as a snapshot field, none where there are none (a snapshot of a world without them stays as it was) */

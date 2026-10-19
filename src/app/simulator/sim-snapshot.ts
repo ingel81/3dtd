@@ -37,6 +37,8 @@ export interface SimSnapshot {
   structures?: number[];
   /** The craters of the run, four whole numbers each (CraterLedger); absent where there are none */
   craters?: number[];
+  /** Per structure the heading of the hit that brought its stage (StructureLedger), -1 none; absent while none is known */
+  structureHeadings?: number[];
   waveNumber: number;
   phase: GamePhase;
   /** A wave has started in this run (game:started went out) */

@@ -50,6 +50,7 @@ function source(
     killRewards: () => ({ remainingKillBudget: wave.killBudget ?? 120, paidRewardWeight: 30 }),
     baseHealth: () => 480,
     structureHp: () => [],
+    structureHeadings: () => [],
     craters: () => [],
     waveNumber: () => 3,
     spawner: () => (wave.running === false ? null
@@ -113,6 +114,16 @@ describe('StateHasher', () => {
     expect(HASH_PARTS.filter((_, i) => crater.parts[i] !== base.parts[i])).toEqual(['health']);
     expect(hasher.hash(withDamage([], [10, 20, 15, 22]))).not.toBe(crater.total);
     expect(hasher.hash(withDamage([100], []))).not.toBe(hasher.hash(withDamage([99], [])));
+  });
+
+  it("reads the headings of the hits that brought the structures' stages, once one is known", () => {
+    const hit = source([]);
+    const withHeadings = (headings: number[]) => ({ ...hit, structureHp: () => [100, 50], structureHeadings: () => headings });
+    const none = hasher.breakdown(withHeadings([]));
+    const known = hasher.breakdown(withHeadings([-1, 64]));
+    expect(HASH_PARTS.filter((_, i) => known.parts[i] !== none.parts[i])).toEqual(['health']);
+    // Another way the hit pushed, another hash
+    expect(hasher.hash(withHeadings([-1, 65]))).not.toBe(known.total);
   });
 
   it('notices a tower cooldown', () => {

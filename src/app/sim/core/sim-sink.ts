@@ -181,11 +181,15 @@ export interface SimSink {
      * Every structure's stage (0 standing to 3 fallen, destruction.config.ts),
      * one byte each in the run rules' order (StructureLedger), after a load,
      * a new run, a restore or a replay's seek: the player hands them to the
-     * world's destruction, which shows each as it stands now
+     * world's destruction, which shows each as it stands now. With them the
+     * heading of each (StructureLedger), -1 where none is known
      */
-    setStages(stages: Uint8Array): void;
-    /** Structure `index` (run rules' order) reached `stage` by damage just now */
-    stage(index: number, stage: number): void;
+    setStages(stages: Uint8Array, headings: Int16Array): void;
+    /**
+     * Structure `index` (run rules' order) reached `stage` by damage just
+     * now, pushed the way of `heading` (STRUCTURE_HEADING_STEPS, -1 none)
+     */
+    stage(index: number, stage: number, heading: number): void;
   };
   readonly craters: {
     /**

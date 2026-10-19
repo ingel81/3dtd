@@ -21,7 +21,8 @@ import { HASH_PARTS, type HashedEntities, type HashPart } from '../coop/hash-che
  * the craters there, once a run has one (docs/DESTRUCTION_PLAN.md). Both are
  * empty on a world without destruction, whose hash stayed what it was, and
  * a world with them has another world key since, which a replay file of
- * before is refused by: no new version.
+ * before is refused by: no new version. Likewise the headings of the hits
+ * that brought the structures' stages, once one is known.
  */
 export const STATE_HASH_VERSION = 6;
 
@@ -59,6 +60,8 @@ export interface StateHashSource {
   baseHealth(): number;
   /** The HP of a destructible world's structures (StructureLedger); none where nothing falls */
   structureHp(): Iterable<number>;
+  /** Per structure the heading of the hit that brought its stage (StructureLedger); none while none is known */
+  structureHeadings(): ArrayLike<number> & Iterable<number>;
   /** The craters of the run, four whole numbers each (CraterLedger); none before the first */
   craters(): ArrayLike<number> & Iterable<number>;
   waveNumber(): number;
@@ -155,6 +158,12 @@ export class StateHasher {
     this.part('health');
     this.num(source.baseHealth());
     for (const hp of source.structureHp()) this.num(hp);
+    // Only once one is known: a world never hit hashes as before the headings
+    const headings = source.structureHeadings();
+    if (headings.length > 0) {
+      this.num(headings.length);
+      for (const value of headings) this.num(value);
+    }
     // Only once there is one: a run without craters hashes as before they were
     const craters = source.craters();
     if (craters.length > 0) {

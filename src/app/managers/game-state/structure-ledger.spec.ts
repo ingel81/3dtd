@@ -20,7 +20,7 @@ function setup(structures: RunStructure[] = [
 describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
   it('reaches what lies within the reach plus its radius, in whole HP, through its stages to the fall', () => {
     const { sink, staged, ledger } = setup();
-    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([0, 0]));
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([0, 0]), new Int16Array([-1, -1]));
     // Just in reach of the barn (100 + 5 + 4), and just out of it
     expect(ledger.hit(108.9, 0, 4, 20)).toBe(0);
     expect(ledger.hpList()).toEqual([80, 1000]);
@@ -28,7 +28,8 @@ describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
     expect(ledger.hpList()).toEqual([80, 1000]);
     // 75 % and below: battered, one op of two numbers
     expect(ledger.hit(100, 0, 0, 5)).toBe(1);
-    expect(sink.structures.stage).toHaveBeenLastCalledWith(0, 1);
+    // A hit on its middle pushes no way: no heading
+    expect(sink.structures.stage).toHaveBeenLastCalledWith(0, 1, -1);
     expect(staged).toHaveBeenLastCalledWith(0, 0, 1);
     // Within a stage no op
     ledger.hit(100, 0, 0, 10);
@@ -95,12 +96,12 @@ describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
       { id: 'whole', lat: 0, lon: 100 / K, radius: 4, height: 6, hp: 200 },
     ]);
     expect(ledger.hpList()).toEqual([0, 120, 200]);
-    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 1, 0]));
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 1, 0]), new Int16Array([-1, -1, -1]));
     ledger.hit(100, 0, 0, 200);
     ledger.reset();
     expect(ledger.hpList()).toEqual([0, 120, 200]);
     ledger.restore([0, 10, 50]);
-    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 2, 2]));
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 2, 2]), new Int16Array([-1, -1, -1]));
     ledger.restore(undefined);
     expect(ledger.hpList()).toEqual([0, 120, 200]);
     ledger.load(null);
@@ -134,5 +135,31 @@ describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
   it('keeps its stage a function of the HP: 75 and 40 per cent', () => {
     expect([100, 76, 75, 41, 40, 1, 0].map((hp) => structureStage(hp, 100))).toEqual([0, 0, 1, 1, 2, 2, 3]);
     expect([0, 1, 2, 3].map((s) => structureStage(presetHp(333, s as 0 | 1 | 2 | 3), 333))).toEqual([0, 1, 2, 3]);
+  });
+
+  it('keeps the heading of the hit that brought each stage, in snapshots and the stages, and forgets it on a new run', () => {
+    const { sink, ledger } = setup();
+    expect(ledger.headingList()).toBeUndefined();
+    expect(ledger.headingView().length).toBe(0);
+    // From the west of the barn (map x 100): it is pushed east, heading 0 of 256
+    ledger.hit(97, 0, 0, 30);
+    expect(sink.structures.stage).toHaveBeenLastCalledWith(0, 1, 0);
+    // From the north: pushed south, three quarters of a turn; a hit within the stage changes nothing
+    ledger.hit(100, 1, 0, 1);
+    ledger.hit(100, 3, 0, 40);
+    expect(sink.structures.stage).toHaveBeenLastCalledWith(0, 2, 192);
+    // A hit on its middle keeps the heading it had
+    ledger.hit(100, 0, 0, 1000);
+    expect(sink.structures.stage).toHaveBeenLastCalledWith(0, 3, 192);
+    expect(ledger.headingList()).toEqual([192, -1]);
+    // A snapshot brings them back with the HP, and they go out with the stages
+    const hp = ledger.hpList();
+    ledger.reset();
+    expect(ledger.headingList()).toBeUndefined();
+    ledger.restore(hp, [192, -1]);
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 0]), new Int16Array([192, -1]));
+    // A snapshot from before the headings knows none
+    ledger.restore(hp);
+    expect(ledger.headingList()).toBeUndefined();
   });
 });

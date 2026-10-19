@@ -1,7 +1,7 @@
 import type { SimSink } from '../../sim/core/sim-sink';
 import type { RunStructure } from '../../sim/protocol/run-rules';
 import { MAP_METERS_PER_DEGREE } from '../../world/custom-map/map-document';
-import { structureStage, type StructureStage } from '../../configs/destruction.config';
+import { structureHeading, structureStage, type StructureStage } from '../../configs/destruction.config';
 import { DetMath } from '../../utils/det-math';
 import { ringsContain } from '../../world/custom-map/object-mass';
 
@@ -20,6 +20,7 @@ export interface StructureEvents {
 const ROOF_STRIDE = 6;
 
 const ascending = (a: number, b: number) => a - b;
+const NO_HEADINGS = new Int16Array(0);
 
 /** How far from map metres (`x`, `y`) the corners of `box` reach at most (IEEE `sqrt`, the same on every engine) */
 function boxReach(box: readonly [number, number, number, number, number], x: number, y: number): number {
@@ -42,6 +43,11 @@ function boxReach(box: readonly [number, number, number, number, number], x: num
  * every change by damage (StructureEvents.staged) for what follows from it:
  * the moment of a fall, its rubble, the towers that see past it. Snapshots
  * and the state hash carry the HP.
+ *
+ * Each stage reached by a hit keeps that hit's heading (structureHeading):
+ * the way it pushed the structure, which the look lets it give way to. The
+ * stages go out with the headings; snapshots and the state hash carry them
+ * once one is known, so a world never hit hashes and saves as before.
  */
 export class StructureLedger {
   private structures: readonly RunStructure[] = [];
@@ -55,6 +61,8 @@ export class StructureLedger {
   private startHp = new Int32Array(0);
   private hp = new Int32Array(0);
   private stage = new Uint8Array(0);
+  /** Per structure the heading of the hit that brought its stage, -1 for none (structureHeading) */
+  private heading = new Int16Array(0);
   /** Per structure whose roof carries towers its box (ROOF_STRIDE numbers), NaN for one without */
   private roof = new Float64Array(0);
   /** Per raised building its outline with the cos and sin of its turn (RunStructure.mass), null for one without */
@@ -91,6 +99,7 @@ export class StructureLedger {
     this.startHp = new Int32Array(n);
     this.hp = new Int32Array(n);
     this.stage = new Uint8Array(n);
+    this.heading = new Int16Array(n).fill(-1);
     this.roof = new Float64Array(n * ROOF_STRIDE).fill(NaN);
     this.outline = list.map((s) => s.mass
       ? { x: s.mass.x, y: s.mass.y, scale: s.mass.scale, cos: DetMath.cos(s.mass.turn), sin: DetMath.sin(s.mass.turn), rings: s.mass.rings }
@@ -183,6 +192,7 @@ export class StructureLedger {
 
   private toStart(): void {
     this.hp.set(this.startHp);
+    this.heading.fill(-1);
     this.restage();
   }
 
@@ -212,7 +222,7 @@ export class StructureLedger {
   hit(x: number, y: number, reach: number, amount: number): number {
     if (amount <= 0 || this.structures.length === 0) return 0;
     let changed = 0;
-    for (const i of this.near(x, y, reach)) if (this.damage(i, amount)) changed++;
+    for (const i of this.near(x, y, reach)) if (this.damage(i, amount, x, y)) changed++;
     return changed;
   }
 
@@ -220,7 +230,7 @@ export class StructureLedger {
   fell(x: number, y: number, reach: number): number {
     if (this.structures.length === 0) return 0;
     let fallen = 0;
-    for (const i of this.near(x, y, reach)) if (this.damage(i, this.hp[i])) fallen++;
+    for (const i of this.near(x, y, reach)) if (this.damage(i, this.hp[i], x, y)) fallen++;
     return fallen;
   }
 
@@ -258,8 +268,11 @@ export class StructureLedger {
     return reached;
   }
 
-  /** `amount` off structure `index` unless it carries a tower; whether its stage changed */
-  private damage(index: number, amount: number): boolean {
+  /**
+   * `amount` off structure `index` by a hit at map metres (`x`, `y`) unless
+   * it carries a tower; whether its stage changed (and took the hit's heading)
+   */
+  private damage(index: number, amount: number, x: number, y: number): boolean {
     if (this.hp[index] <= 0 || amount <= 0) return false;
     if (!Number.isNaN(this.roof[index * ROOF_STRIDE]) && this.events.carried(index)) return false;
     this.hp[index] = Math.max(0, this.hp[index] - amount);
@@ -267,7 +280,9 @@ export class StructureLedger {
     const from = this.stage[index] as StructureStage;
     if (to === from) return false;
     this.stage[index] = to;
-    this.sink.structures.stage(index, to);
+    const heading = structureHeading(this.x[index] - x, this.y[index] - y, DetMath.atan2);
+    if (heading >= 0) this.heading[index] = heading;
+    this.sink.structures.stage(index, to, this.heading[index]);
     this.events.staged(index, from, to);
     return true;
   }
@@ -320,13 +335,29 @@ export class StructureLedger {
     return this.hp;
   }
 
-  /** HP back from a snapshot (hpList); a snapshot without them starts every structure as the map has it */
-  restore(hp: readonly number[] | undefined): void {
+  /** The headings for a snapshot; absent while none is known, so a world never hit saves as before */
+  headingList(): number[] | undefined {
+    return this.heading.some((h) => h >= 0) ? Array.from(this.heading) : undefined;
+  }
+
+  /** The headings for the state hash: empty while none is known */
+  headingView(): Int16Array {
+    return this.heading.some((h) => h >= 0) ? this.heading : NO_HEADINGS;
+  }
+
+  /**
+   * HP and headings back from a snapshot (hpList, headingList); a snapshot
+   * without HP starts every structure as the map has it, one without
+   * headings knows none
+   */
+  restore(hp: readonly number[] | undefined, headings?: readonly number[]): void {
     for (let i = 0; i < this.structures.length; i++) {
       const saved = hp?.[i];
       this.hp[i] = typeof saved === 'number' && Number.isFinite(saved)
         ? Math.min(this.maxHp[i], Math.max(0, Math.round(saved)))
         : this.startHp[i];
+      const h = headings?.[i];
+      this.heading[i] = typeof h === 'number' && Number.isInteger(h) && h >= 0 && h < 256 ? h : -1;
     }
     this.restage();
   }
@@ -337,10 +368,10 @@ export class StructureLedger {
     this.publish();
   }
 
-  /** Tell the main thread every structure's stage, one byte each in the run rules' order */
+  /** Tell the main thread every structure's stage, one byte each in the run rules' order, with the headings */
   publish(): void {
     if (this.structures.length === 0) return;
-    this.sink.structures.setStages(this.stage.slice());
+    this.sink.structures.setStages(this.stage.slice(), this.heading.slice());
   }
 
   /** Every structure's stage, a view in the run rules' order */

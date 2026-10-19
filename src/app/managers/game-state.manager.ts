@@ -455,6 +455,7 @@ export class GameStateManager {
     killRewards: () => (this.waveManager.phase() === 'wave' ? this.enemyManager.killRewardState() : null),
     baseHealth: () => this.baseHealth(),
     structureHp: () => this.worldDamage.structures.hpView(),
+    structureHeadings: () => this.worldDamage.structures.headingView(),
     craters: () => this.worldDamage.craters.view(),
     waveNumber: () => this.waveManager.waveNumber(),
     spawner: () => this.waveManager.spawnerProgress(),

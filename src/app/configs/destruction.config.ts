@@ -27,6 +27,21 @@ export function structureStage(hp: number, maxHp: number): StructureStage {
   return 2;
 }
 
+/**
+ * Steps of a turn a structure's heading comes in (StructureLedger): the way
+ * the hit that brought its stage pushed it, from the hit to its middle, so
+ * it gives way to that side. -1 where no hit is known (the map's damage
+ * beforehand, a hit on its middle): the look rolls it from the id then
+ */
+export const STRUCTURE_HEADING_STEPS = 256;
+
+/** The heading step of a push along map metres (`dx`, `dy`), -1 for none */
+export function structureHeading(dx: number, dy: number, atan2: (y: number, x: number) => number): number {
+  if (dx === 0 && dy === 0) return -1;
+  const turn = atan2(dy, dx) / (Math.PI * 2);
+  return ((Math.round(turn * STRUCTURE_HEADING_STEPS) % STRUCTURE_HEADING_STEPS) + STRUCTURE_HEADING_STEPS) % STRUCTURE_HEADING_STEPS;
+}
+
 /** The share of its HP a structure the map damaged beforehand starts with (MapObject.damage), per stage */
 const PRESET_HP_SHARE: Record<StructureStage, number> = { 0: 1, 1: 0.6, 2: 0.2, 3: 0 };
 

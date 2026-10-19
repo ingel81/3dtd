@@ -270,13 +270,13 @@ describe('SimCore in the same thread', () => {
     // Two hits of 60 in reach: the barn falls with the second
     drive.send({ type: 'debug:hit-structures', lat: 140 / M, lon: 22 / M, reach: 1, amount: 60 });
     let packet = drive.tick();
-    // Worn down to 40 %, still standing: its stage, a delta of two numbers
-    expect(packet.ops.filter((op) => op[0].startsWith('structures.'))).toEqual([['structures.stage', 0, 2]]);
+    // Worn down to 40 %, still standing: its stage, a delta of three numbers (pushed west by a hit from its east)
+    expect(packet.ops.filter((op) => op[0].startsWith('structures.'))).toEqual([['structures.stage', 0, 2, 128]]);
     expect(core.gsm.stateHash()).not.toBe(hashBefore);
     drive.send({ type: 'debug:hit-structures', lat: 140 / M, lon: 22 / M, reach: 1, amount: 60 });
     packet = drive.tick();
     expect(packet.ops.filter((op) => op[0].startsWith('structures.') || op[0] === 'main.structureFell')).toEqual([
-      ['structures.stage', 0, 3],
+      ['structures.stage', 0, 3, 128],
       ['main.structureFell', 0, barn.lat, barn.lon, 5, 6],
     ]);
     // The cannon 29 m off asks for its sight again (still its first, so as 'place'), to see past where the barn stood
@@ -288,7 +288,7 @@ describe('SimCore in the same thread', () => {
     core.gsm.restoreSnapshot(before, 'live');
     expect(core.gsm.captureSnapshot().structures).toEqual([100]);
     expect(core.gsm.stateHash()).toBe(hashBefore);
-    expect(drive.tick().ops.filter((op) => op[0] === 'structures.setStages')).toEqual([['structures.setStages', new Uint8Array([0])]]);
+    expect(drive.tick().ops.filter((op) => op[0] === 'structures.setStages')).toEqual([['structures.setStages', new Uint8Array([0]), new Int16Array([-1])]]);
   });
 
   it('places no tower on a roof whose building falls in the tick the order acts in, and keeps one placed first standing', () => {
@@ -379,11 +379,14 @@ describe('SimCore in the same thread', () => {
       // A save after the wave, as text, into a fresh simulation on the same world
       const save = JSON.parse(JSON.stringify(core.gsm.captureSnapshot())) as ReturnType<SimCore['gsm']['captureSnapshot']>;
       expect(save.craters).toEqual(Array.from(damage.craters.list()));
+      // The headings of the hits that brought the stages go with the save, into the hash checked below
+      expect(save.structureHeadings?.some((h) => h >= 0)).toBe(true);
       const loaded = newCore(world);
       loaded.gsm.restoreSnapshot(save, 'live');
       expect(loaded.gsm.stateHash()).toBe(core.gsm.stateHash());
       expect(Array.from(loaded.gsm.worldDamage.craters.list())).toEqual(Array.from(damage.craters.list()));
       expect(loaded.gsm.worldDamage.structures.hpList()).toEqual(damage.structures.hpList());
+      expect(loaded.gsm.worldDamage.structures.headingList()).toEqual(damage.structures.headingList());
 
       // The wave again in a fresh simulation, every hash checked
       const replay = new Driver(newCore(world));
