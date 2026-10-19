@@ -260,7 +260,12 @@ export class CustomMapWorld implements WorldProvider {
     this.capabilities = damaged ? { ...CUSTOM_MAP_CAPABILITIES, destructible: true } : CUSTOM_MAP_CAPABILITIES;
     this.laneChoice = laneChoiceOf(this.doc.spawns, this.doc.gameplay, spawnLimit);
     const ground = damaged
-      ? new CustomMapGroundDamage(this.doc.terrain.grid, this.doc.terrain.width, this.doc.terrain.depth, (rect) => this.view?.updateHeights(rect))
+      ? new CustomMapGroundDamage(
+        this.doc.terrain.grid, this.doc.terrain.width, this.doc.terrain.depth,
+        (rect) => this.view?.updateHeights(rect),
+        (marks) => this.view?.setImpactMarks(marks),
+        (id) => this.destruction?.materialOf(id) ?? 'plaster',
+      )
       : null;
     this.groundDamage = ground;
     this.destruction = damaged
@@ -296,6 +301,8 @@ export class CustomMapWorld implements WorldProvider {
       renderer: ctx.renderer,
       // The lamps' lights at night, with the shots'
       lights: ctx.lights,
+      // Craters and rubble, their program built with the map's
+      impactMarks: this.groundDamage !== null,
     });
     this.view = view;
     if (this.quality) view.applyQuality(this.quality);

@@ -3,6 +3,30 @@ import type { RunStructure } from '../../sim/protocol/run-rules';
 import type { MapHeightGrid } from './map-document';
 import { craterCm } from '../../map-ops/impact-stamp';
 import { rubbleCmAt, rubbleReach, rubbleShapeOf } from '../../utils/stamp-field';
+import { craterMaxDepthCm } from '../../managers/game-state/crater-ledger';
+import { RUBBLE } from '../../configs/destruction.config';
+import { RUBBLE_MATERIALS, type RubbleMaterial } from './rubble-material';
+
+/** What a mark shows */
+export const ImpactMarkKind = { Crater: 0, Rubble: 1 } as const;
+export type ImpactMarkKind = (typeof ImpactMarkKind)[keyof typeof ImpactMarkKind];
+
+/** A mark of the fight on the ground, map metres */
+export interface ImpactMark {
+  x: number;
+  y: number;
+  /** Its full width, m */
+  size: number;
+  /** Turn, rad */
+  rotation: number;
+  kind: ImpactMarkKind;
+  /** 0..1: how deep a crater is for its radius, how high a heap */
+  strength: number;
+  /** Rolls its look, any number */
+  seed: number;
+  /** What rubble is of (RUBBLE_MATERIALS index); 0 for a crater */
+  material: number;
+}
 
 /** Samples a side of a tile the ground is rebuilt in */
 export const GROUND_TILE = 32;
@@ -56,6 +80,9 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
   private readonly dirty = new Set<number>();
   /** The towers holding the ground: map metres */
   private readonly towers = new Map<string, { x: number; y: number }>();
+  /** The marks over the stamps (impact-marks.ts): a crater by its middle, a heap by its structure */
+  private readonly marks = new Map<string, ImpactMark>();
+  private marksChanged = false;
 
   constructor(
     private readonly grid: MapHeightGrid,
@@ -63,6 +90,10 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     depth: number,
     /** The heights changed in this rectangle: the view follows (CustomMapView.updateHeights) */
     private readonly apply: (rect: GroundRect) => void,
+    /** The marks changed: every one as it stands (CustomMapView.setImpactMarks) */
+    private readonly showMarks: (marks: Iterable<ImpactMark>) => void = () => undefined,
+    /** What structure `id` is built of (CustomMapDestruction.materialOf) */
+    private readonly materialOf: (id: string) => RubbleMaterial = () => 'plaster',
   ) {
     this.columns = grid.columns;
     this.rows = grid.rows;
@@ -87,12 +118,30 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
       const dy = sy - y;
       return craterCm(dx * dx + dy * dy, r, depthCm) * sign;
     });
+    const key = `c${xDm},${yDm}`;
+    if (sign < 0) this.marks.delete(key);
+    else {
+      const seed = ((xDm * 0.618 + yDm * 0.414) % 97) + 3;
+      this.marks.set(key, { x, y, size: r * 2.8, rotation: seed, kind: ImpactMarkKind.Crater, strength: Math.min(1, depthCm / craterMaxDepthCm(rDm)), seed, material: 0 });
+    }
+    this.marksChanged = true;
   }
 
   rubble(structure: RunStructure, sign: 1 | -1): void {
     const shape = rubbleShapeOf(structure);
     const reach = rubbleReach(shape);
     this.stamp(shape.x, shape.z, reach.x, reach.z, (sx, sy) => rubbleCmAt(shape, sx, sy) * sign);
+    const key = `r${structure.id}`;
+    if (sign < 0) this.marks.delete(key);
+    else {
+      const size = 2 * (Math.max(shape.coreX, shape.coreZ) + shape.falloff);
+      const seed = (structure.id.length * 13.7 + structure.lat * 9e5 + structure.lon * 7e5) % 89;
+      this.marks.set(key, {
+        x: shape.x, y: shape.z, size, rotation: structure.box?.[4] ?? 0, kind: ImpactMarkKind.Rubble,
+        strength: shape.peakCm / RUBBLE.maxPeakCm, seed, material: RUBBLE_MATERIALS.indexOf(this.materialOf(structure.id)),
+      });
+    }
+    this.marksChanged = true;
   }
 
   /** Every stamp off and every tower's hold let go: the ground as built, written over the next frames */
@@ -107,6 +156,8 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     this.held!.fill(0);
     this.frozen!.fill(0);
     this.towers.clear();
+    this.marks.clear();
+    this.marksChanged = true;
   }
 
   /** Tower `id` stands at map metres (`x`, `y`): the ground round it keeps its height from now on */
@@ -137,6 +188,10 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
 
   /** Write the waiting tiles, at most `maxTiles`, and tell the view their rectangle */
   flush(maxTiles = GROUND_TILES_PER_FRAME): void {
+    if (this.marksChanged) {
+      this.marksChanged = false;
+      this.showMarks(this.marks.values());
+    }
     if (this.dirty.size === 0) return;
     const base = this.base!;
     const sum = this.sum!;

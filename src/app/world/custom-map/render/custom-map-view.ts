@@ -67,6 +67,9 @@ import { ParticleField } from './effects/particle-field';
 import { WaterReflection } from './water/water-reflection';
 import { MirrorChoice, type MirrorCandidate } from './water/mirror-choice';
 import { GroundDecals } from './terrain/ground-decals';
+import { ImpactMarks } from './terrain/impact-marks';
+import { RubblePieces } from './terrain/rubble-pieces';
+import type { ImpactMark } from '../custom-map-ground-damage';
 import { NO_MAP_EFFECTS, type MapEffects } from './map-effects';
 import type { GridRect } from './terrain/terrain-chunks';
 import { firstUsePrograms, programsReady } from '../../../three-engine/programs-ready';
@@ -168,6 +171,11 @@ export interface CustomMapViewOptions {
    * baked onto (lamp-light.ts)
    */
   lights?: ShotLights;
+  /**
+   * The ground takes the fight's marks: craters and rubble (impact-marks.ts,
+   * docs/DESTRUCTION_PLAN.md); their program is built with the map's, not in the game
+   */
+  impactMarks?: boolean;
 }
 
 export class CustomMapView {
@@ -239,6 +247,10 @@ export class CustomMapView {
   private lavaDue: ReturnType<typeof setTimeout> | null = null;
   /** Leaves, trodden soil and puddles from the map's rules (ground-decals.ts) */
   private readonly decals: GroundDecals;
+  /** Craters and rubble of the fight (impact-marks.ts), with options.impactMarks */
+  private readonly impactMarks: ImpactMarks | null = null;
+  /** The pieces on the fallen structures' heaps (rubble-pieces.ts), with options.impactMarks */
+  private readonly rubblePieces: RubblePieces | null = null;
   /** Which objects the view shows (an editor hides categories); null shows all */
   private visible: ((o: MapObject) => boolean) | null = null;
   /** The objects shown, by id, as they were last shown: a change finds what it replaces (objectsChanged) */
@@ -342,6 +354,12 @@ export class CustomMapView {
     this.waveBanners();
     this.decals = new GroundDecals(this.terrain.heightTexture);
     this.group.add(this.decals.mesh);
+    if (options.impactMarks) {
+      this.impactMarks = new ImpactMarks(this.terrain.heightTexture);
+      this.group.add(this.impactMarks.mesh);
+      this.rubblePieces = new RubblePieces(this.terrain.heightTexture);
+      this.group.add(...this.rubblePieces.meshes);
+    }
     this.group.add(this.effects.group);
     this.refreshLava();
     this.applyShadowCascade();
@@ -770,6 +788,13 @@ export class CustomMapView {
     }
     this.environment.matchFog(this.camPos, this.focusPoint);
     this.environment.setFogMap(this.group.position.x, this.group.position.z, this.doc.terrain.width / 2, this.doc.terrain.depth / 2);
+  }
+
+  /** The fight's marks on the ground as they stand now (with options.impactMarks) */
+  setImpactMarks(marks: Iterable<ImpactMark>): void {
+    const list = [...marks];
+    this.impactMarks?.set(list);
+    this.rubblePieces?.set(list);
   }
 
   /** Heights changed inside `rect` (map metres); whole map when omitted. Objects and water follow. */
@@ -1717,6 +1742,8 @@ export class CustomMapView {
     if (this.farShadowDue) clearTimeout(this.farShadowDue);
     if (this.decalsDue) clearTimeout(this.decalsDue);
     this.decals.dispose();
+    this.impactMarks?.dispose();
+    this.rubblePieces?.dispose();
     this.group.removeFromParent();
     this.losBlockers.removeFromParent();
     this.group.clear();

@@ -4,6 +4,7 @@ import { presetHp, type StructureStage } from '../../configs/destruction.config'
 import { type CustomMapDocument, type MapObject, MAP_METERS_PER_DEGREE, STRUCTURE_HP_SCALE } from './map-document';
 import type { GroundBox } from './object-ground';
 import type { CatalogRoof } from './object-roof';
+import { rubbleMaterialOf, type RubbleMaterial } from './rubble-material';
 import { massArea, massOf, massTop, objectShape } from './object-mass';
 
 /** Catalogue categories whose objects take damage and fall */
@@ -46,12 +47,16 @@ export interface StructureEntry {
   box?: GroundBox;
   /** Its top carries towers (object-roof.ts) */
   roof?: CatalogRoof;
+  /** Biome and style words, which tell what it is built of (rubble-material.ts) */
+  tags?: readonly string[];
 }
 
 /** A map structure: its object, its stage and what the run rules get of it */
 interface MapStructure extends WorldStructure {
   readonly object: MapObject;
   readonly run: RunStructure;
+  /** What its rubble, dust and pieces are of */
+  readonly material: RubbleMaterial;
 }
 
 /** HP of a structure: its volume as a cylinder, held in STRUCTURE_HP */
@@ -124,7 +129,8 @@ export class CustomMapDestruction implements WorldDestruction {
         ...(mass ? { mass: { x: object.x, y: object.y, turn: object.rotation, scale: object.scale || 1, rings: mass.rings } } : {}),
       };
       // Standing until the simulation says otherwise: a structure the map damaged beforehand comes with its first stages
-      this.list.push({ id: object.id, object, run, lat: run.lat, lon: run.lon, radius, height, maxHp, stage: 0 });
+      const material = rubbleMaterialOf(object, entry.tags);
+      this.list.push({ id: object.id, object, run, lat: run.lat, lon: run.lon, radius, height, maxHp, stage: 0, material });
     }
   }
 
@@ -157,6 +163,22 @@ export class CustomMapDestruction implements WorldDestruction {
   private tell(fallen: readonly MapObject[], risen: readonly MapObject[]): void {
     if (fallen.length > 0) this.fall(fallen);
     if (risen.length > 0) this.rise(risen);
+  }
+
+  /** What structure `id`'s rubble is of; plaster for one not in the list */
+  materialOf(id: string): RubbleMaterial {
+    return this.byId().get(id)?.material ?? 'plaster';
+  }
+
+  private index: Map<string, MapStructure> | null = null;
+  private indexed: MapStructure[] | null = null;
+
+  private byId(): Map<string, MapStructure> {
+    if (this.indexed !== this.list) {
+      this.index = new Map(this.list.map((s) => [s.id, s]));
+      this.indexed = this.list;
+    }
+    return this.index!;
   }
 
   /** The structures for the run rules (RunRules.structures): what the simulation wears down, in this order */
