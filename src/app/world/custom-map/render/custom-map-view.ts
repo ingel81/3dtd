@@ -727,6 +727,8 @@ export class CustomMapView {
     }
     this.terrain.update(this.camPos, clock, this.focusPoint);
     this.terrain.updateGroundColor(dtSeconds, this.options.renderer);
+    // The decals round the focus (map metres: scene x is map -x)
+    this.decals.update(-this.focusPoint.x, this.focusPoint.z);
     const reach = this.camPos.distanceTo(this.focusPoint);
     this.armReflection(camera, dtSeconds);
     // Shadow box fitted to the ground the camera sees: sharp up close, wide from high up or looking far
