@@ -33,7 +33,7 @@ describe('map templates', () => {
 describe('map templates off the page', () => {
   /** On a 2048 m map the biome held the page for a third of a second in one frame */
   it('builds the same map through the job as in place, the progress told, a structured copy of the map in and out', async () => {
-    const template = MAP_TEMPLATES.find((t) => t.id === 'forest') ?? MAP_TEMPLATES[0];
+    const template = MAP_TEMPLATES[0];
     const base = biomeById(template.biome).ground[0].material.find((m) => catalog.materials.has(m))!;
     const fresh = () => createMapDocument({ id: 'm', name: 'M', width: 256, depth: 256, cellSize: 4, baseMaterial: base, now: new Date(0) });
     const inPlace = fresh();

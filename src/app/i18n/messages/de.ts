@@ -1,7 +1,7 @@
 import { formatters } from '../format';
 import type { UpgradeTerms } from '../../configs/tower-types.config';
 import { HERO } from '../../configs/hero.config';
-import type { Messages } from './en';
+import { en, type Messages } from './en';
 
 const f = formatters('de');
 
@@ -13,61 +13,8 @@ function de_thing(ref: Parameters<Messages['check']['thing']>[0]): string {
   return de.check.thing(ref);
 }
 
-/**
- * Turm- und Gegnernamen, ein Block für sich. Englische Namen im deutschen
- * Spiel: diesen Block durch `const names = en.names;` ersetzen (und `en`
- * aus './en' importieren).
- */
-const names: Messages['names'] = {
-  towers: {
-    archer: 'Bogenturm',
-    'dual-gatling': 'Doppel-Gatling',
-    cannon: 'Kanonenturm',
-    magic: 'Magierturm',
-    rocket: 'Raketenturm',
-    ice: 'Eisturm',
-    fire: 'Feuerturm',
-    tentacle: 'Tentakelturm',
-    poison: 'Giftturm',
-    lightning: 'Blitzturm',
-    chaos: 'Chaosturm',
-    bastion: 'Eiserne Bastion',
-    sentinel: 'Wächterlaser',
-    chainsaw: 'Kettensäge',
-    shawarma: 'Shawarma-Schnetzler',
-    'research-center': 'Forschungszentrum',
-    'missile-silo': 'Raketensilo',
-  },
-  enemies: {
-    zombie: 'Zombie',
-    'zombie-v2': 'Zombie v2',
-    tank: 'Panzer',
-    wallsmasher: 'Mauerbrecher',
-    'stone-golem': 'Steingolem',
-    bat: 'Fledermaus',
-    penguin: 'Pinguin',
-    herbert: 'Herbert',
-    'zombie-soldier': 'Zombiesoldat',
-    rat: 'Ratte',
-    skeleton: 'Skelett',
-    'skeleton-minion': 'Skelettdiener',
-    spider: 'Spinne',
-    mammoth: 'Mammut',
-    bear: 'Bär',
-    dragon: 'Drache',
-    ghost: 'Geist',
-    hornet: 'Hornisse',
-    mech: 'Mech',
-    wraith: 'Schemen',
-    worm: 'Skarnax',
-    'worm-segment': 'Skarnax-Segment',
-    'worm-tail': 'Skarnax-Schwanz',
-    ooze: 'Schleim',
-    'slime-clump': 'Schleimklumpen',
-    'golem-king': 'Golemkönig',
-    'dragon-matriarch': 'Drachenmutter',
-  },
-};
+/** Turm-, Gegner- und andere Eigennamen bleiben in jeder Sprache englisch (Entscheid E245) */
+const names = en.names;
 
 /** „+5 % je Stufe bis Stufe 15, danach +2 %, aufbauend“ oder „+3 % je Stufe, aufbauend, bis Stufe 10“ */
 const growth = (what: string, u: UpgradeTerms) =>
@@ -1295,6 +1242,7 @@ export const de: Messages = {
       thinNote: 'Ältere Versionen dünnen aus: alle der letzten Stunde, eine je Stunde für einen Tag, eine je Tag für einen Monat, eine je Woche davor. Angeheftete bleiben.',
     },
     browser: {
+      reading: 'Die Datei wird gelesen',
       sizes: { s: 'Klein', m: 'Mittel', l: 'Groß', w: 'Breit' },
       dims: (w, d) => `${f.int(w)} x ${f.int(d)} m`,
       newMapName: 'Neue Karte',

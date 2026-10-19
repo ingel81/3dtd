@@ -27,17 +27,17 @@
       @if (session.notices.error(); as error) {
         <p class="td-banner is-error is-row" role="alert">
           <span>{{ error }}</span>
-          <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.notices.error.set(null)">Dismiss</button>
+          <button class="td-btn-ghost td-btn-sm" type="button" (click)="session.notices.error.set(null)">{{ t().editor.browser.dismiss }}</button>
         </p>
       }
       @if (session.library.importMatch(); as match) {
         <div class="td-banner is-warn td-stack" role="group" data-test="import-match">
-          <p>{{ match.file }} is another version of your map <b>{{ match.existing.name }}</b>{{ match.existing.updatedAt ? ' (changed ' + when(match.existing.updatedAt) + ')' : '' }}.
-            Replace puts the file's content in its place (what it was stays among its versions); Keep both adds the file as a new map.</p>
+          <p>{{ t().editor.browser.matchIntro(match.file) }} <b>{{ match.existing.name }}</b>{{ match.existing.updatedAt ? t().editor.browser.changed(when(match.existing.updatedAt)) : '' }}.
+            {{ t().editor.browser.matchExplain }}</p>
           <div class="td-actions is-start">
-            <button class="td-btn-primary td-btn-sm" type="button" (click)="resolveImport('replace')" data-test="import-replace">Replace</button>
-            <button class="td-btn-secondary td-btn-sm" type="button" (click)="resolveImport('copy')" data-test="import-copy">Keep both</button>
-            <button class="td-btn-ghost td-btn-sm" type="button" (click)="resolveImport('cancel')">Cancel</button>
+            <button class="td-btn-primary td-btn-sm" type="button" (click)="resolveImport('replace')" data-test="import-replace">{{ t().editor.browser.replace }}</button>
+            <button class="td-btn-secondary td-btn-sm" type="button" (click)="resolveImport('copy')" data-test="import-copy">{{ t().editor.browser.keepBoth }}</button>
+            <button class="td-btn-ghost td-btn-sm" type="button" (click)="resolveImport('cancel')">{{ t().editor.browser.cancel }}</button>
           </div>
         </div>
       }
@@ -45,36 +45,36 @@
         <div class="mb-import td-banner td-stack" [class.is-error]="!!imp.error" [class.is-ok]="imp.phase === 'done'" role="status" data-test="import-panel">
           <div class="td-inline mb-import-head">
             <strong class="td-trunc">{{ imp.file }}</strong>
-            <span class="td-tag" matTooltip="Warcraft maps vary a lot: scripted waves, maze maps and custom terrain may come over only in part. Check the report and the map before playing" data-test="w3x-beta">Beta</span>
+            <span class="td-tag" [matTooltip]="t().editor.browser.betaTip" data-test="w3x-beta">{{ t().editor.browser.beta }}</span>
             @if (imp.phase === 'running' && !imp.error) {
-              <span class="td-note"><span class="td-spin" aria-hidden="true"></span> {{ imp.step }}</span>
+              <span class="td-note"><span class="td-spin" aria-hidden="true"></span> {{ t().editor.session.converting }}</span>
             }
-            <button class="td-btn-ghost td-btn-sm" type="button" (click)="closeImport()">{{ imp.phase === 'options' || (imp.phase === 'running' && !imp.error) ? 'Cancel' : 'Close' }}</button>
+            <button class="td-btn-ghost td-btn-sm" type="button" (click)="closeImport()">{{ imp.phase === 'options' || (imp.phase === 'running' && !imp.error) ? t().editor.browser.cancel : t().editor.browser.close }}</button>
           </div>
           @if (imp.phase === 'options' || (imp.error && imp.phase === 'running')) {
             <div class="mb-w3x">
               <label class="td-field">
-                <span class="td-label" matTooltip="One Warcraft tile (128 units) becomes this many metres; heights scale the same">Metres per tile</span>
+                <span class="td-label" [matTooltip]="t().editor.browser.mptTip">{{ t().editor.browser.mpt }}</span>
                 <input class="td-input is-sm" type="number" min="1" max="16" step="0.5" [value]="imp.options.metresPerTile" #mpt />
               </label>
               <label class="td-field">
-                <span class="td-label" matTooltip="Thin out evenly beyond this many doodads">Most objects</span>
+                <span class="td-label" [matTooltip]="t().editor.browser.mostTip">{{ t().editor.browser.most }}</span>
                 <input class="td-input is-sm" type="number" min="0" max="20000" step="500" [value]="imp.options.maxObjects" #maxo />
               </label>
-              <label class="td-check" matTooltip="Leave out the black border around the playable area">
+              <label class="td-check" [matTooltip]="t().editor.browser.cropTip">
                 <input class="td-switch" type="checkbox" [checked]="imp.options.cropToPlayable" #crop />
-                Playable area only
+                {{ t().editor.browser.crop }}
               </label>
-              <label class="td-check" matTooltip="Repaint the ground by its role in play: meadows, paving with gravel rims, forest rims with extra trees. Off keeps the tiles as they are">
+              <label class="td-check" [matTooltip]="t().editor.browser.enhanceTip">
                 <input class="td-switch" type="checkbox" [checked]="imp.options.style === 'enhanced'" #enh data-test="w3x-enhance" />
-                Enhance ground
+                {{ t().editor.browser.enhance }}
               </label>
-              <label class="td-check" matTooltip="Take the Warcraft map's waves over as this map's own wave list (unit, HP, count, our enemy type, bosses)">
+              <label class="td-check" [matTooltip]="t().editor.browser.wavesTip">
                 <input class="td-switch" type="checkbox" [checked]="imp.options.waves" #waves data-test="w3x-waves" />
-                Take the map's waves
+                {{ t().editor.browser.waves }}
               </label>
               <button class="td-btn-primary td-btn-sm" type="button" data-test="w3x-import"
-                      (click)="startW3x(+mpt.value, +maxo.value, crop.checked, enh.checked, waves.checked)">Import</button>
+                      (click)="startW3x(+mpt.value, +maxo.value, crop.checked, enh.checked, waves.checked)">{{ t().editor.browser.import }}</button>
             </div>
           }
           @if (imp.error) {
@@ -86,14 +86,14 @@
               </ul>
             }
             @if (imp.report.warnings.length) {
-              <h3 class="td-section">Warnings</h3>
+              <h3 class="td-section">{{ t().editor.browser.warnings }}</h3>
               <ul class="td-legend">
                 @for (line of imp.report.warnings; track $index) { <li class="td-note is-warn">{{ line }}</li> }
               </ul>
             }
             @if (imp.mapId) {
               <div class="td-actions is-start">
-                <button class="td-btn-primary td-btn-sm" type="button" (click)="open.emit(imp.mapId)" data-test="open-imported">Open the map</button>
+                <button class="td-btn-primary td-btn-sm" type="button" (click)="open.emit(imp.mapId)" data-test="open-imported">{{ t().editor.browser.openMap }}</button>
               </div>
             }
           }
@@ -102,20 +102,20 @@
 
       @if (importing()) {
         @if (busy() && !session.library.importState() && !session.library.importMatch()) {
-          <p class="td-note" role="status"><span class="td-spin" aria-hidden="true"></span> Reading the file</p>
+          <p class="td-note" role="status"><span class="td-spin" aria-hidden="true"></span> {{ t().editor.browser.reading }}</p>
         }
       } @else {
-        <div class="td-seg" role="radiogroup" aria-label="Start from">
-          <button type="button" role="radio" [attr.aria-checked]="newFrom() === 'landscape'" (click)="newFrom.set('landscape')">A landscape</button>
-          <button type="button" role="radio" [attr.aria-checked]="newFrom() === 'place'" (click)="newFrom.set('place')" data-test="new-from-place">From a real place</button>
+        <div class="td-seg" role="radiogroup" [attr.aria-label]="t().editor.browser.startFrom">
+          <button type="button" role="radio" [attr.aria-checked]="newFrom() === 'landscape'" (click)="newFrom.set('landscape')">{{ t().editor.browser.aLandscape }}</button>
+          <button type="button" role="radio" [attr.aria-checked]="newFrom() === 'place'" (click)="newFrom.set('place')" data-test="new-from-place">{{ t().editor.browser.realPlace }}</button>
         </div>
         @if (newFrom() === 'place') {
           @if (osmPlace(); as request) {
             <app-osm-frame context="editor" [place]="request.place" [spawnsAt]="request.spawnsAt" (back)="osmPlace.set(null)" (done)="openMade($event.summary)" />
           } @else {
-            <p class="td-note">The streets, bridges and ground of a square of up to 2.4 km from OpenStreetMap and free height data, the HQ on the place you search.</p>
+            <p class="td-note">{{ t().editor.browser.placeNote }}</p>
             <app-td-address-autocomplete
-              [placeholder]="'City, street or address…'"
+              [placeholder]="t().editor.browser.placeholder"
               [currentValue]="null"
               (locationSelected)="choosePlace($event)"
             />
@@ -124,64 +124,64 @@
           <!-- The fields scroll, the row with Create stays under them -->
           <div class="mb-form td-stack is-loose">
             <label class="td-field">
-              <span class="td-label">Name</span>
+              <span class="td-label">{{ t().editor.browser.name }}</span>
               <input class="td-input" type="text" maxlength="60" [value]="newName()" (input)="newName.set(asValue($event))" data-test="new-name" />
             </label>
             <label class="td-field">
-              <span class="td-label">Author</span>
-              <input class="td-input" type="text" maxlength="60" placeholder="Optional" [value]="newAuthor()" (input)="newAuthor.set(asValue($event))" />
+              <span class="td-label">{{ t().editor.browser.author }}</span>
+              <input class="td-input" type="text" maxlength="60" [placeholder]="t().editor.browser.optional" [value]="newAuthor()" (input)="newAuthor.set(asValue($event))" />
             </label>
             <div class="td-field">
-              <span class="td-label" id="mb-size">Size</span>
+              <span class="td-label" id="mb-size">{{ t().editor.browser.size }}</span>
               <div class="td-seg is-stacked" role="radiogroup" aria-labelledby="mb-size">
                 @for (p of presets; track p.id) {
                   <button type="button" role="radio" [attr.aria-checked]="newSize() === p.id" (click)="newSize.set(p.id)">
-                    {{ p.label }}<small>{{ p.width }} x {{ p.depth }} m</small>
+                    {{ t().editor.browser.sizes[p.id] }}<small>{{ t().editor.browser.dims(p.width, p.depth) }}</small>
                   </button>
                 }
               </div>
             </div>
             <div class="td-field">
-              <span class="td-label" id="mb-template">Start from <span class="td-note">a landscape with a road, a spawn and the HQ, ready to play</span></span>
+              <span class="td-label" id="mb-template">{{ t().editor.browser.startFrom }} <span class="td-note">{{ t().editor.browser.templateNote }}</span></span>
               <div class="mb-templates" role="radiogroup" aria-labelledby="mb-template">
-                @for (t of templates; track t.id) {
-                  <button class="td-card mb-material" type="button" role="radio" [attr.aria-checked]="newTemplate() === t.id" [attr.aria-pressed]="newTemplate() === t.id"
-                          [matTooltip]="t.hint" matTooltipPosition="above" (click)="newTemplate.set(t.id)" [attr.data-template]="t.id">
-                    <img [src]="templatePicture(t)" alt="" />
-                    <span class="td-trunc">{{ t.label }}</span>
+                @for (tp of templates; track tp.id) {
+                  <button class="td-card mb-material" type="button" role="radio" [attr.aria-checked]="newTemplate() === tp.id" [attr.aria-pressed]="newTemplate() === tp.id"
+                          [matTooltip]="t().editor.templates[tp.id].hint" matTooltipPosition="above" (click)="newTemplate.set(tp.id)" [attr.data-template]="tp.id">
+                    <img [src]="templatePicture(tp)" alt="" />
+                    <span class="td-trunc">{{ t().editor.templates[tp.id].label }}</span>
                   </button>
                 }
                 <button class="td-card mb-material" type="button" role="radio" [attr.aria-checked]="newTemplate() === ''" [attr.aria-pressed]="newTemplate() === ''"
-                        matTooltip="Start from bare ground of your choice" (click)="newTemplate.set('')" data-template="">
+                        [matTooltip]="t().editor.browser.emptyTip" (click)="newTemplate.set('')" data-template="">
                   <span class="mb-blank" aria-hidden="true"></span>
-                  <span class="td-trunc">Empty</span>
+                  <span class="td-trunc">{{ t().editor.browser.empty }}</span>
                 </button>
               </div>
             </div>
             @if (!newTemplate()) {
               <div class="td-field">
-                <span class="td-label" id="mb-ground">Ground</span>
+                <span class="td-label" id="mb-ground">{{ t().editor.browser.ground }}</span>
                 <div class="td-seg is-sm mb-presets" role="radiogroup" aria-labelledby="mb-ground">
                   @for (p of presets2; track p.id) {
-                    <button type="button" role="radio" [attr.aria-checked]="newPreset() === p.id" [matTooltip]="p.hint" (click)="newPreset.set(p.id)" [attr.data-preset]="p.id">{{ p.label }}</button>
+                    <button type="button" role="radio" [attr.aria-checked]="newPreset() === p.id" [matTooltip]="t().editor.presets[p.id].hint" (click)="newPreset.set(p.id)" [attr.data-preset]="p.id">{{ t().editor.presets[p.id].label }}</button>
                   }
                 </div>
               </div>
               @if (newPreset() !== 'flat') {
                 <div class="mb-gen">
                   <label class="td-field">
-                    <span class="td-label">Seed</span>
+                    <span class="td-label">{{ t().editor.browser.seed }}</span>
                     <input class="td-input is-sm" type="number" min="0" [value]="newSeed()" (input)="newSeed.set(+asValue($event))" />
                   </label>
-                  <button class="td-btn-secondary td-btn-sm" type="button" (click)="rollSeed()">Roll</button>
+                  <button class="td-btn-secondary td-btn-sm" type="button" (click)="rollSeed()">{{ t().editor.browser.roll }}</button>
                   <label class="td-field mb-strength">
-                    <span class="td-label">Strength {{ newStrength() }} %</span>
-                    <input class="td-slider" type="range" min="10" max="100" [value]="newStrength()" (input)="newStrength.set(+asValue($event))" aria-label="Strength" />
+                    <span class="td-label">{{ t().editor.browser.strengthPct(newStrength()) }}</span>
+                    <input class="td-slider" type="range" min="10" max="100" [value]="newStrength()" (input)="newStrength.set(+asValue($event))" [attr.aria-label]="t().editor.browser.strength" />
                   </label>
                 </div>
               }
               <div class="td-field">
-                <span class="td-label">Base material</span>
+                <span class="td-label">{{ t().editor.browser.baseMaterial }}</span>
                 <div class="mb-materials">
                   @for (mat of materials(); track mat.id) {
                     <button class="td-card mb-material" type="button" [attr.aria-pressed]="newMaterial() === mat.id" (click)="newMaterial.set(mat.id)" [matTooltip]="mat.name">
@@ -198,14 +198,14 @@
             @if (busy()) {
               <p class="td-note mb-making" role="status" data-test="create-status">
                 <span class="td-spin" aria-hidden="true"></span>
-                {{ progress() !== null ? 'Painting the land ' + percent() + ' %' : 'Opening the editor' }}
+                {{ progress() !== null ? t().editor.browser.painting(percent()) : t().editor.browser.openingEditor }}
               </p>
             }
-            <button class="td-btn-primary" type="button" [disabled]="busy()" (click)="createMap()" data-test="create-map">Create map</button>
+            <button class="td-btn-primary" type="button" [disabled]="busy()" (click)="createMap()" data-test="create-map">{{ t().editor.browser.create }}</button>
           </div>
         }
       }
-      <p class="td-note mb-foot">Drop .3dtdmap or .w3x files anywhere here to import them.</p>
+      <p class="td-note mb-foot">{{ t().editor.browser.dropNote }}</p>
     </section>
   </div>
 </div>

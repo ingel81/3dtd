@@ -188,15 +188,16 @@ Paket ab, nicht jeden Text.
 ## 8. Glossar EN/DE
 
 Ton: locker und knapp, du statt Sie, Verben im Infinitiv auf Knöpfen („Welle starten“), kein Amtsdeutsch.
-Spielbegriffe wie in deutschen TD-Spielen. **Eigennamen**: was beschreibt, was es ist, wird übersetzt (der Spieler
-muss es sofort lesen können: „Bogenturm“); was ein Name ist (Personen, Kreaturen, Marken), bleibt (Herbert, Skarnax,
-OpenStreetMap, Cesium ion).
+Spielbegriffe wie in deutschen TD-Spielen. **Eigennamen** bleiben in jeder Sprache englisch (User-Entscheid):
+Turm- und Gegnernamen (Archer Tower, Iron Bastion, Herbert, Skarnax), Marken (OpenStreetMap, Cesium ion). Übersetzt
+werden Beschreibungen und Gattungswörter im Fließtext („Turm bauen“, „der Turm feuert“). `de.ts` übernimmt den
+Namensblock als `const names = en.names`.
 
 ### Grundbegriffe
 
 | EN | DE | Anmerkung |
 |---|---|---|
-| Tower | Turm, Türme | **zur Entscheidung**: Alternative „Tower“ (so in der Doku); „Turm“ liest sich in Sätzen natürlicher („Turm bauen“) und ist in deutschen TD-Spielen üblich |
+| Tower | Turm, Türme | entschieden: „Turm“ im Fließtext; die Turmnamen selbst bleiben englisch |
 | Wave | Welle | „Welle starten“, „Nächste Welle“, „Welle 12“ |
 | HQ | HQ | kurz und bekannt; „Hauptquartier“ zu lang für das HUD |
 | Credits | Credits | Währung. Im Englischen steht stellenweise „gold“ (Coop: „sent you 50 gold“): in beiden Sprachen auf Credits vereinheitlichen |
@@ -280,27 +281,8 @@ OpenStreetMap, Cesium ion).
 
 ### Tower
 
-| EN | DE |
-|---|---|
-| Archer Tower | Bogenturm |
-| Dual-Gatling Tower | Doppel-Gatling |
-| Cannon Tower | Kanonenturm |
-| Magic Tower | Magierturm |
-| Rocket Tower | Raketenturm |
-| Ice Tower | Eisturm |
-| Fire Tower | Feuerturm |
-| Tentacle Tower | Tentakelturm |
-| Poison Tower | Giftturm |
-| Lightning Tower | Blitzturm |
-| Chaos Tower | Chaosturm |
-| Iron Bastion | Eiserne Bastion (Alternative: Iron Bastion als Name) |
-| Sentinel Laser | Wächterlaser |
-| Chainsaw | Kettensäge |
-| Shawarma Slicer | Shawarma-Schnetzler |
-| Missile Silo | Raketensilo |
-
-Pfade: Scout → Späher, Fire Arrows → Feuerpfeile, Multirole → Mehrzweck, Binding Sigil → Bannsiegel,
-Caustic → Ätzend, Sniper → Scharfschütze. Upgrades: Range → Reichweite, Beam Width → Kegelbreite.
+Turmnamen bleiben englisch (Archer Tower, Iron Bastion, Sentinel Laser, Missile Silo …); nur ihre Beschreibungen
+werden übersetzt.
 
 ### Gegner
 
@@ -352,10 +334,20 @@ Swift → Flink, Swarm → Schwarm, Regeneration → Regeneration, Bounty → Ko
 
 Die Fähigkeiten-Forschungen (Nuclear Strike, Frost Bomb, EMP, Orbital Laser) heißen wie die Fähigkeit.
 
-## 9. Offene Entscheidungen (User)
+## 9. Entscheidungen (User)
 
-1. „Turm“ oder „Tower“ im deutschen Spiel (Empfehlung: Turm).
-2. Tower-Eigennamen übersetzen (Empfehlung: ja, „Eiserne Bastion“, „Wächterlaser“) oder englisch lassen.
-3. „Koop“ statt „Coop“ im deutschen Spiel (Empfehlung: Koop).
-4. Changelog nur englisch (Empfehlung) oder ab 0.8 zweisprachig.
-5. Benchmark-Panel im Spiel übersetzen (Empfehlung: Überschriften und Knöpfe ja, Messwerte und Bericht englisch).
+1. „Turm“ im deutschen Fließtext, nicht „Tower“.
+2. Turm-, Gegner- und andere Eigennamen englisch in allen Sprachen (`const names = en.names`).
+3. „Koop“ statt „Coop“ im deutschen Spiel.
+4. Changelog nur englisch.
+5. Benchmark-Panel: Überschriften und Knöpfe übersetzt, Messwerte und Bericht englisch.
+6. Währung heißt in beiden Sprachen „Credits“.
+
+Offene Fragen:
+
+- Fähigkeiten (Nuclear Strike, Frost Bomb, EMP, Orbital Laser), der Held (Mercenary) und die Mutatoren sind im Deutschen
+  vorerst übersetzt (Atomschlag, Frostbombe, Söldner, Flink …), weil sie Gattungswörter sind. Englisch lassen?
+
+Balance-Hash: Seit I1 stehen Namen und Beschreibungen nicht mehr in den Configs, die `balanceConfigHash` liest; der Hash
+umfasst nur noch Zahlen, Ids und Regeln. Er hat sich mit I1 einmal geändert (Changelog-Entwurf: „Balance-Hash neu, weil
+die Texte aus den Configs ins Wörterbuch gewandert sind; keine Balance-Änderung“).

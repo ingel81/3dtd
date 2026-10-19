@@ -8,6 +8,7 @@ import { ToolOverlay, type OverlayShape } from '../view/overlay/tool-overlay';
 import { markingCorners } from '../ops/surfaces';
 import { pickSurface, SurfaceTool } from './surface-tool';
 import { patch, defaultSettings, type ToolContext, type ToolPointer } from './tool';
+import { en } from '../../i18n/messages/en';
 
 function context(editor: EditorDocument): ToolContext & { messages: string[]; drawn: () => readonly OverlayShape[] | null } {
   const messages: string[] = [];
@@ -33,6 +34,7 @@ function context(editor: EditorDocument): ToolContext & { messages: string[]; dr
     toScreen: () => null,
     setLasso: () => undefined,
     objectVisible: () => true,
+    t: () => en,
   };
 }
 

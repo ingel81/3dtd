@@ -19,19 +19,20 @@ import { OsmFrameComponent } from '../../../components/osm-frame/osm-frame.compo
 import type { OsmFrameRequest } from '../../../components/osm-frame/osm-frame-request';
 import { placeLabel } from '../../../services/location/place-label';
 import type { NominatimAddress } from '../../../services/location/geocoding.service';
+import { injectT } from '../../../i18n/i18n.service';
 
+/** A size for a new map; its name is the dictionary's (i18n `editor.browser.sizes`) */
 export interface SizePreset {
-  id: string;
-  label: string;
+  id: 's' | 'm' | 'l' | 'w';
   width: number;
   depth: number;
 }
 
 export const SIZE_PRESETS: readonly SizePreset[] = [
-  { id: 's', label: 'Small', width: 512, depth: 512 },
-  { id: 'm', label: 'Medium', width: 1024, depth: 1024 },
-  { id: 'l', label: 'Large', width: 2048, depth: 2048 },
-  { id: 'w', label: 'Wide', width: 2048, depth: 1024 },
+  { id: 's', width: 512, depth: 512 },
+  { id: 'm', width: 1024, depth: 1024 },
+  { id: 'l', width: 2048, depth: 2048 },
+  { id: 'w', width: 2048, depth: 1024 },
 ];
 
 /**
@@ -52,6 +53,7 @@ export const SIZE_PRESETS: readonly SizePreset[] = [
   styleUrl: './map-make.component.scss',
 })
 export class MapMakeComponent implements OnInit, OnDestroy {
+  protected readonly t = injectT();
   readonly session = inject(EditorSession);
   private readonly stage = inject(WorldsStageService);
   private readonly dialog = inject(MatDialog);
@@ -79,7 +81,7 @@ export class MapMakeComponent implements OnInit, OnDestroy {
   /** The real place whose frame shows, null while searching */
   readonly osmPlace = signal<OsmFrameRequest | null>(null);
   readonly presets = SIZE_PRESETS;
-  readonly newName = signal('New map');
+  readonly newName = signal(this.t().editor.browser.newMapName);
   readonly newAuthor = signal('');
   readonly newSize = signal<string>('m');
   readonly presets2 = TERRAIN_PRESETS;
@@ -97,7 +99,7 @@ export class MapMakeComponent implements OnInit, OnDestroy {
   readonly thumb = (m: GroundMaterialEntry) => this.session.pictures.materialPicture(m);
 
   /** The page's title, as the path names it */
-  readonly title = computed(() => (this.importing() ? 'Import file' : 'New map'));
+  readonly title = computed(() => (this.importing() ? this.t().editor.browser.importFile : this.t().editor.browser.newMap));
 
   ngOnInit(): void {
     const make = this.make();
@@ -128,7 +130,7 @@ export class MapMakeComponent implements OnInit, OnDestroy {
     try {
       const id = await this.session.maps.createNew(
         {
-          name: this.newName().trim() || 'New map',
+          name: this.newName().trim() || this.t().editor.browser.newMapName,
           author: this.newAuthor().trim(),
           width: preset.width,
           depth: preset.depth,

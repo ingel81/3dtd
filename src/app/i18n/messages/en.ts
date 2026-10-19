@@ -16,7 +16,7 @@ import type { LandscapeMode, LifeMode, ObjectMode, TerrainMode, WaterMode } from
 import type { BiomeId } from '../../editor/ops/landscape/biomes';
 import type { MapTemplateId } from '../../editor/ops/landscape/templates';
 import type { TerrainPreset } from '../../map-ops/generate';
-import type { SizePreset } from '../../editor/ui/browser/map-browser.component';
+import type { SizePreset } from '../../editor/ui/make/map-make.component';
 import type { MapLifeKind, MapPathKind, MapWaterKind, MapWaveEventKind, MapWeather } from '../../world/custom-map/map-document';
 import type { VacantLanes } from '../../world/custom-map/lane-choice';
 import type { MirrorResult } from '../../editor/ops/mirror-map';
@@ -1365,6 +1365,7 @@ export const en = {
       thinNote: 'Older versions thin out: all of the last hour, one an hour for a day, one a day for a month, one a week before. Pinned ones stay.',
     },
     browser: {
+      reading: 'Reading the file',
       sizes: { s: 'Small', m: 'Medium', l: 'Large', w: 'Wide' } satisfies Record<SizePreset['id'], string>,
       dims: (w: number, d: number) => `${f.int(w)} x ${f.int(d)} m`,
       newMapName: 'New map',

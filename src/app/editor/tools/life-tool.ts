@@ -12,7 +12,7 @@
  * step); edits of one area later stay on that area.
  */
 import type { MapLife, MapLifeArea, MapPoint } from '../../world/custom-map/map-document';
-import { MAX_LIFE_AREAS, MAX_LIFE_POINTS, nearestOnShape, newLifeId, outlineArea, shapeLength } from '../../world/custom-map/map-life';
+import { LIFE_KIND_INFO, MAX_LIFE_AREAS, MAX_LIFE_POINTS, nearestOnShape, newLifeId, outlineArea, shapeLength } from '../../world/custom-map/map-life';
 import { SnapshotCommand } from '../model/commands/snapshot';
 import { insideMap } from '../../map-ops/grid';
 import { lifeAreaImages, symmetryImages } from '../ops/symmetry';
