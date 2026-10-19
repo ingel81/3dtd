@@ -221,6 +221,11 @@ export class WorldDamage {
     }
   }
 
+  /** Debug: a crater of `radiusM` at map degrees (`lat`, `lon`), `depthCm` deeper, where the world takes craters */
+  debugDig(lat: number, lon: number, radiusM: number, depthCm: number): void {
+    this.dig(lon * MAP_METERS_PER_DEGREE, lat * MAP_METERS_PER_DEGREE, radiusM, Math.round(depthCm));
+  }
+
   /** Debug: `amount` off the structures within `reach` m of map degrees (`lat`, `lon`); how many changed their stage */
   debugHit(lat: number, lon: number, reach: number, amount: number): number {
     return this.structures.hit(lon * MAP_METERS_PER_DEGREE, lat * MAP_METERS_PER_DEGREE, reach, Math.round(amount));

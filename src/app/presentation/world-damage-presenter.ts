@@ -48,7 +48,7 @@ const DEBUG_HIT = { reach: 4, amount: 45 } as const;
  *
  * In development `__worldDamage` in DevTools lists the structures and hits a
  * point through the simulation (`debug:hit-structures`, a cheat in coop):
- * `structures()`, `hit(lat, lon, reach, amount)`.
+ * `structures()`, `hit(lat, lon, reach, amount)`, `dig(lat, lon, radius, depth)`.
  */
 export class WorldDamagePresenter {
   /** The world's structures; null for a world where nothing falls */
@@ -101,6 +101,7 @@ export class WorldDamagePresenter {
       structures: () => destruction.structures(),
       hit: (lat: number, lon: number, reach: number = DEBUG_HIT.reach, amount: number = DEBUG_HIT.amount) =>
         bus.emit({ type: 'debug:hit-structures', lat, lon, reach, amount }),
+      dig: (lat: number, lon: number, radius = 2.5, depth = 35) => bus.emit({ type: 'debug:dig-crater', lat, lon, radius, depth }),
     };
   }
 

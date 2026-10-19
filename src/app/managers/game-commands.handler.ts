@@ -392,6 +392,10 @@ export class GameCommandsHandler {
       this.gsm.hitStructures(event.lat, event.lon, event.reach, event.amount);
     });
 
+    this.on('debug:dig-crater', (event) => {
+      this.gsm.worldDamage.debugDig(event.lat, event.lon, event.radius, event.depth);
+    });
+
     this.on('debug:complete-all-research', () => {
       this.gsm.researchOf(this.gsm.actingPlayerId).completeAllResearch();
     });

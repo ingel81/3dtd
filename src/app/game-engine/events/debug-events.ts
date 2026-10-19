@@ -51,6 +51,14 @@ export type DebugEvent =
       amount: number;
     }
   | {
+      // Dig a crater of `radius` m `depth` cm deeper at a point of a world that takes craters (docs/DESTRUCTION_PLAN.md)
+      type: 'debug:dig-crater';
+      lat: number;
+      lon: number;
+      radius: number;
+      depth: number;
+    }
+  | {
       type: 'debug:complete-all-research';
     }
   | {

@@ -196,6 +196,9 @@ export function commandProblem(c: Command): string | null {
     case 'debug:hit-structures':
       return finite(c['lat']) && finite(c['lon']) && finite(c['reach']) && c['reach'] >= 0 && c['reach'] <= 1000
         && finite(c['amount']) && c['amount'] >= 0 && c['amount'] <= 1e9 ? null : 'structures';
+    case 'debug:dig-crater':
+      return finite(c['lat']) && finite(c['lon']) && finite(c['radius']) && c['radius'] > 0 && c['radius'] <= 100
+        && finite(c['depth']) && c['depth'] > 0 && c['depth'] <= 10_000 ? null : 'crater';
     case 'debug:ready-ability':
       return known(c['abilityId'], ABILITIES) ? null : 'ability';
     case 'debug:jump-to-wave':
