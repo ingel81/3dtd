@@ -39,6 +39,6 @@ export class MeasureTool implements EditorTool {
   }
 
   hint(ctx: ToolContext): string {
-    return ctx.settings.measure().length ? 'Click to add a point | Esc or right click clears' : 'Click points on the map to measure';
+    return ctx.settings.measure().length ? ctx.t().editor.measure.hintMore : ctx.t().editor.measure.hintStart;
   }
 }

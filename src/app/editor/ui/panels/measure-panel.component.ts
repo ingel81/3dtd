@@ -6,6 +6,7 @@ import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { TOWER_SPOT_M2, TYPICAL_TOWER_RANGE } from '../../../map-ops/validation/build-areas';
 import { patch } from '../../tools/tool';
+import { injectT } from '../../../i18n/i18n.service';
 
 /** Walking speeds of the ground enemies, metres per second */
 const SPEEDS = (() => {
@@ -29,68 +30,69 @@ const SPEEDS = (() => {
   ],
   template: `
     <div class="td-group">
-      <h3 class="td-section">Measured</h3>
+      <h3 class="td-section">{{ t().editor.measure.measured }}</h3>
       @if (result(); as r) {
-        <div class="td-kv"><span>On the map</span><span class="td-num" data-test="measured">{{ r.flat }} m</span></div>
-        <div class="td-kv"><span>Along the ground</span><span class="td-num">{{ r.ground }} m</span></div>
-        <div class="td-kv"><span>Up | down</span><span class="td-num">{{ r.climb }} m | {{ r.drop }} m</span></div>
-        <button class="td-btn-ghost td-btn-sm" type="button" (click)="clear()">Clear <kbd class="td-kbd">Esc</kbd></button>
+        <div class="td-kv"><span>{{ t().editor.measure.onMap }}</span><span class="td-num" data-test="measured">{{ t().editor.measure.metres(r.flat) }}</span></div>
+        <div class="td-kv"><span>{{ t().editor.measure.alongGround }}</span><span class="td-num">{{ t().editor.measure.metres(r.ground) }}</span></div>
+        <div class="td-kv"><span>{{ t().editor.measure.upDown }}</span><span class="td-num">{{ t().editor.measure.metres(r.climb) }} | {{ t().editor.measure.metres(r.drop) }}</span></div>
+        <button class="td-btn-ghost td-btn-sm" type="button" (click)="clear()">{{ t().editor.measure.clear }} <kbd class="td-kbd">Esc</kbd></button>
       } @else {
-        <p class="td-note">Click two or more points on the map.</p>
+        <p class="td-note">{{ t().editor.measure.clickPoints }}</p>
       }
     </div>
     <div class="td-group">
-      <h3 class="td-section">Lanes</h3>
-      <p class="td-note">Walking time at {{ speeds.slow }}, {{ speeds.typical }} and {{ speeds.fast }} m/s (slowest, typical, fastest ground enemy).</p>
+      <h3 class="td-section">{{ t().editor.measure.lanes }}</h3>
+      <p class="td-note">{{ t().editor.measure.walking(speeds.slow, speeds.typical, speeds.fast) }}</p>
       @for (l of lanes(); track l.id) {
         <div class="td-kv">
           <span class="td-trunc">{{ l.name }}</span>
-          <span class="td-num" [class.td-tone-hurt]="l.length === null">{{ l.length === null ? 'no route' : l.length + ' m | ' + l.times }}</span>
+          <span class="td-num" [class.td-tone-hurt]="l.length === null">{{ l.length === null ? t().editor.measure.noRoute : t().editor.measure.metres(l.length) + ' | ' + l.times }}</span>
         </div>
       } @empty {
-        <p class="td-note">No spawns yet.</p>
+        <p class="td-note">{{ t().editor.measure.noSpawns }}</p>
       }
     </div>
     <div class="td-group">
-      <h3 class="td-section">Overlays</h3>
+      <h3 class="td-section">{{ t().editor.measure.overlays }}</h3>
       <div class="td-setting">
-        <span>Build areas</span>
-        <input class="td-switch" type="checkbox" [checked]="view().buildAreas" (change)="setBuildAreas($any($event.target).checked)" aria-label="Build areas" data-test="build-areas" />
+        <span>{{ t().editor.measure.buildAreas }}</span>
+        <input class="td-switch" type="checkbox" [checked]="view().buildAreas" (change)="setBuildAreas($any($event.target).checked)" [attr.aria-label]="t().editor.measure.buildAreas" data-test="build-areas" />
       </div>
       @if (view().buildAreas) {
         <ul class="ms-legend td-note">
-          <li><span class="ms-key is-reach"></span>A tower may stand and reaches a route ({{ range }} m)</li>
-          <li><span class="ms-key is-far"></span>A tower may stand, out of reach</li>
-          <li><span class="ms-key is-blocked"></span>No tower: water, too steep, an object, the route, HQ or spawn</li>
+          <li><span class="ms-key is-reach"></span>{{ t().editor.measure.reach(range) }}</li>
+          <li><span class="ms-key is-far"></span>{{ t().editor.measure.far }}</li>
+          <li><span class="ms-key is-blocked"></span>{{ t().editor.measure.blocked }}</li>
         </ul>
         @if (room(); as r) {
-          <div class="td-kv"><span>In reach of the routes</span><span class="td-num" data-test="build-room">{{ r.area }} m² | about {{ r.spots }} towers</span></div>
+          <div class="td-kv"><span>{{ t().editor.measure.inReach }}</span><span class="td-num" data-test="build-room">{{ t().editor.measure.room(r.area, r.spots) }}</span></div>
         } @else {
-          <p class="td-note">Judging the map …</p>
+          <p class="td-note">{{ t().editor.measure.judging }}</p>
         }
       }
       <div class="td-setting">
-        <span>Height lines every {{ view().contourStep }} m</span>
-        <input class="td-switch" type="checkbox" [checked]="view().contours" (change)="set('contours', $any($event.target).checked)" aria-label="Height lines" data-test="contours" />
+        <span>{{ t().editor.measure.contoursEvery(view().contourStep) }}</span>
+        <input class="td-switch" type="checkbox" [checked]="view().contours" (change)="set('contours', $any($event.target).checked)" [attr.aria-label]="t().editor.measure.contours" data-test="contours" />
       </div>
-      <div class="td-seg is-compact is-sm" role="radiogroup" aria-label="Height line step">
+      <div class="td-seg is-compact is-sm" role="radiogroup" [attr.aria-label]="t().editor.measure.contourStep">
         @for (s of [1, 2, 5, 10]; track s) {
-          <button type="button" role="radio" [attr.aria-checked]="view().contourStep === s" (click)="setStep('contourStep', s)">{{ s }} m</button>
+          <button type="button" role="radio" [attr.aria-checked]="view().contourStep === s" (click)="setStep('contourStep', s)">{{ t().editor.measure.metres(s) }}</button>
         }
       </div>
       <div class="td-setting">
-        <span>Grid every {{ view().gridStep }} m</span>
-        <input class="td-switch" type="checkbox" [checked]="view().grid" (change)="set('grid', $any($event.target).checked)" aria-label="Grid" />
+        <span>{{ t().editor.measure.gridEvery(view().gridStep) }}</span>
+        <input class="td-switch" type="checkbox" [checked]="view().grid" (change)="set('grid', $any($event.target).checked)" [attr.aria-label]="t().editor.measure.grid" />
       </div>
-      <div class="td-seg is-compact is-sm" role="radiogroup" aria-label="Grid step">
+      <div class="td-seg is-compact is-sm" role="radiogroup" [attr.aria-label]="t().editor.measure.gridStep">
         @for (s of [10, 25, 50, 100]; track s) {
-          <button type="button" role="radio" [attr.aria-checked]="view().gridStep === s" (click)="setStep('gridStep', s)">{{ s }} m</button>
+          <button type="button" role="radio" [attr.aria-checked]="view().gridStep === s" (click)="setStep('gridStep', s)">{{ t().editor.measure.metres(s) }}</button>
         }
       </div>
     </div>
   `,
 })
 export class MeasurePanelComponent {
+  protected readonly t = injectT();
   private readonly session = inject(EditorSession);
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('markers', 'paths', 'terrain');
@@ -99,7 +101,7 @@ export class MeasurePanelComponent {
   /** The buildable area in reach of any route, and how many towers fit on it at the least spacing */
   readonly room = computed(() => {
     const a = this.session.check.buildAreas();
-    return a ? { area: Math.round(a.inReach).toLocaleString('en-US'), spots: Math.floor(a.inReach / TOWER_SPOT_M2).toLocaleString('en-US') } : null;
+    return a ? { area: Math.round(a.inReach), spots: Math.floor(a.inReach / TOWER_SPOT_M2) } : null;
   });
   readonly view = this.session.tools.settings.view;
   readonly result = computed(() => {
