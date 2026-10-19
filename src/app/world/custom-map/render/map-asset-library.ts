@@ -70,6 +70,26 @@ export interface MaterialCompressed {
  * only (tests, a page without WebGL)
  */
 let ktx2: KTX2Loader | null = null;
+/** Transcodes under way, and the end of the transcoder's workers once none is (TRANSCODER_IDLE_MS) */
+let transcoding = 0;
+let transcoderIdle: ReturnType<typeof setTimeout> | null = null;
+/** The transcoder's workers end this long after their last file (some 35 MB they held for good), ms; the next file starts them again */
+const TRANSCODER_IDLE_MS = 5_000;
+
+/** `buffer` transcoded by `loader`; its workers go once nothing is left to transcode for a while */
+function transcode(loader: KTX2Loader, buffer: ArrayBuffer): Promise<CompressedTexture> {
+  transcoding++;
+  if (transcoderIdle) clearTimeout(transcoderIdle);
+  transcoderIdle = null;
+  return new Promise<CompressedTexture>((resolve, reject) => loader.parse(buffer, (t) => resolve(t as CompressedTexture), reject)).finally(() => {
+    if (--transcoding > 0) return;
+    transcoderIdle = setTimeout(() => {
+      transcoderIdle = null;
+      // Idle workers only: a file asked for meanwhile cleared the timer
+      if (transcoding === 0) loader.workerPool.dispose();
+    }, TRANSCODER_IDLE_MS);
+  });
+}
 
 export interface ModelPart {
   geometry: BufferGeometry;
@@ -192,7 +212,7 @@ export class MapAssetLibrary {
         const res = await this.fetchFn(this.url(path));
         if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`);
         const buffer = await res.arrayBuffer();
-        return new Promise<CompressedTexture>((resolve, reject) => loader.parse(buffer, (t) => resolve(t as CompressedTexture), reject));
+        return transcode(loader, buffer);
       };
       const [color, data] = await Promise.all([load(packed.color), load(packed.data)]);
       return { id, size: color.image.width, color, data, average: hexToRgb(entry.average) };

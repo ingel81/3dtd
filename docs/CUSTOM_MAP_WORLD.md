@@ -312,7 +312,8 @@ ihrem Inhalts-Hash angefragt (`?v=`), Modelle laufen über denselben Weg (`loadG
 sofort an den Aufrufer, die Kopie für den Cache läuft nebenher und zählt dabei ihre Bytes (kein Warten auf `put`, keine
 Kopie nur zum Zählen). Woher: `mapData` in `runtime-config.json`, sonst neben der Seite (der Dev-Server liefert
 `public/maps`, dort fragt jede Datei das Netz). `dropOldMapData` räumt die Caches der Builds davor
-(`3dtd-map-data-<Version>`, beim Lesen der runtime-config). Die Ladeplatte zeigt „Map data 12 of 48 files, 3.4 MB“, solange Dateien vom Netz kommen. Die
+(`3dtd-map-data-<Version>`, beim Lesen der runtime-config). Die Worker des KTX2-Transcoders (`MapAssetLibrary`, zwei)
+enden 5 s nach der letzten Datei (sie hielten sonst dauerhaft rund 35 MB) und starten mit der nächsten neu. Die Ladeplatte zeigt „Map data 12 of 48 files, 3.4 MB“, solange Dateien vom Netz kommen. Die
 Desktop-App hält die Cache Storage im Profil auf der Platte (`app://` ist als sicheres Schema registriert).
 Jede Datei hinterlässt ein `performance.measure` `map-data <Quelle> <Pfad>` (Quelle `cache`, `network`, `stale` oder
 `failed`, Bytes im `detail`; vom Netz der ganze Download, aus dem Cache das Nachschlagen): ein langsamer Start nennt
