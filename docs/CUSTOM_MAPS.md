@@ -590,6 +590,9 @@ bekommt keinen und behält sein LOD-Modell. 76 von 104 Gebäuden haben einen, da
 Block; ihre Lücken im Atlas als Schatten im Laub): Oberbergen, Spielansicht High 7,1 → 1,6 M Dreiecke, 391 → 155 Draws.
 101 Modelle ohne LOD (über 1500 Dreiecke, Mauern ab 150) haben eine Fernkopie aus `make_far_lods.mjs`
 (meshoptimizer, flach schattiert, Farbe aus `match_lods.py`); Stützmauern 176 → 38 Dreiecke.
+**Schaden (Zerstörung, [DESTRUCTION_PLAN.md](DESTRUCTION_PLAN.md), Z2):** ein beschädigtes Gebäude verlässt den Batch
+seines Assets für dessen Ruinen-Batch (`setDamage`, beidseitig, der Schaden im Shader); intakte Instanzen und Fern-Kästen
+tragen keinen Schaden und behalten ihre Programme.
 Der Wasserspiegel zeichnet je Mesh nur die Instanzen nahe dem Fokus (`nearOnly`, die Schattenwerfer vorn): er reicht
 nicht weiter (Stuttgart, Spielansicht: 1,57 → 1,17 M Dreiecke im Spiegel). Gebäude nehmen ihr LOD-Modell dafür
 näher (bei 140 m statt 350 m für ein Objekt in Asset-Größe). Stuttgart, map-preview High, Spielansicht: 547 → 339
