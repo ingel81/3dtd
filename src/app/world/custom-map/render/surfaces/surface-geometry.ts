@@ -112,17 +112,29 @@ export function surfaceRanks(surfaces: readonly MapSurface[]): Map<string, numbe
   return out;
 }
 
-/** A surface's triangles in one tile */
+/**
+ * A surface's triangles in one tile, as the tile's buffers take them
+ * (SurfaceLayer keeps every surface's pieces to put a tile together again
+ * after an edit: plain number arrays held 95 MB on an OSM city)
+ */
 export interface SurfacePiece {
   /** Map x, y per vertex */
-  position: number[];
+  position: Float32Array;
   /** u, v, half court length, half court width per vertex */
-  mark: number[];
+  mark: Float32Array;
   /**
    * Look, edges, the frame's direction (radians) per vertex. Edges: where
    * the cell's list starts in the surface's edges times EDGE_REF, plus how
    * many (0: none near)
    */
+  look: Float32Array;
+  index: Uint32Array;
+}
+
+/** A piece while its triangles come in */
+interface GrowingPiece {
+  position: number[];
+  mark: number[];
   look: number[];
   index: number[];
 }
@@ -157,8 +169,8 @@ interface Leaf {
 export function surfacePieces(s: MapSurface, layer: number, rank = 0, ground: SurfaceGround | null = null, tile = SURFACE_TILE): SurfaceMesh {
   const outer = clean(s.outer);
   const holes = (s.holes ?? []).map(clean).filter((h) => h.length >= 3);
-  const out = new Map<string, SurfacePiece>();
-  if (outer.length < 3) return { pieces: out, edges: new Float32Array(0) };
+  const out = new Map<string, GrowingPiece>();
+  if (outer.length < 3) return { pieces: new Map(), edges: new Float32Array(0) };
   const points = [outer, ...holes].flat();
   // Vectors (the triangulation compares them), copies (it trims a ring's repeated end point in place)
   const vectors = (ring: readonly MapPoint[]) => ring.map((p) => new Vector2(p.x, p.y));
@@ -179,7 +191,7 @@ export function surfacePieces(s: MapSurface, layer: number, rank = 0, ground: Su
   // the few vertices it saves
   const cos = m ? Math.cos(m.angle) : 1;
   const sin = m ? Math.sin(m.angle) : 0;
-  let last: { key: string; piece: SurfacePiece } | null = null;
+  let last: { key: string; piece: GrowingPiece } | null = null;
 
   const emit = (poly: Float64Array, count: number, ref: number) => {
     let cx = 0;
@@ -249,7 +261,11 @@ export function surfacePieces(s: MapSurface, layer: number, rank = 0, ground: Su
       emit(clip.points, count, leaf.ref);
     }
   }
-  return { pieces: out, edges: Float32Array.from(listed) };
+  const pieces = new Map<string, SurfacePiece>();
+  for (const [key, p] of out) {
+    pieces.set(key, { position: Float32Array.from(p.position), mark: Float32Array.from(p.mark), look: Float32Array.from(p.look), index: Uint32Array.from(p.index) });
+  }
+  return { pieces, edges: Float32Array.from(listed) };
 }
 
 /**
