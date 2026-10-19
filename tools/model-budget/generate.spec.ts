@@ -30,6 +30,7 @@ import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HalfFloatType, Texture } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 import { ENEMY_TYPES, type EnemyTypeConfig } from '../../src/app/configs/enemy-types.config';
@@ -43,6 +44,7 @@ import {
   type VATEncoding,
 } from '../../src/app/three-engine/renderers/instanced-enemy/vat-encoding';
 import type { VATAlpha } from '../../src/app/three-engine/renderers/instanced-enemy/vat-surface';
+import { ktx2Opaque } from '../../src/app/three-engine/models/model-loader';
 import { writeGeneratedFile } from '../generated-file';
 import {
   decodePng,
@@ -172,17 +174,22 @@ async function bakeModel(config: EnemyTypeConfig): Promise<VATData | null> {
   // The loaders check `instanceof ArrayBuffer` against the test DOM's realm.
   const buffer = new ArrayBuffer(bytes.length);
   new Uint8Array(buffer).set(bytes);
-  const loader = new GLTFLoader();
+  const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   // Decoding images needs a browser, so this plugin decodes the base colour
   // PNGs itself: vatAlpha reads their alpha (texturePixels takes the bytes
-  // as they are). JPEG has no alpha, which is the same to vatAlpha as no
+  // as they are). A KTX2 map (the packed models, tools/model-pack) says in
+  // its file whether it has alpha, as the game's loader reads it
+  // (ktx2Opaque). JPEG has no alpha, which is the same to vatAlpha as no
   // map; other formats (WebP, ...) come as a texture without an image,
   // which vatAlpha counts as translucent. Without their extensions no
   // built-in plugin takes a texture on before this one.
   loader.register((parser) => ({
     name: 'model-budget-base-colour',
     beforeRoot: () => {
-      for (const texture of parser.json.textures ?? []) delete texture.extensions;
+      for (const texture of parser.json.textures ?? []) {
+        texture.source ??= texture.extensions?.KHR_texture_basisu?.source;
+        delete texture.extensions;
+      }
       return null;
     },
     // A promise of null for a texture it leaves out: a plain null would hand
@@ -197,6 +204,11 @@ async function bakeModel(config: EnemyTypeConfig): Promise<VATData | null> {
       const file: Buffer | null = image.bufferView !== undefined
         ? Buffer.from(await parser.getDependency('bufferView', image.bufferView))
         : image.uri ? readFileSync(resolve(dirname(path), decodeURIComponent(image.uri))) : null;
+      if (file && image.mimeType === 'image/ktx2') {
+        const texture = new Texture();
+        texture.userData['opaque'] = ktx2Opaque(new Uint8Array(file));
+        return texture;
+      }
       if (file && imageSize(file)?.mimeType === 'image/jpeg') return null;
       const pixels = file ? decodePng(file) : null;
       return new Texture(pixels ?? undefined);

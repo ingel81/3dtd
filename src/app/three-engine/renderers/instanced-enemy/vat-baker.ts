@@ -25,7 +25,7 @@ import {
   type VATBounds,
   type VATEncoding,
 } from './vat-encoding';
-import { mergeBakedMeshes, texturePixels, vatAlpha, vatSide, type BakedMeshPart, type VATAlpha } from './vat-surface';
+import { mergeBakedMeshes, texturePixels, vatAlpha, vatSide, type BakedMeshPart, type TexturePixels, type VATAlpha } from './vat-surface';
 
 /** Result of VAT baking for one enemy type */
 export interface VATData {
@@ -66,15 +66,21 @@ export interface VATData {
 /**
  * Bake an enemy type: its skinned meshes, else its object-animated meshes,
  * and a model without clips as one static frame. `model` is a clone of the
- * loaded model that keeps skeleton bindings (SkeletonUtils.clone).
+ * loaded model that keeps skeleton bindings (SkeletonUtils.clone); `pixels`
+ * are its colour maps read beforehand where no canvas reads them (KTX2).
  */
-export function bakeEnemyVAT(config: EnemyTypeConfig, model: Object3D, animations: AnimationClip[]): VATData | null {
-  if (!config.hasAnimations || animations.length === 0) return bakeStaticVAT(model, config.scale);
+export function bakeEnemyVAT(
+  config: EnemyTypeConfig,
+  model: Object3D,
+  animations: AnimationClip[],
+  pixels?: ReadonlyMap<Texture, TexturePixels | null>,
+): VATData | null {
+  if (!config.hasAnimations || animations.length === 0) return bakeStaticVAT(model, config.scale, pixels);
   const clips = vatClips(config);
   const grounded = config.groundedBake === true;
   return (
-    bakeVAT(model, animations, clips, config.scale, DEFAULT_BAKE_FPS, grounded) ??
-    bakeObjectAnimVAT(model, animations, clips, config.scale, DEFAULT_BAKE_FPS, grounded)
+    bakeVAT(model, animations, clips, config.scale, DEFAULT_BAKE_FPS, grounded, pixels) ??
+    bakeObjectAnimVAT(model, animations, clips, config.scale, DEFAULT_BAKE_FPS, grounded, pixels)
   );
 }
 
@@ -91,6 +97,7 @@ export function bakeEnemyVAT(config: EnemyTypeConfig, model: Object3D, animation
  * @param worldScale - Scale the model is shown at in game, picks the texel type (vatEncoding)
  * @param fps - Baking framerate (default: 30)
  * @param grounded - Each frame's lowest vertex at y 0 (EnemyTypeConfig.groundedBake)
+ * @param pixels - Colour maps read beforehand (mergeBakedMeshes)
  */
 export function bakeVAT(
   modelRoot: Object3D,
@@ -99,6 +106,7 @@ export function bakeVAT(
   worldScale: number,
   fps: number = DEFAULT_BAKE_FPS,
   grounded = false,
+  pixels?: ReadonlyMap<Texture, TexturePixels | null>,
 ): VATData | null {
   // Collect ALL SkinnedMeshes (multi-mesh support: body, hair, clothes, etc.)
   const skins: (BakedMeshPart & { mesh: SkinnedMesh })[] = [];
@@ -147,7 +155,7 @@ export function bakeVAT(
   const positionTexture = createPositionTexture(data, texWidth, texHeight, encoding);
 
   // Merged rest-pose geometry with per-vertex material info
-  const merged = mergeBakedMeshes(skins, totalVertices);
+  const merged = mergeBakedMeshes(skins, totalVertices, undefined, pixels);
 
   return {
     positionTexture,
@@ -184,6 +192,7 @@ export function bakeVAT(
  * @param worldScale - Scale the model is shown at in game, picks the texel type (vatEncoding)
  * @param fps - Baking framerate (default: 30)
  * @param grounded - Each frame's lowest vertex at y 0 (EnemyTypeConfig.groundedBake)
+ * @param pixels - Colour maps read beforehand (mergeBakedMeshes)
  */
 export function bakeObjectAnimVAT(
   modelRoot: Object3D,
@@ -192,6 +201,7 @@ export function bakeObjectAnimVAT(
   worldScale: number,
   fps: number = DEFAULT_BAKE_FPS,
   grounded = false,
+  pixels?: ReadonlyMap<Texture, TexturePixels | null>,
 ): VATData | null {
   // Collect all non-skinned Mesh nodes
   interface ObjMeshInfo {
@@ -253,7 +263,7 @@ export function bakeObjectAnimVAT(
   });
 
   // Build merged geometry (rest-pose positions)
-  const merged = mergeBakedMeshes(parts, totalVertices);
+  const merged = mergeBakedMeshes(parts, totalVertices, undefined, pixels);
 
   return {
     positionTexture,
@@ -477,8 +487,13 @@ class FrameScratch {
  * multi-mesh models correctly.
  *
  * @param worldScale - Scale the model is shown at in game, picks the texel type (vatEncoding)
+ * @param pixels - Colour maps read beforehand (mergeBakedMeshes)
  */
-export function bakeStaticVAT(modelRoot: Object3D, worldScale: number): VATData | null {
+export function bakeStaticVAT(
+  modelRoot: Object3D,
+  worldScale: number,
+  pixels?: ReadonlyMap<Texture, TexturePixels | null>,
+): VATData | null {
   // Collect all non-skinned meshes
   const meshes: Mesh[] = [];
   modelRoot.traverse((node) => {
@@ -513,7 +528,7 @@ export function bakeStaticVAT(modelRoot: Object3D, worldScale: number): VATData 
 
   // Merged geometry; its root-space positions are the one frame and give the bounds
   const bounds = emptyBounds();
-  const merged = mergeBakedMeshes(meshInfos, totalVertices, bounds);
+  const merged = mergeBakedMeshes(meshInfos, totalVertices, bounds, pixels);
 
   // VAT texture: 1-frame with tiled layout
   const { texWidth, rowsPerFrame } = vatLayout(totalVertices);

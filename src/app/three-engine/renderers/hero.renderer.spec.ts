@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { AnimationClip, Box3, BoxGeometry, Group, Mesh, MeshStandardMaterial, Object3D, Scene, Vector3 } from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { AnimationClip, Box3, BoxGeometry, Group, Mesh, MeshStandardMaterial, Scene, Vector3 } from 'three';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { StateLerp } from './state-lerp';
 import { HeroRenderer, type HeroCoordinates } from './hero.renderer';
@@ -10,6 +9,7 @@ import { HERO_MODEL, loadHeroModel, type HeroModelConfig } from './hero-model';
 import { HERO } from '../../configs/hero.config';
 import type { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
 import type { HeroPresentation } from '../../managers/hero.manager';
+import { parsePackedGlb } from '../../../test/packed-glb';
 
 /** Degrees straight to scene metres: x = lon * 1000, z = lat * 1000. */
 const coordinates: HeroCoordinates = {
@@ -169,11 +169,7 @@ describe('loadHeroModel', () => {
 describe('mercenary.glb', () => {
   /** The file as the game serves it, through loadHeroModel like the renderer. */
   async function loadMercenary() {
-    // A copy made here: GLTFLoader checks `instanceof ArrayBuffer`, and a Node Buffer's is another realm's under jsdom
-    const data = new Uint8Array(readFileSync(resolve('public', HERO_MODEL.url!))).buffer;
-    const gltf = await new Promise<{ scene: Object3D; animations: AnimationClip[] }>((done, fail) => {
-      new GLTFLoader().parse(data, '', done, fail);
-    });
+    const gltf = await parsePackedGlb(readFileSync(resolve('public', HERO_MODEL.url!)));
     const assets = {
       loadModel: async () => ({ scene: gltf.scene, animations: gltf.animations }),
       cloneModel: () => SkeletonUtils.clone(gltf.scene),

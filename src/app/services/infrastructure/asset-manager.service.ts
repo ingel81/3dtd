@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { Object3D, AnimationClip, Mesh, Material, MeshStandardMaterial } from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createModelLoader } from '../../three-engine/models/model-loader';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { shareGpu } from '../../three-engine/shared-gpu';
 
@@ -36,7 +36,7 @@ export interface CloneOptions {
  * AssetManagerService - Centralized 3D model loading and caching
  *
  * Features:
- * - Single GLTFLoader instance (GLTF/GLB)
+ * - Single GLTFLoader instance (GLB packed by tools/model-pack: meshopt, KTX2; createModelLoader)
  * - Deduplicated model cache with reference counting
  * - Proper GPU resource disposal
  *
@@ -47,7 +47,8 @@ export interface CloneOptions {
  */
 @Injectable({ providedIn: 'root' })
 export class AssetManagerService {
-  private readonly gltfLoader = new GLTFLoader();
+  /** Colour maps of a model with several keep their file: the enemy VAT reads the second on the CPU */
+  private readonly gltfLoader = createModelLoader({ keepColourFiles: true });
 
   // Model cache: URL -> CachedModel
   private readonly modelCache = new Map<string, CachedModel>();

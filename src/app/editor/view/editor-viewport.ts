@@ -12,7 +12,6 @@ import type { MapIntroView, MapObject, MapPoint } from '../../world/custom-map/m
 import { type BridgeDeck, bridgeDecks, deckHeightAt } from '../../world/custom-map/bridge-decks';
 import { HeightField } from '../../world/custom-map/render/height-field';
 import { waterLevelAt } from '../../world/custom-map/water-level';
-import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import { objectRadius, type CatalogIndex } from '../../map-ops/asset-catalog';
 import { selectedEdges, selectedNodes, selectedSpawns, type EditorDocument, type Selection } from '../model/editor-document';
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
@@ -142,7 +141,6 @@ export class EditorViewport {
     this.renderer.shadowMap.type = PCFShadowMap;
     // A stroke's partial texture uploads read the unpack parameters: cached, not asked of the GPU process
     primePixelStore(this.renderer);
-    MapAssetLibrary.useCompressedTextures(this.renderer);
     const heightAt = (x: number, y: number) => this.heightAt(x, y);
     const walkHeightAt = (x: number, y: number) => this.walkHeightAt(x, y);
     this.overlay = new EditorOverlay(heightAt, walkHeightAt);

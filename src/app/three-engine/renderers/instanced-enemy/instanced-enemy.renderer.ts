@@ -12,6 +12,7 @@ import { HealthBarInstanceManager } from './health-bar-instance.manager';
 import { createPortalClipUniforms, type PortalClipUniforms } from '../portal-clip';
 import { StateLerp, stateLerpParam } from '../state-lerp';
 import { bakeEnemyVAT } from './vat-baker';
+import { readColourMaps } from './vat-surface';
 import { pageQuery } from '../../../core/page-switches';
 
 // Dummy Object3D shared across all instanced enemy stubs
@@ -165,7 +166,7 @@ export class InstancedEnemyRenderer {
         return;
       }
 
-      const vatData = bakeEnemyVAT(config, clone, cached.animations);
+      const vatData = bakeEnemyVAT(config, clone, cached.animations, await readColourMaps(clone));
       if (vatData) {
         // Use config's unlit flag (material detection is unreliable before conversion)
         if (config.unlit) vatData.isUnlit = true;

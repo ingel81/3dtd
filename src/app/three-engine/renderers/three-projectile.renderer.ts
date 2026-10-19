@@ -19,7 +19,8 @@ import {
   Euler,
   Scene,
 } from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createModelLoader } from '../models/model-loader';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { CoordinateSync } from './index';
 import {
@@ -411,7 +412,7 @@ export class ThreeProjectileRenderer implements ShotLightSource {
   constructor(scene: Scene, sync: CoordinateSync) {
     this.scene = scene;
     this.sync = sync;
-    this.loader = new GLTFLoader();
+    this.loader = createModelLoader();
 
     // Create instanced managers for each visual type
     this.boltManager = this.createBoltManager();

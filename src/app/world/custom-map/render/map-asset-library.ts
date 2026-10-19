@@ -16,14 +16,12 @@ import {
   Texture,
   type CompressedTexture,
   type Object3D,
-  type WebGLRenderer,
 } from 'three';
-import type { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
-import { BASIS_PATH, FileWorkerKTX2Loader, TRANSCODER_WORKER } from '../../../globe/globe-textures';
+import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { compressedTextureLoader, transcodeKtx2 } from '../../../three-engine/models/ktx2-transcoder';
+import { createModelLoader, sharedTexture } from '../../../three-engine/models/model-loader';
 import { mapDataFetch, mapDataUrl } from '../map-data';
 import { shareGpu, unshareGpu } from '../../../three-engine/shared-gpu';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { hexToRgb, parseCatalog, type AssetCatalog, type CatalogMaterial, type CatalogObject } from './asset-catalog';
 
@@ -64,33 +62,6 @@ export interface MaterialCompressed {
   average: [number, number, number];
 }
 
-/**
- * The transcoder the libraries use for KTX2 files, once a renderer said
- * what its GPU takes (MapAssetLibrary.useCompressedTextures); null: pixels
- * only (tests, a page without WebGL)
- */
-let ktx2: KTX2Loader | null = null;
-/** Transcodes under way, and the end of the transcoder's workers once none is (TRANSCODER_IDLE_MS) */
-let transcoding = 0;
-let transcoderIdle: ReturnType<typeof setTimeout> | null = null;
-/** The transcoder's workers end this long after their last file (some 35 MB they held for good), ms; the next file starts them again */
-const TRANSCODER_IDLE_MS = 5_000;
-
-/** `buffer` transcoded by `loader`; its workers go once nothing is left to transcode for a while */
-function transcode(loader: KTX2Loader, buffer: ArrayBuffer): Promise<CompressedTexture> {
-  transcoding++;
-  if (transcoderIdle) clearTimeout(transcoderIdle);
-  transcoderIdle = null;
-  return new Promise<CompressedTexture>((resolve, reject) => loader.parse(buffer, (t) => resolve(t as CompressedTexture), reject)).finally(() => {
-    if (--transcoding > 0) return;
-    transcoderIdle = setTimeout(() => {
-      transcoderIdle = null;
-      // Idle workers only: a file asked for meanwhile cleared the timer
-      if (transcoding === 0) loader.workerPool.dispose();
-    }, TRANSCODER_IDLE_MS);
-  });
-}
-
 export interface ModelPart {
   geometry: BufferGeometry;
   material: Material;
@@ -118,7 +89,7 @@ export interface AssetLibraryOptions {
   fetch?: typeof fetch;
   /** Decodes an image file to RGBA pixels of size x size */
   decodeImage?: (url: string, size: number) => Promise<ImagePixels>;
-  /** Loads a GLB into a scene graph */
+  /** Loads a GLB into a scene graph; default: the packed models with their shared textures (createModelLoader) */
   loadModel?: (url: string) => Promise<Object3D>;
   /** Loads an image into a texture (the far boxes' atlas) */
   loadTexture?: (url: string) => Promise<Texture>;
@@ -155,6 +126,12 @@ export class MapAssetLibrary {
   private readonly loadModelFn: (url: string) => Promise<Object3D>;
   private readonly loadTextureFn: (url: string) => Promise<Texture>;
   private farAtlasPromise: Promise<Texture | null> | null = null;
+  /**
+   * The shared model textures (textures/<name>-<hash>.ktx2) by URL: a brick
+   * that thirty buildings use is one texture for all of them
+   */
+  private readonly sharedTextures = new Map<string, Promise<Texture | null>>();
+  private gltfLoader: GLTFLoader | null = null;
 
   constructor(
     readonly baseUrl = DEFAULT_ASSET_BASE,
@@ -163,7 +140,7 @@ export class MapAssetLibrary {
     this.textureSize = options.textureSize ?? 1024;
     this.fetchFn = options.fetch ?? ((input, init) => mapDataFetch(input, init));
     this.decodeImageFn = options.decodeImage ?? ((url, size) => decodeImage(this.fetchFn, url, size));
-    this.loadModelFn = options.loadModel ?? ((url) => loadGlb(url, this.fetchFn));
+    this.loadModelFn = options.loadModel ?? ((url) => this.loadGlb(url));
     this.loadTextureFn = options.loadTexture ?? ((url) => loadTexture(url, this.fetchFn));
   }
 
@@ -200,36 +177,23 @@ export class MapAssetLibrary {
   }
 
   /**
-   * Load ground materials as GPU-compressed KTX2 files from now on, for the
-   * GPU of `renderer` (the formats it takes); every library shares it. The
-   * transcoder runs in a worker beside the one of the menu globe
-   */
-  static useCompressedTextures(renderer: WebGLRenderer, baseUrl = typeof document !== 'undefined' ? document.baseURI : '/'): void {
-    if (ktx2) return;
-    ktx2 = new FileWorkerKTX2Loader(new URL(TRANSCODER_WORKER, baseUrl).href)
-      .setTranscoderPath(new URL(BASIS_PATH, baseUrl).href)
-      .setWorkerLimit(2)
-      .detectSupport(renderer);
-  }
-
-  /**
    * A ground material for the terrain: GPU-compressed where the catalogue
-   * has its packed files and a transcoder is set up (useCompressedTextures),
-   * else its pixels (`material`). The compressed ones are not kept: the
+   * has its packed files and the page has a transcoder (WebGL2,
+   * compressedTextureLoader), else its pixels (`material`). The compressed ones are not kept: the
    * terrain's arrays hold them on the GPU, and the files stay in the map
    * data's cache.
    */
   async materialTextures(id: string): Promise<MaterialPixels | MaterialCompressed> {
     const entry = await this.materialEntry(id);
     const packed = entry?.files.packed;
-    const loader = ktx2;
+    const loader = entry && packed ? compressedTextureLoader() : null;
     if (!entry || !packed || !loader) return this.material(id);
     try {
       const load = async (path: string): Promise<CompressedTexture> => {
         const res = await this.fetchFn(this.url(path));
         if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`);
         const buffer = await res.arrayBuffer();
-        return transcode(loader, buffer);
+        return transcodeKtx2(loader, buffer);
       };
       const [color, data] = await Promise.all([load(packed.color), load(packed.data)]);
       return { id, size: color.image.width, color, data, average: hexToRgb(entry.average) };
@@ -286,6 +250,7 @@ export class MapAssetLibrary {
         const key = `${id}#${lod.file}`;
         let p = this.models.get(key);
         if (!p) {
+          this.startTextures(lod.textures);
           p = this.loadModelFn(this.url(lod.file)).then((root) => {
             const parts = collectParts(root);
             return this.keep({ id, entry, parts, height: partsHeight(parts), placeholder: false });
@@ -313,6 +278,7 @@ export class MapAssetLibrary {
     this.materials.clear();
     void this.farAtlasPromise?.then((t) => t?.dispose());
     this.farAtlasPromise = null;
+    this.sharedTextures.clear();
     for (const [key, lib] of MapAssetLibrary.instances) if (lib === this) MapAssetLibrary.instances.delete(key);
   }
 
@@ -337,6 +303,23 @@ export class MapAssetLibrary {
 
   private url(path: string): string {
     return this.baseUrl + path;
+  }
+
+  /** Starts the shared textures a model file names (catalogue `textures`) beside its GLB; the model takes them from the cache */
+  private startTextures(paths: readonly string[] | undefined): void {
+    for (const path of paths ?? []) {
+      const url = new URL(this.url(path), typeof document !== 'undefined' ? document.baseURI : 'http://localhost/').href;
+      sharedTexture(url, this.sharedTextures, this.fetchFn).catch(() => undefined);
+    }
+  }
+
+  /** A model's file through the map data's cache, then parsed; its shared textures come through the same cache */
+  private async loadGlb(url: string): Promise<Object3D> {
+    this.gltfLoader ??= createModelLoader({ fetch: this.fetchFn, sharedTextures: this.sharedTextures });
+    const response = await this.fetchFn(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+    const gltf = await this.gltfLoader.parseAsync(await response.arrayBuffer(), url.slice(0, url.lastIndexOf('/') + 1));
+    return gltf.scene;
   }
 
   private async loadMaterial(id: string): Promise<MaterialPixels> {
@@ -364,6 +347,7 @@ export class MapAssetLibrary {
     }
     if (entry.file) {
       try {
+        this.startTextures(entry.textures);
         const root = await this.loadModelFn(this.url(entry.file));
         const parts = collectParts(root);
         if (parts.length > 0) return { id, entry, parts, height: partsHeight(parts), placeholder: false };
@@ -450,17 +434,6 @@ async function loadTexture(url: string, fetchFn: typeof fetch): Promise<Texture>
   texture.anisotropy = 4;
   texture.needsUpdate = true;
   return texture;
-}
-
-let gltfLoader: GLTFLoader | null = null;
-
-/** A model's file through `fetchFn` (the map data's cache), then parsed: a .glb carries everything in itself */
-async function loadGlb(url: string, fetchFn: typeof fetch): Promise<Object3D> {
-  gltfLoader ??= new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-  const response = await fetchFn(url);
-  if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
-  const gltf = await gltfLoader.parseAsync(await response.arrayBuffer(), url.slice(0, url.lastIndexOf('/') + 1));
-  return gltf.scene;
 }
 
 /**

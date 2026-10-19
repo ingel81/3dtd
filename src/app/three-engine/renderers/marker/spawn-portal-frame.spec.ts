@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { BufferGeometry, DoubleSide, Mesh, MeshBasicMaterial, Object3D, Raycaster, Vector3 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { SPAWN_PORTAL_FRAME_URL } from './spawn-portal-frame';
 import { SIGIL_LAYOUT, frameSigilCells } from './spawn-portal-sigils';
 import { createPortalClipUniforms, setPortalClips } from '../portal-clip';
@@ -76,7 +77,7 @@ function withoutImages(bytes: Uint8Array): ArrayBuffer {
 
 async function loadFrameGeometry(): Promise<BufferGeometry> {
   const gltf = await new Promise<{ scene: Object3D }>((done, fail) => {
-    new GLTFLoader().parse(withoutImages(GLB), '', done, fail);
+    new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parse(withoutImages(GLB), '', done, fail);
   });
   let geometry: BufferGeometry | undefined;
   gltf.scene.traverse((node) => {

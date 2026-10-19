@@ -18,6 +18,11 @@
 import { readFileSync, statSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { inflateSync } from 'node:zlib';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { ktx2Opaque } from '../../src/app/three-engine/models/model-loader';
+
+// The packed models (tools/model-pack) keep their buffers meshopt-compressed: decoded here, synchronously once ready
+await MeshoptDecoder.ready;
 
 export interface ImageInfo {
   label: string;
@@ -26,7 +31,7 @@ export interface ImageInfo {
   height: number;
   /**
    * Base colour images only: texels with alpha below LOW_ALPHA. 0 for JPEG,
-   * which has no alpha; null when the format is not decoded (WebP, KTX2,
+   * which has no alpha, and for a KTX2 file without alpha; null when the format is not decoded (WebP, KTX2 with alpha,
    * interlaced PNG).
    */
   lowAlphaTexels?: number | null;
@@ -257,7 +262,8 @@ export function decodePng(bytes: Buffer): DecodedImage | null {
 /** Sets `lowAlphaTexels` of a base colour image, once per image. */
 function countLowAlpha(info: ImageInfo, bytes: Buffer | null): ImageInfo {
   if (info.lowAlphaTexels !== undefined) return info;
-  if (info.mimeType === 'image/jpeg') {
+  // JPEG has no alpha; a KTX2 file without alpha neither (tools/model-pack leaves it out where every texel is opaque)
+  if (info.mimeType === 'image/jpeg' || (info.mimeType === 'image/ktx2' && bytes && ktx2Opaque(new Uint8Array(bytes)) === true)) {
     info.lowAlphaTexels = 0;
     return info;
   }
@@ -294,7 +300,14 @@ interface GltfAccessor {
   type: string;
   max?: number[];
 }
-interface GltfBufferView { buffer: number; byteOffset?: number; byteLength: number; byteStride?: number }
+interface GltfMeshopt { buffer: number; byteOffset?: number; byteLength: number; byteStride: number; count: number; mode: string; filter?: string }
+interface GltfBufferView {
+  buffer: number;
+  byteOffset?: number;
+  byteLength: number;
+  byteStride?: number;
+  extensions?: { EXT_meshopt_compression?: GltfMeshopt };
+}
 interface GltfBuffer { uri?: string; byteLength: number }
 interface GltfPrimitive {
   attributes: Record<string, number>;
@@ -345,20 +358,35 @@ function inspectGlb(buf: Buffer, baseDir: string): Inspected {
 function inspectGltf(gltf: GltfJson, bin: Buffer | null, baseDir: string): Inspected {
   const accessors = gltf.accessors ?? [];
 
+  const bufferBytes = (index: number): Buffer | null => {
+    const buffer = gltf.buffers?.[index];
+    if (buffer?.uri) {
+      const file = resolve(baseDir, decodeURIComponent(buffer.uri));
+      return existsSync(file) ? readFileSync(file) : null;
+    }
+    return index === 0 ? bin : null;
+  };
   const bufferViewBytes = (index: number): Buffer | null => {
     const view = gltf.bufferViews?.[index];
     if (!view) return null;
-    const buffer = gltf.buffers?.[view.buffer];
-    let source: Buffer | null = null;
-    if (buffer?.uri) {
-      const file = resolve(baseDir, decodeURIComponent(buffer.uri));
-      source = existsSync(file) ? readFileSync(file) : null;
-    } else if (view.buffer === 0) {
-      source = bin;
+    const meshopt = view.extensions?.EXT_meshopt_compression;
+    if (meshopt) {
+      const source = bufferBytes(meshopt.buffer);
+      if (!source) return null;
+      const start = meshopt.byteOffset ?? 0;
+      const out = new Uint8Array(meshopt.count * meshopt.byteStride);
+      MeshoptDecoder.decodeGltfBuffer(out, meshopt.count, meshopt.byteStride, source.subarray(start, start + meshopt.byteLength), meshopt.mode, meshopt.filter);
+      return Buffer.from(out.buffer);
     }
+    const source = bufferBytes(view.buffer);
     if (!source) return null;
     const start = view.byteOffset ?? 0;
     return source.subarray(start, start + view.byteLength);
+  };
+  /** Stride of a buffer view's elements: its own, a meshopt view's, else packed */
+  const strideOf = (index: number, size: number): number => {
+    const view = gltf.bufferViews?.[index];
+    return view?.byteStride ?? view?.extensions?.EXT_meshopt_compression?.byteStride ?? size;
   };
 
   /** Raw bytes of every element as a string key, for counting distinct values. */
@@ -368,7 +396,7 @@ function inspectGltf(gltf: GltfJson, bin: Buffer | null, baseDir: string): Inspe
     const bytes = bufferViewBytes(accessor.bufferView);
     const size = (COMPONENT_BYTES[accessor.componentType] ?? 0) * (TYPE_COMPONENTS[accessor.type] ?? 0);
     if (!bytes || size === 0) return null;
-    const stride = gltf.bufferViews?.[accessor.bufferView]?.byteStride ?? size;
+    const stride = strideOf(accessor.bufferView, size);
     const keys = new Array<string>(accessor.count);
     for (let k = 0; k < accessor.count; k++) {
       const start = (accessor.byteOffset ?? 0) + k * stride;
@@ -466,7 +494,7 @@ function inspectGltf(gltf: GltfJson, bin: Buffer | null, baseDir: string): Inspe
     if (accessor.componentType !== GL_FLOAT || accessor.bufferView === undefined) return 0;
     const bytes = bufferViewBytes(accessor.bufferView);
     if (!bytes) return 0;
-    const stride = gltf.bufferViews?.[accessor.bufferView]?.byteStride ?? 4;
+    const stride = strideOf(accessor.bufferView, 4);
     let max = 0;
     for (let k = 0; k < accessor.count; k++) {
       max = Math.max(max, bytes.readFloatLE((accessor.byteOffset ?? 0) + k * stride));

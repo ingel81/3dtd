@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { Injector, runInInjectionContext } from '@angular/core';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { AnimationClip, Group, Object3D, Vector3 } from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { Group, Vector3 } from 'three';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { ModelPreviewService, PLAYBACK_FPS, TURN_FRAMES, bakeSize, measurePreviewModel, turnFrameAt } from './model-preview.service';
 import { AssetManagerService } from './asset-manager.service';
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
+import { parsePackedGlb } from '../../../test/packed-glb';
 
 describe('ModelPreviewService baked turns (TODO E73)', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -103,13 +103,7 @@ describe('measurePreviewModel', () => {
   /** An enemy GLB as the game serves it, cloned like AssetManager.cloneModel for an animated preview. */
   async function loadEnemy(id: 'tank' | 'spider') {
     const config = ENEMY_TYPES[id];
-    // A copy made here: GLTFLoader checks `instanceof ArrayBuffer`, and a Node Buffer's is another realm's under jsdom
-    const data = new Uint8Array(readFileSync(resolve('public', config.modelUrl))).buffer;
-    // Textures never load under jsdom and would stall the parse; the box needs none
-    const loader = new GLTFLoader().register(() => ({ name: 'no-textures', loadTexture: () => Promise.resolve(null) }) as never);
-    const gltf = await new Promise<{ scene: Object3D; animations: AnimationClip[] }>((done, fail) => {
-      loader.parse(data, '', done as never, fail);
-    });
+    const gltf = await parsePackedGlb(readFileSync(resolve('public', config.modelUrl)));
     const model = SkeletonUtils.clone(gltf.scene);
     model.scale.setScalar(config.previewScale!);
     return { model, clips: gltf.animations, animationName: config.walkAnimation };

@@ -268,8 +268,6 @@ export class CustomMapWorld implements WorldProvider {
     ]);
     // Disposed while the renderer loaded (the start gave up, another world): nothing into a scene that is gone
     if (this.disposed) return;
-    // Ground layers as GPU-compressed textures for this renderer's GPU (the library's pixels where a file has none)
-    MapAssetLibrary.useCompressedTextures(ctx.renderer);
     const view = new CustomMapView(this.doc, this.assets ? this.assets() : MapAssetLibrary.shared(), {
       anisotropy: ctx.renderer.capabilities.getMaxAnisotropy(),
       // Bakes the impostors of far trees

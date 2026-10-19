@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Box3, type Mesh, type Object3D } from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { TOWER_TYPES, type TowerTypeConfig } from './tower-types.config';
 import { TOWER_PATHS, towerConfigOf } from './tower-paths.config';
+import { parsePackedGlb } from '../../test/packed-glb';
 
 /**
  * What the simulation takes from the tower configs instead of the loaded
@@ -16,12 +16,7 @@ import { TOWER_PATHS, towerConfigOf } from './tower-paths.config';
 
 /** A tower GLB as the game serves it, without its textures. */
 async function loadModel(config: TowerTypeConfig): Promise<Object3D> {
-  // A copy made here: GLTFLoader checks `instanceof ArrayBuffer`, and a Node Buffer's is another realm's under jsdom
-  const data = new Uint8Array(readFileSync(resolve('public', config.modelUrl))).buffer;
-  // Textures never load under jsdom and would stall the parse; nothing here needs them
-  const loader = new GLTFLoader().register(() => ({ name: 'no-textures', loadTexture: () => Promise.resolve(null) }) as never);
-  const gltf = await new Promise<{ scene: Object3D }>((done, fail) => loader.parse(data, '', done as never, fail));
-  return gltf.scene;
+  return (await parsePackedGlb(readFileSync(resolve('public', config.modelUrl)))).scene;
 }
 
 /** The turret part as ThreeTowerRenderer.create finds it. */

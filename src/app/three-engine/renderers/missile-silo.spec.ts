@@ -1,52 +1,20 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { BoxGeometry, Group, Mesh, Quaternion, Vector3, type Object3D } from 'three';
+import { Group, Quaternion, Vector3, type Object3D } from 'three';
 import { createMissileStart, launchSiteLoaded, missileStartAt } from './missile-silo';
 import type { TowerRenderData } from './three-tower.renderer';
 import { lockedAbilityStatus, type AbilityStatus } from '../../configs/abilities.config';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { MISSILE_LAUNCH_LOOK } from '../../configs/visual-effects.config';
+import { parsePackedGlb } from '../../../test/packed-glb';
 
 const SILO = TOWER_TYPES['missile-silo'];
 const UP = new Vector3(0, 1, 0);
 
-interface GltfJson {
-  nodes: { name?: string; mesh?: number; translation?: number[]; children?: number[] }[];
-  meshes: { primitives: { attributes: { POSITION: number } }[] }[];
-  accessors: { min: number[]; max: number[] }[];
-}
-
-/**
- * missile_silo.glb as its nodes stand in the file: each mesh node a box
- * over its vertices' bounds, at the node's translation. Read from the JSON
- * chunk; GLTFLoader would wait for its texture, which jsdom never decodes.
- */
-function loadSilo(): Object3D {
-  const glb = readFileSync(resolve('public', SILO.modelUrl));
-  const json = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8')) as GltfJson;
-  const build = (index: number): Object3D => {
-    const node = json.nodes[index];
-    let object: Object3D = new Group();
-    if (node.mesh !== undefined) {
-      const bounds = json.accessors[json.meshes[node.mesh].primitives[0].attributes.POSITION];
-      const [minX, minY, minZ] = bounds.min;
-      const [maxX, maxY, maxZ] = bounds.max;
-      const box = new BoxGeometry(maxX - minX, maxY - minY, maxZ - minZ)
-        .translate((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2);
-      object = new Mesh(box);
-    }
-    object.name = node.name ?? '';
-    if (node.translation) object.position.fromArray(node.translation);
-    for (const child of node.children ?? []) object.add(build(child));
-    return object;
-  };
-  const scene = new Group();
-  const children = new Set(json.nodes.flatMap((node) => node.children ?? []));
-  json.nodes.forEach((_, index) => {
-    if (!children.has(index)) scene.add(build(index));
-  });
-  return scene;
+/** missile_silo.glb as the game loads it, without its texture */
+async function loadSilo(): Promise<Object3D> {
+  return (await parsePackedGlb(readFileSync(resolve('public', SILO.modelUrl)))).scene;
 }
 
 /** The silo placed as ThreeTowerRenderer.create places a tower: scale, turn and position on the mesh */
@@ -79,8 +47,8 @@ describe('launchSiteLoaded', () => {
 describe('missileStartAt', () => {
   const SITE = new Vector3(120, 34, -80);
 
-  it('starts where the missile node stands in the placed silo model, turned with the silo and at its scale', () => {
-    const model = loadSilo();
+  it('starts where the missile node stands in the placed silo model, turned with the silo and at its scale', async () => {
+    const model = await loadSilo();
     const yaw = 0.9;
     const start = missileStartAt(placed(model, SITE, yaw), 'missile-silo', SITE, createMissileStart());
 
@@ -95,8 +63,8 @@ describe('missileStartAt', () => {
     expect(start.site).toEqual(SITE);
   });
 
-  it('falls back to the look values, which match the model, without the silo or without its missile node', () => {
-    const model = loadSilo();
+  it('falls back to the look values, which match the model, without the silo or without its missile node', async () => {
+    const model = await loadSilo();
     const fromModel = missileStartAt(placed(model, SITE, 0), 'missile-silo', SITE, createMissileStart());
 
     for (const tower of [undefined, { mesh: new Group(), typeConfig: SILO } as unknown as TowerRenderData]) {

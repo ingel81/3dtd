@@ -7,7 +7,7 @@
  * only a picture in the editor, the game's simulation never sees it.
  */
 import { AnimationMixer, CanvasTexture, Group, Sprite, SpriteMaterial, type AnimationClip, type Object3D } from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createModelLoader } from '../../three-engine/models/model-loader';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { ENEMY_TYPES, type EnemyTypeConfig } from '../../configs/enemy-types.config';
 import type { MapPoint } from '../../world/custom-map/map-document';
@@ -56,7 +56,7 @@ const DOT_SIZE = 0.014;
 
 export class TrialRunners {
   readonly group = new Group();
-  private readonly loader = new GLTFLoader();
+  private readonly loader = createModelLoader();
   private readonly models = new Map<string, Promise<LoadedModel | null>>();
   private runners: Runner[] = [];
   private routes: TrialRoute[] = [];

@@ -9,10 +9,12 @@ import {
   type Matrix3,
   type Matrix4,
   type Mesh,
+  type Object3D,
   type MeshStandardMaterial,
   type Side,
   type Texture,
 } from 'three';
+import { readTexturePixels } from '../../models/model-loader';
 import { growBounds, type VATBounds } from './vat-encoding';
 
 /**
@@ -38,7 +40,8 @@ export interface TexturePixels {
  * The pixels of `tex`, read once per cache. An image that already holds RGBA
  * bytes (DataTexture, the PNGs the model-budget generator decodes in Node) is
  * taken as it is, any other goes through a 2D canvas. Null when the texture
- * has no decoded image or no 2D canvas is available.
+ * has no decoded image or no 2D canvas is available: a KTX2 texture's come
+ * in the cache from the bake's caller (readTexturePixels, model-loader.ts).
  */
 export function texturePixels(tex: Texture, cache: Map<Texture, TexturePixels | null>): TexturePixels | null {
   if (cache.has(tex)) return cache.get(tex) ?? null;
@@ -63,6 +66,36 @@ export function texturePixels(tex: Texture, cache: Map<Texture, TexturePixels | 
   }
   cache.set(tex, pixels);
   return pixels;
+}
+
+/**
+ * The colour maps of a model with more than one, read from their KTX2 files
+ * (model-loader.ts keeps them for such a model): the bake samples a mesh's
+ * own map into its vertex colours, and no canvas reads a compressed
+ * texture. Empty for a model with one map, which the shader samples.
+ */
+export async function readColourMaps(root: Object3D): Promise<Map<Texture, TexturePixels | null>> {
+  const maps = new Set<Texture>();
+  root.traverse((node) => {
+    const material = (node as Mesh).material as Material | Material[] | undefined;
+    for (const m of [material ?? []].flat()) {
+      const map = (m as MeshStandardMaterial).map;
+      if (map) maps.add(map);
+    }
+  });
+  const out = new Map<Texture, TexturePixels | null>();
+  if (new Set([...maps].map((map) => map.source)).size < 2) return out;
+  const bySource = new Map<Texture['source'], Promise<TexturePixels | null>>();
+  for (const map of maps) {
+    if (!(map as { isCompressedTexture?: boolean }).isCompressedTexture) continue;
+    let read = bySource.get(map.source);
+    if (!read) {
+      read = readTexturePixels(map);
+      bySource.set(map.source, read);
+    }
+    out.set(map, await read);
+  }
+  return out;
 }
 
 /** A baked mesh merged into the VAT geometry: `vertexCount` vertices from `vertexOffset`, into root space by `meshToRoot`. */
@@ -97,9 +130,15 @@ export interface MergedBake {
  * shares the diffuse map (the same texture, or its source: a glTF atlas)
  * samples it at runtime; one with a texture of its own has it sampled on the
  * CPU into its vertex colours; one without keeps its material colour.
- * `bounds`, when given, grows by every root-space position.
+ * `bounds`, when given, grows by every root-space position; `pixels` are
+ * maps read beforehand (the KTX2 ones, which no canvas reads).
  */
-export function mergeBakedMeshes(parts: BakedMeshPart[], totalVertices: number, bounds?: VATBounds): MergedBake {
+export function mergeBakedMeshes(
+  parts: BakedMeshPart[],
+  totalVertices: number,
+  bounds?: VATBounds,
+  pixels?: ReadonlyMap<Texture, TexturePixels | null>,
+): MergedBake {
   // Pick the best diffuse map and colour (prefer the mesh with most vertices)
   let diffuseMap: Texture | null = null;
   let bestMapVertices = 0;
@@ -133,7 +172,7 @@ export function mergeBakedMeshes(parts: BakedMeshPart[], totalVertices: number, 
   const tempVec = new Vector3();
   const tempNormal = new Vector3();
 
-  const pixelCache = new Map<Texture, TexturePixels | null>();
+  const pixelCache = new Map<Texture, TexturePixels | null>(pixels ?? []);
 
   for (const part of parts) {
     const geo = part.mesh.geometry;
@@ -266,7 +305,8 @@ export interface VATAlpha {
  * transparent material without alpha below 1 (opacity 1, no translucent
  * texel in its map) draws opaque. A type has one material, so one blending
  * mesh makes all of it blend; among masks the lowest cutoff wins.
- * `pixels` reads a map; a map it cannot read counts as translucent.
+ * `pixels` reads a map; a KTX2 map says in `userData.opaque` whether its file
+ * has alpha (model-loader.ts); a map neither tells counts as translucent.
  */
 export function vatAlpha(
   materials: (Material | Material[])[],
@@ -276,12 +316,18 @@ export function vatAlpha(
   for (const material of materials.flat()) {
     if (material.transparent) {
       const map = (material as MeshStandardMaterial).map;
-      if (material.opacity < 1 || (map && !isOpaque(pixels(map)))) return { mode: 'blend', cutoff: 0 };
+      if (material.opacity < 1 || (map && !mapOpaque(map, pixels))) return { mode: 'blend', cutoff: 0 };
     } else if (material.alphaTest > 0) {
       cutoff = Math.min(cutoff, material.alphaTest);
     }
   }
   return cutoff < Infinity ? { mode: 'mask', cutoff } : { mode: 'opaque', cutoff: 0 };
+}
+
+/** A map without alpha: as its KTX2 file says, else read from its pixels */
+function mapOpaque(map: Texture, pixels: (map: Texture) => TexturePixels | null): boolean {
+  const known = map.userData['opaque'];
+  return typeof known === 'boolean' ? known : isOpaque(pixels(map));
 }
 
 /** Every texel fully opaque; unknown pixels count as translucent. */

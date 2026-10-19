@@ -244,12 +244,18 @@ export interface CatalogObject {
    */
   grime?: boolean;
   /**
+   * Shared KTX2 textures the model's GLB names, relative to the catalogue
+   * (`textures/<name>-<hash>.ktx2`, tools/model-pack/pack-map-models.mjs):
+   * fetched beside the GLB instead of after it
+   */
+  textures?: string[];
+  /**
    * Lower detail models, each taking over where the object fills less than
    * `screen` of the view's height (its bounding radius over the half height
    * of the view at its distance, LOD_TAN_HALF_FOV): a small object switches
    * nearer than a big one (object-layer.ts)
    */
-  lod?: { file: string; screen: number; triangles?: number }[];
+  lod?: { file: string; screen: number; triangles?: number; textures?: string[] }[];
   /**
    * Buildings: the far stage, a box of 24 triangles textured from the
    * model (objects/far-boxes.ts, tools/map-assets/bake_far_boxes.mjs),

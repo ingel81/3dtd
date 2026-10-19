@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { AnimationClip, Object3D } from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { ENEMY_TYPES, type EnemyTypeConfig } from './enemy-types.config';
 import { bakeEnemyVAT } from '../three-engine/renderers/instanced-enemy/vat-baker';
+import { parsePackedGlb } from '../../test/packed-glb';
 
 /**
  * What the simulation takes from the enemy configs instead of the baked
@@ -16,11 +16,7 @@ import { bakeEnemyVAT } from '../three-engine/renderers/instanced-enemy/vat-bake
 
 /** An enemy GLB as the game serves it, without its textures, and its clips */
 async function loadModel(config: EnemyTypeConfig): Promise<{ scene: Object3D; animations: AnimationClip[] }> {
-  // A copy made here: GLTFLoader checks `instanceof ArrayBuffer`, and a Node Buffer's is another realm's under jsdom
-  const data = new Uint8Array(readFileSync(resolve('public', config.modelUrl))).buffer;
-  // Textures never load under jsdom and would stall the parse; nothing here needs them
-  const loader = new GLTFLoader().register(() => ({ name: 'no-textures', loadTexture: () => Promise.resolve(null) }) as never);
-  return new Promise((done, fail) => loader.parse(data, '', done as never, fail));
+  return parsePackedGlb(readFileSync(resolve('public', config.modelUrl)));
 }
 
 describe('enemy configs against their models', () => {

@@ -1,5 +1,6 @@
 import { ClampToEdgeWrapping, RepeatWrapping, type CompressedTexture, type WebGLRenderer } from 'three';
-import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
+import type { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
+import { BASIS_PATH, FileWorkerKTX2Loader, TRANSCODER_WORKER } from '../three-engine/models/ktx2-transcoder';
 
 /**
  * The globe's textures, loaded in stages (docs/GLOBE_PLAN.md, Texturen und
@@ -11,8 +12,6 @@ import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 
 /** Where the textures lie, under the app's base href */
 export const GLOBE_ASSETS = 'assets/globe/';
-/** Where the Basis transcoder lies (copied by postinstall, like the Draco decoder) */
-export const BASIS_PATH = 'basis/';
 
 export type GlobeQuality = 'high' | 'low';
 
@@ -73,33 +72,6 @@ export function regionTilesAround(lat: number, lon: number, index: RegionIndex):
     out.push({ key, rect: [(c * deg) / 360, (r * deg) / 180, ((c + 1) * deg) / 360, ((r + 1) * deg) / 180] });
   }
   return out;
-}
-
-/** The transcoder's worker as a file (tools/basis/build-ktx2-worker.mjs), beside the transcoder */
-export const TRANSCODER_WORKER = BASIS_PATH + 'ktx2-worker.js';
-
-/**
- * KTX2Loader with its worker from a file instead of a blob. The transcoder's
- * embind makes its bindings with `new Function`; a blob worker inherits the
- * page's Content-Security-Policy, which forbids that (no globe in the desktop
- * app, 2026-10-13), a worker from a URL takes its own response's, which
- * allows it for this one file (desktop/src/protocol.js, public/.htaccess).
- */
-export class FileWorkerKTX2Loader extends KTX2Loader {
-  constructor(private readonly workerUrl: string) {
-    super();
-  }
-
-  override init(): Promise<void> {
-    return super.init().then(() => {
-      this.workerPool.setWorkerCreator(() => {
-        const worker = new Worker(this.workerUrl);
-        const transcoderBinary = this.transcoderBinary!.slice(0);
-        worker.postMessage({ type: 'init', config: this.workerConfig, transcoderBinary }, [transcoderBinary]);
-        return worker;
-      });
-    });
-  }
 }
 
 /** Loads and owns the textures; dispose() frees them all */
