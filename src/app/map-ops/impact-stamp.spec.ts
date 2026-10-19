@@ -1,4 +1,4 @@
-import { CRATER_LIP, CRATER_REACH_SQ, craterCm, rubbleCm } from './impact-stamp';
+import { CRATER_LIP, CRATER_REACH_SQ, RUBBLE_LUMP_M, craterCm, rubbleCm, rubbleLump } from './impact-stamp';
 
 describe('impact stamps (docs/DESTRUCTION_PLAN.md)', () => {
   it('digs a crater: its depth in the middle, a smooth floor, a low wall just past the rim, nothing beyond', () => {
@@ -25,5 +25,19 @@ describe('impact stamps (docs/DESTRUCTION_PLAN.md)', () => {
     expect(rubbleCm(36, 6, 180)).toBe(0);
     expect(rubbleCm(35.9, 6, 180)).toBe(0);
     expect(rubbleCm(0, 6, 0)).toBe(0);
+  });
+
+  it('makes a heap lumpy by patches: one factor per patch, 0.7 to 1.15, the same for every point in it', () => {
+    const seen = new Set<number>();
+    for (let i = -20; i < 20; i++) {
+      for (let j = -20; j < 20; j++) {
+        const f = rubbleLump(i * RUBBLE_LUMP_M + 0.1, j * RUBBLE_LUMP_M + 0.1);
+        expect(f).toBeGreaterThanOrEqual(0.7);
+        expect(f).toBeLessThanOrEqual(1.15);
+        expect(rubbleLump(i * RUBBLE_LUMP_M + 1.4, j * RUBBLE_LUMP_M + 1.5)).toBe(f);
+        seen.add(Math.round(f * 100));
+      }
+    }
+    expect(seen.size).toBeGreaterThan(30);
   });
 });

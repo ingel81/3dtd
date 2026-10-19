@@ -55,3 +55,21 @@ export function rubbleCm(d2: number, radius: number, peakCm: number): number {
   const u = 1 - s;
   return Math.trunc(peakCm * u * u * (1 + 2 * s));
 }
+
+/** Edge of the patches a heap of rubble is lumpy in, m */
+export const RUBBLE_LUMP_M = 1.6;
+
+/**
+ * The lumps of a heap at map point (`x`, `y`): a factor 0.7 to 1.15 on its
+ * height, one per RUBBLE_LUMP_M patch from an integer hash of the patch, so
+ * a heap is a pile of chunks and slabs, not a smooth dome. The point's
+ * frame decides the patches: the simulation's field and the drawn ground ask
+ * it in map metres (`x` east as the map has it), the same patch for the
+ * same spot on every engine.
+ */
+export function rubbleLump(x: number, y: number): number {
+  let h = Math.imul(Math.floor(x / RUBBLE_LUMP_M), 0x27d4eb2d) ^ Math.imul(Math.floor(y / RUBBLE_LUMP_M), 0x165667b1);
+  h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d);
+  h ^= h >>> 13;
+  return 0.7 + ((h >>> 0) % 1000) * 0.00045;
+}

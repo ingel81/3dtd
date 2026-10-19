@@ -187,9 +187,9 @@ describe('GlobalRouteGrid terrain sampling', () => {
     grid.registerTower('t1', 10, 0, 6, ctx);
     const before = seen();
     expect(before).toBeGreaterThan(0);
-    // A heap 6 m high over the street lifts the probes above the wall at 10 m
+    // A heap 7 to 11 m high over the street lifts the probes above the wall at 10 m
     const field = new StampField(grid.cellSpan()!);
-    field.rubbleHeap({ x: 10, z: 0, cos: 1, sin: 0, coreX: 20, coreZ: 20, falloff: 1, peakCm: 600 }, 1);
+    field.rubbleHeap({ x: 10, z: 0, cos: 1, sin: 0, coreX: 20, coreZ: 20, falloff: 1, peakCm: 1000, mapX: -10, mapY: 0 }, 1);
     grid.setStampField(field);
     grid.registerTower('t1', 10, 0, 6, ctx);
     expect(seen()).toBe(0);

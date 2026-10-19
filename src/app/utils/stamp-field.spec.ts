@@ -1,5 +1,5 @@
 import { StampField, craterStampOf, rubbleStampOf, STAMP_CELL_M, type ToLocal } from './stamp-field';
-import { craterCm } from '../map-ops/impact-stamp';
+import { craterCm, rubbleLump } from '../map-ops/impact-stamp';
 import { RUBBLE } from '../configs/destruction.config';
 import { MAP_METERS_PER_DEGREE as K } from '../world/custom-map/map-document';
 import type { RunStructure } from '../sim/protocol/run-rules';
@@ -48,8 +48,8 @@ describe('StampField (docs/DESTRUCTION_PLAN.md)', () => {
     const heap = rubbleStampOf(barn, local);
     expect(heap.peakCm).toBe(Math.round(600 * RUBBLE.heightShare));
     field.rubbleHeap(heap, 1);
-    // Its middle at local (-20, 10): the top, slowing
-    expect(field.heightAt(-20.5, 10.5)).toBe(heap.peakCm / 100);
+    // Its middle at local (-20, 10): the top in the lumps of its patch (the cell middle (-21, 11) is map (21, 11)), slowing
+    expect(field.heightAt(-20.5, 10.5)).toBe(Math.trunc(heap.peakCm * rubbleLump(21, 11)) / 100);
     expect(field.brakeAt(-20.5, 10.5)).toBe(RUBBLE.brake);
     // Turned: the long side runs along local z, 3 m out that way it stands higher than 3 m out across
     expect(field.heightAt(-20.5, 12.5)).toBeGreaterThan(field.heightAt(-22.5, 10.5));
@@ -59,7 +59,7 @@ describe('StampField (docs/DESTRUCTION_PLAN.md)', () => {
     expect(field.brakeAt(-20, 30)).toBe(1);
     // Without a ground plan: a disc of its radius times RUBBLE.spill
     const disc = rubbleStampOf({ ...barn, box: undefined }, local);
-    expect(disc).toMatchObject({ x: -20, z: 10, coreX: 0, coreZ: 0, falloff: 5 * RUBBLE.spill });
+    expect(disc).toMatchObject({ x: -20, z: 10, coreX: 0, coreZ: 0, falloff: 5 * RUBBLE.spill, mapX: 20, mapY: 10 });
     // A crater dug into the heap keeps it slowing; taken away, the heap is as before
     const before = field.heightAt(-20.5, 10.5);
     const crater = craterStampOf(210, 110, 15, 30, local);

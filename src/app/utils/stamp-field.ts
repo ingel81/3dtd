@@ -1,4 +1,4 @@
-import { craterCm, rubbleCm } from '../map-ops/impact-stamp';
+import { craterCm, rubbleCm, rubbleLump } from '../map-ops/impact-stamp';
 import { RUBBLE } from '../configs/destruction.config';
 import type { RunStructure } from '../sim/protocol/run-rules';
 import { MAP_METERS_PER_DEGREE } from '../world/custom-map/map-document';
@@ -40,6 +40,9 @@ export interface RubbleStamp {
   coreZ: number;
   falloff: number;
   peakCm: number;
+  /** Its middle in map metres: the lumps go by the map's patches (rubbleLump) */
+  mapX: number;
+  mapY: number;
 }
 
 /** Bit of a packed cell: rubble high enough to slow the enemies (RUBBLE.brakeFromCm) */
@@ -124,7 +127,8 @@ export class StampField {
       // Into the ground plan's own axes (CustomMapSurface's covers, with local x the map's -x)
       const mx = Math.max(0, Math.abs(dx * r.cos - dz * r.sin) - r.coreX);
       const mz = Math.max(0, Math.abs(dx * r.sin + dz * r.cos) - r.coreZ);
-      return rubbleCm(mx * mx + mz * mz, r.falloff, r.peakCm) * sign;
+      // The lumps by the map point: local x is the map's -x
+      return rubbleCm(mx * mx + mz * mz, r.falloff, r.peakCm * rubbleLump(r.mapX - dx, r.mapY + dz)) * sign;
     });
   }
 
@@ -175,7 +179,9 @@ export function rubbleStampOf(s: RunStructure, toLocal: ToLocal): RubbleStamp {
   const peakCm = Math.min(RUBBLE.maxPeakCm, Math.max(RUBBLE.minPeakCm, Math.round(s.height * 100 * RUBBLE.heightShare)));
   if (!s.box) {
     toLocal(s.lat, s.lon, at);
-    return { x: at.x, z: at.z, cos: 1, sin: 0, coreX: 0, coreZ: 0, falloff: s.radius * RUBBLE.spill, peakCm };
+    const mapX = s.lon * MAP_METERS_PER_DEGREE;
+    const mapY = s.lat * MAP_METERS_PER_DEGREE;
+    return { x: at.x, z: at.z, cos: 1, sin: 0, coreX: 0, coreZ: 0, falloff: s.radius * RUBBLE.spill, peakCm, mapX, mapY };
   }
   const [bx, by, hx, hy, turn] = s.box;
   toLocal(by / MAP_METERS_PER_DEGREE, bx / MAP_METERS_PER_DEGREE, at);
@@ -188,6 +194,8 @@ export function rubbleStampOf(s: RunStructure, toLocal: ToLocal): RubbleStamp {
     coreZ: hy * RUBBLE.core,
     falloff: (1 - RUBBLE.core) * Math.min(hx, hy) + RUBBLE.spillM,
     peakCm,
+    mapX: bx,
+    mapY: by,
   };
 }
 
@@ -211,7 +219,7 @@ export function rubbleCmAt(shape: RubbleShape, x: number, y: number): number {
   const dy = y - shape.z;
   const mx = Math.max(0, Math.abs(-dx * shape.cos - dy * shape.sin) - shape.coreX);
   const mz = Math.max(0, Math.abs(-dx * shape.sin + dy * shape.cos) - shape.coreZ);
-  return rubbleCm(mx * mx + mz * mz, shape.falloff, shape.peakCm);
+  return rubbleCm(mx * mx + mz * mz, shape.falloff, shape.peakCm * rubbleLump(x, y));
 }
 
 /** How far heap `shape` reaches from its middle along each axis, m (the box of samples it touches) */
