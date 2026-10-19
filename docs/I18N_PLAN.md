@@ -174,11 +174,11 @@ Paket ab, nicht jeden Text.
 1. **Wörterbuch-Spec** (`src/app/i18n/i18n.spec.ts`, gebaut): jede Sprache hat genau die Schlüssel des Englischen,
    jeder Eintrag dieselbe Art und Zahl der Werte, jeder liefert nicht-leeren Text; Compile-Fehler bei fehlendem,
    überzähligem oder falsch getyptem Schlüssel; Erkennung, Plural, Ziffern, Umschalten, „der letzte Wechsel gewinnt“.
-2. **Wächter gegen neue harte Texte**: ein Spec führt `tools/i18n/scan.mjs` über die Quellen und vergleicht die
-   Zahl je Bereich mit `tools/i18n/baseline.json`. Mehr als dort = rot mit Datei und Text; weniger = Hinweis, die
-   Grenze zu senken. Nach dem Umbau stehen die übersetzten Bereiche auf 0. Entwickler- und Agenten-Bereich sind
-   ausgenommen. Erst mit I0 aktiv, damit laufende Runden nicht vorher rot werden.
-3. **Pseudo-Sprache** (nur Entwickler-Build): `xx` macht aus jedem englischen Text „[Ŝéttîñĝš ~~~~]“, rund 40 %
+2. **Wächter gegen neue harte Texte** (gebaut, `tools/i18n/guard.spec.ts`): der Spec führt `tools/i18n/scan.mjs`
+   über die Quellen und vergleicht jeden gefundenen Text mit `tools/i18n/baseline.json` (Texte je Datei). Ein Text,
+   der dort fehlt, ist rot, mit Datei und Text. Verschwundene Texte warnen nur; nach jedem Paket schreibt
+   `node tools/i18n/baseline.mjs` die Liste neu und sie schrumpft. Entwickler- und Agenten-Bereich sind ausgenommen.
+3. **Pseudo-Sprache** (gebaut, nur Entwickler-Build, in Settings wählbar, `src/app/i18n/pseudo.ts`): `xx` macht aus jedem englischen Text „[Ŝéttîñĝš ~~~~]“, rund 40 %
    länger. Was dann noch normal aussieht, ist nicht übersetzt; was bricht, bricht im Deutschen auch.
 4. **Layout**: deutsche Texte sind rund 30 % länger. Ein E2E-Spec geht jede Menüseite, das HUD, Tower-Panel,
    Dialoge und die Editor-Panels in `de` und `xx` durch, meldet jedes Element mit Text, dessen `scrollWidth` über

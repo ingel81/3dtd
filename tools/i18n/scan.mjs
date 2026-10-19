@@ -253,3 +253,16 @@ export function inventory(files) {
   }
   return [...byArea.values()];
 }
+
+/** Areas the guard leaves out: developer tools and the agents' API speak English for good */
+const UNGUARDED = new Set(['dev', 'agent']);
+
+/** The texts the guard holds against its baseline: by file, sorted and unique, without the developer and agent areas */
+export function guardedTexts(root) {
+  const out = {};
+  for (const f of scanSources(root)) {
+    if (UNGUARDED.has(areaOf(f.file).id) || !f.texts.length) continue;
+    out[f.file] = [...new Set(f.texts)].sort();
+  }
+  return Object.fromEntries(Object.entries(out).sort(([a], [b]) => a.localeCompare(b)));
+}
