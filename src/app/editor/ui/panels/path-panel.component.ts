@@ -9,15 +9,10 @@ import { patch, type PathMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { RangeRowComponent } from './range-row.component';
+import { injectT } from '../../../i18n/i18n.service';
 
-/** What a road edit says when it has to wait */
-const ROADS = 'Changing roads';
-
-const KINDS: { id: MapPathKind; label: string }[] = [
-  { id: 'road', label: 'Road' },
-  { id: 'path', label: 'Path' },
-  { id: 'bridge', label: 'Bridge' },
-];
+/** The kinds of road in their order; their names are the dictionary's (i18n `editor.paths.kinds`) */
+const KINDS: readonly MapPathKind[] = ['road', 'path', 'bridge'];
 
 /**
  * Roads: draw or edit, width and kind for new roads and the selected one,
@@ -32,26 +27,26 @@ const KINDS: { id: MapPathKind; label: string }[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-stack is-loose' },
   template: `
-    <div class="td-seg is-sm" role="radiogroup" aria-label="Road tool">
-      <button type="button" role="radio" [attr.aria-checked]="s().mode === 'draw'" (click)="setMode('draw')" data-mode="draw">Draw</button>
-      <button type="button" role="radio" [attr.aria-checked]="s().mode === 'edit'" (click)="setMode('edit')" data-mode="edit">Edit</button>
+    <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.paths.tool">
+      <button type="button" role="radio" [attr.aria-checked]="s().mode === 'draw'" (click)="setMode('draw')" data-mode="draw">{{ t().editor.paths.draw }}</button>
+      <button type="button" role="radio" [attr.aria-checked]="s().mode === 'edit'" (click)="setMode('edit')" data-mode="edit">{{ t().editor.paths.edit }}</button>
     </div>
 
     @if (edge(); as e) {
       <div class="td-group">
-        <h3 class="td-section">{{ e.id }} <span class="td-note">{{ e.length }} m</span></h3>
-        <app-editor-range label="Width" unit="m" [min]="2" [max]="40" [step]="0.5" [value]="e.width" (changed)="setEdge({ width: $event })" />
-        <div class="td-seg is-sm" role="radiogroup" aria-label="Kind of the road">
-          @for (k of kinds; track k.id) {
-            <button type="button" role="radio" [attr.aria-checked]="e.kind === k.id" (click)="setEdge({ kind: k.id })">{{ k.label }}</button>
+        <h3 class="td-section">{{ e.id }} <span class="td-note">{{ t().editor.paths.metres(e.length) }}</span></h3>
+        <app-editor-range [label]="t().editor.paths.width" unit="m" [min]="2" [max]="40" [step]="0.5" [value]="e.width" (changed)="setEdge({ width: $event })" />
+        <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.paths.kindOf">
+          @for (k of kinds; track k) {
+            <button type="button" role="radio" [attr.aria-checked]="e.kind === k" (click)="setEdge({ kind: k })">{{ t().editor.paths.kinds[k] }}</button>
           }
         </div>
         @if (e.kind !== 'bridge' && surfaces().length) {
           <label class="td-setting">
-            <span>Surface</span>
-            <select class="td-select is-auto" (change)="setSurface($any($event.target).value)" aria-label="Surface of the road" data-test="road-surface"
-                    matTooltip="The road's own ground, painted under it at once and kept when the dressing is laid anew; None draws cobbles and ruts over the ground">
-              <option value="" [selected]="!e.surface">None</option>
+            <span>{{ t().editor.paths.surface }}</span>
+            <select class="td-select is-auto" (change)="setSurface($any($event.target).value)" [attr.aria-label]="t().editor.paths.surfaceOf" data-test="road-surface"
+                    [matTooltip]="t().editor.paths.surfaceTip">
+              <option value="" [selected]="!e.surface">{{ t().editor.paths.none }}</option>
               @for (m of surfaces(); track m.id) {
                 <option [value]="m.id" [selected]="e.surface === m.id">{{ m.name }}</option>
               }
@@ -62,36 +57,36 @@ const KINDS: { id: MapPathKind; label: string }[] = [
     }
     @if (edgeIds().length) {
       <div class="td-actions is-start">
-        <button class="td-btn-secondary td-btn-sm" type="button" (click)="smooth()">Smooth <kbd class="td-kbd">S</kbd></button>
-        <button class="td-btn-secondary td-btn-sm" type="button" (click)="straighten()">Straighten <kbd class="td-kbd">X</kbd></button>
-        <button class="td-btn-danger td-btn-sm" type="button" (click)="remove()">Delete <kbd class="td-kbd">Del</kbd></button>
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="smooth()">{{ t().editor.paths.smooth }} <kbd class="td-kbd">S</kbd></button>
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="straighten()">{{ t().editor.paths.straighten }} <kbd class="td-kbd">X</kbd></button>
+        <button class="td-btn-danger td-btn-sm" type="button" (click)="remove()">{{ t().editor.paths.delete }} <kbd class="td-kbd">Del</kbd></button>
       </div>
       <button class="td-btn-secondary td-btn-sm" type="button" (click)="rebuild()" data-test="rebuild-dressing"
-              matTooltip="Lays embankment, surface, lamps and fences anew along the road: as the road brush built it, as the map shows it, or with the road brush's settings (Landscape, Road)">Rebuild road dressing</button>
+              [matTooltip]="t().editor.paths.rebuildTip">{{ t().editor.paths.rebuild }}</button>
     }
 
     <div class="td-group">
-      <h3 class="td-section">New roads</h3>
-      <app-editor-range label="Width" unit="m" [min]="2" [max]="40" [step]="0.5" [value]="s().width" (changing)="set('width', $event)" />
-      <div class="td-seg is-sm" role="radiogroup" aria-label="Kind of new roads">
-        @for (k of kinds; track k.id) {
-          <button type="button" role="radio" [attr.aria-checked]="s().kind === k.id" (click)="setKind(k.id)">{{ k.label }}</button>
+      <h3 class="td-section">{{ t().editor.paths.newRoads }}</h3>
+      <app-editor-range [label]="t().editor.paths.width" unit="m" [min]="2" [max]="40" [step]="0.5" [value]="s().width" (changing)="set('width', $event)" />
+      <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.paths.kindNew">
+        @for (k of kinds; track k) {
+          <button type="button" role="radio" [attr.aria-checked]="s().kind === k" (click)="setKind(k)">{{ t().editor.paths.kinds[k] }}</button>
         }
       </div>
-      <app-editor-range label="Snap" unit="m" [min]="0" [max]="40" [step]="1" [value]="s().snap" (changing)="set('snap', $event)" />
+      <app-editor-range [label]="t().editor.paths.snap" unit="m" [min]="0" [max]="40" [step]="1" [value]="s().snap" (changing)="set('snap', $event)" />
       <div class="td-setting">
-        <span>Show routes from the spawns</span>
-        <input class="td-switch" type="checkbox" [checked]="s().showRoutes" (change)="setRoutes($any($event.target).checked)" aria-label="Show routes" />
+        <span>{{ t().editor.paths.showRoutesLong }}</span>
+        <input class="td-switch" type="checkbox" [checked]="s().showRoutes" (change)="setRoutes($any($event.target).checked)" [attr.aria-label]="t().editor.paths.showRoutes" />
       </div>
     </div>
 
     <div class="td-group">
-      <h3 class="td-section">Ground under roads</h3>
-      <p class="td-note">{{ edgeIds().length ? 'For the selected road.' : 'For every road.' }}</p>
+      <h3 class="td-section">{{ t().editor.paths.ground }}</h3>
+      <p class="td-note">{{ edgeIds().length ? t().editor.paths.forSelected : t().editor.paths.forEvery }}</p>
       <div class="td-actions is-start">
-        <button class="td-btn-secondary td-btn-sm" type="button" (click)="flatten()" matTooltip="Levels the ground across each road and smooths it along" data-test="flatten-roads">Flatten road</button>
-        <button class="td-btn-secondary td-btn-sm" type="button" (click)="paint()">Paint road</button>
-        <select class="td-select is-auto" [value]="layer()" (change)="layer.set(+$any($event.target).value)" aria-label="Layer to paint">
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="flatten()" [matTooltip]="t().editor.paths.flattenTip" data-test="flatten-roads">{{ t().editor.paths.flatten }}</button>
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="paint()">{{ t().editor.paths.paint }}</button>
+        <select class="td-select is-auto" [value]="layer()" (change)="layer.set(+$any($event.target).value)" [attr.aria-label]="t().editor.paths.layer">
           @for (l of layers(); track l.index) {
             <option [value]="l.index" [selected]="l.index === layer()">{{ l.name }}</option>
           }
@@ -101,6 +96,7 @@ const KINDS: { id: MapPathKind; label: string }[] = [
   `,
 })
 export class PathPanelComponent {
+  protected readonly t = injectT();
   private readonly session = inject(EditorSession);
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('paths', 'terrain');
@@ -133,7 +129,7 @@ export class PathPanelComponent {
     if (!list.length) return null;
     const length = Math.round(list.reduce((n, e) => n + polylineLength(edgePolyline(doc.paths, e)), 0));
     // Several roads: their values as the first has them, a change goes to all
-    return { id: list.length === 1 ? `Road ${list[0].id}` : `${list.length} roads`, width: list[0].width, kind: list[0].kind, surface: list[0].surface, length, ids: list.map((e) => e.id) };
+    return { id: list.length === 1 ? this.t().editor.paths.roadName(list[0].id) : this.t().editor.paths.roadsCount(list.length), width: list[0].width, kind: list[0].kind, surface: list[0].surface, length, ids: list.map((e) => e.id) };
   });
 
   setMode(mode: PathMode): void {
@@ -155,22 +151,22 @@ export class PathPanelComponent {
 
   setEdge(patch: { width?: number; kind?: MapPathKind }): void {
     const ids = this.edge()?.ids ?? this.edgeIds();
-    if (ids.length) this.session.edit(ROADS, (e) => setRoads(e, this.session.catalog(), ids, patch));
+    if (ids.length) this.session.edit(this.t().editor.paths.changing, (e) => setRoads(e, this.session.catalog(), ids, patch));
   }
 
   setSurface(material: string): void {
     const ids = this.edge()?.ids ?? [];
-    if (ids.length) this.session.edit(ROADS, (e) => setRoadSurface(e, this.session.catalog(), ids, material || null));
+    if (ids.length) this.session.edit(this.t().editor.paths.changing, (e) => setRoadSurface(e, this.session.catalog(), ids, material || null));
   }
 
   smooth(): void {
     const ids = this.edgeIds();
-    this.session.edit(ROADS, (e) => editRoads(e, this.session.catalog(), 'Smooth road', (paths) => ids.forEach((id) => smoothEdge(paths, id))));
+    this.session.edit(this.t().editor.paths.changing, (e) => editRoads(e, this.session.catalog(), this.t().editor.paths.smoothStep, (paths) => ids.forEach((id) => smoothEdge(paths, id))));
   }
 
   straighten(): void {
     const ids = this.edgeIds();
-    this.session.edit(ROADS, (e) => editRoads(e, this.session.catalog(), 'Straighten road', (paths) => ids.forEach((id) => straightenEdge(paths, id))));
+    this.session.edit(this.t().editor.paths.changing, (e) => editRoads(e, this.session.catalog(), this.t().editor.paths.straightenStep, (paths) => ids.forEach((id) => straightenEdge(paths, id))));
   }
 
   remove(): void {
@@ -178,27 +174,27 @@ export class PathPanelComponent {
     const nodes = selectedNodes(sel);
     const edges = selectedEdges(sel);
     if (!nodes.length && !edges.length) return;
-    if (this.session.edit(ROADS, (e) => e.execute(pathCommands.removeMany(e, nodes, edges)))) this.session.editor?.select(null);
+    if (this.session.edit(this.t().editor.paths.changing, (e) => e.execute(pathCommands.removeMany(e, nodes, edges)))) this.session.editor?.select(null);
   }
 
   rebuild(): void {
     const ids = this.edgeIds();
     if (!ids.length) return;
-    if (this.session.edit('Rebuilding roads', (e) => rebuildRoads(e, this.session.catalog(), ids, this.session.tools.settings.landscape().road))) {
-      this.session.notices.flash(`Dressing laid anew along ${ids.length} ${ids.length === 1 ? 'road' : 'roads'}`);
+    if (this.session.edit(this.t().editor.paths.rebuilding, (e) => rebuildRoads(e, this.session.catalog(), ids, this.session.tools.settings.landscape().road))) {
+      this.session.notices.flash(this.t().editor.paths.rebuilt(ids.length));
     }
   }
 
   flatten(): void {
     const ids = this.edgeIds();
     let done = false;
-    if (this.session.edit('Flattening roads', (e) => (done = flattenRoads(e, ids.length ? ids : null)))) {
-      this.session.notices.flash(done ? 'Ground under the roads flattened' : 'No road to flatten');
+    if (this.session.edit(this.t().editor.paths.flattening, (e) => (done = flattenRoads(e, ids.length ? ids : null)))) {
+      this.session.notices.flash(done ? this.t().editor.paths.flattened : this.t().editor.paths.noFlatten);
     }
   }
 
   paint(): void {
     const ids = this.edgeIds();
-    this.session.edit('Painting roads', (e) => paintRoads(e, this.layer(), ids.length ? ids : null));
+    this.session.edit(this.t().editor.paths.painting, (e) => paintRoads(e, this.layer(), ids.length ? ids : null));
   }
 }

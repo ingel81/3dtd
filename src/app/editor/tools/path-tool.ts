@@ -10,6 +10,7 @@
  */
 import type { MapPaths, MapPoint } from '../../world/custom-map/map-document';
 import { SnapshotCommand } from '../model/commands/snapshot';
+import type { EditCommand } from '../model/doc-change';
 import { pathSelection, selectedEdges, selectedNodes, type EditorDocument, type Selection } from '../model/editor-document';
 import { insideMap } from '../../map-ops/grid';
 import { addNode, connect, mergeNodes, moveNode, nearestNode, nearestOnEdges, nodeById, smoothEdge, splitEdge, straightenEdge } from '../../map-ops/path-graph';
@@ -34,6 +35,8 @@ export class PathTool implements EditorTool {
   private lastClickAt = { x: -1e6, y: -1e6 };
   /** The last node of each symmetric image of the line being drawn */
   private mirrored: string[] = [];
+  /** The step that set a road's lone first node, until its second comes (Esc takes it back) */
+  private started: EditCommand | null = null;
 
   brushVisible(): boolean {
     return false;
@@ -134,14 +137,14 @@ export class PathTool implements EditorTool {
       return !!a && !!b && (a.x !== b.x || a.y !== b.y);
     });
     if (!movedAny) return;
-    let label = d.ids.length > 1 ? 'Move nodes' : 'Move node';
+    let label = ctx.t().editor.paths.moveNodes(d.ids.length);
     if (d.ids.length === 1) {
       const moved = nodeById(doc.paths, d.ids[0])!;
       const onto = p.alt ? null : nearestNode(doc.paths, moved, ctx.settings.paths().snap * 0.6, moved.id);
       if (onto) {
         mergeNodes(doc.paths, moved.id, onto.id);
         ctx.editor.select({ kind: 'node', id: onto.id });
-        label = 'Join nodes';
+        label = ctx.t().editor.paths.joinNodes;
       }
     }
     commitRoads(ctx.editor, ctx.catalog, label, d.before);
@@ -172,8 +175,7 @@ export class PathTool implements EditorTool {
     const nodes = [...new Set([...selectedNodes(keep), ...inside])];
     const all = [...new Set([...selectedEdges(keep), ...edges])];
     editor.select(pathSelection(nodes, all));
-    const count = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
-    ctx.status(`${count(nodes.length, 'node')} and ${count(all.length, 'road')} selected`);
+    ctx.status(ctx.t().editor.paths.selected(nodes.length, all.length));
   }
 
   frame(_dt: number, p: ToolPointer | null, ctx: ToolContext): void {
@@ -211,11 +213,11 @@ export class PathTool implements EditorTool {
       return true;
     }
     if (k === 's' && (nodes.length || edges.length)) {
-      editRoads(editor, ctx.catalog, 'Smooth road', (paths) => edgesOf(editor, sel).forEach((id) => smoothEdge(paths, id)));
+      editRoads(editor, ctx.catalog, ctx.t().editor.paths.smoothStep, (paths) => edgesOf(editor, sel).forEach((id) => smoothEdge(paths, id)));
       return true;
     }
     if (k === 'x' && (nodes.length || edges.length)) {
-      editRoads(editor, ctx.catalog, 'Straighten road', (paths) => edgesOf(editor, sel).forEach((id) => straightenEdge(paths, id)));
+      editRoads(editor, ctx.catalog, ctx.t().editor.paths.straightenStep, (paths) => edgesOf(editor, sel).forEach((id) => straightenEdge(paths, id)));
       return true;
     }
     if (k === 'j' && sel?.kind === 'node') {
@@ -223,7 +225,7 @@ export class PathTool implements EditorTool {
       if (command) {
         editor.execute(command);
         editor.select(null);
-      } else ctx.status('Only a node between exactly two edges can be joined away');
+      } else ctx.status(ctx.t().editor.paths.joinOnly);
       return true;
     }
     return false;
@@ -235,7 +237,7 @@ export class PathTool implements EditorTool {
     this.last = null;
     this.mirrored = [];
     // A line that never got its second node takes its lone start back
-    if (last && ctx.editor.undoLabel === 'Start road' && !ctx.editor.doc.paths.edges.some((e) => e.a === last || e.b === last)) {
+    if (last && this.started && ctx.editor.undoCommand === this.started && !ctx.editor.doc.paths.edges.some((e) => e.a === last || e.b === last)) {
       ctx.editor.undo();
     }
     ctx.overlay.draft.clear();
@@ -253,11 +255,9 @@ export class PathTool implements EditorTool {
 
   hint(ctx: ToolContext): string {
     if (ctx.settings.paths().mode === 'edit') {
-      return 'Click a node or edge, Shift adds, drag a box on free ground | drag nodes, drop on a node to join | Del delete | S smooth | X straighten | J join edges';
+      return ctx.t().editor.paths.hintEdit;
     }
-    return this.last
-      ? 'Click to add the next node | near a node joins it, near a road makes a junction | Alt places freely | Enter or right click ends'
-      : 'Click to start a road | near a node or road it branches off';
+    return this.last ? ctx.t().editor.paths.hintNext : ctx.t().editor.paths.hintStart;
   }
 
   private drawClick(p: ToolPointer, ctx: ToolContext): void {
@@ -269,7 +269,7 @@ export class PathTool implements EditorTool {
     const hit = { x: p.hit!.x, y: p.hit!.y };
     const from = this.last;
     const ends: string[] = [];
-    const command = SnapshotCommand.record(editor.doc, from ? 'Draw road' : 'Start road', ['paths'], (d) => {
+    const command = SnapshotCommand.record(editor.doc, from ? ctx.t().editor.paths.drawRoad : ctx.t().editor.paths.startRoad, ['paths'], (d) => {
       // The road where the pointer is, then its symmetric images, each going on from its own last node
       images.forEach((img, k) => {
         const last = k === 0 ? from : (this.mirrored[k - 1] ?? null);
@@ -285,6 +285,7 @@ export class PathTool implements EditorTool {
     });
     // A lone first click on empty ground leaves a node that waits for its edge
     editor.push(command, { paths: true });
+    this.started = from ? null : command;
     this.last = ends[0];
     this.mirrored = ends.slice(1);
     editor.select({ kind: 'node', id: ends[0] });

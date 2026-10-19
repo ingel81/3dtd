@@ -162,6 +162,11 @@ export class EditorDocument {
     return this.redoStack.length > 0;
   }
 
+  /** The step an undo would take back, null without one */
+  get undoCommand(): EditCommand | null {
+    return this.undoStack.at(-1)?.command ?? null;
+  }
+
   get undoLabel(): string | null {
     return this.undoStack.at(-1)?.command.label ?? null;
   }

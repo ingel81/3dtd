@@ -21,7 +21,7 @@ export function dropLonelyNodes(paths: MapPaths): void {
 export const pathCommands = {
   /** Removes roads and nodes (with the roads at them) as one step */
   removeMany(editor: EditorDocument, nodes: readonly string[], edges: readonly string[]): EditCommand {
-    const label = nodes.length + edges.length > 1 ? 'Delete roads' : nodes.length ? 'Delete node' : 'Delete road';
+    const label = editor.words().editor.paths.deleteStep(nodes.length, edges.length);
     return SnapshotCommand.record(editor.doc, label, ['paths'], (d) => {
       for (const id of edges) deleteEdge(d.paths, id);
       for (const id of nodes) deleteNode(d.paths, id);
@@ -31,13 +31,13 @@ export const pathCommands = {
   dissolve(editor: EditorDocument, nodeId: string): EditCommand | null {
     const trial = structuredClone(editor.doc.paths);
     if (!dissolveNode(trial, nodeId)) return null;
-    return SnapshotCommand.record(editor.doc, 'Join edges', ['paths'], (d) => dissolveNode(d.paths, nodeId));
+    return SnapshotCommand.record(editor.doc, editor.words().editor.paths.joinEdges, ['paths'], (d) => dissolveNode(d.paths, nodeId));
   },
   /** Clear lonely nodes, as one step (after a line was abandoned) */
   tidy(editor: EditorDocument): EditCommand | null {
     const p = editor.doc.paths;
     if (p.nodes.every((n) => p.edges.some((e) => e.a === n.id || e.b === n.id))) return null;
-    return SnapshotCommand.record(editor.doc, 'Tidy roads', ['paths'], (d) => dropLonelyNodes(d.paths));
+    return SnapshotCommand.record(editor.doc, editor.words().editor.paths.tidy, ['paths'], (d) => dropLonelyNodes(d.paths));
   },
 };
 
@@ -58,7 +58,7 @@ export function editRoads(editor: EditorDocument, catalog: CatalogIndex, label: 
  * shows, or the road brush's settings; one step
  */
 export function rebuildRoads(editor: EditorDocument, catalog: CatalogIndex, edgeIds: readonly string[], road: RoadOptions): void {
-  const stroke = new LandscapeContext(editor.begin('Rebuild road dressing'), 1, catalog);
+  const stroke = new LandscapeContext(editor.begin(editor.words().editor.paths.rebuild), 1, catalog);
   const surface = road.surface.find((m) => catalog.materials.has(m));
   rebuildDressing(stroke, edgeIds, { adapt: road.adapt, ...(surface ? { surface } : {}), lamps: road.lamps, fences: road.fences, objects: [] });
   stroke.changed({ paths: true });
@@ -67,7 +67,7 @@ export function rebuildRoads(editor: EditorDocument, catalog: CatalogIndex, edge
 
 /** The surface of the selected roads (null: none, the drawn road), painted at once; one step */
 export function setRoadSurface(editor: EditorDocument, catalog: CatalogIndex, edgeIds: readonly string[], material: string | null): number {
-  const stroke = new LandscapeContext(editor.begin('Road surface'), 1, catalog);
+  const stroke = new LandscapeContext(editor.begin(editor.words().editor.paths.surfaceStep), 1, catalog);
   const n = surfaceRoads(stroke, edgeIds, material);
   stroke.finish();
   return n;
@@ -76,7 +76,7 @@ export function setRoadSurface(editor: EditorDocument, catalog: CatalogIndex, ed
 /** Width or kind for several roads as one step */
 export function setRoads(editor: EditorDocument, catalog: CatalogIndex, edgeIds: readonly string[], patch: { width?: number; kind?: MapPaths['edges'][number]['kind'] }): void {
   const set = new Set(edgeIds);
-  editRoads(editor, catalog, patch.width !== undefined ? 'Road width' : 'Road kind', (paths) => {
+  editRoads(editor, catalog, patch.width !== undefined ? editor.words().editor.paths.widthStep : editor.words().editor.paths.kindStep, (paths) => {
     paths.edges = paths.edges.map((e) => (set.has(e.id) ? { ...e, ...patch } : e));
   });
 }
@@ -101,7 +101,7 @@ export function commitRoads(editor: EditorDocument, catalog: CatalogIndex, label
 
 /** "Flatten road" over the given edges (all when null) as one undo step */
 export function flattenRoads(editor: EditorDocument, edgeIds: string[] | null): boolean {
-  const stroke = editor.begin('Flatten roads');
+  const stroke = editor.begin(editor.words().editor.paths.flattenStep);
   const rect = flattenUnderPaths(editor.doc.terrain, editor.doc.paths, edgeIds, undefined, (r) => stroke.touch('heights', r));
   if (rect) stroke.changed({ heights: rect });
   return stroke.commit() !== null;
@@ -109,7 +109,7 @@ export function flattenRoads(editor: EditorDocument, edgeIds: string[] | null): 
 
 /** Paint a ground layer under the given edges as one undo step */
 export function paintRoads(editor: EditorDocument, layer: number, edgeIds: string[] | null): boolean {
-  const stroke = editor.begin('Paint roads');
+  const stroke = editor.begin(editor.words().editor.paths.paintStep);
   const rect = paintUnderPaths(editor.doc.terrain, editor.doc.paths, layer, edgeIds, 2, (r) => {
     stroke.touchSplat(r);
   });
