@@ -22,31 +22,6 @@ export const MUTED_CAMERA_ERROR_TARGET = 1e6;
  */
 export const QUIET_MS = 500;
 
-/** Where a wait for the next frame gives up on rAF: it stops in a hidden tab, the timeouts keep counting. */
-const FRAME_FALLBACK_MS = 250;
-
-/** Resolves on the next animation frame, at the latest after FRAME_FALLBACK_MS. */
-export function nextFrameOrTimeout(): Promise<void> {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      cancelAnimationFrame(frame);
-      resolve();
-    }, FRAME_FALLBACK_MS);
-    const frame = requestAnimationFrame(() => {
-      clearTimeout(timer);
-      resolve();
-    });
-  });
-}
-
-/**
- * Resolves once the browser painted the frame after the call: the next
- * animation frame (as nextFrameOrTimeout), then a task after it, so what
- * follows runs after the paint, not before it in the frame's own task.
- */
-export function afterNextPaint(): Promise<void> {
-  return nextFrameOrTimeout().then(() => new Promise((resolve) => setTimeout(resolve)));
-}
 
 /** How a wait for the tiles ended, see waitForQuietTiles. */
 export interface TilesWait {

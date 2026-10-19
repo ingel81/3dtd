@@ -11,7 +11,7 @@ import { STREET_RADIUS_M, StreetNetwork } from '../location/osm-street.service';
 import { GLOBE_LINK } from '../world/globe-link';
 import type { WorldProvider } from '../../world/world-provider';
 import { isOverpassCancelled } from '../../world/osm/overpass-client';
-import { afterNextPaint } from '../../three-engine/tiles-lod-debug';
+import { afterNextPaint } from '../../utils/next-frame';
 import { BootStep } from '../../components/main-menu/loading/boot-step.model';
 
 /**

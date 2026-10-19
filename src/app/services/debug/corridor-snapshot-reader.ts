@@ -4,7 +4,7 @@ import type { PathAndRouteService } from '../world/path-route.service';
 import type { TowerDefenseStore } from '../../store/tower-defense.store';
 import type { GlobalRouteGrid } from '../../utils/global-route-grid';
 import { CorridorBuild } from '../world/corridor-build';
-import { nextFrameOrTimeout } from '../../three-engine/tiles-lod-debug';
+import { nextFrameOrTimeout } from '../../utils/next-frame';
 import { cameraTimeline } from '../../utils/camera-timeline';
 import { corridorTrace } from '../../utils/corridor-trace';
 import { WHOLE_GRID } from '../../utils/route-grid-diagnostics';

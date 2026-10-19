@@ -5,11 +5,11 @@ import type { IntroCameraFlightService } from '../world/intro-camera-flight.serv
 import type { PathAndRouteService } from '../world/path-route.service';
 import {
   MUTED_CAMERA_ERROR_TARGET,
-  nextFrameOrTimeout,
   waitForQuietTiles,
   type TilesLodDebug,
   type TilesLodSnapshot,
 } from '../../three-engine/tiles-lod-debug';
+import { nextFrameOrTimeout } from '../../utils/next-frame';
 import { CORRIDOR_DEFAULTS, corridorConfig, type StationProbe } from '../../utils/route-corridor';
 import { raycastStats } from '../../utils/raycast-stats';
 import { WHOLE_GRID } from '../../utils/route-grid-diagnostics';

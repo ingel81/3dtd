@@ -2,10 +2,10 @@ import { MEASUREMENT_KEYS, corridorConfig } from '../../utils/route-corridor';
 import { corridorTrace, widthProfile, type CorridorSnapshot } from '../../utils/corridor-trace';
 import {
   MUTED_CAMERA_ERROR_TARGET,
-  nextFrameOrTimeout,
   waitForQuietTiles,
   type TilesLodDebug,
 } from '../../three-engine/tiles-lod-debug';
+import { nextFrameOrTimeout } from '../../utils/next-frame';
 import { ROUTE_CORRIDOR_COARSE_ERROR_TARGET, ROUTE_CORRIDOR_ERROR_TARGET } from '../../three-engine/route-corridor-region';
 import type { PathAndRouteService } from './path-route.service';
 import type { RouteAnimationService } from './route-animation.service';
