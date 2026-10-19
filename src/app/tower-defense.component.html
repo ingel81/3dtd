@@ -100,7 +100,8 @@
         <app-menu-loading class="td-skipped-menu-plate" />
       }
 
-      <canvas #gameCanvas class="td-canvas" [class.hidden]="error()" [class.td-placement-cursor]="!!mapPlacementMode()"></canvas>
+      <!-- The page's canvas goes in here (RendererHost): one context for world after world -->
+      <div #gameCanvas class="td-canvas" [class.hidden]="error()" [class.td-placement-cursor]="!!mapPlacementMode()"></div>
 
       <!-- The menu globe while no place stands, and the dive into it (docs/GLOBE_PLAN.md) -->
       <app-globe-backdrop />

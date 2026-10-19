@@ -260,7 +260,8 @@ import { WorldSession } from './world/world-session.service';
   `],
 })
 export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
-  @ViewChild('gameCanvas') gameCanvas!: ElementRef<HTMLCanvasElement>;
+  /** Where the page's canvas goes (RendererHost) */
+  @ViewChild('gameCanvas') gameCanvas!: ElementRef<HTMLDivElement>;
 
   private readonly dialogRef = inject(MatDialogRef<TowerDefenseComponent>, { optional: true });
   private readonly dialog = inject(MatDialog);
@@ -1225,7 +1226,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
       setFilteredStreetNetwork: (n) => { this.filteredStreetNetwork = n; },
       getStreetNetworkLocation: () => this.streetNetworkLocation,
       setStreetNetworkLocation: (l) => { this.streetNetworkLocation = l; },
-      getCanvasElement: () => this.gameCanvas.nativeElement,
+      getCanvasElement: () => this.gameCanvas.nativeElement.querySelector('canvas')!,
       onTerrainClick: (lat, lon, height) => this.onTerrainClick(lat, lon, height),
       onMouseMove: (lat, lon, hitPoint) => this.onMouseMove(lat, lon, hitPoint),
       exitBuildMode: () => this.exitBuildMode(),

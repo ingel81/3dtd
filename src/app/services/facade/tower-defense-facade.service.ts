@@ -215,7 +215,7 @@ export class TowerDefenseFacadeService {
   /**
    * Main game startup sequence: location detection + engine initialization.
    */
-  async startGame(canvas: HTMLCanvasElement): Promise<void> {
+  async startGame(slot: HTMLElement): Promise<void> {
     if (!this.initialized) return;
 
     // Initialize location coordinator flow
@@ -300,7 +300,7 @@ export class TowerDefenseFacadeService {
     if (!(await this.locationFacade.initializeLocation())) return;
 
     // Engine initialization
-    await this.initEngineSequence(canvas);
+    await this.initEngineSequence(slot);
   }
 
   /**
@@ -429,7 +429,7 @@ export class TowerDefenseFacadeService {
   /**
    * Initialize Three.js rendering engine with full callback wiring.
    */
-  private async initEngineSequence(canvas: HTMLCanvasElement): Promise<void> {
+  private async initEngineSequence(slot: HTMLElement): Promise<void> {
     try {
       // Missing credentials are normally caught before startGame and answered
       // with the token screen. Reaching this branch means something started the
@@ -458,7 +458,7 @@ export class TowerDefenseFacadeService {
       // Percentages of the HQ's health (the director's outcomes, the header) against the run's maximum
       this.store.maxHealth.set(rules.hqHealth);
       this.store.baseHealth.set(rules.hqHealth);
-      this.engineInit.configure(canvas, { lat: base.lat, lon: base.lon }, world);
+      this.engineInit.configure(slot, { lat: base.lat, lon: base.lon }, world);
       // The streets load while the engine is built and the tiles stream (TODO H13); onLoadStreets takes it
       const center = this.store.centerCoords();
       this.engineInit.prefetchStreets(world, center.lat, center.lon);

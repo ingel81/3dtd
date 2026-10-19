@@ -96,7 +96,7 @@ describe('Photo mode hides the ability bar, playtest 321', () => {
     expect(display('app-game-sidebar')).toBe('none');
     expect(display('app-quick-actions')).toBe('none');
     expect(display('app-info-overlay')).toBe('none');
-    expect(display('canvas')).not.toBe('none');
+    expect(display('.td-canvas')).not.toBe('none');
     expect(display('.td-map-attribution')).not.toBe('none');
     expect(display('.td-photo-bar')).not.toBe('none');
   });

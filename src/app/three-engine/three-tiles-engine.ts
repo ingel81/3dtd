@@ -11,6 +11,8 @@ import {
   Matrix4,
   Vector4,
   WebGLRenderTarget,
+  type Light,
+  type Texture,
 } from 'three';
 import { primePixelStore } from './pixel-store';
 import type { GlobeControls } from '3d-tiles-renderer';
@@ -24,8 +26,8 @@ import { CanvasSizeFollower } from './canvas-size-follower';
 import { SkyBackground, addSceneLights } from './scene-environment';
 import { DiveView, FOG_FAR, FOG_NEAR, VIEW_DISTANCE } from './dive-view';
 import { ScreenPicker } from './screen-picker';
-import { skipLostContextDeletes } from './lost-context-deletes';
-import { deferPendingProgramDeletes } from './pending-program-deletes';
+import type { RendererLease } from './renderer-host';
+import { boundTexturesOf } from './texture-upload';
 import {
   CoordinateSync,
   ThreeTowerRenderer,
@@ -80,7 +82,6 @@ import { ProgramCompileHold } from './program-compile-hold';
 import { DisplayRefresh } from './dynamic-resolution';
 import { DynamicResolution, MIN_SAMPLES } from './dynamic-resolution';
 import { pixelRatioFor, QUALITY_LEVELS, QUALITY_TABLE, type QualityKnobs, type QualityWorld } from './render-quality';
-import { releaseContext } from './context-release';
 
 /** Strength of the enemies' rim light on worlds that ask for it (WorldCapabilities.enemyRimLight) */
 const ENEMY_RIM_LIGHT = 0.2;
@@ -102,18 +103,6 @@ export interface FrameProbe {
   end(): void;
 }
 
-/** Options of the canvas renderer, without the canvas. */
-export const CANVAS_RENDERER_OPTIONS = {
-  antialias: true,
-  // Required for the 1m..8000m depth range over the 3D tiles (kept to
-  // avoid far-field z-fighting).
-  logarithmicDepthBuffer: true,
-  powerPreference: 'high-performance', // prefer dGPU on hybrid laptops
-  // The tower range rings find the surface they lie on with the
-  // stencil buffer; without one they paint their whole volume
-  // (range-ring.ts). The composer target has one as well.
-  stencil: true,
-} as const;
 
 /**
  * ThreeTilesEngine - Main Three.js rendering engine for Tower Defense
@@ -145,8 +134,6 @@ export class ThreeTilesEngine {
   private disposed = false;
   /** The models' warm-up compiles their programs (preloadModels) */
   private warmingUp = false;
-  /** Puts the context's delete calls back (skipLostContextDeletes). */
-  private readonly restoreGLDeletes: () => void;
 
   // Game speed multiplier for animations (turret rotation etc.)
   private gameTimescale = 1.0;
@@ -298,38 +285,29 @@ export class ThreeTilesEngine {
   /**
    * @param world The world to draw, made around the run's origin
    *   (WorldContext.open); attached in initialize(), disposed with the engine
-   * @param options.antialias The canvas' MSAA (the quality level's, fixed
-   *   for the context's life); on by default
+   * @param lease The page's renderer (RendererHost), its canvas in the
+   *   game's place and sized to it; given back in dispose(), never disposed
    */
   constructor(
-    canvas: HTMLCanvasElement,
+    private readonly lease: RendererLease,
     readonly world: WorldProvider,
     private assetManager?: AssetManagerService,
-    options: { antialias?: boolean } = {},
   ) {
     // Coordinates and ground queries are the world's
     this.sync = world.sync;
     this.terrain = world.surface;
 
-    // Create WebGL renderer with error handling
-    try {
-      this.renderer = new WebGLRenderer({ canvas, ...CANVAS_RENDERER_OPTIONS, antialias: options.antialias ?? CANVAS_RENDERER_OPTIONS.antialias });
-    } catch {
-      throw new Error('WebGL is not supported. Enable hardware acceleration in your browser.');
-    }
+    // The page's renderer, lent for the engine's life: the context outlives the world (RendererHost)
+    this.renderer = lease.renderer;
+    const canvas = this.renderer.domElement;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     primePixelStore(this.renderer);
-    this.canvasMsaa = options.antialias ?? CANVAS_RENDERER_OPTIONS.antialias;
+    this.canvasMsaa = lease.msaa;
     this.gpuMeter = new GpuFrameMeter(this.renderer.getContext() as WebGL2RenderingContext);
     this.renderer.setClearColor(0x151c1f);
     this.renderer.outputColorSpace = SRGBColorSpace;
     // A tower being built is cut off above its course by a plane on its materials (TowerBuild)
     this.renderer.localClippingEnabled = true;
-    // After a context loss, objects three used before (tiles, pools, targets)
-    // would delete their lost handles in the restored context when disposed.
-    this.restoreGLDeletes = skipLostContextDeletes(this.renderer.getContext() as WebGL2RenderingContext, canvas);
-    // A material that goes while its program still links does not hold the GPU process (and the next view's context) up
-    deferPendingProgramDeletes(this.renderer.getContext() as WebGL2RenderingContext);
 
     // Create scene with distance fog: 2000 m to 6000 m, the view ends at 8000 m (dive-view.ts)
     this.scene = new Scene();
@@ -1663,7 +1641,7 @@ export class ThreeTilesEngine {
 
   dispose(): void {
     this.disposed = true;
-    this.pins.dispose();
+    this.pins.dispose(this.renderer);
     this.dynamic?.gpu?.close();
     this.dynamic = null;
     this.gpuMeter.dispose();
@@ -1721,8 +1699,14 @@ export class ThreeTilesEngine {
     // disposes those; every engine teardown leaked one before)
     this.world.dispose();
 
+    // The textures the scene's draws bind: the context stays for the next owner (RendererHost), and what is not
+    // disposed here stays on the GPU. A texture another world uses again (a cached model's) uploads again then
+    const textures = boundTexturesOf(this.renderer, this.scene);
+
     // Dispose scene contents
     this.scene.traverse((obj) => {
+      // A light's shadow map is a render target of its own
+      if ((obj as Light).isLight) (obj as Light).dispose();
       if ((obj as Mesh).geometry) {
         (obj as Mesh).geometry.dispose();
       }
@@ -1744,13 +1728,9 @@ export class ThreeTilesEngine {
 
     // The sky cube is the scene background, the traverse above does not reach it
     this.sky?.dispose();
+    for (const texture of textures) if (!(texture as Texture & { isRenderTargetTexture?: boolean }).isRenderTargetTexture) texture.dispose();
 
-
-    // Dispose renderer; its context goes once the next view stands, not when
-    // the canvas is collected: the next world of the page makes a canvas of
-    // its own (WorldSession) and the browser keeps only a few contexts alive
-    this.renderer.dispose();
-    this.restoreGLDeletes();
-    releaseContext(this.renderer);
+    // The renderer goes back to the page's host with its context: the next world draws with it
+    this.lease.release();
   }
 }

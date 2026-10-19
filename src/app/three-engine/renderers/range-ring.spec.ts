@@ -18,7 +18,7 @@ import {
 } from 'three';
 import type { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RangeRingKit, createRangeRingGeometry, placeRangeRing } from './range-ring';
-import { CANVAS_RENDERER_OPTIONS } from '../three-tiles-engine';
+import { CANVAS_RENDERER_OPTIONS } from '../renderer-host';
 import { PostProcessingPipeline } from '../post-processing/post-processing-pipeline';
 
 /** The volume's corners as the vertex shader places them at unit range: inner wall at 0.9, outer at 1. */

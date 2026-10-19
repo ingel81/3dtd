@@ -6,6 +6,7 @@ import { loadDisplayOptions } from '../../utils/display-options.storage';
 import { GeoPosition } from '../../models/game.types';
 import { AssetManagerService } from './asset-manager.service';
 import { RenderQualityService, qualityWorldOf } from './render-quality.service';
+import { RendererHostService } from './renderer-host.service';
 import { STREET_RADIUS_M, StreetNetwork } from '../location/osm-street.service';
 import { GLOBE_LINK } from '../world/globe-link';
 import type { WorldProvider } from '../../world/world-provider';
@@ -50,6 +51,7 @@ export class EngineInitializationService {
   private readonly ngZone = inject(NgZone);
   private readonly assetManager = inject(AssetManagerService);
   private readonly quality = inject(RenderQualityService);
+  private readonly rendererHost = inject(RendererHostService);
   private readonly globe = inject(GLOBE_LINK, { optional: true });
 
   // ========================================
@@ -94,8 +96,8 @@ export class EngineInitializationService {
   /** Base coordinates for engine origin */
   private baseCoords: GeoPosition | null = null;
 
-  /** Canvas element reference */
-  private canvas: HTMLCanvasElement | null = null;
+  /** Where the page's canvas goes for this world (configure) */
+  private slot: HTMLElement | null = null;
 
   /** The world the next engine draws (WorldContext.open), with its credentials and streets */
   private world: WorldProvider | null = null;
@@ -106,12 +108,12 @@ export class EngineInitializationService {
 
   /**
    * Initialize the service with configuration
-   * @param canvas Canvas element for rendering
+   * @param slot Where the page's canvas goes (RendererHost), sized like the game's area
    * @param baseCoords Base/HQ coordinates for engine origin
    * @param world The world the engine draws, made around `baseCoords`
    */
-  configure(canvas: HTMLCanvasElement, baseCoords: GeoPosition, world: WorldProvider): void {
-    this.canvas = canvas;
+  configure(slot: HTMLElement, baseCoords: GeoPosition, world: WorldProvider): void {
+    this.slot = slot;
     this.baseCoords = baseCoords;
     this.world = world;
   }
@@ -282,27 +284,30 @@ export class EngineInitializationService {
       // Reset loading steps for fresh start
       this.resetLoadingSteps();
 
-      if (!this.canvas || !this.baseCoords || !this.world) {
+      if (!this.slot || !this.baseCoords || !this.world) {
         this.error.set('Engine not configured. Please call configure() first.');
         this.loading.set(false);
         return;
       }
 
-      // Set canvas size
-      const container = this.canvas.parentElement!;
-      const rect = container.getBoundingClientRect();
-      this.canvas.width = rect.width;
-      this.canvas.height = rect.height;
-
       // Step 1: Initialize Engine
       await this.setStepCurrent('engine');
       this.updateStepMeta('engine', 'Three.js Engine...');
 
+      // The page's renderer, its canvas in the game's place at its size: the context of the world before stays
+      // (RendererHost). Its MSAA is fixed with the context; the rest of the quality level follows (attach)
+      const rect = this.slot.getBoundingClientRect();
+      const lease = this.rendererHost.acquire(this.slot, qualityWorldOf(this.world.ref));
+      lease.renderer.domElement.width = rect.width;
+      lease.renderer.domElement.height = rect.height;
+
       // Engine starts with default camera on HQ - final framing happens after routes are calculated
-      // The quality level's canvas MSAA is fixed with the context; the rest of the level follows (attach)
-      this.engine = new ThreeTilesEngine(this.canvas, this.world, this.assetManager, {
-        antialias: this.quality.canvasMsaa(qualityWorldOf(this.world.ref)),
-      });
+      try {
+        this.engine = new ThreeTilesEngine(lease, this.world, this.assetManager);
+      } catch (err) {
+        lease.release();
+        throw err;
+      }
       // Not yet the game's (the facade takes it when this returns): abandon() frees it until then
       this.building = this.engine;
       // The game's sound files once the world stands (checkAllLoaded), or as a sound plays before
@@ -519,7 +524,7 @@ export class EngineInitializationService {
     if (this.engine) this.quality.detach(this.engine);
     this.engine = null;
     this.baseCoords = null;
-    this.canvas = null;
+    this.slot = null;
     this.world = null;
   }
 

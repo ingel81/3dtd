@@ -216,7 +216,7 @@ describe('TowerDefenseComponent', () => {
     ].map(([provide, useValue]) => ({ provide, useValue }));
     TestBed.configureTestingModule({ providers });
     component = TestBed.runInInjectionContext(() => new TowerDefenseComponent());
-    component.gameCanvas = new ElementRef(document.createElement('canvas'));
+    component.gameCanvas = new ElementRef(document.createElement('div'));
     TestBed.tick();
   });
 
@@ -459,6 +459,9 @@ describe('TowerDefenseComponent', () => {
     bridge.setStreetNetworkLocation({ lat: 1, lon: 2 });
     expect(bridge.getEngine()).toBe(engine);
     expect(bridge.getStreetNetworkLocation()).toEqual({ lat: 1, lon: 2 });
-    expect(bridge.getCanvasElement()).toBe(component.gameCanvas.nativeElement);
+    // The page's canvas in the game's place (RendererHost)
+    const canvas = document.createElement('canvas');
+    component.gameCanvas.nativeElement.appendChild(canvas);
+    expect(bridge.getCanvasElement()).toBe(canvas);
   });
 });

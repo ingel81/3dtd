@@ -50,7 +50,7 @@ html.showreel app-agent-band { zoom: 1.4; }
 html.showreel.sr-hud-off app-game-header,
 html.showreel.sr-hud-off app-game-sidebar,
 html.showreel.sr-hud-off .notice-banner,
-html.showreel.sr-hud-off .td-canvas-area > :not(canvas):not(app-globe-backdrop):not(.td-error-overlay):not(td-token-setup) { display: none !important; }
+html.showreel.sr-hud-off .td-canvas-area > :not(.td-canvas):not(app-globe-backdrop):not(.td-error-overlay):not(td-token-setup) { display: none !important; }
 `;
 
 /** How long the sync flash stays white: several frames of a 60 fps capture */
