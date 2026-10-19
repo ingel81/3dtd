@@ -163,28 +163,32 @@ export class ModelPreviewService {
   private sheets: Promise<Map<string, PreviewSheetEntry>> | null = null;
 
   /**
-   * Initialize the shared renderer.
-   * Must be called before creating previews.
+   * Starts the previews' loop (createPreview does it). The WebGL renderer
+   * comes only with the first turn to bake (bakingRenderer): the game's
+   * views come as sheets rendered ahead, and a context made at every
+   * world's start for nothing waited, behind the GPU process, up to seconds
+   * (browser profile, 2026-10-19)
    */
   initialize(): void {
-    if (this.renderer) return;
+    if (this.animationFrameId === null) this.startAnimationLoop();
+  }
 
-    // Create an off-screen canvas for the shared renderer
+  /** The off-screen renderer that bakes turns, made on first use */
+  private bakingRenderer(): WebGLRenderer {
+    if (this.renderer) return this.renderer;
     const canvas = document.createElement('canvas');
     canvas.width = 128;
     canvas.height = 128;
-
-    this.renderer = new WebGLRenderer({
+    const renderer = new WebGLRenderer({
       canvas,
       alpha: true,
       antialias: true,
       preserveDrawingBuffer: true,
     });
-    this.renderer.setPixelRatio(1);
-    this.renderer.outputColorSpace = SRGBColorSpace;
-
-    // Start animation loop
-    this.startAnimationLoop();
+    renderer.setPixelRatio(1);
+    renderer.outputColorSpace = SRGBColorSpace;
+    this.renderer = renderer;
+    return renderer;
   }
 
   /**
@@ -196,9 +200,7 @@ export class ModelPreviewService {
     targetCanvas: HTMLCanvasElement,
     config: PreviewConfig
   ): Promise<void> {
-    if (!this.renderer) {
-      this.initialize();
-    }
+    this.initialize();
 
     // Remove existing preview with same ID
     if (this.previews.has(id)) {
@@ -265,7 +267,7 @@ export class ModelPreviewService {
    * SHEET_COLUMNS columns, each `size` large.
    */
   async bakeSheet(config: PreviewConfig, size: { width: number; height: number }): Promise<HTMLCanvasElement> {
-    if (!this.renderer) this.initialize();
+    this.initialize();
     const turn = this.startTurn(config, size);
     await this.loadModel(turn.job!, config);
     const sheet = turn.sheet as HTMLCanvasElement;
@@ -381,17 +383,18 @@ export class ModelPreviewService {
    */
   private bakeFrames(turn: Turn, count: number): void {
     const job = turn.job;
-    if (!this.renderer || !job) return;
+    if (!job) return;
+    const renderer = this.bakingRenderer();
     const { width, height } = turn;
     if (Math.max(width, height) > this.rendererCapacityCss) {
       this.rendererCapacityCss = Math.max(width, height);
-      this.renderer.setSize(this.rendererCapacityCss, this.rendererCapacityCss, false);
+      renderer.setSize(this.rendererCapacityCss, this.rendererCapacityCss, false);
     }
     const capacity = this.rendererCapacityCss;
     // Render into the TOP of the buffer (high WebGL y == 2D-image y=0).
-    this.renderer.setViewport(0, capacity - height, width, height);
-    this.renderer.setScissor(0, capacity - height, width, height);
-    this.renderer.setScissorTest(true);
+    renderer.setViewport(0, capacity - height, width, height);
+    renderer.setScissor(0, capacity - height, width, height);
+    renderer.setScissorTest(true);
     // A turn that bakes has a canvas for its sheet (startTurn)
     const ctx = (turn.sheet as HTMLCanvasElement).getContext('2d');
     const frameSeconds = 1 / PLAYBACK_FPS;
@@ -399,9 +402,9 @@ export class ModelPreviewService {
       const frame = turn.baked;
       if (job.pivot) job.pivot.rotation.y = (frame / TURN_FRAMES) * Math.PI * 2;
       if (frame > 0) job.mixer?.update(frameSeconds);
-      this.renderer.render(job.scene, job.camera);
+      renderer.render(job.scene, job.camera);
       const [x, y] = sheetCell(frame, width, height);
-      ctx?.drawImage(this.renderer.domElement, 0, 0, width, height, x, y, width, height);
+      ctx?.drawImage(renderer.domElement, 0, 0, width, height, x, y, width, height);
       turn.baked++;
     }
     if (turn.baked >= TURN_FRAMES) {
