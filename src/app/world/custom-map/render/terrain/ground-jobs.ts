@@ -14,11 +14,13 @@ export type GroundJobMap = Pick<MapTerrain, 'width' | 'depth' | 'grid' | 'water'
 
 export type GroundJob =
   | { kind: 'shape'; rect: SampleRect | null }
+  | { kind: 'heights'; rect: SampleRect; rows: Float32Array }
   | { kind: 'lava' }
   | { kind: 'farShadow'; sunDir: { x: number; y: number; z: number } };
 
 export interface GroundJobResults {
   shape: ShapePatch;
+  heights: null;
   lava: { closeness: Uint8Array; any: boolean };
   farShadow: FarShadowTexels;
 }
@@ -52,6 +54,9 @@ export function runGroundJob(map: GroundJobMap, job: GroundJob): GroundJobResult
   switch (job.kind) {
     case 'shape':
       return shapePatch(field, job.rect);
+    case 'heights':
+      writeRows(map.grid.heights, map.grid.columns, job.rect, job.rows);
+      return null;
     case 'lava': {
       const lava = lavaSamples(map, field);
       return { closeness: lavaCloseness(lava, field), any: lava.includes(1) };
@@ -61,8 +66,23 @@ export function runGroundJob(map: GroundJobMap, job: GroundJob): GroundJobResult
   }
 }
 
+/** The heights of `rect` out of `heights` (a grid of `columns`), row by row */
+export function readRows(heights: Float32Array, columns: number, rect: SampleRect): Float32Array {
+  const w = rect.i1 - rect.i0 + 1;
+  const out = new Float32Array(w * (rect.j1 - rect.j0 + 1));
+  for (let j = rect.j0; j <= rect.j1; j++) out.set(heights.subarray(j * columns + rect.i0, j * columns + rect.i1 + 1), (j - rect.j0) * w);
+  return out;
+}
+
+/** `rows` (as readRows gives them) into `heights` at `rect` */
+function writeRows(heights: Float32Array, columns: number, rect: SampleRect, rows: Float32Array): void {
+  const w = rect.i1 - rect.i0 + 1;
+  for (let j = rect.j0; j <= rect.j1; j++) heights.set(rows.subarray((j - rect.j0) * w, (j - rect.j0 + 1) * w), j * columns + rect.i0);
+}
+
 /** The arrays of a result that go back transferred */
 export function groundResultTransfer(result: GroundJobResult): ArrayBuffer[] {
+  if (result === null) return [];
   if ('terrain' in result) return [result.terrain, result.curvature, ...(result.drainage ? [result.drainage] : [])].map((a) => a.buffer as ArrayBuffer);
   if ('closeness' in result) return [result.closeness.buffer as ArrayBuffer];
   return [result.data.buffer as ArrayBuffer];

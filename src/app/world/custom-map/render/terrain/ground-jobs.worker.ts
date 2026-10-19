@@ -14,5 +14,6 @@ addEventListener('message', (e: MessageEvent<{ map: GroundJobMap } | { id: numbe
     return;
   }
   const result = runGroundJob(map!, e.data.job);
-  postMessage({ id: e.data.id, result }, groundResultTransfer(result));
+  // New heights are only taken: they need no answer
+  if (e.data.job.kind !== 'heights') postMessage({ id: e.data.id, result }, groundResultTransfer(result));
 });

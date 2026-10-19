@@ -1,4 +1,4 @@
-import { groundJobMap, groundJobTransfer, runGroundJob, type GroundJob, type GroundJobMap, type GroundJobResult, type GroundJobResults } from './ground-jobs';
+import { groundJobMap, groundJobTransfer, readRows, runGroundJob, type GroundJob, type GroundJobMap, type GroundJobResult, type GroundJobResults } from './ground-jobs';
 import type { FarShadowTexels, GroundBaker, SampleRect, ShapePatch } from './ground-shape';
 
 /**
@@ -43,6 +43,17 @@ export class GroundWorker implements GroundBaker {
 
   farShadow(sunDir: { x: number; y: number; z: number }): Promise<FarShadowTexels | null> {
     return this.ask({ kind: 'farShadow', sunDir: { x: sunDir.x, y: sunDir.y, z: sunDir.z } });
+  }
+
+  /**
+   * The heights of `rect` changed (a crater, a fallen building): the worker's copy takes them before the jobs
+   * asked after; the map itself already holds them (the fallback reads it)
+   */
+  heightsChanged(heights: Float32Array, columns: number, rect: SampleRect | null): void {
+    if (!this.worker) return;
+    const r = rect ?? { i0: 0, j0: 0, i1: columns - 1, j1: heights.length / columns - 1 };
+    const rows = readRows(heights, columns, r);
+    this.worker.postMessage({ id: 0, job: { kind: 'heights', rect: r, rows } }, [rows.buffer]);
   }
 
   /** The view goes: the worker ends, what waits gets nothing */

@@ -56,6 +56,11 @@ export interface GroundBaker {
   lava(): Promise<{ closeness: Uint8Array; any: boolean } | null>;
   /** The far shadow for the sun in `sunDir` (scene space, towards the sun) */
   farShadow(sunDir: { x: number; y: number; z: number }): Promise<FarShadowTexels | null>;
+  /**
+   * The heights of `rect` changed (MapTerrainLayer.rebuild): a baker that works on a copy of its own takes them
+   * before the next job (GroundWorker). Missing: it reads the map as it is (the editor's mirror)
+   */
+  heightsChanged?(heights: Float32Array, columns: number, rect: SampleRect | null): void;
 }
 
 /** Occlusion and curvature of `rect` (and the drainage when `rect` is null: all of the grid) worked out at once */

@@ -391,6 +391,7 @@ export class MapTerrainLayer {
     this.roads.refreshBounds(bounds);
     this.surfaces.refreshBounds(bounds);
     this.normals.update(rect);
+    this.occlusion.baker?.heightsChanged?.(f.grid.heights, f.columns, rect ?? null);
     if (rect) this.occlusion.queueTerrain(rect);
     else this.occlusion.updateTerrain();
     this.heightTexture.refresh(rect);
