@@ -355,6 +355,9 @@ export const en = {
   settings: {
     language: 'Language',
     languageSystem: (name: string) => `System (${name})`,
+    /** A level picked in play whose antialiasing the running view's canvas cannot switch (MSAA is fixed with it) */
+    antialiasNextStart: 'Antialiasing changes at the next start of a world or test run.',
+    levelSetsAll: 'Picking a level sets every part below again.',
   },
   onboarding: {
     /** Key caps with a name; a letter key shows as it is */

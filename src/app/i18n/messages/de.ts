@@ -236,6 +236,8 @@ export const de: Messages = {
   settings: {
     language: 'Sprache',
     languageSystem: (name) => `System (${name})`,
+    antialiasNextStart: 'Die Kantenglättung wechselt beim nächsten Start einer Welt oder eines Tests.',
+    levelSetsAll: 'Eine Stufe setzt alle Teile darunter neu.',
   },
   onboarding: {
     caps: { lmb: 'LMT', rmb: 'RMT', wheel: 'Rad', space: 'Leertaste', del: 'Entf' },

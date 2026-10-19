@@ -16,6 +16,7 @@ import { GAME_SPEEDS } from '../../../../configs/game-speed.config';
 import { readAgentBridge, readDesktopBridge, type AgentStatus } from '../../../../core/desktop-bridge';
 import { readRunUploadConsent, writeRunUploadConsent } from '../../../../run-log/run-upload';
 import { RenderQualityService } from '../../../../services/infrastructure/render-quality.service';
+import { RendererHostService } from '../../../../services/infrastructure/renderer-host.service';
 import {
   LIGHTNING_FLASHES, PLANT_MOTIONS, QUALITY_LEVELS, QUALITY_TABLE, pixelRatioFor, type LightningFlash, type PlantMotion, type QualityKnobs, type QualityLevel,
   type QualitySetting, type QualityStep, type QualitySwitch, type QualityWorld,
@@ -188,6 +189,7 @@ export class SettingsSectionsComponent {
 
   /** The picture's quality level (render-quality.ts): one choice for both worlds, parts of each set apart below it (E156) */
   readonly quality = inject(RenderQualityService);
+  private readonly renderers = inject(RendererHostService);
   readonly qualityOptions: { id: QualitySetting; label: string; hint: string }[] = [
     { id: 'auto', label: 'Auto', hint: 'Picked for your graphics card and checked once; custom maps a level lower' },
     { id: 'low', label: 'Low', hint: 'Lower resolution that adapts, FXAA, coarser tiles; on custom maps no grass and a short draw distance' },
@@ -205,8 +207,10 @@ export class SettingsSectionsComponent {
 
   readonly qualityNote = computed(() => {
     if (this.quality.fromUrl) return 'This page was opened with a quality level in its address; it holds until you reload without it.';
-    if (this.quality.setting() !== 'auto') return 'Picking a level sets every part below again. Antialiasing changes fully after a reload.';
-    return `Auto plays custom maps a level lower${this.quality.autoMeasured() ? ', checked on this machine' : ', checked once a world stands'}. Picking a level sets every part below again.`;
+    const note = this.quality.setting() !== 'auto'
+      ? this.t().settings.levelSetsAll
+      : `Auto plays custom maps a level lower${this.quality.autoMeasured() ? ', checked on this machine' : ', checked once a world stands'}. Picking a level sets every part below again.`;
+    return this.renderers.antialiasPending() ? `${note} ${this.t().settings.antialiasNextStart}` : note;
   });
 
   /** One world's section: its level, whether the player mixed it, what it draws at */

@@ -110,11 +110,15 @@ statt zu flackern (`Lightning.setFlashShare`). Die Partikelstufe setzt die Äste
 
 ## Kantenglättung und Kontext
 
-MSAA des Canvas wird beim Anlegen des WebGL-Kontexts festgelegt (`ThreeTilesEngine`, Option `antialias`): eine Seite,
-die in Low oder Medium startet, hat keinen MSAA-Canvas. FXAA läuft als letzter Pass im Composer
-(`PostProcessingPipeline.setAntialias`). Wechselt der Spieler zur Laufzeit auf High, bekommt ein Canvas ohne MSAA bis
-zum Neuladen FXAA statt MSAA im Composer: MSAA auf dem Half-Float-Ziel des Composers kostete im Demo-Tal etwa das
-Dreifache (4,4 gegen 1,3 ms GPU, RTX 5080). Das Menü sagt das („Antialiasing changes fully after a reload“).
+MSAA des Canvas wird beim Anlegen des WebGL-Kontexts festgelegt. Spiel, Editor und Vorschau leihen sich denselben
+Renderer (`RendererHostService`); jede Ansicht holt ihn mit der Kantenglättung der Stufe ihrer Welt, und passt sie
+nicht, legt `RendererHost.acquire` ihn neu an (Low und Medium ohne MSAA, High und Ultra mit). FXAA läuft als letzter
+Pass im Composer (`PostProcessingPipeline.setAntialias`). Wechselt der Spieler im laufenden Spiel auf High, zeichnet ein
+Canvas ohne MSAA bis zum nächsten Start einer Welt oder eines Tests FXAA statt MSAA: MSAA auf dem Half-Float-Ziel des
+Composers kostete im Demo-Tal etwa das Dreifache (4,4 gegen 1,3 ms GPU, RTX 5080); umgekehrt bleibt MSAA bis dahin.
+Den Kontext mitten im Spiel neu anzulegen hieße, die Engine neu aufzubauen (User 2026-10-19: nein). Die Einstellungen
+sagen es nur, wenn die laufende Ansicht wirklich abweicht (`RendererHostService.antialiasPending`): „Antialiasing changes
+at the next start of a world or test run“.
 
 Ein Stufenwechsel zur Laufzeit (Menü oder Auto nach seiner Messung) ändert, wofür viele Programme gebaut sind: den
 Weg durch den Composer (FXAA in Low und Medium) und die Wasser-Effekte einer Karte. Die Zahl der Lichter ändert keins
