@@ -22,8 +22,10 @@ Beide sind wiederholbar: ein gepacktes Modell bleibt, wie es ist. Ein neues unge
   einer Metall/Rauheit-Karte, Grün und Blau einer Verdeckung), tragen eine Kopie eines gelesenen, so kostet ETC1S
   nichts für sie. Alpha bleibt nur, wo ein geblendetes oder maskiertes Material es liest und ein Texel nicht deckt; das
   Spiel liest „deckend“ aus der Datei (`ktx2Opaque`).
-- Basis ETC1S, wo es über den gelesenen Kanälen `MIN_PSNR` erreicht (Farbe 30 dB, Daten 28 dB; Spielmodelle 28 dB,
-  ihre Atlanten sieht man auf 100 bis 200 Pixeln), sonst UASTC mit RDO und Zstandard. Normalen immer UASTC.
+- Basis ETC1S, wo es über den gelesenen Kanälen `MIN_PSNR` erreicht (Farbe 30 dB, Daten 25 dB; Spielmodelle Farbe
+  28 dB, ihre Atlanten sieht man auf 100 bis 200 Pixeln), sonst UASTC mit RDO und Zstandard. Von ETC1S die kleinste
+  Qualitätsstufe (96, 128, 192, 255), die höchstens 1 dB unter der vollen liegt. Normalen immer UASTC, auf
+  Kartenmodellen und Gegnern (nur die Vorschau zeichnet sie) mit 256 px.
   `"textureCodec": "uastc"` in `tools/map-assets/objects.json` gibt einem Kartenmodell UASTC für alles (Druck,
   Plakate: `advertising-column`).
 - Mipmaps hier, umlaufend bei kachelnden Texturen; Kanten auf Vielfache von 4 (BC7- und ASTC-Blöcke).

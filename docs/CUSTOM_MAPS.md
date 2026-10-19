@@ -1128,8 +1128,9 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   (255 abwärts in Stufen), bei der beide Dateien zusammen nicht größer sind als die drei JPGs. UASTC für die Normalen
   ginge nur für die ganze Datenebene (eine Textur, ein Codec; Rauheit und Verdeckung liegen in derselben) und wöge
   allein rund 1,3 MB je Material, mehr als die drei JPGs (Mittel rund 0,85 MB). Der Katalog nennt die Dateien unter
-  `files.packed`. Im Spiel und im Editor transcodiert ein Worker (`MapAssetLibrary.useCompressedTextures`, derselbe
-  wie beim Globus) für die GPU (BC7 auf Desktops, sonst ASTC oder ETC2), `MaterialArrays` stapelt die Ebenen zu einem
+  `files.packed`. Im Spiel und im Editor transcodiert der eine Transcoder der Seite (`compressedTextureLoader`,
+  `three-engine/models/ktx2-transcoder.ts`, auch für die Modelle) für die GPU (BC7 auf Desktops, sonst ASTC oder
+  ETC2), `MaterialArrays` stapelt die Ebenen zu einem
   `CompressedArrayTexture`. Kommt eine Ebene nicht komprimiert (Datei fehlt, anderes Format), lädt die Karte alle
   Ebenen als Pixel aus den JPGs; ein Array mischt nie; die JPGs bleiben Quelle und Rückfall. 111 Materialien:
   84,7 MiB KTX2 (JPG 92,6 MiB), 67 davon unter Qualität 255; jede mitgelieferte Karte lädt weniger als mit den JPGs
@@ -1147,7 +1148,17 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   Steinhaufen `rock-large`: Fußabdruck 1,8 m, Platte 7,4 mal 3,6 m). 53 Felsen haben eine; Kulissenstücke ohne Platte
   (Kraterränder, Becken, Felsbogen, Klippen- und Küstenwände, Tafelberg, Eisberg, Gletscher, Schneefeld; `NO_PLATE` im Skript) keine. Wie
   der Editor Felsen damit absetzt: [LEVEL_EDITOR.md](LEVEL_EDITOR.md), Objekte
-- **402 Katalog-Objekte**, davon 393 Modelle (GLB, meshopt, WebP bis 512 px, große Klippen 1024 px) und 9 Effekt-Marker; je
+- **Modelltexturen KTX2 und geteilt** (V9, [tools/model-pack/README.md](../tools/model-pack/README.md)): jede Textur
+  eines Kartenmodells liegt als `textures/<name>-<hash>.ktx2` (Hash über Inhalt und Kodierung), die GLBs nennen sie per
+  URI, der Katalog je Datei unter `textures`. ETC1S, wo es die gelesenen Kanäle hält (Farbe 30 dB, Daten 25 dB PSNR;
+  die kleinste Qualitätsstufe innerhalb 1 dB der vollen), sonst UASTC; Normalen UASTC mit 256 px; `advertising-column`
+  ganz UASTC (Plakate). Die `MapAssetLibrary` lädt eine geteilte
+  Datei einmal und gibt allen Modellen dieselbe Textur (`sharedTexture`), die Dateien eines Modells starten neben
+  seinem GLB. Grafikspeicher der Modelltexturen je Karte −85 bis −91 % (Demo-Tal 357,9 → 39,5 MiB, Hafenstadt
+  422,8 → 48,0 MiB; Rechnung über die Dateien, vom Zähler an den WebGL-Aufrufen in der Map-Preview bestätigt).
+  Download je Karte meist kleiner (Demo-Tal 12,9 → 9,9 MiB, Hafenstadt 15,3 → 13,2 MiB), nur Mars-Canyon
+  (3,4 → 3,9) und Mondbasis (1,0 → 1,2) laden mehr
+- **402 Katalog-Objekte**, davon 393 Modelle (GLB, meshopt, KTX2 bis 512 px, große Klippen 1024 px) und 9 Effekt-Marker; je
   Kategorie 124 Requisiten, 72 Felsen, 68 Gebäude, 42 Pflanzen, 31 Bäume, 33 Mauern und Zäune, 23 Bauwerke
   (`structure`). Je Biom: Laub- und Nadelbäume mit Herbst-
   und Schneevarianten, Trauerweide, Mangrove, Palmen, Kakteen, Köcherbäume; Sträucher, Hecken, Gras je Biom, Schilf,
@@ -1288,7 +1299,7 @@ werden.
 `lodModels`, beim Kartenstart schon vorab); vorher wartete jedes Asset auf das vorige. Die Transforms der Knoten
 offline in die GLBs zu backen lohnt nicht: das Einbacken samt Entquantisieren (`collectParts`) kostet im Browser
 23 ms für die 24 Modelle des Demo-Tals und 42 ms für die 56 der Hafenstadt, und entquantisierte Dateien wären größer.
-Die Zeit steckt im Parsen der GLBs (meshopt, WebP-Texturen), das ohnehin parallel läuft.
+Die Zeit steckt im Parsen der GLBs (meshopt) und im Transcodieren der Texturen (Worker), das ohnehin parallel läuft.
 
 **Tiefenpuffer: logarithmisch bleibt** (E154, PF-S6, geprüft 2026-10-14). Reversed-Z (`reversedDepthBuffer`, ohne
 logarithmische Tiefe) nur auf eigenen Karten brachte in Messläufen mit `render-bench.ts --query depth=reversed`
