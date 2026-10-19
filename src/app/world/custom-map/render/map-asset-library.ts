@@ -18,7 +18,7 @@ import {
   type Object3D,
 } from 'three';
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { createModelLoader, sharedTexture } from '../../../three-engine/models/model-loader';
+import { createModelLoader, loadKtx2Texture, sharedTexture } from '../../../three-engine/models/model-loader';
 import { mapDataFetch, mapDataUrl } from '../map-data';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { hexToRgb, parseCatalog, type AssetCatalog, type CatalogMaterial, type CatalogObject } from './asset-catalog';
@@ -102,7 +102,7 @@ export interface AssetLibraryOptions {
 export const LIBRARY_LINGER_MS = 15_000;
 
 /** The atlas of the buildings' far stage (objects/far-boxes.ts, tools/map-assets/bake_far_boxes.mjs) */
-export const FAR_ATLAS_FILE = 'models/far-boxes.webp';
+export const FAR_ATLAS_FILE = 'models/far-boxes.ktx2';
 
 export class MapAssetLibrary {
   private static readonly instances = new Map<string, MapAssetLibrary>();
@@ -455,17 +455,15 @@ async function decodeImage(fetchFn: typeof fetch, url: string, size: number): Pr
   return { width: size, height: size, data: image.data };
 }
 
-/** An image file through `fetchFn` (the map data's cache) into an sRGB texture with mipmaps */
+/**
+ * A KTX2 picture through `fetchFn` (the map data's cache) as a GPU-compressed sRGB texture with its mipmaps
+ * (tools/model-pack/encode-image.mjs), top row first as it was baked
+ */
 async function loadTexture(url: string, fetchFn: typeof fetch): Promise<Texture> {
-  const response = await fetchFn(url);
-  if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
-  const bitmap = await createImageBitmap(await response.blob(), { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
-  const texture = new Texture(bitmap);
-  // An ImageBitmap uploads as decoded, top row first
-  texture.flipY = false;
+  const texture = await loadKtx2Texture(url, fetchFn);
+  if (!texture) throw new Error(`no KTX2 transcoder for ${url}`);
   texture.colorSpace = SRGBColorSpace;
   texture.anisotropy = 4;
-  texture.needsUpdate = true;
   return texture;
 }
 

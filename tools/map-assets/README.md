@@ -65,7 +65,7 @@ node tools/map-assets/measure_roofs.mjs public/maps/assets
 node tools/map-assets/make_far_lods.mjs public/maps/assets [<id> ...]
 npx -y @gltf-transform/cli@4.5.1 meshopt public/maps/assets/models/<id>-lod1.glb public/maps/assets/models/<id>-lod1.glb
 
-# Fernstufe der Gebäude (und Rebzeilen, Hecken als Block): Kasten mit 3 x 3 Dachhöhen und gebackenem Atlas (farboxes.json, models/far-boxes.webp);
+# Fernstufe der Gebäude (und Rebzeilen, Hecken als Block): Kasten mit 3 x 3 Dachhöhen und gebackenem Atlas (farboxes.json, models/far-boxes.ktx2, KTX_TOOL);
 # danach update_catalog.py (Feld `far`). Playwright aus e2e/node_modules
 node tools/map-assets/bake_far_boxes.mjs public/maps/assets
 

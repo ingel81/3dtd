@@ -5,7 +5,8 @@
 // LOD model to its draw distance.
 //
 // Writes tools/map-assets/farboxes.json (update_catalog.py puts it into the catalogue as `far`) and
-// public/maps/assets/models/far-boxes.webp. The models render in Playwright's Chromium (three's GLTFLoader with
+// public/maps/assets/models/far-boxes.ktx2 (tools/model-pack/encode-image.mjs: ETC1S or UASTC as the model textures,
+// needs KTX_TOOL). The models render in Playwright's Chromium (three's GLTFLoader with
 // the meshopt decoder, as the game loads them), unlit: the colour of their textures, vertex colours and
 // factors; the alpha of the atlas marks window glass (half alpha), which glows at night as on the model.
 //
@@ -13,7 +14,9 @@
 //
 // Playwright comes from e2e/node_modules (E2E_DIR points elsewhere, e.g. at the main checkout from a worktree).
 import { createServer } from 'node:http';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -277,7 +280,7 @@ window.bake = async (list) => {
   trimmed.width = atlas.width;
   trimmed.height = used * ${TILE};
   trimmed.getContext('2d').drawImage(atlas, 0, 0);
-  return { out, report, image: trimmed.toDataURL('image/webp', 0.9) };
+  return { out, report, image: trimmed.toDataURL('image/png') };
 };
 window.ready = true;
 </script></body></html>`;
@@ -312,7 +315,15 @@ try {
   const list = buildings.map((o) => ({ id: o.id, url: `/assets/${o.file}`, row: ROWS.includes(o.id) }));
   const { out, report, image } = await page.evaluate((l) => window.bake(l), list);
   for (const r of report) console.error(`${r.id.padEnd(28)} cover ${r.cover}  top error ${r.topError}${out[r.id] ? '' : '  (no box)'}`);
-  writeFileSync(path.join(assets, 'models', 'far-boxes.webp'), Buffer.from(image.split(',')[1], 'base64'));
+  // Lossless out of the page, then GPU-compressed as the model textures are
+  const work = mkdtempSync(path.join(tmpdir(), 'far-boxes-'));
+  try {
+    const png = path.join(work, 'far-boxes.png');
+    writeFileSync(png, Buffer.from(image.split(',')[1], 'base64'));
+    execFileSync(process.execPath, [path.join(here, '..', 'model-pack', 'encode-image.mjs'), png, path.join(assets, 'models', 'far-boxes.ktx2')], { stdio: 'inherit' });
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
   // One line per model: "id": {"tile", "box": [middle x, middle z, half width, half depth, bottom, top of the views],
   // "top": the 3 x 3 heights, rows from -z to +z, each from -x to +x}
   const lines = Object.entries(out).map(([id, b]) => `  ${JSON.stringify(id)}: ${JSON.stringify(b)}`);

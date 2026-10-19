@@ -194,6 +194,13 @@ export function sharedTexture(url: string, cache: Map<string, Promise<Texture | 
   return promise;
 }
 
+/** A KTX2 file of its own (an atlas, not a model's) through `fetchFn` and the page's transcoder; null without one */
+export async function loadKtx2Texture(url: string, fetchFn: typeof fetch = fetch): Promise<Texture | null> {
+  const response = await fetchFn(url);
+  if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+  return decodeKtx2(response.arrayBuffer(), false);
+}
+
 /** A KTX2 file's texture through the page's transcoder; null without one (no WebGL2) */
 async function decodeKtx2(bytes: Promise<ArrayBuffer>, keepFile: boolean): Promise<Texture | null> {
   const { compressedTextureLoader, transcodeKtx2 } = await transcoders();
