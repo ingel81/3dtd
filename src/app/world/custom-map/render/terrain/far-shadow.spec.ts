@@ -65,7 +65,7 @@ function compileTerrain(shader: { uniforms: object; vertexShader: string; fragme
   const material = new TerrainMaterial({
     colorArray: layers,
     dataArray: layers,
-    splat: [null, null],
+    splat: { image: { depth: 2 } },
     pathMask: null,
     gridNormals: null,
     gridOcclusion: null,

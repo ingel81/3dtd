@@ -10,7 +10,7 @@ function params(albedoBake: boolean): TerrainMaterialParams {
   return {
     colorArray: array,
     dataArray: array,
-    splat: [tex, tex],
+    splat: new DataArrayTexture(new Uint8Array(8), 1, 1, 2),
     pathMask: tex,
     gridNormals: tex,
     gridOcclusion: tex,

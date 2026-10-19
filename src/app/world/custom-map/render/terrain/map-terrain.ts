@@ -148,6 +148,8 @@ export class MapTerrainLayer {
   readonly roads: RoadSurfaceLayer;
   /** The surfaces of squares, pitches and car parks over the ground, the same way (surfaces/surface-layer.ts) */
   readonly surfaces: SurfaceLayer;
+  /** Before the ground draws (its materials' onBeforeRender): what a stroke painted into the splat goes up */
+  private readonly flushSplat = (renderer: WebGLRenderer): void => this.splat?.flush(renderer);
   private grassInputs: (Omit<GrassInputs, 'pathMask'> & { colors: Color[]; width: number; depth: number }) | null = null;
   /** The border's natural ground for the apron, and which map layers count as natural */
   private apronPaint: DataTexture | null = null;
@@ -247,7 +249,7 @@ export class MapTerrainLayer {
     const params: TerrainMaterialParams = {
       colorArray: arrays.color,
       dataArray: arrays.data,
-      splat: splat.maps,
+      splat: splat.array,
       pathMask,
       apronPaint: this.apronPaint ?? undefined,
       gridNormals: this.normals.texture,
@@ -266,6 +268,7 @@ export class MapTerrainLayer {
       splatResolution: t.splat.resolution,
     };
     const material = new TerrainMaterial(params);
+    material.onBeforeRender = this.flushSplat;
     Object.assign(material.terrainUniforms, this.chunks.uniforms);
     material.terrainUniforms.uFarShadow = this.farShadow.texture;
     material.terrainUniforms.uFarShadowArea = this.farShadow.area;
@@ -276,6 +279,7 @@ export class MapTerrainLayer {
     material.setWaterLevel(t.water?.level ?? null, t.water?.kind);
     const apronMaterial = new ApronMaterial(params, material);
     apronMaterial.setPaintMean(this.apronWeights);
+    apronMaterial.onBeforeRender = this.flushSplat;
     addHeightFog(apronMaterial);
     // A layer count of another program (a stroke's first new material): the old ground stays until the new
     // programs are built off the main thread, as linked in the frame they held it seconds (4 programs of 3 s
@@ -305,6 +309,7 @@ export class MapTerrainLayer {
     this.albedoMaterial?.dispose();
     // The colour bake's twin shares every uniform of the ground's, so what the layer sets on it holds there too
     this.albedoMaterial = new TerrainMaterial({ ...params, albedoBake: true });
+    this.albedoMaterial.onBeforeRender = this.flushSplat;
     Object.assign(this.albedoMaterial.terrainUniforms, material.terrainUniforms);
     addHeightFog(this.albedoMaterial);
     this.albedo.invalidate();
@@ -357,13 +362,13 @@ export class MapTerrainLayer {
     for (let n = this.material.layerCount + 4; n <= TERRAIN_MAX_LAYERS; n += 4) {
       let twin = this.twins.get(n);
       if (!twin) {
-        const splat = n > 8 ? [params.splat[0], params.splat[1], params.splat[2] ?? params.splat[0]] : params.splat.slice(0, 2);
-        const ground = new TerrainMaterial({ ...params, splat, layers: n });
+        const splatLayers = n > 8 ? 12 : 8;
+        const ground = new TerrainMaterial({ ...params, splatLayers, layers: n });
         Object.assign(ground.terrainUniforms, this.chunks.uniforms);
         Object.assign(ground.terrainUniforms, this.cuts.uniforms);
         addHeightFog(ground);
         ground.setGroundMood(this.biome);
-        const apron = new ApronMaterial({ ...params, splat, layers: n }, ground);
+        const apron = new ApronMaterial({ ...params, splatLayers, layers: n }, ground);
         addHeightFog(apron);
         twin = [ground, apron];
         this.twins.set(n, twin);
@@ -383,7 +388,7 @@ export class MapTerrainLayer {
   private updateGrassInputs(): void {
     if (!this.grassInputs || !this.splat || !this.pathMask) return;
     this.grass.setInputs({ mask: this.grassInputs.mask, blades: this.grassInputs.blades, pathMask: this.pathMask });
-    setGroundColors(this.splat.maps, this.grassInputs.colors, this.grassInputs.width, this.grassInputs.depth);
+    setGroundColors(this.splat.array, this.grassInputs.colors, this.grassInputs.width, this.grassInputs.depth);
   }
 
   /** Bakes the ground's colour now (the map's first, before it shows), its program built off the main thread */
@@ -465,7 +470,7 @@ export class MapTerrainLayer {
 
   /** Splat weights changed (painted in place or replaced) */
   refreshSplat(rect?: GridRect): void {
-    this.splat?.refresh(this.terrain.splat, rect);
+    const anew = this.splat?.refresh(this.terrain.splat, rect);
     this.albedo.invalidate();
     // The apron carries the border's paint on: again when the paint near the border changed
     const t = this.terrain;
@@ -473,12 +478,7 @@ export class MapTerrainLayer {
     if (!rect || rect.i0 <= band || rect.j0 <= band || rect.i1 >= t.splat.resolution - 1 - band || rect.j1 >= t.splat.resolution - 1 - band) {
       this.refreshApronPaint();
     }
-    if (this.material && this.splat) {
-      const u = this.material.terrainUniforms;
-      u.uSplat0.value = this.splat.maps[0];
-      u.uSplat1.value = this.splat.maps[1];
-      u.uSplat2.value = this.splat.maps[2] ?? null;
-    }
+    if (anew && this.material && this.splat) this.material.terrainUniforms.uSplats.value = this.splat.array;
     this.material?.setCliffAngle(this.terrain.cliffAngle);
     this.updateGrassInputs();
   }

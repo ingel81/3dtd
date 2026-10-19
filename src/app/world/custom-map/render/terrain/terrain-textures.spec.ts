@@ -1,4 +1,4 @@
-import { CompressedArrayTexture, CompressedTexture, DataArrayTexture, DataUtils, RGBA_BPTC_Format, SRGBColorSpace } from 'three';
+import { CompressedArrayTexture, CompressedTexture, DataArrayTexture, DataUtils, RGBA_BPTC_Format, SRGBColorSpace, type WebGLRenderer } from 'three';
 import { GridNormalTexture, MaterialArrays, SplatTextures, compressedTogether } from './terrain-textures';
 import { HeightField } from '../height-field';
 import type { MaterialCompressed, MaterialPixels } from '../map-asset-library';
@@ -56,13 +56,53 @@ describe('MaterialArrays', () => {
 });
 
 describe('SplatTextures', () => {
-  it('uploads new maps whole even when a stroke paints a rectangle before they are drawn', () => {
-    // A stroke that adds layers past eight makes the splat textures anew, then paints on: the ground outside
-    // its rectangle went up empty (three allocates on the first upload and writes only the ranges)
-    const splat = { resolution: 8, maps: [new Uint8Array(8 * 8 * 4), new Uint8Array(8 * 8 * 4), new Uint8Array(8 * 8 * 4)] };
+  /** What the array would receive: per copy its layer and rectangle, from which map's pixels */
+  function recorder() {
+    const copies: { layer: number; x: number; y: number; w: number; h: number; data: unknown }[] = [];
+    const renderer = {
+      copyTextureToTexture: (src: { image: { data: unknown } }, _dst: unknown, region: { min: { x: number; y: number }; max: { x: number; y: number } }, at: { x: number; y: number; z: number }) =>
+        copies.push({ layer: at.z, x: at.x, y: at.y, w: region.max.x - region.min.x, h: region.max.y - region.min.y, data: src.image.data }),
+    } as unknown as WebGLRenderer;
+    return { copies, renderer };
+  }
+
+  it('holds the maps as one array without a copy of their pixels, each layer up whole first', () => {
+    const splat = { resolution: 8, maps: [new Uint8Array(256), new Uint8Array(256), new Uint8Array(256)] };
     const textures = new SplatTextures(splat);
+    expect(textures.array.image).toMatchObject({ width: 8, height: 8, depth: 3, data: null });
+    expect(textures.array.source.dataReady).toBe(false);
+    // A stroke before the first draw: the layers still go up whole (three allocates on the first upload)
     textures.refresh(splat, { i0: 2, j0: 2, i1: 3, j1: 3 });
-    for (const t of textures.maps) expect(t.updateRanges).toEqual([]);
+    const { copies, renderer } = recorder();
+    textures.flush(renderer);
+    expect(copies).toEqual(splat.maps.map((data, layer) => ({ layer, x: 0, y: 0, w: 8, h: 8, data })));
+    textures.flush(renderer);
+    expect(copies.length).toBe(3);
+  });
+
+  it('uploads only what strokes painted, united per layer, and a replaced map whole', () => {
+    const splat = { resolution: 8, maps: [new Uint8Array(256), new Uint8Array(256)] };
+    const textures = new SplatTextures(splat);
+    const { copies, renderer } = recorder();
+    textures.flush(renderer);
+    copies.length = 0;
+    textures.refresh(splat, { i0: 2, j0: 3, i1: 3, j1: 4 });
+    textures.refresh(splat, { i0: 5, j0: 1, i1: 9, j1: 2 });
+    textures.flush(renderer);
+    expect(copies.slice(0, 2)).toEqual([
+      { layer: 0, x: 2, y: 1, w: 6, h: 4, data: splat.maps[0] },
+      { layer: 1, x: 2, y: 1, w: 6, h: 4, data: splat.maps[1] },
+    ]);
+    copies.length = 0;
+    const replaced = { resolution: 8, maps: [splat.maps[0], new Uint8Array(256)] };
+    expect(textures.refresh(replaced, { i0: 0, j0: 0, i1: 1, j1: 1 })).toBe(false);
+    textures.flush(renderer);
+    expect(copies[1]).toEqual({ layer: 1, x: 0, y: 0, w: 8, h: 8, data: replaced.maps[1] });
+    // A third map: a new array of three layers
+    const array = textures.array;
+    expect(textures.refresh({ resolution: 8, maps: [...replaced.maps, new Uint8Array(256)] })).toBe(true);
+    expect(textures.array).not.toBe(array);
+    expect(textures.array.image.depth).toBe(3);
   });
 });
 

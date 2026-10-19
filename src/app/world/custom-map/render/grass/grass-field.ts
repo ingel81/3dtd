@@ -380,13 +380,13 @@ vec4 s1 = vec4(0.0);
 vec4 s2 = vec4(0.0);
 if (keepEdge > 0.0 && onMap) {
   vec2 uvMap = mapPos / uGroundSize + 0.5;
-  s0 = texture2D(uGroundSplat0, uvMap);
-  s1 = texture2D(uGroundSplat1, uvMap);
+  s0 = texture(uGroundSplats, vec3(uvMap, 0.0));
+  s1 = texture(uGroundSplats, vec3(uvMap, 1.0));
   float total = dot(s0, vec4(1.0)) + dot(s1, vec4(1.0));
   grass = dot(s0, uGrassMask0) + dot(s1, uGrassMask1);
   // The third splat map only on maps past 8 layers: read behind a uniform branch, one program for both
   if (uGroundLayers > 8.5) {
-    s2 = texture2D(uGroundSplat2, uvMap);
+    s2 = texture(uGroundSplats, vec3(uvMap, 2.0));
     total += dot(s2, vec4(1.0));
     grass += dot(s2, uGrassMask2);
   }

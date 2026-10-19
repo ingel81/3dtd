@@ -1,4 +1,4 @@
-import { DataTexture, ShaderLib, UniformsUtils, type WebGLRenderer } from 'three';
+import { DataArrayTexture, DataTexture, ShaderLib, UniformsUtils, type WebGLRenderer } from 'three';
 import { APRON_LOOK, ApronMaterial } from './apron-material';
 import { TerrainMaterial, type TerrainMaterialParams } from './terrain-material';
 import type { LayerArray } from './terrain-textures';
@@ -10,7 +10,7 @@ function params(): TerrainMaterialParams {
   return {
     colorArray: array,
     dataArray: array,
-    splat: [tex, tex],
+    splat: new DataArrayTexture(new Uint8Array(8), 1, 1, 2),
     pathMask: tex,
     gridNormals: tex,
     gridOcclusion: tex,

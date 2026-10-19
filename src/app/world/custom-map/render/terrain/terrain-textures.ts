@@ -1,4 +1,5 @@
 import {
+  Box2,
   ClampToEdgeWrapping,
   CompressedArrayTexture,
   DataArrayTexture,
@@ -12,7 +13,9 @@ import {
   RGBAFormat,
   SRGBColorSpace,
   UnsignedByteType,
+  Vector3,
   type CompressedTexture,
+  type WebGLRenderer,
 } from 'three';
 import type { MapSplat } from '../../map-document';
 import type { HeightField } from '../height-field';
@@ -165,53 +168,92 @@ function compressedArray(layers: CompressedTexture[], anisotropy: number): Compr
 }
 
 /**
- * The splat maps as linear textures over the whole map, two or three as the
- * map has them (the third only past 8 layers); `refresh` re-uploads after edits
+ * The splat maps as one texture array over the whole map, a layer per map
+ * (two, three past 8 layers): one texture unit for what were three, in the
+ * ground's program and in everything that reads the ground's colour
+ * (groundColorAt). The array holds no copy of the pixels: each layer goes
+ * up from the document's own map, whole when it is new, else the rectangle
+ * a stroke painted, before the ground next draws (`flush`, from its
+ * material's onBeforeRender). Until then three only allocates it.
  */
 export class SplatTextures {
-  readonly maps: DataTexture[];
+  array: DataArrayTexture;
   private resolution: number;
+  /** The maps as textures three never uploads: the source of each layer's upload */
+  private readonly sources: DataTexture[] = [];
+  /** By layer: the rectangle that waits to go up, null when none */
+  private readonly pending: (TexelRect | null)[] = [];
+  private readonly region = new Box2();
+  private readonly at = new Vector3();
 
   constructor(splat: MapSplat) {
     this.resolution = splat.resolution;
-    this.maps = splat.maps.map((m) => this.make(m));
+    this.array = this.make(splat);
   }
 
-  /** Re-upload after the editor painted (same resolution) or replaced the splat */
-  refresh(splat: MapSplat, rect?: TexelRect): void {
-    if (splat.resolution !== this.resolution) {
-      this.dispose();
+  /**
+   * After the editor painted (`rect`, in splat texels) or replaced the
+   * splat: what changed goes up with the next flush. Another resolution or
+   * another number of maps makes a new array; true when it did (the
+   * materials take it anew)
+   */
+  refresh(splat: MapSplat, rect?: TexelRect): boolean {
+    if (splat.resolution !== this.resolution || splat.maps.length !== this.sources.length) {
+      this.array.dispose();
       this.resolution = splat.resolution;
-      this.maps.length = 0;
-      for (const m of splat.maps) this.maps.push(this.make(m));
-      return;
+      this.array = this.make(splat);
+      return true;
     }
-    // The third map came or went with the layers past 8 (a new one goes up whole when first drawn)
-    while (this.maps.length > splat.maps.length) this.maps.pop()!.dispose();
-    const kept = this.maps.length;
-    for (let k = kept; k < splat.maps.length; k++) this.maps.push(this.make(splat.maps[k]));
-    for (let k = 0; k < kept; k++) {
-      const texture = this.maps[k];
-      const same = texture.image.data === splat.maps[k];
-      texture.image.data = splat.maps[k];
-      uploadRect(texture, same ? rect : undefined);
+    const r = this.resolution - 1;
+    splat.maps.forEach((pixels, k) => {
+      const source = this.sources[k];
+      const same = source.image.data === pixels;
+      source.image.data = pixels;
+      const whole = { i0: 0, j0: 0, i1: r, j1: r };
+      const add = same && rect ? { i0: Math.max(0, rect.i0), j0: Math.max(0, rect.j0), i1: Math.min(r, rect.i1), j1: Math.min(r, rect.j1) } : whole;
+      if (add.i1 < add.i0 || add.j1 < add.j0) return;
+      const p = this.pending[k];
+      this.pending[k] = p ? { i0: Math.min(p.i0, add.i0), j0: Math.min(p.j0, add.j0), i1: Math.max(p.i1, add.i1), j1: Math.max(p.j1, add.j1) } : add;
+    });
+    return false;
+  }
+
+  /** Uploads what waits, each layer's rectangle from its map; nothing when nothing does */
+  flush(renderer: WebGLRenderer): void {
+    for (let k = 0; k < this.pending.length; k++) {
+      const p = this.pending[k];
+      if (!p) continue;
+      this.pending[k] = null;
+      this.region.min.set(p.i0, p.j0);
+      this.region.max.set(p.i1 + 1, p.j1 + 1);
+      renderer.copyTextureToTexture(this.sources[k], this.array, this.region, this.at.set(p.i0, p.j0, k));
     }
   }
 
   dispose(): void {
-    for (const texture of this.maps) texture.dispose();
+    this.array.dispose();
   }
 
-  private make(pixels: Uint8Array): DataTexture {
+  private make(splat: MapSplat): DataArrayTexture {
     const r = this.resolution;
-    const t = new DataTexture(pixels, r, r, RGBAFormat, UnsignedByteType);
+    this.sources.length = 0;
+    this.pending.length = 0;
+    for (const pixels of splat.maps) {
+      this.sources.push(new DataTexture(pixels, r, r, RGBAFormat, UnsignedByteType));
+      this.pending.push({ i0: 0, j0: 0, i1: r - 1, j1: r - 1 });
+    }
+    const t = new DataArrayTexture(null, r, r, splat.maps.length);
+    t.format = RGBAFormat;
+    t.type = UnsignedByteType;
     t.colorSpace = NoColorSpace;
     t.wrapS = t.wrapT = ClampToEdgeWrapping;
     t.magFilter = LinearFilter;
     t.minFilter = LinearFilter;
     t.generateMipmaps = false;
-    // Whole on its first upload, even when a stroke paints a rectangle before it is drawn
-    uploadRect(t, undefined);
+    t.name = 'splat';
+    // Storage only: the layers go up from the maps (flush)
+    t.source.dataReady = false;
+    t.needsUpdate = true;
     return t;
   }
 }

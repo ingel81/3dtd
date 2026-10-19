@@ -1,4 +1,4 @@
-import { Color, ShaderChunk, MeshStandardMaterial, SRGBColorSpace, Vector2, Vector3, Vector4, type Texture } from 'three';
+import { Color, ShaderChunk, MeshStandardMaterial, SRGBColorSpace, Vector2, Vector3, Vector4, type DataArrayTexture, type Texture } from 'three';
 import type { LayerArray } from './terrain-textures';
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_VERTEX, TERRAIN_NORMAL_VERTEX, TERRAIN_VERTEX_PARS } from './terrain-chunks';
@@ -51,7 +51,7 @@ export function materialLook(category: MaterialCategory | undefined): MaterialLo
  * albedo, normal, roughness and AO come from blended ground layers.
  *
  * Per fragment:
- * 1. Splat weights of the map's layers (two RGBA maps, a third past 8 layers), the road and path
+ * 1. Splat weights of the map's layers (two RGBA layers of one array, a third past 8 layers), the road and path
  *    mask, and the cliff weight from the slope (above `cliffAngle`, with a
  *    noisy edge) are combined into one weight per texture-array layer.
  * 2. Every layer with weight samples albedo+height and normal+roughness+AO,
@@ -97,8 +97,10 @@ export interface TerrainLayerSlots {
 export interface TerrainMaterialParams {
   colorArray: LayerArray;
   dataArray: LayerArray;
-  /** Two splat maps, three on a map with more than 8 layers */
-  splat: Texture[];
+  /** The splat maps as one array (SplatTextures): two layers, three on a map with more than 8 layers */
+  splat: DataArrayTexture;
+  /** Splat channels the shader reads when not the array's (warm-up twins of a larger variant): 8 or 12 */
+  splatLayers?: number;
   pathMask: Texture;
   /** The border's natural ground for the apron (apron-paint.ts); without, the apron shows the first layer */
   apronPaint?: Texture;
@@ -133,9 +135,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
   readonly terrainUniforms = {
     uColorArray: { value: null as LayerArray | null },
     uDataArray: { value: null as LayerArray | null },
-    uSplat0: { value: null as Texture | null },
-    uSplat1: { value: null as Texture | null },
-    uSplat2: { value: null as Texture | null },
+    uSplats: { value: null as DataArrayTexture | null },
     uPathMask: { value: null as Texture | null },
     /** The border's natural ground carried onto the apron (apron-paint.ts) */
     uApronPaint: { value: null as Texture | null },
@@ -220,7 +220,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
     // The terrain glows by lava itself (TERRAIN_SAMPLE): not again through the objects' lava glow
     this.userData['noLavaGlow'] = true;
     this.layerCount = terrainLayerCount(params.layers ?? params.colorArray.image.depth);
-    this.splatLayers = params.splat.length > 2 ? 12 : 8;
+    this.splatLayers = (params.splatLayers ?? params.splat.image.depth * 4) > 8 ? 12 : 8;
     this.albedoBake = !!params.albedoBake;
     this.setParams(params);
     this.setGroundMood('temperate');
@@ -260,9 +260,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
     const u = this.terrainUniforms;
     u.uColorArray.value = p.colorArray;
     u.uDataArray.value = p.dataArray;
-    u.uSplat0.value = p.splat[0];
-    u.uSplat1.value = p.splat[1];
-    u.uSplat2.value = p.splat[2] ?? null;
+    u.uSplats.value = p.splat;
     u.uPathMask.value = p.pathMask;
     u.uApronPaint.value = p.apronPaint ?? null;
     u.uGridNormals.value = p.gridNormals;
@@ -337,7 +335,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
   }
 
   override customProgramCacheKey(): string {
-    return `custom-map-terrain-3-${this.layerCount}-${this.splatLayers}${this.albedoBake ? '-albedo' : ''}`;
+    return `custom-map-terrain-4-${this.layerCount}-${this.splatLayers}${this.albedoBake ? '-albedo' : ''}`;
   }
 }
 
@@ -347,11 +345,8 @@ varying vec3 vTerrainPos;
 varying vec3 vTerrainNormal;
 uniform sampler2DArray uColorArray;
 uniform sampler2DArray uDataArray;
-uniform sampler2D uSplat0;
-uniform sampler2D uSplat1;
-#if TERRAIN_SPLATS > 8
-uniform sampler2D uSplat2;
-#endif
+// The splat maps, a layer each (SplatTextures)
+uniform sampler2DArray uSplats;
 uniform sampler2D uPathMask;
 #ifdef TERRAIN_APRON
 uniform sampler2D uApronPaint;
@@ -554,11 +549,11 @@ vec2 wobble = ((varCoarse.ba - 0.5) * 2.5
 
 float w[TERRAIN_LAYERS];
 for (int k = 0; k < TERRAIN_LAYERS; k++) w[k] = 0.0;
-vec4 s0 = texture2D(uSplat0, tuv + wobble);
-vec4 s1 = texture2D(uSplat1, tuv + wobble);
+vec4 s0 = texture(uSplats, vec3(tuv + wobble, 0.0));
+vec4 s1 = texture(uSplats, vec3(tuv + wobble, 1.0));
 #if TERRAIN_SPLATS > 8
-// The third map only on maps with more than 8 layers: the others neither sample nor bind it
-vec4 s2 = texture2D(uSplat2, tuv + wobble);
+// The third map only on maps with more than 8 layers
+vec4 s2 = texture(uSplats, vec3(tuv + wobble, 2.0));
 float sw[TERRAIN_SPLATS] = float[TERRAIN_SPLATS](s0.r, s0.g, s0.b, s0.a, s1.r, s1.g, s1.b, s1.a, s2.r, s2.g, s2.b, s2.a);
 #else
 float sw[TERRAIN_SPLATS] = float[TERRAIN_SPLATS](s0.r, s0.g, s0.b, s0.a, s1.r, s1.g, s1.b, s1.a);
