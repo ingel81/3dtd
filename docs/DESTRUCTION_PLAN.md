@@ -331,9 +331,9 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
 | Fall auf dem Hauptthread, synchron | unter 1 ms, Rest über Bilder verteilt | 0,1 bis 4,5 ms (`objectsChanged`) |
 | Krater je Bild | höchstens ein Kachelaufbau, unter 1,5 ms | 1 bis 3 ms je `updateHeights(rect)` |
 | Wiederherstellen von 256 Kratern | unter 30 ms, verteilt | ganzer Neuaufbau 118 bis 174 ms |
-| Draw Calls durch Ruinen | ein Pool je Asset mit Schaden plus 4 bis 6 Brocken, unabhängig von der Zahl | gezählt: einer je Asset und Stufe mit Schaden, einer für alle Decken, je Fassade und Deckung einer für Grundriss-Ruinen |
+| Draw Calls durch Ruinen | ein Pool je Asset mit Schaden plus 4 bis 6 Brocken, unabhängig von der Zahl | gezählt: einer je Asset und Stufe mit Schaden, einer für alle Decken, je Fassade und Deckung einer für Grundriss-Ruinen; Ruined City, 40 Bauwerke getroffen (je ein Drittel Stufe 1, 2, 3): sichtbare Draws 160 → 188, davon 21 Ruinen-Meshes |
 | CPU je Ruine und Bild | null (Animation im Shader aus Startzeit) | entfällt |
-| Neue Shader-Programme im Spiel | null (vorab übersetzt) | entfällt |
+| Neue Shader-Programme im Spiel | null (vorab übersetzt) | Ruined City, 40 Bauwerke getroffen: 271 → 271 Programme |
 | Speicher | Grundraster 0,26 bis 1 MB, Brocken-Pools fest | entfällt |
 
 Messen mit einem `e2e/perf`-Läufer: Fall, Kraterserie, Atomschlag auf Ruined City und einer großen OSM-Stadt, Bildzeit
