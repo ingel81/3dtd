@@ -1,8 +1,8 @@
 import { Injectable, signal } from '@angular/core';
-import { Object3D, AnimationClip, Mesh, Material, MeshStandardMaterial } from 'three';
+import { Object3D, AnimationClip, Mesh, Material, MeshStandardMaterial, type Texture } from 'three';
 import { createModelLoader } from '../../three-engine/models/model-loader';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { shareGpu } from '../../three-engine/shared-gpu';
+import { shareGpu, unshareGpu } from '../../three-engine/shared-gpu';
 
 /**
  * Unified model data structure for cached models
@@ -56,10 +56,6 @@ export class AssetManagerService {
   // Loading promises to prevent duplicate loads
   private readonly loadingPromises = new Map<string, Promise<CachedModel>>();
 
-  constructor() {
-    // The cached models outlive every engine that draws them (shared-gpu.ts)
-    shareGpu({ dispose: () => this.releaseGpu() });
-  }
 
   /**
    * Models that did not load after every try, by URL, in the order they
@@ -94,6 +90,8 @@ export class AssetManagerService {
     try {
       const model = await loadPromise;
       this.modelCache.set(url, model);
+      // The page's: the page's renderer keeps them uploaded from world to world and over the editor's test runs
+      this.share(model.scene, shareGpu);
       return model;
     } finally {
       this.loadingPromises.delete(url);
@@ -216,11 +214,6 @@ export class AssetManagerService {
     this.modelCache.clear();
   }
 
-  /** Frees the GPU side of every cached model; they stay cached, the next renderer uploads them again */
-  releaseGpu(): void {
-    for (const cached of this.modelCache.values()) this.disposeModel(cached);
-  }
-
   /**
    * Dispose service resources
    */
@@ -237,7 +230,21 @@ export class AssetManagerService {
    * Recursively dispose Three.js object and its resources
    */
   private disposeModel(cached: CachedModel): void {
+    this.share(cached.scene, unshareGpu);
     this.disposeObject(cached.scene);
+  }
+
+  /** Marks (shareGpu) or unmarks every geometry, material and texture of `obj` as the page's */
+  private share(obj: Object3D, mark: (resource: { dispose(): void }) => void): void {
+    obj.traverse((node) => {
+      const mesh = node as Mesh;
+      if (mesh.geometry) mark(mesh.geometry);
+      if (!mesh.material) return;
+      for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        mark(material);
+        for (const value of Object.values(material)) if ((value as Texture | null)?.isTexture) mark(value as Texture);
+      }
+    });
   }
 
   private disposeObject(obj: Object3D): void {

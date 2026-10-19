@@ -20,7 +20,6 @@ import {
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createModelLoader, sharedTexture } from '../../../three-engine/models/model-loader';
 import { mapDataFetch, mapDataUrl } from '../map-data';
-import { shareGpu, unshareGpu } from '../../../three-engine/shared-gpu';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { hexToRgb, parseCatalog, type AssetCatalog, type CatalogMaterial, type CatalogObject } from './asset-catalog';
 
@@ -106,8 +105,6 @@ export class MapAssetLibrary {
     if (!lib) {
       lib = new MapAssetLibrary(baseUrl);
       MapAssetLibrary.instances.set(baseUrl, lib);
-      // Its models outlive every renderer that draws them (shared-gpu.ts), until it goes
-      shareGpu(lib.gpuSide);
     }
     return lib;
   }
@@ -116,8 +113,6 @@ export class MapAssetLibrary {
   private catalogPromise: Promise<AssetCatalog> | null = null;
   private readonly materials = new Map<string, Promise<MaterialPixels>>();
   private readonly models = new Map<string, Promise<ObjectModel>>();
-  /** What a renderer that goes frees of a shared library (shared-gpu.ts) */
-  private readonly gpuSide = { dispose: () => this.releaseGpu() };
   /** The models of `models` that have loaded, for releaseGpu (it frees them at once, not a tick later) */
   private readonly loaded = new Set<ObjectModel>();
   private readonly fetchFn: typeof fetch;
@@ -277,7 +272,6 @@ export class MapAssetLibrary {
   /** Frees the GPU side of every loaded model and forgets them */
   dispose(): void {
     this.releaseGpu();
-    unshareGpu(this.gpuSide);
     this.models.clear();
     this.loaded.clear();
     this.materials.clear();
