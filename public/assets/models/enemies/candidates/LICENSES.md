@@ -30,6 +30,13 @@ Gemessen: 9 Meshes, alle geskinnt, 4.858 Vertices, 5.288 Dreiecke, 41 Knochen, e
 `Death_A` (0,80 s), `Death_B` (2,63 s), `Death_C_Skeletons` (2,00 s). Die 4,8 MB kommen fast
 nur von den Clips; das Spiel backt nur die konfigurierten.
 
+## meshy/ironclad_warlord.glb (übernommen, nicht in git)
+
+Eigenes Modell des Users, mit Meshy erzeugt (Export `Meshy_AI_Ironclad_Warlord_All_Animations.glb`, vier Clips). Liegt
+wie die Meshy-Tower-Kandidaten nicht in git (`.gitignore`, 24 MB); wer `tools/blender/optimize_enemy.py` mit dem Rezept
+`warlord` neu laufen lässt, legt die Datei hier ab. Ergebnis `enemies/warlord.glb`, Nennung in
+`src/app/configs/attributions.config.ts` („Original work“).
+
 ## quaternius-tank/tank.glb (übernommen)
 
 Seit 2026-09-15 das Ausgangsmodell des Tank-Gegners (vorher „Tank“ von Zsky, CC-BY 3.0).

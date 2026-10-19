@@ -159,9 +159,9 @@ export function weakToLabel(t: Messages, weights: readonly (readonly [ArmorType,
 /**
  * What an enemy type does beyond walking and dying, for the wave panel and
  * its tooltips: "Splits into 2 minions on death", "Regenerates 1 % of its HP
- * a second unless burning", "Phasing: cannot be slowed", joined by ". ".
- * Null for a type with none of them (EnemyTypeConfig.splitOnDeath,
- * regenPerSecond, immuneToSlow).
+ * a second unless burning", "Phasing: cannot be slowed", "Enrages below 35 %
+ * of its HP: ...", joined by ". ". Null for a type with none of them
+ * (EnemyTypeConfig.splitOnDeath, regenPerSecond, immuneToSlow, traits.rage).
  */
 export function enemyTraitLabel(t: Messages, enemyType: string): string | null {
   const cfg = ENEMY_TYPES[enemyType];
@@ -172,6 +172,8 @@ export function enemyTraitLabel(t: Messages, enemyType: string): string | null {
   if (split) traits.push(says.splits(split.count));
   if (cfg.regenPerSecond) traits.push(says.regenerates(Math.round(cfg.regenPerSecond * 100)));
   if (cfg.immuneToSlow) traits.push(says.phasing);
+  const rage = cfg.traits?.rage;
+  if (rage) traits.push(says.rages(Math.round(rage.belowHp * 100), rage.speed, Math.round(rage.damageTaken * 100)));
   return traits.length > 0 ? traits.join('. ') : null;
 }
 

@@ -9,16 +9,17 @@ import {
   CHEAT_QUIET_MS,
   DEATH_SOUNDS,
   GAME_OVER_STINGER_DELAY_MS,
-  GOLEM_FOOTSTEP,
   HIT_SOUND_PROJECTILES,
   IMPACT_SOUNDS,
   HIT_SOUNDS,
   MOMENT_SOUNDS,
+  RAGE_SOUNDS,
   WORLD_SOUNDS,
   type GameSoundSample,
   type GlobalCue,
 } from '../configs/game-sounds.config';
 import { isBloodMoonWave } from '../configs/blood-moon.config';
+import { getAllEnemyTypes } from '../configs/enemy-types.config';
 import { BACKGROUND_MUSIC, cueLeadMs } from '../configs/background-music.config';
 import type { AbilityStatus } from '../configs/abilities.config';
 import type { HeroStatus } from '../configs/hero.config';
@@ -71,7 +72,8 @@ export class GameSoundsService {
       ...Object.values(HIT_SOUNDS),
       ...Object.values(WORLD_SOUNDS),
       ...Object.values(IMPACT_SOUNDS),
-      GOLEM_FOOTSTEP.sound,
+      ...Object.values(RAGE_SOUNDS),
+      ...getAllEnemyTypes().flatMap((type) => (type.footstep ? [type.footstep.sound] : [])),
       ...Object.values(ABILITY_CAST_SOUNDS).filter((s): s is GameSoundSample => s !== null),
     ];
     const registered = new Set<string>();
@@ -119,6 +121,10 @@ export class GameSoundsService {
     this.subs.add(bus.onShow('enemy:footstep', ({ enemy }) => {
       const footstep = enemy.typeConfig.footstep;
       if (footstep) this.playAt(footstep.sound.id, enemy.position, footstep.sound.playbackRate);
+    }));
+    this.subs.add(bus.onShow('enemy:enraged', ({ enemy }) => {
+      const id = enemy.typeConfig.rageSound;
+      if (id) this.playAt(RAGE_SOUNDS[id].id, enemy.position);
     }));
     this.subs.add(bus.onShow('tower:upgraded', ({ tower }) => {
       this.playAt(WORLD_SOUNDS.towerUpgrade.id, tower.position);

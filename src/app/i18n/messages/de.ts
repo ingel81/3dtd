@@ -74,6 +74,7 @@ export const de: Messages = {
     'slime-clump': null,
     'golem-king': 'Herz des Berges',
     'dragon-matriarch': 'Mutter des Schwarms',
+    warlord: null,
   },
   paths: {
     scout: { name: 'Späher', description: 'Ein Ausguck entdeckt getarnte Gegner im Umkreis von 35 m: Dort kann jeder Turm sie treffen.' },
@@ -1719,6 +1720,8 @@ export const de: Messages = {
       splits: (n) => `Zerfällt beim Tod in ${n} ${f.plural(n, 'Ableger', 'Ableger')}`,
       regenerates: (percent) => `Heilt ${percent} % seiner HP je Sekunde, außer er brennt`,
       phasing: 'Phasing: lässt sich nicht bremsen',
+      rages: (percent, speed, damage) =>
+        `Wütet unter ${percent} % seiner HP: ${f.num(speed, 2)}-mal so schnell, nimmt ${damage} % Schaden`,
       hpScale: (x) => `HP ×${f.fixed(x, 1)}`,
       speedScale: (x) => `Tempo ×${f.fixed(x, 2)}`,
       scaled: (parts) => `Skaliert: ${parts}`,

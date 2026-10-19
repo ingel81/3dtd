@@ -22,6 +22,7 @@ import {
   EF_ALIVE,
   EF_ANY_STATUS,
   EF_CAMO,
+  EF_ENRAGED,
   EF_REVEALED,
   EF_BODY,
   EF_MOVING,
@@ -300,6 +301,9 @@ export class FramePresenter {
             if (running) engine.enemies.startRunAnimation(record.id);
             else engine.enemies.startWalkAnimation(record.id);
           }
+        } else if ((flags & EF_ENRAGED) !== 0 && slot.isWalking && slot.config.runAnimation !== undefined) {
+          // A rage runs for good where the type has a run clip (the warlord's charge)
+          engine.enemies.startRunAnimation(record.id);
         }
         const maxHp = d[o + E_MAXHP];
         engine.enemies.updateSlot(slot, pos, d[o + E_ROT], maxHp > 0 ? d[o + E_HP] / maxHp : 0, d[o + E_ANIM_SPEED], camo !== 1);

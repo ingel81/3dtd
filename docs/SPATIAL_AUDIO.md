@@ -502,7 +502,8 @@ Sound-Paket Phase 3 ([SOUND_PLAN.md](archive/SOUND_PLAN.md)), Samples und Mischu
 | `enemy:died` mit `killedBy` | Tod des Typs (`EnemyTypeConfig.deathSound`, `DEATH_SOUNDS`), dazu das Kopfgeld (`WORLD_SOUNDS.coin`) bei `credits > 0`. Ein Leck ohne Kill bleibt still. Ein Wurm-Segment, solange der Wurm lebt, klingt als `wormSegment`, sein letztes als Tod des Bosses. Ein Typ mit `splitSound` spielt statt des Todes seine Teilung |
 | `enemy:split` | `splitSound` des Typs (das Skelett) |
 | `projectile:hit` | Treffer des Körpers (`hitSound`, `HIT_SOUNDS`), nur für die Einzelschüsse in `HIT_SOUND_PROJECTILES` (Archer, Kanone, Held). Geist und Wraith haben keinen |
-| `enemy:footstep` | Schritt des Typs (`EnemyTypeConfig.footstep`, der Golem), synchron zur Laufanimation: `EnemyInstanceManager` meldet ihn, wo der Clip eine Fußaufsatz-Phase (`phases`) überschreitet, `EnemyManager` emittiert ihn; `ScreenShakeService` bebt dazu in Kameranähe. Steht der Clip (Pause, gefroren, headless), kommt keiner |
+| `enemy:enraged` | Wutschrei des Typs (`EnemyTypeConfig.rageSound`, `RAGE_SOUNDS`, der Warlord), einmal, wo die Wut beginnt |
+| `enemy:footstep` | Schritt des Typs (`EnemyTypeConfig.footstep`, Golem und Warlord), synchron zur Laufanimation: `EnemyInstanceManager` meldet ihn, wo der Clip eine Fußaufsatz-Phase (`phases`) überschreitet, `EnemyManager` emittiert ihn; `ScreenShakeService` bebt dazu in Kameranähe. Steht der Clip (Pause, gefroren, headless), kommt keiner |
 | `tower:upgraded` | `towerUpgrade` am Tower |
 | `ability:used` | Auslösen am Ziel (`ABILITY_CAST_SOUNDS`: Frostbombe, EMP, Orbitallaser) |
 | `hero:level-up` | am Helden |

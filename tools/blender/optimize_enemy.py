@@ -286,6 +286,28 @@ RECIPES = {
         'base_color_only': True,
         'image_format': 'JPEG',
     },
+    # The Ironclad Warlord, a Meshy export (user's own, not in git like the
+    # Meshy tower candidates: candidates/meshy/, LICENSES.md). One skinned mesh
+    # of 10,375 triangles split at UV seams into 17,040 VAT vertices, over the
+    # 15,000 of an elite. Welded and decimated to 80 % with seam weights:
+    # 14,136, two VAT rows a frame like any count from 8,193 to 16,384. In
+    # Blender close-ups of the face 80 % looked like the source; at 60 %
+    # (10,991) the brows and eyes went flat, at 41 % (8,016, one row) the
+    # texture smeared over the face. Of four clips the config plays three:
+    # Walking, Running (his rage) and the fall; Attack has no use in a game
+    # where enemies only walk. The metal-roughness map comes as 4096²,
+    # every image goes to 2048² (the base colour already is).
+    'warlord': {
+        'src': f'{ENEMIES}/candidates/meshy/ironclad_warlord.glb',
+        'rev': None,
+        'out': f'{ENEMIES}/warlord.glb',
+        'actions': {'Walking': 'Walking', 'Running': 'Running',
+                    'Fall_Dead_from_Abdominal_Injury': 'Fall_Dead_from_Abdominal_Injury'},
+        'weld': 1e-6,
+        'decimate': 0.8,
+        'seams': {'*': 0.5},
+        'texture': 2048,
+    },
 }
 
 

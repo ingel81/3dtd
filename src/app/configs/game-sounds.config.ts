@@ -71,6 +71,8 @@ export const DEATH_SOUNDS = {
   // A long roar: quieter and one at a time (playtest 2026-09-23)
   wallsmasher: { ...bigDeath('wallsmasher', 0.45), minIntervalMs: 400, maxInstances: 1 },
   mech: bigDeath('mech', 0.7),
+  // A dying groan, then his plate hits the ground (ElevenLabs, 2026-10-19)
+  warlord: bigDeath('warlord', 0.85),
   skarnax: bossDeath('skarnax'),
   ooze: bossDeath('ooze'),
   herbert: bossDeath('herbert'),
@@ -90,6 +92,8 @@ export const HIT_SOUNDS = {
   bone: hit('bone', 0.35),
   stone: hit('stone', 0.35),
   slime: hit('slime', 0.3),
+  /** Iron plate worn on a body: a dull clang, not a machine's hollow ring (the warlord) */
+  armor: hit('armor', 0.35),
 } as const satisfies Record<string, GameSoundSample>;
 
 export type HitSoundId = keyof typeof HIT_SOUNDS;
@@ -176,6 +180,32 @@ export const GOLEM_FOOTSTEP: FootstepConfig = {
   phases: [0.34, 0.85],
   shake: true,
 };
+
+export const WARLORD_FOOTSTEP: FootstepConfig = {
+  sound: {
+    // An iron-shod boot on stone, plates clanking (ElevenLabs, 2026-10-19)
+    id: 'warlord_footstep', url: 'assets/sounds/enemies/warlord/footstep.mp3', volume: 0.6, refDistance: 40,
+    rolloffFactor: 1.1, minIntervalMs: 120, maxInstances: 3,
+  },
+  // Heels down in Walking (1.03 s): left at 0.27, right at 0.73, where the
+  // foot bones drop to their stance height (three AnimationMixer over the GLB)
+  phases: [0.27, 0.73],
+  shake: true,
+};
+
+/**
+ * The roar of an enemy whose rage begins (EnemyTypeConfig.rageSound,
+ * `enemy:enraged`): once, heard far, not stolen by the fight's one-shots.
+ */
+export const RAGE_SOUNDS = {
+  warlord: {
+    // A furious bellow that breaks into the charge (ElevenLabs, 2026-10-19)
+    id: 'rage_warlord', url: 'assets/sounds/enemies/warlord/rage.mp3', volume: 0.9, refDistance: 70,
+    rolloffFactor: 1, maxInstances: 2, priority: true,
+  },
+} as const satisfies Record<string, GameSoundSample>;
+
+export type RageSoundId = keyof typeof RAGE_SOUNDS;
 
 /** The cast of an ability, at its target on `ability:used`; null where the ability has none (the missile's launch plays instead). */
 export const ABILITY_CAST_SOUNDS: Record<AbilityId, GameSoundSample | null> = {

@@ -122,6 +122,13 @@
       "view": "{\"animationName\":\"CharacterArmature|Walk\",\"animationTimeScale\":0.7,\"cameraAngle\":0.26,\"cameraDistance\":4,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/wallsmasher.glb\",\"offsetY\":0,\"scale\":1.5}",
       "model": "e4e5b8c2fa77af956079bcc0e932bd9e9b63b8c4c5ad7646b0c7d87d1589fcac"
     },
+    "enemy-warlord": {
+      "file": "enemy-warlord.webp",
+      "width": 80,
+      "height": 80,
+      "view": "{\"animationName\":\"Walking\",\"animationTimeScale\":0.7,\"cameraAngle\":0.2,\"cameraDistance\":6,\"groundModel\":true,\"lightIntensity\":3,\"modelUrl\":\"assets/models/enemies/warlord.glb\",\"offsetY\":0,\"scale\":2.2}",
+      "model": "3184652ffac40dd8cda5dbb88f85fffed2697cf8d71b4aba634043641bbd4496"
+    },
     "enemy-worm": {
       "file": "enemy-worm.webp",
       "width": 80,

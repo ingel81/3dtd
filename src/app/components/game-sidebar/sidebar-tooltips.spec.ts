@@ -173,4 +173,9 @@ describe('enemyGroupTooltip', () => {
     expect(enemyGroupTooltip(en, group('wraith'))?.flavor).toBe('Phasing: cannot be slowed');
     expect(enemyTraitLabel(en, 'zombie')).toBeNull();
   });
+
+  it('names a rage with its threshold, speed and damage taken', () => {
+    expect(enemyTraitLabel(en, 'warlord')).toBe('Enrages below 35 % of its HP: 2× as fast, takes 80 % damage');
+    expect(enemyTraitLabel(en, 'herbert')).toBe('Enrages below 50 % of its HP: 1.35× as fast, takes 75 % damage');
+  });
 });

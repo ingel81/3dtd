@@ -11,9 +11,11 @@ import {
   HIT_SOUNDS,
   IMPACT_SOUNDS,
   MOMENT_SOUNDS,
+  RAGE_SOUNDS,
+  WARLORD_FOOTSTEP,
   WORLD_SOUNDS,
 } from '../configs/game-sounds.config';
-import { getEnemyType } from '../configs/enemy-types.config';
+import { getAllEnemyTypes, getEnemyType } from '../configs/enemy-types.config';
 import { BLOOD_MOON_FIRST_WAVE } from '../configs/blood-moon.config';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { EnemyView } from '../sim/client/views';
@@ -141,6 +143,22 @@ describe('GameSoundsService', () => {
     const { id, playbackRate } = GOLEM_FOOTSTEP.sound;
     expect(playbackRate).toBeLessThan(1);
     expect(audio.playAt).toHaveBeenCalledWith(id, { x: 1, y: 2, z: 3 }, 1, playbackRate);
+  });
+
+  it("registers every type's step, and plays the warlord's on its own sample", () => {
+    const { bus, audio, at } = setup();
+    const ids = audio.registerSound.mock.calls.map((c) => (c as unknown[])[0]);
+    for (const type of getAllEnemyTypes()) if (type.footstep) expect(ids).toContain(type.footstep.sound.id);
+    bus.emit({ type: 'enemy:footstep', enemy: enemy('warlord') });
+    expect(at()).toEqual([WARLORD_FOOTSTEP.sound.id]);
+  });
+
+  it('roars where a rage begins for a type with a rage sound, nothing for one without', () => {
+    const { bus, at } = setup();
+    bus.emit({ type: 'enemy:enraged', enemy: enemy('herbert') });
+    expect(at()).toEqual([]);
+    bus.emit({ type: 'enemy:enraged', enemy: enemy('warlord') });
+    expect(at()).toEqual([RAGE_SOUNDS.warlord.id]);
   });
 
   it('plays the cast of an ability at its target', () => {

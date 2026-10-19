@@ -10,9 +10,11 @@ import { TIMING } from './timing.config';
 import type { BossTraits } from '../managers/boss-traits';
 import {
   GOLEM_FOOTSTEP,
+  WARLORD_FOOTSTEP,
   type DeathSoundId,
   type FootstepConfig,
   type HitSoundId,
+  type RageSoundId,
   type WorldSoundId,
 } from './game-sounds.config';
 
@@ -152,6 +154,12 @@ export interface EnemyTypeConfig {
   animationVariation?: boolean; // Switches between walk and run animation
   runSpeedMultiplier?: number; // Speed multiplier for run animation (default: 1.0)
   /**
+   * Playback speed of the run clip at baseSpeed × runSpeedMultiplier;
+   * animationSpeed when missing. For a run clip whose stride differs from
+   * the walk's by another ratio than the speeds (the warlord's rage).
+   */
+  runAnimationSpeed?: number;
+  /**
    * Metres of ground per loop of the walk clip. Set, the clip follows the
    * distance the instance moves instead of the clock
    * (EnemyInstanceManager.updateAnimations): the worm's legs step with the
@@ -182,6 +190,8 @@ export interface EnemyTypeConfig {
   splitSound?: WorldSoundId;
   /** Heavy single steps as it walks, with a shake near the camera */
   footstep?: FootstepConfig;
+  /** Played once where its rage begins (traits.rage, enemy:enraged) */
+  rageSound?: RageSoundId;
 
   // Visual
   heightOffset: number; // Model height above ground
@@ -1373,6 +1383,74 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     traits: { rage: { belowHp: 0.5, speed: 1.25, damageTaken: 0.75 } },
     lateralSpread: 0.4,
     spawnStartDelay: 2400,
+  },
+
+  // An orc in iron plate, a hammer on his back: the elite of the heavy
+  // waves, a few at a time at the head of tanks, mechs and wallsmashers.
+  // Meshy model (tools/blender/optimize_enemy.py, recipe `warlord`), 2.1
+  // units tall, about 8 m at 3.8: over the wallsmasher (6.4 m), under the
+  // golem (13 m). Not a boss (no bar, abilities bite in full), so the
+  // budget gives him no floor; his rage is paid for like a boss's
+  // (rageFactor). Balance in MASTER_GAME_DESIGN.md §4.
+  warlord: {
+    id: 'warlord',
+    deathSound: 'warlord',
+    hitSound: 'armor',
+    footstep: WARLORD_FOOTSTEP,
+    rageSound: 'warlord',
+    modelUrl: 'assets/models/enemies/warlord.glb',
+    scale: 3.8,
+    modelRangeY: { min: 0, max: 2.3536 },
+    // Plate over hide: siege and lightning crack it, arrows and fire glance off
+    armorType: 'heavy',
+    // Three mechs, ten zombie soldiers. The budget sets what a wave brings;
+    // this is his weight within it, his gold (√HP: 39, a mech 22) and his
+    // leak (round(√1500 / 5) = 8 HQ HP before the wave's scale, a mech 4,
+    // Herbert 13)
+    baseHp: 1500,
+    baseSpeed: 3,
+    // Below 35 % of his HP he charges: twice as fast, the Running clip,
+    // and takes 80 % of the towers' damage. The budget counts him
+    // 1 - 0.35 + 0.35 * 2 / 0.8 = 1.53 times his HP (rageFactor)
+    traits: { rage: { belowHp: 0.35, speed: 2, damageTaken: 0.8 } },
+    hasAnimations: true,
+    walkAnimation: 'Walking',
+    // Shown while he rages (FramePresenter, EF_ENRAGED), at the rage's speed
+    runAnimation: 'Running',
+    runSpeedMultiplier: 2,
+    deathAnimation: 'Fall_Dead_from_Abdominal_Injury',
+    // Walking strides 1.15 model units a second at 1 (ankle in stance), 4.4 m/s at 3.8: 0.69 for 3 m/s
+    animationSpeed: 0.69,
+    // Running 3.4 units a second at 1, 12.9 m/s: 0.47 for the 6 m/s of his rage
+    runAnimationSpeed: 0.47,
+    // The fall (3.5 s of clip) staggers until 1.75 s, hits the ground
+    // between 2.0 and 2.25 s and still moves until its end
+    // (22 % of his height after 3.0 s). At 1.17 the whole clip plays in
+    // the 3 s to the removal (tools/model-budget/death-rest.spec.ts)
+    deathAnimationSpeed: 1.17,
+    deathDuration: 3000,
+    // The walk's soles 0.04 to 0.08 units under the origin, the fall ends 0.49 units in the ground
+    groundedBake: true,
+    randomSound: 'assets/sounds/enemies/warlord/roar.mp3',
+    randomSoundMinInterval: 12000,
+    randomSoundMaxInterval: 30000,
+    randomSoundVolumeMin: 0.35,
+    randomSoundVolumeMax: 0.7,
+    randomSoundRefDistance: 50,
+    heightOffset: 0,
+    healthBarOffset: 9.5,
+    canBleed: true,
+    headingOffset: 0,
+    randomAnimationStart: true,
+    // 5.8 m across the arms: in the middle of the road, like the tank
+    lateralSpread: 0.5,
+    spawnStartDelay: 1500,
+    previewScale: 2.2,
+    previewCameraDistance: 6,
+    previewCameraAngle: 0.2,
+    previewOffsetY: 0,
+    // Iron plate (metallic) and grey hide on a dark panel: at the default light a dark lump
+    previewLight: 3,
   },
 };
 

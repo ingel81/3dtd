@@ -451,6 +451,8 @@ export class EnemyInstanceManager {
 
     state.currentAnim = walkAnim;
     state.isWalking = true;
+    // The walk's own pace back where the run clip has one (EnemyTypeConfig.runAnimationSpeed)
+    if (state.config.runAnimationSpeed !== undefined) state.animSpeed = state.config.animationSpeed ?? 1.0;
     // Don't reset animTime to preserve continuity
   }
 
@@ -470,6 +472,7 @@ export class EnemyInstanceManager {
 
     state.currentAnim = runAnim;
     state.isWalking = false;
+    if (state.config.runAnimationSpeed !== undefined) state.animSpeed = state.config.runAnimationSpeed;
   }
 
   /**

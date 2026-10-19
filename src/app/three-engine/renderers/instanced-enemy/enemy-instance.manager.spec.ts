@@ -120,6 +120,24 @@ describe('EnemyInstanceManager', () => {
     expect(state.currentAnim).toBe(CONFIG.walkAnimation);
   });
 
+  it('plays a run clip at its own speed where the type gives one, and the walk at its own again', () => {
+    const warlord = ENEMY_TYPES['warlord'];
+    manager.createPool('warlord', fakeVat([warlord.walkAnimation!, warlord.runAnimation!]), warlord);
+    const state = manager.addEnemy('w', 'warlord', new Vector3(), 0)!;
+    expect(state.animSpeed).toBe(warlord.animationSpeed);
+
+    manager.startRunAnimation('w');
+    expect(state.currentAnim).toBe(warlord.runAnimation);
+    expect(state.animSpeed).toBe(warlord.runAnimationSpeed);
+
+    manager.startWalkAnimation('w');
+    expect(state.animSpeed).toBe(warlord.animationSpeed);
+    // A type without one keeps its speed on both clips
+    const smasher = manager.addEnemy('s', 'wallsmasher', new Vector3(), 0)!;
+    manager.startRunAnimation('s');
+    expect(smasher.animSpeed).toBe(CONFIG.animationSpeed);
+  });
+
   it('glows every type through one shared uniform, pools created later included', () => {
     manager.createPool('zombie', fakeVat(CLIPS), ENEMY_TYPES['zombie']);
     manager.setBloodMoon(1, false);

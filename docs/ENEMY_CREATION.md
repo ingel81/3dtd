@@ -56,9 +56,10 @@ generierten Tabellen von [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md#messwerte
 | worm-tail | heavy | 35 | 4.5 | – | Modell des letzten Segments eines Wurms (eigener VAT-Pool): Ring mit Schwanzplatten und Cerci. Steht nicht in den Listen von Custom Wave und Enemy Debug (`debugUnlisted`) |
 | **ooze** | unarmored | 3000 | 3 | – | Boss (2026-09-14), `isBoss`, ein Körper entlang der Route statt eines Modells ([Körper entlang der Route](#körper-entlang-der-route-ooze)), fließt an der HQ Meter für Meter hinein, zerfällt beim Kill in Slime Clumps. Boss-Variante der Endlos-Rotation, kein Template |
 | slime-clump | unarmored | 15 | 4.5 | – | Nur aus dem Split der Ooze, kein Template. `slime.glb` bei `scale: 0.9` (Hüpfer `Wobble`, Tod `Splat`), grünes Blut (`bloodColor`) |
+| **warlord** | heavy | 1500 | 3 | – | Ironclad Warlord (2026-10-19), Elite der schweren Wellen, kein Boss: Ork in Eisenplatten, rund 8 m. Wut unter 35 % (×2 Tempo, 80 % Schaden) mit dem Lauf-Clip, eigener Schritt, Brüllen, Wutschrei, Tod und Plattentreffer. Siehe [Ironclad Warlord](#ironclad-warlord-warlord) |
 
 > **Wellen:** Stone Golem steht im Laufplan (`director/sources/budget/run-plan.json`) in den
-> Wellen 15, 25, 33, 40 (als Golem King) und 53.
+> Wellen 15, 25, 33, 40 (als Golem King) und 53. Der Ironclad Warlord in W28 (3), W43 (4) und W46 (5).
 
 ---
 
@@ -156,7 +157,8 @@ const NEW_ENEMY_MODEL_URL = 'assets/models/enemies/new_enemy.glb';
 | Animation | Erforderlich | Beschreibung |
 |-----------|--------------|--------------|
 | `walkAnimation` | Empfohlen | Standard-Bewegung |
-| `runAnimation` | Optional | Schnellere Bewegung (Alternative zu Walk) |
+| `runAnimation` | Optional | Schnellere Bewegung (Alternative zu Walk); bei einem Typ mit Wut ohne `animationVariation` der Clip der Wut (siehe [Bosse und Elite](#bosse-und-elite-2026-10-02)) |
+| `runAnimationSpeed` | Optional | Abspieltempo des Lauf-Clips bei `baseSpeed` × `runSpeedMultiplier`, sonst `animationSpeed`. Für einen Lauf-Clip, dessen Schritt nicht im Verhältnis der Tempi zum Gang steht (Warlord: Gang 0,69, Lauf 0,47) |
 | `deathAnimation` | Optional | Spielt beim Tod, bis der Gegner nach `deathDuration` (Standard 2 s) entfernt wird. Gebacken wird nur dieser Teil (`animationSpeed` × `deathDuration` Clip-Zeit), der Rest des Clips ist nie zu sehen |
 | `deathAnimations` | Optional | Pool von Todes-Clips, einer zufällig pro Kill; gekürzt wie `deathAnimation` |
 | `deathAnimationSpeed` | Optional | Abspieltempo der Todes-Clips, sonst `animationSpeed`. Das Gangtempo passt zum Schritt, ein Tod darin kann zu schnell sein (Zombie: 4,11, der Sturz von 3 s in 0,7 s) |
@@ -298,7 +300,11 @@ deathSound: 'zombie',        // DEATH_SOUNDS (game-sounds.config.ts), wo ein Tow
 hitSound: 'flesh',           // HIT_SOUNDS, bei Einzelschüssen (HIT_SOUND_PROJECTILES); ohne: stumme Treffer
 splitSound: 'skeletonSplit', // WORLD_SOUNDS, statt des Todes, wenn der Kill den Gegner teilt
 footstep: GOLEM_FOOTSTEP,    // schwerer Schritt, wo der Laufclip einen Fuß aufsetzt (phases), mit Beben in Kameranähe
+rageSound: 'warlord',        // RAGE_SOUNDS, einmal, wo die Wut beginnt (enemy:enraged)
 ```
+
+Die Schritte aller Typen registriert `GameSoundsService` aus `ENEMY_TYPES`; ein neuer `FootstepConfig` braucht dort
+keinen Eintrag.
 
 Gespielt vom `GameSoundsService`, siehe [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md), "Spiel-Sounds".
 
@@ -667,6 +673,13 @@ Schnappschüsse und Replays tragen ihn. Das Paket meldet ihn (`EF_ENRAGED`), die
 Clips und Aussehen des Pools; Name, Boss-Flag, Farbe der Lebensleiste und Werte sind die des Typs. Die Instanz trägt
 dafür eine Größe (`EnemyInstanceState.size`), die Höhe der Lebensleiste wächst mit.
 
+**Wut mit Lauf-Clip.** Die Wut ist keine Boss-Eigenschaft im Code: Jeder Typ mit `traits.rage` hat sie, das Budget
+rechnet sie über `rageFactor` mit, auch ohne `isBoss` (dann ohne Untergrenze, Fähigkeiten wirken voll). Hat der Typ
+einen `runAnimation` und keinen Rush (`animationVariation`), läuft er ab der Wut in diesem Clip
+(`FramePresenter`, Flag `EF_ENRAGED`, einmal je Wechsel); `runSpeedMultiplier` steht dann auf dem Tempo der Wut, damit die
+Kopplung den Clip bei diesem Tempo mit `runAnimationSpeed` spielt. `announceRage` sendet `enemy:enraged`, der
+`GameSoundsService` spielt dort den `rageSound` des Typs. Erster Nutzer: der Ironclad Warlord.
+
 **Eigenes Leck (`leakDamage`).** Was ein Gegner im HQ kostet, statt der Zahl aus seinen HP (`leakDamageOf`). Skarnax
 hat 150 statt 50, verteilt auf seine Segmente.
 
@@ -689,6 +702,26 @@ Schimmer): der Spieler sieht getarnte Gegner deutlich, die Tower weiter nicht. D
 der aus seinem Portal kommt, bringt eine Meldung („Towers only see them near an Archer with the Scout path“) und einen
 Kamerablick dorthin (`services/camo-hint.service.ts`; nicht für Bots, im Tower, im Menü, bei Foto, Replay oder
 Boss-Intro). Das Event trägt die Tarnung (`EnemyRef.camo`, `EnemyView.camo`).
+
+---
+
+## Ironclad Warlord (`warlord`)
+
+Ork in Eisenplatten mit Hammer und Klinge auf dem Rücken, die Elite der schweren Wellen (2026-10-19). Werte und
+Rechnung in [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) §4.
+
+| Punkt | Stand |
+|---|---|
+| Quelle | Meshy-Export des Users, nicht in git wie die Meshy-Tower: `enemies/candidates/meshy/ironclad_warlord.glb` (`.gitignore`), vier Clips `Walking` (1,03 s), `Running` (0,67 s), `Attack` (2,8 s), `Fall_Dead_from_Abdominal_Injury` (3,5 s), 10.375 Dreiecke, 17.040 VAT-Vertices, Bilder 2048² (Grundfarbe, Normalen) und 4096² (Metall/Rauheit) |
+| Rezept | `tools/blender/optimize_enemy.py`, `warlord`: verschweißt, auf 80 % decimiert mit Nahtgewicht (14.136 VAT-Vertices, Elite-Budget 15.000), alle Bilder höchstens 2048², `Attack` raus; danach `models:pack` (1,7 MB). In Nahaufnahmen des Gesichts sah 80 % aus wie die Quelle, 60 % machte Brauen und Augen flach, 41 % (eine VAT-Zeile) verschmierte die Textur |
+| Clips | Gang `Walking` bei 0,69 (Knöchel im Stand 1,15 Modelleinheiten je Sekunde, bei 3,8 also 4,4 m/s; für 3 m/s), Lauf `Running` bei 0,47 (3,4 Einheiten je Sekunde, 12,9 m/s; für die 6 m/s der Wut), Tod mit 1,17 ganz in den 3 s bis zum Entfernen (`death-rest.spec.ts`), `groundedBake` (der Sturz endet 0,49 Einheiten im Boden). Kein Idle und kein Treffer-Clip: das Spiel backt nur Gang, Lauf und Tod |
+| Größe | `scale` 3,8, `modelRangeY` 0 bis 2,35 (über alle gebackenen Frames), stehend rund 8 m, Lebensleiste 9,5 m, `lateralSpread` 0,5, `spawnStartDelay` 1500 ms |
+| Klang | ElevenLabs (2026-10-19, je drei Varianten, Auswahl nach Spektrogramm): Brüllen als `randomSound` alle 12 bis 30 s Spielzeit, Schritt (`WARLORD_FOOTSTEP`, Fersen bei 0,27 und 0,73 von `Walking`, mit Beben), Wutschrei (`RAGE_SOUNDS.warlord`), Tod (`DEATH_SOUNDS.warlord`), Treffer auf Platte (`HIT_SOUNDS.armor`) |
+| Vorschau | `previewScale` 2,2, `previewLight` 3 (Eisen und graue Haut auf dem dunklen Panel), Bildband `enemy-warlord.webp` |
+
+Grenzen: Der Lauf hat keine Schritte (die Phasen gelten für den Gang). Beim Wechsel zwischen Gang und Lauf springt die
+Pose, der VAT-Shader blendet nicht zwischen Clips. Die Farben im Spiel sind nur per Browser-Probe in DevWorld gesehen,
+nicht auf einer echten Karte.
 
 ---
 

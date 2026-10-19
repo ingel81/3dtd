@@ -439,6 +439,23 @@ Nur Augen und Ohren; Logik, Prüfsummen und Strukturzahlen sind per Spec und Pro
 - **K8 Adresssuche:** Neues Spiel, einen Ort suchen. *Tippen sucht nicht, Hinweis „Enter drücken, um zu suchen“;
   Enter oder die Lupe rechts im Feld suchen, die Liste kommt; die Lupe ist unter drei Zeichen ausgegraut.*
 
+## L Ironclad Warlord (2026-10-19)
+
+Neuer schwerer Elite-Gegner. Logik (Wut, Lauf-Clip, Schrei-Event, Budget) ist per Spec gedeckt, Wut und Lauf-Clip
+einmal per Browser-Probe in DevWorld gesehen; hier Augen und Ohren.
+
+- **L1 Aussehen und Gang:** Developer options › Enemies (Enemy Debug), unter „Placement“ `Ironclad Warlord`, Stecknadel,
+  Klick auf die Route, in „Debug Enemies“ anklicken, „Start“; Kamera nah ran. *Ork in Eisenplatten, gut doppelt so groß
+  wie ein Zombie Soldier, Füße gleiten nicht, er steht auf dem Boden; Farben nicht gelbstichig oder zu dunkel.*
+- **L2 Schritte und Brüllen:** derselbe Gegner, Kamera nah. *Schwere Schritte mit Plattenklirren im Takt der Füße, die
+  Kamera bebt leicht; alle 12 bis 30 s ein tiefes Brüllen; ernst, nicht comichaft.*
+- **L3 Wut:** ein paar Archer an die Route bauen, Wave Debug › „Single“, Type `Ironclad Warlord`, Count 2, „Start Custom
+  Wave“. *Unter gut einem Drittel HP: Wutschrei, „ENRAGED“, rot, er rennt (Lauf-Clip, schneller), Füße gleiten nicht.*
+- **L4 Treffer und Tod:** dieselbe Welle mit einer Kanone. *Treffer klingen dumpf metallisch; beim Tod Stöhnen, dann
+  der Aufschlag der Rüstung; er fällt nach vorn, liegt am Boden und verschwindet erst danach.*
+- **L5 Seitenleiste:** während der Custom Wave aus L3 die Gruppe im Wellen-Panel überfahren. *Name
+  „Ironclad Warlord“, Vorschau dreht sich, Tooltip nennt „Enrages below 35 % of its HP“; auf Deutsch „Wütet unter 35 %“.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo

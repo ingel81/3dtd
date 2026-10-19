@@ -4,6 +4,7 @@ import { FramePresenter, TRAIL_SPAWN_DISTANCE_M, type PresenterEngine } from './
 import {
   EF_ALIVE,
   EF_ANY_STATUS,
+  EF_ENRAGED,
   EF_MOVING,
   EF_RUNNING,
   EF_RUSH,
@@ -23,7 +24,7 @@ import {
   type SimFramePacket,
   type SimTable,
 } from '../sim/protocol/packet';
-import type { EnemyTypeId } from '../configs/enemy-types.config';
+import { ENEMY_TYPES, type EnemyTypeConfig, type EnemyTypeId } from '../configs/enemy-types.config';
 import { STUN_SPARKS } from '../configs/visual-effects.config';
 import { WORM_SOUNDS } from '../configs/audio.config';
 import { veteranLevel } from '../configs/veteran-ranks.config';
@@ -79,7 +80,7 @@ function packet(parts: PacketParts = {}): SimFramePacket {
 }
 
 function makeEngine() {
-  const slots = new Map<string, { isWalking: boolean; released: boolean }>();
+  const slots = new Map<string, { isWalking: boolean; released: boolean; config?: EnemyTypeConfig }>();
   let handles = 0;
   const partner = { present: vi.fn(), setGround: vi.fn(), setOwnerColor: vi.fn() };
   const engine = {
@@ -98,6 +99,7 @@ function makeEngine() {
         return slot;
       }),
       updateSlot: vi.fn(),
+      setMark: vi.fn(),
       beginState: vi.fn(() => 0),
       startRunAnimation: vi.fn((id: string) => { slots.get(id)!.isWalking = false; }),
       startWalkAnimation: vi.fn((id: string) => { slots.get(id)!.isWalking = true; }),
@@ -192,6 +194,18 @@ describe('FramePresenter', () => {
       // Without a rush the clip stays
       presenter.present(packet({ enemies: [enemyRow(8, EF_ALIVE | EF_RUNNING)] }));
       expect(engine.enemies.startRunAnimation).toHaveBeenCalledTimes(1);
+    });
+
+    it('runs a raging enemy whose type has a run clip, once, and leaves a rage without one walking', () => {
+      const { presenter, engine, slots } = setup();
+      slots.set('enemy-7', { isWalking: true, released: false, config: ENEMY_TYPES['warlord'] });
+      slots.set('enemy-8', { isWalking: true, released: false, config: ENEMY_TYPES['herbert'] });
+      const raging = EF_ALIVE | EF_ENRAGED;
+      const rows = [enemyRow(7, raging, { type: 'warlord' }), enemyRow(8, raging, { type: 'herbert' })];
+      presenter.present(packet({ enemies: rows }));
+      presenter.present(packet({ enemies: rows }));
+      expect(engine.enemies.startRunAnimation).toHaveBeenCalledTimes(1);
+      expect(engine.enemies.startRunAnimation).toHaveBeenCalledWith('enemy-7');
     });
 
     it('turns a status look on at its edge, moves it along, turns it off, and stops it when the enemy leaves', () => {

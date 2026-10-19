@@ -50,6 +50,7 @@ Thumbs.db
 /public/assets/models/_new/
 /public/assets/models/_candidates/
 /public/assets/models/towers/candidates/*.blend
+/public/assets/models/enemies/candidates/meshy/
 .claude/settings.local.json
 .worktrees/
 

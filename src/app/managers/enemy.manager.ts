@@ -196,8 +196,9 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.oozes = new OozeBodies(globalRouteGrid, eventBus, () => this.getWaveNumber(), coords, sink);
   }
 
-  /** A boss's rage began: a word over its head, the packet tints it (EF_ENRAGED) */
+  /** A rage began: a word over its head, its roar (enemy:enraged), the packet tints it (EF_ENRAGED) */
   private announceRage(enemy: Enemy): void {
+    this.eventBus.emit({ type: 'enemy:enraged', enemy });
     this.sink.effects.spawnFloatingText(
       'ENRAGED',
       enemy.position.lat,

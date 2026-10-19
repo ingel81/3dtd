@@ -127,6 +127,11 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
         author: 'ingel81',
         license: 'Original work',
       },
+      {
+        name: 'Ironclad Warlord',
+        author: 'ingel81',
+        license: 'Original work',
+      },
     ],
   },
   {

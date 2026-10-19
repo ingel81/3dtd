@@ -54,6 +54,14 @@ export type LifecycleEvent =
       enemy: Enemy;
     }
   | {
+      /**
+       * An enemy's rage began (EnemyTypeConfig.traits.rage, boss-traits), in
+       * the sub-step it fell below its share of HP. Its roar (rageSound).
+       */
+      type: 'enemy:enraged';
+      enemy: Enemy;
+    }
+  | {
       /** A killed enemy split (EnemyTypeConfig.splitOnDeath), after its enemy:died */
       type: 'enemy:split';
       /** The killed enemy */

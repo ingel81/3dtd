@@ -264,6 +264,35 @@ describe('EnemyManager', () => {
     });
   });
 
+  describe('rage (traits.rage)', () => {
+    const path: GeoPosition[] = [
+      { lat: 0, lon: 0, height: 2 },
+      { lat: 0.01, lon: 0, height: 2 },
+    ];
+
+    it("announces the warlord's rage once, in the sub-step he falls below his share, twice as fast from then on", () => {
+      const rage = ENEMY_TYPES['warlord'].traits!.rage!;
+      const warlord = manager.spawn(path, 'warlord');
+      vi.spyOn(warlord.movement, 'move').mockReturnValue('moving' as never);
+      const raged: Enemy[] = [];
+      eventBus.on('enemy:enraged', ({ enemy }) => raged.push(enemy as Enemy));
+      const speed = warlord.movement.speedMps;
+      const max = warlord.health.maxHp;
+      const step = GameClock.FIXED_STEP_MS;
+
+      warlord.health.takeDamage(max * (1 - rage.belowHp) - 1);
+      manager.update(step, step);
+      expect(raged).toEqual([]);
+
+      warlord.health.takeDamage(2);
+      manager.update(step, 2 * step);
+      manager.update(step, 3 * step);
+      expect(raged).toEqual([warlord]);
+      expect(warlord.enraged).toBe(true);
+      expect(warlord.movement.speedMps).toBeCloseTo(speed * rage.speed, 9);
+    });
+  });
+
   describe('kill-budget accumulator', () => {
     const straightPath: GeoPosition[] = [
       { lat: 0, lon: 0, height: 0 },

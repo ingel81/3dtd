@@ -80,6 +80,7 @@ const enemyNames: Record<EnemyTypeId, string> = {
   'slime-clump': 'Slime Clump',
   'golem-king': 'Golem King',
   'dragon-matriarch': 'Dragon Matriarch',
+  warlord: 'Ironclad Warlord',
 };
 
 /** Tower and enemy names: a block of its own, as a language may keep the English ones (docs/I18N_PLAN.md, 8) */
@@ -114,6 +115,7 @@ const epithets: Record<EnemyTypeId, string | null> = {
   'slime-clump': null,
   'golem-king': 'Heart of the Mountain',
   'dragon-matriarch': 'Mother of the Flight',
+  warlord: null,
 };
 
 const paths: Record<TowerPathId, { name: string; description: string }> = {
@@ -1846,6 +1848,8 @@ export const en = {
       splits: (n: number) => `Splits into ${n} ${f.plural(n, 'minion', 'minions')} on death`,
       regenerates: (percent: number) => `Regenerates ${percent} % of its HP a second unless burning`,
       phasing: 'Phasing: cannot be slowed',
+      rages: (percent: number, speed: number, damage: number) =>
+        `Enrages below ${percent} % of its HP: ${f.num(speed, 2)}× as fast, takes ${damage} % damage`,
       hpScale: (x: number) => `HP ×${f.fixed(x, 1)}`,
       speedScale: (x: number) => `Speed ×${f.fixed(x, 2)}`,
       scaled: (parts: string) => `Scaled: ${parts}`,
