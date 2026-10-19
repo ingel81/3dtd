@@ -63,7 +63,7 @@ export class GameplayPanelComponent {
   private edit(label: string, fn: (g: MapGameplay) => void): void {
     const editor = this.session.editor;
     if (!editor) return;
-    this.session.edit('Changing the rules', (e) => e.execute(
+    this.session.edit(this.t().editor.rules.changing, (e) => e.execute(
       SnapshotCommand.record(editor.doc, label, ['gameplay'], (d) => {
         const g: MapGameplay = d.gameplay ?? {};
         fn(g);
@@ -77,21 +77,17 @@ export class GameplayPanelComponent {
     const raw = (e.target as HTMLInputElement).value.trim();
     const v = raw === '' ? undefined : Math.max(key === 'hqHealth' ? 1 : 0, Math.round(Number(raw)));
     if (v !== undefined && !Number.isFinite(v)) return;
-    this.edit(key === 'startCredits' ? 'Start credits' : 'HQ health', (g) => (g[key] = v));
+    this.edit(key === 'startCredits' ? this.t().editor.rules.startCredits : this.t().editor.rules.hqHealth, (g) => (g[key] = v));
   }
 
-  readonly vacantChoices: { id: VacantLanes; label: string; hint: string }[] = [
-    { id: 'close', label: 'Close', hint: 'At the start, lanes no player holds close' },
-    { id: 'host', label: 'To the host', hint: 'The host takes every lane no player holds' },
-    { id: 'split', label: 'Share out', hint: 'Lanes no player holds go to the players in turn' },
-  ];
+  readonly vacantChoices: readonly VacantLanes[] = ['close', 'host', 'split'];
 
   /** Fewest or most lanes open; empty: 1 and all */
   setLaneCount(key: 'min' | 'max', e: Event): void {
     const raw = (e.target as HTMLInputElement).value.trim();
     const v = raw === '' ? undefined : Math.max(1, Math.round(Number(raw)));
     if (v !== undefined && !Number.isFinite(v)) return;
-    this.edit(key === 'min' ? 'Fewest lanes' : 'Most lanes', (g) => {
+    this.edit(key === 'min' ? this.t().editor.rules.fewestLanes : this.t().editor.rules.mostLanes, (g) => {
       const lanes = { ...g.lanes, [key]: v };
       if (lanes.min !== undefined && lanes.max !== undefined && lanes.min > lanes.max) lanes[key === 'min' ? 'max' : 'min'] = v;
       g.lanes = pruned(lanes);
@@ -105,11 +101,11 @@ export class GameplayPanelComponent {
   setDifficulty(percent: number): void {
     const v = Math.min(MAP_DIFFICULTY.max, Math.max(MAP_DIFFICULTY.min, Math.round(percent)));
     if (v === this.difficulty()) return;
-    this.edit('Difficulty', (g) => (g.difficulty = v === MAP_DIFFICULTY.normal ? undefined : v));
+    this.edit(this.t().editor.rules.difficulty, (g) => (g.difficulty = v === MAP_DIFFICULTY.normal ? undefined : v));
   }
 
   setDestructible(on: boolean): void {
-    this.edit('Destructible', (g) => (g.destructible = on ? true : undefined));
+    this.edit(this.t().editor.rules.destructibleStep, (g) => (g.destructible = on ? true : undefined));
   }
 
   /** Craters follow the destruction unless the map says otherwise (CustomMapWorld.runRules) */
@@ -135,7 +131,7 @@ export class GameplayPanelComponent {
   }
 
   setVacant(vacant: VacantLanes): void {
-    this.edit('Coop lanes', (g) => (g.lanes = pruned({ ...g.lanes, vacant: vacant === 'close' ? undefined : vacant })));
+    this.edit(this.t().editor.rules.coopLanes, (g) => (g.lanes = pruned({ ...g.lanes, vacant: vacant === 'close' ? undefined : vacant })));
   }
 
   allowed(id: string): boolean {
@@ -144,7 +140,7 @@ export class GameplayPanelComponent {
   }
 
   toggleTower(id: string, on: boolean): void {
-    this.edit('Towers', (g) => {
+    this.edit(this.t().editor.rules.towersStep, (g) => {
       const now = new Set(g.towers ?? this.towers().map((t) => t.id));
       if (on) now.add(id);
       else now.delete(id);
@@ -153,11 +149,11 @@ export class GameplayPanelComponent {
   }
 
   allTowers(on: boolean): void {
-    this.edit('Towers', (g) => (g.towers = on ? undefined : []));
+    this.edit(this.t().editor.rules.towersStep, (g) => (g.towers = on ? undefined : []));
   }
 
   setSource(kind: 'budget' | 'table'): void {
-    this.edit('Wave source', (g) => {
+    this.edit(this.t().editor.rules.waveSource, (g) => {
       if (kind === 'budget') g.waves = undefined;
       else if (g.waves?.kind !== 'table') g.waves = { kind: 'table', table: { cycle: { fromWave: 1, hpGrowth: 1.5 }, waves: [] } };
     });
@@ -165,7 +161,7 @@ export class GameplayPanelComponent {
 
   /** Starts the list from the game's own wave list */
   copyGameList(): void {
-    this.edit('Wave list', (g) => {
+    this.edit(this.t().editor.rules.waveList, (g) => {
       g.waves = { kind: 'table', table: structuredClone(WAVE_TABLE) as unknown as MapWaveTable };
     });
   }
@@ -179,21 +175,21 @@ export class GameplayPanelComponent {
   }
 
   addRow(): void {
-    this.editTable('Add wave', (t) => {
+    this.editTable(this.t().editor.rules.addWave, (t) => {
       const last = t.waves.at(-1);
-      t.waves.push(last ? { ...structuredClone(last), name: `Wave ${t.waves.length + 1}`, hpMult: Math.round(last.hpMult * 1.15 * 100) / 100 } : { wave: 1, name: 'Wave 1', enemies: { [this.enemies()[0].id]: 10 }, hpMult: 1, spawnDelay: 800 });
+      t.waves.push(last ? { ...structuredClone(last), name: this.t().editor.rules.waveName(t.waves.length + 1), hpMult: Math.round(last.hpMult * 1.15 * 100) / 100 } : { wave: 1, name: this.t().editor.rules.waveName(1), enemies: { [this.enemies()[0].id]: 10 }, hpMult: 1, spawnDelay: 800 });
     });
     this.open.set((this.table()?.waves.length ?? 1) - 1);
   }
 
   removeRow(index: number): void {
-    this.editTable('Remove wave', (t) => t.waves.splice(index, 1));
+    this.editTable(this.t().editor.rules.removeWave, (t) => t.waves.splice(index, 1));
     this.open.set(null);
   }
 
   setRow(index: number, key: 'name' | 'hpMult' | 'spawnDelay', e: Event): void {
     const raw = (e.target as HTMLInputElement).value;
-    this.editTable('Wave', (t) => {
+    this.editTable(this.t().editor.rules.wave, (t) => {
       const row = t.waves[index] as MapWaveRow;
       if (key === 'name') row.name = raw.trim() || row.name;
       else {
@@ -204,7 +200,7 @@ export class GameplayPanelComponent {
   }
 
   setEnemy(index: number, type: string, count: number, previous?: string): void {
-    this.editTable('Wave enemies', (t) => {
+    this.editTable(this.t().editor.rules.waveEnemies, (t) => {
       const row = t.waves[index];
       if (previous && previous !== type) delete row.enemies[previous];
       if (count > 0) row.enemies[type] = Math.round(count);
@@ -222,7 +218,7 @@ export class GameplayPanelComponent {
   setCycle(key: 'fromWave' | 'hpGrowth', e: Event): void {
     const v = Number((e.target as HTMLInputElement).value);
     if (!Number.isFinite(v)) return;
-    this.editTable('Repeat rule', (t) => (t.cycle[key] = key === 'fromWave' ? Math.max(1, Math.round(v)) : v));
+    this.editTable(this.t().editor.rules.repeatRule, (t) => (t.cycle[key] = key === 'fromWave' ? Math.max(1, Math.round(v)) : v));
   }
 
   entries(row: MapWaveRow): [string, number][] {

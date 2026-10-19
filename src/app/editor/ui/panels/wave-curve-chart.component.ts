@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
 import { WAVE_TABLE, type WaveTable } from '../../../director/sources/table/wave-table';
 import { shortNumber, waveCurve, type WavePoint } from './wave-curve';
+import { injectT } from '../../../i18n/i18n.service';
 
 const W = 300;
 const H = 110;
@@ -18,12 +19,12 @@ const PAD = { left: 30, right: 6, top: 6, bottom: 16 };
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-stack' },
   template: `
-    <span class="td-label">HP per wave and lane <span class="td-note">(log scale)</span></span>
-    <svg class="wc-svg" [attr.viewBox]="'0 0 ' + w + ' ' + h" role="img" aria-label="HP per wave of this list and of the game's list"
+    <span class="td-label">{{ t().editor.waveCurve.title }} <span class="td-note">{{ t().editor.waveCurve.log }}</span></span>
+    <svg class="wc-svg" [attr.viewBox]="'0 0 ' + w + ' ' + h" role="img" [attr.aria-label]="t().editor.waveCurve.label"
          (pointermove)="hover($event)" (pointerleave)="picked.set(null)" data-test="wave-curve">
-      @for (t of ticks(); track t.v) {
-        <line class="wc-grid" [attr.x1]="pad.left" [attr.x2]="w - pad.right" [attr.y1]="t.y" [attr.y2]="t.y" />
-        <text class="wc-tick" font-size="7" [attr.x]="pad.left - 3" [attr.y]="t.y + 3" text-anchor="end">{{ t.label }}</text>
+      @for (tick of ticks(); track tick.v) {
+        <line class="wc-grid" [attr.x1]="pad.left" [attr.x2]="w - pad.right" [attr.y1]="tick.y" [attr.y2]="tick.y" />
+        <text class="wc-tick" font-size="7" [attr.x]="pad.left - 3" [attr.y]="tick.y + 3" text-anchor="end">{{ tick.label }}</text>
       }
       <polyline class="wc-game" [attr.points]="line(game())" />
       <polyline class="wc-own" [attr.points]="line(own())" />
@@ -34,15 +35,14 @@ const PAD = { left: 30, right: 6, top: 6, bottom: 16 };
       <text class="wc-tick" font-size="7" [attr.x]="pad.left" [attr.y]="h - 3">1</text>
       <text class="wc-tick" font-size="7" [attr.x]="w - pad.right" [attr.y]="h - 3" text-anchor="end">{{ count() }}</text>
     </svg>
-    <div class="wc-legend td-note"><span class="wc-key is-own"></span>This list <span class="wc-key is-game"></span>The game's list</div>
+    <div class="wc-legend td-note"><span class="wc-key is-own"></span>{{ t().editor.waveCurve.thisList }} <span class="wc-key is-game"></span>{{ t().editor.waveCurve.gameList }}</div>
     @if (point(); as p) {
       <p class="td-note td-num" data-test="wave-curve-readout">
-        Wave {{ p.wave }} {{ p.name }}: {{ p.enemies }} enemies, {{ short(p.hp) }} HP (game's list {{ short(gameAt(p.wave)) }}),
-        all through {{ p.leak }} of {{ hq() }} HQ health, spawning {{ p.seconds }} s
+        {{ t().editor.waveCurve.readout({ wave: p.wave, name: p.name, enemies: p.enemies, hp: short(p.hp), game: short(gameAt(p.wave)), leak: p.leak, hq: hq(), seconds: p.seconds }) }}
       </p>
     }
     @if (overrun(); as o) {
-      <p class="td-note">Wave {{ o.wave }} on one lane alone could take the whole HQ ({{ o.leak }} of {{ hq() }}) if the defense lets it through.</p>
+      <p class="td-note">{{ t().editor.waveCurve.overrun(o.wave, o.leak, hq()) }}</p>
     }
   `,
   styles: [
@@ -59,6 +59,7 @@ const PAD = { left: 30, right: 6, top: 6, bottom: 16 };
   ],
 })
 export class WaveCurveChartComponent {
+  protected readonly t = injectT();
   /** The map's own list */
   readonly table = input.required<WaveTable>();
   /** The HQ health of the map's rules */

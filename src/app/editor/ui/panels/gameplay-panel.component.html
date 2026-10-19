@@ -1,15 +1,15 @@
-<p class="td-note">These rules travel with the map. Empty fields keep the game's defaults.</p>
+<p class="td-note">{{ t().editor.rules.intro }}</p>
 
 <div class="td-group">
-  <h3 class="td-section">Start</h3>
+  <h3 class="td-section">{{ t().editor.rules.start }}</h3>
   <div class="gp-pair">
     <label class="td-field">
-      <span class="td-label">Credits</span>
+      <span class="td-label">{{ t().editor.rules.credits }}</span>
       <input class="td-input is-sm" type="number" min="0" step="10" [placeholder]="defaults.credits" [value]="gp().startCredits ?? ''"
              (change)="setNumber('startCredits', $event)" data-test="start-credits" />
     </label>
     <label class="td-field">
-      <span class="td-label">HQ health</span>
+      <span class="td-label">{{ t().editor.rules.hqHealth }}</span>
       <input class="td-input is-sm" type="number" min="1" step="50" [placeholder]="defaults.health" [value]="gp().hqHealth ?? ''"
              (change)="setNumber('hqHealth', $event)" />
     </label>
@@ -17,35 +17,35 @@
 </div>
 
 <div class="td-group">
-  <h3 class="td-section">Lanes</h3>
-  <p class="td-note">Mark spawns as optional under Markers: the player picks which of them are open before wave 1. Every open lane brings a full wave.</p>
+  <h3 class="td-section">{{ t().editor.rules.lanes }}</h3>
+  <p class="td-note">{{ t().editor.rules.lanesNote }}</p>
   <div class="gp-pair">
     <label class="td-field">
-      <span class="td-label">Fewest open</span>
+      <span class="td-label">{{ t().editor.rules.fewestOpen }}</span>
       <input class="td-input is-sm" type="number" min="1" step="1" placeholder="1" [value]="gp().lanes?.min ?? ''"
              (change)="setLaneCount('min', $event)" data-test="lanes-min" />
     </label>
     <label class="td-field">
-      <span class="td-label">Most open</span>
-      <input class="td-input is-sm" type="number" min="1" step="1" placeholder="all" [value]="gp().lanes?.max ?? ''"
+      <span class="td-label">{{ t().editor.rules.mostOpen }}</span>
+      <input class="td-input is-sm" type="number" min="1" step="1" [placeholder]="t().editor.rules.all" [value]="gp().lanes?.max ?? ''"
              (change)="setLaneCount('max', $event)" data-test="lanes-max" />
     </label>
   </div>
   <div class="td-field">
-    <span class="td-label" id="gp-vacant">Coop: lanes nobody holds</span>
+    <span class="td-label" id="gp-vacant">{{ t().editor.rules.vacantLabel }}</span>
     <div class="td-seg is-sm" role="radiogroup" aria-labelledby="gp-vacant">
-      @for (v of vacantChoices; track v.id) {
-        <button type="button" role="radio" [attr.aria-checked]="(gp().lanes?.vacant ?? 'close') === v.id" (click)="setVacant(v.id)" [matTooltip]="v.hint">{{ v.label }}</button>
+      @for (v of vacantChoices; track v) {
+        <button type="button" role="radio" [attr.aria-checked]="(gp().lanes?.vacant ?? 'close') === v" (click)="setVacant(v)" [matTooltip]="t().editor.rules.vacant[v].hint">{{ t().editor.rules.vacant[v].label }}</button>
       }
     </div>
   </div>
 </div>
 
 <div class="td-group">
-  <h3 class="td-section">Destruction</h3>
+  <h3 class="td-section">{{ t().editor.rules.world }}</h3>
   <label class="td-check">
     <input class="td-switch" type="checkbox" [checked]="gp().destructible === true" (change)="setDestructible($any($event.target).checked)" data-test="destructible" />
-    <span>Buildings, walls and structures take damage from shots and fall</span>
+    <span>{{ t().editor.rules.destructible }}</span>
   </label>
   <label class="td-check">
     <input class="td-switch" type="checkbox" [checked]="craters()" (change)="setCraters($any($event.target).checked)" data-test="craters" />
@@ -65,41 +65,41 @@
 <app-wave-events-panel />
 
 <div class="td-group">
-  <h3 class="td-section">Towers <span class="td-note">{{ gp().towers ? gp().towers!.length + ' allowed' : 'all allowed' }}</span></h3>
+  <h3 class="td-section">{{ t().editor.rules.towers }} <span class="td-note">{{ gp().towers ? t().editor.rules.allowed(gp().towers!.length) : t().editor.rules.allAllowed }}</span></h3>
   <div class="gp-towers">
-    @for (t of towers(); track t.id) {
+    @for (tw of towers(); track tw.id) {
       <label class="td-check gp-tower">
-        <input class="td-switch" type="checkbox" [checked]="allowed(t.id)" (change)="toggleTower(t.id, $any($event.target).checked)" />
-        <span class="td-trunc">{{ t.name }}</span>
+        <input class="td-switch" type="checkbox" [checked]="allowed(tw.id)" (change)="toggleTower(tw.id, $any($event.target).checked)" />
+        <span class="td-trunc">{{ tw.name }}</span>
       </label>
     }
   </div>
   <div class="td-actions is-start">
-    <button class="td-btn-ghost td-btn-sm" type="button" (click)="allTowers(true)">All</button>
-    <button class="td-btn-ghost td-btn-sm" type="button" (click)="allTowers(false)">None</button>
+    <button class="td-btn-ghost td-btn-sm" type="button" (click)="allTowers(true)">{{ t().editor.rules.allButton }}</button>
+    <button class="td-btn-ghost td-btn-sm" type="button" (click)="allTowers(false)">{{ t().editor.rules.none }}</button>
   </div>
 </div>
 
 <div class="td-group">
-  <h3 class="td-section">Waves</h3>
-  <div class="td-seg is-sm" role="radiogroup" aria-label="Wave source">
+  <h3 class="td-section">{{ t().editor.rules.waves }}</h3>
+  <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.rules.waveSource">
     <button type="button" role="radio" [attr.aria-checked]="!table()" (click)="setSource('budget')"
-            matTooltip="The game's budget source: waves sized against the defense">Game waves</button>
-    <button type="button" role="radio" [attr.aria-checked]="!!table()" (click)="setSource('table')" data-test="own-waves">Own list</button>
+            [matTooltip]="t().editor.rules.gameWavesTip">{{ t().editor.rules.gameWaves }}</button>
+    <button type="button" role="radio" [attr.aria-checked]="!!table()" (click)="setSource('table')" data-test="own-waves">{{ t().editor.rules.ownList }}</button>
   </div>
-  <app-editor-range label="Difficulty" unit="%" [min]="difficultyRange.min" [max]="difficultyRange.max" [step]="5"
+  <app-editor-range [label]="t().editor.rules.difficulty" unit="%" [min]="difficultyRange.min" [max]="difficultyRange.max" [step]="5"
                     [value]="difficulty()" (changed)="setDifficulty($event)" data-test="difficulty"
-                    matTooltip="Scales the budget of every game wave (100 % is the game's). The game still adjusts to how the waves go." />
+                    [matTooltip]="t().editor.rules.difficultyTip" />
   @if (table()) {
-    <p class="td-note">The difficulty scales the game's waves only; your own list keeps its HP factors.</p>
+    <p class="td-note">{{ t().editor.rules.difficultyNote }}</p>
   }
-  @if (table(); as t) {
+  @if (table(); as tbl) {
     <div class="td-actions is-start">
-      <button class="td-btn-secondary td-btn-sm" type="button" (click)="copyGameList()" matTooltip="Replace this list with the game's fixed wave list to start from">Start from the game's list</button>
-      <button class="td-btn-secondary td-btn-sm" type="button" (click)="addRow()">Add wave</button>
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="copyGameList()" [matTooltip]="t().editor.rules.copyTip">{{ t().editor.rules.copy }}</button>
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="addRow()">{{ t().editor.rules.addWave }}</button>
     </div>
     <div class="td-rows gp-rows">
-      @for (row of t.waves; track $index; let i = $index) {
+      @for (row of tbl.waves; track $index; let i = $index) {
         <div class="gp-row">
           <button class="td-row gp-head" type="button" [attr.aria-expanded]="open() === i" (click)="open.set(open() === i ? null : i)">
             <span class="td-num gp-n">{{ row.wave }}</span>
@@ -109,56 +109,56 @@
           @if (open() === i) {
             <div class="gp-edit td-well">
               <label class="td-field">
-                <span class="td-label">Name</span>
+                <span class="td-label">{{ t().editor.rules.name }}</span>
                 <input class="td-input is-sm" type="text" [value]="row.name" (change)="setRow(i, 'name', $event)" />
               </label>
               <div class="gp-pair">
                 <label class="td-field">
-                  <span class="td-label">HP factor</span>
+                  <span class="td-label">{{ t().editor.rules.hpFactor }}</span>
                   <input class="td-input is-sm" type="number" min="0.05" step="0.05" [value]="row.hpMult" (change)="setRow(i, 'hpMult', $event)" />
                 </label>
                 <label class="td-field">
-                  <span class="td-label">Spawn every (ms)</span>
+                  <span class="td-label">{{ t().editor.rules.spawnEvery }}</span>
                   <input class="td-input is-sm" type="number" min="5" step="50" [value]="row.spawnDelay" (change)="setRow(i, 'spawnDelay', $event)" />
                 </label>
               </div>
               @for (e of entries(row); track e[0]) {
                 <div class="gp-enemy">
-                  <select class="td-select is-sm" (change)="setEnemy(i, value($event), e[1], e[0])" [attr.aria-label]="'Enemy of wave ' + row.wave">
+                  <select class="td-select is-sm" (change)="setEnemy(i, value($event), e[1], e[0])" [attr.aria-label]="t().editor.rules.enemyOf(row.wave)">
                     @for (en of enemies(); track en.id) {
                       <option [value]="en.id" [selected]="en.id === e[0]">{{ en.name }}</option>
                     }
                   </select>
-                  <input class="td-input is-sm" type="number" min="0" [value]="e[1]" (change)="setEnemy(i, e[0], num($event))" [attr.aria-label]="'Count of ' + enemyName(e[0])" />
-                  <button class="td-tool is-sm" type="button" aria-label="Remove" (click)="setEnemy(i, e[0], 0)"><td-icon name="trash" [size]="14" /></button>
+                  <input class="td-input is-sm" type="number" min="0" [value]="e[1]" (change)="setEnemy(i, e[0], num($event))" [attr.aria-label]="t().editor.rules.countOf(enemyName(e[0]))" />
+                  <button class="td-tool is-sm" type="button" [attr.aria-label]="t().editor.rules.remove" (click)="setEnemy(i, e[0], 0)"><td-icon name="trash" [size]="14" /></button>
                 </div>
               }
               <div class="td-actions is-split">
-                <button class="td-btn-ghost td-btn-sm" type="button" (click)="addEnemy(i)">Add enemy</button>
-                <button class="td-btn-danger td-btn-sm" type="button" (click)="removeRow(i)">Remove wave</button>
+                <button class="td-btn-ghost td-btn-sm" type="button" (click)="addEnemy(i)">{{ t().editor.rules.addEnemy }}</button>
+                <button class="td-btn-danger td-btn-sm" type="button" (click)="removeRow(i)">{{ t().editor.rules.removeWave }}</button>
               </div>
             </div>
           }
         </div>
       } @empty {
-        <p class="td-note">No waves yet: add one or start from the game's list.</p>
+        <p class="td-note">{{ t().editor.rules.noWaves }}</p>
       }
     </div>
     <div class="gp-pair">
       <label class="td-field">
-        <span class="td-label">Then repeat from wave</span>
-        <input class="td-input is-sm" type="number" min="1" [value]="t.cycle.fromWave" (change)="setCycle('fromWave', $event)" />
+        <span class="td-label">{{ t().editor.rules.repeatFrom }}</span>
+        <input class="td-input is-sm" type="number" min="1" [value]="tbl.cycle.fromWave" (change)="setCycle('fromWave', $event)" />
       </label>
       <label class="td-field">
-        <span class="td-label">HP times per round</span>
-        <input class="td-input is-sm" type="number" min="1" step="0.05" [value]="t.cycle.hpGrowth" (change)="setCycle('hpGrowth', $event)" />
+        <span class="td-label">{{ t().editor.rules.hpGrowth }}</span>
+        <input class="td-input is-sm" type="number" min="1" step="0.05" [value]="tbl.cycle.hpGrowth" (change)="setCycle('hpGrowth', $event)" />
       </label>
     </div>
     @for (p of problems(); track $index) {
       <p class="td-note is-warn">{{ p }}</p>
     }
-    @if (t.waves.length) {
-      <app-wave-curve-chart [table]="$any(t)" [hq]="gp().hqHealth ?? defaults.health" />
+    @if (tbl.waves.length) {
+      <app-wave-curve-chart [table]="$any(tbl)" [hq]="gp().hqHealth ?? defaults.health" />
     }
   }
 </div>

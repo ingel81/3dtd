@@ -122,7 +122,7 @@ export class ObjectTool implements EditorTool {
         if (!p.hit) return true;
         const erase = s.mode === 'erase' || p.shift;
         if (s.mode === 'scatter' && !erase && !this.scatterAssets(ctx).length) {
-          ctx.status('Choose one or more assets to scatter');
+          ctx.status(ctx.t().editor.objectTool.chooseScatter);
           return true;
         }
         const doc = ctx.editor.doc;
@@ -216,7 +216,7 @@ export class ObjectTool implements EditorTool {
       const current = p.shift ? this.selected(ctx) : [];
       const all = [...new Set([...current, ...ids])];
       ctx.editor.select(all.length ? { kind: 'objects', ids: all } : null);
-      ctx.status(`${ids.length} objects selected`);
+      ctx.status(ctx.t().editor.objectTool.selected(ids.length));
       return;
     }
     const command = ObjectsCommand.fromStates(gizmoLabel(ctx), ctx.editor.doc, drag.before);
@@ -302,29 +302,29 @@ export class ObjectTool implements EditorTool {
     if (!e.ctrlKey && !e.metaKey && k === 'l' && s.mode === 'select') {
       const space = s.space === 'local' ? 'global' : 'local';
       patch(ctx.settings.objects, { space });
-      ctx.status(space === 'local' ? 'Arrows follow the object' : 'Arrows follow the map');
+      ctx.status(space === 'local' ? ctx.t().editor.objectTool.arrowsObject : ctx.t().editor.objectTool.arrowsMap);
       return true;
     }
     if ((e.ctrlKey || e.metaKey) && k === 'g' && sel.length) {
       const doc = ctx.editor.doc;
       if (e.shiftKey) {
-        ctx.editor.execute(ObjectsCommand.change('Ungroup', doc, sel, (o) => {
+        ctx.editor.execute(ObjectsCommand.change(ctx.t().editor.objectTool.ungroup, doc, sel, (o) => {
           const next = { ...o };
           delete next.group;
           return next;
         }));
-        ctx.status(`${sel.length} objects ungrouped`);
+        ctx.status(ctx.t().editor.objectTool.ungrouped(sel.length));
       } else if (sel.length > 1) {
         const group = freeGroup(doc.objects);
-        ctx.editor.execute(ObjectsCommand.change('Group', doc, sel, (o) => ({ ...o, group })));
-        ctx.status(`Group ${group}: ${sel.length} objects, picked and moved together (Ctrl+Shift+G ungroups)`);
+        ctx.editor.execute(ObjectsCommand.change(ctx.t().editor.objectTool.group, doc, sel, (o) => ({ ...o, group })));
+        ctx.status(ctx.t().editor.objectTool.grouped(group, sel.length));
       }
       return true;
     }
     if (e.key === 'End' && sel.length) {
       // A rock settles onto its plate: on a slope its middle sinks below the ground
       const t = ctx.editor.doc.terrain;
-      ctx.editor.execute(ObjectsCommand.change('Drop to the ground', ctx.editor.doc, sel, (o) => setDown(t, { ...o, z: 0 }, rockShape(ctx.catalog.object(o.asset)), false)));
+      ctx.editor.execute(ObjectsCommand.change(ctx.t().editor.objects.undo.drop, ctx.editor.doc, sel, (o) => setDown(t, { ...o, z: 0 }, rockShape(ctx.catalog.object(o.asset)), false)));
       return true;
     }
     if (!e.ctrlKey && !e.metaKey && (k === 'w' || k === 'e' || k === 'r')) {
@@ -332,14 +332,14 @@ export class ObjectTool implements EditorTool {
       return true;
     }
     if ((e.key === 'Delete' || e.key === 'Backspace') && sel.length) {
-      ctx.editor.execute(ObjectsCommand.remove(sel.length === 1 ? 'Delete object' : `Delete ${sel.length} objects`, ctx.editor.doc, sel));
+      ctx.editor.execute(ObjectsCommand.remove(sel.length === 1 ? ctx.t().editor.objects.undo.deleteOne : ctx.t().editor.objects.undo.deleteMany(sel.length), ctx.editor.doc, sel));
       ctx.editor.select(null);
       return true;
     }
     if ((e.ctrlKey || e.metaKey) && k === 'd' && sel.length) {
       const step = Math.max(2, s.snap || 4);
       const copies = duplicateObjects(ctx.editor.doc, sel, { x: step, y: -step });
-      ctx.editor.execute(ObjectsCommand.add('Duplicate', ctx.editor.doc, copies));
+      ctx.editor.execute(ObjectsCommand.add(ctx.t().editor.objects.undo.duplicate, ctx.editor.doc, copies));
       ctx.editor.select({ kind: 'objects', ids: copies.map((o) => o.id) });
       return true;
     }
@@ -349,7 +349,7 @@ export class ObjectTool implements EditorTool {
       const ids = all.filter((o) => ctx.objectVisible(o)).map((o) => o.id);
       ctx.editor.select(ids.length ? { kind: 'objects', ids } : null);
       const hidden = all.length - ids.length;
-      ctx.status(hidden ? `${ids.length} objects selected, ${hidden} hidden ones left out` : `${ids.length} objects selected`);
+      ctx.status(hidden ? ctx.t().editor.objectTool.selectedHidden(ids.length, hidden) : ctx.t().editor.objectTool.selected(ids.length));
       return true;
     }
     return false;
@@ -371,7 +371,7 @@ export class ObjectTool implements EditorTool {
     patch(ctx.settings.objects, { rotation: round(wrap((next * Math.PI) / 180), 1000) });
     if (s.randomRotation) {
       patch(ctx.settings.objects, { randomRotation: false });
-      ctx.status('Turn at random is off: the turn keys set the turn');
+      ctx.status(ctx.t().editor.objectTool.randomOff);
     }
   }
 
@@ -441,25 +441,24 @@ export class ObjectTool implements EditorTool {
 
   hint(ctx: ToolContext): string {
     const s = ctx.settings.objects();
+    const says = ctx.t().editor.objectTool;
     switch (s.mode) {
       case 'place': {
-        if (!s.asset) return 'Choose an asset, then click to place it';
-        const turn = this.placeAt?.road != null ? 'facing the road' : s.randomRotation ? 'turned at random' : `turned ${Math.round((s.rotation * 180) / Math.PI) % 360} deg`;
-        return `Click to place ${ctx.catalog.object(s.asset).name}, ${turn} | Q E or Shift+wheel turn ${s.turnStep} deg, Shift+Q E 90`;
+        if (!s.asset) return says.hintChoose;
+        const turn = this.placeAt?.road != null ? says.facingRoad : s.randomRotation ? says.turnedRandom : says.turned(Math.round((s.rotation * 180) / Math.PI) % 360);
+        return says.hintPlace(ctx.catalog.object(s.asset).name, turn, s.turnStep);
       }
       case 'scatter':
-        return 'Hold to scatter, Shift thins out | [ ] size';
+        return says.hintScatter;
       case 'erase':
-        return 'Hold to remove objects under the brush';
+        return says.hintErase;
       case 'line': {
         const kit = wallKitOf(s.asset);
-        if (kit) return s.line.follow === 'roads' ? `Click a road or river: a ${kit.name.toLowerCase()} along it` : `Drag a line: a ${kit.name.toLowerCase()} along it, end on its start for a ring`;
-        return s.line.follow === 'roads'
-          ? 'Click a road or river: objects along it, every few metres'
-          : 'Drag a line: objects along it, every few metres';
+        if (kit) return s.line.follow === 'roads' ? says.hintKitRoads(kit.name) : says.hintKitLine(kit.name);
+        return s.line.follow === 'roads' ? says.hintLineRoads : says.hintLine;
       }
       case 'select':
-        return 'Click, drag a box or Alt drag a lasso | arrows move along an axis, blue lifts (W E R, L local) | Del delete | Ctrl+D duplicate | End to the ground';
+        return says.hintSelect;
     }
   }
 
@@ -468,7 +467,7 @@ export class ObjectTool implements EditorTool {
     const s = ctx.settings.objects();
     if (!p.hit) return true;
     if (!s.asset) {
-      ctx.status('Choose an asset first');
+      ctx.status(ctx.t().editor.objectTool.chooseAsset);
       return true;
     }
     if (s.line.follow === 'free') {
@@ -480,7 +479,7 @@ export class ObjectTool implements EditorTool {
     const river = nearestRiver(doc, p.hit);
     const line = road && (!river || road.dist <= river.dist) ? edgePolyline(doc.paths, road.edge) : river?.points ?? null;
     if (!line) {
-      ctx.status('No road or river here: click on one, or draw freely');
+      ctx.status(ctx.t().editor.objectTool.noRoad);
       return true;
     }
     this.placeAlong(line, ctx);
@@ -501,22 +500,22 @@ export class ObjectTool implements EditorTool {
         : objectsAlong(line, s.asset!, s.line, ids, Math.random)
     ).filter((o) => insideMap(t, o));
     if (!own.length) {
-      if (kit) ctx.status('The line is too short for a wall');
+      if (kit) ctx.status(ctx.t().editor.objectTool.tooShort);
       return;
     }
     const images = objectImages(own, symmetryImages(ctx.settings.symmetry(), t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
     const entry = ctx.catalog.object(s.asset!);
-    const label = kit ? `${kit.name} along a line` : `${ctx.catalog.object(s.asset!).name} along a line`;
+    const label = ctx.t().editor.objectTool.alongLine(kit ? kit.name : ctx.catalog.object(s.asset!).name);
     const ground = levelForBuildings(doc, label, [...own, ...images], entry);
     const placed = [...own, ...images].map((o) => setDown(t, o, rockShape(entry), s.alignToSlope && !entry.float, entry.radius));
     ctx.editor.execute(withGround(label, ground, ObjectsCommand.add(label, doc, placed)));
-    ctx.status(`${placed.length} objects placed along ${Math.round(lineLength(line))} m`);
+    ctx.status(ctx.t().editor.objectTool.placedAlong(placed.length, lineLength(line)));
   }
 
   private place(p: ToolPointer, ctx: ToolContext): void {
     const s = ctx.settings.objects();
     if (!s.asset) {
-      ctx.status('Choose an asset first');
+      ctx.status(ctx.t().editor.objectTool.chooseAsset);
       return;
     }
     const doc = ctx.editor.doc;
@@ -541,7 +540,7 @@ export class ObjectTool implements EditorTool {
       return road === null ? o : { ...o, rotation: road };
     });
     // Each copy tilts with its own ground: a mirror image does not lean as the original does
-    const label = `Place ${entry.name}`;
+    const label = ctx.t().editor.objectTool.place(entry.name);
     // A building levels its ground first, in the same step
     const ground = levelForBuildings(doc, label, [object, ...images], entry);
     const placed = [object, ...images].map((o) => setDown(t, o, rockShape(entry), s.alignToSlope && !entry.float, entry.radius));
@@ -769,13 +768,14 @@ export class ObjectTool implements EditorTool {
       ...b.removed,
       ...b.added.map((o) => ({ before: null, after: { ...o }, index: at.get(o.id) ?? -1 })),
     ];
-    const label = b.erase ? `Remove ${b.removed.length} objects` : `Scatter ${b.added.length} objects`;
+    const label = b.erase ? ctx.t().editor.objectTool.removeMany(b.removed.length) : ctx.t().editor.objectTool.scatterMany(b.added.length);
     ctx.editor.push(new ObjectsCommand(label, edits));
   }
 }
 
 function gizmoLabel(ctx: ToolContext): string {
-  return { move: 'Move', rotate: 'Turn', scale: 'Scale' }[ctx.settings.objects().gizmo];
+  const undo = ctx.t().editor.objects.undo;
+  return { move: undo.move, rotate: undo.turn, scale: undo.scale }[ctx.settings.objects().gizmo];
 }
 
 /** Whether a screen point lies inside a polygon (even-odd rule) */

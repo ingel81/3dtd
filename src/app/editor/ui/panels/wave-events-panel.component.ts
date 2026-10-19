@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { WAVE_EVENT_LIMITS, type MapGameplay, type MapWaveEvent, type MapWaveEventKind } from '../../../world/custom-map/map-document';
-import { WEATHERS } from './environment-panel.component';
+import { MAP_WEATHERS, WAVE_EVENT_LIMITS, type MapGameplay, type MapWaveEvent, type MapWaveEventKind } from '../../../world/custom-map/map-document';
 import { SnapshotCommand } from '../../model/commands/snapshot';
 import { waveEventProblems } from '../../../map-ops/validation/wave-event-check';
 import { EditorSession } from '../editor-session.service';
@@ -10,13 +9,8 @@ import { injectT } from '../../../i18n/i18n.service';
 import { checkText } from '../../../map-ops/validation/check-text';
 import type { WaveEventProblem } from '../../../map-ops/validation/wave-event-check';
 
-const KINDS: { id: MapWaveEventKind; label: string; hint: string }[] = [
-  { id: 'message', label: 'Message', hint: 'A text on the screen' },
-  { id: 'weather', label: 'Weather', hint: 'Rain, a storm, snow, fog or clear sky from then on' },
-  { id: 'time', label: 'Time of day', hint: 'The sun moves to this hour' },
-  { id: 'portal', label: 'Portal opens', hint: 'A spawn brings enemies only from this wave on' },
-  { id: 'objects', label: 'Objects', hint: 'The selected objects appear or go: a gate, a bridge, a wall' },
-];
+/** The kinds of event and the weathers in their order; their words are the dictionary's (i18n `editor.waveEvents`) */
+const KINDS: readonly MapWaveEventKind[] = ['message', 'weather', 'time', 'portal', 'objects'];
 
 /**
  * Rules panel, wave events (TODO E170, MapGameplay.events): what happens
@@ -31,15 +25,15 @@ const KINDS: { id: MapWaveEventKind; label: string; hint: string }[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-group' },
   template: `
-    <h3 class="td-section">Wave events <span class="td-note">{{ events().length || 'none' }}</span></h3>
-    <p class="td-note">Before a wave, in its build phase: a message, the weather or time of day changing, a portal that opens, objects that appear or go.</p>
+    <h3 class="td-section">{{ t().editor.waveEvents.title }} <span class="td-note">{{ events().length || t().editor.waveEvents.none }}</span></h3>
+    <p class="td-note">{{ t().editor.waveEvents.intro }}</p>
     <div class="we-add">
-      <select class="td-select is-sm" [value]="kind()" (change)="kind.set($any($event.target).value)" aria-label="Kind of event" data-test="event-kind">
-        @for (k of kinds; track k.id) {
-          <option [value]="k.id">{{ k.label }}</option>
+      <select class="td-select is-sm" [value]="kind()" (change)="kind.set($any($event.target).value)" [attr.aria-label]="t().editor.waveEvents.kindLabel" data-test="event-kind">
+        @for (k of kinds; track k) {
+          <option [value]="k">{{ t().editor.waveEvents.kinds[k].label }}</option>
         }
       </select>
-      <button class="td-btn-secondary td-btn-sm" type="button" (click)="add()" [matTooltip]="hintOf(kind())" data-test="add-event">Add event</button>
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="add()" [matTooltip]="t().editor.waveEvents.kinds[kind()].hint" data-test="add-event">{{ t().editor.waveEvents.add }}</button>
     </div>
     <div class="td-rows we-rows">
       @for (row of rows(); track row.index) {
@@ -52,64 +46,64 @@ const KINDS: { id: MapWaveEventKind; label: string; hint: string }[] = [
           @if (open() === row.index) {
             <div class="we-edit td-well">
               <label class="td-field">
-                <span class="td-label">Before wave</span>
+                <span class="td-label">{{ t().editor.waveEvents.beforeWave }}</span>
                 <input class="td-input is-sm" type="number" min="1" [max]="limits.wave" step="1" [value]="e.wave" (change)="setWave(row.index, $event)" data-test="event-wave" />
               </label>
               @switch (e.kind) {
                 @case ('message') {
                   <label class="td-field">
-                    <span class="td-label">Text</span>
+                    <span class="td-label">{{ t().editor.waveEvents.text }}</span>
                     <input class="td-input is-sm" type="text" [attr.maxlength]="limits.text" [value]="e.text" (change)="patch(row.index, { text: value($event) })" data-test="event-text" />
                   </label>
                 }
                 @case ('weather') {
-                  <div class="td-seg is-sm" role="radiogroup" aria-label="Weather">
-                    @for (w of weathers; track w.id) {
-                      <button type="button" role="radio" [attr.aria-checked]="e.weather === w.id" (click)="patch(row.index, { weather: w.id })">{{ w.label }}</button>
+                  <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.waveEvents.weather">
+                    @for (w of weathers; track w) {
+                      <button type="button" role="radio" [attr.aria-checked]="e.weather === w" (click)="patch(row.index, { weather: w })">{{ t().editor.waveEvents.weathers[w] }}</button>
                     }
                   </div>
                   <label class="td-field">
-                    <span class="td-label">Strength %</span>
+                    <span class="td-label">{{ t().editor.waveEvents.strength }}</span>
                     <input class="td-input is-sm" type="number" min="0" max="100" step="10" [value]="round((e.strength ?? 0.6) * 100)" (change)="patch(row.index, { strength: percent($event) })" />
                   </label>
                 }
                 @case ('time') {
                   <label class="td-field">
-                    <span class="td-label">Hour (6 sunrise, 13 noon, 20 sunset)</span>
+                    <span class="td-label">{{ t().editor.waveEvents.hour }}</span>
                     <input class="td-input is-sm" type="number" min="0" max="24" step="0.5" [value]="e.hour" (change)="patch(row.index, { hour: hour($event) })" />
                   </label>
                 }
                 @case ('portal') {
                   <label class="td-field">
-                    <span class="td-label">Spawn</span>
-                    <select class="td-select is-sm" (change)="patch(row.index, { spawn: value($event) })" aria-label="Spawn that opens">
+                    <span class="td-label">{{ t().editor.waveEvents.spawn }}</span>
+                    <select class="td-select is-sm" (change)="patch(row.index, { spawn: value($event) })" [attr.aria-label]="t().editor.waveEvents.spawnOpens">
                       @for (s of spawns(); track s.id) {
                         <option [value]="s.id" [selected]="s.id === e.spawn">{{ s.name }}</option>
                       }
                     </select>
                   </label>
-                  <p class="td-note">Before this wave the spawn brings no enemies; its lane counts from then on.</p>
+                  <p class="td-note">{{ t().editor.waveEvents.portalNote }}</p>
                 }
                 @case ('objects') {
-                  <div class="td-seg is-sm" role="radiogroup" aria-label="The objects">
-                    <button type="button" role="radio" [attr.aria-checked]="e.show" (click)="patch(row.index, { show: true })">Appear</button>
-                    <button type="button" role="radio" [attr.aria-checked]="!e.show" (click)="patch(row.index, { show: false })">Go</button>
+                  <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.waveEvents.theObjects">
+                    <button type="button" role="radio" [attr.aria-checked]="e.show" (click)="patch(row.index, { show: true })">{{ t().editor.waveEvents.appear }}</button>
+                    <button type="button" role="radio" [attr.aria-checked]="!e.show" (click)="patch(row.index, { show: false })">{{ t().editor.waveEvents.go }}</button>
                   </div>
-                  <p class="td-note">{{ objects(e.ids.length) }}. {{ e.show ? 'They are hidden before this wave.' : 'They stand until this wave.' }}</p>
+                  <p class="td-note">{{ objects(e.ids.length) }}. {{ e.show ? t().editor.waveEvents.hiddenBefore : t().editor.waveEvents.standUntil }}</p>
                   <div class="td-actions is-start">
-                    <button class="td-btn-secondary td-btn-sm" type="button" (click)="useSelection(row.index)" [attr.aria-disabled]="!selected().length || null">Use the selection ({{ selected().length }})</button>
-                    <button class="td-btn-ghost td-btn-sm" type="button" (click)="selectObjects(e.ids)">Select them</button>
+                    <button class="td-btn-secondary td-btn-sm" type="button" (click)="useSelection(row.index)" [attr.aria-disabled]="!selected().length || null">{{ t().editor.waveEvents.useSelection(selected().length) }}</button>
+                    <button class="td-btn-ghost td-btn-sm" type="button" (click)="selectObjects(e.ids)">{{ t().editor.waveEvents.selectThem }}</button>
                   </div>
                 }
               }
               <div class="td-actions is-end">
-                <button class="td-btn-danger td-btn-sm" type="button" (click)="remove(row.index)">Remove event</button>
+                <button class="td-btn-danger td-btn-sm" type="button" (click)="remove(row.index)">{{ t().editor.waveEvents.remove }}</button>
               </div>
             </div>
           }
         </div>
       } @empty {
-        <p class="td-note">No events: the map stays as it is through every wave.</p>
+        <p class="td-note">{{ t().editor.waveEvents.noEvents }}</p>
       }
     </div>
     @for (p of problems(); track $index) {
@@ -135,7 +129,7 @@ export class WaveEventsPanelComponent {
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('gameplay', 'markers', 'objects');
   readonly kinds = KINDS;
-  readonly weathers = WEATHERS;
+  readonly weathers = MAP_WEATHERS;
   readonly limits = WAVE_EVENT_LIMITS;
   readonly kind = signal<MapWaveEventKind>('message');
   readonly open = signal<number | null>(null);
@@ -158,22 +152,19 @@ export class WaveEventsPanelComponent {
     return doc ? waveEventProblems(doc) : [];
   });
 
-  hintOf(kind: MapWaveEventKind): string {
-    return KINDS.find((k) => k.id === kind)!.hint;
-  }
-
   describe(e: MapWaveEvent): string {
+    const says = this.t().editor.waveEvents;
     switch (e.kind) {
       case 'message':
-        return `Message: ${e.text}`;
+        return says.describeMessage(e.text);
       case 'weather':
-        return `Weather: ${WEATHERS.find((w) => w.id === e.weather)?.label ?? e.weather}`;
+        return says.describeWeather(says.weathers[e.weather] ?? e.weather);
       case 'time':
-        return `Time of day: ${e.hour}:00`;
+        return says.describeTime(e.hour);
       case 'portal':
-        return `Portal opens: ${this.spawns().find((s) => s.id === e.spawn)?.name ?? e.spawn}`;
+        return says.describePortal(this.spawns().find((s) => s.id === e.spawn)?.name ?? e.spawn);
       case 'objects':
-        return `${this.objects(e.ids.length)} ${e.show ? 'appear' : 'go'}`;
+        return says.describeObjects(this.objects(e.ids.length), e.show);
     }
   }
 
@@ -181,7 +172,7 @@ export class WaveEventsPanelComponent {
   private edit(label: string, fn: (events: MapWaveEvent[]) => MapWaveEvent[]): void {
     const editor = this.session.editor;
     if (!editor) return;
-    this.session.edit('Changing the wave events', (e) => e.execute(
+    this.session.edit(this.t().editor.waveEvents.changing, (e) => e.execute(
       SnapshotCommand.record(editor.doc, label, ['gameplay'], (d) => {
         const g: MapGameplay = { ...(d.gameplay ?? {}) };
         const next = fn(structuredClone(g.events ?? []));
@@ -196,14 +187,14 @@ export class WaveEventsPanelComponent {
     const kind = this.kind();
     const list = this.events();
     if (list.length >= WAVE_EVENT_LIMITS.events) {
-      this.session.notices.flash(`A map has ${WAVE_EVENT_LIMITS.events} wave events at most`);
+      this.session.notices.flash(this.t().editor.waveEvents.tooMany(WAVE_EVENT_LIMITS.events));
       return;
     }
     const wave = Math.min(WAVE_EVENT_LIMITS.wave, Math.max(2, ...list.map((e) => e.wave + 1)));
     let event: MapWaveEvent;
     switch (kind) {
       case 'message':
-        event = { wave, kind, text: 'Something stirs.' };
+        event = { wave, kind, text: this.t().editor.waveEvents.firstText };
         break;
       case 'weather':
         event = { wave, kind, weather: 'rain', strength: 0.6 };
@@ -214,7 +205,7 @@ export class WaveEventsPanelComponent {
       case 'portal': {
         const spawn = this.session.doc?.spawns.at(-1);
         if (!spawn) {
-          this.session.notices.flash('The map has no spawn to open');
+          this.session.notices.flash(this.t().editor.waveEvents.noSpawn);
           return;
         }
         event = { wave, kind, spawn: spawn.id };
@@ -223,19 +214,19 @@ export class WaveEventsPanelComponent {
       case 'objects': {
         const ids = this.selected();
         if (!ids.length) {
-          this.session.notices.flash('Select the objects first (Objects tool), then add the event');
+          this.session.notices.flash(this.t().editor.waveEvents.selectFirst);
           return;
         }
         event = { wave, kind, ids: ids.slice(0, WAVE_EVENT_LIMITS.objects), show: true };
         break;
       }
     }
-    this.edit('Add wave event', (events) => [...events, event]);
+    this.edit(this.t().editor.waveEvents.addStep, (events) => [...events, event]);
     this.open.set(list.length);
   }
 
   patch(index: number, patch: Partial<Record<string, unknown>>): void {
-    this.edit('Wave event', (events) => events.map((e, i) => (i === index ? ({ ...e, ...patch } as MapWaveEvent) : e)));
+    this.edit(this.t().editor.waveEvents.editStep, (events) => events.map((e, i) => (i === index ? ({ ...e, ...patch } as MapWaveEvent) : e)));
   }
 
   setWave(index: number, e: Event): void {
@@ -258,7 +249,7 @@ export class WaveEventsPanelComponent {
   }
 
   remove(index: number): void {
-    this.edit('Remove wave event', (events) => events.filter((_, i) => i !== index));
+    this.edit(this.t().editor.waveEvents.removeStep, (events) => events.filter((_, i) => i !== index));
     this.open.set(null);
   }
 
@@ -275,7 +266,7 @@ export class WaveEventsPanelComponent {
   }
 
   objects(n: number): string {
-    return n === 1 ? '1 object' : `${n} objects`;
+    return this.t().editor.waveEvents.objects(n);
   }
 
   round(v: number): number {
