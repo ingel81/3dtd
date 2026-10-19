@@ -4,6 +4,7 @@ import { TdIconComponent } from '../../../components/icon/icon.component';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { patch } from '../../tools/tool';
+import { injectT } from '../../../i18n/i18n.service';
 
 /**
  * What the map holds: markers, roads, objects by category and asset (a
@@ -17,13 +18,13 @@ import { patch } from '../../tools/tool';
   imports: [TdIconComponent, MatTooltipModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <header class="td-side-head"><span class="td-side-name">Outline</span></header>
+    <header class="td-side-head"><span class="td-side-name">{{ t().editor.outline.title }}</span></header>
     <div class="td-side-body">
       @if (data(); as d) {
-        <input class="td-input is-sm" type="search" placeholder="Find in the map" [value]="query()" (input)="query.set($any($event.target).value)"
-               aria-label="Find in the map" data-test="outline-search" />
+        <input class="td-input is-sm" type="search" [placeholder]="t().editor.outline.find" [value]="query()" (input)="query.set($any($event.target).value)"
+               [attr.aria-label]="t().editor.outline.find" data-test="outline-search" />
         @if (d.spawns.length || matches('hq')) {
-          <h3 class="td-head">Markers</h3>
+          <h3 class="td-head">{{ t().editor.outline.markers }}</h3>
           <div class="td-rows">
             @if (matches('hq')) {
               <button class="td-row ol-row" type="button" role="option" [attr.aria-selected]="isSel('hq')" (click)="selectHq()">
@@ -37,14 +38,14 @@ import { patch } from '../../tools/tool';
             }
           </div>
         }
-        <h3 class="td-head">Roads <span class="td-note" data-test="roads">{{ d.edges }} roads | {{ d.nodes }} nodes | {{ d.length }} m</span></h3>
-        <h3 class="td-head">Objects <span class="td-note">{{ d.objects }}</span></h3>
+        <h3 class="td-head">{{ t().editor.outline.roads }} <span class="td-note" data-test="roads">{{ t().editor.outline.roadsLine(d.edges, d.nodes, d.length) }}</span></h3>
+        <h3 class="td-head">{{ t().editor.outline.objects }} <span class="td-note">{{ d.objects }}</span></h3>
         @for (c of d.categories; track c.name) {
           <div class="ol-cat">
             <span class="td-trunc ol-cat-name" [class.is-off]="c.hidden">{{ c.name }}</span>
             <span class="td-muted td-num">{{ c.count }}</span>
-            <button class="td-tool is-sm" type="button" [attr.aria-pressed]="!c.hidden" [attr.aria-label]="(c.hidden ? 'Show ' : 'Hide ') + c.name"
-                    [matTooltip]="c.hidden ? 'Hidden in the view: show' : 'Hide in the view (the map keeps them)'" (click)="toggleCategory(c.name)"
+            <button class="td-tool is-sm" type="button" [attr.aria-pressed]="!c.hidden" [attr.aria-label]="c.hidden ? t().editor.outline.show(c.name) : t().editor.outline.hide(c.name)"
+                    [matTooltip]="c.hidden ? t().editor.outline.hiddenTip : t().editor.outline.hideTip" (click)="toggleCategory(c.name)"
                     [attr.data-hide]="c.name">
               <td-icon [name]="c.hidden ? 'eyeOff' : 'eye'" [size]="14" />
             </button>
@@ -57,10 +58,10 @@ import { patch } from '../../tools/tool';
             }
           </div>
         } @empty {
-          <p class="td-note">{{ query() ? 'Nothing matches.' : 'No objects yet: paint a biome (1) or place objects (5).' }}</p>
+          <p class="td-note">{{ query() ? t().editor.outline.nothing : t().editor.outline.noObjects }}</p>
         }
         @if (d.groups.length) {
-          <h3 class="td-head">Groups <span class="td-note">Ctrl+G</span></h3>
+          <h3 class="td-head">{{ t().editor.outline.groups }} <span class="td-note">Ctrl+G</span></h3>
           <div class="td-rows">
             @for (g of d.groups; track g.id) {
               <button class="td-row ol-row" type="button" (click)="selectGroup(g.id)" [attr.data-group]="g.id">
@@ -69,7 +70,7 @@ import { patch } from '../../tools/tool';
             }
           </div>
         }
-        <h3 class="td-head">Ground</h3>
+        <h3 class="td-head">{{ t().editor.outline.ground }}</h3>
         <p class="td-note">{{ d.layers }}</p>
         <p class="td-note">{{ d.water }}</p>
       }
@@ -100,6 +101,7 @@ import { patch } from '../../tools/tool';
   ],
 })
 export class OutlinerComponent {
+  protected readonly t = injectT();
   private readonly session = inject(EditorSession);
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('objects', 'paths', 'markers');
@@ -144,16 +146,17 @@ export class OutlinerComponent {
     }
     const at = (p: { x: number; y: number }) => `${Math.round(p.x)}, ${Math.round(p.y)}`;
     const t = doc.terrain;
+    const says = this.t().editor.outline;
     const water = [
-      t.water ? `Water at ${t.water.level} m` : 'No main water',
-      t.waterBodies?.length ? `${t.waterBodies.length} more ${t.waterBodies.length === 1 ? 'body' : 'bodies'}` : '',
-      t.rivers?.length ? `${t.rivers.length} ${t.rivers.length === 1 ? 'river' : 'rivers'}` : '',
+      t.water ? says.waterAt(t.water.level) : says.noWater,
+      t.waterBodies?.length ? says.moreBodies(t.waterBodies.length) : '',
+      t.rivers?.length ? says.rivers(t.rivers.length) : '',
     ].filter((w) => w);
     const order = catalog.categories();
     return {
       hq: at(doc.hq),
       spawns: doc.spawns
-        .map((s) => ({ id: s.id, label: /spawn/i.test(s.name) ? s.name : `Spawn ${s.name}`, at: at(s) }))
+        .map((s) => ({ id: s.id, label: /spawn/i.test(s.name) ? s.name : says.spawn(s.name), at: at(s) }))
         .filter((s) => has(s.label)),
       edges: doc.paths.edges.length,
       nodes: doc.paths.nodes.length,

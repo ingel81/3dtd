@@ -3,6 +3,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_THEME } from '../../../styles/td-theme';
 import { MINIMAP_SIZE as SIZE, minimapBox } from '../../workers/minimap-job';
 import { EditorSession } from '../editor-session.service';
+import { injectT } from '../../../i18n/i18n.service';
 
 /** Re-render the picture at most this often while the map changes */
 const PICTURE_EVERY_MS = 1200;
@@ -19,19 +20,19 @@ const PICTURE_EVERY_MS = 1200;
   imports: [MatTooltipModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-overlay' },
-  template: `<canvas #canvas class="mm-canvas" [width]="size" [height]="size" aria-label="Minimap, click to move the view"
+  template: `<canvas #canvas class="mm-canvas" [width]="size" [height]="size" [attr.aria-label]="t().editor.minimap.label"
                      (pointerdown)="down($event)" (pointermove)="move($event)" (pointerup)="up($event)" data-test="minimap"></canvas>
-    <div class="mm-views" role="group" aria-label="Kept views">
+    <div class="mm-views" role="group" [attr.aria-label]="t().editor.minimap.kept">
       @for (v of session.view.bookmarks(); track $index) {
         @if (v) {
-          <button class="td-tool is-sm mm-view td-tone-brass" type="button" [attr.aria-label]="'View ' + ($index + 1)"
-                  [matTooltip]="'Fly to view ' + ($index + 1) + ' (Shift+' + ($index + 1) + '); Alt click keeps the current view here instead'"
+          <button class="td-tool is-sm mm-view td-tone-brass" type="button" [attr.aria-label]="t().editor.minimap.view($index + 1)"
+                  [matTooltip]="t().editor.minimap.flyTo($index + 1)"
                   (click)="view($index, $event)" [attr.data-view]="$index + 1">{{ $index + 1 }}</button>
         }
       }
       @if (freeSlot() >= 0) {
         <button class="td-btn-ghost td-btn-sm mm-keep" type="button" (click)="keep()" data-test="keep-view"
-                [matTooltip]="'Keep the current view to fly back later (Alt+' + (freeSlot() + 1) + ')'">+ Keep view</button>
+                [matTooltip]="t().editor.minimap.keepTip(freeSlot() + 1)">{{ t().editor.minimap.keep }}</button>
       }
     </div>`,
   styles: [
@@ -41,6 +42,7 @@ const PICTURE_EVERY_MS = 1200;
   ],
 })
 export class MinimapComponent implements OnDestroy {
+  protected readonly t = injectT();
   readonly session = inject(EditorSession);
   /** Absent until the view stands: the first draw may come before it */
   private readonly canvas = viewChild<ElementRef<HTMLCanvasElement>>('canvas');

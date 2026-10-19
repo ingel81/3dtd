@@ -23,16 +23,20 @@ function mapOf(size: number, assets: Record<string, number>) {
 describe('mapBudget', () => {
   it('shows the scene cost in percent with the object count under it, the file against what coop sends', () => {
     const [cost, file] = mapBudget(SCENE_BUDGET * 0.62, 91_600, 6 * 2 ** 20);
-    expect(cost).toMatchObject({ label: 'Scene cost', text: '62 %', detail: '91,600 objects', state: 'ok' });
+    expect(cost).toMatchObject({ kind: 'scene', objects: 91_600, state: 'ok' });
     expect(cost.share).toBeCloseTo(0.62);
-    expect(file).toMatchObject({ label: 'File', text: '6.0 MB of 32.0 MB', state: 'ok' });
+    expect(file).toMatchObject({ kind: 'file', used: 6 * 2 ** 20, limit: MAX_MAP_BYTES, state: 'ok' });
+    expect(en.editor.budget.percent(cost.share)).toBe('62 %');
+    expect(en.editor.budget.objects(cost.objects!)).toBe('91,600 objects');
+    expect(en.editor.budget.fileText(file.used, file.limit)).toBe('6.0 MB of 32.0 MB');
   });
 
   it('warns from 80 % and says when a line is over', () => {
     expect(mapBudget(SCENE_BUDGET * 0.79, 0, null)[0].state).toBe('ok');
     expect(mapBudget(SCENE_BUDGET * 0.8, 0, null)[0].state).toBe('warn');
     expect(mapBudget(SCENE_BUDGET, 0, null)[0].state).toBe('warn');
-    expect(mapBudget(SCENE_BUDGET * 1.01, 0, null)[0]).toMatchObject({ state: 'over', text: '101 %' });
+    expect(mapBudget(SCENE_BUDGET * 1.01, 0, null)[0]).toMatchObject({ state: 'over' });
+    expect(en.editor.budget.percent(mapBudget(SCENE_BUDGET * 1.01, 0, null)[0].share)).toBe('101 %');
     expect(mapBudget(0, 0, MAX_MAP_BYTES + 1)[1].state).toBe('over');
     // Before the first save the file's size is not known
     expect(mapBudget(0, 0, null)).toHaveLength(1);

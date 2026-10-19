@@ -12,24 +12,22 @@ import type { CatalogIndex } from '../asset-catalog';
 /** From this share on a line shows as a warning */
 export const WARN_SHARE = 0.8;
 
+/** One line of the budget; the panel says it (i18n `editor.budget`) */
 export interface BudgetLine {
-  label: string;
-  /** What is spent of what, as text */
-  text: string;
-  /** Second line under the bar (the scene cost's object count) */
-  detail?: string;
+  /** The objects' scene cost, or the packed file */
+  kind: 'scene' | 'file';
+  used: number;
+  limit: number;
+  /** The objects on the map (the scene line) */
+  objects?: number;
   /** Share spent, 0 to 1 and above */
   share: number;
   state: 'ok' | 'warn' | 'over';
 }
 
-function line(label: string, used: number, limit: number, text: (share: number) => string, detail?: string): BudgetLine {
+function line(kind: BudgetLine['kind'], used: number, limit: number, objects?: number): BudgetLine {
   const share = used / limit;
-  return { label, text: text(share), detail, share, state: share > 1 ? 'over' : share >= WARN_SHARE ? 'warn' : 'ok' };
-}
-
-function mb(bytes: number): string {
-  return `${(bytes / 2 ** 20).toFixed(1)} MB`;
+  return { kind, used, limit, objects, share, state: share > 1 ? 'over' : share >= WARN_SHARE ? 'warn' : 'ok' };
 }
 
 /** What one object of an asset costs on this map, by the editor's catalogue */
@@ -45,9 +43,7 @@ export function mapSceneCost(doc: Pick<CustomMapDocument, 'terrain' | 'objects'>
 
 /** The budget lines; the file line only once its size is known (packed at a save) */
 export function mapBudget(cost: number, objects: number, fileBytes: number | null): BudgetLine[] {
-  const lines = [
-    line('Scene cost', cost, SCENE_BUDGET, (share) => `${Math.round(share * 100)} %`, `${objects.toLocaleString('en-US')} objects`),
-  ];
-  if (fileBytes !== null) lines.push(line('File', fileBytes, MAX_MAP_BYTES, () => `${mb(fileBytes)} of ${mb(MAX_MAP_BYTES)}`));
+  const lines = [line('scene', cost, SCENE_BUDGET, objects)];
+  if (fileBytes !== null) lines.push(line('file', fileBytes, MAX_MAP_BYTES));
   return lines;
 }

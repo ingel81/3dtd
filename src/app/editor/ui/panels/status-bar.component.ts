@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { EditorSession } from '../editor-session.service';
+import { injectT } from '../../../i18n/i18n.service';
 
 /** The foot line: what the tool does, where the pointer is, what the map costs */
 @Component({
@@ -11,13 +12,13 @@ import { EditorSession } from '../editor-session.service';
     <span class="sb-hint td-trunc">{{ session.tools.hint() }}</span>
     @if (session.view.hover(); as h) {
       <span class="td-num" data-test="cursor">{{ round(h.x) }}, {{ round(h.y) }} m</span>
-      <span class="td-num" data-test="height">height {{ h.height.toFixed(1) }} m</span>
+      <span class="td-num" data-test="height">{{ t().editor.status.height(h.height) }}</span>
       <span class="sb-mat td-trunc">{{ h.material }}</span>
     }
-    <span class="td-num" data-test="objects">{{ objects() }} objects</span>
+    <span class="td-num" data-test="objects">{{ t().editor.status.objects(objects()) }}</span>
     @if (session.view.stats(); as s) {
-      <span class="td-num">{{ thousands(s.triangles) }} triangles</span>
-      <span class="td-num" data-test="fps">{{ s.fps }} fps</span>
+      <span class="td-num">{{ t().editor.status.triangles(thousands(s.triangles)) }}</span>
+      <span class="td-num" data-test="fps">{{ t().editor.status.fps(s.fps) }}</span>
     }
   `,
   styles: [
@@ -27,6 +28,7 @@ import { EditorSession } from '../editor-session.service';
   ],
 })
 export class StatusBarComponent {
+  protected readonly t = injectT();
   readonly session = inject(EditorSession);
   private readonly objectsRev = this.session.state.rev('objects');
   readonly objects = computed(() => (this.objectsRev(), this.session.doc?.objects.length ?? 0));
