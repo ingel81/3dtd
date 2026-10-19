@@ -342,6 +342,10 @@ if (uKind == 1 || uKind == 4 || uKind == 5 || uKind == 6 || uKind == 8 || uKind 
   color *= uLight;
 }
   vColor = color + glow;
+  // A puff right at the lens filled the picture with a soft white disc (surf, smoke drifting over a bridge): it
+  // fades out within three of its own sizes of the camera
+  float lensDist = length(cameraPosition - (modelMatrix * vec4(p, 1.0)).xyz);
+  alpha *= smoothstep(size * 1.2, size * 3.0 + 1.0, lensDist);
   vAlpha = alpha;
   // Camera-facing quad around p
   vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);

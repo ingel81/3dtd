@@ -14,6 +14,8 @@ import { particleCount, type ParticleEmitter, type ParticleKind } from './partic
 
 /** Ground under a map point, water where there is water over it */
 export type SurfaceAt = (x: number, y: number) => number;
+/** Whether a map point lies on open water, no land within a few metres */
+export type OpenWaterAt = (x: number, y: number) => boolean;
 
 /** Per particle kind: metres between emitters, their radius share of that, how high over the ground they start */
 const SPOTS: Partial<Record<MapLifeKind, { spacing: number; height: number }>> = {
@@ -44,13 +46,23 @@ export function isParticleLife(kind: MapLifeKind): kind is MapLifeKind & Particl
 
 /**
  * Emitters over the area for its particle kind; `factor` is the map's
- * density, `share` the quality level's share of particles
+ * density, `share` the quality level's share of particles. Surf breaks
+ * where the water meets the land: its spots over open water (`openWater`)
+ * are left out, an area drawn generously over the sea sprayed in the middle
+ * of it and over a bridge's deck
  */
-export function lifeEmitters(area: MapLifeArea, surface: SurfaceAt, factor: number, share: (count: number) => number): ParticleEmitter[] {
+export function lifeEmitters(
+  area: MapLifeArea,
+  surface: SurfaceAt,
+  factor: number,
+  share: (count: number) => number,
+  openWater: OpenWaterAt = () => false,
+): ParticleEmitter[] {
   const look = SPOTS[area.kind];
   if (!look || !isParticleLife(area.kind)) return [];
   const kind = area.kind;
-  const spots = lifeSpots(area, look.spacing, MOST_SPOTS);
+  const all = lifeSpots(area, look.spacing, MOST_SPOTS);
+  const spots = kind === 'surf' ? all.filter((p) => !openWater(p.x, p.y)) : all;
   const count = share(particleCount(kind, undefined) * areaDensity(area) * factor);
   const height = area.height ?? look.height;
   return spots.map((p) => ({

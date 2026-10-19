@@ -53,6 +53,9 @@ const POOL_REACH = 1.25;
 
 /** Catalogue intensity 1 in three's units (candela-ish): a lantern */
 const CANDELA = 28;
+/** Metres round a surf spot within which land must lie for a wave to break there */
+const SHORE_REACH = 4.5;
+
 /** The light glowing lava throws up into smoke over it */
 const LAVA_GLOW = '#ff6a20';
 
@@ -325,6 +328,20 @@ export class EffectLayer implements SteadyLightSource {
     this.setAmbient(this.ambient);
   }
 
+  /** Whether a map point is under water and so is everything within SHORE_REACH of it: no shore to break on */
+  private openWaterAt(x: number, y: number): boolean {
+    const wet = (px: number, py: number): boolean => {
+      const level = this.waterLevelAt(px, py);
+      return level !== null && level > this.field.heightAt(px, py);
+    };
+    if (!wet(x, y)) return false;
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2;
+      if (!wet(x + Math.cos(a) * SHORE_REACH, y + Math.sin(a) * SHORE_REACH)) return false;
+    }
+    return true;
+  }
+
   /**
    * The life areas' share of the effects (map-life.ts), on levels that show
    * them: particles join the fields of their kind (no draw call more for a
@@ -339,7 +356,7 @@ export class EffectLayer implements SteadyLightSource {
       if (!areaShown(area, this.lifeShare) || factor <= 0) continue;
       if (area.kind === 'birds') this.lifeFlocks.push(lifeFlock(area, surface, factor));
       else if (isParticleLife(area.kind)) {
-        const list = lifeEmitters(area, surface, factor, (n) => this.share(n));
+        const list = lifeEmitters(area, surface, factor, (n) => this.share(n), (x, y) => this.openWaterAt(x, y));
         if (area.kind === 'fireflies') this.lifeFireflies.push(...list);
         else for (const e of list) push(emitters, e);
       }

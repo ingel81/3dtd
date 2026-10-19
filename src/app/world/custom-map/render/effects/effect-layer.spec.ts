@@ -290,6 +290,24 @@ describe('EffectLayer', () => {
     layer.dispose();
   });
 
+  it('lets surf break only where the water meets the land, not over open water', () => {
+    // Land west of x = 0, the sea over it east (water level 10 over ground 4)
+    const layer = new EffectLayer(flat(), (x) => (x > 0 ? 10 : null));
+    layer.setLife({ areas: [{ id: 'u', kind: 'surf', shape: 'route', points: [{ x: -40, y: 0 }, { x: 40, y: 0 }] }] });
+    layer.set([], catalog);
+    const surf = layer.group.children.filter((c): c is Mesh => c instanceof Mesh && c.name === 'custom-map-particles-surf');
+    expect(surf).toHaveLength(1);
+    const at = surf[0].geometry.getAttribute('aOrigin');
+    const xs = new Set<number>();
+    // Scene x runs against map x
+    for (let k = 0; k < at.count; k++) xs.add(-at.getX(k));
+    expect(xs.size).toBeGreaterThan(0);
+    // Spots on the land and at the waterline stay, none farther out on the sea than the shore's reach
+    for (const x of xs) expect(x).toBeLessThanOrEqual(4.5);
+    expect([...xs].some((x) => x > -4.5)).toBe(true);
+    layer.dispose();
+  });
+
   it("turns the map's own life off by its switches, scales it by its density and lets lava spark", () => {
     const layer = new EffectLayer(flat());
     const ambient = { fireflies: [new Vector3(0, 4, 0)], flocks: [circleFlock(new Vector3(0, 50, 0), 40, 10, 0.3)] };
