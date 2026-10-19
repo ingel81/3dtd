@@ -1,6 +1,5 @@
 import { releasedResearch } from '../../../configs/release';
 import { ChangeDetectionStrategy, Component, computed, inject, Injector, input, output } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
 import { MatDialog } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../../store/tower-defense.store';
@@ -30,7 +29,7 @@ import { upgradeTerms } from '../../../configs/tower-types.config';
 @Component({
   selector: 'app-sidebar-research-panel',
   standalone: true,
-  imports: [DecimalPipe, MatTooltipModule, TdIconComponent],
+  imports: [MatTooltipModule, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './research-panel.component.html',
   styleUrl: './research-panel.component.scss',
