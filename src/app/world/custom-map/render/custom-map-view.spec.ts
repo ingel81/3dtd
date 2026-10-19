@@ -11,6 +11,8 @@ import { MapAssetLibrary } from './map-asset-library';
 import { mapToScene } from './map-coords';
 import { PathMaskRaster, pathMaskResolution, rasterizePathMask } from './paths/path-mask';
 import { assignLayerSlots } from './terrain/map-terrain';
+import { groundJobMap, readRows, runGroundJob } from './terrain/ground-jobs';
+import type { GroundBaker, SampleRect } from './terrain/ground-shape';
 
 const catalog = JSON.parse(readFileSync('public/maps/assets/catalog.json', 'utf8')) as {
   materials: { id: string }[];
@@ -567,6 +569,36 @@ describe('CustomMapView heights near water', () => {
     view.updateHeights({ minX: x0 + 3 * cell, minY: y0 + 3 * cell, maxX: x0 + 5 * cell, maxY: y0 + 5 * cell });
     expect(pond).toHaveBeenCalledTimes(1);
     expect(main).not.toHaveBeenCalled();
+    view.dispose();
+  });
+
+  it("hands its ground baker only rows inside the grid when heights change at the border (the worker's copy took them)", async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const doc = createDemoMap();
+    const t = doc.terrain;
+    const rects: SampleRect[] = [];
+    const baker: GroundBaker = {
+      shape: async () => null,
+      lava: async () => null,
+      farShadow: async () => null,
+      heightsChanged: (_heights, _columns, rect) => {
+        if (rect) rects.push(rect);
+      },
+    };
+    const view = new CustomMapView(doc, offlineLibrary(), { groundBaker: baker });
+    await view.ready;
+    view.updateHeights({ minX: -t.width / 2, minY: -t.depth / 2, maxX: -t.width / 2 + 6, maxY: -t.depth / 2 + 6 });
+    view.updateHeights({ minX: t.width / 2 - 6, minY: t.depth / 2 - 6, maxX: t.width / 2, maxY: t.depth / 2 });
+    expect(rects).toHaveLength(2);
+    const copy = groundJobMap(t);
+    for (const rect of rects) {
+      expect(rect.i0).toBeGreaterThanOrEqual(0);
+      expect(rect.j0).toBeGreaterThanOrEqual(0);
+      expect(rect.i1).toBeLessThan(t.grid.columns);
+      expect(rect.j1).toBeLessThan(t.grid.rows);
+      // GroundWorker's job on its copy: rows past the end threw there, and every later bake ran on the page's thread
+      expect(() => runGroundJob(copy, { kind: 'heights', rect, rows: readRows(t.grid.heights, t.grid.columns, rect) })).not.toThrow();
+    }
     view.dispose();
   });
 });

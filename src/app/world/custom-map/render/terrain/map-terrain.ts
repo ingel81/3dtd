@@ -428,11 +428,17 @@ export class MapTerrainLayer {
     this.occlusion.flush(2);
   }
 
-  /** Heights changed in `rect` (all when omitted); whether the apron changed with them (the border's heights) */
-  rebuild(rect?: GridRect): boolean {
+  /**
+   * Heights changed in `rect` (all when omitted), clamped to the grid; whether the apron changed with them (the
+   * border's heights)
+   */
+  rebuild(area?: GridRect): boolean {
+    const f = this.field;
+    // A rectangle with a margin past the border (CustomMapView.gridRect): the ground worker's copy took rows past
+    // the grid's end, its job threw and every later bake ran on this thread (TODO E256)
+    const rect = area && { i0: Math.max(0, area.i0), j0: Math.max(0, area.j0), i1: Math.min(f.columns - 1, area.i1), j1: Math.min(f.rows - 1, area.j1) };
     this.chunks.rebuild(rect);
     this.albedo.invalidate();
-    const f = this.field;
     const bounds = rect && { minX: f.originX + rect.i0 * f.cellSize, minY: f.originY + rect.j0 * f.cellSize, maxX: f.originX + rect.i1 * f.cellSize, maxY: f.originY + rect.j1 * f.cellSize };
     this.roads.refreshBounds(bounds);
     this.surfaces.refreshBounds(bounds);
