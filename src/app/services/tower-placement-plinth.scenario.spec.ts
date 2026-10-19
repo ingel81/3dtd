@@ -26,6 +26,8 @@ vi.mock('../utils/tower-los-viz', () => ({
     setFilterMode() { /* fake */ }
     addTo() { /* fake */ }
     updateTowerTip() { /* fake */ }
+    moveTo() { /* fake */ }
+    setVisible() { /* fake */ }
     tick() { /* fake */ }
     dispose() { /* fake */ }
   },

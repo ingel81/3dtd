@@ -8,6 +8,8 @@ const losViz = vi.hoisted(() => ({
     filterMode: string | null;
     parent: unknown;
     tips: number[];
+    moves: { x: number; cells: number }[];
+    visible: boolean;
     ticks: number[];
     disposed: boolean;
   }[],
@@ -17,6 +19,8 @@ vi.mock('../utils/tower-los-viz', () => ({
     filterMode: string | null = null;
     parent: unknown = null;
     tips: number[] = [];
+    moves: { x: number; cells: number }[] = [];
+    visible = true;
     ticks: number[] = [];
     disposed = false;
     constructor(public opts: Record<string, unknown>) {
@@ -25,6 +29,8 @@ vi.mock('../utils/tower-los-viz', () => ({
     setFilterMode(mode: string) { this.filterMode = mode; }
     addTo(scene: unknown) { this.parent = scene; }
     updateTowerTip(tip: { x: number }) { this.tips.push(tip.x); }
+    moveTo(tip: { x: number }, cells: unknown[]) { this.moves.push({ x: tip.x, cells: cells.length }); }
+    setVisible(visible: boolean) { this.visible = visible; }
     tick(time: number) { this.ticks.push(time); }
     dispose() { this.disposed = true; }
   },
@@ -97,24 +103,59 @@ describe('BuildPreviewLos', () => {
     expect(viz.parent).toBe(scene);
   });
 
-  it('moves only the tip within a meter and rebuilds beyond it', () => {
+  it('moves only the tip within a meter and the cells beyond it, in the same viz', () => {
     preview.update(engine, 0, 0, 0, 'archer', 'both');
     preview.update(engine, 0, 0.9, 0, 'archer', 'both');
     expect(losViz.instances).toHaveLength(1);
     expect(losViz.instances[0].tips).toEqual([0.9]);
 
+    grid.getCellsInRange.mockReturnValue([{}, {}]);
     preview.update(engine, 0, 2, 0, 'archer', 'both');
-    expect(losViz.instances).toHaveLength(2);
-    expect(losViz.instances[0].disposed).toBe(true);
+    expect(losViz.instances).toHaveLength(1);
+    expect(losViz.instances[0].moves).toEqual([{ x: 2, cells: 2 }]);
+    expect(losViz.instances[0].disposed).toBe(false);
   });
 
-  it('asks for air answers of a retrofittable type only after the retrofit', () => {
+  it('gives the viz room for every cell its range can reach', () => {
+    preview.update(engine, 0, 0, 0, 'archer', 'both');
+    const capacity = losViz.instances[0].opts['capacity'] as number;
+    // The grid slots of the box around the reach (GlobalRouteGrid.getCellsInRange)
+    const slots = (2 * TOWER_TYPES.archer.range) / 2 + 2;
+    expect(capacity).toBeGreaterThanOrEqual(slots * slots);
+  });
+
+  it('hides the viz on an invalid spot or without cells, and moves it to the next spot that has some', () => {
+    preview.update(engine, 0, 0, 0, 'archer', 'both');
+    const [viz] = losViz.instances;
+    preview.hide();
+    expect(viz.visible).toBe(false);
+    preview.tick(1);
+    expect(viz.ticks).toEqual([]);
+
+    // Back within the meter: the cells are collected again, it was hidden
+    preview.update(engine, 0, 0.5, 0, 'archer', 'both');
+    expect(viz.moves).toEqual([{ x: 0.5, cells: 3 }]);
+    expect(viz.visible).toBe(true);
+
+    grid.getCellsInRange.mockReturnValue([]);
+    preview.update(engine, 0, 5, 0, 'archer', 'both');
+    expect(viz.visible).toBe(false);
+    expect(losViz.instances).toHaveLength(1);
+    expect(viz.disposed).toBe(false);
+  });
+
+  it('builds the viz anew for another type, and for the air retrofit of a retrofittable type', () => {
     preview.update(engine, 0, 0, 0, 'dual-gatling', 'both');
     expect(losViz.instances[0].opts).toMatchObject({ canTargetAir: false });
 
     airUnlocked = true;
     preview.update(engine, 0, 5, 0, 'dual-gatling', 'both');
+    expect(losViz.instances[0].disposed).toBe(true);
     expect(losViz.instances[1].opts).toMatchObject({ canTargetAir: true });
+
+    preview.update(engine, 0, 5.5, 0, 'cannon', 'both');
+    expect(losViz.instances[1].disposed).toBe(true);
+    expect(losViz.instances[2].opts).toMatchObject({ groundRange: TOWER_TYPES.cannon.range });
   });
 
   it('builds nothing without an initialized grid, a blocker group or cells in range', () => {

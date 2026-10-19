@@ -21,6 +21,8 @@ const losViz = vi.hoisted(() => ({
     filterMode: string | null;
     parent: unknown;
     tips: { x: number; y: number; z: number }[];
+    moves: { x: number; cells: number }[];
+    visible: boolean;
     ticks: number[];
     disposed: boolean;
   }[],
@@ -30,6 +32,8 @@ vi.mock('../utils/tower-los-viz', () => ({
     filterMode: string | null = null;
     parent: unknown = null;
     tips: { x: number; y: number; z: number }[] = [];
+    moves: { x: number; cells: number }[] = [];
+    visible = true;
     ticks: number[] = [];
     disposed = false;
     constructor(public opts: Record<string, unknown>) {
@@ -38,6 +42,8 @@ vi.mock('../utils/tower-los-viz', () => ({
     setFilterMode(mode: string) { this.filterMode = mode; }
     addTo(scene: unknown) { this.parent = scene; }
     updateTowerTip(tip: { x: number; y: number; z: number }) { this.tips.push({ x: tip.x, y: tip.y, z: tip.z }); }
+    moveTo(tip: { x: number }, cells: unknown[]) { this.moves.push({ x: tip.x, cells: cells.length }); }
+    setVisible(visible: boolean) { this.visible = visible; }
     tick(time: number) { this.ticks.push(time); }
     dispose() { this.disposed = true; }
   },
@@ -996,7 +1002,7 @@ describe('TowerPlacementService', () => {
       expect(losViz.instances[1].opts).toMatchObject({ canTargetGround: false, canTargetAir: true });
     });
 
-    it('moves only the tip for a small move and rebuilds after a larger one', async () => {
+    it('moves only the tip for a small move and the cells after a larger one, in the same viz', async () => {
       init();
       await enterBuild();
       hover(FREE);
@@ -1005,18 +1011,33 @@ describe('TowerPlacementService', () => {
       expect(losViz.instances[0].tips).toHaveLength(1);
 
       hover(at(0, 310));
-      expect(losViz.instances).toHaveLength(2);
-      expect(losViz.instances[0].disposed).toBe(true);
-      expect(losViz.instances[1].disposed).toBe(false);
+      expect(losViz.instances).toHaveLength(1);
+      expect(losViz.instances[0].moves).toEqual([{ x: sync.geoToLocalSimple(at(0, 310).lat, at(0, 310).lon, 0).x, cells: 2 }]);
+      expect(losViz.instances[0].disposed).toBe(false);
     });
 
-    it('drops the viz when the cursor moves onto an invalid spot', async () => {
+    it('hides the viz on an invalid spot and moves it to the next valid one', async () => {
       init();
       await enterBuild();
       hover(FREE);
       hover(NEAR_HQ);
 
       expect(losViz.instances).toHaveLength(1);
+      const [viz] = losViz.instances;
+      expect([viz.visible, viz.disposed]).toEqual([false, false]);
+
+      hover(at(0, 310));
+      expect(losViz.instances).toHaveLength(1);
+      expect(viz.moves).toHaveLength(1);
+      expect(viz.visible).toBe(true);
+    });
+
+    it('drops the viz when build mode ends', async () => {
+      init();
+      await enterBuild();
+      hover(FREE);
+      service.exitBuildMode();
+
       expect(losViz.instances[0].disposed).toBe(true);
     });
 

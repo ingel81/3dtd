@@ -1,6 +1,6 @@
 # LOS-Pipeline: Sichtlinien der Tower auf dem Route-Grid
 
-**Stand:** 2026-09-24
+**Stand:** 2026-10-20
 
 Wie ein Tower weiß, welche Route-Zellen er sieht: eine Cubemap je Tower-Tip auf
 der GPU, drei Leser derselben Cubemap und ein Cache in den Zellen, den der
@@ -17,7 +17,16 @@ drei Lesarten:
 
 1. **Build-Vorschau:** `TowerLosViz` als Composite, Live-`textureCube` pro
    Frame im Fragment-Shader. Bei jedem Mouse-Move im Build-Modus rendert der
-   Mapper für den neuen Tip neu (move-gated).
+   Mapper für den neuen Tip neu (move-gated). Eine Viz hält der Build-Modus
+   über alle Bewegungen: nach einem Meter setzt `TowerLosViz.moveTo` die
+   neuen Zellen in dieselben Meshes und Materialien (`TowerLosLayer.setCells`,
+   Platz für jede Zelle der Reichweite, `losLayerCapacity`), ein ungültiger
+   Platz verbirgt sie nur, neu gebaut wird sie nur für einen anderen
+   Tower-Typ. Das Programm der Platten baut das Laden mit den anderen
+   Stand-ins (`TowerLosLayerBuilder.warmUpObjects`) und `ProgramPins` hält es.
+   Bis zum 2026-10-20 baute jede Bewegung die Viz neu: das Programm der
+   Platten wurde 60 bis 80 Mal in 15 s Bewegung neu gelinkt, das erste Mal im
+   Frame der ersten Vorschau (E258, `e2e/perf/build-preview-probe.ts`).
 2. **Auswahl-Anzeige:** dieselbe Klasse `TowerLosViz`, Besitzer ist der
    `TowerManager`. Schließt die Build-Vorschau aus (Lesson 9: eine Anzeige
    zur Zeit).
@@ -218,7 +227,7 @@ Sonst zählt jeder Tower seinen Cooldown einmal je Methode herunter (Befund
 | `utils/route-cell.ts` | `RouteCell`, `CellSample`, `getGroundTargetY`, `getAirTargetY` |
 | `utils/route-cell-sampler.ts` | `sampleCellY` (einziger Schreiber von `cell.terrainHeight`), Säulenprobe, LOD-Peek, Zähler für übersprungene und gecastete Säulen |
 | `utils/tower-los-viz.ts` | Composite für Build-Vorschau und Auswahl-Anzeige, `getLayer()` fürs Debug-Panel |
-| `utils/tower-los-layer-builder.ts` | InstancedMesh und Fragment-Shader mit Live-Sample, ein Material je Layer, `visibleLosLayers` |
+| `utils/tower-los-layer-builder.ts` | InstancedMesh und Fragment-Shader mit Live-Sample, ein Material je Layer, `visibleLosLayers`, `setCells` (andere Zellen in dieselben Meshes), `losLayerCapacity`, `warmUpObjects` (Stand-in fürs Laden) |
 | `utils/route-grid-aggregate-viz.ts` | Aggregat-Mesh (`grid`, `gridAir`), `MAX_VIZ_CELLS_HARDLIMIT` |
 | `utils/route-grid-diagnostics.ts` | `__rg`-Dumps, `RouteCellProbe` für `__corridor.pick()` |
 | `utils/route-altitude-tubes.ts` | Debug-Röhre der Air-Route |

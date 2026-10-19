@@ -83,4 +83,34 @@ describe('TowerLosViz', () => {
     viz.tick(0);
     expect(mapper.getReferencePos()).toEqual(new Vector3(40, 15, 0));
   });
+
+  it('moves to another tip with other cells in the same layer, the cube rendered from there', () => {
+    const mapper = makeMapper();
+    const viz = new TowerLosViz({
+      cells,
+      towerTip: ownTip,
+      groundRange: 30,
+      airRange: 30,
+      canTargetGround: true,
+      canTargetAir: false,
+      gridCellSize: 2,
+      shadowMapper: mapper as never,
+      blockerGroup: new Group(),
+      capacity: 4,
+    });
+    const layer = viz.getLayer()!;
+    const tip = new Vector3(10, 12, 0);
+    const next = [{ x: 10, z: 0, terrainHeight: 0 }, { x: 12, z: 0, terrainHeight: 0 }, { x: 14, z: 0, terrainHeight: 0 }] as unknown as RouteCell[];
+
+    viz.moveTo(tip, next);
+
+    expect(viz.getLayer()).toBe(layer);
+    expect(layer.cells).toBe(next);
+    expect(layer.groundMesh.count).toBe(3);
+    expect(mapper.getReferencePos()).toEqual(tip);
+    expect(tipUniform(viz)).toEqual(tip);
+    viz.setVisible(false);
+    expect(viz.group.visible).toBe(false);
+    viz.dispose();
+  });
 });

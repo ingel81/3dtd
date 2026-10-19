@@ -762,8 +762,8 @@ export class TowerPlacementService {
         this.engine, lat, lon, resolvedHeight, typeId, this.uiStore.perTowerLosFilter(),
       );
     } else {
-      // Invalid position — Preview-Viz auflösen (kein Debounce mehr).
-      this.buildPreviewLos.dispose();
+      // Invalid position: the viz hides and is moved on the next valid spot
+      this.buildPreviewLos.hide();
     }
   }
 

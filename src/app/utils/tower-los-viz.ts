@@ -21,6 +21,8 @@ export interface TowerLosVizOptions {
   shadowMapper: TowerShadowMapper;
   /** Group die als `includeOnly` für den Cube-Render durchgereicht wird. */
   blockerGroup: Object3D;
+  /** Zellen, die `moveTo` später setzen kann (losLayerCapacity), mindestens `cells.length` */
+  capacity?: number;
 }
 
 /**
@@ -65,6 +67,7 @@ export class TowerLosViz {
       cubemap: this.shadowMapper.getRenderTarget(),
       cubemapFarDistance: this.shadowMapper.getFarDistance(),
       gridCellSize: opts.gridCellSize,
+      capacity: opts.capacity,
     });
 
     if (this.layer) {
@@ -87,6 +90,23 @@ export class TowerLosViz {
       this.shadowMapper.getReferencePos() as Vector3,
       this.shadowMapper.getFarDistance(),
     );
+  }
+
+  /**
+   * Die Viz an einen anderen Ort (Build-Vorschau nach einer Bewegung über
+   * die Rebuild-Schwelle): neuer Tip und neue Zellen in dieselben Meshes und
+   * Materialien. Ein Neubau je Bewegung linkte jedes Mal das Programm der
+   * Platten neu und lud Puffer neu hoch (E258). Höchstens `capacity` Zellen.
+   */
+  moveTo(tip: Vector3, cells: readonly RouteCell[]): void {
+    if (this.disposed) return;
+    this.layer?.setCells(cells);
+    this.updateTowerTip(tip);
+  }
+
+  /** Zeigen oder verbergen, ohne etwas abzubauen (Build-Vorschau auf einem ungültigen Platz). */
+  setVisible(visible: boolean): void {
+    this.group.visible = visible;
   }
 
   /**

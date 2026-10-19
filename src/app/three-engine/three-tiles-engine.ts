@@ -68,6 +68,7 @@ import type { RouteCorridorTiles } from './route-corridor-tiles';
 import type { TilesLodDebug } from './tiles-lod-debug';
 import { perfTrace } from '../utils/perf-trace';
 import { warmUpScene, type SceneWarmupResult } from './scene-warmup';
+import { TowerLosLayerBuilder } from '../utils/tower-los-layer-builder';
 import { firstUsePrograms } from './programs-ready';
 import { ProgramPins } from './program-pins';
 import { lineStandIns } from './line-stand-ins';
@@ -1433,7 +1434,7 @@ export class ThreeTilesEngine {
    * the world's ground stands: its lights and output are known then
    * (compilingForFrames), and its own programs are built. What comes into the
    * scene only later (towers with their builds and paths, plinths,
-   * tentacles, ooze bands, the hero, the build preview) is there as stand-ins meanwhile, drawn
+   * tentacles, ooze bands, the hero, the build preview and its cell plates) is there as stand-ins meanwhile, drawn
    * too small for a pixel in the warm-up frame; the shadow map renders in it
    * as well, then with all the world hides shown (drawHidden). Afterwards every program does its first-use work
    * (firstUsePrograms).
@@ -1468,6 +1469,8 @@ export class ThreeTilesEngine {
       this.tentacles.warmUpObject(),
       this.oozes.warmUpObject(),
       ...lineStandIns(this.portalClip),
+      // The cell plates of the build preview and the selection (TowerLosViz)
+      ...TowerLosLayerBuilder.warmUpObjects(this.getTowerShadowMapper().getRenderTarget()),
     ]) standIns.add(o);
     if (hero) standIns.add(hero);
     standIns.scale.setScalar(1e-4);

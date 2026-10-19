@@ -6,7 +6,6 @@ import {
   InstancedMesh,
   Matrix4,
   ShaderMaterial,
-  StaticDrawUsage,
   Vector3,
   WebGLCubeRenderTarget,
 } from 'three';
@@ -37,6 +36,21 @@ export interface TowerLosLayerOptions {
   cubemapFarDistance: number;
   /** Grid-Cell-Size (m). Steuert die Plattenbreite der Cell-Mesh. */
   gridCellSize: number;
+  /**
+   * Platten, die die Meshes fassen, mindestens `cells.length`: so viele,
+   * wie `setCells` später setzen kann (losLayerCapacity für eine Reichweite)
+   */
+  capacity?: number;
+}
+
+/**
+ * The most cells a layer of this range can show: the grid slots of the box
+ * around the reach (GlobalRouteGrid.getCellsInRange takes no more), so a
+ * moved preview sets its cells into the meshes it has (setCells)
+ */
+export function losLayerCapacity(range: number, gridCellSize: number): number {
+  const span = Math.ceil((2 * range) / gridCellSize) + 3;
+  return span * span;
 }
 
 /**
@@ -64,7 +78,13 @@ export interface TowerLosLayer {
    * `cells[instanceId]` ist die zur Instance gehörige RouteCell — wird vom
    * LOS-Debug-Panel für Reverse-Hover-Picking gebraucht.
    */
-  cells: readonly RouteCell[];
+  readonly cells: readonly RouteCell[];
+  /**
+   * Andere Zellen in dieselben Meshes und Materialien (die Build-Vorschau
+   * nach einer Bewegung): nichts wird neu gebaut, kein Programm neu
+   * gelinkt, nur die Instanzen hochgeladen. Höchstens `capacity` Zellen.
+   */
+  setCells(cells: readonly RouteCell[]): void;
   /** Animation-Tick — refresht das `uTime`-Uniform für Pulse. */
   tick(timeSeconds: number): void;
   /**
@@ -198,6 +218,21 @@ const FRAGMENT_SHADER = /* glsl */ `
  * gebaute `TowerLosLayer` und ist für `dispose()` zuständig.
  */
 export class TowerLosLayerBuilder {
+  /**
+   * A layer of one cell for the load-time warm-up (ThreeTilesEngine.preloadModels):
+   * its program, which the first build preview linked in its frame, built and
+   * kept (ProgramPins) with the scene's. Both meshes shown, the materials
+   * left undisposed like the other stand-ins.
+   */
+  static warmUpObjects(cubemap: WebGLCubeRenderTarget): InstancedMesh[] {
+    const cell = { x: 0, z: 0, terrainHeight: 0 } as RouteCell;
+    const layer = TowerLosLayerBuilder.build({
+      cells: [cell], towerTip: new Vector3(0, 1, 0), groundRange: 1, airRange: 1,
+      canTargetGround: true, canTargetAir: true, cubemap, cubemapFarDistance: 1, gridCellSize: 1,
+    });
+    return layer ? [layer.groundMesh, layer.airMesh] : [];
+  }
+
   static build(opts: TowerLosLayerOptions): TowerLosLayer | null {
     const tBuildStart = performance.now();
     const { cells, towerTip, groundRange, airRange, canTargetGround, canTargetAir,
@@ -271,49 +306,61 @@ export class TowerLosLayerBuilder {
       cellFootprint,
     );
 
-    const groundMesh = new InstancedMesh(groundGeometry, groundMaterial, cells.length);
+    const capacity = Math.max(cells.length, opts.capacity ?? 0);
+    const groundMesh = new InstancedMesh(groundGeometry, groundMaterial, capacity);
     groundMesh.frustumCulled = false;
     groundMesh.renderOrder = 3;
-    groundMesh.instanceMatrix.setUsage(StaticDrawUsage);
+    groundMesh.instanceMatrix.setUsage(DynamicDrawUsage);
 
-    const airMesh = new InstancedMesh(airGeometry, airMaterial, cells.length);
+    const airMesh = new InstancedMesh(airGeometry, airMaterial, capacity);
     airMesh.frustumCulled = false;
     airMesh.renderOrder = 4;  // Air zuletzt: die schwebende Plate blendet über die Ground-Plate
-    airMesh.instanceMatrix.setUsage(StaticDrawUsage);
+    airMesh.instanceMatrix.setUsage(DynamicDrawUsage);
 
-    const groundSampleYArr = new Float32Array(cells.length);
-    const airSampleYArr = new Float32Array(cells.length);
-    const matrix = new Matrix4();
-
-    for (let i = 0; i < cells.length; i++) {
-      const cell = cells[i];
-      // Ground-Mesh sitzt knapp über dem Boden (z-fighting-Schutz)
-      const groundMeshY = cell.terrainHeight + LOS_VIZ_CONFIG.cellYOffset;
-      matrix.setPosition(cell.x, groundMeshY, cell.z);
-      groundMesh.setMatrixAt(i, matrix);
-
-      // Air-Mesh sitzt direkt auf dem Air-Sample-Punkt — visualisiert
-      // EXAKT wo die Cubemap-Sample-Position liegt. Single source of
-      // truth: getAirTargetY (siehe route-cell.ts).
-      const airMeshY = getAirTargetY(cell);
-      matrix.setPosition(cell.x, airMeshY, cell.z);
-      airMesh.setMatrixAt(i, matrix);
-
-      // Gesampelt wird wie im LOS-Resolve (getGroundTargetY).
-      groundSampleYArr[i] = getGroundTargetY(cell);
-      airSampleYArr[i]    = airMeshY;
-    }
-
-    const groundSampleAttr = new InstancedBufferAttribute(groundSampleYArr, 1);
+    const groundSampleAttr = new InstancedBufferAttribute(new Float32Array(capacity), 1);
     groundSampleAttr.setUsage(DynamicDrawUsage);
     groundGeometry.setAttribute('aSampleY', groundSampleAttr);
 
-    const airSampleAttr = new InstancedBufferAttribute(airSampleYArr, 1);
+    const airSampleAttr = new InstancedBufferAttribute(new Float32Array(capacity), 1);
     airSampleAttr.setUsage(DynamicDrawUsage);
     airGeometry.setAttribute('aSampleY', airSampleAttr);
 
-    groundMesh.instanceMatrix.needsUpdate = true;
-    airMesh.instanceMatrix.needsUpdate = true;
+    const matrix = new Matrix4();
+    let shownCells: readonly RouteCell[] = cells;
+
+    const setCells = (next: readonly RouteCell[]): void => {
+      if (next.length > capacity) {
+        throw new RangeError(`TowerLosLayer: ${next.length} cells, room for ${capacity}`);
+      }
+      for (let i = 0; i < next.length; i++) {
+        const cell = next[i];
+        // Ground-Mesh sitzt knapp über dem Boden (z-fighting-Schutz)
+        const groundMeshY = cell.terrainHeight + LOS_VIZ_CONFIG.cellYOffset;
+        matrix.setPosition(cell.x, groundMeshY, cell.z);
+        groundMesh.setMatrixAt(i, matrix);
+
+        // Air-Mesh sitzt direkt auf dem Air-Sample-Punkt — visualisiert
+        // EXAKT wo die Cubemap-Sample-Position liegt. Single source of
+        // truth: getAirTargetY (siehe route-cell.ts).
+        const airMeshY = getAirTargetY(cell);
+        matrix.setPosition(cell.x, airMeshY, cell.z);
+        airMesh.setMatrixAt(i, matrix);
+
+        // Gesampelt wird wie im LOS-Resolve (getGroundTargetY).
+        groundSampleAttr.setX(i, getGroundTargetY(cell));
+        airSampleAttr.setX(i, airMeshY);
+      }
+      groundMesh.count = next.length;
+      airMesh.count = next.length;
+      // Nur die gesetzten Platten hochladen, nicht die ganze Kapazität
+      for (const attribute of [groundMesh.instanceMatrix, airMesh.instanceMatrix, groundSampleAttr, airSampleAttr]) {
+        attribute.clearUpdateRanges();
+        attribute.addUpdateRange(0, next.length * attribute.itemSize);
+        attribute.needsUpdate = true;
+      }
+      shownCells = next;
+    };
+    setCells(cells);
 
     // Ausgeblendete Layer sparen außerdem ihren Draw-Call.
     const applyFilterMode = (mode: 'both' | 'ground' | 'air'): void => {
@@ -328,7 +375,10 @@ export class TowerLosLayerBuilder {
     return {
       groundMesh,
       airMesh,
-      cells,
+      get cells() {
+        return shownCells;
+      },
+      setCells,
       tick: (timeSeconds: number) => {
         groundMaterial.uniforms['uTime'].value = timeSeconds;
         airMaterial.uniforms['uTime'].value = timeSeconds;

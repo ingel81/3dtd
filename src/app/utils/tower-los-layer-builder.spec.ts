@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { InstancedBufferAttribute, ShaderMaterial, Vector3, WebGLCubeRenderTarget } from 'three';
-import { TowerLosLayer, TowerLosLayerBuilder, visibleLosLayers } from './tower-los-layer-builder';
+import { InstancedBufferAttribute, Matrix4, ShaderMaterial, Vector3, WebGLCubeRenderTarget } from 'three';
+import { TowerLosLayer, TowerLosLayerBuilder, losLayerCapacity, visibleLosLayers } from './tower-los-layer-builder';
 import { getAirTargetY, RouteCell } from './route-cell';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 
@@ -11,7 +11,7 @@ function cell(x: number, z: number, terrainHeight: number): RouteCell {
 const cubemap = new WebGLCubeRenderTarget(4);
 let layer: TowerLosLayer | null = null;
 
-function build(canTargetGround: boolean, canTargetAir: boolean, cells = [cell(0, 0, 10), cell(2, 0, 12)]) {
+function build(canTargetGround: boolean, canTargetAir: boolean, cells = [cell(0, 0, 10), cell(2, 0, 12)], capacity?: number) {
   layer = TowerLosLayerBuilder.build({
     cells,
     towerTip: new Vector3(0, 20, 0),
@@ -22,6 +22,7 @@ function build(canTargetGround: boolean, canTargetAir: boolean, cells = [cell(0,
     cubemap,
     cubemapFarDistance: 40,
     gridCellSize: 2,
+    capacity,
   });
   return layer!;
 }
@@ -125,5 +126,59 @@ describe('TowerLosLayerBuilder', () => {
     expect(m.vertexShader).toContain('#include <logdepthbuf_vertex>');
     expect(m.fragmentShader).toContain('#include <logdepthbuf_fragment>');
     expect(m.fragmentShader).toContain('#include <colorspace_fragment>');
+  });
+
+  it('sets other cells into the same meshes and materials, uploading only those', () => {
+    const l = build(true, true, [cell(0, 0, 10)], 8);
+    const { groundMesh, airMesh } = l;
+    const groundMaterial = groundMesh.material;
+    const moved = [cell(4, 6, 20), cell(6, 6, 21), cell(8, 6, 22)];
+
+    l.setCells(moved);
+
+    expect(l.groundMesh).toBe(groundMesh);
+    expect(groundMesh.material).toBe(groundMaterial);
+    expect(l.cells).toBe(moved);
+    expect([groundMesh.count, airMesh.count]).toEqual([3, 3]);
+    const groundY = groundMesh.geometry.getAttribute('aSampleY') as InstancedBufferAttribute;
+    const airY = airMesh.geometry.getAttribute('aSampleY') as InstancedBufferAttribute;
+    moved.forEach((c, i) => {
+      const at = new Matrix4();
+      groundMesh.getMatrixAt(i, at);
+      const position = new Vector3().setFromMatrixPosition(at);
+      expect([position.x, position.z]).toEqual([c.x, c.z]);
+      expect(position.y).toBeCloseTo(c.terrainHeight + LOS_VIZ_CONFIG.cellYOffset);
+      expect(groundY.getX(i)).toBeCloseTo(c.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset);
+      expect(airY.getX(i)).toBeCloseTo(getAirTargetY(c));
+    });
+    expect(groundMesh.instanceMatrix.updateRanges).toEqual([{ start: 0, count: 3 * 16 }]);
+    expect(airY.updateRanges).toEqual([{ start: 0, count: 3 }]);
+  });
+
+  it('holds as many cells as its capacity and refuses more', () => {
+    const l = build(true, true, [cell(0, 0, 10)], 2);
+    expect(l.groundMesh.instanceMatrix.count).toBe(2);
+    expect(() => l.setCells([cell(0, 0, 1), cell(2, 0, 1), cell(4, 0, 1)])).toThrow(RangeError);
+  });
+
+  it('sizes the capacity of a range for the grid slots in the box around its reach', () => {
+    // 30 m at 2 m cells: 30 slots across plus the cells the reach cuts at both ends
+    expect(losLayerCapacity(30, 2)).toBeGreaterThanOrEqual(32 * 32);
+    expect(losLayerCapacity(30, 2)).toBeLessThan(40 * 40);
+  });
+
+  it('gives the warm-up both meshes of one layer, shown', () => {
+    const meshes = TowerLosLayerBuilder.warmUpObjects(cubemap);
+    expect(meshes).toHaveLength(2);
+    expect(meshes.every((m) => m.visible && m.count === 1)).toBe(true);
+    const [ground, air] = meshes.map((m) => m.material as ShaderMaterial);
+    // The same shaders as every layer's: one program for all of them
+    const l = build(true, true);
+    expect(ground.fragmentShader).toBe((l.groundMesh.material as ShaderMaterial).fragmentShader);
+    expect(air.vertexShader).toBe((l.airMesh.material as ShaderMaterial).vertexShader);
+    for (const m of meshes) {
+      m.geometry.dispose();
+      (m.material as ShaderMaterial).dispose();
+    }
   });
 });
