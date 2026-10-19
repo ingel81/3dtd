@@ -15,9 +15,33 @@ import {
   type Wrapping,
 } from 'three';
 import { GLTFLoader, type GLTFLoaderPlugin, type GLTFParser } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import type { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
-import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
-import { compressedTextureLoader, rgbaTextureLoader, transcodeKtx2 } from './ktx2-transcoder';
+
+/**
+ * The KTX2 transcoder's module and the meshopt decoder load with the first
+ * model, not with the page: they stay out of the start's bundle
+ */
+let transcoderModule: Promise<typeof import('./ktx2-transcoder')> | null = null;
+const transcoders = (): Promise<typeof import('./ktx2-transcoder')> => (transcoderModule ??= import('./ktx2-transcoder'));
+
+interface MeshoptDecoderLike {
+  supported: boolean;
+  ready: Promise<void>;
+  decodeGltfBuffer(target: Uint8Array, count: number, size: number, source: Uint8Array, mode: string, filter?: string): void;
+}
+
+let meshoptModule: Promise<MeshoptDecoderLike> | null = null;
+let meshoptDecoder: MeshoptDecoderLike | null = null;
+/** GLTFLoader's meshopt decoder, its code fetched when GLTFLoader first waits for `ready` */
+const lazyMeshopt: MeshoptDecoderLike = {
+  supported: true,
+  get ready(): Promise<void> {
+    meshoptModule ??= import('three/examples/jsm/libs/meshopt_decoder.module.js').then((m) => (meshoptDecoder = m.MeshoptDecoder as MeshoptDecoderLike));
+    return meshoptModule.then((decoder) => decoder.ready);
+  },
+  decodeGltfBuffer(target, count, size, source, mode, filter) {
+    meshoptDecoder!.decodeGltfBuffer(target, count, size, source, mode, filter);
+  },
+};
 
 /**
  * The one GLTFLoader setup of the game's models (V9): meshopt geometry
@@ -50,9 +74,9 @@ export interface ModelLoaderOptions {
 
 /** A GLTFLoader for the packed models */
 export function createModelLoader(options: ModelLoaderOptions = {}): GLTFLoader {
-  return new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).register((parser) => new Ktx2TexturePlugin(parser, options));
+  // GLTFLoader asks only `supported`, `ready` and `decodeGltfBuffer` of a decoder without decodeGltfBufferAsync
+  return new GLTFLoader().setMeshoptDecoder(lazyMeshopt as never).register((parser) => new Ktx2TexturePlugin(parser, options));
 }
-
 const BASISU = 'KHR_texture_basisu';
 
 /** glTF sampler values to three's, made on first use (specs that mock three load this file without them) */
@@ -105,8 +129,6 @@ class Ktx2TexturePlugin implements GLTFLoaderPlugin {
     const textureDef = this.json.textures[textureIndex];
     const source = textureDef.extensions?.[BASISU]?.source;
     if (source === undefined) return null;
-    const transcoder = compressedTextureLoader();
-    if (!transcoder) return Promise.resolve(null) as unknown as Promise<Texture>;
     const sampler = this.json.samplers?.[textureDef.sampler ?? -1] ?? {};
     const imageDef = this.json.images[source];
     const key = `${source}:${textureDef.sampler}`;
@@ -114,7 +136,7 @@ class Ktx2TexturePlugin implements GLTFLoaderPlugin {
     if (!promise) {
       const base = imageDef.uri !== undefined && this.options.sharedTextures
         ? sharedTexture(this.resolve(imageDef.uri), this.options.sharedTextures, this.options.fetch)
-        : decodeKtx2(this.bytes(imageDef), transcoder, this.keepFiles.has(source));
+        : decodeKtx2(this.bytes(imageDef), this.keepFiles.has(source));
       promise = base
         .then((texture) => (texture ? withSampler(texture, sampler, textureDef.name || imageDef.name || '') : null))
         .then((texture) => {
@@ -156,14 +178,13 @@ class Ktx2TexturePlugin implements GLTFLoaderPlugin {
 export function sharedTexture(url: string, cache: Map<string, Promise<Texture | null>>, fetchFn: typeof fetch = fetch): Promise<Texture | null> {
   let promise = cache.get(url);
   if (!promise) {
-    const transcoder = compressedTextureLoader();
-    if (!transcoder) return Promise.resolve(null);
-    promise = fetchFn(url)
+    promise = transcoders()
+      .then((m) => (m.compressedTextureLoader() ? fetchFn(url) : null))
       .then((res) => {
+        if (!res) return null;
         if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-        return res.arrayBuffer();
+        return decodeKtx2(res.arrayBuffer(), false);
       })
-      .then((buffer) => decodeKtx2(Promise.resolve(buffer), transcoder, false))
       .catch((error: unknown) => {
         cache.delete(url);
         throw error;
@@ -173,7 +194,11 @@ export function sharedTexture(url: string, cache: Map<string, Promise<Texture | 
   return promise;
 }
 
-async function decodeKtx2(bytes: Promise<ArrayBuffer>, transcoder: KTX2Loader, keepFile: boolean): Promise<Texture> {
+/** A KTX2 file's texture through the page's transcoder; null without one (no WebGL2) */
+async function decodeKtx2(bytes: Promise<ArrayBuffer>, keepFile: boolean): Promise<Texture | null> {
+  const { compressedTextureLoader, transcodeKtx2 } = await transcoders();
+  const transcoder = compressedTextureLoader();
+  if (!transcoder) return null;
   const buffer = await bytes;
   const opaque = ktx2Opaque(new Uint8Array(buffer));
   // The transcoder takes the buffer over (transferred to its worker)
@@ -259,6 +284,7 @@ export interface RgbaPixels {
 export async function readTexturePixels(texture: Texture): Promise<RgbaPixels | null> {
   const file = keptFiles.get(texture.source);
   if (!file) return null;
+  const { rgbaTextureLoader } = await transcoders();
   const rgba = await new Promise<CompressedTexture>((resolve, reject) =>
     rgbaTextureLoader().parse(file.slice(0), (t) => resolve(t as CompressedTexture), reject),
   );

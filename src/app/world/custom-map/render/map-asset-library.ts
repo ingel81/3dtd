@@ -18,7 +18,6 @@ import {
   type Object3D,
 } from 'three';
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { compressedTextureLoader, transcodeKtx2 } from '../../../three-engine/models/ktx2-transcoder';
 import { createModelLoader, sharedTexture } from '../../../three-engine/models/model-loader';
 import { mapDataFetch, mapDataUrl } from '../map-data';
 import { shareGpu, unshareGpu } from '../../../three-engine/shared-gpu';
@@ -186,8 +185,11 @@ export class MapAssetLibrary {
   async materialTextures(id: string): Promise<MaterialPixels | MaterialCompressed> {
     const entry = await this.materialEntry(id);
     const packed = entry?.files.packed;
-    const loader = entry && packed ? compressedTextureLoader() : null;
-    if (!entry || !packed || !loader) return this.material(id);
+    if (!entry || !packed) return this.material(id);
+    // The transcoder's code comes with the first file that needs it (out of the start's bundle)
+    const { compressedTextureLoader, transcodeKtx2 } = await import('../../../three-engine/models/ktx2-transcoder');
+    const loader = compressedTextureLoader();
+    if (!loader) return this.material(id);
     try {
       const load = async (path: string): Promise<CompressedTexture> => {
         const res = await this.fetchFn(this.url(path));
