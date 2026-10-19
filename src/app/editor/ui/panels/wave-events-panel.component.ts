@@ -6,6 +6,9 @@ import { SnapshotCommand } from '../../model/commands/snapshot';
 import { waveEventProblems } from '../../../map-ops/validation/wave-event-check';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
+import { injectT } from '../../../i18n/i18n.service';
+import { checkText } from '../../../map-ops/validation/check-text';
+import type { WaveEventProblem } from '../../../map-ops/validation/wave-event-check';
 
 const KINDS: { id: MapWaveEventKind; label: string; hint: string }[] = [
   { id: 'message', label: 'Message', hint: 'A text on the screen' },
@@ -110,7 +113,7 @@ const KINDS: { id: MapWaveEventKind; label: string; hint: string }[] = [
       }
     </div>
     @for (p of problems(); track $index) {
-      <p class="td-note is-warn">{{ p.message }}</p>
+      <p class="td-note is-warn">{{ problemText(p) }}</p>
     }
   `,
   styles: [
@@ -123,6 +126,12 @@ const KINDS: { id: MapWaveEventKind; label: string; hint: string }[] = [
 })
 export class WaveEventsPanelComponent {
   private readonly session = inject(EditorSession);
+  protected readonly t = injectT();
+
+  /** What a problem of the events says, in the player's language */
+  problemText(p: WaveEventProblem): string {
+    return checkText(this.t(), p.text);
+  }
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('gameplay', 'markers', 'objects');
   readonly kinds = KINDS;

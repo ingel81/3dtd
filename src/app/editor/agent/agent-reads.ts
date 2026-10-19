@@ -15,6 +15,8 @@ import type { MapIssue } from '../../map-ops/validation/map-validation';
 import { SCENE_BUDGET } from '../../world/custom-map/render/objects/scene-cost';
 import type { CustomMapDocument, MapObject, MapWater } from '../../world/custom-map/map-document';
 import { lifeSwitches } from '../../world/custom-map/map-life';
+import { en } from '../../i18n/messages/en';
+import { checkText } from '../../map-ops/validation/check-text';
 
 export interface MapRect {
   x0: number;
@@ -136,7 +138,7 @@ export function issuesAsData(issues: readonly MapIssue[]): { errors: number; war
     issues: issues.map((i) => ({
       severity: i.severity,
       code: i.code,
-      message: i.message,
+      message: checkText(en, i.text),
       ...(i.focus ? { at: { x: r2(i.focus.x), y: r2(i.focus.y) } } : {}),
       ...(i.target ? { target: i.target } : {}),
     })),

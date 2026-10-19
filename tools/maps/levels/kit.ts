@@ -17,6 +17,8 @@ import { EdgeIndex } from '../../../src/app/map-ops/path-graph';
 import { objectsOnPaths } from '../../../src/app/map-ops/validation/map-validation';
 import { createMapDocument } from '../../../src/app/world/custom-map/map-create';
 import type { CustomMapDocument, MapObject, MapPoint } from '../../../src/app/world/custom-map/map-document';
+import { en } from '../../../src/app/i18n/messages/en';
+import { checkText } from '../../../src/app/map-ops/validation/check-text';
 
 export { facing } from '../../../src/app/editor/ops/map-kit';
 
@@ -190,11 +192,11 @@ export class LevelKit extends MapKit {
     const issues = this.issues();
     // LEVEL_LOG=1 prints what the editor's panels would show: lanes, objects, warnings, layers left out
     if (process.env['LEVEL_LOG']) {
-      console.log(this.spec.id, { lanes: this.lanes(), objects: this.doc.objects.length, leftOut: [...this.leftOut], warnings: issues.map((i) => `${i.message}${i.target && 'id' in i.target ? ` [${i.target.id}]` : ''}${i.focus ? ` at ${Math.round(i.focus.x)},${Math.round(i.focus.y)}` : ''}`) });
+      console.log(this.spec.id, { lanes: this.lanes(), objects: this.doc.objects.length, leftOut: [...this.leftOut], warnings: issues.map((i) => `${checkText(en, i.text)}${i.target && 'id' in i.target ? ` [${i.target.id}]` : ''}${i.focus ? ` at ${Math.round(i.focus.x)},${Math.round(i.focus.y)}` : ''}`) });
     }
     // A shipped level has nothing hanging in the air and nothing a rover drives through: the check's warnings stop it here
     const errors = issues.filter((i) => i.severity === 'error' || i.code === 'object-floating' || i.code === 'water-floating' || i.code === 'object-on-mover-route');
-    if (errors.length) throw new Error(`${this.spec.id}: ${errors.map((e) => `${e.message}${e.focus ? ` (at ${Math.round(e.focus.x)}, ${Math.round(e.focus.y)})` : ''}`).join('; ')}`);
+    if (errors.length) throw new Error(`${this.spec.id}: ${errors.map((e) => `${checkText(en, e.text)}${e.focus ? ` (at ${Math.round(e.focus.x)}, ${Math.round(e.focus.y)})` : ''}`).join('; ')}`);
     return this.doc;
   }
 }

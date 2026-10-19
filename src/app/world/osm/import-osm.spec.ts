@@ -18,6 +18,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { mapRepairs } from '../custom-map/map-repair';
 import { massTriangles } from '../custom-map/object-mass';
+import { en } from '../../i18n/messages/en';
+import { checkText } from '../../map-ops/validation/check-text';
 
 const catalog = JSON.parse(readFileSync(join(__dirname, '../../../../public/maps/assets/catalog.json'), 'utf8'));
 
@@ -38,7 +40,7 @@ describe('OSM world (frozen probe Miltenberg)', () => {
     expect(mapRepairs(doc)).toEqual([]);
     expect(unpackMapFile(packMapFile(doc)).doc.paths.edges.length).toBe(doc.paths.edges.length);
     const errors = validateMap(doc).filter((i) => i.severity === 'error');
-    expect(errors.map((e) => e.message)).toEqual([]);
+    expect(errors.map((e) => checkText(en, e.text))).toEqual([]);
     expect(doc.meta.source).toMatchObject({ kind: 'osm', address: 'Miltenberg', sideM: 1200, dem: 'mapterhorn', zeroM: report.terrain.zeroM });
     expect(doc.meta.id).toBe('osm-miltenberg');
     expect(report.warnings.filter((w) => w.startsWith('heights'))).toEqual([]);

@@ -322,7 +322,7 @@ export class TowerDefenseFacadeService {
       this.autoRestartTimeout = null;
     }
     this.gameStore.setGameSpeed(1);
-    this.uiStore.notice.set({ text: mapTrialSummary(result), tone: MAP_TRIAL_TONE[result.outcome] });
+    this.uiStore.notice.set({ text: mapTrialSummary(this.t(), result), tone: MAP_TRIAL_TONE[result.outcome] });
     console.info('[MapTrial]', JSON.stringify(result));
     (window as { __mapTrial?: MapTrialResult }).__mapTrial = result;
     // The editor that started the check hears the result in this window

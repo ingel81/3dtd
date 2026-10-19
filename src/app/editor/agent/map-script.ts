@@ -44,6 +44,8 @@ import {
 } from '../../world/custom-map/map-document';
 import { LIFE_KINDS } from '../../world/custom-map/map-life';
 import { AMBIENT_SOUNDS, WAVE_SOUNDS } from '../../world/custom-map/ambience/ambient-sounds';
+import { en } from '../../i18n/messages/en';
+import { checkText } from '../../map-ops/validation/check-text';
 
 /** One command of a script, as kept and played */
 export interface ScriptCommand {
@@ -936,7 +938,7 @@ export function scriptMap(kit: MapKit, kept: ScriptCommand[], options: Required<
       }),
     lanes: () => kit.lanes(),
     prefabs: () => forScript((doc.prefabs ?? []).map((p) => ({ id: p.id, name: p.name, width: Math.round(p.stamp.width), depth: Math.round(p.stamp.depth), objects: p.stamp.objects.length, prefab: !!p.stamp.prefab }))),
-    issues: () => kit.issues().map((i) => ({ severity: i.severity, message: i.message })),
+    issues: () => kit.issues().map((i) => ({ severity: i.severity, message: checkText(en, i.text) })),
     life: () => forScript(doc.life ?? {}),
     surfaces: () => forScript(doc.surfaces ?? []),
     introFlight: () => forScript(doc.intro ?? null),

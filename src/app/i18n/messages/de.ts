@@ -5,6 +5,14 @@ import type { Messages } from './en';
 
 const f = formatters('de');
 
+/** The water kinds of a map, as the check names them */
+const WATER_DE: Record<string, string> = { water: 'Wasser', sea: 'Meer', swamp: 'Sumpf', ice: 'Eis', lava: 'Lava' };
+
+/** A thing of the map in German, inside the check's sentences */
+function de_thing(ref: Parameters<Messages['check']['thing']>[0]): string {
+  return de.check.thing(ref);
+}
+
 /**
  * Turm- und Gegnernamen, ein Block für sich. Englische Namen im deutschen
  * Spiel: diesen Block durch `const names = en.names;` ersetzen (und `en`
@@ -311,6 +319,118 @@ export const de: Messages = {
           + 'Dann wählt G ihn aus, und ein Klick auf die Route schickt ihn hin.',
       },
     },
+  },
+  check: {
+    thing: (ref) => {
+      switch (ref.kind) {
+        case 'hq': return 'Das HQ';
+        case 'spawn': return `Spawn ${ref.name}`;
+        case 'road': return `Straße ${ref.n}`;
+        case 'path': return `Weg ${ref.n}`;
+        case 'bridge': return `Brücke ${ref.n}`;
+        case 'main-water': return ref.water === 'water' ? 'Das Wasser' : `Das Gewässer (${WATER_DE[ref.water] ?? ref.water})`;
+        case 'water-body': return `Gewässer ${ref.n} (${WATER_DE[ref.water] ?? ref.water})`;
+        case 'main-water-short': return 'das Hauptgewässer';
+        case 'body': return `Gewässer ${ref.n}`;
+        case 'river': return `Fluss ${ref.n}`;
+        case 'lava-flow': return `Lavastrom ${ref.n}`;
+        default: return '?';
+      }
+    },
+    issues: {
+      mapFile: (v) => `Die Karte lässt sich nicht speichern: ${v.problem}.`,
+      mapValues: (v) => `Wird beim nächsten Öffnen richtiggestellt: ${v.problem}.`,
+      noPaths: () => 'Die Karte hat keine Straßen. Gegner laufen nur auf Straßen (Werkzeug Straßen, 6).',
+      noSpawns: () => 'Die Karte hat keinen Spawn.',
+      tooManySpawns: (v) => `Die Karte hat ${v.count} Spawns; das Spiel nutzt nur die ersten ${v.max}.`,
+      hqOutside: () => 'Das HQ steht außerhalb der Karte.',
+      hqOffPath: (v) => `Das HQ steht ${v.dist ?? '?'} m von der nächsten Straße (höchstens ${v.max} m).`,
+      pathsSplit: (v) => `Die Straßen zerfallen in ${v.parts} Teile, die nicht verbunden sind.`,
+      spawnOutside: (v) => `Spawn ${v.name} steht außerhalb der Karte.`,
+      spawnOffPath: (v) => `Spawn ${v.name} steht ${v.dist ?? '?'} m von der nächsten Straße.`,
+      spawnUnreachable: (v) => `Von Spawn ${v.name} führt keine Straße zum HQ.`,
+      laneShort: (v) => `Der Weg von Spawn ${v.name} ist ${v.length} m lang, kurz für Türme (ab ${v.min} m).`,
+      laneLong: (v) => `Der Weg von Spawn ${v.name} ist ${v.length} m lang; Wellen brauchen lange bis zum HQ.`,
+      spawnNearHq: (v) => `Spawn ${v.name} steht direkt neben dem HQ.`,
+      laneLittleRoom: (v) => `Entlang des Wegs von Spawn ${v.name} ist Platz für etwa ${v.spots} Türme im Umkreis von ${v.range} m um die Route (ab ${v.min} hat der Spieler eine Wahl). Messen > Bauflächen zeigt, wo.`,
+      pathOutside: (v) => `${de_thing(v.thing)} läuft aus der Karte.`,
+      pathUnderWater: (v) => `${de_thing(v.thing)} läuft unter Wasser (Brücke daraus machen oder den Boden anheben).`,
+      pathSteep: (v) => `${de_thing(v.thing)} steigt steiler als ${v.max} Grad.`,
+      objectOnPath: (v) => (v.count === 1 ? 'Ein Objekt steht auf einer Straße.' : `${v.count} Objekte stehen auf Straßen.`),
+      objectOnMover: (v) => `${v.count === 1 ? 'Ein Objekt steht' : `${v.count} Objekte stehen`} im Weg einer fahrenden Lebensroute (Rover, Karren) und würden durchfahren (${v.assets}). Objekte von der Route nehmen oder die Route drumherum legen.`,
+      dangerColor: (v) => `${v.count === 1 ? 'Eine rote Pflanze steht' : `${v.count} rote Pflanzen stehen`} an einer Straße; Rot heißt dort Gefahr. Andere Farbe nehmen oder wegrücken.`,
+      sceneCost: (v) => `Szenenkosten ${v.percent} %: mehr, als eine Karte flüssig zeichnet. Zuerst Gebäude, Bäume und Kleinkram ausdünnen (Kartenpanel, Budget).`,
+      waveList: (v) => `Wellenliste: ${v.problem}`,
+      unknownTowers: (v) => `Unbekannte Turmarten erlaubt: ${v.list}`,
+      noShootingTower: () => 'Kein schießender Turm ist erlaubt.',
+      lanesMin: (v) => `Mindestens ${v.min} Wege sollen offen sein, aber die Karte hat ${v.spawns} Spawns.`,
+      lanesMax: (v) => `Höchstens ${v.max} Wege dürfen offen sein, aber ${v.always} Spawns sind immer offen. Ein paar als optional markieren.`,
+      inWater: (v) => `${de_thing(v.thing)} steht im Wasser.`,
+      steep: (v) => `${de_thing(v.thing)} steht auf ${v.slope} Grad Hang (höchstens ${v.max}).`,
+      waterBuried: (v) => `${de_thing(v.thing)} liegt unter dem Boden: Bei ${v.percent} % liegt das Bett über der Oberfläche (bis ${f.fixed(v.up, 1)} m). Wieder ausgraben oder den Spiegel anheben.`,
+      objectsFloating: (v) => {
+        const what = [
+          v.inAir === 1 ? 'ein Objekt hängt in der Luft' : v.inAir ? `${v.inAir} Objekte hängen in der Luft` : '',
+          v.under === 1 ? 'ein Boot oder eine Boje versinkt' : v.under ? `${v.under} Boote oder Bojen versinken` : '',
+        ].filter(Boolean).join(', ');
+        const line = `${what} (am schlimmsten: ${v.asset}, ${f.fixed(v.gap, 1)} m ${v.up ? 'drüber' : 'drunter'})`;
+        return `${line.charAt(0).toUpperCase()}${line.slice(1)}. Auswählen und Ende drücken setzt es auf Boden oder Wasser, oder An Hang ausrichten.`;
+      },
+      waterFloating: (v) =>
+        `Wasser endet in der Luft: ${v.list.map(de_thing).join(', ')} (am schlimmsten: ${de_thing(v.worst)}, ${f.fixed(v.height, 1)} m über dem Boden daneben). `
+        + 'Dort das Ufer anheben, den Spiegel senken oder die Maske entfernen, wo kein Ufer sie hält.',
+      eventNoSpawn: (v) => `Ereignis in Welle ${v.wave}: Spawn ${v.spawn} gibt es nicht mehr; einen anderen wählen oder das Ereignis löschen.`,
+      eventObjectsGone: (v) => `Ereignis in Welle ${v.wave}: Keines seiner Objekte ist mehr auf der Karte.`,
+      eventSomeGone: (v) => `Ereignis in Welle ${v.wave}: ${v.gone} seiner ${v.all} Objekte fehlen.`,
+      eventSkyPicture: (v) => `Ereignis in Welle ${v.wave}: Die Karte hat ein Himmelsbild, das bleibt; die Tageszeit bewegt nur die Sonne.`,
+      noOpenLane: () => 'Jeder Spawn öffnet erst später über ein Wellenereignis: Welle 1 hat keinen Weg. Mindestens einen von Anfang an offen lassen.',
+    },
+  },
+  editor: {
+    tools: {
+      look: { label: 'Ansehen', short: 'Ansehen', about: 'Umsehen und Dinge anklicken, um zu sehen, was sie sind; ändert nichts' },
+      landscape: { label: 'Landschaft', short: 'Landschaft', about: 'Biome, Berge, Flüsse und Straßen: Boden, Farbe und Pflanzen auf einmal' },
+      terrain: { label: 'Gelände', short: 'Gelände', about: 'Anheben, absenken, glätten, ebnen, Terrassen, Klippen und Rampen' },
+      paint: { label: 'Malen', short: 'Malen', about: 'Bodenschichten und automatisches Malen' },
+      water: { label: 'Wasser', short: 'Wasser', about: 'Senken füllen, Wasser, Lava oder Eis malen' },
+      objects: { label: 'Objekte', short: 'Objekte', about: 'Setzen, streuen, auswählen, verschieben, drehen und skalieren' },
+      life: { label: 'Leben', short: 'Leben', about: 'Vögel, Glühwürmchen, Nebel, Boote und Klänge über Flächen und entlang Routen, und was die Karte von selbst mitbringt' },
+      paths: { label: 'Straßen', short: 'Straßen', about: 'Die Straßen zeichnen und bearbeiten, auf denen die Gegner laufen' },
+      markers: { label: 'Spawns und HQ', short: 'Spawns', about: 'Woher die Gegner kommen und was sie angreifen' },
+      gameplay: { label: 'Regeln', short: 'Regeln', about: 'Start-Credits, HQ-Leben, Türme und Wellen dieser Karte' },
+      environment: { label: 'Himmel und Wetter', short: 'Himmel', about: 'Himmel, Tageszeit, Nebel und Wetter' },
+      settings: { label: 'Karte', short: 'Karte', about: 'Name, Größe, Geländegenerator und Versionen' },
+      stamp: { label: 'Kopieren und Stempel', short: 'Stempel', about: 'Ein Rechteck kopieren, gedreht setzen, Stempel behalten' },
+      measure: { label: 'Messen', short: 'Messen', about: 'Längen, Laufzeiten der Wege, Höhenlinien und Raster' },
+    },
+    toolGroups: { Shape: 'Formen', Play: 'Spiel', Map: 'Karte' },
+    panelHints: {
+      gameplay: 'Start-Credits, HQ-Leben, erlaubte Türme und die Wellen dieser Karte',
+      environment: 'Himmel, Sonne und Nebel ändern das Bild der Karte; das Spiel nutzt sie auch',
+      settings: 'Name, Autor, Beschreibung und Größe der Karte',
+    },
+    toolKey: (label, key) => `${label} (${key})`,
+    check: {
+      title: 'Prüfen',
+      close: 'Prüfung schließen',
+      none: 'Keine Probleme',
+      errors: (n) => `${n} ${f.plural(n, 'Fehler', 'Fehler')}`,
+      warnings: (n) => `${n} ${f.plural(n, 'Warnung', 'Warnungen')}`,
+      fixIn: (tool) => `Beheben unter ${tool}`,
+      allGood: 'Die Straßen hängen zusammen, jeder Spawn erreicht das HQ. Bereit zum Testen.',
+      room: (room) => `Platz für Türme an den Routen: ${room}`,
+      judging: 'die Karte wird geprüft …',
+      roomLine: (m2, towers, range, tightest) => `${f.int(m2)} m², etwa ${f.int(towers)} Türme im Umkreis von ${range} m${tightest}.`,
+      tightest: (lane, towers) => `; der engste Weg, ${lane}, etwa ${f.int(towers)}`,
+      botPlays: (waves) => `Der Bot spielt ${waves} Wellen im anderen Tab`,
+      botTip: 'Der Bot des Spiels spielt die ersten Wellen dieser Karte im Schnelldurchlauf in einem neuen Tab und meldet, ob sie gehalten haben',
+      botTest: 'Bot-Test',
+      trialHq: (end, start, towers) => `HQ ${end}/${start}, ${towers} Türme`,
+      trialPassed: (held, waves, hq) => `Kartenprüfung bestanden: ${held} von ${waves} Wellen gehalten (${hq})`,
+      trialLost: (wave, waves, hq) => `Kartenprüfung nicht bestanden: Das HQ fiel in Welle ${wave} von ${waves} (${hq})`,
+      trialStuck: (held, waves, hq) => `Kartenprüfung hängt: Nach Welle ${held} von ${waves} wurde keine Welle fertig (${hq})`,
+    },
+    // editor:end
   },
   hud: {
     ability: {

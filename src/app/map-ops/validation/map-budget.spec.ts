@@ -6,6 +6,8 @@ import { SCENE_BUDGET } from '../../world/custom-map/render/objects/scene-cost';
 import { CatalogIndex, normalizeCatalog } from '../asset-catalog';
 import { assetCosts, mapBudget, mapSceneCost } from './map-budget';
 import { validateMap } from './map-validation';
+import { en } from '../../i18n/messages/en';
+import { checkText } from './check-text';
 
 const catalog = new CatalogIndex(
   normalizeCatalog(JSON.parse(readFileSync(resolve('public/maps/assets/catalog.json'), 'utf8')), 'http://x/maps/assets/'),
@@ -59,6 +61,6 @@ describe('mapSceneCost', () => {
     const heavy = issues(mapOf(1024, { 'keep-ruin': 4_000 }));
     expect(heavy).toHaveLength(1);
     expect(heavy[0]).toMatchObject({ severity: 'warning' });
-    expect(heavy[0].message).toMatch(/^Scene cost \d+ %/);
+    expect(checkText(en, heavy[0].text)).toMatch(/^Scene cost \d+ %/);
   });
 });

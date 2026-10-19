@@ -10,6 +10,7 @@
  */
 
 import type { EventSubscription, GameEventBus } from '../game-engine/game-event-bus';
+import type { Messages } from '../i18n/messages/en';
 
 /** The link's number of waves (`?waves=` is the wave source's) */
 export const MAP_TRIAL_WAVES_PARAM = 'trialWaves';
@@ -135,14 +136,15 @@ const tenths = (hp: number): number => Math.round(hp * 10) / 10;
 export const MAP_TRIAL_TONE: Record<MapTrialOutcome, 'ok' | 'warn' | 'error'> = { passed: 'ok', stuck: 'warn', lost: 'error' };
 
 /** The banner's line for a result */
-export function mapTrialSummary(result: MapTrialResult): string {
-  const hq = `HQ ${result.hqEnd}/${result.hqStart}, ${result.towers} towers`;
+export function mapTrialSummary(t: Messages, result: MapTrialResult): string {
+  const says = t.editor.check;
+  const hq = says.trialHq(result.hqEnd, result.hqStart, result.towers);
   switch (result.outcome) {
     case 'passed':
-      return `Map check passed: ${result.wavesHeld} of ${result.waves} waves held (${hq})`;
+      return says.trialPassed(result.wavesHeld, result.waves, hq);
     case 'lost':
-      return `Map check failed: the HQ fell in wave ${result.wavesHeld + 1} of ${result.waves} (${hq})`;
+      return says.trialLost(result.wavesHeld + 1, result.waves, hq);
     case 'stuck':
-      return `Map check stuck: no wave finished after wave ${result.wavesHeld} of ${result.waves} (${hq})`;
+      return says.trialStuck(result.wavesHeld, result.waves, hq);
   }
 }

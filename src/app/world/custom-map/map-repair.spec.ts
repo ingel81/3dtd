@@ -4,6 +4,8 @@ import { packMapFile, unpackMapFile } from './map-file';
 import { MAX_MAP_TEXT, mapRepairs } from './map-repair';
 import { MapStore, MemoryMapBackend } from './map-store';
 import { validateMap } from '../../map-ops/validation/map-validation';
+import { en } from '../../i18n/messages/en';
+import { checkText } from '../../map-ops/validation/check-text';
 
 /** A map with values a file from outside may carry: none of them refused the map before the soft checks */
 function untidy() {
@@ -49,8 +51,8 @@ describe('soft map values (warn and set right)', () => {
     const issues = validateMap(untidy()).filter((i) => i.code === 'map-values');
     expect(issues).toHaveLength(10);
     expect(issues.every((i) => i.severity === 'warning')).toBe(true);
-    expect(issues.find((i) => i.message.includes('tint red'))).toMatchObject({ part: 'environment' });
-    expect(issues.find((i) => i.message.includes('object o1: tint'))).toMatchObject({ target: { kind: 'object', id: 'o1' } });
+    expect(issues.find((i) => checkText(en, i.text).includes('tint red'))).toMatchObject({ part: 'environment' });
+    expect(issues.find((i) => checkText(en, i.text).includes('object o1: tint'))).toMatchObject({ target: { kind: 'object', id: 'o1' } });
   });
 
   it('keeps a building raised from its footprint and leaves out one whose outline is broken (E235)', () => {

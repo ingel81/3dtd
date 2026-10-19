@@ -26,6 +26,8 @@ import { dangerLook, type CatalogObject } from '../../src/app/world/custom-map/r
 import { objectCost, sceneCost, SCENE_BUDGET } from '../../src/app/world/custom-map/render/objects/scene-cost';
 import { WARN_SHARE } from '../../src/app/map-ops/validation/map-budget';
 import { DEMO_ROCKS } from '../../src/app/world/custom-map/demo-map';
+import { en } from '../../src/app/i18n/messages/en';
+import { checkText } from '../../src/app/map-ops/validation/check-text';
 
 const MAPS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../public/maps');
 
@@ -109,7 +111,7 @@ describe('shipped maps check', () => {
 
       it("passes the editor's check without errors", () => {
         const issues = validateMap(doc!, { blocksBuild: (a) => objects.get(a)?.blocksBuild ?? false });
-        expect(issues.filter((i) => i.severity === 'error').map((i) => `${i.code}: ${i.message}`)).toEqual([]);
+        expect(issues.filter((i) => i.severity === 'error').map((i) => `${i.code}: ${checkText(en, i.text)}`)).toEqual([]);
       });
 
       it('keeps objects that block building off the roads (gates and arches excepted)', () => {
@@ -132,7 +134,7 @@ describe('shipped maps check', () => {
 
       it('stands no object in the air: rocks on their plates, floating assets on the water, the rest on the ground', () => {
         const issues = validateMap(doc!, { footingOf: (a) => objects.get(a) });
-        expect(issues.filter((i) => i.code === 'object-floating').map((i) => `${i.message} [${i.target?.id}]`)).toEqual([]);
+        expect(issues.filter((i) => i.code === 'object-floating').map((i) => `${checkText(en, i.text)} [${i.target?.id}]`)).toEqual([]);
       });
 
       it('holds all water in its banks: no lake, pool or river ends in the air', () => {

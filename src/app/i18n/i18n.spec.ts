@@ -34,6 +34,7 @@ const SAMPLE: unknown = new Proxy({}, {
     if (key === Symbol.toPrimitive) return () => 7;
     if (key === 'length') return 1;
     if (key === 'join' || key === 'toUpperCase' || key === 'toLowerCase' || key === 'toString') return () => '7';
+    if (key === 'map') return (each: (v: unknown) => unknown) => [each(SAMPLE)];
     return SAMPLE;
   },
 });

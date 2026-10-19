@@ -11,6 +11,8 @@ import type { ResearchBranch } from '../../configs/research/research.types';
 import type { ResearchCenterLevel } from '../../configs/research/research-center.config';
 import type { VeteranLevel } from '../../configs/veteran-ranks.config';
 import type { OnboardingStep } from '../../services/onboarding/onboarding';
+import type { ToolId } from '../../editor/tools/tool-defs';
+import type { CheckThing } from '../../map-ops/validation/check-text';
 import type { CorridorStep } from '../../services/world/corridor-build';
 import type { TowerPlacementRefusal } from '../../utils/tower-placement-rules';
 import type { MapPlacementRefusal } from '../../services/world/map-placement.service';
@@ -287,6 +289,11 @@ const upgrades: Record<UpgradeText, { name: string; description: (terms: Upgrade
   researchWing: { name: 'Research Wing', description: () => 'Adds an additional research slot' },
 };
 
+/** A thing of the map in English: the check's issues name it inside their sentence */
+function en_thing(ref: CheckThing): string {
+  return en.check.thing(ref);
+}
+
 const runLogRefusals: Record<RunLogRefusal, string> = {
   'not-collected': 'this coop server collects no run logs',
   'too-many': 'too many sent from this game',
@@ -367,6 +374,122 @@ export const en = {
           + 'Then G selects him and a click on the route sends him there.',
       },
     } satisfies Record<OnboardingStep, { title: string; text: string }> as Record<OnboardingStep, { title: string; text: string }>,
+  },
+  check: {
+    /** A thing of the map an issue names */
+    thing: (ref: CheckThing): string => {
+      switch (ref.kind) {
+        case 'hq': return 'The HQ';
+        case 'spawn': return `Spawn ${ref.name}`;
+        case 'road': return `Road ${ref.n}`;
+        case 'path': return `Path ${ref.n}`;
+        case 'bridge': return `Bridge ${ref.n}`;
+        case 'main-water': return `The ${ref.water === 'water' ? 'water' : ref.water}`;
+        case 'water-body': return `Water body ${ref.n} (${ref.water})`;
+        case 'main-water-short': return 'the main water';
+        case 'body': return `body ${ref.n}`;
+        case 'river': return `river ${ref.n}`;
+        case 'lava-flow': return `lava flow ${ref.n}`;
+        default: return '?';
+      }
+    },
+    issues: {
+      mapFile: (v: { problem: string }) => `The map cannot be saved: ${v.problem}.`,
+      mapValues: (v: { problem: string }) => `Set right when the map opens next: ${v.problem}.`,
+      noPaths: () => 'The map has no roads. Enemies walk only on roads (Roads tool, 6).',
+      noSpawns: () => 'The map has no spawn.',
+      tooManySpawns: (v: { count: number; max: number }) => `The map has ${v.count} spawns; the game uses only the first ${v.max}.`,
+      hqOutside: () => 'The HQ stands outside the map.',
+      hqOffPath: (v: { dist: number | null; max: number }) => `The HQ stands ${v.dist ?? '?'} m from the nearest road (at most ${v.max} m).`,
+      pathsSplit: (v: { parts: number }) => `The roads fall into ${v.parts} parts that do not connect.`,
+      spawnOutside: (v: { name: string }) => `Spawn ${v.name} stands outside the map.`,
+      spawnOffPath: (v: { name: string; dist: number | null }) => `Spawn ${v.name} stands ${v.dist ?? '?'} m from the nearest road.`,
+      spawnUnreachable: (v: { name: string }) => `No road leads from spawn ${v.name} to the HQ.`,
+      laneShort: (v: { name: string; length: number; min: number }) => `The lane from spawn ${v.name} is ${v.length} m long, short for towers (from ${v.min} m).`,
+      laneLong: (v: { name: string; length: number }) => `The lane from spawn ${v.name} is ${v.length} m long; waves take long to arrive.`,
+      spawnNearHq: (v: { name: string }) => `Spawn ${v.name} stands right next to the HQ.`,
+      laneLittleRoom: (v: { name: string; spots: number; range: number; min: number }) =>
+        `Along the lane from spawn ${v.name} there is room for about ${v.spots} towers within ${v.range} m of the route (at least ${v.min} give the player a choice). Measure > Build areas shows where.`,
+      pathOutside: (v: { thing: CheckThing }) => `${en_thing(v.thing)} runs off the map.`,
+      pathUnderWater: (v: { thing: CheckThing }) => `${en_thing(v.thing)} runs under water (make it a bridge or raise the ground).`,
+      pathSteep: (v: { thing: CheckThing; max: number }) => `${en_thing(v.thing)} climbs steeper than ${v.max} degrees.`,
+      objectOnPath: (v: { count: number }) => (v.count === 1 ? 'An object stands on a road.' : `${v.count} objects stand on roads.`),
+      objectOnMover: (v: { count: number; assets: string }) =>
+        `${v.count === 1 ? 'An object stands' : `${v.count} objects stand`} on the way of a moving life route (rovers, carts) and would be driven through (${v.assets}). Move them off the route or the route round them.`,
+      dangerColor: (v: { count: number }) => `${v.count === 1 ? 'A red plant stands' : `${v.count} red plants stand`} by a road; red reads as danger there. Use another colour or move them away.`,
+      sceneCost: (v: { percent: number }) => `Scene cost ${v.percent} %: more than a map draws fluidly. Thin out buildings, trees and props first (Map panel, Budget).`,
+      waveList: (v: { problem: string }) => `Wave list: ${v.problem}`,
+      unknownTowers: (v: { list: string }) => `Unknown tower types allowed: ${v.list}`,
+      noShootingTower: () => 'No tower that shoots is allowed.',
+      lanesMin: (v: { min: number; spawns: number }) => `At least ${v.min} lanes should be open, but the map has ${v.spawns} spawns.`,
+      lanesMax: (v: { max: number; always: number }) => `At most ${v.max} lanes may be open, but ${v.always} spawns are always open. Mark some as optional.`,
+      inWater: (v: { thing: CheckThing }) => `${en_thing(v.thing)} stands in water.`,
+      steep: (v: { thing: CheckThing; slope: number; max: number }) => `${en_thing(v.thing)} stands on a ${v.slope} degree slope (at most ${v.max}).`,
+      waterBuried: (v: { thing: CheckThing; percent: number; up: number }) =>
+        `${en_thing(v.thing)} lies under the ground: ${v.percent} % of it has its bed above its surface (up to ${f.fixed(v.up, 1)} m). Dig it out again or raise its level.`,
+      objectsFloating: (v: { inAir: number; under: number; asset: string; gap: number; up: boolean }) => {
+        const what = [
+          v.inAir === 1 ? 'an object hangs in the air' : v.inAir ? `${v.inAir} objects hang in the air` : '',
+          v.under === 1 ? 'a boat or buoy sinks under the water' : v.under ? `${v.under} boats or buoys sink under the water` : '',
+        ].filter(Boolean).join(', ');
+        const line = `${what} (worst: ${v.asset}, ${f.fixed(v.gap, 1)} m ${v.up ? 'up' : 'down'})`;
+        return `${line.charAt(0).toUpperCase()}${line.slice(1)}. Select it and press End to set it down on the ground or the water, or Align to slope.`;
+      },
+      waterFloating: (v: { list: readonly CheckThing[]; worst: CheckThing; height: number }) =>
+        `Water ends in the air: ${v.list.map(en_thing).join(', ')} (worst: ${en_thing(v.worst)}, ${f.fixed(v.height, 1)} m over the ground beside it). `
+        + 'Raise the bank there, lower the level, or take the mask off where no bank holds it.',
+      eventNoSpawn: (v: { wave: number; spawn: string }) => `Wave ${v.wave} event: there is no spawn ${v.spawn} any more; pick another or remove the event.`,
+      eventObjectsGone: (v: { wave: number }) => `Wave ${v.wave} event: none of its objects is on the map any more.`,
+      eventSomeGone: (v: { wave: number; gone: number; all: number }) => `Wave ${v.wave} event: ${v.gone} of its ${v.all} objects are gone.`,
+      eventSkyPicture: (v: { wave: number }) => `Wave ${v.wave} event: the map has a sky picture, which stays; the time of day moves only the sun.`,
+      noOpenLane: () => 'Every spawn opens later through a wave event: wave 1 has no lane. Keep at least one open from the start.',
+    },
+  },
+  editor: {
+    tools: {
+      look: { label: 'Look', short: 'Look', about: 'Look around and click things to see what they are; changes nothing' },
+      landscape: { label: 'Landscape', short: 'Landscape', about: 'Biomes, mountains, rivers and roads: ground, paint and plants at once' },
+      terrain: { label: 'Terrain', short: 'Terrain', about: 'Raise, lower, smooth, level, terrace, cliffs and ramps' },
+      paint: { label: 'Paint', short: 'Paint', about: 'Ground layers and auto paint' },
+      water: { label: 'Water', short: 'Water', about: 'Fill hollows, paint water, lava or ice' },
+      objects: { label: 'Objects', short: 'Objects', about: 'Place, scatter, select, move, turn and scale' },
+      life: { label: 'Life', short: 'Life', about: 'Birds, fireflies, fog, boats and sounds over areas and along routes, and what the map brings by itself' },
+      paths: { label: 'Roads', short: 'Roads', about: 'Draw and edit the roads enemies walk' },
+      markers: { label: 'Spawns and HQ', short: 'Spawns', about: 'Where enemies come from and what they attack' },
+      gameplay: { label: 'Rules', short: 'Rules', about: 'Start credits, HQ health, towers and waves of this map' },
+      environment: { label: 'Sky and weather', short: 'Sky', about: 'Sky, time of day, fog and weather' },
+      settings: { label: 'Map', short: 'Map', about: 'Name, size, terrain generator and versions' },
+      stamp: { label: 'Copy and stamps', short: 'Stamps', about: 'Copy a rectangle, place it turned, keep stamps' },
+      measure: { label: 'Measure', short: 'Measure', about: 'Lengths, lane walking times, height lines and grid' },
+    } satisfies Record<ToolId, { label: string; short: string; about: string }> as Record<ToolId, { label: string; short: string; about: string }>,
+    toolGroups: { Shape: 'Shape', Play: 'Play', Map: 'Map' },
+    panelHints: {
+      gameplay: 'Start credits, HQ health, allowed towers and the waves of this map',
+      environment: 'Sky, sun and fog change the look of the map; the game uses them too',
+      settings: 'Name, author, description and size of the map',
+    },
+    toolKey: (label: string, key: string) => `${label} (${key})`,
+    check: {
+      title: 'Check',
+      close: 'Close the check',
+      none: 'No problems',
+      errors: (n: number) => `${n} ${f.plural(n, 'error', 'errors')}`,
+      warnings: (n: number) => `${n} ${f.plural(n, 'warning', 'warnings')}`,
+      fixIn: (tool: string) => `Fix it in ${tool}`,
+      allGood: 'Paths connect, every spawn reaches the HQ. Ready to test.',
+      room: (room: string) => `Room for towers near the routes: ${room}`,
+      judging: 'judging the map …',
+      roomLine: (m2: number, towers: number, range: number, tightest: string) => `${f.int(m2)} m², about ${f.int(towers)} towers within ${range} m${tightest}.`,
+      tightest: (lane: string, towers: number) => `; the tightest lane, ${lane}, about ${f.int(towers)}`,
+      botPlays: (waves: number) => `The bot plays ${waves} waves in the other tab`,
+      botTip: "The game's bot plays the first waves of this map at high speed in a new tab and reports whether they held",
+      botTest: 'Bot test',
+      trialHq: (end: number, start: number, towers: number) => `HQ ${end}/${start}, ${towers} towers`,
+      trialPassed: (held: number, waves: number, hq: string) => `Map check passed: ${held} of ${waves} waves held (${hq})`,
+      trialLost: (wave: number, waves: number, hq: string) => `Map check failed: the HQ fell in wave ${wave} of ${waves} (${hq})`,
+      trialStuck: (held: number, waves: number, hq: string) => `Map check stuck: no wave finished after wave ${held} of ${waves} (${hq})`,
+    },
+    // editor:end
   },
   hud: {
     ability: {

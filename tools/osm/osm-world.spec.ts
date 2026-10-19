@@ -25,6 +25,8 @@ import { assetCosts } from '../../src/app/world/osm/convert/vegetation';
 import { buildingCatalog } from '../../src/app/world/osm/convert/buildings';
 import type { CatalogObject } from '../../src/app/world/custom-map/render/asset-catalog';
 import { objectCost, sceneCost } from '../../src/app/world/custom-map/render/objects/scene-cost';
+import { en } from '../../src/app/i18n/messages/en';
+import { checkText } from '../../src/app/map-ops/validation/check-text';
 
 const mode = (import.meta as { env?: Record<string, string> }).env?.['MODE'];
 const raw = process.env['OSM_RAW'] ?? '';
@@ -68,7 +70,7 @@ describe.skipIf(mode !== 'osm')('OSM world dump', () => {
       writeFileSync(join(outDir, `${doc.meta.id}.3dtdmap`), file);
       writeFileSync(join(outDir, `${doc.meta.id}.summary.json`), JSON.stringify(summarize(doc, 'own', await contentHash(doc)), null, 1));
       writeFileSync(join(outDir, `${doc.meta.id}.png`), renderTopDown(doc, 0.5).png);
-      const out = { convertMs, packMs, checkMs, fileBytes: file.length, objects: doc.objects.length, scene, issues: issues.map((i) => `${i.severity} ${i.code}: ${i.message}`), ...report };
+      const out = { convertMs, packMs, checkMs, fileBytes: file.length, objects: doc.objects.length, scene, issues: issues.map((i) => `${i.severity} ${i.code}: ${checkText(en, i.text)}`), ...report };
       writeFileSync(join(outDir, `${doc.meta.id}.json`), JSON.stringify(out, null, 1));
       console.log(JSON.stringify({ place: place.name, convertMs, packMs, checkMs, fileMB: +(file.length / 1e6).toFixed(2), objects: doc.objects.length, scene, ms: report.ms, roads: report.roads, layout: report.layout, buildings: report.buildings, furniture: report.furniture, plants: report.plants, areas: report.areas, issues: out.issues, warnings: report.warnings }, null, 1));
     }, 600_000);

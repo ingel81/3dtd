@@ -25,6 +25,7 @@ import { waveEventProblems } from './wave-event-check';
 import { MOVER_CLEARANCE, moverWays } from '../../world/custom-map/map-life';
 import { mapProblems, type MapProblem, type MapProblemPart } from '../../world/custom-map/map-file';
 import { mapRepairs } from '../../world/custom-map/map-repair';
+import type { CheckText, CheckThing } from './check-text';
 
 export type IssueSeverity = 'error' | 'warning';
 
@@ -65,7 +66,8 @@ export interface MapIssue {
     | 'unknown-tower'
     | 'wave-events'
     | 'scene-cost';
-  message: string;
+  /** What it says, as data: the editor and the agents word it (checkText) */
+  text: CheckText;
   /** Where to look */
   focus?: MapPoint;
   /** What to select */
@@ -80,11 +82,11 @@ export interface MapIssue {
  * error with the thing or the tool to fix it
  */
 export function fileIssues(doc: CustomMapDocument, problems: readonly MapProblem[] = mapProblems(doc)): MapIssue[] {
-  const hard = problems.map((q) => ({ q, severity: 'error' as const, code: 'map-file' as const, message: `The map cannot be saved: ${q.text}.` }));
+  const hard = problems.map((q) => ({ q, severity: 'error' as const, code: 'map-file' as const, text: { key: 'mapFile', v: { problem: q.text } } as CheckText }));
   // Soft values (map-repair.ts): saved as they are, set right when the map is read next
-  const soft = mapRepairs(doc).map((q) => ({ q, severity: 'warning' as const, code: 'map-values' as const, message: `Set right when the map opens next: ${q.text}.` }));
-  return [...hard, ...soft].map(({ q, severity, code, message }) => {
-    const issue: MapIssue = { severity, code, message, part: q.part };
+  const soft = mapRepairs(doc).map((q) => ({ q, severity: 'warning' as const, code: 'map-values' as const, text: { key: 'mapValues', v: { problem: q.text } } as CheckText }));
+  return [...hard, ...soft].map(({ q, severity, code, text }) => {
+    const issue: MapIssue = { severity, code, text, part: q.part };
     if (q.at) {
       issue.target = q.at;
       const where = q.at.kind === 'hq' ? doc.hq : q.at.kind === 'object' ? doc.objects.find((o) => o.id === q.at!.id) : q.at.kind === 'spawn' ? doc.spawns.find((sp) => sp.id === q.at!.id) : q.at.kind === 'node' ? doc.paths.nodes.find((n) => n.id === q.at!.id) : undefined;
@@ -152,25 +154,25 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
   const edges = new EdgeIndex(paths);
 
   if (!paths.edges.length) {
-    issues.push({ severity: 'error', code: 'no-paths', message: 'The map has no roads. Enemies walk only on roads (Roads tool, 6).' });
+    issues.push({ severity: 'error', code: 'no-paths', text: { key: 'noPaths' } });
   }
   if (!doc.spawns.length) {
-    issues.push({ severity: 'error', code: 'no-spawns', message: 'The map has no spawn.' });
+    issues.push({ severity: 'error', code: 'no-spawns', text: { key: 'noSpawns' } });
   }
   if (doc.spawns.length > MAX_SPAWN_PORTALS) {
     const first = doc.spawns[MAX_SPAWN_PORTALS];
     issues.push({
       severity: 'error',
       code: 'too-many-spawns',
-      message: `The map has ${doc.spawns.length} spawns; the game uses only the first ${MAX_SPAWN_PORTALS}.`,
+      text: { key: 'tooManySpawns', v: { count: doc.spawns.length, max: MAX_SPAWN_PORTALS } },
       focus: first,
       target: { kind: 'spawn', id: first.id },
     });
   }
   if (!insideMap(t, doc.hq)) {
-    issues.push({ severity: 'error', code: 'hq-outside', message: 'The HQ stands outside the map.', focus: doc.hq, target: { kind: 'hq' } });
+    issues.push({ severity: 'error', code: 'hq-outside', text: { key: 'hqOutside' }, focus: doc.hq, target: { kind: 'hq' } });
   } else {
-    groundIssues(doc, edges, doc.hq, 'The HQ', rules, issues, { kind: 'hq' });
+    groundIssues(doc, edges, doc.hq, { kind: 'hq' }, rules, issues, { kind: 'hq' });
   }
 
   if (paths.edges.length) {
@@ -179,7 +181,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
       issues.push({
         severity: 'error',
         code: 'hq-off-path',
-        message: `The HQ stands ${hqHit ? Math.round(hqHit.dist) : '?'} m from the nearest road (at most ${rules.snapDistance} m).`,
+        text: { key: 'hqOffPath', v: { dist: hqHit ? Math.round(hqHit.dist) : null, max: rules.snapDistance } },
         focus: doc.hq,
         target: { kind: 'hq' },
       });
@@ -191,7 +193,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
       issues.push({
         severity: 'warning',
         code: 'paths-split',
-        message: `The roads fall into ${groups.length} parts that do not connect.`,
+        text: { key: 'pathsSplit', v: { parts: groups.length } },
         focus: node ? { x: node.x, y: node.y } : undefined,
         target: node ? { kind: 'node', id: node.id } : undefined,
       });
@@ -201,17 +203,17 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
   for (const s of doc.spawns) {
     const name = s.name || s.id;
     if (!insideMap(t, s)) {
-      issues.push({ severity: 'error', code: 'spawn-outside', message: `Spawn ${name} stands outside the map.`, focus: s, target: { kind: 'spawn', id: s.id } });
+      issues.push({ severity: 'error', code: 'spawn-outside', text: { key: 'spawnOutside', v: { name } }, focus: s, target: { kind: 'spawn', id: s.id } });
       continue;
     }
-    groundIssues(doc, edges, s, `Spawn ${name}`, rules, issues, { kind: 'spawn', id: s.id });
+    groundIssues(doc, edges, s, { kind: 'spawn', name }, rules, issues, { kind: 'spawn', id: s.id });
     if (!paths.edges.length) continue;
     const hit = edges.nearest(s);
     if (!hit || hit.dist > rules.snapDistance) {
       issues.push({
         severity: 'error',
         code: 'spawn-off-path',
-        message: `Spawn ${name} stands ${hit ? Math.round(hit.dist) : '?'} m from the nearest road.`,
+        text: { key: 'spawnOffPath', v: { name, dist: hit ? Math.round(hit.dist) : null } },
         focus: s,
         target: { kind: 'spawn', id: s.id },
       });
@@ -219,14 +221,14 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
     }
     const route = routeBetween(paths, s, doc.hq, edges);
     if (!route) {
-      issues.push({ severity: 'error', code: 'spawn-unreachable', message: `No road leads from spawn ${name} to the HQ.`, focus: s, target: { kind: 'spawn', id: s.id } });
+      issues.push({ severity: 'error', code: 'spawn-unreachable', text: { key: 'spawnUnreachable', v: { name } }, focus: s, target: { kind: 'spawn', id: s.id } });
       continue;
     }
     if (route.length < rules.minLane) {
       issues.push({
         severity: 'warning',
         code: 'lane-short',
-        message: `The lane from spawn ${name} is ${Math.round(route.length)} m long, short for towers (from ${rules.minLane} m).`,
+        text: { key: 'laneShort', v: { name, length: Math.round(route.length), min: rules.minLane } },
         focus: s,
         target: { kind: 'spawn', id: s.id },
       });
@@ -234,13 +236,13 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
       issues.push({
         severity: 'warning',
         code: 'lane-long',
-        message: `The lane from spawn ${name} is ${Math.round(route.length)} m long; waves take long to arrive.`,
+        text: { key: 'laneLong', v: { name, length: Math.round(route.length) } },
         focus: s,
         target: { kind: 'spawn', id: s.id },
       });
     }
     if (Math.hypot(s.x - doc.hq.x, s.y - doc.hq.y) < 60) {
-      issues.push({ severity: 'warning', code: 'spawn-near-hq', message: `Spawn ${name} stands right next to the HQ.`, focus: s, target: { kind: 'spawn', id: s.id } });
+      issues.push({ severity: 'warning', code: 'spawn-near-hq', text: { key: 'spawnNearHq', v: { name } }, focus: s, target: { kind: 'spawn', id: s.id } });
     }
   }
 
@@ -252,22 +254,21 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
     issues.push({
       severity: 'warning',
       code: 'lane-little-room',
-      message: `Along the lane from spawn ${s.name || s.id} there is room for about ${spots} towers within ${TYPICAL_TOWER_RANGE} m of the route (at least ${rules.minTowerSpots} give the player a choice). Measure > Build areas shows where.`,
+      text: { key: 'laneLittleRoom', v: { name: s.name || s.id, spots, range: TYPICAL_TOWER_RANGE, min: rules.minTowerSpots } },
       focus: s,
       target: { kind: 'spawn', id: s.id },
     });
   }
 
   const water = t.water;
-  const KIND_NAME = { road: 'Road', path: 'Path', bridge: 'Bridge' } as const;
   for (const [index, e] of paths.edges.entries()) {
     // Named as the outline counts them, not by the internal id
-    const name = `${KIND_NAME[e.kind] ?? 'Road'} ${index + 1}`;
+    const name: CheckThing = { kind: e.kind === 'path' || e.kind === 'bridge' ? e.kind : 'road', n: index + 1 };
     const line = edges.polyline(e);
     if (line.length < 2) continue;
     const outside = line.find((p) => !insideMap(t, p));
     if (outside) {
-      issues.push({ severity: 'error', code: 'path-outside', message: `${name} runs off the map.`, focus: outside, target: { kind: 'edge', id: e.id } });
+      issues.push({ severity: 'error', code: 'path-outside', text: { key: 'pathOutside', v: { thing: name } }, focus: outside, target: { kind: 'edge', id: e.id } });
     }
     let wet: MapPoint | null = null;
     let steep: MapPoint | null = null;
@@ -288,10 +289,10 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
       }
     }
     if (wet) {
-      issues.push({ severity: 'warning', code: 'path-under-water', message: `${name} runs under water (make it a bridge or raise the ground).`, focus: wet, target: { kind: 'edge', id: e.id } });
+      issues.push({ severity: 'warning', code: 'path-under-water', text: { key: 'pathUnderWater', v: { thing: name } }, focus: wet, target: { kind: 'edge', id: e.id } });
     }
     if (steep) {
-      issues.push({ severity: 'warning', code: 'path-steep', message: `${name} climbs steeper than ${rules.maxPathSlope} degrees.`, focus: steep, target: { kind: 'edge', id: e.id } });
+      issues.push({ severity: 'warning', code: 'path-steep', text: { key: 'pathSteep', v: { thing: name, max: rules.maxPathSlope } }, focus: steep, target: { kind: 'edge', id: e.id } });
     }
   }
 
@@ -302,7 +303,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
     issues.push({
       severity: 'warning',
       code: 'object-on-path',
-      message: blocked === 1 ? 'An object stands on a road.' : `${blocked} objects stand on roads.`,
+      text: { key: 'objectOnPath', v: { count: blocked } },
       focus: firstBlocked,
       target: { kind: 'object', id: firstBlocked.id },
     });
@@ -315,7 +316,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
       issues.push({
         severity: 'warning',
         code: 'object-on-mover-route',
-        message: `${inWay.length === 1 ? 'An object stands' : `${inWay.length} objects stand`} on the way of a moving life route (rovers, carts) and would be driven through (${[...new Set(inWay.map((o) => o.asset))].join(', ')}). Move them off the route or the route round them.`,
+        text: { key: 'objectOnMover', v: { count: inWay.length, assets: [...new Set(inWay.map((o) => o.asset))].join(', ') } },
         focus: inWay[0],
         target: { kind: 'object', id: inWay[0].id },
       });
@@ -338,9 +339,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
     issues.push({
       severity: 'warning',
       code: 'danger-color',
-      message:
-        (alarming === 1 ? 'A red plant stands' : `${alarming} red plants stand`) +
-        ' by a road; red reads as danger there. Use another colour or move them away.',
+      text: { key: 'dangerColor', v: { count: alarming } },
       focus: firstAlarming,
       target: { kind: 'object', id: firstAlarming.id },
     });
@@ -352,7 +351,7 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
       issues.push({
         severity: 'warning',
         code: 'scene-cost',
-        message: `Scene cost ${Math.round(share * 100)} %: more than a map draws fluidly. Thin out buildings, trees and props first (Map panel, Budget).`,
+        text: { key: 'sceneCost', v: { percent: Math.round(share * 100) } },
       });
     }
   }
@@ -360,29 +359,29 @@ export function validateMap(doc: CustomMapDocument, options: ValidationOptions =
   const gp = doc.gameplay;
   if (gp?.waves?.kind === 'table') {
     for (const problem of validateWaveTable(gp.waves.table as unknown as WaveTable)) {
-      issues.push({ severity: 'error', code: 'wave-list', message: `Wave list: ${problem}` });
+      issues.push({ severity: 'error', code: 'wave-list', text: { key: 'waveList', v: { problem } } });
     }
   }
   if (gp?.towers) {
     const unknown = gp.towers.filter((t) => !(t in TOWER_TYPES));
-    if (unknown.length) issues.push({ severity: 'warning', code: 'unknown-tower', message: `Unknown tower types allowed: ${unknown.join(', ')}` });
+    if (unknown.length) issues.push({ severity: 'warning', code: 'unknown-tower', text: { key: 'unknownTowers', v: { list: unknown.join(', ') } } });
     if (!gp.towers.some((t) => t in TOWER_TYPES && t !== 'research-center' && t !== 'missile-silo')) {
-      issues.push({ severity: 'error', code: 'unknown-tower', message: 'No tower that shoots is allowed.' });
+      issues.push({ severity: 'error', code: 'unknown-tower', text: { key: 'noShootingTower' } });
     }
   }
 
   for (const p of waveEventProblems(doc)) {
-    issues.push({ severity: p.severity, code: 'wave-events', message: p.message, focus: p.focus, target: p.target });
+    issues.push({ severity: p.severity, code: 'wave-events', text: p.text, focus: p.focus, target: p.target });
   }
 
   const lanes = gp?.lanes;
   if (lanes && doc.spawns.length > 0) {
     const always = doc.spawns.filter((s) => !s.optional).length;
     if (lanes.min !== undefined && lanes.min > doc.spawns.length) {
-      issues.push({ severity: 'warning', code: 'lanes', message: `At least ${lanes.min} lanes should be open, but the map has ${doc.spawns.length} spawns.` });
+      issues.push({ severity: 'warning', code: 'lanes', text: { key: 'lanesMin', v: { min: lanes.min, spawns: doc.spawns.length } } });
     }
     if (lanes.max !== undefined && lanes.max < always) {
-      issues.push({ severity: 'warning', code: 'lanes', message: `At most ${lanes.max} lanes may be open, but ${always} spawns are always open. Mark some as optional.` });
+      issues.push({ severity: 'warning', code: 'lanes', text: { key: 'lanesMax', v: { max: lanes.max, always } } });
     }
   }
 
@@ -516,7 +515,7 @@ function groundIssues(
   doc: CustomMapDocument,
   edges: EdgeIndex,
   p: MapPoint,
-  name: string,
+  name: CheckThing,
   rules: ValidationRules,
   issues: MapIssue[],
   target: { kind: 'spawn' | 'hq'; id?: string },
@@ -525,14 +524,14 @@ function groundIssues(
   // A spawn on a bridge stands over the river, not in it
   const onBridge = edges.nearest(p, rules.snapDistance)?.edge.kind === 'bridge';
   if (!onBridge && underWater(doc, p)) {
-    issues.push({ severity: 'warning', code: kind === 'hq' ? 'hq-in-water' : 'spawn-in-water', message: `${name} stands in water.`, focus: p, target });
+    issues.push({ severity: 'warning', code: kind === 'hq' ? 'hq-in-water' : 'spawn-in-water', text: { key: 'inWater', v: { thing: name } }, focus: p, target });
   }
   const slope = slopeAt(doc.terrain, p.x, p.y);
   if (slope > rules.maxMarkerSlope) {
     issues.push({
       severity: 'warning',
       code: kind === 'hq' ? 'hq-steep' : 'spawn-steep',
-      message: `${name} stands on a ${Math.round(slope)} degree slope (at most ${rules.maxMarkerSlope}).`,
+      text: { key: 'steep', v: { thing: name, slope: Math.round(slope), max: rules.maxMarkerSlope } },
       focus: p,
       target,
     });
@@ -584,7 +583,10 @@ const BURIED_SHARE = 0.85;
 function buriedWater(doc: CustomMapDocument, issues: MapIssue[]): void {
   const t = doc.terrain;
   const g = t.grid;
-  const bodies = [...(t.water ? [{ body: t.water, name: `The ${t.water.kind && t.water.kind !== 'water' ? t.water.kind : 'water'}` }] : []), ...(t.waterBodies ?? []).map((body, index) => ({ body, name: `Water body ${index} (${body.kind ?? 'water'})` }))];
+  const bodies = [
+    ...(t.water ? [{ body: t.water, name: { kind: 'main-water', water: t.water.kind ?? 'water' } as CheckThing }] : []),
+    ...(t.waterBodies ?? []).map((body, index) => ({ body, name: { kind: 'water-body', n: index, water: body.kind ?? 'water' } as CheckThing })),
+  ];
   for (const { body, name } of bodies) {
     let marked = 0;
     let dry = 0;
@@ -605,7 +607,7 @@ function buriedWater(doc: CustomMapDocument, issues: MapIssue[]): void {
     issues.push({
       severity: 'warning',
       code: 'water-buried',
-      message: `${name} lies under the ground: ${Math.round((dry / marked) * 100)} % of it has its bed above its surface (up to ${(top - body.level).toFixed(1)} m). Dig it out again or raise its level.`,
+      text: { key: 'waterBuried', v: { thing: name, percent: Math.round((dry / marked) * 100), up: top - body.level } },
       focus: { x: Math.round(sx / dry), y: Math.round(sy / dry) },
     });
   }
@@ -759,16 +761,10 @@ function floatingObjects(doc: CustomMapDocument, footingOf: (asset: string) => O
   const worst = found.reduce((a, b) => (Math.abs(b.gap) > Math.abs(a.gap) ? b : a));
   const inAir = found.filter((f) => f.gap > 0).length;
   const under = found.length - inAir;
-  const what = [
-    inAir === 1 ? 'an object hangs in the air' : inAir ? `${inAir} objects hang in the air` : '',
-    under === 1 ? 'a boat or buoy sinks under the water' : under ? `${under} boats or buoys sink under the water` : '',
-  ].filter(Boolean);
   issues.push({
     severity: 'warning',
     code: 'object-floating',
-    message:
-      `${what.join(', ')} (worst: ${worst.o.asset}, ${Math.abs(worst.gap).toFixed(1)} m ${worst.gap > 0 ? 'up' : 'down'})`.replace(/^./, (c) => c.toUpperCase()) +
-      '. Select it and press End to set it down on the ground or the water, or Align to slope.',
+    text: { key: 'objectsFloating', v: { inAir, under, asset: worst.o.asset, gap: Math.abs(worst.gap), up: worst.gap > 0 } },
     focus: worst.o,
     target: { kind: 'object', id: worst.o.id },
   });
@@ -789,7 +785,7 @@ const FALL_STEEP = 1;
  * its surface, except down a waterfall (falling faster than it runs) and
  * beyond the map's edge. Returns the worst place of each sheet.
  */
-export function waterInAir(doc: CustomMapDocument, tolerance = DEFAULT_RULES.maxWaterStep): { what: string; at: MapPoint; height: number }[] {
+export function waterInAir(doc: CustomMapDocument, tolerance = DEFAULT_RULES.maxWaterStep): { what: CheckThing; at: MapPoint; height: number }[] {
   const t = doc.terrain;
   const g = t.grid;
   const c = g.columns;
@@ -798,7 +794,7 @@ export function waterInAir(doc: CustomMapDocument, tolerance = DEFAULT_RULES.max
     const ground = heightAt(t, x, y);
     return Math.max(ground, waterLevelAt(t, x, y, ground) ?? ground);
   };
-  const out: { what: string; at: MapPoint; height: number }[] = [];
+  const out: { what: CheckThing; at: MapPoint; height: number }[] = [];
   const bodies = [t.water, ...(t.waterBodies ?? [])];
   bodies.forEach((body, n) => {
     if (!body) return;
@@ -818,7 +814,7 @@ export function waterInAir(doc: CustomMapDocument, tolerance = DEFAULT_RULES.max
         if (drop > tolerance && (!worst || drop > worst.height)) worst = { at, height: drop };
       }
     }
-    if (worst) out.push({ what: n === 0 ? 'the main water' : `body ${n}`, ...worst });
+    if (worst) out.push({ what: n === 0 ? { kind: 'main-water-short' } : { kind: 'body', n }, ...worst });
   });
   (t.rivers ?? []).forEach((river, n) => {
     const pts = river.points;
@@ -841,7 +837,7 @@ export function waterInAir(doc: CustomMapDocument, tolerance = DEFAULT_RULES.max
         if (drop > tolerance && (!worst || drop > worst.height)) worst = { at: p, height: drop };
       }
     }
-    if (worst) out.push({ what: river.kind === 'lava' ? `lava flow ${n + 1}` : `river ${n + 1}`, ...worst });
+    if (worst) out.push({ what: { kind: river.kind === 'lava' ? 'lava-flow' : 'river', n: n + 1 }, ...worst });
   });
   return out;
 }
@@ -853,9 +849,7 @@ function floatingWater(doc: CustomMapDocument, tolerance: number, issues: MapIss
   issues.push({
     severity: 'warning',
     code: 'water-floating',
-    message:
-      `Water ends in the air: ${found.map((f) => f.what).join(', ')} (worst: ${worst.what}, ${worst.height.toFixed(1)} m over the ground beside it). ` +
-      'Raise the bank there, lower the level, or take the mask off where no bank holds it.',
+    text: { key: 'waterFloating', v: { list: found.map((f) => f.what), worst: worst.what, height: worst.height } },
     focus: worst.at,
   });
 }

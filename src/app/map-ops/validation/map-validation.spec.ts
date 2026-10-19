@@ -4,6 +4,8 @@ import type { ObjectFooting } from '../../world/custom-map/render/objects/object
 import { bridgeDecks, deckHeightAt } from '../../world/custom-map/bridge-decks';
 import { HeightField } from '../../world/custom-map/render/height-field';
 import { objectsInAir, objectsOnMoverWays, validateMap, waterInAir } from './map-validation';
+import { en } from '../../i18n/messages/en';
+import { checkText } from './check-text';
 
 const codes = (doc: ReturnType<typeof createMapDocument>) => validateMap(doc).map((i) => i.code);
 
@@ -65,7 +67,7 @@ describe('validateMap', () => {
     // A brush raised the bed again
     for (let k = 0; k < g.heights.length; k++) if (ice.mask[k]) g.heights[k] = 2.2;
     const issue = validateMap(doc).find((i) => i.code === 'water-buried');
-    expect(issue?.message).toBe('Water body 0 (ice) lies under the ground: 100 % of it has its bed above its surface (up to 3.2 m). Dig it out again or raise its level.');
+    expect(checkText(en, issue!.text)).toBe('Water body 0 (ice) lies under the ground: 100 % of it has its bed above its surface (up to 3.2 m). Dig it out again or raise its level.');
     expect(issue?.focus?.x).toBeCloseTo(100, -1);
   });
 
@@ -163,7 +165,7 @@ describe('validateMap, objects in the air', () => {
     const issue = validateMap(doc, { footingOf }).find((i) => i.code === 'object-floating');
     expect(issue?.severity).toBe('warning');
     expect(issue?.target).toEqual({ kind: 'object', id: 'o2' });
-    expect(issue?.message).toMatch(/^2 objects hang in the air \(worst: heap, 1\.8 m up\)/);
+    expect(checkText(en, issue!.text)).toMatch(/^2 objects hang in the air \(worst: heap, 1\.8 m up\)/);
     // Without the catalogue's footings nothing is checked
     expect(codes(doc)).not.toContain('object-floating');
   });
@@ -191,7 +193,7 @@ describe('validateMap, objects in the air', () => {
     expect(inAir(doc)).toEqual(['beside', 'deep', 'raised', 'sunk']);
     const issue = validateMap(doc, { footingOf }).find((i) => i.code === 'object-floating');
     expect(issue?.target).toEqual({ kind: 'object', id: 'deep' });
-    expect(issue?.message).toMatch(/^3 objects hang in the air, a boat or buoy sinks under the water \(worst: buoy, 5\.0 m up\)/);
+    expect(checkText(en, issue!.text)).toMatch(/^3 objects hang in the air, a boat or buoy sinks under the water \(worst: buoy, 5\.0 m up\)/);
   });
 
   it('measures a flat set piece without a plate on its footprint, crater rims and cliff walls left out', () => {
@@ -291,7 +293,7 @@ describe('validateMap, gameplay rules', () => {
       waves: { kind: 'table', table: { cycle: { fromWave: 1, hpGrowth: 1.2 }, waves: [{ wave: 1, name: 'x', enemies: { nobody: 3 }, hpMult: 1, spawnDelay: 500 }] } },
     };
     const issues = validateMap(doc);
-    expect(issues.some((i) => i.code === 'wave-list' && i.message.includes('nobody'))).toBe(true);
+    expect(issues.some((i) => i.code === 'wave-list' && checkText(en, i.text).includes('nobody'))).toBe(true);
     expect(issues.filter((i) => i.code === 'unknown-tower')).toHaveLength(2);
   });
 });
@@ -306,7 +308,7 @@ describe('validateMap, room for towers', () => {
     const tight = validateMap(doc, { buildAreas: areas([{ spawnId: 's1', area: 19 * 64, routed: true }]) });
     const issue = tight.find((i) => i.code === 'lane-little-room');
     expect(issue?.target).toEqual({ kind: 'spawn', id: 's1' });
-    expect(issue?.message).toContain('about 19 towers');
+    expect(checkText(en, issue!.text)).toContain('about 19 towers');
     expect(validateMap(doc, { buildAreas: areas([{ spawnId: 's1', area: 20 * 64, routed: true }]) }).map((i) => i.code)).not.toContain('lane-little-room');
     // A lane without a route has its own error
     expect(validateMap(doc, { buildAreas: areas([{ spawnId: 's1', area: 0, routed: false }]) }).map((i) => i.code)).not.toContain('lane-little-room');
@@ -347,11 +349,11 @@ describe('validateMap, water in the air', () => {
       }
     }
     const found = waterInAir(doc);
-    expect(found.map((f) => f.what)).toEqual(['body 1']);
+    expect(found.map((f) => en.check.thing(f.what))).toEqual(['body 1']);
     expect(found[0].height).toBeGreaterThan(2);
     const issue = validateMap(doc).find((i) => i.code === 'water-floating');
     expect(issue?.severity).toBe('warning');
-    expect(issue?.message).toMatch(/^Water ends in the air: body 1 \(worst: body 1, /);
+    expect(checkText(en, issue!.text)).toMatch(/^Water ends in the air: body 1 \(worst: body 1, /);
   });
 
   it('reports a river whose ribbon runs over its banks, not down a waterfall', () => {
@@ -359,7 +361,7 @@ describe('validateMap, water in the air', () => {
     doc.terrain.grid.heights.fill(0);
     // Two metres over flat land: no bank holds it
     doc.terrain.rivers = [{ id: 'r1', kind: 'water', points: [{ x: -40, y: 0, width: 6, height: 2 }, { x: 40, y: 0, width: 6, height: 1.8 }] }];
-    expect(waterInAir(doc).map((f) => f.what)).toEqual(['river 1']);
+    expect(waterInAir(doc).map((f) => en.check.thing(f.what))).toEqual(['river 1']);
     // A fall: 20 m down over 4 m, the waterfall's sheet covers it
     doc.terrain.rivers[0].points = [{ x: -2, y: 0, width: 6, height: 20 }, { x: 2, y: 0, width: 6, height: 0 }];
     expect(waterInAir(doc)).toEqual([]);
@@ -382,7 +384,7 @@ describe('validateMap, objects on the way of movers', () => {
     doc.objects.push(place('lane', 'boulder', 0, 2.5), place('middle', 'boulder', 40, 0), place('beside', 'boulder', 0, 12), place('bush', 'bush', 20, -2.5), place('pier', 'pier', -40, 2));
     expect(objectsOnMoverWays(doc, footingOf).map((o) => o.id)).toEqual(['lane', 'middle']);
     const issue = validateMap(doc, { footingOf }).find((i) => i.code === 'object-on-mover-route');
-    expect(issue?.message).toMatch(/^2 objects stand on the way of a moving life route \(rovers, carts\) and would be driven through \(boulder\)/);
+    expect(checkText(en, issue!.text)).toMatch(/^2 objects stand on the way of a moving life route \(rovers, carts\) and would be driven through \(boulder\)/);
     // A gondola hangs from its line: nothing under it is in its way
     doc.life.areas![0].height = 20;
     expect(objectsOnMoverWays(doc, footingOf)).toEqual([]);
@@ -396,8 +398,8 @@ describe('validateMap, what keeps the file from being written', () => {
     doc.hq = { x: Number.NaN, y: 0 };
     const file = validateMap(doc).filter((i) => i.code === 'map-file');
     expect(file).toEqual([
-      { severity: 'error', code: 'map-file', message: 'The map cannot be saved: path edge e-bad names a node that does not exist.', part: 'paths', target: { kind: 'edge', id: 'e-bad' } },
-      { severity: 'error', code: 'map-file', message: 'The map cannot be saved: the HQ has no position.', part: 'hq', target: { kind: 'hq' } },
+      { severity: 'error', code: 'map-file', text: { key: 'mapFile', v: { problem: 'path edge e-bad names a node that does not exist' } }, part: 'paths', target: { kind: 'edge', id: 'e-bad' } },
+      { severity: 'error', code: 'map-file', text: { key: 'mapFile', v: { problem: 'the HQ has no position' } }, part: 'hq', target: { kind: 'hq' } },
     ]);
   });
 
@@ -407,8 +409,8 @@ describe('validateMap, what keeps the file from being written', () => {
     doc.prefabs = [{ id: 'p', name: 'P' } as never];
     expect(validateMap(doc).filter((i) => i.code === 'map-file')).toEqual([]);
     expect(validateMap(doc).filter((i) => i.code === 'map-values')).toEqual([
-      { severity: 'warning', code: 'map-values', message: 'Set right when the map opens next: object o1 has a bad placement; it is left out.', part: 'objects', target: { kind: 'object', id: 'o1' } },
-      { severity: 'warning', code: 'map-values', message: 'Set right when the map opens next: prefab 1 needs an id, a name and its piece; it is left out.', part: 'prefabs' },
+      { severity: 'warning', code: 'map-values', text: { key: 'mapValues', v: { problem: 'object o1 has a bad placement; it is left out' } }, part: 'objects', target: { kind: 'object', id: 'o1' } },
+      { severity: 'warning', code: 'map-values', text: { key: 'mapValues', v: { problem: 'prefab 1 needs an id, a name and its piece; it is left out' } }, part: 'prefabs' },
     ]);
   });
 });
