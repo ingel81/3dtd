@@ -1,74 +1,74 @@
-<div class="td-seg is-sm" role="radiogroup" aria-label="Object tool">
+<div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.objects.tool">
   @for (m of modes; track m.id) {
-    <button type="button" role="radio" [attr.aria-checked]="s().mode === m.id" (click)="setMode(m.id)" [attr.data-mode]="m.id">{{ m.label }}</button>
+    <button type="button" role="radio" [attr.aria-checked]="s().mode === m.id" (click)="setMode(m.id)" [attr.data-mode]="m.id">{{ t().editor.objects.modes[m.id] }}</button>
   }
 </div>
 
 @if (s().mode === 'select') {
-  <div class="td-seg is-sm" role="radiogroup" aria-label="Drag does">
-    <button type="button" role="radio" [attr.aria-checked]="s().gizmo === 'move'" (click)="setGizmo('move')">Move <kbd class="td-kbd">W</kbd></button>
-    <button type="button" role="radio" [attr.aria-checked]="s().gizmo === 'rotate'" (click)="setGizmo('rotate')">Turn <kbd class="td-kbd">E</kbd></button>
-    <button type="button" role="radio" [attr.aria-checked]="s().gizmo === 'scale'" (click)="setGizmo('scale')">Scale <kbd class="td-kbd">R</kbd></button>
+  <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.objects.dragDoes">
+    <button type="button" role="radio" [attr.aria-checked]="s().gizmo === 'move'" (click)="setGizmo('move')">{{ t().editor.objects.move }} <kbd class="td-kbd">W</kbd></button>
+    <button type="button" role="radio" [attr.aria-checked]="s().gizmo === 'rotate'" (click)="setGizmo('rotate')">{{ t().editor.objects.turn }} <kbd class="td-kbd">E</kbd></button>
+    <button type="button" role="radio" [attr.aria-checked]="s().gizmo === 'scale'" (click)="setGizmo('scale')">{{ t().editor.objects.scale }} <kbd class="td-kbd">R</kbd></button>
   </div>
   @if (s().gizmo === 'move') {
-    <div class="td-seg is-sm" role="radiogroup" aria-label="Arrows follow" matTooltip="Arrows along the map or turned with the first selected object (L)">
-      <button type="button" role="radio" [attr.aria-checked]="s().space === 'global'" (click)="setSpace('global')">Map axes</button>
-      <button type="button" role="radio" [attr.aria-checked]="s().space === 'local'" (click)="setSpace('local')">Object axes <kbd class="td-kbd">L</kbd></button>
+    <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.objects.arrowsFollow" [matTooltip]="t().editor.objects.arrowsTip">
+      <button type="button" role="radio" [attr.aria-checked]="s().space === 'global'" (click)="setSpace('global')">{{ t().editor.objects.mapAxes }}</button>
+      <button type="button" role="radio" [attr.aria-checked]="s().space === 'local'" (click)="setSpace('local')">{{ t().editor.objects.objectAxes }} <kbd class="td-kbd">L</kbd></button>
     </div>
   }
-  <p class="td-note">Alt drag draws a lasso, Shift adds to the selection; Ctrl snaps turns, lifts and scales.</p>
+  <p class="td-note">{{ t().editor.objects.selectNote }}</p>
 }
 
 @if (selected().length) {
   <div class="td-group">
     <h3 class="td-section">
-      @if (single(); as o) { {{ name(o.asset) }} } @else { {{ selected().length }} objects }
+      @if (single(); as o) { {{ name(o.asset) }} } @else { {{ t().editor.objects.count(selected().length) }} }
     </h3>
     @if (single(); as o) {
       <div class="op-grid">
-        <label class="td-field"><span class="td-label">East</span>
+        <label class="td-field"><span class="td-label">{{ t().editor.objects.east }}</span>
           <input class="td-input is-sm" type="number" step="0.5" [value]="o.x" (change)="setNumber('x', $event)" /></label>
-        <label class="td-field"><span class="td-label">North</span>
+        <label class="td-field"><span class="td-label">{{ t().editor.objects.north }}</span>
           <input class="td-input is-sm" type="number" step="0.5" [value]="o.y" (change)="setNumber('y', $event)" /></label>
-        <label class="td-field"><span class="td-label">Lift</span>
+        <label class="td-field"><span class="td-label">{{ t().editor.objects.lift }}</span>
           <input class="td-input is-sm" type="number" step="0.1" [value]="o.z" (change)="setNumber('z', $event)" /></label>
-        <label class="td-field"><span class="td-label">Turn</span>
+        <label class="td-field"><span class="td-label">{{ t().editor.objects.turn }}</span>
           <input class="td-input is-sm" type="number" step="5" [value]="deg(o.rotation)" (change)="setRotation($event)" /></label>
-        <label class="td-field"><span class="td-label">Scale</span>
+        <label class="td-field"><span class="td-label">{{ t().editor.objects.scale }}</span>
           <input class="td-input is-sm" type="number" step="0.05" min="0.05" [value]="o.scale" (change)="setNumber('scale', $event)" /></label>
-        <label class="td-field"><span class="td-label" matTooltip="Tilt forward and back, degrees">Pitch</span>
+        <label class="td-field"><span class="td-label" [matTooltip]="t().editor.objects.pitchTip">{{ t().editor.objects.pitch }}</span>
           <input class="td-input is-sm" type="number" step="1" [value]="deg(o.pitch ?? 0)" (change)="setTilt('pitch', $event)" data-test="object-pitch" /></label>
-        <label class="td-field"><span class="td-label" matTooltip="Tilt to the side, degrees">Roll</span>
+        <label class="td-field"><span class="td-label" [matTooltip]="t().editor.objects.rollTip">{{ t().editor.objects.roll }}</span>
           <input class="td-input is-sm" type="number" step="1" [value]="deg(o.roll ?? 0)" (change)="setTilt('roll', $event)" /></label>
       </div>
     }
     <div class="td-actions is-start">
-      <button class="td-btn-secondary td-btn-sm" type="button" (click)="dropToGround()" matTooltip="Lift 0: back onto the ground (End)">Drop to the ground</button>
-      <button class="td-btn-secondary td-btn-sm" type="button" (click)="alignSelection()" matTooltip="Tilt each with the ground under it" data-test="align-selection">Align to slope</button>
-      <button class="td-btn-ghost td-btn-sm" type="button" (click)="upright()" matTooltip="No tilt">Upright</button>
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="dropToGround()" [matTooltip]="t().editor.objects.dropTip">{{ t().editor.objects.drop }}</button>
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="alignSelection()" [matTooltip]="t().editor.objects.alignTip" data-test="align-selection">{{ t().editor.objects.align }}</button>
+      <button class="td-btn-ghost td-btn-sm" type="button" (click)="upright()" [matTooltip]="t().editor.objects.uprightTip">{{ t().editor.objects.upright }}</button>
     </div>
     <div class="td-field">
-      <span class="td-label" matTooltip="Whether towers see through it; Default follows the catalogue">Blocks sight <span class="td-note">(default {{ catalogFlag('blocksLos') }})</span></span>
-      <div class="td-seg is-sm" role="radiogroup" aria-label="Blocks sight">
-        <button type="button" role="radio" [attr.aria-checked]="flag('blocksLos') === 'auto'" (click)="setFlag('blocksLos', 'auto')">Default</button>
-        <button type="button" role="radio" [attr.aria-checked]="flag('blocksLos') === 'on'" (click)="setFlag('blocksLos', 'on')">Yes</button>
-        <button type="button" role="radio" [attr.aria-checked]="flag('blocksLos') === 'off'" (click)="setFlag('blocksLos', 'off')">No</button>
+      <span class="td-label" [matTooltip]="t().editor.objects.blocksSightTip">{{ t().editor.objects.blocksSight }} <span class="td-note">{{ t().editor.objects.defaultIs(catalogFlag('blocksLos')) }}</span></span>
+      <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.objects.blocksSightLabel">
+        <button type="button" role="radio" [attr.aria-checked]="flag('blocksLos') === 'auto'" (click)="setFlag('blocksLos', 'auto')">{{ t().editor.objects.default }}</button>
+        <button type="button" role="radio" [attr.aria-checked]="flag('blocksLos') === 'on'" (click)="setFlag('blocksLos', 'on')">{{ t().editor.objects.yes }}</button>
+        <button type="button" role="radio" [attr.aria-checked]="flag('blocksLos') === 'off'" (click)="setFlag('blocksLos', 'off')">{{ t().editor.objects.no }}</button>
       </div>
     </div>
     <div class="td-field">
-      <span class="td-label" matTooltip="Whether towers may stand on it; Default follows the catalogue">Blocks building <span class="td-note">(default {{ catalogFlag('blocksBuild') }})</span></span>
-      <div class="td-seg is-sm" role="radiogroup" aria-label="Blocks building">
-        <button type="button" role="radio" [attr.aria-checked]="flag('blocksBuild') === 'auto'" (click)="setFlag('blocksBuild', 'auto')">Default</button>
-        <button type="button" role="radio" [attr.aria-checked]="flag('blocksBuild') === 'on'" (click)="setFlag('blocksBuild', 'on')">Yes</button>
-        <button type="button" role="radio" [attr.aria-checked]="flag('blocksBuild') === 'off'" (click)="setFlag('blocksBuild', 'off')">No</button>
+      <span class="td-label" [matTooltip]="t().editor.objects.blocksBuildingTip">{{ t().editor.objects.blocksBuilding }} <span class="td-note">{{ t().editor.objects.defaultIs(catalogFlag('blocksBuild')) }}</span></span>
+      <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.objects.blocksBuildingLabel">
+        <button type="button" role="radio" [attr.aria-checked]="flag('blocksBuild') === 'auto'" (click)="setFlag('blocksBuild', 'auto')">{{ t().editor.objects.default }}</button>
+        <button type="button" role="radio" [attr.aria-checked]="flag('blocksBuild') === 'on'" (click)="setFlag('blocksBuild', 'on')">{{ t().editor.objects.yes }}</button>
+        <button type="button" role="radio" [attr.aria-checked]="flag('blocksBuild') === 'off'" (click)="setFlag('blocksBuild', 'off')">{{ t().editor.objects.no }}</button>
       </div>
     </div>
     <div class="td-field">
-      <span class="td-label" matTooltip="A colour the object's own colours are multiplied with">Tint</span>
+      <span class="td-label" [matTooltip]="t().editor.objects.tintTip">{{ t().editor.objects.tint }}</span>
       <div class="td-inline">
-        <input type="color" [value]="tint() ?? '#ffffff'" (change)="setTint(value($event))" aria-label="Tint" data-test="object-tint" />
-        <button class="td-btn-secondary td-btn-sm" type="button" (click)="randomTint()" matTooltip="Each selected object a shade of its own around the tint">Random tint</button>
-        <button class="td-btn-ghost td-btn-sm" type="button" (click)="setTint(null)">No tint</button>
+        <input type="color" [value]="tint() ?? '#ffffff'" (change)="setTint(value($event))" [attr.aria-label]="t().editor.objects.tint" data-test="object-tint" />
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="randomTint()" [matTooltip]="t().editor.objects.randomTintTip">{{ t().editor.objects.randomTint }}</button>
+        <button class="td-btn-ghost td-btn-sm" type="button" (click)="setTint(null)">{{ t().editor.objects.noTint }}</button>
       </div>
     </div>
     @if (signs()) {
@@ -87,80 +87,80 @@
       </div>
     }
     <div class="td-actions is-start">
-      <button class="td-btn-secondary td-btn-sm" type="button" (click)="duplicate()">Duplicate <kbd class="td-kbd">Ctrl+D</kbd></button>
-      <button class="td-btn-danger td-btn-sm" type="button" (click)="remove()">Delete <kbd class="td-kbd">Del</kbd></button>
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="duplicate()">{{ t().editor.objects.duplicate }} <kbd class="td-kbd">Ctrl+D</kbd></button>
+      <button class="td-btn-danger td-btn-sm" type="button" (click)="remove()">{{ t().editor.objects.delete }} <kbd class="td-kbd">Del</kbd></button>
     </div>
   </div>
 }
 
 @if (s().mode === 'scatter') {
   <div class="td-group">
-    <h3 class="td-section">Scatter</h3>
-    <p class="td-note">Pick one or more assets below; the brush mixes them.</p>
-    <app-editor-range label="Density" unit="/1000 m2" [min]="0.5" [max]="60" [step]="0.5" [value]="s().scatter.density" (changing)="setScatter('density', $event)" />
-    <app-editor-range label="Min size" unit="x" [min]="0.2" [max]="4" [step]="0.05" [value]="s().scatter.scaleMin" (changing)="setScatter('scaleMin', $event)" />
-    <app-editor-range label="Max size" unit="x" [min]="0.2" [max]="4" [step]="0.05" [value]="s().scatter.scaleMax" (changing)="setScatter('scaleMax', $event)" />
-    <app-editor-range label="Spacing" unit="m" [min]="0.5" [max]="40" [step]="0.5" [value]="s().scatter.minDistance" (changing)="setScatter('minDistance', $event)" />
+    <h3 class="td-section">{{ t().editor.objects.scatter }}</h3>
+    <p class="td-note">{{ t().editor.objects.scatterNote }}</p>
+    <app-editor-range [label]="t().editor.objects.density" unit="/1000 m2" [min]="0.5" [max]="60" [step]="0.5" [value]="s().scatter.density" (changing)="setScatter('density', $event)" />
+    <app-editor-range [label]="t().editor.objects.minSize" unit="x" [min]="0.2" [max]="4" [step]="0.05" [value]="s().scatter.scaleMin" (changing)="setScatter('scaleMin', $event)" />
+    <app-editor-range [label]="t().editor.objects.maxSize" unit="x" [min]="0.2" [max]="4" [step]="0.05" [value]="s().scatter.scaleMax" (changing)="setScatter('scaleMax', $event)" />
+    <app-editor-range [label]="t().editor.objects.spacing" unit="m" [min]="0.5" [max]="40" [step]="0.5" [value]="s().scatter.minDistance" (changing)="setScatter('minDistance', $event)" />
     <div class="td-setting">
-      <span>Turn at random</span>
-      <input class="td-switch" type="checkbox" [checked]="s().scatter.randomRotation" (change)="setScatterFlag('randomRotation', $any($event.target).checked)" aria-label="Turn at random" />
+      <span>{{ t().editor.objects.turnRandom }}</span>
+      <input class="td-switch" type="checkbox" [checked]="s().scatter.randomRotation" (change)="setScatterFlag('randomRotation', $any($event.target).checked)" [attr.aria-label]="t().editor.objects.turnRandom" />
     </div>
     <div class="td-setting">
-      <span matTooltip="A colour every scattered object is multiplied with">Tint</span>
+      <span [matTooltip]="t().editor.objects.scatterTintTip">{{ t().editor.objects.tint }}</span>
       <span class="td-inline">
-        <input type="color" [value]="s().scatter.tint ?? '#ffffff'" (change)="setScatterTint(value($event))" aria-label="Scatter tint" />
+        <input type="color" [value]="s().scatter.tint ?? '#ffffff'" (change)="setScatterTint(value($event))" [attr.aria-label]="t().editor.objects.scatterTint" />
         @if (s().scatter.tint) {
-          <button class="td-btn-ghost td-btn-sm" type="button" (click)="setScatterTint(null)">None</button>
+          <button class="td-btn-ghost td-btn-sm" type="button" (click)="setScatterTint(null)">{{ t().editor.objects.none }}</button>
         }
       </span>
     </div>
-    <app-editor-range label="Random tint" unit="%" [min]="0" [max]="100" [value]="s().scatter.tintVariation * 100" (changing)="setScatter('tintVariation', $event / 100)" />
+    <app-editor-range [label]="t().editor.objects.randomTint" unit="%" [min]="0" [max]="100" [value]="s().scatter.tintVariation * 100" (changing)="setScatter('tintVariation', $event / 100)" />
     <div class="td-setting">
-      <span matTooltip="Each object tilts with the ground under it">Align to slope</span>
-      <input class="td-switch" type="checkbox" [checked]="s().scatter.alignToSlope" (change)="setScatterFlag('alignToSlope', $any($event.target).checked)" aria-label="Align to slope" data-test="scatter-align" />
+      <span [matTooltip]="t().editor.objects.eachTiltsTip">{{ t().editor.objects.align }}</span>
+      <input class="td-switch" type="checkbox" [checked]="s().scatter.alignToSlope" (change)="setScatterFlag('alignToSlope', $any($event.target).checked)" [attr.aria-label]="t().editor.objects.align" data-test="scatter-align" />
     </div>
     <div class="td-setting">
-      <span matTooltip="Objects on a slope sink in a little, so they do not float on the low side">Sink into slopes</span>
-      <input class="td-switch" type="checkbox" [checked]="s().scatter.sinkOnSlope" (change)="setScatterFlag('sinkOnSlope', $any($event.target).checked)" aria-label="Sink into slopes" />
+      <span [matTooltip]="t().editor.objects.sinkTip">{{ t().editor.objects.sink }}</span>
+      <input class="td-switch" type="checkbox" [checked]="s().scatter.sinkOnSlope" (change)="setScatterFlag('sinkOnSlope', $any($event.target).checked)" [attr.aria-label]="t().editor.objects.sink" />
     </div>
   </div>
 }
 
 @if (s().mode === 'line') {
   <div class="td-group" data-test="line-options">
-    <h3 class="td-section">Line</h3>
-    <div class="td-seg is-sm" role="radiogroup" aria-label="Line follows">
-      <button type="button" role="radio" [attr.aria-checked]="s().line.follow === 'free'" (click)="setLine({ follow: 'free' })">Draw freely</button>
-      <button type="button" role="radio" [attr.aria-checked]="s().line.follow === 'roads'" (click)="setLine({ follow: 'roads' })" data-test="line-roads">Along a road or river</button>
+    <h3 class="td-section">{{ t().editor.objects.line }}</h3>
+    <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.objects.lineFollows">
+      <button type="button" role="radio" [attr.aria-checked]="s().line.follow === 'free'" (click)="setLine({ follow: 'free' })">{{ t().editor.objects.drawFreely }}</button>
+      <button type="button" role="radio" [attr.aria-checked]="s().line.follow === 'roads'" (click)="setLine({ follow: 'roads' })" data-test="line-roads">{{ t().editor.objects.alongRoad }}</button>
     </div>
     @if (kit(); as k) {
-      <div class="td-seg is-sm" role="radiogroup" aria-label="Corners" data-test="wall-corners">
-        <button type="button" role="radio" [attr.aria-checked]="(s().line.corners ?? 'blocks') === 'blocks'" (click)="setLine({ corners: 'blocks' })">Corner blocks</button>
-        <button type="button" role="radio" [attr.aria-checked]="s().line.corners === 'towers'" (click)="setLine({ corners: 'towers' })">Towers</button>
+      <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.objects.corners" data-test="wall-corners">
+        <button type="button" role="radio" [attr.aria-checked]="(s().line.corners ?? 'blocks') === 'blocks'" (click)="setLine({ corners: 'blocks' })">{{ t().editor.objects.cornerBlocks }}</button>
+        <button type="button" role="radio" [attr.aria-checked]="s().line.corners === 'towers'" (click)="setLine({ corners: 'towers' })">{{ t().editor.objects.towers }}</button>
       </div>
-      <div class="td-seg is-sm" role="radiogroup" aria-label="Battlements">
-        <button type="button" role="radio" [attr.aria-checked]="(s().line.front ?? 'left') === 'left'" (click)="setLine({ front: 'left' })">Battlements left</button>
-        <button type="button" role="radio" [attr.aria-checked]="s().line.front === 'right'" (click)="setLine({ front: 'right' })">Battlements right</button>
+      <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.objects.battlements">
+        <button type="button" role="radio" [attr.aria-checked]="(s().line.front ?? 'left') === 'left'" (click)="setLine({ front: 'left' })">{{ t().editor.objects.battlementsLeft }}</button>
+        <button type="button" role="radio" [attr.aria-checked]="s().line.front === 'right'" (click)="setLine({ front: 'right' })">{{ t().editor.objects.battlementsRight }}</button>
       </div>
-      <p class="td-note">{{ k.name }}: whole pieces of 8, 4 and 2 m between the corners, an end block at each open end. Close the line on its start for a ring. Left and right as seen along the drawing direction. Set a gatehouse into the wall by hand.</p>
+      <p class="td-note">{{ t().editor.objects.wallKit(k.name) }}</p>
     } @else {
-      <app-editor-range label="Spacing" unit="m" [min]="0.5" [max]="40" [step]="0.5" [value]="s().line.spacing" (changing)="setLine({ spacing: $event })" />
-      <app-editor-range label="Offset" unit="m" [min]="-40" [max]="40" [step]="0.5" [value]="s().line.offset" (changing)="setLine({ offset: $event })" />
+      <app-editor-range [label]="t().editor.objects.spacing" unit="m" [min]="0.5" [max]="40" [step]="0.5" [value]="s().line.spacing" (changing)="setLine({ spacing: $event })" />
+      <app-editor-range [label]="t().editor.objects.offset" unit="m" [min]="-40" [max]="40" [step]="0.5" [value]="s().line.offset" (changing)="setLine({ offset: $event })" />
       <div class="td-setting">
-        <span matTooltip="A second row as far to the other side">Both sides</span>
-        <input class="td-switch" type="checkbox" [checked]="s().line.bothSides" (change)="setLine({ bothSides: $any($event.target).checked })" aria-label="Both sides" />
+        <span [matTooltip]="t().editor.objects.bothSidesTip">{{ t().editor.objects.bothSides }}</span>
+        <input class="td-switch" type="checkbox" [checked]="s().line.bothSides" (change)="setLine({ bothSides: $any($event.target).checked })" [attr.aria-label]="t().editor.objects.bothSides" />
       </div>
-      <div class="td-seg is-sm" role="radiogroup" aria-label="Turn">
-        <button type="button" role="radio" [attr.aria-checked]="s().line.turn === 'along'" (click)="setLine({ turn: 'along' })">Along</button>
-        <button type="button" role="radio" [attr.aria-checked]="s().line.turn === 'across'" (click)="setLine({ turn: 'across' })">Across</button>
-        <button type="button" role="radio" [attr.aria-checked]="s().line.turn === 'random'" (click)="setLine({ turn: 'random' })">Random</button>
+      <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.objects.turn">
+        <button type="button" role="radio" [attr.aria-checked]="s().line.turn === 'along'" (click)="setLine({ turn: 'along' })">{{ t().editor.objects.along }}</button>
+        <button type="button" role="radio" [attr.aria-checked]="s().line.turn === 'across'" (click)="setLine({ turn: 'across' })">{{ t().editor.objects.across }}</button>
+        <button type="button" role="radio" [attr.aria-checked]="s().line.turn === 'random'" (click)="setLine({ turn: 'random' })">{{ t().editor.objects.random }}</button>
       </div>
     }
     <div class="td-setting">
-      <span matTooltip="Each object tilts with the ground under it">Align to slope</span>
-      <input class="td-switch" type="checkbox" [checked]="s().alignToSlope" (change)="setAlign($any($event.target).checked)" aria-label="Align to slope" />
+      <span [matTooltip]="t().editor.objects.eachTiltsTip">{{ t().editor.objects.align }}</span>
+      <input class="td-switch" type="checkbox" [checked]="s().alignToSlope" (change)="setAlign($any($event.target).checked)" [attr.aria-label]="t().editor.objects.align" />
     </div>
-    <p class="td-note">Fences, walls, torches, a row of trees: pick the asset below. Offset is to the left of the line's direction; a road's edge is half its width out. One undo step.</p>
+    <p class="td-note">{{ t().editor.objects.lineNote }}</p>
   </div>
 }
 
@@ -171,28 +171,28 @@
 @if (s().mode === 'place' || s().mode === 'select') {
   <div class="td-group">
     <div class="td-field">
-      <span class="td-label" id="op-snap">Grid snap</span>
+      <span class="td-label" id="op-snap">{{ t().editor.objects.gridSnap }}</span>
       <div class="td-seg is-sm" role="radiogroup" aria-labelledby="op-snap">
         @for (step of snaps; track step) {
-          <button type="button" role="radio" [attr.aria-checked]="s().snap === step" (click)="setSnap(step)">{{ step ? step + ' m' : 'Off' }}</button>
+          <button type="button" role="radio" [attr.aria-checked]="s().snap === step" (click)="setSnap(step)">{{ step ? t().editor.objects.metres(step) : t().editor.objects.off }}</button>
         }
       </div>
     </div>
     @if (s().mode === 'place') {
       <div class="td-setting">
-        <span matTooltip="The placed object tilts with the ground under it">Align to slope</span>
-        <input class="td-switch" type="checkbox" [checked]="s().alignToSlope" (change)="setAlign($any($event.target).checked)" aria-label="Align to slope" data-test="place-align" />
+        <span [matTooltip]="t().editor.objects.placedTiltsTip">{{ t().editor.objects.align }}</span>
+        <input class="td-switch" type="checkbox" [checked]="s().alignToSlope" (change)="setAlign($any($event.target).checked)" [attr.aria-label]="t().editor.objects.align" data-test="place-align" />
       </div>
       <div class="td-setting">
-        <span>Turn at random</span>
-        <input class="td-switch" type="checkbox" [checked]="s().randomRotation" (change)="setRandomRotation($any($event.target).checked)" aria-label="Turn at random" />
+        <span>{{ t().editor.objects.turnRandom }}</span>
+        <input class="td-switch" type="checkbox" [checked]="s().randomRotation" (change)="setRandomRotation($any($event.target).checked)" [attr.aria-label]="t().editor.objects.turnRandom" />
       </div>
       @if (!s().randomRotation) {
-        <label class="td-field"><span class="td-label">Turn</span>
-          <input class="td-input is-sm" type="number" [step]="s().turnStep" [value]="placeTurnDegrees()" (change)="setPlaceTurn($event)" aria-label="Turn of the next object in degrees" data-test="place-turn" /></label>
+        <label class="td-field"><span class="td-label">{{ t().editor.objects.turn }}</span>
+          <input class="td-input is-sm" type="number" [step]="s().turnStep" [value]="placeTurnDegrees()" (change)="setPlaceTurn($event)" [attr.aria-label]="t().editor.objects.turnNext" data-test="place-turn" /></label>
       }
       <div class="td-field">
-        <span class="td-label" id="op-turn-step" matTooltip="Q E, comma and period or Shift+wheel turn by this much; Shift+Q E by 90">Turn step</span>
+        <span class="td-label" id="op-turn-step" [matTooltip]="t().editor.objects.turnStepTip">{{ t().editor.objects.turnStep }}</span>
         <div class="td-seg is-sm" role="radiogroup" aria-labelledby="op-turn-step">
           @for (step of turnSteps; track step) {
             <button type="button" role="radio" [attr.aria-checked]="s().turnStep === step" (click)="setTurnStep(step)">{{ step }}°</button>
@@ -200,8 +200,8 @@
         </div>
       </div>
       <div class="td-setting">
-        <span matTooltip="A building with a road within 20 m turns its front to the road">Face the road</span>
-        <input class="td-switch" type="checkbox" [checked]="s().faceRoad" (change)="setFaceRoad($any($event.target).checked)" aria-label="Face the road" data-test="place-face-road" />
+        <span [matTooltip]="t().editor.objects.faceRoadTip">{{ t().editor.objects.faceRoad }}</span>
+        <input class="td-switch" type="checkbox" [checked]="s().faceRoad" (change)="setFaceRoad($any($event.target).checked)" [attr.aria-label]="t().editor.objects.faceRoad" data-test="place-face-road" />
       </div>
     }
   </div>
@@ -210,19 +210,19 @@
 <app-prefab-panel />
 
 <div class="td-group">
-  <h3 class="td-section">Assets</h3>
+  <h3 class="td-section">{{ t().editor.objects.assets }}</h3>
   <div class="td-inline op-filter">
-    <input class="td-input is-sm" type="search" placeholder="Search" [value]="search()" (input)="search.set(value($event))" aria-label="Search assets" />
-    <select class="td-select is-sm is-auto" [value]="biome()" (change)="biome.set(value($event))" aria-label="Biome" data-test="asset-biome">
-      <option value="">All biomes</option>
+    <input class="td-input is-sm" type="search" [placeholder]="t().editor.objects.search" [value]="search()" (input)="search.set(value($event))" [attr.aria-label]="t().editor.objects.searchAssets" />
+    <select class="td-select is-sm is-auto" [value]="biome()" (change)="biome.set(value($event))" [attr.aria-label]="t().editor.objects.biome" data-test="asset-biome">
+      <option value="">{{ t().editor.objects.allBiomes }}</option>
       @for (b of biomes(); track b) {
         <option [value]="b">{{ tagName(b) }}</option>
       }
     </select>
   </div>
-  <div class="op-cats td-inline" role="radiogroup" aria-label="Category">
+  <div class="op-cats td-inline" role="radiogroup" [attr.aria-label]="t().editor.objects.category">
     @for (c of categories(); track c) {
-      <button class="td-tag is-caps op-cat" type="button" role="radio" [attr.aria-checked]="category() === c" [class.is-brass]="category() === c" (click)="category.set(c)">{{ c }}</button>
+      <button class="td-tag is-caps op-cat" type="button" role="radio" [attr.aria-checked]="category() === c" [class.is-brass]="category() === c" (click)="category.set(c)">{{ c === 'All' ? t().editor.objects.all : c }}</button>
     }
   </div>
   <div class="op-palette">
@@ -238,7 +238,7 @@
         <span class="td-trunc">{{ a.name }}</span>
       </button>
     } @empty {
-      <p class="td-note">No asset matches.</p>
+      <p class="td-note">{{ t().editor.objects.noMatch }}</p>
     }
   </div>
 </div>

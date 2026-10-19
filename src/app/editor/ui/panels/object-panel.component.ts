@@ -13,13 +13,14 @@ import { panelRev } from './panel-shown';
 import { BrushPanelComponent } from './brush-panel.component';
 import { PrefabPanelComponent } from './prefab-panel.component';
 import { RangeRowComponent } from './range-row.component';
+import { injectT } from '../../../i18n/i18n.service';
 
-const MODES: { id: ObjectMode; label: string; key: string }[] = [
-  { id: 'select', label: 'Select', key: 'W E R' },
-  { id: 'place', label: 'Place', key: '' },
-  { id: 'scatter', label: 'Scatter', key: '' },
-  { id: 'line', label: 'Line', key: '' },
-  { id: 'erase', label: 'Erase', key: '' },
+const MODES: { id: ObjectMode; key: string }[] = [
+  { id: 'select', key: 'W E R' },
+  { id: 'place', key: '' },
+  { id: 'scatter', key: '' },
+  { id: 'line', key: '' },
+  { id: 'erase', key: '' },
 ];
 
 const SNAPS = [0, 1, 2, 4, 8];
@@ -42,6 +43,7 @@ const CARDS_PER_FRAME = 40;
   styleUrl: './object-panel.component.scss',
 })
 export class ObjectPanelComponent {
+  protected readonly t = injectT();
   readonly session = inject(EditorSession);
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('objects', 'terrain');
@@ -140,7 +142,7 @@ export class ObjectPanelComponent {
   }
 
   setTint(tint: string | null): void {
-    this.change(tint ? 'Tint' : 'No tint', (o) => {
+    this.change(tint ? this.t().editor.objects.undo.tint : this.t().editor.objects.undo.noTint, (o) => {
       const next = { ...o };
       if (tint) next.tint = tint;
       else delete next.tint;
@@ -181,7 +183,7 @@ export class ObjectPanelComponent {
   /** Every selected object a shade of its own around the tint (or around white) */
   randomTint(): void {
     const base = this.tint();
-    this.change('Random tint', (o) => ({ ...o, tint: variedTint(base, 0.6, Math.random)! }));
+    this.change(this.t().editor.objects.undo.randomTint, (o) => ({ ...o, tint: variedTint(base, 0.6, Math.random)! }));
   }
 
   setScatter(key: 'density' | 'scaleMin' | 'scaleMax' | 'minDistance' | 'tintVariation', value: number): void {
@@ -210,7 +212,7 @@ export class ObjectPanelComponent {
     const t = this.session.doc?.terrain;
     if (!t) return;
     const catalog = this.session.catalog();
-    this.change('Align to slope', (o) => {
+    this.change(this.t().editor.objects.undo.align, (o) => {
       const entry = catalog.object(o.asset);
       const rock = rockShape(entry);
       return setDown(t, rock ? { ...o, z: 0 } : o, rock, true, entry.radius);
@@ -218,7 +220,7 @@ export class ObjectPanelComponent {
   }
 
   upright(): void {
-    this.change('Upright', (o) => {
+    this.change(this.t().editor.objects.undo.upright, (o) => {
       const next = { ...o };
       delete next.pitch;
       delete next.roll;
@@ -230,7 +232,7 @@ export class ObjectPanelComponent {
     const deg = Number((e.target as HTMLInputElement).value);
     if (!Number.isFinite(deg)) return;
     const rad = Math.round(((deg * Math.PI) / 180) * 1000) / 1000;
-    this.change('Tilt', (o) => {
+    this.change(this.t().editor.objects.undo.tilt, (o) => {
       const next = { ...o };
       if (rad) next[key] = rad;
       else delete next[key];
@@ -247,7 +249,7 @@ export class ObjectPanelComponent {
   }
 
   dropToGround(): void {
-    this.change('Drop to the ground', (o) => ({ ...o, z: 0 }));
+    this.change(this.t().editor.objects.undo.drop, (o) => ({ ...o, z: 0 }));
   }
 
   setSnap(step: number): void {
@@ -283,18 +285,18 @@ export class ObjectPanelComponent {
     const editor = this.session.editor;
     const ids = this.selected().map((o) => o.id);
     if (!editor || !ids.length) return;
-    this.session.edit('Changing objects', (e) => e.execute(ObjectsCommand.change(label, editor.doc, ids, update)));
+    this.session.edit(this.t().editor.objects.undo.changing, (e) => e.execute(ObjectsCommand.change(label, editor.doc, ids, update)));
   }
 
   setNumber(key: 'x' | 'y' | 'z' | 'scale', e: Event): void {
     const v = Number((e.target as HTMLInputElement).value);
     if (!Number.isFinite(v) || (key === 'scale' && v <= 0)) return;
-    this.change(key === 'scale' ? 'Scale' : 'Move', (o) => ({ ...o, [key]: v }));
+    this.change(key === 'scale' ? this.t().editor.objects.undo.scale : this.t().editor.objects.undo.move, (o) => ({ ...o, [key]: v }));
   }
 
   setRotation(e: Event): void {
     const deg = Number((e.target as HTMLInputElement).value);
-    if (Number.isFinite(deg)) this.change('Turn', (o) => ({ ...o, rotation: Math.round(((deg * Math.PI) / 180) * 1000) / 1000 }));
+    if (Number.isFinite(deg)) this.change(this.t().editor.objects.undo.turn, (o) => ({ ...o, rotation: Math.round(((deg * Math.PI) / 180) * 1000) / 1000 }));
   }
 
   /** Flag override: inherit the catalogue (null), on, off */
@@ -307,7 +309,7 @@ export class ObjectPanelComponent {
   }
 
   setFlag(key: 'blocksLos' | 'blocksBuild', value: 'auto' | 'on' | 'off'): void {
-    this.change(key === 'blocksLos' ? 'Blocks sight' : 'Blocks building', (o) => {
+    this.change(key === 'blocksLos' ? this.t().editor.objects.undo.blocksSight : this.t().editor.objects.undo.blocksBuilding, (o) => {
       const next = { ...o };
       if (value === 'auto') delete next[key];
       else next[key] = value === 'on';
@@ -318,14 +320,15 @@ export class ObjectPanelComponent {
   catalogFlag(key: 'blocksLos' | 'blocksBuild'): string {
     const o = this.single() ?? this.selected()[0];
     if (!o) return '';
-    return this.session.catalog().object(o.asset)[key] ? 'yes' : 'no';
+    return this.session.catalog().object(o.asset)[key] ? this.t().editor.objects.yesWord : this.t().editor.objects.noWord;
   }
 
   remove(): void {
     const editor = this.session.editor;
     const ids = this.selected().map((o) => o.id);
     if (!editor || !ids.length) return;
-    this.session.edit('Changing objects', (e) => e.execute(ObjectsCommand.remove(ids.length === 1 ? 'Delete object' : `Delete ${ids.length} objects`, editor.doc, ids)));
+    const says = this.t().editor.objects.undo;
+    this.session.edit(says.changing, (e) => e.execute(ObjectsCommand.remove(ids.length === 1 ? says.deleteOne : says.deleteMany(ids.length), editor.doc, ids)));
     editor.select(null);
   }
 
@@ -335,7 +338,7 @@ export class ObjectPanelComponent {
     if (!editor || !ids.length) return;
     const step = Math.max(2, this.s().snap || 4);
     const copies = duplicateObjects(editor.doc, ids, { x: step, y: -step });
-    this.session.edit('Changing objects', (e) => e.execute(ObjectsCommand.add('Duplicate', editor.doc, copies)));
+    this.session.edit(this.t().editor.objects.undo.changing, (e) => e.execute(ObjectsCommand.add(this.t().editor.objects.undo.duplicate, editor.doc, copies)));
     editor.select({ kind: 'objects', ids: copies.map((o) => o.id) });
   }
 
