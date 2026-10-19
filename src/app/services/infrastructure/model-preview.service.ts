@@ -19,7 +19,7 @@ import {
 import { AssetManagerService } from './asset-manager.service';
 import { FramePacer } from '../../utils/frame-pacer';
 import { PREVIEW_MANIFEST, PREVIEW_SHEET_DIR, previewViewKey, type PreviewSheetEntry, type PreviewSheetManifest } from './preview-sheets';
-import { releaseSharedGpu } from '../../three-engine/shared-gpu';
+import { DrawLedger } from '../../three-engine/draw-ledger';
 import { releaseContext } from '../../three-engine/context-release';
 
 export interface PreviewConfig {
@@ -173,6 +173,9 @@ export class ModelPreviewService {
     if (this.animationFrameId === null) this.startAnimationLoop();
   }
 
+  /** What the baking renderer drew (DrawLedger), freed with it */
+  private ledger: DrawLedger | null = null;
+
   /** The off-screen renderer that bakes turns, made on first use */
   private bakingRenderer(): WebGLRenderer {
     if (this.renderer) return this.renderer;
@@ -187,6 +190,8 @@ export class ModelPreviewService {
     });
     renderer.setPixelRatio(1);
     renderer.outputColorSpace = SRGBColorSpace;
+    // What it bakes, given back with it: three's listeners on the cached models would hold it otherwise
+    this.ledger = new DrawLedger(renderer);
     this.renderer = renderer;
     return renderer;
   }
@@ -483,7 +488,8 @@ export class ModelPreviewService {
 
     // Dispose renderer; its context goes once the next view stands, the next world's game makes its own
     if (this.renderer) {
-      releaseSharedGpu(this.renderer);
+      this.ledger?.freeAll();
+      this.ledger = null;
       this.renderer.dispose();
       releaseContext(this.renderer);
       this.renderer = null;

@@ -40,7 +40,7 @@ import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library
 import type { CatalogIndex, GroundMaterialEntry, ObjectAssetEntry } from '../../map-ops/asset-catalog';
 import type { BiomeDef } from '../ops/landscape/biomes';
 import { hashCell } from '../../map-ops/landscape-noise';
-import { releaseSharedGpu } from '../../three-engine/shared-gpu';
+import { DrawLedger } from '../../three-engine/draw-ledger';
 import { releaseContext } from '../../three-engine/context-release';
 
 const SIZE = 128;
@@ -123,7 +123,8 @@ export class ThumbnailRenderer {
     const renderer = this.renderer;
     this.renderer = null;
     if (renderer) {
-      releaseSharedGpu(renderer, this.scene);
+      this.ledger?.freeAll();
+      this.ledger = null;
       renderer.dispose();
       // Browsers keep only a few contexts: this one goes once the game stands, not whenever the canvas is
       // collected (lost at once in the switch to a test run it blocked the main thread 4 s)
@@ -173,11 +174,16 @@ export class ThumbnailRenderer {
     }
   }
 
+  /** What this renderer drew (DrawLedger), freed with it */
+  private ledger: DrawLedger | null = null;
+
   private get gl(): WebGLRenderer {
     if (this.resting) throw new Error('The palette pictures rest while the editor is away');
     if (!this.renderer) {
       const canvas = document.createElement('canvas');
       this.renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
+      // What it draws, given back with it: three's listeners on the page's models would hold it otherwise
+      this.ledger = new DrawLedger(this.renderer);
       this.renderer.setPixelRatio(1);
       this.renderer.setSize(SIZE, SIZE, false);
       this.renderer.outputColorSpace = SRGBColorSpace;

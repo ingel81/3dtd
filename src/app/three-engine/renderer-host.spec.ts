@@ -24,6 +24,8 @@ function fakeRenderer() {
     dispose: vi.fn(),
     forceContextLoss: vi.fn(),
     renderBufferDirect: vi.fn(),
+    compile: vi.fn(() => new Set()),
+    properties: { get: () => ({}) },
   };
   return r;
 }

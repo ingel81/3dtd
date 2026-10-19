@@ -36,7 +36,6 @@ import { ProgramPins } from '../../three-engine/program-pins';
 import { ShotLights } from '../../three-engine/shot-lights/shot-lights';
 import type { Contours } from '../ops/contours';
 import type { GroundBaker } from '../../world/custom-map/render/terrain/ground-shape';
-import { releaseSharedGpu } from '../../three-engine/shared-gpu';
 
 export interface HoverInfo {
   x: number;
@@ -351,7 +350,6 @@ export class EditorViewport {
     this.resizeObserver.disconnect();
     for (const u of this.unsubscribe) u();
     this.input.dispose();
-    releaseSharedGpu(this.renderer, this.scene);
     this.view.dispose();
     this.lights.clear();
     this.overlay.dispose();

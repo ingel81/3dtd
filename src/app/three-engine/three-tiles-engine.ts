@@ -28,6 +28,7 @@ import { DiveView, FOG_FAR, FOG_NEAR, VIEW_DISTANCE } from './dive-view';
 import { ScreenPicker } from './screen-picker';
 import type { RendererLease } from './renderer-host';
 import { boundTexturesOf } from './texture-upload';
+import { isSharedGpu } from './shared-gpu';
 import {
   CoordinateSync,
   ThreeTowerRenderer,
@@ -42,7 +43,6 @@ import { InstancedEnemyRenderer } from './renderers/instanced-enemy/instanced-en
 import { LaserBeamRenderer } from './renderers/laser-beam.renderer';
 import { ShotLights } from './shot-lights/shot-lights';
 import { disposeBlobShadows, setBlobGround } from './renderers/instanced-enemy/blob-shadow';
-import { releaseSharedGpu } from './shared-gpu';
 import { plinthCrown } from './renderers/tower-plinth/plinth-braces';
 import { TowerPlinthRenderer } from './renderers/tower-plinth/tower-plinth.renderer';
 import { TowerBadgeRenderer } from './renderers/tower-badge/tower-badge.renderer';
@@ -1693,10 +1693,6 @@ export class ThreeTilesEngine {
     // Dispose spatial audio
     this.spatialAudio.dispose();
 
-    // What the page made once and every renderer draws (shared-gpu.ts): its
-    // listeners held this renderer and with it the game of every world before
-    releaseSharedGpu(this.renderer, this.scene);
-
     // The world: tiles renderer and load listeners, DevWorld's generation
     // worker and raycast-only meshes outside the scene graph (nothing else
     // disposes those; every engine teardown leaked one before)
@@ -1706,21 +1702,14 @@ export class ThreeTilesEngine {
     // disposed here stays on the GPU. A texture another world uses again (a cached model's) uploads again then
     const textures = boundTexturesOf(this.renderer, this.scene);
 
-    // Dispose scene contents
+    // Dispose scene contents, but the page's (shareGpu: the cached models, module-level materials), which the page's
+    // renderer keeps uploaded for the next view
     this.scene.traverse((obj) => {
       // A light's shadow map is a render target of its own
       if ((obj as Light).isLight) (obj as Light).dispose();
-      if ((obj as Mesh).geometry) {
-        (obj as Mesh).geometry.dispose();
-      }
-      if ((obj as Mesh).material) {
-        const mat = (obj as Mesh).material;
-        if (Array.isArray(mat)) {
-          mat.forEach((m) => m.dispose());
-        } else {
-          mat.dispose();
-        }
-      }
+      const { geometry, material } = obj as Mesh;
+      if (geometry && !isSharedGpu(geometry)) geometry.dispose();
+      for (const m of Array.isArray(material) ? material : material ? [material] : []) if (!isSharedGpu(m)) m.dispose();
     });
 
     // Dispose post-processing pipeline (composer + color grading LUT textures)
@@ -1731,7 +1720,7 @@ export class ThreeTilesEngine {
 
     // The sky cube is the scene background, the traverse above does not reach it
     this.sky?.dispose();
-    for (const texture of textures) if (!(texture as Texture & { isRenderTargetTexture?: boolean }).isRenderTargetTexture) texture.dispose();
+    for (const texture of textures) if (!(texture as Texture & { isRenderTargetTexture?: boolean }).isRenderTargetTexture && !isSharedGpu(texture)) texture.dispose();
 
     // The renderer goes back to the page's host with its context: the next world draws with it
     this.lease.release();

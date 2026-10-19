@@ -1,8 +1,10 @@
-import { NoToneMapping, PCFShadowMap, SRGBColorSpace, WebGLRenderer, type BufferGeometry, type Material } from 'three';
+import { NoToneMapping, PCFShadowMap, SRGBColorSpace, WebGLRenderer } from 'three';
 import { releaseContext } from './context-release';
 import { skipLostContextDeletes } from './lost-context-deletes';
 import { deferPendingProgramDeletes } from './pending-program-deletes';
-import { PIN_TWIN, type ProgramPins } from './program-pins';
+import type { ProgramPins } from './program-pins';
+import { DrawLedger } from './draw-ledger';
+import { isSharedGpu } from './shared-gpu';
 
 /**
  * Leases whose pinned programs and shader ids stay after they end: the
@@ -59,14 +61,16 @@ export interface RendererLease {
  * one place (RendererHostService.msaa).
  *
  * A lease gives back what it drew: every geometry and material drawn or
- * compiled while it lasted is disposed with `release`. three keeps a
- * geometry's vertex array state by its id and a program while a material
- * counts as its user, not weakly, until they are disposed; a world that let
- * a mesh go without disposing it (a pool emptied, an overlay taken out)
- * kept its buffers and programs on the GPU, which a lost context used to
- * free. What the next owner draws again (a cached model's geometry and
- * material) uploads and links again then. Textures go as they are disposed
- * or collected (three holds them weakly).
+ * compiled while it lasted is disposed with `release` (DrawLedger), but
+ * what is the page's (shareGpu: module-level materials, the caches'
+ * models), which the next view draws again from the GPU as it is. three
+ * keeps a geometry's vertex array state by its id and a program while a
+ * material counts as its user, not weakly, until they are disposed; a world
+ * that let a mesh go without disposing it (a pool emptied, an overlay taken
+ * out) kept its buffers and programs on the GPU, which a lost context used
+ * to free. Textures go as they are disposed or collected (three holds them
+ * weakly), and the listeners three hangs on what this renderer drew hold
+ * only this renderer, which stays.
  *
  * The GL shims every renderer of the game needs are installed once, with
  * the renderer: deletes of handles of a lost context are skipped
@@ -79,9 +83,8 @@ export class RendererHost {
   /** Pins kept from ended leases (RendererLease.keep), by the number of the lease they came from */
   private kept: { lease: number; pins: ProgramPins }[] = [];
   private leases = 0;
-  /** The geometries drawn and materials drawn or compiled during the lease now, disposed when it ends */
-  private readonly drawn = new Set<BufferGeometry>();
-  private readonly materials = new Set<Material>();
+  /** What the lease now drew and compiled, given back when it ends */
+  private ledger: DrawLedger | null = null;
 
   constructor(
     private readonly make: (msaa: boolean) => WebGLRenderer = (msaa) =>
@@ -105,8 +108,8 @@ export class RendererHost {
     const owner = {};
     const number = ++this.leases;
     this.owner = owner;
-    this.drawn.clear();
-    this.materials.clear();
+    // What an owner that never gave the renderer back drew goes now
+    this.ledger!.free();
     resetRenderer(renderer);
     const canvas = renderer.domElement;
     canvas.style.display = 'block';
@@ -119,11 +122,7 @@ export class RendererHost {
       release: () => {
         if (this.owner !== owner) return;
         this.owner = null;
-        for (const geometry of this.drawn) geometry.dispose();
-        // A pin's twin stays for the pins (keep): it holds its shader's id and program
-        for (const material of this.materials) if (!material.userData[PIN_TWIN]) material.dispose();
-        this.drawn.clear();
-        this.materials.clear();
+        this.ledger!.free();
         // Pins of leases before the last KEEP_LEASES go back: three frees what no material holds
         for (const k of this.kept.filter((k) => k.lease <= number - KEEP_LEASES)) k.pins.dispose(renderer);
         this.kept = this.kept.filter((k) => k.lease > number - KEEP_LEASES);
@@ -144,6 +143,8 @@ export class RendererHost {
     this.current = null;
     this.owner = null;
     this.kept = [];
+    this.ledger?.freeAll();
+    this.ledger = null;
     renderer.domElement.remove();
     renderer.dispose();
     renderer.forceContextLoss();
@@ -160,25 +161,15 @@ export class RendererHost {
     const gl = renderer.getContext() as WebGL2RenderingContext;
     skipLostContextDeletes(gl, renderer.domElement);
     deferPendingProgramDeletes(gl);
-    // Every draw, the shadow pass's included, goes through renderBufferDirect: what a lease drew
-    const draw = renderer.renderBufferDirect;
-    const compile = renderer.compile;
-    const { drawn, materials } = this;
-    renderer.renderBufferDirect = function (camera, scene, geometry, material, object, group) {
-      drawn.add(geometry);
-      materials.add(material);
-      draw.call(this, camera, scene, geometry, material, object, group);
-    };
-    // compileAsync compiles through compile
-    renderer.compile = function (scene, camera, targetScene) {
-      const compiled = compile.call(this, scene, camera, targetScene);
-      for (const material of compiled) materials.add(material);
-      return compiled;
-    };
+    // What a lease drew and compiled, but the page's (shareGpu)
+    const oldLedger = this.ledger;
+    this.ledger = new DrawLedger(renderer, isSharedGpu);
     this.current = { renderer, msaa };
     // Pins of the old renderer go with it
     this.kept = [];
     if (old) {
+      // The page's resources too: three's listeners on them would hold the old renderer
+      oldLedger?.freeAll();
       old.renderer.domElement.remove();
       old.renderer.dispose();
       releaseContext(old.renderer);
