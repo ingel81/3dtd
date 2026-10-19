@@ -240,8 +240,8 @@ export class BackgroundMusicService {
   }
 
   private preloadRest(): void {
-    const { wave, boss, bloodMoon, gameOver } = BACKGROUND_MUSIC;
-    for (const track of [...wave, ...boss, ...bloodMoon, ...gameOver]) this.buffers.load(track.url);
+    const { wave, boss, bossTracks, bloodMoon, gameOver } = BACKGROUND_MUSIC;
+    for (const track of [...wave, ...boss, ...Object.values(bossTracks).flat(), ...bloodMoon, ...gameOver]) this.buffers.load(track.url);
   }
 
   // =====================================================
@@ -477,10 +477,19 @@ export class BackgroundMusicService {
     this.crossfadeToTrack(track, fadeMs);
   }
 
-  /** The tracks for `wave`: the boss's, the blood moon's or the wave's; a list without tracks falls back to the wave's. */
+  /**
+   * The tracks for `wave`: on a boss wave its boss's own or the boss tracks, the blood moon's or the wave's; a list
+   * without tracks falls back to the wave's.
+   */
   private waveTracks(wave: number): MusicTrack[] {
-    const { boss, bloodMoon } = BACKGROUND_MUSIC;
-    if (waveRules().isBoss(wave) && boss.length > 0) return boss;
+    const { boss, bossTracks, bloodMoon } = BACKGROUND_MUSIC;
+    if (waveRules().isBoss(wave)) {
+      for (const [id] of waveRules().enemyMix(wave) ?? []) {
+        const own = bossTracks[id];
+        if (own?.length) return own;
+      }
+      if (boss.length > 0) return boss;
+    }
     if (isBloodMoonWave(wave) && bloodMoon.length > 0) return bloodMoon;
     return BACKGROUND_MUSIC.wave;
   }

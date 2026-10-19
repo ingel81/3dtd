@@ -174,9 +174,9 @@ describe('abilities config', () => {
   });
 
   it('flags only the pure bosses: golem and dragon also march in regular waves, their king and matriarch lead', () => {
-    // The worm, its ring and tail and the ooze appear only as a boss (rotation, Custom Wave, Enemy Debug)
+    // The worm, its ring and tail, the ooze and the jumper appear only as a boss (rotation, Custom Wave, Enemy Debug)
     const bosses = getAllEnemyTypes().filter((e) => e.isBoss).map((e) => e.id);
-    expect(bosses).toEqual(['herbert', 'worm', 'worm-segment', 'worm-tail', 'ooze', 'golem-king', 'dragon-matriarch']);
+    expect(bosses).toEqual(['herbert', 'worm', 'worm-segment', 'worm-tail', 'ooze', 'golem-king', 'dragon-matriarch', 'jumper']);
     const nuke = ABILITIES['nuclear-strike'].effect as Extract<AbilityEffect, { kind: 'max-hp-fraction' }>;
     expect(abilityDamageFraction(nuke, ENEMY_TYPES['worm'])).toBe(0.2);
     expect(abilityDamageFraction(nuke, ENEMY_TYPES['ooze'])).toBe(0.2);

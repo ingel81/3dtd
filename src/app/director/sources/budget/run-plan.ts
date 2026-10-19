@@ -41,7 +41,8 @@ export const RUN_PLAN: readonly RunPlanRow[] = rawPlan as unknown as RunPlanRow[
 
 /**
  * Past the plan the last this-many rows repeat, while the budget curve keeps
- * rising: rows 31 to 60, all three late bosses with their breathers.
+ * rising: rows 31 to 60, the four late bosses (golem king, jumper, dragon
+ * matriarch, Skarnax) with their breathers.
  */
 export const RUN_PLAN_REPEAT = 30;
 

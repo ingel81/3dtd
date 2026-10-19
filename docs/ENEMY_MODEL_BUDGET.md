@@ -527,6 +527,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | --- | ---: | ---: | ---: |
 | Herbert (`herbert`) | Elite/Boss | 1 | 30.831 | 31.949 | 0,0 | Skinning | 33 | 8192×132 | RGBA16F | 0,56 | 8,3 | 512² |
 | Ironclad Warlord (`warlord`) | Elite/Boss | 5 | 14.136 | 8.299 | 0,1 | Skinning | 160 | 8192×320 | RGBA16F | 1,44 | 20,0 | 2048² |
+| Jumper (`jumper`) | Elite/Boss | 1 | 14.112 | 28.141 | 0,0 | Objekt-Anim. | 95 | 8192×190 | RGBA32F | 2,13 | 23,8 | – |
 | Stone Golem (`stone-golem`) | Elite/Boss | 21 | 13.614 | 10.368 | 0,3 | Skinning | 107 | 8192×214 | RGBA32F | 2,64 | 26,8 | 1024² |
 | Dragon (`dragon`) | Elite/Boss | 45 | 12.272 | 19.541 | 0,6 | Skinning | 99 | 8192×198 | RGBA16F | 1,78 | 12,4 | 1024² |
 | Wraith (`wraith`) | Normal | 150 | 8.126 | 6.790 | 1,2 | Skinning | 15 | 8126×15 | RGBA16F | 0,47 | 0,9 | 1024² |
@@ -583,6 +584,7 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
 | Herbert | `herbert_optimized.glb` | 0,7 | 1 (1) | 24 | 0 | 1 | 512² | 1 | 30.831 / 30.133 / 26.048 |
 | Ironclad Warlord | `warlord.glb` | 1,7 | 1 (1) | 28 | 0 | 1 | 256², 2× 2048² | 3 | 14.127 / 14.068 / 4.042 |
+| Jumper | `jumper.glb` | 0,3 | 56 (0) | 0 | 0 | 11 | – | 2 | 13.063 / 12.971 / 12.971 |
 | Stone Golem | `stone_golem.glb` | 0,6 | 1 (1) | 24 | 0 | 1 | 1024² | 2 | 13.527 / 13.415 / 5.205 |
 | Dragon | `dragon.glb` | 1,1 | 1 (1) | 220 | 0 | 1 | 3× 1024², 256² | 1 | 11.946 / 11.841 / 10.208 |
 | Wraith | `wraith.glb` | 0,4 | 1 (1) | 25 | 0 | 1 | 1024² | 1 | 8.126 / 8.126 / 3.268 |
@@ -620,6 +622,8 @@ dieser Teil (`vatClips` in `vat-clips.ts`), „gekürzt“ zählt die weggelasse
 | Ironclad Warlord | `Walking` | walk | 1,03 | 33 | – |
 | Ironclad Warlord | `Running` | run | 0,67 | 21 | – |
 | Ironclad Warlord | `Fall_Dead_from_Abdominal_Injury` | death | 3,50 | 106 | – |
+| Jumper | `Walk` | walk | 1,60 | 49 | – |
+| Jumper | `Death` | death | 1,50 | 46 | – |
 | Stone Golem | `Casual_Walk` | walk | 1,33 | 40 | – |
 | Stone Golem | `dying_backwards` | death | 2,21 | 67 | – |
 | Dragon | `flying` | walk | 3,30 | 99 | – |
@@ -682,7 +686,6 @@ Gegner der Zeile, mit allem, was ein Kill abspaltet.
 | Ghost Surge | W13, W57 | 220 | 140 ghost, 40 wraith, 40 hornet | 1,1 |
 | Hornet Raid | W47 | 230 | 150 hornet, 80 wallsmasher | 1,0 |
 | Spider Nest | W23 | 420 | 380 spider, 40 wallsmasher | 1,0 |
-| Haunted Pack | W45 | 160 | 70 bear, 60 wraith, 30 ghost | 0,9 |
 | Plague and Iron | W39 | 720 | 20 mech, 700 rat | 0,8 |
 | Last Stand | W59 | 304 | 200 rat, 31 tank, 31 mammoth, 32 ghost, 10 dragon | 0,8 |
 | Final Mix | W29 | 200 | 60 zombie, 40 tank, 40 hornet, 40 bear, 20 ghost | 0,7 |
@@ -704,6 +707,8 @@ Gegner der Zeile, mit allem, was ein Kill abspaltet.
 | Siege Line | W25 | 60 | 30 mammoth, 6 stone-golem, 24 wallsmasher | 0,3 |
 | Bear Pack | W11, W41 | 80 | 80 bear | 0,3 |
 | Phantom March | W24 | 148 | 120 zombie, 20 ghost, 8 wraith | 0,3 |
+| Mech Army | W28 | 70 | 40 mech, 30 zombie-soldier | 0,3 |
+| Boss: Jumper | W45 | 65 | 1 jumper, 24 tank, 40 zombie-soldier | 0,3 |
 | Bat Swarm | W7 | 73 | 73 bat | 0,3 |
 | Mammoth Siege | W14, W51 | 35 | 25 mammoth, 10 wallsmasher | 0,2 |
 | Night Flight | W17 | 33 | 9 wraith, 24 bat | 0,2 |
@@ -723,11 +728,12 @@ Gegner der Zeile, mit allem, was ein Kill abspaltet.
 | Gegner | Wellen im Laufplan | max. in einer Welle |
 | --- | --- | ---: |
 | Bat | W7, W8, W17, W21, W27, W35, W42, W44, W54, W58 | 260 |
-| Bear | W11, W16, W29, W34, W37, W41, W45, W55 | 80 |
+| Bear | W11, W16, W29, W34, W37, W41, W55 | 80 |
 | Dragon | W12, W27, W42, W50, W58, W59 | 45 |
-| Ghost | W13, W18, W24, W29, W32, W37, W45, W49, W53, W57, W59 | 140 |
+| Ghost | W13, W18, W24, W29, W32, W37, W49, W53, W57, W59 | 140 |
 | Herbert | W10 | 1 |
 | Hornet | W8, W12, W16, W26, W27, W29, W42, W47, W50, W55, W57, W58 | 160 |
+| Jumper | W45 | 1 |
 | Mammoth | W14, W18, W25, W32, W34, W40, W51, W53, W59 | 48 |
 | Mech | W28, W39, W46, W56 | 40 |
 | Ooze | W20 | 1 |
@@ -738,15 +744,15 @@ Gegner der Zeile, mit allem, was ein Kill abspaltet.
 | Slime Clump | W20 | 120 |
 | Spider | W4, W6, W23, W33, W38, W44, W54 | 700 |
 | Stone Golem | W15, W25, W33, W40, W53 | 21 |
-| Tank | W9, W10, W16, W18, W22, W29, W32, W43, W46, W55, W56, W59 | 50 |
+| Tank | W9, W10, W16, W18, W22, W29, W32, W43, W45, W46, W55, W56, W59 | 50 |
 | Wallsmasher | W4, W5, W14, W23, W25, W43, W47, W51 | 110 |
 | Ironclad Warlord | W28, W43, W46 | 5 |
 | Skarnax | W30, W60 | 1 |
 | Skarnax Segment | – | 0 |
 | Skarnax Tail | – | 0 |
-| Wraith | W13, W17, W24, W35, W45, W49, W52, W57 | 150 |
+| Wraith | W13, W17, W24, W35, W49, W52, W57 | 150 |
 | Zombie | W1, W10, W16, W24, W26, W29, W36, W52, W55 | 560 |
-| Zombie Soldier | W9, W22, W28, W36, W46 | 60 |
+| Zombie Soldier | W9, W22, W28, W36, W45, W46 | 60 |
 | Zombie v2 | W1, W26, W36 | 80 |
 
 <!-- model-budget:end -->

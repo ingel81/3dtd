@@ -48,6 +48,7 @@ const reg = vi.hoisted(() => ({
         { id: 'w3', url: 'w3.mp3' },
       ],
       boss: [{ id: 'boss', url: 'boss.mp3' }],
+      bossTracks: { jumper: [{ id: 'jumper', url: 'jumper.mp3' }] },
       bloodMoon: [{ id: 'moon', url: 'moon.mp3' }],
       gameOver: [{ id: 'over', url: 'over.mp3', volume: 0.35 }],
       gameOverMusicDelayMs: 4000,
@@ -539,6 +540,8 @@ describe('BackgroundMusicService', () => {
         return playing().map((c) => c.buffer?.url);
       };
       expect(await start(10)).toEqual(['boss.mp3']);
+      // A boss with tracks of its own: the jumper's wave (run-plan.json)
+      expect(await start(45)).toEqual(['jumper.mp3']);
       expect(await start(14)).toEqual(['moon.mp3']);
       expect(await start(15)).toEqual([expect.stringMatching(/^w\d\.mp3$/)]);
     });
@@ -758,7 +761,7 @@ describe('BackgroundMusicService', () => {
       const { service } = setup();
       expect(reg.pending.map((p) => p.url).sort()).toEqual(['b1.mp3', 'b2.mp3']);
       service.onLoadingComplete();
-      expect(reg.pending.map((p) => p.url).sort()).toEqual(['b1.mp3', 'b2.mp3', 'boss.mp3', 'moon.mp3', 'over.mp3', 'w1.mp3', 'w2.mp3', 'w3.mp3']);
+      expect(reg.pending.map((p) => p.url).sort()).toEqual(['b1.mp3', 'b2.mp3', 'boss.mp3', 'jumper.mp3', 'moon.mp3', 'over.mp3', 'w1.mp3', 'w2.mp3', 'w3.mp3']);
     });
 
     it('drops a phase change that was stopped while its track was still loading', async () => {

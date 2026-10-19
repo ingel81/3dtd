@@ -45,6 +45,13 @@
       "view": "{\"animationName\":\"Take 001\",\"animationTimeScale\":0.7,\"cameraAngle\":0.26,\"cameraDistance\":7,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/hornet.glb\",\"offsetY\":0,\"scale\":0.122}",
       "model": "64262be5ab86cb0d21c332587f9e72e25d56b4f41150f185a6c8bc2eba943b19"
     },
+    "enemy-jumper": {
+      "file": "enemy-jumper.webp",
+      "width": 80,
+      "height": 80,
+      "view": "{\"animationName\":\"Walk\",\"animationTimeScale\":0.7,\"cameraAngle\":0.3,\"cameraDistance\":7.5,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/jumper.glb\",\"offsetY\":-0.3,\"scale\":1.25}",
+      "model": "e9d418c889754ace71dc211bd881fb7326bf61798b3109dc87285f7127293bde"
+    },
     "enemy-mammoth": {
       "file": "enemy-mammoth.webp",
       "width": 80,

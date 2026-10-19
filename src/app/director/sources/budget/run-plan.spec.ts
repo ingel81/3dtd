@@ -22,8 +22,8 @@ describe('run plan', () => {
     });
   });
 
-  it('has a boss every ten waves and nowhere else', () => {
-    for (const row of RUN_PLAN) expect(row.boss === true, `wave ${row.wave}`).toBe(row.wave % 10 === 0);
+  it('has a boss every ten waves, the jumper between the golem king and the matriarch, and nowhere else', () => {
+    expect(RUN_PLAN.filter((row) => row.boss).map((row) => row.wave)).toEqual([10, 20, 30, 40, 45, 50, 60]);
   });
 
   it('repeats the last rows past the end', () => {
@@ -34,12 +34,12 @@ describe('run plan', () => {
     expect(planRowForWave(0)).toBeNull();
   });
 
-  it('repeats rows 31 to 60, all three late bosses', () => {
+  it('repeats rows 31 to 60, all four late bosses', () => {
     expect(RUN_PLAN_REPEAT).toBe(30);
     expect(planRowForWave(61)!.wave).toBe(31);
     const bosses = [];
     for (let w = 61; w <= 90; w++) if (planRowForWave(w)!.boss) bosses.push(planRowForWave(w)!.wave);
-    expect(bosses).toEqual([40, 50, 60]);
+    expect(bosses).toEqual([40, 45, 50, 60]);
   });
 
   it('sends the row as it is inside the plan, except where a mutator changes the counts', () => {

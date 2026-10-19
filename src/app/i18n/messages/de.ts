@@ -75,6 +75,7 @@ export const de: Messages = {
     'golem-king': 'Herz des Berges',
     'dragon-matriarch': 'Mutter des Schwarms',
     warlord: null,
+    jumper: 'Die Belagerungsmaschine',
   },
   paths: {
     scout: { name: 'Späher', description: 'Ein Ausguck entdeckt getarnte Gegner im Umkreis von 35 m: Dort kann jeder Turm sie treffen.' },
@@ -1758,6 +1759,7 @@ export const de: Messages = {
         'Mech Army': 'Mech-Armee',
         'Final Mix': 'Letzte Mischung',
         'Boss: Skarnax': 'Boss: Skarnax',
+        'Boss: Jumper': 'Boss: Jumper',
         'Penguin Breather': 'Pinguinpause',
         'Golem Guard': 'Golemwache',
         'Mammoth Stampede': 'Mammutansturm',
@@ -1770,7 +1772,6 @@ export const de: Messages = {
         'Dragon Night': 'Drachennacht',
         'Wall Breakers': 'Mauerbrecher',
         'Swarm Surge': 'Schwarmflut',
-        'Haunted Pack': 'Spukrudel',
         'Mech Column': 'Mech-Kolonne',
         'Hornet Raid': 'Hornissenüberfall',
         'Ether Assault': 'Ätherangriff',

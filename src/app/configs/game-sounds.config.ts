@@ -76,6 +76,7 @@ export const DEATH_SOUNDS = {
   skarnax: bossDeath('skarnax'),
   ooze: bossDeath('ooze'),
   herbert: bossDeath('herbert'),
+  jumper: bossDeath('jumper'),
 } as const satisfies Record<string, GameSoundSample>;
 
 export type DeathSoundId = keyof typeof DEATH_SOUNDS;
@@ -207,6 +208,17 @@ export const RAGE_SOUNDS = {
 
 export type RageSoundId = keyof typeof RAGE_SOUNDS;
 
+/** The jumper's legs: steel on the ground, a pair at a time */
+export const JUMPER_FOOTSTEP: FootstepConfig = {
+  sound: {
+    id: 'jumper_footstep', url: 'assets/sounds/enemies/jumper/footstep.mp3', volume: 0.9, refDistance: 60,
+    rolloffFactor: 1, minIntervalMs: 250, maxInstances: 2,
+  },
+  // A pair of legs lands at the end of its swing in Walk (tools/blender/jumper_boss.py, FOOTSTEP_PHASES)
+  phases: [0.4, 0.9],
+  shake: true,
+};
+
 /** The cast of an ability, at its target on `ability:used`; null where the ability has none (the missile's launch plays instead). */
 export const ABILITY_CAST_SOUNDS: Record<AbilityId, GameSoundSample | null> = {
   'nuclear-strike': null,
@@ -253,6 +265,7 @@ export const BOSS_INTRO_SOUNDS: Readonly<Record<string, GlobalCue>> = {
   worm: { id: 'boss_intro_skarnax', url: 'assets/sounds/bosses/skarnax.mp3', volume: 0.85 },
   ooze: { id: 'boss_intro_ooze', url: 'assets/sounds/bosses/ooze.mp3', volume: 0.85 },
   herbert: { id: 'boss_intro_herbert', url: 'assets/sounds/bosses/herbert.mp3', volume: 0.85 },
+  jumper: { id: 'boss_intro_jumper', url: 'assets/sounds/bosses/jumper.mp3', volume: 0.85 },
 };
 
 /**

@@ -30,7 +30,7 @@ import type { SimWorld, SimInput, SimOutput, QueuedCommand } from '../protocol/m
 import { GameClock } from '../../managers/game-state/game-clock';
 import { TICK_SUB_STEPS } from '../../coop/lockstep';
 import type { SimFramePacket } from '../protocol/packet';
-import { ENEMY_STRIDE, E_FLAGS, EF_ALIVE, TOWER_STRIDE, T_KILLS } from '../protocol/packet';
+import { ENEMY_STRIDE, E_FLAGS, EF_ALIVE, G_YAW, GUN_STRIDE, TOWER_STRIDE, T_KILLS } from '../protocol/packet';
 import type { LosNeededPayload } from '../protocol/events';
 import type { CommandData } from '../../managers/game-state/command-data';
 import type { WaveConfig } from '../../managers/wave.manager';
@@ -289,6 +289,49 @@ describe('SimCore in the same thread', () => {
     expect(core.gsm.captureSnapshot().structures).toEqual([100]);
     expect(core.gsm.stateHash()).toBe(hashBefore);
     expect(drive.tick().ops.filter((op) => op[0] === 'structures.setStages')).toEqual([['structures.setStages', new Uint8Array([0]), new Int16Array([-1])]]);
+  });
+
+  it("shells a destructible world's structure with the jumper's gun, the same on every run; on a world without, its gun looks ahead", () => {
+    const main = mainWorld();
+    // A house 25 m east of the first route, 140 m along it
+    const house: RunStructure = { id: 'house', lat: 140 / M, lon: 25 / M, radius: 6, height: 10, hp: 900 };
+    const rules = { startCredits: 100, hqHealth: 500, towers: null, structures: [house], start: null };
+    const destructible: SimWorld = {
+      ...main.world,
+      rules,
+      worldKey: worldKeyOf(main.grid.snapshotHeights(), main.world.paths.map(([, p]) => p), main.sync.getOrigin(), rules),
+    };
+    const run = (world: SimWorld) => {
+      const drive = new Driver(newCore(world));
+      drive.send({ type: 'debug:spawn-enemy', enemyType: 'jumper', path: world.paths[0][1] });
+      const ops: string[] = [];
+      const yaws: number[] = [];
+      for (let f = 0; f < 1500; f++) {
+        const packet = drive.tick();
+        for (const op of packet.ops) if (op[0].startsWith('main.siege') || op[0] === 'main.structureFell') ops.push(op[0]);
+        for (let r = 0; r < packet.guns.count; r++) yaws.push(packet.guns.data[r * GUN_STRIDE + G_YAW]);
+        if (ops.includes('main.structureFell')) break;
+      }
+      return { core: drive.core, ops, yaws };
+    };
+
+    const a = run(destructible);
+    // One shell fells it: shot, impact, fall
+    expect(a.ops).toEqual(['main.siegeShot', 'main.siegeImpact', 'main.structureFell']);
+    expect(a.core.gsm.captureSnapshot().structures).toEqual([0]);
+    // The house lies ahead to the east of the route, which runs north: the turret turned east (a negative turn from
+    // the body), about atan(25 / 80) where it comes in reach
+    expect(Math.min(...a.yaws)).toBeLessThan(-0.25);
+    expect(Math.max(...a.yaws)).toBe(0);
+    const b = run(destructible);
+    expect(b.ops).toEqual(a.ops);
+    expect(b.core.gsm.stateHash()).toBe(a.core.gsm.stateHash());
+
+    // Nothing to destroy: no shot, the turret stays ahead
+    const plain = run(main.world);
+    expect(plain.ops).toEqual([]);
+    expect(plain.yaws.length).toBeGreaterThan(0);
+    expect(plain.yaws.every((yaw) => yaw === 0)).toBe(true);
   });
 
   it('places no tower on a roof whose building falls in the tick the order acts in, and keeps one placed first standing', () => {

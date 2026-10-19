@@ -525,15 +525,17 @@
   },
   {
     "wave": 45,
-    "name": "Haunted Pack",
+    "name": "Boss: Jumper",
     "enemies": {
-      "bear": 70,
-      "wraith": 60,
-      "ghost": 30
+      "jumper": 1,
+      "tank": 24,
+      "zombie-soldier": 40
     },
-    "strength": 1,
-    "spawnDelay": 550,
-    "pattern": "random"
+    "strength": 1.3,
+    "spawnDelay": 900,
+    "pattern": "clustered",
+    "boss": true,
+    "note": "A siege boss between the golem king and the matriarch: on a destructible world its gun shells the buildings along its way"
   },
   {
     "wave": 46,

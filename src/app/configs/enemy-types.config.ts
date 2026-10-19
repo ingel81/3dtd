@@ -11,6 +11,7 @@ import type { BossTraits } from '../managers/boss-traits';
 import {
   GOLEM_FOOTSTEP,
   WARLORD_FOOTSTEP,
+  JUMPER_FOOTSTEP,
   type DeathSoundId,
   type FootstepConfig,
   type HitSoundId,
@@ -1514,6 +1515,76 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewOffsetY: 0,
     // Iron plate (metallic) and grey hide on a dark panel: at the default light a dark lump
     previewLight: 3,
+  },
+
+  // The crab walker with the twin gun on its back (tools/blender/jumper_boss.py): four legs, two claws and a
+  // turret that turns apart from the body. On a destructible world it shells the buildings along its way
+  // (siege, managers/enemy-siege.ts); elsewhere it walks as a boss with its guns ahead.
+  jumper: {
+    id: 'jumper',
+    deathSound: 'jumper',
+    hitSound: 'metal',
+    footstep: JUMPER_FOOTSTEP,
+    // In decimetres, 4.2 long and 2.8 high to the antennas: at 3.5 about 15 m wide and 9.9 m high, over a
+    // street's width (Ruined City probe, 2026-10-19: at 3 it stood small beside the blocks)
+    modelUrl: 'assets/models/enemies/jumper.glb',
+    scale: 3.5,
+    modelRangeY: { min: -0.012, max: 2.834 },
+    armorType: 'fortified',
+    // About a golem king; the wave's budget sets what it brings (sources/budget)
+    baseHp: 5000,
+    baseSpeed: 2,
+    hasAnimations: true,
+    walkAnimation: 'Walk',
+    deathAnimation: 'Death',
+    // Walk moves the ground under its feet at 1.04 model units a second (3.65 m/s at scale 3.5): 0.55 at 2 m/s
+    animationSpeed: 0.55,
+    deathAnimationSpeed: 1,
+    // Death (1.5 s) lies still from 1.4 s and holds its last frame until the jumper goes
+    deathDuration: 2600,
+    movingSound: 'assets/sounds/enemies/jumper/walk_loop.mp3',
+    movingSoundVolume: 0.45,
+    movingSoundRefDistance: 60,
+    randomSoundStart: true,
+    heightOffset: 0,
+    healthBarOffset: 11.5,
+    canBleed: false,
+    mechanical: true,
+    headingOffset: 0,
+    healthBarColor: '#ff3b30',
+    // Only as a boss, in its run plan rows, Custom Wave and Enemy Debug
+    isBoss: true,
+    traits: { rage: { belowHp: 0.4, speed: 1.25, damageTaken: 0.8 } },
+    // 15 m wide: it keeps to the middle of the road
+    lateralSpread: 0.15,
+    spawnStartDelay: 3000,
+    turret: {
+      yawNode: 'turret_yaw',
+      pitchNode: 'turret_pitch',
+      muzzleNodes: ['muzzle_L', 'muzzle_R'],
+      pivotHeight: 2.085,
+      pitchRange: { min: -0.2, max: 0.35 },
+      // About 40 cm at scale 3.5
+      recoil: 0.12,
+    },
+    siege: {
+      rangeM: 80,
+      reloadMs: 5500,
+      firstShotMs: 4000,
+      // A heavy turret: a quarter turn in about 2.2 s
+      turnRate: 0.7,
+      pitchRate: 0.5,
+      alignTolerance: 0.035,
+      shellSpeedMps: 180,
+      // Most houses fall to one shell, a block of flats to two or three (structures 60 to 3000 HP, MapGameplay.structureHp)
+      structureDamage: 1200,
+      splashRadiusM: 5,
+      craterRadiusM: 3.5,
+    },
+    previewScale: 1.25,
+    previewCameraDistance: 7.5,
+    previewCameraAngle: 0.3,
+    previewOffsetY: -0.3,
   },
 };
 

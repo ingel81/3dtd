@@ -33,6 +33,11 @@ export interface BackgroundMusicConfig {
   wave: MusicTrack[];
   /** Instead of `wave` on a boss wave (the source's rules, director/wave-rules.ts) */
   boss: MusicTrack[];
+  /**
+   * A boss's own tracks by its enemy type id, instead of `boss` on a boss
+   * wave it comes in (the first of the wave's mix that has some)
+   */
+  bossTracks: Readonly<Record<string, MusicTrack[]>>;
   /** Instead of `wave` on a blood-moon wave that is no boss wave */
   bloodMoon: MusicTrack[];
   /** After a lost game, under the run summary */
@@ -95,6 +100,10 @@ export const BACKGROUND_MUSIC: BackgroundMusicConfig = {
   ],
   // Eleven Music, 2026-09-23 (docs/archive/SOUND_PLAN.md), -13 to -15 LUFS like the wave tracks
   boss: [{ id: 'music-boss-01', url: 'assets/music/boss/boss01.mp3' }],
+  // Eleven Music, 2026-10-19: an industrial war march for the jumper, -13 LUFS like the boss track
+  bossTracks: {
+    jumper: [{ id: 'music-boss-jumper-01', url: 'assets/music/boss/jumper01.mp3' }],
+  },
   bloodMoon: [{ id: 'music-blood-moon-01', url: 'assets/music/blood_moon/blood_moon01.mp3' }],
   gameOver: [{ id: 'music-game-over-01', url: 'assets/music/game_over/game_over01.mp3', volume: 0.35 }],
   gameOverMusicDelayMs: 4000,

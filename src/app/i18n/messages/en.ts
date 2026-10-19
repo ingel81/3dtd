@@ -81,6 +81,7 @@ const enemyNames: Record<EnemyTypeId, string> = {
   'golem-king': 'Golem King',
   'dragon-matriarch': 'Dragon Matriarch',
   warlord: 'Ironclad Warlord',
+  jumper: 'Jumper',
 };
 
 /** Tower and enemy names: a block of its own, as a language may keep the English ones (docs/I18N_PLAN.md, 8) */
@@ -116,6 +117,7 @@ const epithets: Record<EnemyTypeId, string | null> = {
   'golem-king': 'Heart of the Mountain',
   'dragon-matriarch': 'Mother of the Flight',
   warlord: null,
+  jumper: 'The Siege Engine',
 };
 
 const paths: Record<TowerPathId, { name: string; description: string }> = {
@@ -1887,6 +1889,7 @@ export const en = {
         'Mech Army': 'Mech Army',
         'Final Mix': 'Final Mix',
         'Boss: Skarnax': 'Boss: Skarnax',
+        'Boss: Jumper': 'Boss: Jumper',
         'Penguin Breather': 'Penguin Breather',
         'Golem Guard': 'Golem Guard',
         'Mammoth Stampede': 'Mammoth Stampede',
@@ -1899,7 +1902,6 @@ export const en = {
         'Dragon Night': 'Dragon Night',
         'Wall Breakers': 'Wall Breakers',
         'Swarm Surge': 'Swarm Surge',
-        'Haunted Pack': 'Haunted Pack',
         'Mech Column': 'Mech Column',
         'Hornet Raid': 'Hornet Raid',
         'Ether Assault': 'Ether Assault',
