@@ -76,7 +76,7 @@ describe('WorldDamagePresenter (docs/DESTRUCTION_PLAN.md)', () => {
   });
 
   it("hands every stamp to the world's drawn ground, and the towers that hold it", () => {
-    const drawn = { crater: vi.fn(), rubble: vi.fn(), clear: vi.fn(), holdTower: vi.fn(), releaseTower: vi.fn() };
+    const drawn = { crater: vi.fn(), rubble: vi.fn(), clear: vi.fn(), holdTower: vi.fn(), releaseTower: vi.fn(), debris: vi.fn() };
     const tower = { id: 't1', position: { lat: 2 / M, lon: 3 / M } };
     let listener: ((change: { kind: 'state' | 'removed'; tower: typeof tower }) => void) | null = null;
     const towers = { towers: () => [tower], onTowerChange: (l: typeof listener) => ((listener = l), () => undefined) };

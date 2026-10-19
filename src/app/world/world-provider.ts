@@ -504,6 +504,8 @@ export interface WorldGroundDamage {
   rubble(structure: RunStructure, sign: 1 | -1): void;
   /** Every stamp off, every hold let go */
   clear(): void;
+  /** A structure of `material` at map metres (`x`, `y`) falls: its pieces thrown out, rolled from `seed` */
+  debris(x: number, y: number, radius: number, height: number, material: RubbleMaterial, seed: number): void;
   /** Map metres */
   holdTower(id: string, x: number, y: number): void;
   releaseTower(id: string): void;

@@ -69,6 +69,7 @@ import { MirrorChoice, type MirrorCandidate } from './water/mirror-choice';
 import { GroundDecals } from './terrain/ground-decals';
 import { ImpactMarks } from './terrain/impact-marks';
 import { RubblePieces } from './terrain/rubble-pieces';
+import { FlyingDebris } from './terrain/flying-debris';
 import type { ImpactMark } from '../custom-map-ground-damage';
 import { NO_MAP_EFFECTS, type MapEffects } from './map-effects';
 import type { GridRect } from './terrain/terrain-chunks';
@@ -249,6 +250,8 @@ export class CustomMapView {
   private readonly decals: GroundDecals;
   /** Craters and rubble of the fight (impact-marks.ts), with options.impactMarks */
   private readonly impactMarks: ImpactMarks | null = null;
+  /** Pieces thrown out by a fall (flying-debris.ts), with options.impactMarks */
+  private readonly flyingDebris: FlyingDebris | null = null;
   /** Samples where the fight tore the ground up: no grass (setGroundBare) */
   private groundBare: Uint8Array | null = null;
   /** The pieces on the fallen structures' heaps (rubble-pieces.ts), with options.impactMarks */
@@ -361,6 +364,8 @@ export class CustomMapView {
       this.group.add(this.impactMarks.mesh);
       this.rubblePieces = new RubblePieces(this.terrain.heightTexture);
       this.group.add(...this.rubblePieces.meshes);
+      this.flyingDebris = new FlyingDebris();
+      this.group.add(this.flyingDebris.mesh);
     }
     this.group.add(this.effects.group);
     this.refreshLava();
@@ -710,6 +715,7 @@ export class CustomMapView {
   update(dtSeconds: number, camera: Camera, focus?: Vector3): void {
     if (this.disposed) return;
     const t0 = performance.now();
+    if (this.flyingDebris) this.flyingDebris.time += dtSeconds;
     this.updateFrame(dtSeconds, camera, focus);
     const ms = performance.now() - t0;
     this.stats.updateMs = this.stats.frames ? this.stats.updateMs * 0.95 + ms * 0.05 : ms;
@@ -799,6 +805,14 @@ export class CustomMapView {
   setGroundBare(bare: Uint8Array | null): void {
     this.groundBare = bare;
     this.coverDirty = true;
+  }
+
+  /**
+   * A structure at map (`x`, `y`) falls: pieces of `colour` (linear RGB) thrown
+   * up and out of its body, `count` of them, rolled from `seed`
+   */
+  throwDebris(x: number, y: number, radius: number, height: number, colour: readonly [number, number, number], count: number, seed: number): void {
+    this.flyingDebris?.burst(-x, this.heightAt(x, y), y, radius, height, colour, count, seed);
   }
 
   /** The fight's marks on the ground as they stand now (with options.impactMarks) */
@@ -1755,6 +1769,7 @@ export class CustomMapView {
     this.decals.dispose();
     this.impactMarks?.dispose();
     this.rubblePieces?.dispose();
+    this.flyingDebris?.dispose();
     this.group.removeFromParent();
     this.losBlockers.removeFromParent();
     this.group.clear();

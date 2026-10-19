@@ -266,6 +266,7 @@ export class CustomMapWorld implements WorldProvider {
         (marks) => this.view?.setImpactMarks(marks),
         (id) => this.destruction?.materialOf(id) ?? 'plaster',
         (bare) => this.view?.setGroundBare(bare),
+        (x, y, radius, height, colour, count, seed) => this.view?.throwDebris(x, y, radius, height, colour, count, seed),
       )
       : null;
     this.groundDamage = ground;

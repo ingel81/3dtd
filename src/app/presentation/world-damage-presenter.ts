@@ -175,6 +175,8 @@ export class WorldDamagePresenter {
     // Grit of its class, lit like dust: the palette's dark, mid and light
     const rgb = (c: readonly [number, number, number], k: number) => ({ r: c[0] * k, g: c[1] * k, b: c[2] * k });
     effects.spawnBurstAtGeo(lat, lon, ground + height * 0.3, Math.round(16 + size * 4), [rgb(grit, 0.6), rgb(grit, 1.1), rgb(dust, 1.2)]);
+    // Pieces of it thrown up and out, coming down round its heap
+    this.drawn?.debris(lon * MAP_METERS_PER_DEGREE, lat * MAP_METERS_PER_DEGREE, radius, height, material, index * 7.31 + 1);
   }
 
   /** The craters as the simulation said them last, CRATER_STRIDE numbers each */

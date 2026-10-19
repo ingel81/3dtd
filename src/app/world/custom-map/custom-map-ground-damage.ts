@@ -5,7 +5,7 @@ import { craterCm } from '../../map-ops/impact-stamp';
 import { rubbleCmAt, rubbleReach, rubbleShapeOf } from '../../utils/stamp-field';
 import { craterMaxDepthCm } from '../../managers/game-state/crater-ledger';
 import { RUBBLE } from '../../configs/destruction.config';
-import { RUBBLE_MATERIALS, type RubbleMaterial } from './rubble-material';
+import { RUBBLE_COLOURS, RUBBLE_MATERIALS, type RubbleMaterial } from './rubble-material';
 
 /** What a mark shows */
 export const ImpactMarkKind = { Crater: 0, Rubble: 1 } as const;
@@ -100,6 +100,8 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     private readonly materialOf: (id: string) => RubbleMaterial = () => 'plaster',
     /** The samples that show torn up, kept by reference (CustomMapView.setGroundBare) */
     private readonly showBare: (bare: Uint8Array) => void = () => undefined,
+    /** Pieces thrown out of a falling structure (CustomMapView.throwDebris) */
+    private readonly throwDebris: (x: number, y: number, radius: number, height: number, colour: readonly [number, number, number], count: number, seed: number) => void = () => undefined,
   ) {
     this.columns = grid.columns;
     this.rows = grid.rows;
@@ -148,6 +150,11 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
       });
     }
     this.marksChanged = true;
+  }
+
+  debris(x: number, y: number, radius: number, height: number, material: RubbleMaterial, seed: number): void {
+    const count = Math.min(60, Math.round(10 + radius * 3 + height));
+    this.throwDebris(x, y, radius, height, RUBBLE_COLOURS[material].grit, count, seed);
   }
 
   /** Every stamp off and every tower's hold let go: the ground as built, written over the next frames */
