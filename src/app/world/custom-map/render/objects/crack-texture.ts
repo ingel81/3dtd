@@ -62,17 +62,21 @@ function stroke(data: Uint8Array, c: number, x0: number, y0: number, x1: number,
  */
 function crack(data: Uint8Array, c: number, rnd: () => number, x: number, y: number, heading: number, length: number, width: number, depth: number): void {
   let walked = 0;
+  // The way the crack runs overall: its kinks swing round it and come back, so it zigzags instead of wandering off
+  const course = heading;
   while (walked < length) {
-    const step = 2.5 + rnd() * 3.5;
-    // Mostly straight with a kink now and then: a crack follows the weakest line, it does not curl
-    heading += (rnd() - 0.5) * (rnd() < 0.15 ? 1.4 : 0.45);
+    const step = 2 + rnd() * 2.5;
+    // Straight runs with sharp kinks: a crack follows the weakest line (a joint, a corner), it does not curl like a vein
+    heading += (rnd() - 0.5) * (rnd() < 0.2 ? 1.8 : 0.25);
+    heading += (course - heading) * 0.12;
     const nx = x + Math.cos(heading) * step;
     const ny = y + Math.sin(heading) * step;
     const w = Math.max(0.6, width * (1 - walked / length) + 0.35);
     stroke(data, c, x, y, nx, ny, w);
-    if (depth > 0 && rnd() < 0.09) {
+    if (depth > 0 && rnd() < 0.035) {
+      // A short split off the main crack, no tree of them
       const side = rnd() < 0.5 ? -1 : 1;
-      crack(data, c, rnd, nx, ny, heading + side * (0.5 + rnd() * 0.6), (length - walked) * (0.35 + rnd() * 0.3), w * 0.65, depth - 1);
+      crack(data, c, rnd, nx, ny, heading + side * (0.6 + rnd() * 0.5), (length - walked) * (0.15 + rnd() * 0.2), w * 0.6, depth - 1);
     }
     x = nx;
     y = ny;
@@ -85,15 +89,15 @@ export function crackTexels(seed = 7): Uint8Array {
   const data = new Uint8Array(CRACK_SIZE * CRACK_SIZE * 2);
   const rnd = random(seed);
   // Long cracks: from a corner of a window or a joint, across most of the tile
-  for (let i = 0; i < 6; i++) {
-    crack(data, 1, rnd, rnd() * CRACK_SIZE, rnd() * CRACK_SIZE, rnd() * Math.PI * 2, 90 + rnd() * 120, 3.2 + rnd() * 1.6, 2);
+  for (let i = 0; i < 4; i++) {
+    crack(data, 1, rnd, rnd() * CRACK_SIZE, rnd() * CRACK_SIZE, rnd() * Math.PI * 2, 90 + rnd() * 120, 1.8 + rnd() * 0.8, 1);
   }
   // Hairlines: short, thin, often in little clusters
-  for (let i = 0; i < 34; i++) {
+  for (let i = 0; i < 26; i++) {
     const x = rnd() * CRACK_SIZE;
     const y = rnd() * CRACK_SIZE;
     const k = 1 + Math.floor(rnd() * 3);
-    for (let j = 0; j < k; j++) crack(data, 0, rnd, x + (rnd() - 0.5) * 12, y + (rnd() - 0.5) * 12, rnd() * Math.PI * 2, 12 + rnd() * 34, 1.2 + rnd() * 0.6, 1);
+    for (let j = 0; j < k; j++) crack(data, 0, rnd, x + (rnd() - 0.5) * 12, y + (rnd() - 0.5) * 12, rnd() * Math.PI * 2, 10 + rnd() * 28, 1 + rnd() * 0.4, 1);
   }
   return data;
 }

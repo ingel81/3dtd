@@ -275,7 +275,7 @@ if (vDmg.x > 0.5) {
   vec2 dir = vec2(cos(vDmg.z), sin(vDmg.z));
   // The side it gives way to cracks first
   float lean = smoothstep(-0.3, 0.9, dot(normalize(toMid.xz + vec2(1e-4)), dir));
-  float strength = (vDmg.x > 1.5 ? 1.0 : 0.8) * (0.45 + 0.55 * lean);
+  float strength = (vDmg.x > 1.5 ? 1.0 : 0.7) * (0.45 + 0.55 * lean);
   // The crack tile from three sides, by the surface's facing
   vec3 fn = abs(normalize(cross(dFdx(vDmgP), dFdy(vDmgP))));
   fn /= fn.x + fn.y + fn.z + 1e-4;
@@ -287,7 +287,7 @@ if (vDmg.x > 0.5) {
   float soot = smoothstep(0.6, 0.9, dmgNoise(vDmgP.xz * 0.35 + vDmgP.y * 0.25 + vDmg.z)) * strength * 0.5;
   soot = max(soot, (1.0 - smoothstep(0.0, 1.3, edge)) * 0.85);
   dmgSoot = soot;
-  diffuseColor.rgb *= (1.0 - 0.85 * lines * strength) * (1.0 - 0.7 * soot);
+  diffuseColor.rgb *= (1.0 - 0.75 * lines * strength) * (1.0 - 0.7 * soot);
   // The inside: the same wall, out of the light
   if (!gl_FrontFacing) diffuseColor.rgb *= 0.6;
 }
