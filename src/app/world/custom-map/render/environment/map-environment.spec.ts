@@ -384,7 +384,8 @@ describe('the moon', () => {
     function stubLoad(): string[] {
       const urls: string[] = [];
       vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
-        urls.push(String(input));
+        // The map data's manifest (map-data.ts) aside: the files of the sky
+        if (!String(input).endsWith('/maps/manifest.json')) urls.push(String(input));
         return new Response(new Blob([new Uint8Array(4)]));
       });
       vi.stubGlobal('createImageBitmap', async () => ({ width: 1024, height: 512, close: () => undefined }));
