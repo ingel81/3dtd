@@ -7,6 +7,7 @@ import { MapAssetLibrary } from '../map-asset-library';
 import { CRACK_SIZE, crackTexels } from './crack-texture';
 import { massShape, splitWalls } from './mass-layer';
 import { MapObjectLayer } from './object-layer';
+import { RuinSlabs } from './ruin-slabs';
 import { CustomMapDestruction } from '../../custom-map-destruction';
 import { DAMAGE_LOS, FELL_LONG_AGO, ruinSeed, ruinShape, structureSeed } from './ruin-damage';
 
@@ -288,6 +289,46 @@ describe('ruin damage: from the state, not from the events', () => {
     destruction.setStage(1, 3);
     const d = named(los, 'house-damaged')[0].geometry.getAttribute('aDamage').array as Float32Array;
     expect([d[1], d[5]]).toEqual([FELL_LONG_AGO, 7]);
+    layer.dispose();
+  });
+});
+
+describe('ruin damage: floors and inner walls', () => {
+  const frame = { cx: 0, cz: 0, ax: 4, az: 0, bx: 0, bz: 2, seatY: 0, height: 10 };
+  const shape = ruinShape(structureSeed('h'), frame);
+
+  it('gives a holed ruin a floor every storey and a wall across each side long enough for two rooms, none below stage 2', () => {
+    const slabs = new RuinSlabs();
+    slabs.set('h', frame, shape, 1, FELL_LONG_AGO, 'brick');
+    expect(slabs.mesh.visible).toBe(false);
+    slabs.set('h', frame, shape, 2, FELL_LONG_AGO, 'brick');
+    // Floors at 3 and 6 m (9 m is too near the top), one wall across the 8 m side, none across the 4 m one
+    expect(slabs.mesh.count).toBe(3);
+    const m = slabs.mesh.instanceMatrix.array;
+    expect([m[13], m[16 + 13]]).toEqual([3, 6]);
+    // The wall stands from the seat up to below the eaves, thin across the long side
+    expect(m[32 + 5]).toBeCloseTo(6.2);
+    expect(Math.abs(m[32])).toBeCloseTo(0.18);
+    // The insides take a smaller bite than the walls: they jut into the hole
+    const b = slabs.mesh.geometry.getAttribute('aDamageB').array as Float32Array;
+    expect(b[3]).toBeLessThan(shape.biteR);
+    // Fallen: only the floors well inside the stump stay, the walls the cut trims
+    slabs.set('h', frame, shape, 3, FELL_LONG_AGO, 'brick');
+    expect(slabs.mesh.count).toBe(Math.floor((shape.breakY - 1) / 3) + 1);
+    slabs.delete('h');
+    expect(slabs.mesh.visible).toBe(false);
+    slabs.dispose();
+  });
+
+  it('builds the insides of a raised building as of a model', async () => {
+    const group = new Group();
+    const layer = new MapObjectLayer(field(), library(), group, { ruins: true });
+    const raised: MapObject = { id: 'm1', asset: MASS_ASSET, x: 0, y: 0, z: 0, rotation: 0, scale: 1, mass: block };
+    await layer.setObjects([raised, { id: 'h1', asset: 'house', x: 60, y: 0, z: 0, rotation: 0, scale: 1 }]);
+    layer.setDamage([{ id: 'm1', stage: 2, fallStart: FELL_LONG_AGO }, { id: 'h1', stage: 2, fallStart: FELL_LONG_AGO }]);
+    const slabs = layer.group.children.find((c) => c.name === 'ruin-slabs') as InstancedMesh;
+    // The block (20 x 12 m, 12 m high): three floors, two inner walls; the house (6 x 4 m, 8 m high): two floors, one wall
+    expect(slabs.count).toBe(5 + 3);
     layer.dispose();
   });
 });

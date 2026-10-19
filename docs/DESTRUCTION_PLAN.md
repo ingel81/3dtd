@@ -205,8 +205,10 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   grün lange Risse; im Code gezeichnet, kein Rauschen) von drei Seiten in Metern, dichter zur Kipprichtung; Ruß in
   Flecken, matt; Nachtfenster aus.
 - **Stufe 2:** der Biss aus der Ecke, Kante gezackt nach Winkel und Höhe, verkohlt, an wenigen Stellen glühend; innen
-  die Wand gedimmt (Rückseiten). Decken je Stockwerk (3 m) als eigene Platten über dem Grundrechteck
-  (`ruin-slabs.ts`, ein Draw Call für alle Ruinen), mit kleinerem Biss, so ragen sie ins Loch.
+  die Wand gedimmt (Rückseiten). Decken je Stockwerk (3 m) über dem Grundrechteck und Innenwände, je eine quer zu
+  jeder Seite, die für zwei Räume lang genug ist (über 5 m), bis unter die Traufe (62 % der Höhe), aus der Saat versetzt
+  (`ruin-slabs.ts`, ein Draw Call für alle Ruinen, Haus und Grundriss-Gebäude gleich), mit kleinerem Biss, so ragen sie
+  ins Loch.
 - **Stufe 3:** was über der gezackten Bruchkante steht, kippt starr um den Fuß der Seite, zu der es fällt, und sinkt
   dabei (im Vertex-Shader aus Fallstart und Uhr, keine CPU je Bild); die Dreiecke über der Kante gehen während des Falls,
   danach ist der Teil über der Kante weg. Der Stumpf bleibt mit den Decken, die ganz darin liegen; der Schutthaufen
@@ -223,8 +225,7 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   Warm-up zeigt sie und baut ihre Programme.
 - **Uhr:** `DAMAGE_UNIFORMS.uDamageTime` läuft mit der Ansicht; ein Fall `now` beginnt jetzt, Stufen nach Laden, Sprung
   oder Restore liegen schon (`FELL_LONG_AGO`).
-- **Nicht gebaut:** Bewehrungsstäbe an der Kante, Innenwände (die Rückseiten der Außenwände stehen dafür), springendes
-  Glas.
+- **Später:** Bewehrungsstäbe an der Kante, springendes Glas.
 
 **Gelände** (gebaut, Z4)
 
