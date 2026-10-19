@@ -136,7 +136,7 @@ LOS (GPU)    <-- tower:los-needed    --> command:los-mask --> SimCore
 
 | Datei | Inhalt |
 |---|---|
-| `sim/protocol/packet.ts` | Paket, Tabellen-Layout (Spalten `E_*`, `P_*`, `T_*`, `O_*`, `W_*`), Skalare, `TowerStateDto` |
+| `sim/protocol/packet.ts` | Paket, Tabellen-Layout (Spalten `E_*`, `P_*`, `T_*`, `O_*`, `W_*`, `G_*` für die Geschütze der Belagerungsbosse), Skalare, `TowerStateDto` |
 | `sim/protocol/ops.ts` | Op = `[Pfad, ...Argumente]`, Rekorder; Argumente nur plain, Vektor als `{x,y,z}` |
 | `sim/protocol/events.ts` | Events über die Grenze: Entities als Referenzen (`$e`, `$t`, `$p`, `$w`) mit den Zahlen des Moments |
 | `sim/protocol/messages.ts` | `SimCoreApi` (configure, loadWorld, input, pass, idleMs, rpc), `SimInput`, `SimWorld`, Worker-Nachrichten |

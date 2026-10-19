@@ -313,7 +313,9 @@ Hintergrundmusik läuft separat zu Spatial Audio und ist **nicht-positional**
   Lautstärke = Track-`volume` (Default 0,5) × `masterVolume` 0,4 × Nutzer-Lautstärke
   (`setVolume`).
 - **Zustände (seit 2026-09-23)**: `wave:started` spielt auf einer Boss-Welle (`isBossWave`) den
-  Boss-Track, auf einer Blutmond-Welle den Blutmond-Track, sonst einen Wellen-Track. Nach
+  Boss-Track, auf einer Blutmond-Welle den Blutmond-Track, sonst einen Wellen-Track. Ein Boss mit eigenen Tracks
+  (`bossTracks` je Gegnertyp, der erste der Wellenmischung, der welche hat) spielt seine statt des Boss-Tracks: der
+  Jumper einen industriellen Kriegsmarsch (Eleven Music, 2026-10-19, -13 LUFS wie der Boss-Track). Nach
   `game:over` blendet die Musik aus, `gameOverMusicDelayMs` (4 s) nach dem Ausblenden kommt der
   Game-Over-Track, nach Zerstörung und Stinger (`GameSoundsService`). `game:reset` bricht ihn ab.
 - **Wellenende (seit 2026-09-23)**: Die Wellenmusik blendet über 1,2 s aus, das Horn des Wellenendes
@@ -514,6 +516,14 @@ Sound-Paket Phase 3 ([SOUND_PLAN.md](archive/SOUND_PLAN.md)), Samples und Mischu
 | `game:over` | HQ-Zerstörung, nach `GAME_OVER_STINGER_DELAY_MS` der Niederlage-Stinger (global); `game:reset` bricht den Stinger ab |
 
 Das Boss-Intro spielt den Signatur-Sound des jeweiligen Bosses (`BOSS_INTRO_SOUNDS` je Gegnertyp, `BossIntroService`, global); ein gemeinsames Intro mehrerer Bosse den des ersten.
+
+**Belagerungsgeschütz (Jumper, seit 2026-10-19):** Schuss und Einschlag spielt der `GameSoundsService` auf
+`vfx:siege-shot` (an den Mündungen) und `vfx:siege-impact` (am Einschlag), nach `SIEGE_LOOKS` des Typs
+(`configs/siege-look.config.ts`), mit Vorrang und bis 900 m hörbar. Der Turm surrt als Loop, solange er sich schneller
+als `servoFromRadPerS` dreht, und läuft 0,3 s Spielzeit nach (`GunPresenter`, über `TowerLoopSounds`). Schritte
+(`JUMPER_FOOTSTEP`) und Lauf-Loop wie bei jedem Gegner. Alle Samples mit ElevenLabs erzeugt (je zwei Varianten, nach
+Pegel, Hüllkurve und Schwerpunkt im Spektrum ausgewählt, nicht angehört) und auf den Pegel der Gegenstücke gebracht:
+Schritt -19, Lauf-Loop -19,5, Turm -21, Schuss -10, Einschlag -10,7, Tod -11,7, Intro -12,5 LUFS.
 
 `uiSound` (`services/ui-sound.ts`, ein Objekt für die App wie `cameraTimeline`, verbunden vom Facade) spielt die UI-Töne (`UI_CUES`) über
 `SpatialAudioManager.playUi()`: nicht positional wie `playGlobal`, aber mit der UI-Lautstärke

@@ -135,6 +135,10 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
     am Stück; Frost und EMP nichts.
   - Verschleiß (`gameplay.wear`): jede Sekunde Spielzeit nimmt jeder Gegner am Boden jedem Bauwerk in 6 m plus Radius
     1 HP, ein Boss 10. Je Durchgang eine Rasterabfrage je Gegner.
+  - Belagerungsgeschütz eines Gegners (`EnemyTypeConfig.siege`, der Jumper, seit 2026-10-19): `WorldDamage.shell`
+    nimmt den Bauwerksschaden des Typs (1200) in seinem Splash plus 1 m plus Radius und gräbt einen Krater; Ziel ist
+    das nächste Bauwerk in Reichweite ohne Tower auf dem Dach (`StructureLedger.nearestTarget`). Seine Werte gehen in
+    den Weltschlüssel (`destructionKeyParts`). Ablauf in [ENEMY_CREATION.md](ENEMY_CREATION.md#geschützturm-und-belagerung-jumper).
   - Debug: `debug:hit-structures` (im Koop ein Cheat).
 - **Dach mit Tower:** ein Bauwerk mit `roof` nimmt keinen Schaden, solange ein Tower auf seinem Dach steht: in seinem
   Grundriss-Rechteck und bei einem Bau aus dem Grundriss (`MapObject.mass`, `RunStructure.mass`) in dessen Umriss, ein

@@ -196,7 +196,8 @@ Rechnung Schaden kennt, aber nicht die Schusszahl; das prüft erst die Bot-Messu
 
 **Nach W60** (User, 2026-09-29): Die Kurve steigt weiter, `S(N) = Basis(N) + 10 · ((N − 1) / 60)²` (`budgetSeconds`,
 +9,7 s bei W60, +27 s bei W100, +61 s bei W150); das Leck folgt nur der sättigenden Basis und bleibt bei rund 2,2. Die
-Zeilen 31 bis 60 wiederholen sich (`RUN_PLAN_REPEAT` = 30, alle drei späten Bosse). Eine wiederholte Zeile bringt ihre
+Zeilen 31 bis 60 wiederholen sich (`RUN_PLAN_REPEAT` = 30, alle späten Bosse; seit 2026-10-19 vier mit dem Jumper an
+W45, der dort „Haunted Pack“ ersetzt). Eine wiederholte Zeile bringt ihre
 Anzahl mal `S(N) / S(Zeilenwelle)` (`planEnemies`, innerhalb des Plans 1), der Wurm bleibt einer. Über
 `MAX_BODIES_PER_LANE` = 2500 Körper je Spur (Teilungen mitgezählt, die größte Plan-Zeile W48 hat 2460) schrumpft die
 Anzahl zurück, die HP tragen den Rest. Gemessen (2026-09-29, Prod-Build, DevWorld, ein Rechner mit RTX 5080): die Grenze

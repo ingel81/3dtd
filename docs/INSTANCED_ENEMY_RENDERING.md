@@ -271,6 +271,7 @@ if (vUseMap > 0.5 && hasDiffuse > 0.5) {
 | `aVertexColor` | vec3 | Material-Farbe (Fallback) |
 | `aVertexAlpha` | float | Alpha zur Vertex-Farbe |
 | `aUseMap` | float | Texture vs Color Flag |
+| `aTurretPart` | float | 0 Körper, 1 Turm, 2 Rohre; nur bei Typen mit `turret` (siehe [Turmgelenke](#turmgelenke-turret)) |
 
 ### Per-Instance Attribute
 
@@ -279,6 +280,7 @@ if (vUseMap > 0.5 && hasDiffuse > 0.5) {
 | `aAnimFrame` | vec3 | VAT-Frame, nächster Frame (beim Loop nach dem letzten der erste, beim Tod am Ende derselbe) und Anteil dazwischen |
 | `aTintColor` | vec3 | Tint-Overlay, 50 % gemischt (0,0,0 = keiner) |
 | `aClothSeed` | float | Saat des Aussehens in [0, 1) (`vat-cloth.ts`); nur bei Typen mit `clothVariants` |
+| `aTurret` | vec4 | Drehung des Turms, Neigung der Rohre, Rest der Drehung, der noch gleitet (mal `1 - uStateLerp`), Rückstoß 0 bis 1; nur bei Typen mit `turret` |
 
 **Aussehen je Instanz (E185, E220, `vat-cloth.ts`):** Ein Typ mit `EnemyTypeConfig.clothVariants` hat bis zu vier
 Bereiche (Haut, Hemd, Hose, Haar) und darüber Schmutz und getrocknetes Blut. Ein Bereich sind Texel nahe einer Farbe
@@ -393,6 +395,26 @@ und Wraith beide Seiten, die übrigen gebackenen Typen nur die Vorderseite.
   (erst Rück-, dann Vorderseiten), also mit doppelter Vertex-Arbeit. Ghost und Hornet
   blenden deshalb in einem Pass; ob dort Vorder- oder Rückseite zuerst kommt, entscheidet
   die Dreiecksreihenfolge.
+
+### Turmgelenke (`turret`)
+
+Ein Teil des Modells, der sich je Instanz unabhängig vom Clip dreht (EnemyTypeConfig.turret, der Jumper,
+`vat-turret.ts`), ohne zweiten Pool und ohne Draw Call mehr:
+
+- **Bake:** `TurretRig` sucht `yawNode`, `pitchNode` und die Mündungen. Jeder Mesh gehört nach seinem Knoten zum
+  Körper, zum Turm oder zu den Rohren (`aTurretPart`). Hinter den Vertices liegen je Frame vier Marker-Texel
+  (`TURRET_MARKERS`): Drehpunkt des Turms und ein Punkt auf seiner +y-Achse, Drehpunkt der Rohre und ein Punkt auf
+  ihrer Achse, alle aus der Pose des Frames. Die Achse der Rohre ist an der Ruhepose so gelegt, dass
+  `cross(Turmachse, Rohrachse)` entlang der Rohre zeigt: eine positive Neigung hebt die Mündungen, eine positive
+  Drehung dreht wie eine Blickrichtung (Transform.rotation). Die Ruhepose bleibt für die CPU (`VATData.turret.rest`).
+  Nur Node-Animation und statische Modelle; ein geskinntes Modell mit `turret` warnt und hat keinen Turm.
+- **Shader (`VAT_TURRET`):** liest die Marker des gezeigten Frames (mit der Mischung der Frames), neigt die Rohre um
+  ihre Achse, schiebt sie beim Rückstoß zurück, dreht Turm und Rohre um die Turmachse; Normalen drehen mit. Der Turm
+  reitet so jede Bewegung des Clips (das Wippen des Gangs, das Sacken im Tod).
+- **Instanz:** `EnemyInstanceManager.setTurret` schreibt die Winkel der Simulation (Tabelle `guns` des Pakets) und den
+  Rest der vorigen Drehung, der auf der Uhr der Körper gleitet (wie `aPrevOffset`, ein Sprung über 1 rad gleitet
+  nicht); `fireTurret` startet den Rückstoß (Wanduhr, 45 ms zurück, 750 ms nach vorn); `turretMuzzles` gibt die
+  Mündungen in Szenenkoordinaten für Feuer und Granate. Ein Typ ohne Turm hat weder Attribute noch Zweig.
 
 ### LogDepthBuf
 

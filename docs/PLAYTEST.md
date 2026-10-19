@@ -456,6 +456,38 @@ einmal per Browser-Probe in DevWorld gesehen; hier Augen und Ohren.
 - **L5 Seitenleiste:** während der Custom Wave aus L3 die Gruppe im Wellen-Panel überfahren. *Name
   „Ironclad Warlord“, Vorschau dreht sich, Tooltip nennt „Enrages below 35 % of its HP“; auf Deutsch „Wütet unter 35 %“.*
 
+## L Boss Jumper (2026-10-19, Branch `wt/boss-jumper`)
+
+Der Krabben-Läufer mit dem Zwillingsgeschütz ([ENEMY_CREATION.md](ENEMY_CREATION.md#geschützturm-und-belagerung-jumper)).
+Zielwahl, Kadenz, Einsturz und Gleichheit über Läufe sind per Spec gedeckt; hier Augen und Ohren. Die Klänge sind
+erzeugt und nach Messwerten ausgewählt, nicht angehört: bei jedem Klang sagen, ob er passt.
+
+- **L1 Gang in DevWorld:** `http://localhost:4200/?devworld`, Wave Debug, „Single“, Type „Jumper“, Count 1, „Start
+  Custom Wave“; Kamera nah ran. *Kommt er aus dem Portal, das Boss-Intro mit Karte „Jumper“, „The Siege Engine“ und
+  eigenem Klang; Beine treten diagonal paarweise, Füße gleiten nicht über den Boden, Scheren schweben knapp über dem
+  Boden und arbeiten; bei jedem Aufsetzen ein schwerer Stahlschritt und nah an der Kamera ein leichtes Beben;
+  Lauf-Loop hörbar. In DevWorld schießt er nicht, der Turm schaut nach vorn.*
+- **L2 Aussehen:** dieselbe Welle, um ihn herum drehen. *Gesicht mit Augen vorn, rote Raketenkästen am Turm, zwei
+  Rohre, Farben wie im Blender-Bild (dunkelgrauer Rumpf, helle Beine, rote Teile); keine Löcher, keine Flecken, die
+  flackern; gut 15 m breit, knapp 10 m hoch.*
+- **L3 Beschuss in Ruined City:** Built Worlds › Ruined City › Play, Wave Debug „Single“, Jumper, 1, „Start Custom
+  Wave“. *Der Turm dreht mit Surren zum nächsten Gebäude, die Rohre heben sich etwas; dann ein schwerer Doppelschuss:
+  Rohre fahren zurück, großes Mündungsfeuer, Licht, Rauch vor den Rohren, Staub um die Füße, ein Beben; ein glühender
+  Strich mit Rauchspur fliegt zum Gebäude, dort Explosion mit Funken und Brocken, Einschlagklang, das Gebäude bekommt
+  Risse oder fällt mit Staubwand und Schutt; ein Krater. Etwa alle 5,5 s ein Schuss, solange Gebäude in 80 m stehen.*
+- **L4 Kein Ziel mehr:** in L3 warten, bis er an einer Stelle ohne stehende Gebäude ist (oder Atomschlag vorher).
+  *Der Turm dreht zurück nach vorn, kein Schuss ins Leere.*
+- **L5 Tower auf dem Dach:** in Ruined City vor der Welle einen Tower auf das Dach eines Gebäudes nah an der Route
+  bauen, dann L3. *Dieses Gebäude beschießt er nicht, er nimmt ein anderes.*
+- **L6 Boss-Welle:** Ruined City, Wave Debug, „Jump to wave“ 45, Start. *Name „Boss: Jumper“, eigene Boss-Musik
+  (industrieller Marsch, nicht der übliche Boss-Track), Panzer und Zombie-Soldaten dabei; Boss-Leiste oben.*
+- **L7 Tod:** in L1 Credits holen, an der Route einige Kanonen und Raketen bauen (Research per Cheat) oder den
+  Atomschlag nehmen, bis er fällt. *Er sackt zusammen: Beine knicken nach außen, Bauch auf den Boden, Rohre sinken,
+  er rollt etwas zur Seite; schwerer Explosionsklang, Beben; nichts versinkt im Boden. „Kill“ unter Cheats zeigt den
+  Tod ohne Klang (kein Kill eines Towers).*
+- **L8 Vorschau:** Enemy Debug, Typ „Jumper“, und in der Wellenvorschau von W45. *Drehbild ganz im Rahmen, Beine
+  laufen.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo
