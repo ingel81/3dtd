@@ -1,8 +1,8 @@
 # Zerstörung in eigenen Welten (Plan)
 
 **Status:** Z1 (Unterbau Simulation) gebaut 2026-10-19, dazu aus Z5 die Regeln, der OSM-Schalter und der Vorschaden
-im Format. Z3 und Z4 (Schutt, Effekte, Gelände) gebaut bis auf den Ton; Z2 (Gebäude-Stufen im Objekt-Shader), die
-Editor-Werkzeuge (Z5) und das Nachstellen des Verschleißes (Z6) offen. Baut auf
+im Format. Z2 (Gebäude in Stufen, Ruinen, Glutnester), Z3 und Z4 (Schutt, Effekte, Gelände) gebaut bis auf den Ton;
+die Editor-Werkzeuge (Z5) und das Nachstellen des Verschleißes (Z6) offen. Baut auf
 [CUSTOM_MAP_WORLD.md](CUSTOM_MAP_WORLD.md) (Zerstörbarkeit E131), [OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md),
 [LEVEL_EDITOR.md](LEVEL_EDITOR.md), [SIM_WORKER.md](SIM_WORKER.md), [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md) und
 [LOS_PIPELINE.md](LOS_PIPELINE.md) auf.
@@ -32,7 +32,7 @@ Leitlinien (Marschroute): extrem performant, architektonisch sauber und erweiter
 
 - **Karte:** `gameplay.destructible` (Editor: Rules, „Destruction“), dazu `craters` (Standard wie `destructible`),
   `wear` (Standard aus) und `structureHp` (50 bis 300 %); je Objekt `destructible: false` (steht immer),
-  `damage: 1 | 2 | 3` (Vorschaden, Startstufe) und `damageSeed` (würfelt das Bild, erst ab Z2 gelesen). Mitgeliefert
+  `damage: 1 | 2 | 3` (Vorschaden, Startstufe) und `damageSeed` (würfelt das Bild der Ruine, sonst die Id). Mitgeliefert
   zerstörbar: `ruined-city`. OSM-Welten sind zerstörbar, außer der Rahmen sagt nein („Buildings take damage and fall“).
 - **Bauwerke:** Objekte der Katalogkategorien `building`, `wall`, `structure` (`custom-map-destruction.ts`), ohne die
   Objekte von Wellen-Ereignissen; HP aus dem Zylindervolumen (60 bis 3000) mal `structureHp`. In den Laufregeln
@@ -40,13 +40,13 @@ Leitlinien (Marschroute): extrem performant, architektonisch sauber und erweiter
   (`roof`) und Start-HP (`start`), alles im Weltschlüssel.
 - **Simulation:** `WorldDamage` (`managers/game-state/world-damage.ts`) hält `StructureLedger` v2, `CraterLedger` und
   das Stempelraster (`utils/stamp-field.ts`), siehe „Modell“.
-- **Hauptthread:** `WorldDamagePresenter` reicht die Stufen an `WorldDestruction.setStages`/`setStage` (ein gefallenes
-  Objekt schrumpft noch auf `FALLEN_SCALE`, bis Z2 die Ruine zeigt), führt dasselbe Stempelraster und gibt es dem
+- **Hauptthread:** `WorldDamagePresenter` reicht die Stufen an `WorldDestruction.setStages`/`setStage` (die Ansicht
+  zeigt sie als Ruinen, siehe „Gebäude in Stufen“), führt dasselbe Stempelraster und gibt es dem
   Routenraster für die Sichtproben (`GlobalRouteGrid.setStampField`).
 - **Bauen:** ein gefallenes Objekt sperrt nicht mehr; Dächer zerstörbarer Gebäude tragen wieder Tower
   (`passingObjectIds` nur noch für Wellen-Ereignisse), solange einer oben steht, nimmt das Gebäude keinen Schaden.
 
-Offen: Darstellung der Stufen, Ruinen, Schutt und Krater (Z2 bis Z4), Tower ohne Projektil (Strahl, Kette, Laser,
+Offen: Tower ohne Projektil (Strahl, Kette, Laser,
 Säge, Strom) beschädigen nichts, Werkzeuge im Editor (Z5).
 
 ## Messungen (2026-10-18)
@@ -185,39 +185,46 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
 
 ### 2. Hauptthread: wie es aussieht
 
-**Gebäude in Stufen** (eigene Katalog-Modelle, instanziert in `render/objects/object-layer.ts`)
+**Gebäude in Stufen** (gebaut, Z2)
 
-- **Instanz-Attribut `aDamage`** (vec4: Stufe mit Übergang, Saat, Richtung des stärksten Treffers, Startzeit des
-  Falls) neben den Matrizen. Der Objekt-Shader bekommt einen Zweig `DAMAGE` (wie Wind, Spin, Nachtfenster), nur für
-  zerstörbare Assets auf zerstörbaren Karten, vorab übersetzt mit `compileAsync` (Lehre E215: kein Programm im
-  Spiel; Lichtzustände gibt es seit V1 keine mehr, die Lampen gehen in den Lichtpuffer).
-- **Stufe 1, angeschlagen:** Risse und Ruß im Objektraum (triplanar über die `box`-Koordinaten, unabhängig von den UVs),
-  dichter zur Trefferseite; Fenster brechen (Nachtfenster aus, Glas dunkel und gesprungen); Putz blättert an Kanten.
-  Risse und Ruß aus einem kleinen handgemalten Atlas (vier Rissbilder, zwei Rußverläufe, Graustufen), nicht aus
-  Rauschen: Rauschen wirkt generisch.
-- **Stufe 2, schwer:** ein Biss aus Ecke oder Dach. Verworfen wird, was in einer Kugel um die Trefferecke liegt, mit
-  zackiger Kante (Winkelrauschen, Lehre oben); innen Rückseiten in gedimmter Wandfarbe, eine Decke je Stockwerk
-  (3 m, aus Katalog-Höhe und Name), Bewehrungsstäbe als kurze Linien an der Kante. Brennt bei Stufe 2 ein Glutnest mit
-  Rauchfahne (vorhandene Partikel), höchstens 12 gleichzeitig.
-- **Stufe 3, Fall:** der Teil über einer verrauschten Bruchhöhe (1,5 bis 4 m, Stumpf) fällt starr in 1,2 bis 2,5 s,
-  kippt leicht zur Trefferseite, verschwindet beim Aufschlag; die Dreiecke an der Kante gehen. Danach bleibt die Ruine:
-  dasselbe Modell bis zur Bruchhöhe, Decken offen, Schutt darauf.
-- **Ruinen-Pool:** Instanzen ab Stufe 2 wandern in ein eigenes `InstancedMesh` je Asset mit `DoubleSide` und dem
-  Zweig für Innenseiten. Intakte Gebäude behalten `FrontSide` und Early-Z; der Pool kostet einen Draw Call je Asset mit
-  Schaden, nicht je Ruine. Heute schrumpft ein Fall das Objekt in seiner Zelle (`FALLEN_SCALE`), der Pool ersetzt das.
-- **Schutt:** (a) ein positiver Stempel ins Höhenraster innerhalb der `box` (Volumen aus Höhe mal einem Drittel,
-  geglättet), Splat-Schicht „Schutt“ darüber: der Haufen bekommt Licht, Schatten, Gras-Aussparung und Fußpunkte der
-  Tower vom Gelände, ohne eigenes System. (b) Brocken: vier bis sechs handmodellierte Stücke (Ziegelplatte, Betonplatte
-  mit Eisen, Balken, Dachziegelscholle), instanziert, nach Saat auf dem Haufen verteilt, gefärbt nach `material` des
-  Katalogs; ein Draw Call je Stück für alle Ruinen. (c) fliegende Brocken mit ballistischem Vertex-Shader aus Startwerten
-  (keine CPU je Bild), aus einem Pool.
-- **Staub und Rauch:** Blitz, Staubsäule, Bodenwalze, Nachrauch 20 bis 30 s, Glut; in die vorhandenen Effekt-Pools
-  (`three-engine/renderers`), gestaffelt nach Größe, gedeckelt (älteste weicht).
-- **Materialklassen** am Katalog: `material: brick | plaster | concrete | stone | wood | metal | glass`, gemessen oder
-  gesetzt in `tools/map-assets` (Farbe des Schutts, Rissbild, Staubfarbe, Bruchgeräusch). Holz bricht in Balken und
-  Splitter, Beton in Platten, Glas in Scherben.
-- **Zufall:** jede Ruine würfelt aus der Bauwerks-Id und dem Tick ihres Falls. Alle Partner und jedes Replay sehen
-  dieselbe Ruine.
+- **Ruinen-Batches:** ein beschädigtes Gebäude (ab Stufe 1) verlässt den Batch seines Assets und zeichnet im
+  Ruinen-Batch des Assets (`render/objects/object-layer.ts`, `setDamage`): dieselben Modelle und LOD-Stufen, beidseitig
+  (`DoubleSide`), mit dem Schaden im Shader (`render/objects/ruin-damage.ts`). Intakte Gebäude behalten ihre Programme,
+  `FrontSide` und Early-Z und zahlen nichts; die Ruinen kosten einen Draw Call je Asset und Stufe, nicht je Ruine. Eine
+  Ruine zeigt ihr Modell bis zur Sichtweite, ohne Impostor oder Fern-Kasten. Gebäude aus dem eigenen Grundriss
+  (`mass-layer.ts`) gehen ebenso: ihre Instanzen schrumpfen im intakten Batch auf null, die Ruinen werden als kleiner
+  eigener Batch neu gebaut (eine Handvoll Gebäude, nicht die Karte); eine Wand eines Gefallenen wird an der Bruchkante in
+  Stumpf und Oberteil geteilt.
+- **Je Instanz drei vec4** (`aDamage`: Stufe, Fallstart, Richtung, Bruchhöhe; `aDamageB`: Mitte und Radius des Bisses;
+  `aDamageC`: Mitte, Abstand zur Kippkante, Falldauer), im Rahmen der Gruppe, für Modelle und Wände gleich. Die Form
+  würfelt `ruinShape` auf der CPU aus der Id (oder `damageSeed`) und dem Grundrechteck: Richtung, Stumpf 1,5 bis 4 m
+  (höchstens 55 % der Höhe), Biss in der oberen Ecke zur Kipprichtung, Falldauer 1,2 bis 2,5 s. Jeder Partner und jedes
+  Replay sieht dieselbe Ruine. Die Richtung kommt aus der Saat, nicht vom stärksten Treffer (die Simulation meldet nur
+  Stufen).
+- **Stufe 1:** Risse aus einer gezeichneten Kachel (`crack-texture.ts`: Linien, die laufen und knicken, rot Haarrisse,
+  grün lange Risse; im Code gezeichnet, kein Rauschen) von drei Seiten in Metern, dichter zur Kipprichtung; Ruß in
+  Flecken, matt; Nachtfenster aus.
+- **Stufe 2:** der Biss aus der Ecke, Kante gezackt nach Winkel und Höhe, verkohlt, an wenigen Stellen glühend; innen
+  die Wand gedimmt (Rückseiten). Decken je Stockwerk (3 m) als eigene Platten über dem Grundrechteck
+  (`ruin-slabs.ts`, ein Draw Call für alle Ruinen), mit kleinerem Biss, so ragen sie ins Loch.
+- **Stufe 3:** was über der gezackten Bruchkante steht, kippt starr um den Fuß der Seite, zu der es fällt, und sinkt
+  dabei (im Vertex-Shader aus Fallstart und Uhr, keine CPU je Bild); die Dreiecke über der Kante gehen während des Falls,
+  danach ist der Teil über der Kante weg. Der Stumpf bleibt mit den Decken, die ganz darin liegen; der Schutthaufen
+  (Z3) liegt darin. Ein Gefallener sperrt nicht mehr das Bauen (`CustomMapSurface.setObjectCatalog`), `FALLEN_SCALE`
+  bleibt nur für Objekte, die ein Wellen-Ereignis verbirgt.
+- **Glutnester** (`EffectLayer.setRuinEmbers`): Glut und eine dünne Rauchfahne in den zwölf neuesten Ruinen ab Stufe 2,
+  tief im Biss, bei einem Gefallenen im Stumpf.
+- **Sichtlinie und Schatten:** was weg ist, sperrt die Sicht der Tower nicht (`LosVertexPatch` mit Fragment-Teil und
+  beidseitig), der Fall selbst steht für die Sichtlinie still; der Sonnenschatten fällt und schneidet mit.
+- **Stehen:** Gebäude, Mauern und Bauwerke stehen auf den Höhen der Karte, nicht auf Kratern und Schutt des Laufs
+  (`CustomMapViewOptions.standingGround`); ein Stumpf bleibt, wo das Haus stand.
+- **Vorab übersetzt:** die Ruinen-Batches zerstörbarer Assets entstehen leer mit der Karte, die Grundriss-Gebäude bekommen
+  verborgene Ruinen je Fassade und Dachdeckung, die Decken und Glutnester je einen verborgenen Platzhalter; das
+  Warm-up zeigt sie und baut ihre Programme.
+- **Uhr:** `DAMAGE_UNIFORMS.uDamageTime` läuft mit der Ansicht; ein Fall `now` beginnt jetzt, Stufen nach Laden, Sprung
+  oder Restore liegen schon (`FELL_LONG_AGO`).
+- **Nicht gebaut:** Bewehrungsstäbe an der Kante, Innenwände (die Rückseiten der Außenwände stehen dafür), springendes
+  Glas.
 
 **Gelände** (gebaut, Z4)
 
@@ -256,7 +263,7 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
 - **Fall:** Staubwand über dem Boden, Staubsäule die Höhe hinauf, Splitter in den Farben der Klasse, Rauch, ein kleiner
   Blitz (vorhandene Effekt-Pools, `WorldDamagePresenter.fell`); der Op `main.structureFell` trägt dafür den Index.
 - Alle Programme werden im Warm-up mit denen der Karte übersetzt (je eine Instanz ohne Größe).
-- **Offen:** Ton für Einsturz und Krater (es gibt keine Klänge dafür), Glutnester bei Stufe 2 (mit Z2).
+- **Offen:** Ton für Einsturz und Krater (Auswahl der Klänge läuft); die Glutnester kamen mit Z2.
 
 ### 3. Editor
 
@@ -324,7 +331,7 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
 | Fall auf dem Hauptthread, synchron | unter 1 ms, Rest über Bilder verteilt | 0,1 bis 4,5 ms (`objectsChanged`) |
 | Krater je Bild | höchstens ein Kachelaufbau, unter 1,5 ms | 1 bis 3 ms je `updateHeights(rect)` |
 | Wiederherstellen von 256 Kratern | unter 30 ms, verteilt | ganzer Neuaufbau 118 bis 174 ms |
-| Draw Calls durch Ruinen | ein Pool je Asset mit Schaden plus 4 bis 6 Brocken, unabhängig von der Zahl | nicht gemessen |
+| Draw Calls durch Ruinen | ein Pool je Asset mit Schaden plus 4 bis 6 Brocken, unabhängig von der Zahl | gezählt: einer je Asset und Stufe mit Schaden, einer für alle Decken, je Fassade und Deckung einer für Grundriss-Ruinen |
 | CPU je Ruine und Bild | null (Animation im Shader aus Startzeit) | entfällt |
 | Neue Shader-Programme im Spiel | null (vorab übersetzt) | entfällt |
 | Speicher | Grundraster 0,26 bis 1 MB, Brocken-Pools fest | entfällt |
@@ -355,8 +362,8 @@ Zeitmessungen stehen aus (Rechner unter Last), vorgemerkt in den Messnotizen.
 | Phase | Inhalt | Ergebnis |
 |---|---|---|
 | Z1 Unterbau (gebaut) | Ledger v2 (Raster, Stufen, Delta-Ops, Logik statt VFX), Schadenswerte je Projektiltyp, Fähigkeiten, `CraterLedger`, Stempelfunktion und -raster mit Höhe und Bremse der Gegner, Verschleiß in der Simulation; aus Z5 Regeln, OSM-Schalter, Vorschaden im Format | Specs, gleiche Prüfsummen ohne Zerstörung, Koop, Replay, Sprung, Spielstand |
-| Z2 Gebäude | `aDamage`, Stufen 1 und 2 im Shader, Ruinen-Pool, Fall, Decken und Innenwände, Rissatlas, vorab übersetzen | Vorher/Nachher-Bilder Ruined City und OSM-Stadt |
-| Z3 Schutt und Effekte (gebaut bis auf Ton) | Schutthaufen ins Höhenraster (dieselbe Stempelfunktion), Brocken, fliegende Brocken, Staub, Spuren; offen Glut (mit Z2) und Ton | Clip eines Falls |
+| Z2 Gebäude (gebaut) | Ruinen-Batches mit drei vec4, Stufen 1 und 2 im Shader, Fall im Shader, Decken, Risskachel, Glutnester, Sichtlinie, vorab übersetzen | Vorher/Nachher-Bilder Ruined City und OSM-Stadt |
+| Z3 Schutt und Effekte (gebaut bis auf Ton) | Schutthaufen ins Höhenraster (dieselbe Stempelfunktion), Brocken, fliegende Brocken, Staub, Spuren; offen der Ton | Clip eines Falls |
 | Z4 Gelände (gebaut) | eigene Höhen je Lauf, Kachelaufbau über Bilder, Grundraster, Krater-Spuren, Tower-Fuß gehalten, kein Gras, Worker-Patch | Clip Kraterserie und Atomschlag |
 | Z5 Editor | Vorschaden je Objekt im Editor, Treffer-Werkzeug, Einschlag-Pinsel, Materialklassen | Ruined City mit Vorschaden |
 | Z6 Verschleiß | Werte nachstellen, Playtest (die Simulation ist gebaut) | Rechnung in `tools/balance-calc`, Playtest |
