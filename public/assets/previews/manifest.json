@@ -50,7 +50,7 @@
       "width": 80,
       "height": 80,
       "view": "{\"animationName\":\"Walk\",\"animationTimeScale\":0.7,\"cameraAngle\":0.3,\"cameraDistance\":7.5,\"groundModel\":true,\"lightIntensity\":1.3,\"modelUrl\":\"assets/models/enemies/jumper.glb\",\"offsetY\":-0.3,\"scale\":1.25}",
-      "model": "e9d418c889754ace71dc211bd881fb7326bf61798b3109dc87285f7127293bde"
+      "model": "b46ced8341c7ba7801423585665836cbd6e58a9fb625d08ae2a525fba18f9de4"
     },
     "enemy-mammoth": {
       "file": "enemy-mammoth.webp",
