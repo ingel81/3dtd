@@ -3,6 +3,7 @@
 // after each switch and a forced GC, the JS heap, the live web workers, the live WebGL contexts, the canvases still
 // alive though their context is lost or they hang in no page (WeakRef: an old engine kept, E195), the listeners on
 // window and document, the open intervals and the GPU resources of the game's renderer. A leak shows as a stair.
+// The game's renderer stays over switches (RendererHost): its context is one of the live ones, not a new one each.
 // Exits with 1 when those canvases climb from the first switch to the last (a stair: one more engine kept each).
 //
 //   node e2e/perf/world-switch.ts --url http://localhost:4336 [--switches 10] [--maps demo-valley,mountain-pass]

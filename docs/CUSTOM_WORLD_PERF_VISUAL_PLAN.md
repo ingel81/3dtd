@@ -44,7 +44,7 @@ nach dem genannten laufenden Worker, weil dieselben Dateien betroffen sind.
 | V8 Gelände-Shader und Raster | Sampler packen (17 → höchstens 13), Quadtree mit gröberen Fernstücken, Fernprogramm mit gebackener Farbe | Keine Warnung „17 texture units“, Gelände-Draws in Stuttgart halbiert | wartet: r6-surface (Terrain-Material) |
 | V9 Texturen und Modelle komprimiert | KTX2 (ETC1S/UASTC) und Meshopt für Karten- und Spielmodelle, geteilte Materialbibliothek, Laden nach Bedarf, VAT offline | Grafikspeicher der Modelltexturen −50 %, Spielmodelle 90 → ~25 MB | danach, mit Sichtabnahme |
 | V10 Fassaden und Stilsätze | Fassaden-Bausatz (Laibungen, Simse, Attika, Sockel), gebackene Verwitterung, Altstadt-Stilsatz mit Fachwerk, Endstücke für Reihen, Fassadenvarianten | Kontaktbögen Rothenburg, Miltenberg, Harbor | wartet: r6-bldg, r6-maps (E179) |
-| V11 Renderer behalten | ein Renderer und Kontext über Editor, Test und Weltwechsel | kein Neu-Linken beim Wechsel | nach V1 und V3 |
+| V11 Renderer behalten | ein Renderer und Kontext über Editor, Test und Weltwechsel | kein Neu-Linken beim Wechsel | gebaut (siehe unten) |
 
 ## Gebaut
 
@@ -78,6 +78,31 @@ Messliste für später).
 - Offen außerhalb V1: rund 500 versteckte, unbenannte Pool-Meshes des Spiels (ShaderMaterial) rechnen ihre Matrix
   jedes Bild (Demo-Tal 801, Stuttgart 534 Multiplikationen je Bild); der Wechsel Editor → Test hat weiter ein langes
   Bild beim Abbau des Editors und Aufbau des Spiels (2,4 bis 7 s unter Last), nicht der Kontextverlust
+
+### V11 Renderer behalten (r8-scene, 2026-10-19)
+
+- **RendererHost** (`three-engine/renderer-host.ts`, `RendererHostService`): ein WebGLRenderer samt Canvas für Spiel,
+  Editor und `/map-preview`, verliehen an einen Besitzer zur Zeit; der Canvas kommt in dessen Platz (Template: Platz
+  statt Canvas). `acquire`/`release` setzen Ziel, Clear-Farbe, Tone Mapping, Schatten, Clipping, Pixelverhältnis und
+  den GL-Zustand zurück. Die GL-Shims (gelöschte Handles eines verlorenen Kontexts, Löschen noch linkender Programme)
+  hängen einmal am Renderer.
+- **MSAA an einer Stelle:** `RendererHostService.msaa(world)`, vorläufig die Grafikstufe für alle Ansichten (Wahl
+  liegt beim User); eine andere Wahl macht einen neuen Renderer, der alte Kontext geht, wenn die neue Ansicht steht.
+- **Aufräumen statt Kontextverlust:** eine Leihe gibt beim Ende jede gezeichnete oder kompilierte Geometrie und jedes
+  Material frei (three hält Vertex-Array-Zustände und Programmnutzer sonst bis zum Dispose); die Engine gibt die
+  gebundenen Texturen und Schattenkarten frei, der Composer seine Pässe. Vorher verdeckte der Kontextverlust je Welt
+  diese Lecks.
+- **Programme behalten, Obergrenze `KEEP_LEASES = 2`:** die Pins eines Besitzers (Shader-Ids, eine Nutzung je
+  Programm) bleiben nach seinem Ende am Host, für die zuletzt beendete Leihe und die davor; ältere gehen an three
+  zurück, das freigibt, was kein Material hält. Engine und Editor pinnen beim Gehen, was ihre Szene hält (`pinAll`).
+- **Vorschauen:** der Renderer der Seitenleisten-Vorschau entsteht erst beim ersten Bake (die Spielansichten kommen
+  als Sheets); die Paletten-Bilder des Editors behalten ihren kleinen Renderer, nur solange Bilder im Cache fehlen.
+- **Belege** (Browser-Probe): Weltwechsel im Produktions-Build 3 → 2 neue Kontexte je Wechsel vor den Vorschauen, GL-
+  Programme und Texturen flach, JS-Heap bei Demo-Tal ~180 MB flach (next vorher ~260 MB). Editor → Test: kein neuer
+  Kontext für Spiel oder Vorschau; Programme je Wechsel zum Test 147–215 → 31–33, zurück zum Editor 121–147 → 62, 40,
+  21; längstes Bild zurück zum Editor 105–484 ms (vorher bis 1,2 s), zum Test 0,7–1,6 s im Ladeschirm.
+- Offen: der Menü-Globus hat eigene Renderer (alpha, ohne Log-Depth, anderer Kontexttyp); das Spiel lädt beim Wechsel
+  weiter seine Modelle, VAT und Atlanten neu (Ladeschirm).
 
 ## Regeln für alle Pakete
 

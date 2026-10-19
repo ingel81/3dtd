@@ -438,7 +438,15 @@ gezeichneten Frame mit `renderLoop.frameRendered()` zurück.
 `onTileSetSettled()` zurück, dort invalidiert der Engine LOD-Version (`terrain.markTileSetChanged()`) und LOS-Cubemap und
 ruft `onTilesLoadCallback`. `setOrigin()` ruft `tileLoading.reset()`. `dispose()` stoppt
 zuerst den Loop (`renderLoop.dispose()`, samt Sichtbarkeits-Listener des Hintergrund-Loops), löst dann die Listener (`tileLoading.dispose()`, `cameraRig.dispose()`) und gibt danach
-Entity-Renderer, TilesRenderer, Pipeline und WebGLRenderer frei.
+Entity-Renderer, TilesRenderer und Pipeline frei; den WebGLRenderer gibt er an den RendererHost zurück.
+
+**Ein Renderer für die Seite** (`three-engine/renderer-host.ts`, `RendererHostService`): Spiel, Editor und
+`/map-preview` leihen sich denselben WebGLRenderer samt Canvas (`acquire(slot, world)`, der Canvas kommt in den Platz
+der Ansicht); Weltwechsel und Editor ↔ Test bauen keinen Kontext. `acquire` und `release` setzen den Renderer auf den
+Zustand eines frischen zurück. Eine Leihe gibt beim Ende frei, was sie gezeichnet oder kompiliert hat (Geometrien,
+Materialien), die Programm-Pins eines Besitzers bleiben für `KEEP_LEASES` (2) Leihen am Host (`lease.keep`), damit
+Hin- und Rückweg ihre Programme gebaut finden. MSAA steht mit dem Kontext fest und wird an einer Stelle gewählt
+(`RendererHostService.msaa`); eine andere Wahl macht einen neuen Renderer.
 
 ### Koordinatensystem (WICHTIG!)
 
