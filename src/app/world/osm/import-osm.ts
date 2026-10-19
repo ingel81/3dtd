@@ -22,6 +22,7 @@ import { sizeText, type OsmProgress } from './osm-progress';
 import { buildRoads, levelRoads, paintRoads, roadPaintMaterials, type RoadStats } from './convert/roads';
 import { buildTunnels, seatPortals, type TunnelReport } from './convert/tunnels';
 import { layPavements, type PavementStats } from './convert/pavements';
+import { layPlots, type PlotReport } from './convert/plots';
 import { fillOsmTerrain } from './convert/terrain';
 import { paintGround, placeMood, type GroundReport } from './convert/ground';
 import { growVegetation, type VegetationReport } from './convert/vegetation';
@@ -105,6 +106,7 @@ export interface OsmImportReport {
   terrain: { dem: string | null; zeroM: number; minM: number; maxM: number; demFailed: string[] };
   roads: RoadStats;
   pavements: PavementStats;
+  plots: PlotReport;
   tunnels: TunnelReport;
   /** The railway: lines, crossings, bridges, tunnels, and how its beds were levelled */
   rails: RailStats & RailGroundReport;
@@ -243,6 +245,9 @@ export function convertOsm(
 
   // The plants keep off the footprints and hold their own share of the scene budget (the buildings have no cap for now)
   const plants = growVegetation(doc, features, ground.land, water, { costOf, routes, keepOff: areas.keepOff, onShare: onShare && ((share) => onShare('plants', share)) });
+  // The houses' plots after the plants: the trees OSM maps in the gardens stand, hedges and driveways keep off them.
+  // Front gardens and gardens painted, driveways, hedges and fences in their own share
+  const plots = layPlots(doc, features, { costOf, hasMaterial: materials ? (m) => materials.has(m) : null });
   step('plants');
 
   // Boats, birds, the bell and the intro flight from the place's data, as life areas and an intro of any map
@@ -285,6 +290,7 @@ export function convertOsm(
       layers: t0.layers.map((l) => l.material),
       layout,
       buildings: buildings.report,
+      plots,
       furniture,
       pois,
       life,

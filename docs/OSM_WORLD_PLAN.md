@@ -192,10 +192,12 @@ Code in `src/app/world/osm/` ohne Angular und DOM (Worker, Node, Specs), wie `wo
 | `osm-tags.ts` | die Zuordnungstabellen dieses Plans als Daten |
 | `convert/terrain.ts` | Höhen, Glätten, Kartennull (bei Küste der Meeresspiegel) |
 | `convert/roads.ts` | Straßengraph über Knoten-Ids, Art und Breite, Brücken, Tunnel; Einebnen und Belag |
+| `convert/pavements.ts` | Gehwege (`sidewalk`, Breite je Seite) aus OSM, ohne Tag 1,8 m in Siedlungen (Wohn-, Handels-, Gewerbeland oder 4 Gebäude in 40 m), an Gebäuden gekappt; einseitige auf beiden Seiten |
 | `convert/water.ts` | Seen, Flussflächen, Bäche, Küste, Feuchtgebiete |
 | `convert/ground.ts` | Landnutzung zu höchstens 8 Schichten, Vorrang bei Überlappung |
 | `convert/vegetation.ts` | Wald, Gebüsch, Parks, Einzelbäume, Baumreihen, im Objektbudget |
 | `convert/buildings.ts` | Grundriss zu Katalog-Modell(en), Art raten, ausrichten, auf den Hang setzen |
+| `convert/plots.ts` | Grundstücke der Wohnhäuser (Raster 1 m, bis 20 m vom Haus, Straßen mit Gehweg, andere Gebäude, Flächen und Wasser als Sperre): Vorgarten als Rasen (`grass-lush`), Garten dahinter (`grass-leafy`, wenn eine Schicht frei ist), Einfahrt aus `pavers` als Fläche, wo kein Weg gemappt ist, Hecken an Seiten und hinten, manche Vorgärten mit Staketenzaun; 5 % des Szenenbudgets. Läuft im Schritt `buildings` |
 | `convert/furniture.ts` | Zäune, Mauern, Hecken, Laternen, Kleinkram, Strommasten (gebaut O5) |
 | `convert/rails.ts` | Bahn: Linien, Bahnübergänge, Bahnbrücken, Straßenbrücken über der Bahn, Bahntunnel, Gleisbett, Stücke (E238) |
 | `convert/layout.ts` | HQ und Spawns (`StreetRouter` auf `mapStreetNetwork`), Kartenrahmen |
