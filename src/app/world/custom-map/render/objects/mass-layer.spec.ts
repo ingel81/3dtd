@@ -100,6 +100,11 @@ describe('mass layer: the shape of a raised building', () => {
     expect(gable.caps.length).toBe(0);
     const hip = massShape({ rings: [rect], height: 6, floors: 2, roof: 'hip', ridge: 3, facade: 'plaster' });
     expect(hip.walls.filter((w) => w.kind === 2).length).toBe(0);
+    // A shop's walls: their own kind, on every roof
+    for (const roof of ['flat', 'gable', 'mansard'] as const) {
+      const shop = massShape({ rings: [rect], height: 9, floors: 3, roof, ridge: roof === 'flat' ? undefined : 3, facade: 'plaster', shop: [1] });
+      expect(shop.walls.filter((w) => w.kind === 3).length).toBe(1);
+    }
     expect(hip.roof.length).toBe(6);
     // The ridge on top
     expect(Math.max(...hip.roof.flatMap((t) => [t.p[1], t.p[4], t.p[7]]))).toBeCloseTo(9);

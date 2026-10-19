@@ -99,6 +99,9 @@ describe('raised buildings: what the rules read of one', () => {
     expect(massProblem({ ...court, roof: 'dome' })).toMatch(/roof/);
     expect(massProblem({ ...court, facade: 'glass' })).toMatch(/facade/);
     expect(massProblem({ ...court, ridge: -1 })).toMatch(/ridge/);
+    expect(massProblem({ ...court, shop: [0, 3] })).toBeNull();
+    expect(massProblem({ ...court, shop: [4] })).toMatch(/shop/);
+    expect(massProblem({ ...court, shop: 'all' })).toMatch(/shop/);
   });
 });
 
@@ -136,7 +139,11 @@ describe('raised buildings: their fronts on the map', () => {
       expect(f.top).toBe(12);
       expect(f.ground).toBeGreaterThan(0.45);
       expect(f.ground).toBeLessThan(5);
+      // The first floor's sill over the ground floor, under the top
+      expect(f.sill).toBeGreaterThan(f.ground);
+      expect(f.sill).toBeLessThan(f.top);
     }
+    expect(fronts.map((f) => f.edge).sort()).toEqual([0, 1, 2, 3]);
     expect(fronts.map((f) => Math.round(f.width)).sort((a, b) => a - b)).toEqual([30, 30, 40, 40]);
     expect(massFronts({ ...o, asset: 'house-modern' })).toEqual([]);
   });

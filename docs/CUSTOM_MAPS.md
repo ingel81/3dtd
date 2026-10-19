@@ -651,7 +651,10 @@ was Sichtlinie und Bauregeln sehen, ändert sich nicht. Die Größen im Katalog 
 
 **Gebäude aus dem Grundriss (E235, `mass-layer.ts`):** ein Objekt kann seinen Bau selbst tragen (`mass`, Asset
 `building-mass`): Außenring und Höfe in den Achsen des Objekts, Wandhöhe, Geschosse, Dach (flach mit Attika, Sattel
-oder Walm über einem Rechteck), Fassade (Putz, Beton, Blech, Ziegel, Sandstein, Fachwerk über verputztem Erdgeschoss). Was die Regeln brauchen, rechnet
+oder Walm über einem Rechteck, Mansarde über jedem Umriss ohne Hof), Fassade (Putz, Beton, Blech, Ziegel, Sandstein,
+Fachwerk über verputztem Erdgeschoss), Wände mit Laden im Erdgeschoss (`shop`, Indizes der Außenwände: Schaufenster
+statt Fenster). `massFronts` gibt die Außenwände auf der Karte mit Normale, Erdgeschoss- und Brüstungshöhe des ersten
+Stocks (`sill`) und Index (`edge`), etwa für Schilder. Was die Regeln brauchen, rechnet
 `object-mass.ts` aus den Ringen wie der Katalog für Modelle: Grundrechteck, Radius, Höhe und das Dachraster für Tower
 auf dem Dach (Hof ohne Dach). Bauverbot (`CustomMapSurface`) und Editor-Prüfung (`objectsOnPaths`) nehmen den Umriss,
 nicht das Rechteck: ein Tower darf in den Hof. Zerstörung als Zylinder gleicher Fläche und Höhe, Verdeckung am Boden

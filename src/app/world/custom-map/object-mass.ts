@@ -43,6 +43,10 @@ export function massProblem(m: unknown): string | null {
   if (!MAP_MASS_ROOFS.includes(r['roof'] as never)) return 'its building has an unknown roof';
   if (r['ridge'] !== undefined && (!finite(r['ridge']) || (r['ridge'] as number) < 0 || (r['ridge'] as number) > 60)) return 'its building has a bad ridge';
   if (!MAP_MASS_FACADES.includes(r['facade'] as never)) return 'its building has an unknown facade';
+  const shop = r['shop'];
+  if (shop !== undefined && (!Array.isArray(shop) || !shop.every((k) => Number.isInteger(k) && k >= 0 && k < (rings[0] as unknown[]).length / 2))) {
+    return 'its building has bad shop walls';
+  }
   return null;
 }
 
@@ -398,7 +402,14 @@ export interface MassFront {
   /** Top of the ground floor and of the walls over the seat, m */
   ground: number;
   top: number;
+  /** Sill of the first floor's windows over the seat, m (with one storey the top of the walls) */
+  sill: number;
+  /** The wall's index in the outline (MapMass.shop) */
+  edge: number;
 }
+
+/** Sill of the windows over a storey's floor per facade (mass-layer.ts WALL_COLOR_FRAGMENT) */
+const MASS_SILL: Readonly<Record<MapMass['facade'], number>> = { plaster: 0.9, concrete: 0.85, metal: 0, brick: 0.85, stone: 1.1, timber: 0.85 };
 
 /** Plinth over the seat of each facade (mass-layer.ts WALL_COLOR_FRAGMENT) */
 const MASS_PLINTH: Readonly<Record<MapMass['facade'], number>> = { plaster: 0.45, concrete: 0.6, metal: 1, brick: 0.5, stone: 0.6, timber: 0.5 };
@@ -436,7 +447,8 @@ export function massFronts(o: Pick<MapObject, 'asset' | 'mass' | 'x' | 'y' | 'ro
     }
     const a = toMap(mx, mz);
     const b = toMap(mx + nx, mz + nz);
-    out.push({ x: a.x, y: a.y, nx: (b.x - a.x) / s, ny: (b.y - a.y) / s, width: length * s, ground, top: m.height * s });
+    const sill = m.floors > 1 ? ground + MASS_SILL[m.facade] * s : m.height * s;
+    out.push({ x: a.x, y: a.y, nx: (b.x - a.x) / s, ny: (b.y - a.y) / s, width: length * s, ground, top: m.height * s, sill, edge: j / 2 });
   }
   return out;
 }

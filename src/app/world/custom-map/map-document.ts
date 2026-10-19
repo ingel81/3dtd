@@ -269,6 +269,12 @@ export interface MapMass {
   /** A pitched roof's ridge (a mansard's top) over the eaves, m */
   ridge?: number;
   facade: MapMassFacade;
+  /**
+   * Walls of the outline with a shop on the ground floor (display windows
+   * instead of the storey's windows), by index: wall k runs from the
+   * outline's point k to point k + 1
+   */
+  shop?: number[];
 }
 
 /**

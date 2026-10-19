@@ -880,14 +880,16 @@ Code: `convert/old-town.ts` (wo eine Altstadt ist), `building-tags.ts` (Art `old
 - **Bauten aus dem Grundriss in der Altstadt:** Fassade `timber` (Putz im Erdgeschoss, darüber Fachwerk aus dem Shader:
   Schwelle, Rähm, Ständer an den Achsen, Riegel an den Fenstern, Streben in Feldern ohne Fenster), Dach geneigt schon
   ab 72 % Füllgrad des Rechtecks. **Türme** (unter 400 m², höher als das 2,2-fache der Wurzel der Fläche): Sandstein,
-  Geschosse nach der Höhe, steile Pyramide.
+  Geschosse nach der Höhe, steile Pyramide. **Mansarddächer:** eine Art mit geneigtem Dach auf einem Umriss,
+  der kein Rechteck ist, bekommt steile Flächen von jeder Wand zu einem um bis zu 4 m eingerückten Umriss, darüber flach.
 - **Reihenenden:** Reihenhaus und Blockrand-Module haben blinde Seiten für das Nachbarhaus. Nach dem Legen bekommt ein
   Modul, an dessen Giebel kein anderes Gebäude anschließt (drei Proben 0,8 m vor der Wand), das Endmodell mit Fenstern
   auf dieser Seite (`-end-w`, `-end-e`, beide `-ends`), sofern dessen Ortgang nicht auf eine Straße reicht.
 - **Verwitterung:** `bake_ao(grime=True)` backt aus der Geometrie Schmutz vom Boden her, Läufer die Wände hinab, Dreck
   in Kehlen und weniger an abgewetzten Kanten in die Verdeckungstextur (nur deren Rotkanal überlebt den glTF-Export,
   der Verdeckung, Rauheit und Metall in ein Bild packt). Katalog `grime`: die Verdeckung dunkelt die Farbe auch im
-  direkten Licht (`addGrime`), die gekachelten Oberflächen bleiben scharf. Gebacken sind bisher die Altstadthäuser.
+  direkten Licht (`addGrime`), die gekachelten Oberflächen bleiben scharf. Gebacken sind die Altstadthäuser und 39
+  heutige Gebäude (`build_modern.py` `GRIME`), die Häuser aus `build_city.py` noch nicht.
 - **Verworfen:** Altstadthäuser ganz gebacken mit vier Looks im Atlas (`bake_surface` mit `variants`): bei 1024 px
   und vier Looks rund 20 Pixel je Meter Fassade gegen etwa 170 bei den gekachelten Texturen der übrigen Häuser,
   aus der Nähe verwaschen.

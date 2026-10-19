@@ -70,10 +70,20 @@ const FACADE_SURFACE: Readonly<Record<MapMassFacade, string>> = {
 /** Roof coverings: a flat roof's, and a pitched one's by facade (tiles on homes, sheet on halls) */
 type Covering = 'flat' | 'red' | 'grey' | 'metal';
 
-/** What a wall instance is: a facade with windows, a plain face (a parapet's inside), a gable (its top drawn in to a point) */
+/**
+ * What a wall instance is: a facade with windows, a plain face (a parapet's
+ * inside), a gable (its top drawn in to a point), a facade with a shop's
+ * display windows on the ground floor (MapMass.shop)
+ */
 const WALL_FACADE = 0;
 const WALL_PLAIN = 1;
 const WALL_GABLE = 2;
+const WALL_SHOP = 3;
+
+/** The kind of the facade wall `edge` of the outline (ring 0), else of a courtyard's */
+function facadeKind(m: MapMass, ring: number, edge: number): number {
+  return ring === 0 && m.shop?.includes(edge) ? WALL_SHOP : WALL_FACADE;
+}
 
 /** One wall in the building's own frame at scale 1 */
 interface WallPiece {
@@ -137,18 +147,18 @@ function flatShape(m: MapMass): MassShape {
   const walls: WallPiece[] = [];
   const caps: CapPiece[] = [];
   const roofY = m.height - MASS_PARAPET;
-  for (const ring of m.rings) {
+  m.rings.forEach((ring, k) => {
     for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
       const e = edge(m, ring[j], ring[j + 1], ring[i], ring[i + 1]);
       if (!e) continue;
-      walls.push({ ...e, bottom: -FOUNDATION, top: m.height, kind: WALL_FACADE, band: MASS_PARAPET + 0.25 });
+      walls.push({ ...e, bottom: -FOUNDATION, top: m.height, kind: facadeKind(m, k, j / 2), band: MASS_PARAPET + 0.25 });
       // The parapet's inside: a plain wall a parapet's thickness in, facing in; the coping across both
       const t = PARAPET_THICKNESS;
       const inner = { sx: e.sx - e.nx * t + e.ax * e.length, sz: e.sz - e.nz * t + e.az * e.length, ax: -e.ax, az: -e.az, length: e.length, nx: -e.nx, nz: -e.nz };
       walls.push({ ...inner, bottom: roofY, top: m.height, kind: WALL_PLAIN, band: 0 });
       caps.push({ sx: e.sx - e.nx * t, sz: e.sz - e.nz * t, ax: e.ax, az: e.az, length: e.length, nx: e.nx, nz: e.nz, y: m.height });
     }
-  }
+  });
   const roof: RoofPiece[] = [];
   const contour = toPoints(m.rings[0]);
   const holes = m.rings.slice(1).map(toPoints);
@@ -173,7 +183,7 @@ function mansardShape(m: MapMass, inner: readonly number[]): MassShape {
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
     const e = edge(m, r[2 * i], r[2 * i + 1], r[2 * j], r[2 * j + 1]);
-    if (e) walls.push({ ...e, bottom: -FOUNDATION, top: h, kind: WALL_FACADE, band: 0.3 });
+    if (e) walls.push({ ...e, bottom: -FOUNDATION, top: h, kind: facadeKind(m, 0, i), band: 0.3 });
     // The slope over this wall: a quad from the eaves to the top's edge, its texture along the wall and up the slope
     const a = [r[2 * i], h, r[2 * i + 1]];
     const b = [r[2 * j], h, r[2 * j + 1]];
@@ -205,7 +215,7 @@ function pitchedShape(m: MapMass): MassShape {
   for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
     const e = edge(m, r[j], r[j + 1], r[i], r[i + 1]);
     if (!e) continue;
-    walls.push({ ...e, bottom: -FOUNDATION, top: h, kind: WALL_FACADE, band: 0.3 });
+    walls.push({ ...e, bottom: -FOUNDATION, top: h, kind: facadeKind(m, 0, j / 2), band: 0.3 });
     // The gable over an end wall (across the ridge)
     const end = alongX ? Math.abs(e.nx) > 0.5 : Math.abs(e.nz) > 0.5;
     if (end && m.roof === 'gable') walls.push({ ...e, bottom: h, top: h + ridge, kind: WALL_GABLE, band: 0 });
@@ -754,7 +764,7 @@ function seedOf(id: string): number {
 
 /** A gable's quad drawn in to a triangle: its top corners meet in the middle */
 const GABLE_GLSL = /* glsl */ `
-if (aWallB.y > 1.5 && transformed.y > 0.5) transformed.x = 0.5;
+if (abs(aWallB.y - 2.0) < 0.5 && transformed.y > 0.5) transformed.x = 0.5;
 `;
 
 const WALL_VERTEX_PARS = /* glsl */ `
@@ -772,7 +782,7 @@ const WALL_UV_VERTEX = /* glsl */ `
 {
   // uv_vertex runs before begin_vertex: the gable's corners drawn in again here
   vec3 wallP = position;
-  if (aWallB.y > 1.5 && wallP.y > 0.5) wallP.x = 0.5;
+  if (abs(aWallB.y - 2.0) < 0.5 && wallP.y > 0.5) wallP.x = 0.5;
   vWallM = vec2(wallP.x * aWall.x, wallP.y * aWall.y - aWall.z);
   vWall = aWall;
   vWallB = aWallB;
@@ -859,7 +869,10 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
   base *= 1.0 - 0.14 * exp(-max(v - plinthH, 0.0) / 0.7);
   float windows = 0.0;
   vec3 detail = base;
-  if (kind < 0.5 && v > plinthH) {
+  // A shop's wall is a facade too, with display windows on its ground floor
+  float shop = step(2.5, kind);
+  float facadeWall = max(step(kind, 0.5), shop);
+  if (facadeWall > 0.5 && v > plinthH) {
     float usable = max(top - plinthH - band, 0.5);
     float storey = usable / floors;
     float hall = step(4.6, storey);
@@ -879,6 +892,14 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
     } else {
       wb = sill;
       wh = min(winH, storey - sill - 0.35);
+    }
+    float display = shop * step(k, 0.5) * step(hall, 0.5);
+    if (display > 0.5) {
+      // Display windows: wide, from just over the plinth to under the first floor
+      bay = 3.2;
+      winW = 2.7;
+      wb = 0.3;
+      wh = storey - 0.75;
     }
     float margin = 0.8;
     float n = floor((L - 2.0 * margin) / bay);
@@ -951,7 +972,7 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
       detail = mix(detail, pane, glass);
       // Window crosses on homes: a mullion and a transom at two thirds
       #if MASS_FACADE == 0 || MASS_FACADE == 3 || MASS_FACADE == 5
-      float bar = max(massBox(lu, -0.035, 0.035, aa), massBox(inStorey, wb + wh * 0.66 - 0.035, wb + wh * 0.66 + 0.035, aa)) * step(hall, 0.5);
+      float bar = max(massBox(lu, -0.035, 0.035, aa), massBox(inStorey, wb + wh * 0.66 - 0.035, wb + wh * 0.66 + 0.035, aa)) * step(hall, 0.5) * (1.0 - display);
       detail = mix(detail, frame, glass * bar);
       glass *= 1.0 - bar;
       #endif
@@ -978,10 +999,10 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
   // The plinth below, in the plinth's concrete
   vec3 plinthColor = texture2D(uPlinthMap, vWallM / uPlinthTile).rgb * uPlinthColor;
   float plinth = 1.0 - smoothstep(plinthH - aa, plinthH + aa, v);
-  plinth *= step(kind, 0.5);
+  plinth *= facadeWall;
   // Far off a window is a few pixels: the facade's mean instead of its shimmer
   float far = smoothstep(0.06, 0.3, aa);
-  vec3 mean = mix(base, vec3(0.12, 0.13, 0.14), 0.22 * step(kind, 0.5) * step(plinthH, v));
+  vec3 mean = mix(base, vec3(0.12, 0.13, 0.14), 0.22 * facadeWall * step(plinthH, v));
   diffuseColor.rgb = mix(mix(detail, mean, far), plinthColor, plinth);
   massGlass *= 1.0 - far;
   massWindow *= 1.0 - far;
