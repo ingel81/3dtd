@@ -603,13 +603,13 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
       if (!a.enabled || a.enabled(this)) out.push({ id: a.id, group: heads[a.group], label: actionLabel(t, a), keys: a.defaultKey ? this.keyOf(a.id) : a.keys, run: () => a.run(this) });
     }
     for (const m of LANDSCAPE_MODES) {
-      add(heads.Landscape, m.label, () => {
+      add(heads.Landscape, t.editor.landscape.modes[m.id].label, () => {
         this.pick('landscape');
         patch(s.tools.settings.landscape, { mode: m.id });
       });
     }
     for (const b of BIOMES) {
-      add(heads.Biome, b.label, () => {
+      add(heads.Biome, t.editor.landscape.biomes[b.id].label, () => {
         this.pick('landscape');
         patch(s.tools.settings.landscape, { mode: 'biome', biome: b.id });
       });

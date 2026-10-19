@@ -78,10 +78,9 @@ export interface BiomeRelief {
 /** A pattern laid over the ground mix: a street grid (city) or glowing cracks (hell) */
 export type GroundPattern = 'streets' | 'cracks';
 
+/** A biome; its name and what it holds are the dictionary's (i18n `editor.landscape.biomes`) */
 export interface BiomeDef {
   id: BiomeId;
-  label: string;
-  hint: string;
   /** Preview colour of the brush */
   color: string;
   ground: readonly BiomeGround[];
@@ -115,8 +114,6 @@ const TREES_TEMPERATE = ['tree-oak', 'tree-maple', 'tree-birch', 'tree-oak-young
 export const BIOMES: readonly BiomeDef[] = [
   {
     id: 'meadow',
-    label: 'Meadow',
-    hint: 'Grass with flowers and bushes, gently rolling',
     color: '#8db255',
     ground: [
       // Mostly greens: the straw-coloured meadow ground only in small patches, else a wide view reads as camouflage
@@ -135,8 +132,6 @@ export const BIOMES: readonly BiomeDef[] = [
   },
   {
     id: 'forest',
-    label: 'Forest',
-    hint: 'Oak, maple and birch with a few firs and pines on forest floor, ferns and mushrooms inside, bushes at the edge',
     color: '#3f6b2a',
     ground: [
       { material: ['forest-floor', 'forest-ground', 'dirt'], share: 0.5 },
@@ -158,8 +153,6 @@ export const BIOMES: readonly BiomeDef[] = [
   },
   {
     id: 'autumn',
-    label: 'Autumn wood',
-    hint: 'Autumn oaks, maples and birches on fallen leaves, leaf piles and mushrooms inside, red bushes at the edge',
     color: '#b0642c',
     ground: [
       { material: ['leaves-autumn', 'leaves-scattered', 'forest-floor'], share: 0.45 },
@@ -181,8 +174,6 @@ export const BIOMES: readonly BiomeDef[] = [
   },
   {
     id: 'conifer',
-    label: 'Pine forest',
-    hint: 'Dense pines and firs on needle ground, a few birches, undergrowth at the rim',
     color: '#2c4f2f',
     ground: [
       { material: ['forest-ground', 'forest-floor'], share: 0.55 },
@@ -202,8 +193,6 @@ export const BIOMES: readonly BiomeDef[] = [
   },
   {
     id: 'rocks',
-    label: 'Rocks',
-    hint: 'Ridged rocky ground with boulders and scree',
     color: '#7d7a74',
     ground: [
       { material: ['rocky-ground', 'gravel'], share: 0.5 },
@@ -220,8 +209,6 @@ export const BIOMES: readonly BiomeDef[] = [
   },
   {
     id: 'mountains',
-    label: 'Mountains',
-    hint: 'High ridged peaks, scree and granite, sparse pines and blue flowers',
     color: '#8a8f96',
     ground: [
       { material: ['rocky-ground', 'gravel'], share: 0.5 },
@@ -239,8 +226,6 @@ export const BIOMES: readonly BiomeDef[] = [
   },
   {
     id: 'swamp',
-    label: 'Swamp',
-    hint: 'Mud, murky pools ringed by reeds, willows and dead trees, fireflies',
     color: '#556b3a',
     ground: [
       { material: ['mud-wet', 'mud', 'dirt'], share: 0.35 },
@@ -265,8 +250,6 @@ export const BIOMES: readonly BiomeDef[] = [
   },
   {
     id: 'desert',
-    label: 'Desert',
-    hint: 'Dunes and cracked hardpan, cacti, succulents, a few dry trees and wind-cut rocks',
     color: '#c2b080',
     ground: [
       // Sand first; the darker hardpan and stony ground in small patches, else a wide view reads as camouflage
@@ -287,8 +270,6 @@ export const BIOMES: readonly BiomeDef[] = [
   },
   {
     id: 'beach',
-    label: 'Beach',
-    hint: 'Sand flattening down to the water, a wet strip at the waterline, gravel and driftwood, dune grass; palms where the map is warm, shore pines where it is cool',
     color: '#e3cf98',
     // Three ground layers at most: sand, the wet coastal sand, gravelly sand
     ground: [
@@ -312,8 +293,6 @@ export const BIOMES: readonly BiomeDef[] = [
   },
   {
     id: 'snow',
-    label: 'Snow',
-    hint: 'Snow fields with snowy firs and rocks poking through',
     color: '#e6ebef',
     ground: [
       { material: ['snow-fresh', 'snow'], share: 0.5 },
@@ -330,8 +309,6 @@ export const BIOMES: readonly BiomeDef[] = [
   },
   {
     id: 'arctic',
-    label: 'Arctic',
-    hint: 'Drifts, pack ice and frozen pools, ice crystals, drifting snow',
     color: '#bcd9e6',
     ground: [
       { material: ['snow-drift', 'snow'], share: 0.45 },
@@ -354,8 +331,6 @@ export const BIOMES: readonly BiomeDef[] = [
   },
   {
     id: 'village',
-    label: 'Village',
-    hint: 'Levelled ground, cottages and houses, fences, stalls, carts and lamps',
     color: '#9c8466',
     ground: [
       { material: ['grass-leafy', 'grass', 'meadow'], share: 0.55 },
@@ -376,8 +351,6 @@ export const BIOMES: readonly BiomeDef[] = [
   },
   {
     id: 'city',
-    label: 'City',
-    hint: 'A street grid: asphalt, sidewalks with lamps, paved blocks lined with buildings',
     color: '#7f8389',
     ground: [
       { material: ['pavers', 'concrete', 'paving'], share: 0.45 },
@@ -397,8 +370,6 @@ export const BIOMES: readonly BiomeDef[] = [
   },
   {
     id: 'hell',
-    label: 'Hell',
-    hint: 'Ash, cinders and basalt split by glowing cracks, lava pools, bones and braziers',
     color: '#8a2a14',
     ground: [
       // Grey ash and black rock with the red earth only in patches, no brimstone and no burnt litter: rust red
@@ -427,8 +398,6 @@ export const BIOMES: readonly BiomeDef[] = [
   },
   {
     id: 'wasteland',
-    label: 'Wasteland',
-    hint: 'After the end: cracked asphalt, rubble and shell craters, ruins, wrecks and smoke',
     color: '#6f675a',
     ground: [
       // Rubble first: the dark asphalt and mossy concrete in small patches, else a wide view reads as camouflage
@@ -450,8 +419,6 @@ export const BIOMES: readonly BiomeDef[] = [
   },
   {
     id: 'moon',
-    label: 'Moon',
-    hint: 'Grey regolith pocked with craters, scattered boulders',
     color: '#a6a6a2',
     ground: [
       { material: ['regolith', 'concrete'], share: 0.55 },
@@ -468,8 +435,6 @@ export const BIOMES: readonly BiomeDef[] = [
   },
   {
     id: 'mars',
-    label: 'Mars',
-    hint: 'Butterscotch dust, dark basalt sand, ochre gravel; rust, grey and black rocks, mesas',
     color: '#a87a56',
     ground: [
       { material: ['mars-dunes', 'mars-dust'], share: 0.5 },

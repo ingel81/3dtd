@@ -53,7 +53,7 @@ export class TerrainTool implements EditorTool {
     if (p.ctrl && (s.mode === 'level' || s.mode === 'flatten' || s.mode === 'terrace')) {
       const level = Math.round(p.hit.z * 10) / 10;
       patch(ctx.settings.terrain, { level });
-      ctx.status(`Height ${level} m picked`);
+      ctx.status(ctx.t().editor.terrain.picked(level));
       return true;
     }
     if (s.mode === 'ramp') {
@@ -61,11 +61,11 @@ export class TerrainTool implements EditorTool {
       return true;
     }
     const mode = TERRAIN_MODES.find((m) => m.id === s.mode)!;
-    this.stroke = ctx.editor.begin(mode.label);
+    this.stroke = ctx.editor.begin(ctx.t().editor.terrain.modes[mode.id].label);
     this.stroke.record('heights');
     this.symmetry = ctx.settings.symmetry();
     // Sculpting adds to the ground; levelling sets heights the images must share
-    this.heightsAdd = mode.group === 'Sculpt';
+    this.heightsAdd = mode.group === 'sculpt';
     this.invert = p.shift;
     this.seed = Math.floor(Math.random() * 1e6);
     if (s.mode === 'flatten') this.target = p.hit.z;
@@ -139,22 +139,23 @@ export class TerrainTool implements EditorTool {
 
   hint(ctx: ToolContext): string {
     const mode = TERRAIN_MODES.find((m) => m.id === ctx.settings.terrain().mode)!;
-    if (mode.id === 'ramp' && this.rampStart) return 'Click where the ramp ends | Esc cancels';
-    return `${mode.label}: ${mode.hint} | [ ] size`;
+    const says = ctx.t().editor.terrain;
+    if (mode.id === 'ramp' && this.rampStart) return says.rampEnd;
+    return says.hint(says.modes[mode.id].label, says.modes[mode.id].hint);
   }
 
   private rampClick(p: ToolPointer, ctx: ToolContext): void {
     const hit = p.hit!;
     if (!this.rampStart) {
       this.rampStart = { x: hit.x, y: hit.y, h: hit.z };
-      ctx.status('Ramp start set');
+      ctx.status(ctx.t().editor.terrain.rampStart);
       return;
     }
     const a = this.rampStart;
     const b = { x: hit.x, y: hit.y, h: hit.z };
     this.rampStart = null;
     ctx.overlay.draft.clear();
-    const stroke = ctx.editor.begin('Ramp');
+    const stroke = ctx.editor.begin(ctx.t().editor.terrain.ramp);
     const t = stroke.doc.terrain;
     // A symmetric map gets the ramp at every image, each built from its own ends
     for (const img of symmetryImages(ctx.settings.symmetry(), t.grid.columns === t.grid.rows)) {
@@ -165,7 +166,7 @@ export class TerrainTool implements EditorTool {
     }
     stroke.commit();
     // The start's toast would stand over the finished ramp
-    ctx.status('Ramp built');
+    ctx.status(ctx.t().editor.terrain.rampBuilt);
   }
 
   private end(): void {

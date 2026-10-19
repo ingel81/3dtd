@@ -52,8 +52,8 @@ export class LandscapeTool implements EditorTool {
     const s = ctx.settings.landscape();
     // A line may start off the map and come in; a brush needs ground under it
     if (p.button !== 0 || (!p.hit && !isLine(s.mode))) return false;
-    const label = LANDSCAPE_MODES.find((m) => m.id === s.mode)!.label;
-    this.stroke = new LandscapeContext(ctx.editor.begin(s.mode === 'biome' ? biomeById(s.biome).label : label), s.seed, ctx.catalog);
+    const says = ctx.t().editor.landscape;
+    this.stroke = new LandscapeContext(ctx.editor.begin(s.mode === 'biome' ? says.biomes[s.biome].label : says.modes[s.mode].label), s.seed, ctx.catalog);
     this.stroke.symmetry = ctx.settings.symmetry();
     this.stroke.heightsAdd = addsToGround(s.mode, s.biome);
     this.dab = 0;
@@ -126,7 +126,7 @@ export class LandscapeTool implements EditorTool {
       case 'cliffRocks': {
         const models = cliffModelsFor(stroke.doc.environment.biome, s.cliffModel, ctx.catalog);
         if (!models.length) {
-          ctx.status('The catalogue has no cliff models');
+          ctx.status(ctx.t().editor.landscape.noCliffModels);
           return;
         }
         const ids = cliffRocksDab(stroke, center, brush, models, ctx.catalog);
@@ -144,12 +144,9 @@ export class LandscapeTool implements EditorTool {
 
   hint(ctx: ToolContext): string {
     const s = ctx.settings.landscape();
-    const mode = LANDSCAPE_MODES.find((m) => m.id === s.mode)!;
-    const what =
-      s.mode === 'biome'
-        ? `${biomeById(s.biome).label}: ${biomeById(s.biome).hint}`
-        : `${mode.label}: ${mode.hint}`;
-    return `${what} | [ ] size | seed ${s.seed}`;
+    const says = ctx.t().editor.landscape;
+    const what = s.mode === 'biome' ? says.biomes[s.biome] : says.modes[s.mode];
+    return says.hint(what.label, what.hint, s.seed);
   }
 
   /** Ends the stroke: lines are built now, biomes grow their rim plants; one undo step */
@@ -176,14 +173,9 @@ export class LandscapeTool implements EditorTool {
     } else if (s.mode === 'biome') {
       finishBiome(stroke, brush, biomeById(s.biome));
     }
-    const full = [
-      ...stroke.layersReused.map((m) => `${m} (unused)`),
-      ...stroke.layersShared.map((m) => `${m}, the nearest look`),
-      ...stroke.layersFull.map((m) => `${m} left out`),
-    ];
-    if (full.length) {
-      ctx.status(`The map has ${MAX_LAYERS} ground layers: ${full.join('; ')}. Remove a layer in Paint for each its own`);
-    }
+    const says = ctx.t().editor.landscape;
+    const full = [...stroke.layersReused.map(says.layerUnused), ...stroke.layersShared.map(says.layerShared), ...stroke.layersFull.map(says.layerLeft)];
+    if (full.length) ctx.status(says.layersFull(MAX_LAYERS, full.join('; ')));
     if (stroke.finish() && s.reroll) patch(ctx.settings.landscape, { seed: randomSeed() });
   }
 
@@ -203,21 +195,17 @@ export class LandscapeTool implements EditorTool {
       }
       case 'river': {
         const r = carveRiver(stroke, line, s.river);
-        if (!r) ctx.status('Draw a longer line for a river');
+        if (!r) ctx.status(ctx.t().editor.landscape.longerRiver);
         else {
-          const extras = [
-            r.waterfalls ? `${r.waterfalls} ${r.waterfalls === 1 ? 'waterfall' : 'waterfalls'}` : '',
-            r.bridges ? `${r.bridges} ${r.bridges === 1 ? 'bridge' : 'bridges'}` : '',
-          ].filter((e) => e);
           const fall = Math.round(r.river.points[0].height - r.river.points[r.river.points.length - 1].height);
-          ctx.status(`${r.river.kind === 'lava' ? 'Lava flow' : 'River'} falling ${fall} m${extras.length ? `, ${extras.join(', ')}` : ''}`);
+          ctx.status(ctx.t().editor.landscape.riverDone(r.river.kind === 'lava', fall, r.waterfalls, r.bridges));
         }
         break;
       }
       case 'road': {
         const r = buildRoad(stroke, line, s.road);
-        if (!r) ctx.status('Draw a longer line for a road');
-        else ctx.status(`Road of ${Math.round(r.length)} m${r.lamps ? `, ${r.lamps} lamps` : ''}`);
+        if (!r) ctx.status(ctx.t().editor.landscape.longerRoad);
+        else ctx.status(ctx.t().editor.landscape.roadDone(Math.round(r.length), r.lamps));
         break;
       }
     }

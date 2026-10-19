@@ -165,7 +165,7 @@ export function catalogAsData(catalog: CatalogIndex, filter: { category?: string
   const lists = {
     categories: [MATERIALS_CATEGORY, ...catalog.categories()],
     tags: catalog.biomes(),
-    biomes: BIOMES.map((b) => ({ id: b.id, label: b.label, hint: b.hint })),
+    biomes: BIOMES.map((b) => ({ id: b.id, ...en.editor.landscape.biomes[b.id] })),
     terrainPresets: TERRAIN_PRESETS.map((p) => ({ id: p.id, hint: p.hint })),
     mapTemplates: MAP_TEMPLATES.map((t) => ({ id: t.id, label: t.label, hint: t.hint })),
     landforms: ['mountain', 'valley', 'plateau', 'crater', 'dunes'],

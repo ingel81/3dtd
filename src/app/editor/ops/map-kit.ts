@@ -325,7 +325,7 @@ export class MapKit {
   biome(id: BiomeId, where: Where, brush: Brush, hold = 0.6): void {
     const def = biomeById(id);
     const b = brushOf(brush);
-    this.stroke(def.label, (s) => {
+    this.stroke(this.editor.words().editor.landscape.biomes[id].label, (s) => {
       for (const c of dabs(where, b.radius / 3)) for (let t = 0; t < hold; t += 0.1) biomeDab(s, c, b, def, 0.1);
       finishBiome(s, b, def);
     });
@@ -334,7 +334,7 @@ export class MapKit {
   /** A template's whole-map biome pass (`biomeBand`) between two northings */
   biomeBand(id: BiomeId, minY = -this.half, maxY = this.half): void {
     const def = biomeById(id);
-    this.stroke(def.label, (s) => {
+    this.stroke(this.editor.words().editor.landscape.biomes[id].label, (s) => {
       for (let y = minY; y < maxY; y += 48) biomeBand(s, def, y, Math.min(maxY, y + 48));
     });
   }

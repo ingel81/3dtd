@@ -1,4 +1,4 @@
-import { ModePickerComponent } from './mode-picker.component';
+import { ModePickerComponent, type EditorMode } from './mode-picker.component';
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import type { MapPathKind } from '../../../world/custom-map/map-document';
@@ -11,6 +11,7 @@ import { patch, LANDSCAPE_MODES, type LandscapeMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
+import { injectT } from '../../../i18n/i18n.service';
 
 /** Landscape: biomes, landforms, erosion, and the line brushes for cliffs, rivers and roads */
 @Component({
@@ -23,8 +24,12 @@ import { RangeRowComponent } from './range-row.component';
   styleUrl: './landscape-panel.component.scss',
 })
 export class LandscapePanelComponent {
+  protected readonly t = injectT();
   readonly session = inject(EditorSession);
-  readonly modes = LANDSCAPE_MODES;
+  readonly modes = computed<EditorMode[]>(() => {
+    const says = this.t().editor.landscape;
+    return LANDSCAPE_MODES.map((m) => ({ id: m.id, ...says.modes[m.id], group: says.groups[m.group] }));
+  });
   readonly biomes = BIOMES;
   readonly s = this.session.tools.settings.landscape;
   readonly surfaces = computed(() => roadSurfaces(this.session.catalog()));

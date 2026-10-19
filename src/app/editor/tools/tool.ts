@@ -45,34 +45,36 @@ export type WaterMode = 'fill' | 'pour' | 'lake' | 'paint' | 'erase' | 'river';
 
 export type TerrainMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'level' | 'noise' | 'erode' | 'terrace' | 'plateau' | 'ramp';
 
-export const TERRAIN_MODES: readonly { id: TerrainMode; label: string; hint: string; group: string }[] = [
-  { id: 'raise', label: 'Raise', hint: 'Hold to raise the ground; Shift lowers', group: 'Sculpt' },
-  { id: 'lower', label: 'Lower', hint: 'Hold to lower the ground; Shift raises', group: 'Sculpt' },
-  { id: 'smooth', label: 'Smooth', hint: 'Hold to even out bumps', group: 'Sculpt' },
-  { id: 'noise', label: 'Roughen', hint: 'Hold to add small bumps', group: 'Sculpt' },
-  { id: 'erode', label: 'Erode', hint: 'Hold to let steep slopes slide down into scree', group: 'Sculpt' },
-  { id: 'flatten', label: 'Flatten', hint: 'Levels to the height where the stroke starts; Ctrl picks a height', group: 'Level out' },
-  { id: 'level', label: 'Level', hint: 'Pulls to the height set below; Ctrl click picks it from the ground', group: 'Level out' },
-  { id: 'terrace', label: 'Terrace', hint: 'Snaps heights to steps of the height set below', group: 'Level out' },
-  { id: 'plateau', label: 'Cliff', hint: 'Builds a cliff level one step above where the stroke starts; Shift one below', group: 'Level out' },
-  { id: 'ramp', label: 'Ramp', hint: 'Click the start, then the end: a ramp between the two heights', group: 'Level out' },
+/** The terrain brushes in their order and groups; their names and hints are the dictionary's (i18n `editor.terrain`) */
+export const TERRAIN_MODES: readonly { id: TerrainMode; group: 'sculpt' | 'level' }[] = [
+  { id: 'raise', group: 'sculpt' },
+  { id: 'lower', group: 'sculpt' },
+  { id: 'smooth', group: 'sculpt' },
+  { id: 'noise', group: 'sculpt' },
+  { id: 'erode', group: 'sculpt' },
+  { id: 'flatten', group: 'level' },
+  { id: 'level', group: 'level' },
+  { id: 'terrace', group: 'level' },
+  { id: 'plateau', group: 'level' },
+  { id: 'ramp', group: 'level' },
 ];
 
 export type LandscapeMode = 'biome' | 'mountain' | 'valley' | 'plateau' | 'crater' | 'dunes' | 'cracks' | 'cliffRocks' | 'cliff' | 'erode' | 'river' | 'road';
 
-export const LANDSCAPE_MODES: readonly { id: LandscapeMode; label: string; hint: string; group: string; line?: boolean }[] = [
-  { id: 'biome', label: 'Biome', hint: 'Hold to paint the chosen landscape: ground, colour and plants together', group: 'Paint a landscape' },
-  { id: 'mountain', label: 'Mountain', hint: 'Hold to grow a ridged mountain; size and strength set its height', group: 'Shapes' },
-  { id: 'valley', label: 'Valley', hint: 'Hold to sink a valley', group: 'Shapes' },
-  { id: 'plateau', label: 'Plateau', hint: 'Hold to raise a table with a steep rim', group: 'Shapes' },
-  { id: 'crater', label: 'Crater', hint: 'Click or hold for a crater with a raised rim; size sets its width', group: 'Shapes' },
-  { id: 'dunes', label: 'Dunes', hint: 'Hold to heap rounded dunes across the wind', group: 'Shapes' },
-  { id: 'erode', label: 'Erode', hint: 'Hold to let rain carve gullies and fans of scree', group: 'Shapes' },
-  { id: 'cracks', label: 'Glow cracks', hint: 'Hold to break the ground into glowing lava cracks with a crust', group: 'Shapes' },
-  { id: 'cliffRocks', label: 'Cliff rocks', hint: 'Hold over steep slopes: cliff walls stand along the edges, sized to the drop', group: 'Shapes' },
-  { id: 'river', label: 'River', hint: 'Drag a line: a river with banks, reeds and bridges over roads', group: 'Draw a line', line: true },
-  { id: 'road', label: 'Road', hint: 'Drag a line: a road joined to the network, levelled and lit', group: 'Draw a line', line: true },
-  { id: 'cliff', label: 'Cliff edge', hint: 'Drag a line: the ground left of it rises as a cliff', group: 'Draw a line', line: true },
+/** The landscape brushes in their order and groups; their names and hints are the dictionary's (i18n `editor.landscape`) */
+export const LANDSCAPE_MODES: readonly { id: LandscapeMode; group: 'paint' | 'shapes' | 'line'; line?: boolean }[] = [
+  { id: 'biome', group: 'paint' },
+  { id: 'mountain', group: 'shapes' },
+  { id: 'valley', group: 'shapes' },
+  { id: 'plateau', group: 'shapes' },
+  { id: 'crater', group: 'shapes' },
+  { id: 'dunes', group: 'shapes' },
+  { id: 'erode', group: 'shapes' },
+  { id: 'cracks', group: 'shapes' },
+  { id: 'cliffRocks', group: 'shapes' },
+  { id: 'river', group: 'line', line: true },
+  { id: 'road', group: 'line', line: true },
+  { id: 'cliff', group: 'line', line: true },
 ];
 
 export type ObjectMode = 'select' | 'place' | 'scatter' | 'line' | 'erase';
