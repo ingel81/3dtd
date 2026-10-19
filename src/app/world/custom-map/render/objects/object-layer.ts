@@ -560,6 +560,10 @@ export class MapObjectLayer {
       b.dueAt[i] = b.dueAt[last];
       for (const d of b.draws) if (d.slots[last] >= 0) d.list.rename(d.slots, last, i);
       this.byId.set(b.objects[i].id, { batch: b, index: i });
+      // The freed index shows nothing: an object added there later is placed anew, not taken as placed
+      b.levelOf[last] = -1;
+      b.nextOf[last] = NO_NEXT;
+      b.shadowOf[last] = -1;
     }
     b.objects.length = last;
     b.boundsStale = true;

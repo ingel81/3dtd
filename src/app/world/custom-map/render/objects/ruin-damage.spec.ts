@@ -7,6 +7,7 @@ import { MapAssetLibrary } from '../map-asset-library';
 import { CRACK_SIZE, crackTexels } from './crack-texture';
 import { massShape, splitWalls } from './mass-layer';
 import { MapObjectLayer } from './object-layer';
+import { CustomMapDestruction } from '../../custom-map-destruction';
 import { DAMAGE_LOS, FELL_LONG_AGO, ruinSeed, ruinShape, structureSeed } from './ruin-damage';
 
 const entry = (id: string, category: CatalogObject['category'], file: string, extra: Partial<CatalogObject> = {}): CatalogObject => ({
@@ -233,6 +234,60 @@ describe('ruin damage: raised buildings', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(massMeshes(los, true).filter((m) => m.visible)).toHaveLength(0);
     expect(massMeshes(los, false).reduce((n, m) => n + m.count - zeroed(m), 0)).toBe(2 * perBuilding);
+    layer.dispose();
+  });
+});
+
+describe('ruin damage: from the state, not from the events', () => {
+  const houses = (): MapObject[] => ['h1', 'h2', 'h3'].map((id, k) => ({ id, asset: 'house', x: k * 30, y: 0, z: 0, rotation: 0, scale: 1 }));
+  /** The view's ruins as stages per house: what the ruin batch draws (aDamage.x), 0 for a house in its own batch */
+  const drawn = (los: Group): number[] => {
+    const ruin = named(los, 'house-damaged')[0];
+    const stages = new Map<number, number>();
+    const a = ruin.geometry.getAttribute('aDamageC').array as Float32Array;
+    const d = ruin.geometry.getAttribute('aDamage').array as Float32Array;
+    for (let i = 0; i < ruin.count; i++) stages.set(Math.round(-a[i * 4] / 30), d[i * 4]);
+    return [0, 1, 2].map((k) => stages.get(k) ?? 0);
+  };
+  /** A layer fed by the structures' stages as the world feeds its view (CustomMapWorld.damageChanged) */
+  async function wired(): Promise<{ los: Group; layer: MapObjectLayer; destruction: CustomMapDestruction }> {
+    const los = new Group();
+    const layer = new MapObjectLayer(field(), library(), los, { ruins: true });
+    const objects = houses();
+    await layer.setObjects(objects);
+    const destruction = new CustomMapDestruction(() => ({ objects }), () => undefined, () => undefined, true, null, (changes, now) =>
+      layer.setDamage(changes.map((c) => ({ id: c.object.id, stage: c.stage, fallStart: now && c.stage >= 3 ? 7 : FELL_LONG_AGO }))),
+    );
+    destruction.setCatalog(catalog.objects);
+    return { los, layer, destruction };
+  }
+
+  it('comes to the ruins of the stages after a seek, a restore or a new run, whatever happened before', async () => {
+    const { los, layer, destruction } = await wired();
+    // The fight: one battered, then holed and felled, another felled
+    destruction.setStage(0, 1);
+    destruction.setStage(0, 2);
+    destruction.setStage(1, 3);
+    destruction.setStage(0, 3);
+    expect(drawn(los)).toEqual([3, 3, 0]);
+    // A seek back to where only the first was battered, a save with the third holed, a new run
+    destruction.setStages(new Uint8Array([1, 0, 0]));
+    expect(drawn(los)).toEqual([1, 0, 0]);
+    expect(named(los, 'house')[0].count).toBe(2);
+    destruction.setStages(new Uint8Array([0, 0, 2]));
+    expect(drawn(los)).toEqual([0, 0, 2]);
+    destruction.setStages(new Uint8Array([0, 0, 0]));
+    expect(drawn(los)).toEqual([0, 0, 0]);
+    expect(named(los, 'house').map((m) => m.count)).toEqual([3]);
+    layer.dispose();
+  });
+
+  it('lays a ruin the stages brought whole as fallen, one the fight felled falling from now', async () => {
+    const { los, layer, destruction } = await wired();
+    destruction.setStages(new Uint8Array([3, 0, 0]));
+    destruction.setStage(1, 3);
+    const d = named(los, 'house-damaged')[0].geometry.getAttribute('aDamage').array as Float32Array;
+    expect([d[1], d[5]]).toEqual([FELL_LONG_AGO, 7]);
     layer.dispose();
   });
 });
