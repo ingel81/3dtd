@@ -23,7 +23,7 @@ import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'nod
 import { dirname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { KHRTextureBasisu } from '@gltf-transform/extensions';
-import { createIO, glbJson, writeGlbKeepingUris } from './glb.mjs';
+import { createIO, glbJson, withGlbJson, writeGlbKeepingUris } from './glb.mjs';
 import { encodeKtx2, encodingOf, ktxTool, textureHash, textureKind, texturePixels } from './textures.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -117,6 +117,29 @@ for (const id of chosen) {
   console.error(`${id.padEnd(32)} ${(before.length / 1024).toFixed(0).padStart(6)} KB -> ${(after.length / 1024).toFixed(0).padStart(5)} KB`);
 }
 
+// A far copy drawn with its model's materials (`lodSharesTextures`) and its model name one file per image: the
+// copy's, where it has the image (built from the sources, not from an older packed model), else the model's
+let joined = 0;
+for (const id of ids) {
+  const lod = /-lod\d+$/.exec(id);
+  if (!lod || !spec[id.slice(0, lod.index)]?.lodSharesTextures || !ids.includes(id.slice(0, lod.index))) continue;
+  const modelPath = join(modelsDir, `${id.slice(0, lod.index)}.glb`);
+  const model = readFileSync(modelPath);
+  const json = glbJson(model);
+  const copy = Object.fromEntries((glbJson(readFileSync(join(modelsDir, `${id}.glb`))).images ?? []).filter((im) => isShared(im.uri)).map((im) => [im.name, im.uri]));
+  let changed = false;
+  for (const im of json.images ?? []) {
+    if (copy[im.name] && im.uri !== copy[im.name]) {
+      im.uri = copy[im.name];
+      changed = true;
+    }
+  }
+  if (changed) {
+    writeFileSync(modelPath, withGlbJson(model, json));
+    joined++;
+  }
+}
+
 // Textures no model points at any more
 const used = new Set();
 for (const id of ids) {
@@ -132,5 +155,6 @@ for (const file of readdirSync(texturesDir)) {
   }
 }
 const bytes = [...used].reduce((n, f) => n + readFileSync(join(texturesDir, f)).length, 0);
+if (joined) console.error(`${joined} models share their far copy's texture files`);
 console.error(`${packed} models packed, ${encoded} textures encoded (${codecs.etc1s} ETC1S, ${codecs.uastc} UASTC), ` +
   `${reused} reused, ${dropped} dropped; ${used.size} shared textures, ${(bytes / 2 ** 20).toFixed(1)} MiB`);

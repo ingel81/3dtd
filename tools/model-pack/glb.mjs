@@ -48,6 +48,21 @@ export async function writeGlbKeepingUris(io, doc) {
   return Buffer.concat([header, ...chunks]);
 }
 
+/** The GLB with its JSON chunk replaced by `json`, its BIN chunk as it was */
+export function withGlbJson(bytes, json) {
+  const length = bytes.readUInt32LE(12);
+  const rest = bytes.subarray(20 + length);
+  let text = Buffer.from(JSON.stringify(json), 'utf8');
+  text = Buffer.concat([text, Buffer.alloc((4 - (text.length % 4)) % 4, 0x20)]);
+  const head = Buffer.alloc(20);
+  head.writeUInt32LE(0x46546c67, 0);
+  head.writeUInt32LE(2, 4);
+  head.writeUInt32LE(20 + text.length + rest.length, 8);
+  head.writeUInt32LE(text.length, 12);
+  head.writeUInt32LE(0x4e4f534a, 16);
+  return Buffer.concat([head, text, rest]);
+}
+
 function chunk(data, type) {
   const head = Buffer.alloc(8);
   head.writeUInt32LE(data.length, 0);
