@@ -33,9 +33,53 @@ SAND = (1.27, 1.18, 0.98)
 PALE_GREY = (1.12, 1.16, 1.2)
 
 
+# Buildings weathered in their occlusion (blender_kit.bake_ao grime; catalogue `grime`)
+GRIME = {
+    'kiosk',
+    'transformer-station',
+    'school',
+    'town-hall',
+    'town-church',
+    'station',
+    'parking-garage',
+    'office-mid',
+    'office-high',
+    'supermarket',
+    'hall-flat',
+    'industrial-hall',
+    'block-row-4',
+    'block-row-4-end-w',
+    'block-row-4-end-e',
+    'block-row-4-ends',
+    'block-row-6',
+    'block-row-6-end-w',
+    'block-row-6-end-e',
+    'block-row-6-ends',
+    'block-corner-4',
+    'block-corner-6',
+    'garage',
+    'garage-row',
+    'garden-shed',
+    'house-modern',
+    'house-modern-red',
+    'house-semi',
+    'house-terrace',
+    'house-terrace-end-w',
+    'house-terrace-end-e',
+    'house-terrace-ends',
+    'house-terrace-row',
+    'shop-small',
+    'barn-modern',
+    'outbuilding',
+    'annex',
+    'office-ribbon',
+    'shop-office',
+}
+
+
 def export(name, objects, lod=None):
-    """Baked AO, then a flat-coloured copy with `lod` triangles for distance"""
-    obj = finish(name, objects)
+    """Baked AO (weathering too for the buildings of GRIME), then a flat-coloured copy with `lod` triangles for distance"""
+    obj = finish(name, objects, grime=name in GRIME)
     if lod:
         export_lod(name, obj, ratio=min(1.0, lod / max(1, len(obj.data.polygons))))
     return obj
