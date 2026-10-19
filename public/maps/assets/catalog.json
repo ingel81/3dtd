@@ -2669,11 +2669,11 @@
         "temperate"
       ],
       "textures": [
-        "textures/bark_brown_02_arm_1k-b754302b93733e00.ktx2",
-        "textures/bark_brown_02_diff_1k-4389528fe457dae2.ktx2",
-        "textures/bark_brown_02_nor_gl_1k-7c752eb896d85c29.ktx2",
-        "textures/leaves-oak-dark-07e09cfc425ac0bc.ktx2",
-        "textures/leaves-oak-dd4588449dc4c3e9.ktx2"
+        "textures/bark_brown_02_arm_1k-6529f473c5139a30.ktx2",
+        "textures/bark_brown_02_diff_1k-ea7f773dfba905bf.ktx2",
+        "textures/bark_brown_02_nor_gl_1k-138ac9d90f928646.ktx2",
+        "textures/leaves-oak-a1ee17d8b7375ea6.ktx2",
+        "textures/leaves-oak-dark-07e09cfc425ac0bc.ktx2"
       ],
       "lod": [
         {
@@ -2711,10 +2711,10 @@
         "temperate"
       ],
       "textures": [
-        "textures/bark_platanus_arm_1k-9cbfac3d9c9eceb9.ktx2",
-        "textures/bark_platanus_diff_1k-x1.50-1.50-1.45-b31825c5c7603e89.ktx2",
-        "textures/bark_platanus_nor_gl_1k-056bfef271e4259d.ktx2",
-        "textures/leaves-birch-7fe4289ff7e73270.ktx2",
+        "textures/bark_platanus_arm_1k-d131e7110faf579f.ktx2",
+        "textures/bark_platanus_diff_1k-x1.50-1.50-1.45-6d48464485c311b4.ktx2",
+        "textures/bark_platanus_nor_gl_1k-bd65d3db3b4e86e5.ktx2",
+        "textures/leaves-birch-c7998c49baddd67e.ktx2",
         "textures/leaves-birch-dark-f1654f314d5fe45f.ktx2"
       ],
       "lod": [
@@ -2755,10 +2755,10 @@
         "conifer"
       ],
       "textures": [
-        "textures/knotted_pine_bark_arm_1k-8464334e0b4d9d88.ktx2",
-        "textures/knotted_pine_bark_diff_1k-faf386f77df71800.ktx2",
-        "textures/knotted_pine_bark_nor_gl_1k-61837d08118cb9e1.ktx2",
-        "textures/leaves-conifer-454d56a9cc46dd22.ktx2",
+        "textures/knotted_pine_bark_arm_1k-c25a5ede7acf0a39.ktx2",
+        "textures/knotted_pine_bark_diff_1k-914f0538a79f4c83.ktx2",
+        "textures/knotted_pine_bark_nor_gl_1k-849935499a6eafbd.ktx2",
+        "textures/leaves-conifer-6a03cdc20b24d7c8.ktx2",
         "textures/leaves-conifer-dark-ca49269381c18cc5.ktx2"
       ],
       "lod": [
@@ -2799,10 +2799,10 @@
         "conifer"
       ],
       "textures": [
-        "textures/knotted_pine_bark_arm_1k-8464334e0b4d9d88.ktx2",
-        "textures/knotted_pine_bark_diff_1k-faf386f77df71800.ktx2",
-        "textures/knotted_pine_bark_nor_gl_1k-61837d08118cb9e1.ktx2",
-        "textures/leaves-conifer-454d56a9cc46dd22.ktx2",
+        "textures/knotted_pine_bark_arm_1k-c25a5ede7acf0a39.ktx2",
+        "textures/knotted_pine_bark_diff_1k-914f0538a79f4c83.ktx2",
+        "textures/knotted_pine_bark_nor_gl_1k-849935499a6eafbd.ktx2",
+        "textures/leaves-conifer-6a03cdc20b24d7c8.ktx2",
         "textures/leaves-conifer-dark-ca49269381c18cc5.ktx2"
       ],
       "lod": [
@@ -3778,10 +3778,10 @@
         "autumn"
       ],
       "textures": [
-        "textures/bark_brown_02_arm_1k-b754302b93733e00.ktx2",
-        "textures/bark_brown_02_diff_1k-4389528fe457dae2.ktx2",
-        "textures/bark_brown_02_nor_gl_1k-7c752eb896d85c29.ktx2",
-        "textures/leaves-oak-autumn-94d3d0abcb40df55.ktx2",
+        "textures/bark_brown_02_arm_1k-6529f473c5139a30.ktx2",
+        "textures/bark_brown_02_diff_1k-ea7f773dfba905bf.ktx2",
+        "textures/bark_brown_02_nor_gl_1k-138ac9d90f928646.ktx2",
+        "textures/leaves-oak-autumn-da29122de1ae3074.ktx2",
         "textures/leaves-oak-autumn-dark-d4ce005f84a248e2.ktx2"
       ],
       "lod": [
@@ -3821,11 +3821,11 @@
         "village"
       ],
       "textures": [
-        "textures/bark_brown_02_arm_1k-b754302b93733e00.ktx2",
-        "textures/bark_brown_02_diff_1k-4389528fe457dae2.ktx2",
-        "textures/bark_brown_02_nor_gl_1k-7c752eb896d85c29.ktx2",
-        "textures/leaves-oak-dark-07e09cfc425ac0bc.ktx2",
-        "textures/leaves-oak-dd4588449dc4c3e9.ktx2"
+        "textures/bark_brown_02_arm_1k-6529f473c5139a30.ktx2",
+        "textures/bark_brown_02_diff_1k-ea7f773dfba905bf.ktx2",
+        "textures/bark_brown_02_nor_gl_1k-138ac9d90f928646.ktx2",
+        "textures/leaves-oak-a1ee17d8b7375ea6.ktx2",
+        "textures/leaves-oak-dark-07e09cfc425ac0bc.ktx2"
       ],
       "lod": [
         {
@@ -3863,10 +3863,10 @@
         "temperate"
       ],
       "textures": [
-        "textures/bark_brown_01_arm_1k-f248abcb57a88e60.ktx2",
-        "textures/bark_brown_01_diff_1k-71b609c225838a8a.ktx2",
-        "textures/bark_brown_01_nor_gl_1k-00d9e63d589f92ba.ktx2",
-        "textures/leaves-maple-020dcaee43bfa1b3.ktx2",
+        "textures/bark_brown_01_arm_1k-31849afa8ff8bfc6.ktx2",
+        "textures/bark_brown_01_diff_1k-63b044329094e136.ktx2",
+        "textures/bark_brown_01_nor_gl_1k-1986ed1aca831a0a.ktx2",
+        "textures/leaves-maple-47035128d418ace1.ktx2",
         "textures/leaves-maple-dark-514ca90c33943808.ktx2"
       ],
       "lod": [
@@ -3905,11 +3905,11 @@
         "autumn"
       ],
       "textures": [
-        "textures/bark_brown_01_arm_1k-f248abcb57a88e60.ktx2",
-        "textures/bark_brown_01_diff_1k-71b609c225838a8a.ktx2",
-        "textures/bark_brown_01_nor_gl_1k-00d9e63d589f92ba.ktx2",
-        "textures/leaves-maple-autumn-343a47fd16bae818.ktx2",
-        "textures/leaves-maple-autumn-dark-f0802201d60aad1c.ktx2"
+        "textures/bark_brown_01_arm_1k-31849afa8ff8bfc6.ktx2",
+        "textures/bark_brown_01_diff_1k-63b044329094e136.ktx2",
+        "textures/bark_brown_01_nor_gl_1k-1986ed1aca831a0a.ktx2",
+        "textures/leaves-maple-autumn-dark-f0802201d60aad1c.ktx2",
+        "textures/leaves-maple-autumn-f227e54843ab6be8.ktx2"
       ],
       "lod": [
         {
@@ -3948,11 +3948,11 @@
         "castle"
       ],
       "textures": [
-        "textures/bark_brown_01_arm_1k-f248abcb57a88e60.ktx2",
-        "textures/bark_brown_01_diff_1k-71b609c225838a8a.ktx2",
-        "textures/bark_brown_01_nor_gl_1k-00d9e63d589f92ba.ktx2",
-        "textures/leaves-maple-autumn-343a47fd16bae818.ktx2",
-        "textures/leaves-maple-autumn-dark-f0802201d60aad1c.ktx2"
+        "textures/bark_brown_01_arm_1k-31849afa8ff8bfc6.ktx2",
+        "textures/bark_brown_01_diff_1k-63b044329094e136.ktx2",
+        "textures/bark_brown_01_nor_gl_1k-1986ed1aca831a0a.ktx2",
+        "textures/leaves-maple-autumn-dark-f0802201d60aad1c.ktx2",
+        "textures/leaves-maple-autumn-f227e54843ab6be8.ktx2"
       ],
       "lod": [
         {
@@ -3990,11 +3990,11 @@
         "autumn"
       ],
       "textures": [
-        "textures/bark_platanus_arm_1k-9cbfac3d9c9eceb9.ktx2",
-        "textures/bark_platanus_diff_1k-x1.50-1.50-1.45-b31825c5c7603e89.ktx2",
-        "textures/bark_platanus_nor_gl_1k-056bfef271e4259d.ktx2",
-        "textures/leaves-birch-autumn-57af017aba2fa125.ktx2",
-        "textures/leaves-birch-autumn-dark-a701e638abc4772e.ktx2"
+        "textures/bark_platanus_arm_1k-d131e7110faf579f.ktx2",
+        "textures/bark_platanus_diff_1k-x1.50-1.50-1.45-6d48464485c311b4.ktx2",
+        "textures/bark_platanus_nor_gl_1k-bd65d3db3b4e86e5.ktx2",
+        "textures/leaves-birch-autumn-dark-a701e638abc4772e.ktx2",
+        "textures/leaves-birch-autumn-efc80574e561bfc6.ktx2"
       ],
       "lod": [
         {
@@ -4062,10 +4062,10 @@
         "coast"
       ],
       "textures": [
-        "textures/bark_willow_arm_1k-05189a7e62294706.ktx2",
-        "textures/bark_willow_diff_1k-901f9cf32d00dbac.ktx2",
-        "textures/bark_willow_nor_gl_1k-56b59782c9d808a2.ktx2",
-        "textures/leaves-swamp-58b96accf2ac0670.ktx2",
+        "textures/bark_willow_arm_1k-df8748b3cd6a99ae.ktx2",
+        "textures/bark_willow_diff_1k-cbbee8c5061bacb0.ktx2",
+        "textures/bark_willow_nor_gl_1k-9a40350c52d0367f.ktx2",
+        "textures/leaves-swamp-3011250d97327fad.ktx2",
         "textures/leaves-swamp-dark-3a1fe4a385425865.ktx2"
       ],
       "lod": [
@@ -4164,10 +4164,10 @@
         "arctic"
       ],
       "textures": [
-        "textures/knotted_pine_bark_arm_1k-8464334e0b4d9d88.ktx2",
-        "textures/knotted_pine_bark_diff_1k-faf386f77df71800.ktx2",
-        "textures/knotted_pine_bark_nor_gl_1k-61837d08118cb9e1.ktx2",
-        "textures/leaves-conifer-snow-ab3ca6fb5de4a91a.ktx2"
+        "textures/knotted_pine_bark_arm_1k-c25a5ede7acf0a39.ktx2",
+        "textures/knotted_pine_bark_diff_1k-914f0538a79f4c83.ktx2",
+        "textures/knotted_pine_bark_nor_gl_1k-849935499a6eafbd.ktx2",
+        "textures/leaves-conifer-snow-5030dc4e140d3195.ktx2"
       ],
       "lod": [
         {
@@ -4208,10 +4208,10 @@
         "arctic"
       ],
       "textures": [
-        "textures/knotted_pine_bark_arm_1k-8464334e0b4d9d88.ktx2",
-        "textures/knotted_pine_bark_diff_1k-faf386f77df71800.ktx2",
-        "textures/knotted_pine_bark_nor_gl_1k-61837d08118cb9e1.ktx2",
-        "textures/leaves-conifer-snow-ab3ca6fb5de4a91a.ktx2"
+        "textures/knotted_pine_bark_arm_1k-c25a5ede7acf0a39.ktx2",
+        "textures/knotted_pine_bark_diff_1k-914f0538a79f4c83.ktx2",
+        "textures/knotted_pine_bark_nor_gl_1k-849935499a6eafbd.ktx2",
+        "textures/leaves-conifer-snow-5030dc4e140d3195.ktx2"
       ],
       "lod": [
         {
@@ -4251,10 +4251,10 @@
         "conifer"
       ],
       "textures": [
-        "textures/knotted_pine_bark_arm_1k-8464334e0b4d9d88.ktx2",
-        "textures/knotted_pine_bark_diff_1k-faf386f77df71800.ktx2",
-        "textures/knotted_pine_bark_nor_gl_1k-61837d08118cb9e1.ktx2",
-        "textures/leaves-conifer-454d56a9cc46dd22.ktx2",
+        "textures/knotted_pine_bark_arm_1k-c25a5ede7acf0a39.ktx2",
+        "textures/knotted_pine_bark_diff_1k-914f0538a79f4c83.ktx2",
+        "textures/knotted_pine_bark_nor_gl_1k-849935499a6eafbd.ktx2",
+        "textures/leaves-conifer-6a03cdc20b24d7c8.ktx2",
         "textures/leaves-conifer-dark-ca49269381c18cc5.ktx2"
       ],
       "lod": [
@@ -4295,10 +4295,10 @@
         "conifer"
       ],
       "textures": [
-        "textures/knotted_pine_bark_arm_1k-8464334e0b4d9d88.ktx2",
-        "textures/knotted_pine_bark_diff_1k-faf386f77df71800.ktx2",
-        "textures/knotted_pine_bark_nor_gl_1k-61837d08118cb9e1.ktx2",
-        "textures/leaves-conifer-snow-ab3ca6fb5de4a91a.ktx2"
+        "textures/knotted_pine_bark_arm_1k-c25a5ede7acf0a39.ktx2",
+        "textures/knotted_pine_bark_diff_1k-914f0538a79f4c83.ktx2",
+        "textures/knotted_pine_bark_nor_gl_1k-849935499a6eafbd.ktx2",
+        "textures/leaves-conifer-snow-5030dc4e140d3195.ktx2"
       ],
       "lod": [
         {
@@ -18362,10 +18362,10 @@
         "village"
       ],
       "textures": [
-        "textures/bark_platanus_arm_1k-9cbfac3d9c9eceb9.ktx2",
-        "textures/bark_platanus_diff_1k-40afd7a62f9c1abd.ktx2",
-        "textures/bark_platanus_nor_gl_1k-056bfef271e4259d.ktx2",
-        "textures/leaves-maple-020dcaee43bfa1b3.ktx2",
+        "textures/bark_platanus_arm_1k-d131e7110faf579f.ktx2",
+        "textures/bark_platanus_diff_1k-d4b4fc5e92ba09a1.ktx2",
+        "textures/bark_platanus_nor_gl_1k-bd65d3db3b4e86e5.ktx2",
+        "textures/leaves-maple-47035128d418ace1.ktx2",
         "textures/leaves-maple-dark-514ca90c33943808.ktx2"
       ],
       "lod": [
@@ -24987,10 +24987,10 @@
         "village"
       ],
       "textures": [
-        "textures/bark_brown_01_arm_1k-f248abcb57a88e60.ktx2",
-        "textures/bark_brown_01_diff_1k-71b609c225838a8a.ktx2",
-        "textures/bark_brown_01_nor_gl_1k-00d9e63d589f92ba.ktx2",
-        "textures/leaves-bush-2b34a9ef882992a7.ktx2",
+        "textures/bark_brown_01_arm_1k-31849afa8ff8bfc6.ktx2",
+        "textures/bark_brown_01_diff_1k-63b044329094e136.ktx2",
+        "textures/bark_brown_01_nor_gl_1k-1986ed1aca831a0a.ktx2",
+        "textures/leaves-bush-21b0815e9faaecfb.ktx2",
         "textures/leaves-bush-dark-5f1df6c21ada28c8.ktx2"
       ],
       "lod": [
