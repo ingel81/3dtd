@@ -12,6 +12,7 @@ import { HealthBarInstanceManager } from './health-bar-instance.manager';
 import { createPortalClipUniforms, type PortalClipUniforms } from '../portal-clip';
 import { StateLerp, stateLerpParam } from '../state-lerp';
 import { bakeEnemyVAT } from './vat-baker';
+import { keepVAT, pageVAT, replaceVAT } from './vat-cache';
 import { readColourMaps } from './vat-surface';
 import { pageQuery } from '../../../core/page-switches';
 
@@ -164,18 +165,24 @@ export class InstancedEnemyRenderer {
     try {
       const cached = await this.assetManager.loadModel(config.modelUrl);
 
-      // Clone with skeleton for VAT baking; for a model without bones it is a plain clone.
-      const clone = this.assetManager.cloneModel(config.modelUrl, { preserveSkeleton: true });
-      if (!clone) {
-        console.error(`[InstancedRenderer] Clone failed for ${typeId}, enemy type will not render`);
-        this.loadedTypes.add(typeId);
-        return;
+      // Baked once for the page (vat-cache.ts): an engine after the first finds it on the GPU
+      let vatData = pageVAT(typeId);
+      if (!vatData) {
+        // Clone with skeleton for VAT baking; for a model without bones it is a plain clone.
+        const clone = this.assetManager.cloneModel(config.modelUrl, { preserveSkeleton: true });
+        if (!clone) {
+          console.error(`[InstancedRenderer] Clone failed for ${typeId}, enemy type will not render`);
+          this.loadedTypes.add(typeId);
+          return;
+        }
+        vatData = bakeEnemyVAT(config, clone, cached.animations, await readColourMaps(clone));
+        if (vatData) {
+          // Use config's unlit flag (material detection is unreliable before conversion)
+          if (config.unlit) vatData.isUnlit = true;
+          keepVAT(typeId, vatData);
+        }
       }
-
-      const vatData = bakeEnemyVAT(config, clone, cached.animations, await readColourMaps(clone));
       if (vatData) {
-        // Use config's unlit flag (material detection is unreliable before conversion)
-        if (config.unlit) vatData.isUnlit = true;
         this.instanceManager.createPool(typeId, vatData, config);
       } else {
         console.error(`[InstancedRenderer] VAT bake failed for ${typeId}, enemy type will not render`);
@@ -203,6 +210,7 @@ export class InstancedEnemyRenderer {
       const vatData = cached && clone ? bakeEnemyVAT(config, clone, cached.animations) : null;
       if (vatData) {
         this.instanceManager.replaceVATAfterContextLoss(typeId, vatData);
+        replaceVAT(typeId, vatData);
       } else {
         console.error(`[InstancedRenderer] VAT rebake failed for ${typeId} after a context loss, its enemies collapse`);
       }

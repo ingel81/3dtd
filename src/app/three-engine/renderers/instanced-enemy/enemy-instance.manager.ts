@@ -20,6 +20,7 @@ import { InstanceSlotAllocator, grownAttribute } from '../instance-slot-allocato
 import { DrawGate } from '../draw-gate';
 import { clothSeed } from './vat-cloth';
 import { drawnInWorldSpace } from '../../static-group';
+import { isSharedGpu } from '../../shared-gpu';
 
 /**
  * Instances a type's buffers hold at first; they double whenever an enemy
@@ -952,9 +953,10 @@ export class EnemyInstanceManager {
         blob.removeFromParent();
         this.blobs.delete(pool.typeId);
       }
-      pool.instancedMesh.geometry.dispose();
+      // The VAT's geometry and texture are the page's (vat-cache.ts): the next engine draws them as they are
+      if (!isSharedGpu(pool.instancedMesh.geometry)) pool.instancedMesh.geometry.dispose();
       (pool.instancedMesh.material as Material).dispose();
-      pool.vatData.positionTexture.dispose();
+      if (!isSharedGpu(pool.vatData.positionTexture)) pool.vatData.positionTexture.dispose();
     }
     this.pools.clear();
   }
