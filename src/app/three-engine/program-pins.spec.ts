@@ -5,12 +5,18 @@ import { ProgramPins } from './program-pins';
 /** What a fake renderer was asked to compile: the objects under the root it got */
 function fakeRenderer(programs: { usedTimes: number }[] = []) {
   const compiled: Object3D[] = [];
+  /** A material's hook and uniforms as compiled */
+  const atCompile = new Map<object, { hook: unknown; uniforms: unknown }>();
   // What a material's dispose gives back (three's releaseMaterialProgramReferences through the compiled holder)
   const props = new Map<object, { programs?: Map<unknown, { usedTimes: number }> }>();
   const renderer = {
     info: { programs },
     compileAsync: (root: Object3D) => {
-      root.traverse((o) => compiled.push(o));
+      root.traverse((o) => {
+        compiled.push(o);
+        const m = (o as Mesh).material as ShaderMaterial | undefined;
+        if (m) atCompile.set(m, { hook: m.onBeforeCompile, uniforms: m.uniforms });
+      });
       return Promise.resolve(root);
     },
     compile: (root: Mesh) => {
@@ -21,12 +27,12 @@ function fakeRenderer(programs: { usedTimes: number }[] = []) {
     },
     properties: { get: (o: object) => props.get(o) ?? {} },
   };
-  return { renderer: renderer as unknown as WebGLRenderer, compiled };
+  return { renderer: renderer as unknown as WebGLRenderer, compiled, atCompile };
 }
 
 describe('ProgramPins', () => {
   it('compiles one twin per shader text, of the kind of its object, with the material settings and hooks', async () => {
-    const { renderer, compiled } = fakeRenderer();
+    const { renderer, compiled, atCompile } = fakeRenderer();
     const scene = new Scene();
     const shader = new ShaderMaterial({ vertexShader: 'void main() {}', fragmentShader: 'void main() {}', defines: { A: '' }, transparent: true });
     shader.onBeforeCompile = () => undefined;
@@ -42,8 +48,10 @@ describe('ProgramPins', () => {
     expect(material).not.toBe(shader);
     expect(material.defines).toEqual({ A: '' });
     expect(material.transparent).toBe(true);
-    expect(material.onBeforeCompile).toBe(shader.onBeforeCompile);
-    expect(material.uniforms).toBe(shader.uniforms);
+    // Compiled with the hook and uniforms of the original, built it lets go of them (they held the world)
+    expect(atCompile.get(material)).toEqual({ hook: shader.onBeforeCompile, uniforms: shader.uniforms });
+    expect(material.uniforms).toEqual({});
+    expect(material.onBeforeCompile).not.toBe(shader.onBeforeCompile);
     // Seen once: nothing more to compile
     compiled.length = 0;
     await pins.pinShaders(renderer, scene, new PerspectiveCamera(), scene);

@@ -32,6 +32,7 @@ import { ViewPicker } from './view-picker';
 import { pixelRatioFor, readStoredQuality, storedKnobsFor, type QualityKnobs } from '../../three-engine/render-quality';
 import { settleContexts } from '../../three-engine/context-release';
 import type { RendererLease } from '../../three-engine/renderer-host';
+import { ProgramPins } from '../../three-engine/program-pins';
 import { ShotLights } from '../../three-engine/shot-lights/shot-lights';
 import type { Contours } from '../ops/contours';
 import type { GroundBaker } from '../../world/custom-map/render/terrain/ground-shape';
@@ -118,6 +119,8 @@ export class EditorViewport {
   /** The game's quality level for custom maps (render-quality.ts) */
   private readonly quality: QualityKnobs;
 
+  /** The view's programs and shader ids, kept with the page's renderer when the view goes */
+  private readonly pins = new ProgramPins();
   /** The page's canvas (RendererHost), in the editor's place while the view lives */
   readonly canvas: HTMLCanvasElement;
 
@@ -156,6 +159,11 @@ export class EditorViewport {
       // The editor stands: the context of the game it came from goes now
       settleContexts();
       callbacks.viewReady();
+      // Its programs and shader ids stay with the page's renderer after the view (RendererHost, KEEP_LEASES): back
+      // from a test run the editor finds them built
+      void this.pins.pinShaders(this.renderer, this.scene, this.camera, this.scene).then(() => {
+        if (!this.warmup.gone) this.pins.pinPrograms(this.renderer);
+      });
     });
     this.scene.add(this.overlay.group);
     void this.warmup.overlay(this.overlay.group);
@@ -335,6 +343,8 @@ export class EditorViewport {
   }
 
   dispose(): void {
+    // What the view drew stays built with the page's renderer (RendererHost, KEEP_LEASES): pinned while the map is in
+    this.pins.pinAll(this.renderer, this.scene, this.camera);
     this.warmup.dispose();
     this.extras.dispose();
     cancelAnimationFrame(this.raf);
@@ -347,6 +357,7 @@ export class EditorViewport {
     this.overlay.dispose();
     this.canvas.removeAttribute('tabindex');
     this.canvas.removeAttribute('aria-label');
+    this.lease.keep(this.pins);
     // The renderer goes back to the page's host with its context: the test run draws with it
     this.lease.release();
   }

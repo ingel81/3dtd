@@ -2,6 +2,16 @@ import { NoToneMapping, PCFShadowMap, SRGBColorSpace, WebGLRenderer, type Buffer
 import { releaseContext } from './context-release';
 import { skipLostContextDeletes } from './lost-context-deletes';
 import { deferPendingProgramDeletes } from './pending-program-deletes';
+import { PIN_TWIN, type ProgramPins } from './program-pins';
+
+/**
+ * Leases whose pinned programs and shader ids stay after they end: the
+ * lease that ended last and the one before it. Switching between the editor
+ * and a test run (or two worlds) back and forth finds each side's programs
+ * built; older pins are given back to three, which frees what no material
+ * uses. Kept programs cost the GPU process a few MB per few hundred.
+ */
+export const KEEP_LEASES = 2;
 
 /** Options of the shared renderer, without the canvas and its MSAA (RendererHost) */
 export const CANVAS_RENDERER_OPTIONS = {
@@ -23,6 +33,12 @@ export interface RendererLease {
   readonly msaa: boolean;
   /** Back to the host: its canvas leaves the page, its context stays for the next owner */
   release(): void;
+  /**
+   * The owner's pinned programs and shader ids stay with the host after the
+   * lease ends, for KEEP_LEASES leases: a later owner drawing the same
+   * materials finds their programs built (the owner no longer disposes them)
+   */
+  keep(pins: ProgramPins): void;
 }
 
 /**
@@ -60,6 +76,9 @@ export interface RendererLease {
 export class RendererHost {
   private current: { renderer: WebGLRenderer; msaa: boolean } | null = null;
   private owner: object | null = null;
+  /** Pins kept from ended leases (RendererLease.keep), by the number of the lease they came from */
+  private kept: { lease: number; pins: ProgramPins }[] = [];
+  private leases = 0;
   /** The geometries drawn and materials drawn or compiled during the lease now, disposed when it ends */
   private readonly drawn = new Set<BufferGeometry>();
   private readonly materials = new Set<Material>();
@@ -84,6 +103,7 @@ export class RendererHost {
     if (!this.current || this.current.msaa !== msaa) this.replace(msaa);
     const { renderer } = this.current!;
     const owner = {};
+    const number = ++this.leases;
     this.owner = owner;
     this.drawn.clear();
     this.materials.clear();
@@ -100,11 +120,19 @@ export class RendererHost {
         if (this.owner !== owner) return;
         this.owner = null;
         for (const geometry of this.drawn) geometry.dispose();
-        for (const material of this.materials) material.dispose();
+        // A pin's twin stays for the pins (keep): it holds its shader's id and program
+        for (const material of this.materials) if (!material.userData[PIN_TWIN]) material.dispose();
         this.drawn.clear();
         this.materials.clear();
+        // Pins of leases before the last KEEP_LEASES go back: three frees what no material holds
+        for (const k of this.kept.filter((k) => k.lease <= number - KEEP_LEASES)) k.pins.dispose(renderer);
+        this.kept = this.kept.filter((k) => k.lease > number - KEEP_LEASES);
         resetRenderer(renderer);
         canvas.remove();
+      },
+      keep: (pins) => {
+        if (this.owner !== owner) pins.dispose(renderer);
+        else this.kept.push({ lease: number, pins });
       },
     };
   }
@@ -115,6 +143,7 @@ export class RendererHost {
     const { renderer } = this.current;
     this.current = null;
     this.owner = null;
+    this.kept = [];
     renderer.domElement.remove();
     renderer.dispose();
     renderer.forceContextLoss();
@@ -147,6 +176,8 @@ export class RendererHost {
       return compiled;
     };
     this.current = { renderer, msaa };
+    // Pins of the old renderer go with it
+    this.kept = [];
     if (old) {
       old.renderer.domElement.remove();
       old.renderer.dispose();

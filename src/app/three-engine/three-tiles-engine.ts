@@ -1641,7 +1641,10 @@ export class ThreeTilesEngine {
 
   dispose(): void {
     this.disposed = true;
-    this.pins.dispose(this.renderer);
+    // The warm-up's programs and shader ids stay with the page's renderer: a test run back from the editor, or the
+    // next world, finds what it shares with this one built (RendererHost, KEEP_LEASES)
+    this.pins.pinAll(this.renderer, this.scene, this.camera);
+    this.lease.keep(this.pins);
     this.dynamic?.gpu?.close();
     this.dynamic = null;
     this.gpuMeter.dispose();

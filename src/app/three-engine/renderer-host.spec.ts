@@ -1,6 +1,7 @@
 import { BufferGeometry, MeshBasicMaterial, type WebGLRenderer } from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { RendererHost } from './renderer-host';
+import { KEEP_LEASES, RendererHost } from './renderer-host';
+import type { ProgramPins } from './program-pins';
 import { settleContexts } from './context-release';
 
 /** A renderer that records what is done to it; its canvas a real element */
@@ -100,5 +101,24 @@ describe('RendererHost', () => {
     // The next lease starts with nothing drawn
     host.acquire(document.createElement('div'), true).release();
     expect(disposed).toBe(11);
+  });
+
+  it('keeps the pins of the last KEEP_LEASES leases and gives older ones back', () => {
+    const host = new RendererHost(() => fakeRenderer() as unknown as WebGLRenderer);
+    const given: number[] = [];
+    const pins = (n: number) => ({ dispose: () => given.push(n) }) as unknown as ProgramPins;
+    for (let n = 1; n <= 4; n++) {
+      const lease = host.acquire(document.createElement('div'), true);
+      lease.keep(pins(n));
+      lease.release();
+    }
+    // Leases 3 and 4 kept; 1 and 2 given back as later leases ended
+    expect(given).toEqual([1, 2]);
+    expect(KEEP_LEASES).toBe(2);
+    // A lease no longer current keeps nothing
+    const stale = host.acquire(document.createElement('div'), true);
+    host.acquire(document.createElement('div'), true);
+    stale.keep(pins(9));
+    expect(given).toContain(9);
   });
 });

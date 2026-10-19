@@ -45,7 +45,15 @@ export class ProgramPins {
     if (!added.length) return Promise.resolve();
     const batch = new Group();
     batch.children = added;
-    return renderer.compileAsync(batch, camera, scene);
+    return renderer.compileAsync(batch, camera, scene).then(() => {
+      // Built: a twin only holds its shader's id and program from here on, never draws, never compiles again. Its
+      // uniforms and hook held the world's textures and closures, kept on with the pins past the engine (RendererHost)
+      for (const mesh of added) {
+        const twin = (mesh as Mesh).material as ShaderMaterial;
+        twin.uniforms = {};
+        twin.onBeforeCompile = noHook;
+      }
+    });
   }
 
   /**
@@ -59,6 +67,17 @@ export class ProgramPins {
       this.programs.add(program);
       (program as unknown as { usedTimes: number }).usedTimes++;
     }
+  }
+
+  /**
+   * Pins what `scene` holds now: its shaders' ids and every program the
+   * renderer has, before an owner goes and keeps its pins with the page's
+   * renderer (RendererLease.keep). The twins compile against programs that
+   * exist: nothing links
+   */
+  pinAll(renderer: WebGLRenderer, scene: Scene, camera: Camera): void {
+    void this.pinShaders(renderer, scene, camera, scene);
+    this.pinPrograms(renderer);
   }
 
   /** How many shader texts and programs are pinned */
@@ -87,6 +106,14 @@ export class ProgramPins {
   }
 }
 
+/** Marks a twin in its userData: a lease's end leaves it to the pins (RendererHost) */
+export const PIN_TWIN = 'pinTwin';
+
+/** A compile hook that does nothing (a built twin's) */
+function noHook(): void {
+  // nothing
+}
+
 /**
  * A material that builds the same program as `m`: its own object (it is
  * never disposed), every setting and the compile hooks of `m`, the uniforms
@@ -108,6 +135,8 @@ function twinMaterial(m: ShaderMaterial): ShaderMaterial {
   twin.onBeforeCompile = m.onBeforeCompile;
   twin.customProgramCacheKey = m.customProgramCacheKey;
   twin.name = `pin:${m.name}`;
+  // Not the lease's to dispose when it ends (RendererHost): the pins give it back
+  twin.userData[PIN_TWIN] = true;
   return twin;
 }
 
