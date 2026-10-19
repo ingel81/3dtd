@@ -36,6 +36,7 @@ import { ProgramPins } from '../../three-engine/program-pins';
 import { ShotLights } from '../../three-engine/shot-lights/shot-lights';
 import type { Contours } from '../ops/contours';
 import type { GroundBaker } from '../../world/custom-map/render/terrain/ground-shape';
+import type { Messages } from '../../i18n/messages/en';
 
 export interface HoverInfo {
   x: number;
@@ -61,6 +62,8 @@ export interface FrameStats {
 
 export interface ViewportCallbacks {
   status(message: string): void;
+  /** The words of the player's language, for the tools */
+  t(): Messages;
   /** The tool's line of help says something new */
   hintChanged(): void;
   box(box: { x0: number; y0: number; x1: number; y1: number } | null): void;
@@ -383,6 +386,7 @@ export class EditorViewport {
       pick: (q) => p.pick(q),
       status: (m) => this.callbacks.status(m),
       hintChanged: () => this.callbacks.hintChanged(),
+      t: () => this.callbacks.t(),
       setBox: (b) => this.callbacks.box(b),
       setLasso: (points) => this.callbacks.lasso(points),
       objectVisible: (o) => this.objectVisible(o),

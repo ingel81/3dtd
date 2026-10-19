@@ -54,9 +54,12 @@ import { SaveService } from '../services/save-service';
 import { ToolHost } from '../services/tool-host';
 import { ViewHost, type EditorViewPort } from '../services/view-host';
 import { RendererHostService } from '../../services/infrastructure/renderer-host.service';
+import { injectT } from '../../i18n/i18n.service';
 
 @Injectable()
 export class EditorSession implements OnDestroy {
+  /** The words of the player's language, for the tools and the services */
+  readonly t = injectT();
   private readonly zone = inject(NgZone);
   private readonly renderers = inject(RendererHostService);
   readonly catalog = signal(new CatalogIndex(EMPTY_CATALOG));
@@ -103,6 +106,7 @@ export class EditorSession implements OnDestroy {
       locked: () => this.maps.readOnly() || !!this.jobs.job(),
       contextLost: (lost) => this.contextLost(lost),
       hintChanged: () => this.tools.hintChanged(),
+      t: () => this.t(),
       pathMask: this.pathMask,
       ground: this.ground,
       renderer: (slot) => this.renderers.acquire(slot, 'custom-map'),

@@ -10,6 +10,7 @@ import { TOOL_DEFS, type ToolId } from '../../tools/tool-defs';
 import { patch } from '../../tools/tool';
 import type { EditorSession } from '../editor-session.service';
 import { TOUR_STEPS } from './tour';
+import type { Messages } from '../../../i18n/messages/en';
 
 /** What the actions work on: the session and what the editor's page does around it */
 export interface ActionHost {
@@ -25,17 +26,20 @@ export interface ActionHost {
   openGuide(): void;
 }
 
+/** The group an action shows under in the palette (i18n `editor.actionGroups`) */
+export type ActionGroup = keyof Messages['editor']['actionGroups'];
+
+/** An action of the editor; its words are the dictionary's (actionLabel, i18n `editor.actions`, `editor.fileActions`) */
 export interface EditorAction {
   id: string;
-  label: string;
   /** Shown beside the label in the palette: Tools, View, Map … */
-  group: string;
+  group: ActionGroup;
   /** The single key it starts with, as KeyboardEvent.key in lower case; the user may give it another */
   defaultKey?: string;
   /** A fixed key that does the same (Ctrl+Z) */
   keys?: string;
-  /** Its label in the File menu, when it is there */
-  file?: string;
+  /** It is in the File menu, with its own words there (i18n `editor.fileActions`) */
+  file?: true;
   run(h: ActionHost): void;
   /** False when it does not apply now (the palette leaves it out, its key goes on to the view) */
   enabled?(h: ActionHost): boolean;
@@ -44,40 +48,52 @@ export interface EditorAction {
 const withView = (h: ActionHost) => h.session.view.shown;
 
 export const EDITOR_ACTIONS: readonly EditorAction[] = [
-  { id: 'edit:undo', label: 'Undo', group: 'Edit', keys: 'Ctrl+Z', run: (h) => h.session.undo() },
-  { id: 'edit:redo', label: 'Redo', group: 'Edit', keys: 'Ctrl+Y', run: (h) => h.session.redo() },
-  { id: 'edit:history', label: 'History: jump to a step', group: 'Edit', run: (h) => h.showHistory() },
-  { id: 'map:save', label: 'Save', group: 'Map', keys: 'Ctrl+S', run: (h) => void h.session.saves.save(true) },
-  { id: 'map:check', label: 'Check the map', group: 'Map', defaultKey: 'v', run: (h) => h.check() },
-  { id: 'map:test', label: 'Test the map in the game', group: 'Map', run: (h) => void h.session.check.testPlay() },
-  { id: 'map:download', label: 'Download the map file', group: 'Map', file: 'Download map file', run: (h) => h.session.saves.downloadFile() },
-  { id: 'map:picture', label: 'Download a picture of the map', group: 'Map', file: 'Export top view as picture', run: (h) => void h.session.pictures.downloadPng() },
-  { id: 'map:trial', label: 'Trial wave: enemies walk the routes', group: 'Map', defaultKey: 'p', run: (h) => h.trial(), enabled: withView },
+  { id: 'edit:undo', group: 'Edit', keys: 'Ctrl+Z', run: (h) => h.session.undo() },
+  { id: 'edit:redo', group: 'Edit', keys: 'Ctrl+Y', run: (h) => h.session.redo() },
+  { id: 'edit:history', group: 'Edit', run: (h) => h.showHistory() },
+  { id: 'map:save', group: 'Map', keys: 'Ctrl+S', run: (h) => void h.session.saves.save(true) },
+  { id: 'map:check', group: 'Map', defaultKey: 'v', run: (h) => h.check() },
+  { id: 'map:test', group: 'Map', run: (h) => void h.session.check.testPlay() },
+  { id: 'map:download', group: 'Map', file: true, run: (h) => h.session.saves.downloadFile() },
+  { id: 'map:picture', group: 'Map', file: true, run: (h) => void h.session.pictures.downloadPng() },
+  { id: 'map:trial', group: 'Map', defaultKey: 'p', run: (h) => h.trial(), enabled: withView },
   ...TOOL_DEFS.map(
     (t): EditorAction => ({
       id: `tool:${t.id}`,
-      label: t.label,
       group: 'Tools',
       // Look stays on Esc: Esc first drops what is half done, so it is no key to give away
       ...(t.id === 'look' ? { keys: t.key } : { defaultKey: t.key.toLowerCase() }),
       run: (h) => h.pick(t.id),
     }),
   ),
-  { id: 'view:frame-map', label: 'Frame the map', group: 'View', file: 'Frame the whole map', run: (h) => h.session.view.frameMap(), enabled: withView },
-  { id: 'view:frame', label: 'Frame the selection', group: 'View', defaultKey: 'f', run: (h) => h.session.view.focusSelection(), enabled: withView },
-  { id: 'view:top', label: 'Top view on or off', group: 'View', defaultKey: 't', file: 'Top view on or off', run: (h) => h.session.view.setTopDown(!h.session.view.topDown), enabled: withView },
-  { id: 'view:game', label: 'Game view on or off', group: 'View', defaultKey: 'c', run: (h) => h.session.view.toggleGameView(), enabled: withView },
-  { id: 'view:still', label: 'Still frame on or off', group: 'View', defaultKey: 'b', run: (h) => h.toggleStill() },
-  { id: 'view:contours', label: 'Height lines on or off', group: 'View', run: (h) => patch(h.session.tools.settings.view, { contours: !h.session.tools.settings.view().contours }) },
-  { id: 'view:grid', label: 'Grid on or off', group: 'View', run: (h) => patch(h.session.tools.settings.view, { grid: !h.session.tools.settings.view().grid }) },
-  { id: 'map:symmetry', label: 'Next symmetry', group: 'Symmetry', defaultKey: 'm', run: (h) => h.nextSymmetry() },
-  { id: 'map:mirror', label: 'Mirror the map now (from the part in view)', group: 'Symmetry', run: (h) => h.session.mirrorNow() },
-  { id: 'editor:keys', label: 'Keys', group: 'Editor', keys: '?', run: (h) => h.showHelp() },
-  { id: 'editor:tour', label: `Tour: the editor in ${TOUR_STEPS.length} steps`, group: 'Editor', run: (h) => h.startTour() },
-  { id: 'editor:guide', label: 'How to build a good level', group: 'Editor', run: (h) => h.openGuide() },
+  { id: 'view:frame-map', group: 'View', file: true, run: (h) => h.session.view.frameMap(), enabled: withView },
+  { id: 'view:frame', group: 'View', defaultKey: 'f', run: (h) => h.session.view.focusSelection(), enabled: withView },
+  { id: 'view:top', group: 'View', defaultKey: 't', file: true, run: (h) => h.session.view.setTopDown(!h.session.view.topDown), enabled: withView },
+  { id: 'view:game', group: 'View', defaultKey: 'c', run: (h) => h.session.view.toggleGameView(), enabled: withView },
+  { id: 'view:still', group: 'View', defaultKey: 'b', run: (h) => h.toggleStill() },
+  { id: 'view:contours', group: 'View', run: (h) => patch(h.session.tools.settings.view, { contours: !h.session.tools.settings.view().contours }) },
+  { id: 'view:grid', group: 'View', run: (h) => patch(h.session.tools.settings.view, { grid: !h.session.tools.settings.view().grid }) },
+  { id: 'map:symmetry', group: 'Symmetry', defaultKey: 'm', run: (h) => h.nextSymmetry() },
+  { id: 'map:mirror', group: 'Symmetry', run: (h) => h.session.mirrorNow() },
+  { id: 'editor:keys', group: 'Editor', keys: '?', run: (h) => h.showHelp() },
+  { id: 'editor:tour', group: 'Editor', run: (h) => h.startTour() },
+  { id: 'editor:guide', group: 'Editor', run: (h) => h.openGuide() },
 ];
 
 /** Action by id */
+/** What an action says in the palette and the keys list */
+export function actionLabel(t: Messages, action: EditorAction): string {
+  if (action.id.startsWith('tool:')) return t.editor.tools[action.id.slice(5) as ToolId].label;
+  if (action.id === 'editor:tour') return t.editor.actions['editor:tour'](TOUR_STEPS.length);
+  const label = t.editor.actions[action.id as Exclude<keyof Messages['editor']['actions'], 'editor:tour'>];
+  return typeof label === 'string' ? label : action.id;
+}
+
+/** What an action says in the File menu */
+export function fileLabel(t: Messages, action: EditorAction): string {
+  return t.editor.fileActions[action.id as keyof Messages['editor']['fileActions']] ?? actionLabel(t, action);
+}
+
 export const ACTION_BY_ID: ReadonlyMap<string, EditorAction> = new Map(EDITOR_ACTIONS.map((a) => [a.id, a]));
 
 /** The File menu's actions, in order */

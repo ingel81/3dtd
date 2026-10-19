@@ -48,6 +48,7 @@ import { patch, defaultSettings, type EditorTool, type LandscapeMode, type Terra
 import { WaterTool } from './tools/water-tool';
 import type { ToolOverlay } from './view/overlay/tool-overlay';
 import type { GizmoHandle } from './view/transform-gizmo';
+import { en } from '../i18n/messages/en';
 
 /** A building of the catalogue, blocks building and sight */
 const HOUSE = 'house';
@@ -91,6 +92,7 @@ function context(editor: EditorDocument): ToolContext & { gizmo: GizmoHandle | n
     toScreen: (x: number, y: number) => ({ x, y }),
     setLasso: () => undefined,
     objectVisible: () => true,
+    t: () => en,
   };
   return ctx;
 }

@@ -23,6 +23,7 @@ import { randomSeed } from '../../map-ops/landscape-noise';
 import { DEFAULT_RIVER, type RiverOptions } from '../ops/landscape/river';
 import { DEFAULT_ROAD, type RoadOptions } from '../ops/landscape/road';
 import type { ToolOverlay } from '../view/overlay/tool-overlay';
+import type { Messages } from '../../i18n/messages/en';
 
 /** The tool that changes each part of the document (a check issue's `part`) */
 export const PART_TOOL: Record<MapProblemPart, ToolId> = {
@@ -283,6 +284,8 @@ export interface ToolContext {
   setLasso(points: readonly { x: number; y: number }[] | null): void;
   /** Whether the view shows an object (its category is not hidden) */
   objectVisible(o: MapObject): boolean;
+  /** The words of the player's language: status lines, hints and undo steps say them */
+  t(): Messages;
 }
 
 export interface EditorTool {
@@ -317,17 +320,14 @@ export interface FixedKey {
 
 /** A tool that does nothing on the map (Environment, Map settings, Rules) */
 export class PanelTool implements EditorTool {
-  constructor(
-    readonly id: ToolId,
-    private readonly help: string,
-  ) {}
+  constructor(readonly id: ToolId & keyof Messages['editor']['panelHints']) {}
 
   brushVisible(): boolean {
     return false;
   }
 
-  hint(): string {
-    return this.help;
+  hint(ctx: ToolContext): string {
+    return ctx.t().editor.panelHints[this.id];
   }
 }
 

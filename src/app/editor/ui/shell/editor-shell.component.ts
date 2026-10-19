@@ -19,14 +19,14 @@ import { NgComponentOutlet } from '@angular/common';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import { SYMMETRY_MODES, type SymmetryMode } from '../../ops/symmetry';
 import { patch, LANDSCAPE_MODES } from '../../tools/tool';
-import { TOOL_DEFS, TOOL_GROUPS, TOOL_INFO, type ToolId } from '../../tools/tool-defs';
+import { TOOL_DEFS, TOOL_GROUPS, type ToolId } from '../../tools/tool-defs';
 import { BIOMES, biomeById } from '../../ops/landscape/biomes';
 import { TRIAL_SPEEDS, stepTrialSpeed } from '../../view/trial-runners';
 import { CommandPaletteComponent } from './command-palette.component';
 import type { EditorCommand } from './commands';
 import { TOOL_PANELS } from './tool-panels';
-import { EDITOR_ACTIONS, FILE_ACTIONS, runAction, type ActionHost, type EditorAction } from './actions';
-import { KEY_ACTIONS, actionFor, bindable, loadKeymap, rebind, saveKeymap, toolKeys, type Keymap } from './keymap';
+import { EDITOR_ACTIONS, FILE_ACTIONS, actionLabel, fileLabel as fileLabelOf, runAction, type ActionHost, type EditorAction } from './actions';
+import { KEY_ACTIONS, actionFor, bindable, keyActionLabel, loadKeymap, rebind, saveKeymap, toolKeys, type KeyAction, type Keymap } from './keymap';
 import { LEVEL_GUIDE } from './level-guide';
 import { TOUR_STEPS, markTourDone, tourAdvance, tourPending, tourResumeAt, type TourEvent } from './tour';
 import { RovingGroupDirective } from '../../../components/roving-group.directive';
@@ -46,6 +46,7 @@ import { WorldSession } from '../../../world/world-session.service';
 import { PLAIN_START } from '../../../world/world-start';
 import { WorldsStageService } from '../../../worlds/worlds-stage.service';
 import { PanelShown } from '../panels/panel-shown';
+import { injectT } from '../../../i18n/i18n.service';
 
 const LEGEND_KEY = '3dtd-editor-legend';
 const SIDE_KEY = '3dtd-editor-side';
@@ -114,6 +115,7 @@ function readLegend(): boolean {
 })
 export class EditorShellComponent implements OnDestroy, ActionHost {
   readonly session = inject(EditorSession);
+  protected readonly t = injectT();
   private readonly screens = inject(AppScreen);
   private readonly worlds = inject(WorldSession);
   private readonly stage = inject(WorldsStageService);
@@ -121,7 +123,7 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
   private readonly waitingRun = this.screens.waitingRun;
   /** The path's chips, the same as on the globes and over the game: every world's Continue (the run that waits among them) */
   readonly pathChips = computed<readonly PathChip[]>(() => this.stage.pathChips(null, false));
-  readonly playHint = computed(() => (this.runOfThisMap() ? 'Back to the run on this map' : 'Play this map'));
+  readonly playHint = computed(() => (this.runOfThisMap() ? this.t().editor.shell.backToRun : this.t().editor.shell.playMap));
   readonly closed = output<void>();
   readonly tools = TOOL_DEFS;
   readonly toolGroups = TOOL_GROUPS;
@@ -145,11 +147,21 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
   /** The command palette's list while it is open */
   readonly palette = signal<readonly EditorCommand[] | null>(null);
   /** The single keys inside the tools (W E R …): no action may take them */
-  private readonly fixedKeys = toolKeys(Object.values(this.session.tools.all));
+  private readonly fixedKeys = computed(() => toolKeys(this.t(), Object.values(this.session.tools.all)));
   /** The keys of the rebindable actions, and the action waiting for its new key */
-  readonly keymap = signal<Keymap>(loadKeymap(undefined, this.fixedKeys));
+  readonly keymap = signal<Keymap>(loadKeymap(undefined, untracked(this.fixedKeys)));
   readonly capturing = signal<string | null>(null);
   readonly keyActions = KEY_ACTIONS;
+
+  /** An action's name in the keys list */
+  keyLabel(action: KeyAction): string {
+    return keyActionLabel(this.t(), action);
+  }
+
+  /** An action's words in the File menu */
+  fileLabel(action: EditorAction): string {
+    return fileLabelOf(this.t(), action);
+  }
   /** The tour's step, null when it does not run */
   readonly tourStep = signal<number | null>(null);
   /** The step a skipped tour can resume at, for the help */
@@ -164,16 +176,26 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
   readonly mounted = signal<ReadonlySet<ToolId>>(new Set<ToolId>());
   readonly tour = computed(() => {
     const k = this.tourStep();
-    return k === null ? null : { step: TOUR_STEPS[k], counter: `${k + 1}/${TOUR_STEPS.length}`, last: k === TOUR_STEPS.length - 1 };
+    if (k === null) return null;
+    const step = TOUR_STEPS[k];
+    const words = this.t().editor.tour[step.id];
+    return {
+      id: step.id,
+      title: words?.title ?? step.id,
+      message: words?.message ?? '',
+      hints: (words?.hints ?? []).map(([key, description]) => ({ key, description })),
+      counter: `${k + 1}/${TOUR_STEPS.length}`,
+      last: k === TOUR_STEPS.length - 1,
+    };
   });
   readonly tourActions = computed<HintAction[]>(() => [
-    ...(this.tourStep() ? [{ id: 'back', label: 'Back' }] : []),
-    { id: 'next', label: this.tour()?.last ? 'Done' : 'Next' },
-    { id: 'skip', label: 'Skip the tour' },
+    ...(this.tourStep() ? [{ id: 'back', label: this.t().editor.shell.tourBack }] : []),
+    { id: 'next', label: this.tour()?.last ? this.t().editor.shell.tourDone : this.t().editor.shell.tourNext },
+    { id: 'skip', label: this.t().editor.shell.tourSkip },
   ]);
   /** Where the step's element sits on the screen, for the ring around it */
   readonly tourRing = signal<{ left: number; top: number; width: number; height: number } | null>(null);
-  readonly shortcuts = SHORTCUTS;
+  readonly shortcuts = computed(() => this.t().editor.shortcuts);
   readonly symmetryModes = SYMMETRY_MODES;
   readonly symmetry = computed(() => this.session.tools.settings.symmetry());
   /** The view shows a still frame (wind, water, particles stand) */
@@ -185,18 +207,20 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
     const doc = (this.terrainRev(), this.session.doc);
     const m = SYMMETRY_MODES.find((s) => s.id === this.symmetry())!;
     const square = !doc || doc.terrain.grid.columns === doc.terrain.grid.rows;
-    return m.id === 'rot4' && !square ? 'Turn 4 needs a square map: this one turns by 180 degrees' : `${m.hint} (M cycles)`;
+    const says = this.t().editor;
+    return m.id === 'rot4' && !square ? says.shell.rot4NotSquare : says.shell.symmetryHint(says.symmetry[m.id].hint);
   });
   /** Where the page's canvas goes (RendererHost) */
   private readonly canvas = viewChild.required<ElementRef<HTMLDivElement>>('canvas');
 
   readonly title = computed(() => this.session.state.meta()?.name ?? '');
-  readonly toolLabel = computed(() => TOOL_INFO.get(this.session.tools.tool())?.label ?? '');
+  readonly toolLabel = computed(() => this.t().editor.tools[this.session.tools.tool()]?.label ?? '');
   readonly issueCount = computed(() => this.session.check.issues()?.filter((i) => i.severity === 'error').length ?? 0);
   readonly saveLine = computed(() => {
-    if (this.session.maps.readOnly()) return 'Read only';
-    if (this.session.saves.saving()) return 'Saving';
-    return this.session.saves.dirty() ? 'Unsaved changes' : 'Saved';
+    const says = this.t().editor.shell;
+    if (this.session.maps.readOnly()) return says.readOnly;
+    if (this.session.saves.saving()) return says.saving;
+    return this.session.saves.dirty() ? says.unsaved : says.saved;
   });
 
   constructor() {
@@ -258,7 +282,8 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
 
   setSymmetry(mode: SymmetryMode): void {
     this.session.tools.settings.symmetry.set(mode);
-    this.session.notices.flash(mode === 'none' ? 'Symmetry off' : `Symmetry: ${SYMMETRY_MODES.find((m) => m.id === mode)!.label}`);
+    const says = this.t().editor;
+    this.session.notices.flash(mode === 'none' ? says.shell.symmetryOff : says.shell.symmetryOn(says.symmetry[mode].label));
   }
 
   /** A fresh copy of the changed original, opened in place of the copy (which stays in the list) */
@@ -270,7 +295,7 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
   toggleStill(): void {
     const s = this.session;
     patch(s.tools.settings.view, { still: !s.tools.settings.view().still });
-    s.notices.flash(s.tools.settings.view().still ? `Still frame: nothing moves (${this.keyOf('view:still')} moves it again)` : 'Wind and water move again');
+    s.notices.flash(s.tools.settings.view().still ? this.t().editor.shell.stillFlashOn(this.keyOf('view:still')) : this.t().editor.shell.stillFlashOff);
   }
 
   setLegend(on: boolean): void {
@@ -416,7 +441,7 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
   setTrialSpeed(speed: number): void {
     this.trialSpeed.set(speed);
     this.session.view.setTrialSpeed(speed);
-    this.session.notices.flash(`Trial wave at ${speed}x`);
+    this.session.notices.flash(this.t().editor.shell.trialAt(speed));
   }
 
   testPlay(): void {
@@ -438,7 +463,7 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
   async check(): Promise<void> {
     this.tourEvent('check');
     const issues = await this.session.check.runCheck();
-    this.session.notices.flash(issues.length ? `${issues.length} ${issues.length === 1 ? 'thing' : 'things'} to look at` : 'The map checks out');
+    this.session.notices.flash(issues.length ? this.t().editor.shell.toLookAt(issues.length) : this.t().editor.shell.checksOut);
   }
 
   onKeyDown(e: KeyboardEvent): void {
@@ -447,21 +472,22 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
       if (e.key === 'Escape') return this.handled(e, () => this.capturing.set(null));
       if (e.ctrlKey || e.metaKey || e.altKey || !bindable(e.key)) return;
       const key = e.key.toLowerCase();
-      const fixed = this.fixedKeys.get(key);
+      const fixed = this.fixedKeys().get(key);
       // A tool's own key stays the tool's: say whose it is and wait for another
-      if (fixed) return this.handled(e, () => this.session.notices.flash(`${key.toUpperCase()} stays fixed: ${fixed}. Press another key, Esc keeps the old one`));
+      if (fixed) return this.handled(e, () => this.session.notices.flash(this.t().editor.shell.keyFixed(key.toUpperCase(), fixed)));
       return this.handled(e, () => {
         const before = this.keymap();
         const next = rebind(before, waiting, key);
         this.keymap.set(next);
         saveKeymap(next);
         this.capturing.set(null);
-        const label = (id: string) => KEY_ACTIONS.find((a) => a.id === id)?.label ?? id;
+        const label = (id: string) => keyActionLabel(this.t(), { id, key: '' });
         const swapped = Object.keys(next).find((id) => id !== waiting && before[id] === key);
+        const says = this.t().editor.shell;
         this.session.notices.flash(
           swapped
-            ? `${key.toUpperCase()}: ${label(waiting)}; ${label(swapped)} takes ${next[swapped].toUpperCase() || 'no key'}`
-            : `${key.toUpperCase()}: ${label(waiting)}`,
+            ? says.keySwapped(key.toUpperCase(), label(waiting), label(swapped), next[swapped].toUpperCase() || says.noKey)
+            : says.keyGiven(key.toUpperCase(), label(waiting)),
         );
       });
     }
@@ -540,8 +566,8 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
 
   /** The keys of a help row: fixed text, or the key an action has now */
   helpKeys(keys: HelpKeys): string {
-    if (typeof keys === 'string') return keys;
-    if ('action' in keys) return this.keyOf(keys.action) || 'no key';
+    if (!keys.startsWith('@')) return keys;
+    if (keys !== '@tools') return this.keyOf(keys.slice(1)) || this.t().editor.shell.noKey;
     // The tools' keys in the toolbar's order
     return TOOL_DEFS.filter((t) => t.id !== 'look')
       .map((t) => this.keyOf(`tool:${t.id}`))
@@ -569,29 +595,32 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
     const s = this.session;
     const vp = s.view;
     const out: EditorCommand[] = [];
+    const t = this.t();
+    const says = t.editor.shell;
+    const heads = t.editor.actionGroups;
     const add = (group: string, label: string, run: () => void, keys?: string) => out.push({ id: `${group}:${label}`, group, label, keys, run });
     for (const a of EDITOR_ACTIONS) {
-      if (!a.enabled || a.enabled(this)) out.push({ id: a.id, group: a.group, label: a.label, keys: a.defaultKey ? this.keyOf(a.id) : a.keys, run: () => a.run(this) });
+      if (!a.enabled || a.enabled(this)) out.push({ id: a.id, group: heads[a.group], label: actionLabel(t, a), keys: a.defaultKey ? this.keyOf(a.id) : a.keys, run: () => a.run(this) });
     }
     for (const m of LANDSCAPE_MODES) {
-      add('Landscape', m.label, () => {
+      add(heads.Landscape, m.label, () => {
         this.pick('landscape');
         patch(s.tools.settings.landscape, { mode: m.id });
       });
     }
     for (const b of BIOMES) {
-      add('Biome', b.label, () => {
+      add(heads.Biome, b.label, () => {
         this.pick('landscape');
         patch(s.tools.settings.landscape, { mode: 'biome', biome: b.id });
       });
     }
-    for (const m of SYMMETRY_MODES) add('Symmetry', m.label, () => this.setSymmetry(m.id), this.keyOf('map:symmetry'));
+    for (const m of SYMMETRY_MODES) add(heads.Symmetry, t.editor.symmetry[m.id].label, () => this.setSymmetry(m.id), this.keyOf('map:symmetry'));
     const resume = this.tourResume();
-    if (resume !== null) add('Editor', `Tour: resume at step ${resume + 1}`, () => this.startTour(resume));
+    if (resume !== null) add(heads.Editor, says.tourResume(resume + 1), () => this.startTour(resume));
     const doc = s.doc;
     if (doc && vp.shown) {
-      add('Go to', 'HQ', () => vp.focusOn(doc.hq));
-      for (const sp of doc.spawns) add('Go to', `Spawn ${sp.name}`, () => vp.focusOn(sp));
+      add(heads.GoTo, says.goToHq, () => vp.focusOn(doc.hq));
+      for (const sp of doc.spawns) add(heads.GoTo, says.goToSpawn(sp.name), () => vp.focusOn(sp));
       // Every asset on the map: select all of its objects and frame them
       const byAsset = new Map<string, string[]>();
       for (const o of doc.objects) {
@@ -603,7 +632,7 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
       const groups = new Map<string, string[]>();
       for (const o of doc.objects) if (o.group) groups.set(o.group, [...(groups.get(o.group) ?? []), o.id]);
       for (const [group, ids] of groups) {
-        add('Select', `Group ${group} (${ids.length})`, () => {
+        add(heads.Select, says.selectGroup(group, ids.length), () => {
           this.pick('objects');
           patch(s.tools.settings.objects, { mode: 'select' });
           s.editor?.select({ kind: 'objects', ids });
@@ -612,7 +641,7 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
       }
       for (const category of catalog.categories()) {
         const hidden = s.tools.settings.view().hidden?.includes(category);
-        add('View', `${hidden ? 'Show' : 'Hide'} ${category.toLowerCase()}`, () =>
+        add(heads.View, hidden ? says.showCategory(category) : says.hideCategory(category), () =>
         {
           const set = new Set(s.tools.settings.view().hidden ?? []);
           if (set.has(category)) set.delete(category);
@@ -622,7 +651,7 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
         );
       }
       for (const [asset, ids] of byAsset) {
-        add('Select', `${catalog.object(asset).name} (${ids.length})`, () => {
+        add(heads.Select, says.selectAsset(catalog.object(asset).name, ids.length), () => {
           this.pick('objects');
           patch(s.tools.settings.objects, { mode: 'select' });
           s.editor?.select({ kind: 'objects', ids });
@@ -690,81 +719,8 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
   }
 }
 
-/** Keys of a help row: fixed text, a rebindable action's key, or the tools' keys (all from the keymap) */
-export type HelpKeys = string | { action: string } | { tools: true };
-
-/** The keys of the editor, grouped, for the help (?); the rebindable ones read the keymap, so the help shows the keys in use */
-export const SHORTCUTS: readonly { group: string; keys: readonly [HelpKeys, string][] }[] = [
-  {
-    group: 'Everywhere',
-    keys: [
-      [{ tools: true }, 'Tools'],
-      ['Esc', 'Drop what is half done or the selection, then Look'],
-      ['Ctrl+Z, Ctrl+Y', 'Undo, redo'],
-      ['Ctrl+S', 'Save with a new picture'],
-      [{ action: 'map:check' }, 'Check the map'],
-      [{ action: 'map:symmetry' }, 'Symmetry: off, mirror X, Y, both, turn 2, turn 4'],
-      ['Ctrl+K', 'Commands: tools, biomes, views, objects by name'],
-      ['?', 'This help (the single keys below can be changed)'],
-    ],
-  },
-  {
-    group: 'View',
-    keys: [
-      ['Right drag', 'Turn the view'],
-      ['Right held + W A S D', 'Fly; Q E lower, raise; Shift faster'],
-      [{ action: 'view:game' }, 'Game view: where the game starts, and back'],
-      [{ action: 'map:trial' }, 'Trial wave: the enemies walk the routes at their speed'],
-      ['+ -', 'Trial wave faster, slower (1x to 8x)'],
-      ['Middle drag, Shift+right drag', 'Pan'],
-      ['Wheel', 'Zoom to the pointer'],
-      ['Arrow keys', 'Pan'],
-      [{ action: 'view:frame' }, 'Frame the selection or the map'],
-      [{ action: 'view:top' }, 'Top view on or off'],
-      [{ action: 'view:still' }, 'Still frame: wind, water, lava and particles stand still (the view only)'],
-      ['Alt+1 to 9', 'Keep the current view'],
-      ['Shift+1 to 9', 'Show a kept view'],
-    ],
-  },
-  {
-    group: 'Brushes',
-    keys: [
-      ['[ ]', 'Smaller, larger'],
-      ['Ctrl+wheel', 'Brush size in the view'],
-      ['{ }', 'Weaker, stronger'],
-      ['Shift', 'Reverse (lower, erase, thin out)'],
-      ['Ctrl click', 'Pick the height (Level, Terrace)'],
-    ],
-  },
-  {
-    group: 'Objects, roads, spawns',
-    keys: [
-      ['W E R', 'Move, turn, scale the selection'],
-      ['L', 'Arrows along the map or the object'],
-      ['Alt drag', 'Lasso selection'],
-      ['End', 'Drop the selection onto the ground'],
-      ['Ctrl+G, Ctrl+Shift+G', 'Group, ungroup (Ctrl click picks one member)'],
-      ['Del', 'Delete the selection'],
-      ['Ctrl+D', 'Duplicate objects'],
-      ['Ctrl+A', 'Select all objects the view shows'],
-      ['Q E, comma period', 'Place: turn the next object by a step (Shift+Q E by 90 degrees)'],
-      ['Shift+wheel', 'Place: turn the next object by a step'],
-      ['Alt', 'Place without snapping'],
-      ['S X J', 'Smooth, straighten, join roads'],
-      ['Enter, right click', 'End a road'],
-      ['Q, H', 'Spawn or HQ mode'],
-    ],
-  },
-  {
-    group: 'Copy and stamps',
-    keys: [
-      ['Ctrl+C', 'Copy the rectangle'],
-      ['Ctrl+V', 'Place the copy'],
-      ['R, Shift+R', 'Turn by 90 degrees'],
-      [', .', 'Turn by 15 degrees'],
-    ],
-  },
-];
+/** Keys of a help row: fixed text, '@' and a rebindable action's id for its key, or '@tools' for the tools' keys (all from the keymap) */
+export type HelpKeys = string;
 
 function typing(e: KeyboardEvent): boolean {
   const t = e.target as HTMLElement | null;

@@ -33,7 +33,9 @@ export class ToolHost {
       this.hintRev();
       mapRev();
       const ctx = this.view.toolContext;
-      return ctx ? this.all[this.tool()].hint(ctx) : '';
+      if (!ctx) return '';
+      ctx.t();
+      return this.all[this.tool()].hint(ctx);
     });
   }
 

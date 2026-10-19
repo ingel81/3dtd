@@ -18,6 +18,7 @@ import { patch, type EditorSettings, type EditorTool, type ToolContext } from '.
 import { EditorViewport, type CameraBookmark, type FrameStats, type HoverInfo } from '../view/editor-viewport';
 import type { EditorNotices } from './editor-notices';
 import type { RendererLease } from '../../three-engine/renderer-host';
+import type { Messages } from '../../i18n/messages/en';
 
 const BOOKMARK_KEY = '3dtd-editor-views:';
 
@@ -89,6 +90,8 @@ export interface ViewHostDeps {
   contextLost(lost: boolean): void;
   /** The tool's line of help says something new */
   hintChanged(): void;
+  /** The words of the player's language */
+  t(): Messages;
   /** The view's path mask, kept by the editor's worker */
   pathMask: EditorPathMask;
   /** The view's ground shape and height lines, worked out by the editor's worker */
@@ -135,6 +138,7 @@ export class ViewHost implements EditorViewPort {
       const vp = new EditorViewport(d.renderer(slot), editor, d.catalog(), d.settings, {
         status: (m) => d.notices.flash(m),
         hintChanged: () => d.hintChanged(),
+        t: () => d.t(),
         box: (b) => this.box.set(b),
         lasso: (points) => this.lasso.set(points ? points.map((q) => `${Math.round(q.x)},${Math.round(q.y)}`).join(' ') : null),
         hover: (h) => this.hover.set(h),

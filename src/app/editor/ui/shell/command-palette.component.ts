@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, input, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, input, output, signal, viewChild, inject } from '@angular/core';
 import { rankCommands, type EditorCommand } from './commands';
+import { I18n } from '../../../i18n/i18n.service';
 
 /**
  * The command palette (Ctrl+K): a search field over every command; arrow
@@ -11,11 +12,11 @@ import { rankCommands, type EditorCommand } from './commands';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="cp-veil" (click)="closed.emit()" aria-hidden="true"></div>
-    <section class="cp td-dlg" role="dialog" aria-modal="true" aria-label="Commands" data-test="palette">
-      <input #field class="td-input cp-field" type="text" placeholder="Type a command, a tool, a biome or an object"
+    <section class="cp td-dlg" role="dialog" aria-modal="true" [attr.aria-label]="t().editor.shell.paletteLabel" data-test="palette">
+      <input #field class="td-input cp-field" type="text" [placeholder]="t().editor.shell.palettePlaceholder"
              role="combobox" aria-controls="cp-list" aria-expanded="true" [attr.aria-activedescendant]="'cp-' + active()"
              [value]="query()" (input)="setQuery($any($event.target).value)" (keydown)="onKey($event)" data-test="palette-field" />
-      <ul class="cp-list" id="cp-list" role="listbox" aria-label="Commands">
+      <ul class="cp-list" id="cp-list" role="listbox" [attr.aria-label]="t().editor.shell.paletteLabel">
         @for (c of found(); track c.id; let i = $index) {
           <li class="cp-row" role="option" [id]="'cp-' + i" [attr.aria-selected]="i === active()" [class.is-active]="i === active()"
               tabindex="-1" (mousemove)="active.set(i)" (click)="run(c)" (keydown.enter)="run(c)">
@@ -82,6 +83,7 @@ import { rankCommands, type EditorCommand } from './commands';
   ],
 })
 export class CommandPaletteComponent {
+  protected readonly t = inject(I18n).t;
   readonly commands = input.required<readonly EditorCommand[]>();
   readonly closed = output<void>();
   readonly query = signal('');

@@ -5,13 +5,13 @@
  * action that had it. Keys inside a tool (W E R, Q H, S X J …) stay fixed:
  * each tool names them (EditorTool.fixedKeys), and no action takes them.
  */
-import { TOOL_DEFS } from '../../tools/tool-defs';
-import { EDITOR_ACTIONS } from './actions';
+import { ACTION_BY_ID, EDITOR_ACTIONS, actionLabel } from './actions';
 import type { EditorTool } from '../../tools/tool';
+import type { ToolId } from '../../tools/tool-defs';
+import type { Messages } from '../../../i18n/messages/en';
 
 export interface KeyAction {
   id: string;
-  label: string;
   /** The default key, as KeyboardEvent.key in lower case */
   key: string;
 }
@@ -19,19 +19,25 @@ export interface KeyAction {
 /** The actions with a key of their own the user may change (actions.ts, `defaultKey`) */
 export const KEY_ACTIONS: readonly KeyAction[] = EDITOR_ACTIONS.filter((a) => a.defaultKey).map((a) => ({
   id: a.id,
-  label: a.group === 'Tools' ? `Tool: ${a.label}` : a.label,
   key: a.defaultKey!,
 }));
+
+/** What a key's action is called in the keys list: "Tool: Paint", "Check the map" */
+export function keyActionLabel(t: Messages, action: KeyAction): string {
+  const a = ACTION_BY_ID.get(action.id);
+  if (!a) return action.id;
+  return a.group === 'Tools' ? t.editor.keyAction(actionLabel(t, a)) : actionLabel(t, a);
+}
 
 const STORAGE_KEY = '3dtd-editor-keys';
 
 export type Keymap = Record<string, string>;
 
 /** The tools' fixed keys: what each does, with the tool's name ("move the selection (Objects)") */
-export function toolKeys(tools: Iterable<EditorTool>): ReadonlyMap<string, string> {
+export function toolKeys(t: Messages, tools: Iterable<EditorTool>): ReadonlyMap<string, string> {
   const out = new Map<string, string[]>();
   for (const tool of tools) {
-    const label = TOOL_DEFS.find((t) => t.id === tool.id)?.label ?? tool.id;
+    const label = t.editor.tools[tool.id as ToolId]?.label ?? tool.id;
     for (const { key, what } of tool.fixedKeys ?? []) out.set(key, [...(out.get(key) ?? []), `${what} (${label})`]);
   }
   return new Map([...out].map(([key, list]) => [key, list.join(', ')]));

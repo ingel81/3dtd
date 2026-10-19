@@ -27,13 +27,14 @@ import { HEIGHT_LIMITS } from '../../map-ops/terrain-ops';
 
 export type SymmetryMode = 'none' | 'x' | 'y' | 'xy' | 'rot2' | 'rot4';
 
-export const SYMMETRY_MODES: readonly { id: SymmetryMode; label: string; hint: string }[] = [
-  { id: 'none', label: 'Off', hint: 'No symmetry' },
-  { id: 'x', label: 'Mirror X', hint: 'Mirror east and west across the north-south axis' },
-  { id: 'y', label: 'Mirror Y', hint: 'Mirror north and south across the east-west axis' },
-  { id: 'xy', label: 'Both', hint: 'Mirror across both axes: four quarters' },
-  { id: 'rot2', label: 'Turn 2', hint: 'Turn by 180 degrees around the middle' },
-  { id: 'rot4', label: 'Turn 4', hint: 'Turn by 90 degrees around the middle (square maps)' },
+/** The symmetry modes in their order; their words are the dictionary's (i18n `editor.symmetry`) */
+export const SYMMETRY_MODES: readonly { id: SymmetryMode }[] = [
+  { id: 'none' },
+  { id: 'x' },
+  { id: 'y' },
+  { id: 'xy' },
+  { id: 'rot2' },
+  { id: 'rot4' },
 ];
 
 /** One image of the symmetry: how points, grid cells and turns map */

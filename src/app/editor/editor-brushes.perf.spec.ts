@@ -12,6 +12,7 @@ import { TerrainTool } from './tools/terrain-tool';
 import { patch, defaultSettings, type EditorTool, type ToolContext, type ToolPointer } from './tools/tool';
 import { WaterTool } from './tools/water-tool';
 import type { ToolOverlay } from './view/overlay/tool-overlay';
+import { en } from '../i18n/messages/en';
 
 /**
  * What one brush step costs on maps of 256, 512 and 1024 height samples a
@@ -48,6 +49,7 @@ function context(editor: EditorDocument): ToolContext {
     toScreen: () => null,
     setLasso: () => undefined,
     objectVisible: () => true,
+    t: () => en,
   };
 }
 

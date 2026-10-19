@@ -3,8 +3,9 @@ import { MarkerTool } from '../../tools/marker-tool';
 import { ObjectTool } from '../../tools/object-tool';
 import { PathTool } from '../../tools/path-tool';
 import { StampTool } from '../../tools/stamp-tool';
+import { en } from '../../../i18n/messages/en';
 
-const fixed = toolKeys([new ObjectTool(), new MarkerTool(), new PathTool(), new StampTool()]);
+const fixed = toolKeys(en, [new ObjectTool(), new MarkerTool(), new PathTool(), new StampTool()]);
 
 describe('keymap', () => {
   it('rebinds, swaps a taken key and keeps only the changes', () => {

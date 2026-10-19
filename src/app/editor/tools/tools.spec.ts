@@ -17,6 +17,7 @@ import { TerrainTool } from './terrain-tool';
 import { patch, defaultSettings, type ToolContext, type ToolPointer } from './tool';
 import { WaterTool } from './water-tool';
 import { waterCommands } from '../ops/water-commands';
+import { en } from '../../i18n/messages/en';
 
 function context(editor: EditorDocument): ToolContext & { messages: string[] } {
   const messages: string[] = [];
@@ -38,6 +39,7 @@ function context(editor: EditorDocument): ToolContext & { messages: string[] } {
     toScreen: () => null,
     setLasso: () => undefined,
     objectVisible: () => true,
+    t: () => en,
   };
 }
 

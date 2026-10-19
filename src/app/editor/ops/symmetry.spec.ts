@@ -13,6 +13,7 @@ import { PathTool } from '../tools/path-tool';
 import { TerrainTool } from '../tools/terrain-tool';
 import { patch, defaultSettings, type ToolContext, type ToolPointer } from '../tools/tool';
 import { sameSector, symmetryImages, type SymmetryMode } from './symmetry';
+import { en } from '../../i18n/messages/en';
 
 const catalog = new CatalogIndex(
   normalizeCatalog(JSON.parse(readFileSync(resolve('public/maps/assets/catalog.json'), 'utf8')), 'http://x/maps/assets/'),
@@ -39,6 +40,7 @@ function setup(mode: SymmetryMode): { ed: EditorDocument; ctx: ToolContext } {
     toScreen: () => null,
     setLasso: () => undefined,
     objectVisible: () => true,
+    t: () => en,
   };
   return { ed, ctx };
 }

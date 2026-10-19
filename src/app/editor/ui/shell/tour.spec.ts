@@ -1,5 +1,7 @@
 import { TOOL_GROUPS } from '../../tools/tool-defs';
 import { TOUR_STEPS, markTourDone, tourAdvance, tourPending, tourResumeAt } from './tour';
+import { en } from '../../../i18n/messages/en';
+import { de } from '../../../i18n/messages/de';
 
 function memory() {
   const store = new Map<string, string>();
@@ -32,9 +34,11 @@ describe('editor tour', () => {
     expect(TOUR_STEPS.slice(-3).map((s) => s.id)).toEqual(['check', 'trial', 'test']);
     expect(new Set(TOUR_STEPS.map((s) => s.id)).size).toBe(TOUR_STEPS.length);
     for (const s of TOUR_STEPS) {
-      // Short: a step is read in passing
-      expect(s.message.length, s.id).toBeLessThanOrEqual(260);
-      expect(s.hints.length, s.id).toBeGreaterThan(0);
+      // Short: a step is read in passing, in every language
+      for (const t of [en, de]) {
+        expect(t.editor.tour[s.id]?.message.length, s.id).toBeLessThanOrEqual(300);
+        expect(t.editor.tour[s.id]?.hints.length, s.id).toBeGreaterThan(0);
+      }
     }
   });
 

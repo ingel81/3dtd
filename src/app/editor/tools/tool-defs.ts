@@ -20,15 +20,11 @@ import { TerrainTool } from './terrain-tool';
 import { WaterTool } from './water-tool';
 import { PanelTool, type EditorTool } from './tool';
 
+/** A tool of the column; its name, short name and what it is for are the dictionary's (i18n `editor.tools`) */
 export interface ToolDef {
   id: string;
-  label: string;
-  /** The name under its icon in the column */
-  short: string;
   /** The key that picks it (Esc for Look: it is no single key one can give away) */
   key: string;
-  /** What it is for, for the tooltip */
-  about: string;
   icon: TdIconName;
   /** Its group in the column: a map maker shapes the land, makes it playable, sets the map as a whole; Look stands above */
   group: '' | 'Shape' | 'Play' | 'Map';
@@ -41,39 +37,33 @@ export interface ToolDef {
 }
 
 export const TOOL_DEFS = [
-  { id: 'look', label: 'Look', short: 'Look', key: 'Esc', about: 'Look around and click things to see what they are; changes nothing', icon: 'eye', group: '', create: (): EditorTool => new LookTool() },
-  { id: 'landscape', label: 'Landscape', short: 'Landscape', key: '1', about: 'Biomes, mountains, rivers and roads: ground, paint and plants at once', icon: 'terrain', group: 'Shape', brushRadius: 40, create: (): EditorTool => new LandscapeTool() },
-  { id: 'terrain', label: 'Terrain', short: 'Terrain', key: '2', about: 'Raise, lower, smooth, level, terrace, cliffs and ramps', icon: 'sliders', group: 'Shape', brushRadius: 16, create: (): EditorTool => new TerrainTool() },
-  { id: 'paint', label: 'Paint', short: 'Paint', key: '3', about: 'Ground layers and auto paint', icon: 'edit', group: 'Shape', brushRadius: 12, create: (): EditorTool => new PaintTool() },
-  { id: 'water', label: 'Water', short: 'Water', key: '4', about: 'Fill hollows, paint water, lava or ice', icon: 'splash', group: 'Shape', brushRadius: 16, create: (): EditorTool => new WaterTool() },
-  { id: 'objects', label: 'Objects', short: 'Objects', key: '5', about: 'Place, scatter, select, move, turn and scale', icon: 'build', group: 'Shape', brushRadius: 20, create: (): EditorTool => new ObjectTool() },
-  { id: 'life', label: 'Life', short: 'Life', key: 'N', about: 'Birds, fireflies, fog, boats and sounds over areas and along routes, and what the map brings by itself', icon: 'wind', group: 'Shape', create: (): EditorTool => new LifeTool() },
-  { id: 'surfaces', label: 'Surfaces', short: 'Surfaces', key: 'U', about: 'Squares, playgrounds, pitches, courts and car parks laid over the ground, with their lines', icon: 'grid', group: 'Shape', create: (): EditorTool => new SurfaceTool() },
-  { id: 'paths', label: 'Roads', short: 'Roads', key: '6', about: 'Draw and edit the roads enemies walk', icon: 'route', group: 'Play', create: (): EditorTool => new PathTool() },
-  { id: 'markers', label: 'Spawns and HQ', short: 'Spawns', key: '7', about: 'Where enemies come from and what they attack', icon: 'portal', group: 'Play', create: (): EditorTool => new MarkerTool() },
+  { id: 'look', key: 'Esc', icon: 'eye', group: '', create: (): EditorTool => new LookTool() },
+  { id: 'landscape', key: '1', icon: 'terrain', group: 'Shape', brushRadius: 40, create: (): EditorTool => new LandscapeTool() },
+  { id: 'terrain', key: '2', icon: 'sliders', group: 'Shape', brushRadius: 16, create: (): EditorTool => new TerrainTool() },
+  { id: 'paint', key: '3', icon: 'edit', group: 'Shape', brushRadius: 12, create: (): EditorTool => new PaintTool() },
+  { id: 'water', key: '4', icon: 'splash', group: 'Shape', brushRadius: 16, create: (): EditorTool => new WaterTool() },
+  { id: 'objects', key: '5', icon: 'build', group: 'Shape', brushRadius: 20, create: (): EditorTool => new ObjectTool() },
+  { id: 'life', key: 'N', icon: 'wind', group: 'Shape', create: (): EditorTool => new LifeTool() },
+  { id: 'surfaces', key: 'U', icon: 'grid', group: 'Shape', create: (): EditorTool => new SurfaceTool() },
+  { id: 'paths', key: '6', icon: 'route', group: 'Play', create: (): EditorTool => new PathTool() },
+  { id: 'markers', key: '7', icon: 'portal', group: 'Play', create: (): EditorTool => new MarkerTool() },
   {
     id: 'gameplay',
-    label: 'Rules',
-    short: 'Rules',
     key: 'G',
-    about: 'Start credits, HQ health, towers and waves of this map',
     icon: 'coin',
     group: 'Play',
-    create: (): EditorTool => new PanelTool('gameplay', 'Start credits, HQ health, allowed towers and the waves of this map'),
+    create: (): EditorTool => new PanelTool('gameplay'),
   },
   {
     id: 'environment',
-    label: 'Sky and weather',
-    short: 'Sky',
     key: '8',
-    about: 'Sky, time of day, fog and weather',
     icon: 'sparkle',
     group: 'Map',
-    create: (): EditorTool => new PanelTool('environment', 'Sky, sun and fog change the look of the map; the game uses them too'),
+    create: (): EditorTool => new PanelTool('environment'),
   },
-  { id: 'settings', label: 'Map', short: 'Map', key: '9', about: 'Name, size, terrain generator and versions', icon: 'cog', group: 'Map', create: (): EditorTool => new PanelTool('settings', 'Name, author, description and size of the map') },
-  { id: 'stamp', label: 'Copy and stamps', short: 'Stamps', key: '0', about: 'Copy a rectangle, place it turned, keep stamps', icon: 'copy', group: 'Map', create: (): EditorTool => new StampTool() },
-  { id: 'measure', label: 'Measure', short: 'Measure', key: 'D', about: 'Lengths, lane walking times, height lines and grid', icon: 'pin', group: 'Map', create: (): EditorTool => new MeasureTool() },
+  { id: 'settings', key: '9', icon: 'cog', group: 'Map', create: (): EditorTool => new PanelTool('settings') },
+  { id: 'stamp', key: '0', icon: 'copy', group: 'Map', create: (): EditorTool => new StampTool() },
+  { id: 'measure', key: 'D', icon: 'pin', group: 'Map', create: (): EditorTool => new MeasureTool() },
 ] as const;
 
 // Every entry is a ToolDef (checked here: on the list itself the tools' own types would make ToolId refer to itself)
