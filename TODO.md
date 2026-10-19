@@ -35,14 +35,17 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       prüfen: nach dem Leeren der Kartenbibliothek dekodierte sie 258 Bilder statt KTX2 (vermutlich noch WebP-Bäume).
 - [ ] **E247 Startpaket 2,65 MB** (Ziel 2,54): Custom-Map-Welt (156 kB) per `import()` vom Startpfad, englisches
       Wörterbuch (120 kB) prüfen, der Template-Worker des Editors bündelt `en.ts` mit (`tmp/plan/r8/WIP_r8-ktx2.md`).
-- [ ] **E248 Grundstücke in OSM-Welten** (Vorgarten, Einfahrt, Hecke): Ansatz in
-      [OSM_WORLD_ROUND2_PLAN.md](docs/OSM_WORLD_ROUND2_PLAN.md); Hecken zuerst aus echten OSM-Linien, an mehreren Orten.
-- [ ] **E249 Zerstörung Rest**: Klänge (Auswahlseite `tmp/sound-audition`, Gruppe „Zerstörung“, User wählt),
-      Fallrichtung aus dem auslösenden Treffer (WIP `tmp/plan/r8/WIP_r8-destroy.md`), später Bewehrung und Glas.
+- [ ] **E248 Grundstücke in OSM-Welten** (Vorgarten, Einfahrt, Hecke): gebaut, nicht übernommen, auf
+      `wt/r6-surface-b` 8672588f0 (Miltenberg +617 Vorgärten, +411 Einfahrten, +0,84 M Dreiecke vor allem durch Hecken,
+      Budget ausgeschöpft). Vor der Übernahme: Hecken aus echten OSM-Linien zuerst, Hecken billiger, mehrere Orte.
+- [ ] **E249 Zerstörung Rest**: Klänge (Auswahlseite `tmp/sound-audition`, Gruppe „Zerstörung“, User wählt).
+      Fallrichtung aus dem auslösenden Treffer gebaut, nicht übernommen: `wt/r8-destroy-b` e8f7d03d8 und 3e4dbb40a,
+      Suite grün; im Bild nur mit Mittentreffer geprüft, ein schräger Treffer fehlt. Später Bewehrung und Glas.
 - [ ] **E250 Impostor-Ton Autumn Keep** 6 % dunkler als das Modell, Tonprobe mit den Kartenlichtern
       (WIP `tmp/plan/r8/WIP_r8-veg.md`).
-- [ ] **E251 Laden nach Bedarf, Rest**: Vorziehen beim Freischalten im Browser auslösen; rund 65 Links direkt bei
-      ready (Grafikstufen noch im Aufwärmen); Bildspitzen unter Ruhe nachmessen (`tmp/plan/r6/MESSUNGEN_SPAETER.md`).
+- [ ] **E251 Laden nach Bedarf, Rest**: Freischalten im Lauf per Probe geprüft (0 Links, längstes Bild 14 ms; ein
+      Zeitvorteil des Vorziehens ist nicht nachweisbar); rund 65 Links direkt bei ready (Grafikstufen noch im
+      Aufwärmen, zu E246); Bildspitzen unter Ruhe nachmessen (`tmp/plan/r6/MESSUNGEN_SPAETER.md`).
 - [ ] **Offene Entscheidungen beim User**: Witch Marsh nachts heller, Nachtlicht, schärfere Texturen
       1024 px, Kantenglättung (MSAA), Schildgrenze, Fähigkeiten/Held/Mutatoren deutsch, Klänge der Zerstörung.
 
