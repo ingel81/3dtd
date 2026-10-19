@@ -1,5 +1,6 @@
 import {
   Color,
+  DoubleSide,
   Euler,
   Group,
   InstancedMesh,
@@ -41,6 +42,10 @@ import { InstanceList, type InstanceSource } from './instance-list';
 import { MassLayer } from './mass-layer';
 import { FarBoxes } from './far-boxes';
 import { nextFrameOrTimeout } from '../../../../utils/next-frame';
+import { DESTRUCTIBLE_CATEGORIES } from '../../custom-map-destruction';
+import { rubbleMaterialOf } from '../../rubble-material';
+import { RuinSlabs } from './ruin-slabs';
+import { addDamage, DAMAGE_LOS, damageDepthMaterial, emberPoint, FELL_LONG_AGO, readDamage, RUIN_EMBERS, ruinShape, structureSeed, writeDamage, type DamageArrays } from './ruin-damage';
 
 /**
  * The placed objects of a map, drawn instanced: per asset, detail level and
@@ -77,6 +82,13 @@ import { nextFrameOrTimeout } from '../../../../utils/next-frame';
  * Buildings raised from their own footprint (MapObject.mass) have no model
  * of their own: the mass layer draws them (mass-layer.ts), every object
  * call here hands them over.
+ *
+ * A damaged building (setDamage, docs/DESTRUCTION_PLAN.md) leaves its
+ * asset's batch for the asset's ruin batch: the same models with the
+ * damage in the shader (ruin-damage.ts), both sides drawn, its stage and
+ * ruin per instance. Intact buildings keep their programs, front faces and
+ * early depth; the ruins cost a draw call per asset and level, not per
+ * ruin. A ruin shows its models to its draw distance, no far box.
  */
 
 /** Distance from the point at `at` in `xyz` to `p`; not Math.hypot, a builtin call whose result V8 boxes, per object and frame */
@@ -124,7 +136,13 @@ interface LevelDraw {
 interface AssetBatch {
   entry: CatalogObject;
   model: ObjectModel;
+  /** The detail models it was built with, for its ruin batch */
+  lods: { model: ObjectModel; screen: number }[];
   blocksLos: boolean;
+  /** The asset's damaged objects (setDamage): damage in the shader, both sides drawn */
+  ruin: boolean;
+  /** A ruin batch's damage per object (writeDamage), its lists' extras */
+  damage: DamageArrays | null;
   /** Plants of 0.8 m and less cast no shadow */
   casts: boolean;
   objects: MapObject[];
@@ -160,6 +178,24 @@ export interface ObjectLayerOptions {
   impostors?: ImpostorCache;
   /** Level of the water at a map point, null on dry ground (floating objects) */
   waterLevelAt?: (x: number, y: number) => number | null;
+  /**
+   * Buildings can be damaged (a destructible map): their ruin batches are
+   * made with the map, so the warm-up builds their programs
+   */
+  ruins?: boolean;
+  /**
+   * The ground as the map made it: buildings, walls and structures stand on
+   * it, not on the craters and rubble of the fight (a stump stays where the
+   * building stood)
+   */
+  standingAt?: (x: number, y: number) => number;
+}
+
+/** A building's damage for setDamage: the simulation's stage, the view's clock at which a fall began */
+export interface ObjectDamage {
+  id: string;
+  stage: number;
+  fallStart: number;
 }
 
 export class MapObjectLayer {
@@ -172,6 +208,12 @@ export class MapObjectLayer {
   prepareAssets: ((assetIds: string[]) => Promise<unknown>) | null = null;
   private batches: AssetBatch[] = [];
   private readonly byId = new Map<string, { batch: AssetBatch; index: number }>();
+  /** Damaged objects by id (setDamage), also those not built yet */
+  private readonly damaged = new Map<string, { stage: number; fallStart: number }>();
+  /** The sun's shadow of every ruin (ruin-damage.ts) */
+  private ruinDepth: Material | null = null;
+  /** The floors inside the ruins, raised buildings' too (with options.ruins) */
+  private readonly slabs: RuinSlabs | null;
   private readonly materials = new Map<string, Material>();
   /** Shadow materials of rotor parts by seconds a turn (rotorShadow) */
   private readonly rotorShadows = new Map<number, Material>();
@@ -210,6 +252,8 @@ export class MapObjectLayer {
   private readonly tmpPos = new Vector3();
   /** Ground and water for seatHeight, bound once */
   private readonly seatGround = (x: number, y: number): number => this.field.heightAt(x, y);
+  /** Buildings stand on the ground as the map made it (ObjectLayerOptions.standingAt) */
+  private readonly standGround = (x: number, y: number): number => (this.options.standingAt ?? this.seatGround)(x, y);
   private readonly seatWater = (x: number, y: number): number | null => this.options.waterLevelAt?.(x, y) ?? null;
   private readonly tmpQuat = new Quaternion();
   private readonly tmpScale = new Vector3();
@@ -249,7 +293,9 @@ export class MapObjectLayer {
   ) {
     this.group.name = 'custom-map-objects';
     this.group.userData['losTransparent'] = true;
-    this.masses = new MassLayer(field, assets, losGroup, options.waterLevelAt, () => this.version++);
+    this.slabs = options.ruins ? new RuinSlabs() : null;
+    if (this.slabs) this.group.add(this.slabs.mesh);
+    this.masses = new MassLayer(field, assets, losGroup, options.waterLevelAt, () => this.version++, { ruins: !!options.ruins, standingAt: options.standingAt, slabs: this.slabs });
     this.group.add(this.masses.group);
   }
 
@@ -257,10 +303,13 @@ export class MapObjectLayer {
   async setObjects(objects: MapObject[]): Promise<void> {
     const generation = ++this.generation;
     const masses = objects.filter(MassLayer.owns);
+    // Raised buildings damaged before they were built take their damage along
+    const hurt = masses.filter((o) => this.damaged.has(o.id)).map((o) => ({ id: o.id, ...this.damaged.get(o.id)! }));
+    if (hurt.length) this.masses.setDamage(hurt);
     const shown = this.masses.setObjects(masses);
     if (masses.length) objects = objects.filter((o) => !MassLayer.owns(o));
     const catalog = await this.assets.catalog();
-    const groups = groupByAsset(catalog, objects);
+    const groups = groupByAsset(catalog, objects, this.damaged);
     const far = this.ensureFarBoxes(catalog, objects);
     // Every asset's model and detail models at once: one after the other, a town waited for 49 loads in a row
     const loaded = await Promise.all(
@@ -287,9 +336,10 @@ export class MapObjectLayer {
       let slice = performance.now();
       for (let k = 0; k < loaded.length; k++) {
         const { key, list, parts: [model, lods] } = loaded[k];
-        const b = this.buildBatch(model, lods, key.endsWith('|1'), list);
+        const b = this.buildBatch(model, lods, keyBlocks(key), list, keyRuin(key));
         this.batches.push(b);
         b.objects.forEach((o, index) => this.byId.set(o.id, { batch: b, index }));
+        this.ensureRuinBatch(b);
         if (k < loaded.length - 1 && performance.now() - slice > BUILD_SLICE_MS) {
           await nextFrameOrTimeout();
           if (generation !== this.generation) return;
@@ -354,9 +404,10 @@ export class MapObjectLayer {
     const generation = this.generation;
     const catalog = await this.assets.catalog();
     await this.ensureFarBoxes(catalog, objects);
-    for (const [key, list] of groupByAsset(catalog, objects)) {
-      const blocks = key.endsWith('|1');
-      const find = (): AssetBatch | undefined => this.batches.find((x) => x.model.id === list[0].asset && x.blocksLos === blocks);
+    for (const [key, list] of groupByAsset(catalog, objects, this.damaged)) {
+      const blocks = keyBlocks(key);
+      const ruin = keyRuin(key);
+      const find = (): AssetBatch | undefined => this.batches.find((x) => x.model.id === list[0].asset && x.blocksLos === blocks && x.ruin === ruin);
       let b = find();
       if (!b) {
         // An asset new to the map: its programs built before its first objects draw (prepareAssets)
@@ -367,26 +418,110 @@ export class MapObjectLayer {
         // Another call may have made the batch meanwhile
         b = find();
         if (!b) {
-          const built = this.buildBatch(model, lods, blocks, list);
+          const built = this.buildBatch(model, lods, blocks, list, ruin);
           this.batches.push(built);
           built.objects.forEach((o, index) => this.byId.set(o.id, { batch: built, index }));
+          this.ensureRuinBatch(built);
           continue;
         }
       }
-      const start = b.objects.length;
-      const n = start + list.length;
-      // A first tinted object gives the asset colours: its lists are built anew with them, as when it outgrows them
-      const newColors = !b.source.colors && list.some((o) => o.tint);
-      if (newColors) b.source.colors = new Float32Array(b.capacity * 3);
-      if (n > b.capacity || newColors) this.resize(b, Math.max(b.capacity, listCapacity(n)));
-      b.objects.push(...list);
-      for (let i = newColors ? 0 : start; i < n; i++) this.writeInstance(b, i);
-      for (let i = start; i < n; i++) this.byId.set(b.objects[i].id, { batch: b, index: i });
-      // Shown by the pass below, as an object moving into view
-      b.boundsStale = true;
+      this.append(b, list);
     }
     this.version++;
     this.applyLevels(false);
+  }
+
+  /** Objects into a batch that is there: room made, their instances written; the next pass shows them */
+  private append(b: AssetBatch, list: readonly MapObject[]): void {
+    const start = b.objects.length;
+    const n = start + list.length;
+    // A first tinted object gives the asset colours: its lists are built anew with them, as when it outgrows them
+    const newColors = !b.source.colors && list.some((o) => o.tint);
+    if (newColors) b.source.colors = new Float32Array(b.capacity * 3);
+    if (n > b.capacity || newColors) this.resize(b, Math.max(b.capacity, listCapacity(n)));
+    b.objects.push(...list);
+    for (let i = newColors ? 0 : start; i < n; i++) this.writeInstance(b, i);
+    for (let i = start; i < n; i++) this.byId.set(b.objects[i].id, { batch: b, index: i });
+    // Shown by the pass below, as an object moving into view
+    b.boundsStale = true;
+  }
+
+  /**
+   * Damage of buildings, walls and structures (the simulation's stages,
+   * docs/DESTRUCTION_PLAN.md): from stage 1 an object draws in its asset's
+   * ruin batch, at 0 in its own again; a stage-3 one falls from `fallStart`
+   * (DAMAGE_UNIFORMS' clock; FELL_LONG_AGO lies fallen). Objects not built
+   * yet come with their damage. Raised buildings go to the mass layer
+   */
+  setDamage(changes: readonly ObjectDamage[]): void {
+    const masses: ObjectDamage[] = [];
+    let changed = false;
+    for (const c of changes) {
+      // The latest damage last: the smouldering nests are the newest ruins' (embers)
+      this.damaged.delete(c.id);
+      if (c.stage > 0) this.damaged.set(c.id, { stage: c.stage, fallStart: c.fallStart });
+      else this.slabs?.delete(c.id);
+      if (this.masses.has(c.id)) {
+        masses.push(c);
+        continue;
+      }
+      const slot = this.byId.get(c.id);
+      if (!slot) continue;
+      const ruin = c.stage > 0;
+      if (slot.batch.ruin === ruin) {
+        if (!ruin) continue;
+        this.writeDamageOf(slot.batch, slot.index);
+        this.rewrite(slot.batch, slot.index);
+      } else {
+        this.moveTo(slot.batch, slot.index, ruin);
+      }
+      changed = true;
+    }
+    if (masses.length) this.masses.setDamage(masses);
+    if (changed) {
+      this.dropEmpty();
+      this.version++;
+      this.applyLevels(false);
+    }
+  }
+
+  /** Where the newest ruins from stage 2 smoulder, a dozen at most (group space) */
+  embers(max = RUIN_EMBERS): Vector3[] {
+    const out: Vector3[] = [];
+    const ids = [...this.damaged].filter(([, d]) => d.stage >= 2).slice(-max);
+    for (const [id, d] of ids) {
+      const fallen = d.stage >= 3;
+      const p = this.masses.emberOf(id, fallen, new Vector3());
+      if (p) {
+        out.push(p);
+        continue;
+      }
+      const slot = this.byId.get(id);
+      if (!slot?.batch.damage) continue;
+      out.push(emberPoint(readDamage(slot.batch.damage, slot.index), slot.batch.source.matrices[slot.index * 16 + 13], fallen, new Vector3()));
+    }
+    return out;
+  }
+
+  /** Object i of batch `from` into the asset's ruin batch or back into its own */
+  private moveTo(from: AssetBatch, i: number, ruin: boolean): void {
+    const o = from.objects[i];
+    this.dropOne(o.id);
+    const to = this.batches.find((x) => x.model.id === from.model.id && x.blocksLos === from.blocksLos && x.ruin === ruin);
+    if (to) {
+      this.append(to, [o]);
+      return;
+    }
+    const built = this.buildBatch(from.model, from.lods, from.blocksLos, [o], ruin);
+    this.batches.push(built);
+    this.byId.set(o.id, { batch: built, index: 0 });
+  }
+
+  /** A destructible asset's ruin batch, empty, beside its batch: its programs are built with the map's */
+  private ensureRuinBatch(b: AssetBatch): void {
+    if (!this.options.ruins || b.ruin || !DESTRUCTIBLE_CATEGORIES.has(b.entry.category) || b.model.placeholder) return;
+    if (this.batches.some((x) => x.ruin && x.model.id === b.model.id && x.blocksLos === b.blocksLos)) return;
+    this.batches.push(this.buildBatch(b.model, b.lods, b.blocksLos, [], true));
   }
 
   /** Removes objects by id: each leaves the lists it is in, the asset's last object fills its place */
@@ -394,39 +529,48 @@ export class MapObjectLayer {
     const masses = ids.filter((id) => this.masses.has(id));
     if (masses.length) void this.masses.change([], masses);
     for (const id of ids) {
-      const slot = this.byId.get(id);
-      if (!slot) {
-        // Not built yet: setObjects takes it out once its batch is in
-        this.dropLater?.add(id);
-        continue;
-      }
-      const b = slot.batch;
-      const i = slot.index;
-      this.byId.delete(id);
-      this.leaveLevels(b, i);
-      const last = b.objects.length - 1;
-      if (i !== last) {
-        // The asset's last object moves into the gap; its slots in the lists now name index i
-        b.objects[i] = b.objects[last];
-        b.source.matrices.copyWithin(i * 16, last * 16, last * 16 + 16);
-        b.source.colors?.copyWithin(i * 3, last * 3, last * 3 + 3);
-        b.spheres.copyWithin(i * 4, last * 4, last * 4 + 4);
-        b.levelOf[i] = b.levelOf[last];
-        b.nextOf[i] = b.nextOf[last];
-        b.fadeOf[i] = b.fadeOf[last];
-        b.shadowOf[i] = b.shadowOf[last];
-        b.dueAt[i] = b.dueAt[last];
-        for (const d of b.draws) if (d.slots[last] >= 0) d.list.rename(d.slots, last, i);
-        this.byId.set(b.objects[i].id, { batch: b, index: i });
-      }
-      b.objects.length = last;
-      b.boundsStale = true;
+      // Not built yet: setObjects takes it out once its batch is in
+      if (!this.dropOne(id)) this.dropLater?.add(id);
     }
-    const empty = this.batches.filter((b) => b.objects.length === 0);
-    for (const b of empty) this.disposeBatch(b);
-    if (empty.length) this.batches = this.batches.filter((b) => b.objects.length > 0);
+    this.dropEmpty();
     this.version++;
     this.applyLevels(false);
+  }
+
+  /** Object `id` out of its batch (the asset's last object fills its place); false for one not built */
+  private dropOne(id: string): boolean {
+    const slot = this.byId.get(id);
+    if (!slot) return false;
+    const b = slot.batch;
+    const i = slot.index;
+    this.byId.delete(id);
+    this.leaveLevels(b, i);
+    const last = b.objects.length - 1;
+    if (i !== last) {
+      // The asset's last object moves into the gap; its slots in the lists now name index i
+      b.objects[i] = b.objects[last];
+      b.source.matrices.copyWithin(i * 16, last * 16, last * 16 + 16);
+      b.source.colors?.copyWithin(i * 3, last * 3, last * 3 + 3);
+      if (b.damage) for (const a of b.damage) a.copyWithin(i * 4, last * 4, last * 4 + 4);
+      b.spheres.copyWithin(i * 4, last * 4, last * 4 + 4);
+      b.levelOf[i] = b.levelOf[last];
+      b.nextOf[i] = b.nextOf[last];
+      b.fadeOf[i] = b.fadeOf[last];
+      b.shadowOf[i] = b.shadowOf[last];
+      b.dueAt[i] = b.dueAt[last];
+      for (const d of b.draws) if (d.slots[last] >= 0) d.list.rename(d.slots, last, i);
+      this.byId.set(b.objects[i].id, { batch: b, index: i });
+    }
+    b.objects.length = last;
+    b.boundsStale = true;
+    return true;
+  }
+
+  /** Batches left without objects go; ruin batches stay, built for the warm-up */
+  private dropEmpty(): void {
+    const empty = this.batches.filter((b) => b.objects.length === 0 && !b.ruin);
+    for (const b of empty) this.disposeBatch(b);
+    if (empty.length) this.batches = this.batches.filter((b) => !empty.includes(b));
   }
 
   /**
@@ -487,7 +631,7 @@ export class MapObjectLayer {
     for (const b of this.batches) {
       for (const d of b.draws) {
         // An empty level shows the asset's first object, written into its first slot for the one render
-        if (on && d.list.count === 0 && b.objects.length) d.list.placeholder(b.source, 0);
+        if (on && d.list.count === 0 && (b.objects.length || b.ruin)) d.list.placeholder(b.source, 0);
         d.list.flush();
         for (const m of d.meshes) {
           m.count = on ? Math.max(1, d.list.count) : d.list.count;
@@ -599,6 +743,8 @@ export class MapObjectLayer {
     this.masses.dispose();
     for (const m of this.materials.values()) m.dispose();
     for (const m of this.rotorShadows.values()) m.dispose();
+    this.ruinDepth?.dispose();
+    this.slabs?.dispose();
     this.materials.clear();
     this.fades.length = 0;
     this.farBoxes?.dispose();
@@ -618,6 +764,11 @@ export class MapObjectLayer {
     for (const b of this.batches) this.disposeBatch(b);
     this.batches = [];
     this.byId.clear();
+  }
+
+  /** The shadow material of every ruin mesh, made with the first */
+  private ruinDepthMaterial(): Material {
+    return (this.ruinDepth ??= damageDepthMaterial('object'));
   }
 
   private disposeBatch(b: AssetBatch): void {
@@ -642,12 +793,18 @@ export class MapObjectLayer {
    * Detail levels of an asset: its model, the catalogue's LOD models (each
    * from where an object fills its screen share), an impostor for far trees
    */
-  private levelsFor(model: ObjectModel, lods: { model: ObjectModel; screen: number }[]): Level[] {
+  private levelsFor(model: ObjectModel, lods: { model: ObjectModel; screen: number }[], ruin = false): Level[] {
     const entry = model.entry;
     const drawn = (m: ObjectModel) =>
-      mergedParts(m).map((p) => ({ geometry: p.geometry, material: this.objectMaterial(p.material, entry), depthMaterial: isRotor(p.material) ? this.rotorShadow(entry) : undefined }));
+      mergedParts(m).map((p) => ({
+        geometry: p.geometry,
+        material: this.objectMaterial(p.material, entry, ruin),
+        depthMaterial: ruin ? this.ruinDepthMaterial() : isRotor(p.material) ? this.rotorShadow(entry) : undefined,
+      }));
     const levels: Level[] = [{ from: 0, parts: drawn(model) }];
     for (const lod of lods) levels.push({ from: screenDistance(1, lod.screen), parts: drawn(lod.model) });
+    // A ruin keeps its models to its draw distance: no impostor or far box shows the damage
+    if (ruin) return levels;
     const imp = this.options.impostors?.get(model);
     if (imp) {
       // Beyond the game camera's usual distance (200 to 300 m, impostorFrom in High), where a tree is a few
@@ -661,22 +818,26 @@ export class MapObjectLayer {
     return levels;
   }
 
-  private buildBatch(model: ObjectModel, lods: { model: ObjectModel; screen: number }[], blocksLos: boolean, objects: MapObject[]): AssetBatch {
+  private buildBatch(model: ObjectModel, lods: { model: ObjectModel; screen: number }[], blocksLos: boolean, objects: MapObject[], ruin = false): AssetBatch {
     const entry = model.entry;
     const n = objects.length;
     const capacity = listCapacity(n);
     const vegetation = entry.category === 'tree' || entry.category === 'plant';
     const tinted = vegetation || objects.some((o) => o.tint);
+    const damage: DamageArrays | null = ruin ? [new Float32Array(capacity * 4), new Float32Array(capacity * 4), new Float32Array(capacity * 4)] : null;
     const b: AssetBatch = {
       entry,
       model,
+      lods,
       blocksLos,
+      ruin,
+      damage,
       casts: entry.category !== 'plant' || entry.height > 0.8,
       objects: objects.slice(),
-      levels: this.levelsFor(model, lods),
+      levels: this.levelsFor(model, lods, ruin),
       draws: [],
       capacity,
-      source: { matrices: new Float32Array(capacity * 16), colors: tinted ? new Float32Array(capacity * 3) : null },
+      source: { matrices: new Float32Array(capacity * 16), colors: tinted ? new Float32Array(capacity * 3) : null, ...(damage ? { extras: damage } : {}) },
       spheres: new Float32Array(capacity * 4),
       bounds: new Sphere(),
       boundsStale: true,
@@ -694,16 +855,24 @@ export class MapObjectLayer {
   /** The list and part meshes of one level, empty: the next pass fills them */
   private buildDraw(b: AssetBatch, level: Level, li: number): LevelDraw {
     if (level.far) return this.farDraw(b);
-    const list = new InstanceList(b.capacity, !!b.source.colors);
+    const list = new InstanceList(b.capacity, !!b.source.colors, b.ruin ? [4, 4, 4] : []);
     const parent = b.blocksLos ? this.losGroup : this.group;
     const meshes = level.parts.map((part) => {
       // Made empty: the level's list brings the instances (three's own would be thrown away at once)
-      const mesh = new InstancedMesh(fadeGeometry(part.geometry, list.fades), part.material, 0);
+      const geometry = fadeGeometry(part.geometry, list.fades);
+      if (b.ruin) {
+        geometry.setAttribute('aDamage', list.extras[0]);
+        geometry.setAttribute('aDamageB', list.extras[1]);
+        geometry.setAttribute('aDamageC', list.extras[2]);
+      }
+      const mesh = new InstancedMesh(geometry, part.material, 0);
       if (part.depthMaterial) mesh.customDepthMaterial = part.depthMaterial;
+      // What is gone of a ruin does not block the towers' sight
+      if (b.ruin) mesh.userData['losVertex'] = DAMAGE_LOS;
       mesh.instanceMatrix = list.matrices;
       if (list.colors) mesh.instanceColor = list.colors;
       mesh.count = 0;
-      mesh.name = `${b.entry.id}${b.blocksLos ? '' : '-decor'}${li ? `-lod${li}` : ''}`;
+      mesh.name = `${b.entry.id}${b.blocksLos ? '' : '-decor'}${b.ruin ? '-damaged' : ''}${li ? `-lod${li}` : ''}`;
       mesh.boundingSphere = b.bounds;
       // The shadow pass draws the level's casters only, the first of its list
       let drawn = 0;
@@ -790,6 +959,10 @@ export class MapObjectLayer {
     };
     b.source.matrices = keep(b.source.matrices, 16, 0);
     if (b.source.colors) b.source.colors = keep(b.source.colors, 3, 1);
+    if (b.damage) {
+      b.damage = [keep(b.damage[0], 4, 0), keep(b.damage[1], 4, 0), keep(b.damage[2], 4, 0)];
+      b.source.extras = b.damage;
+    }
     b.spheres = keep(b.spheres, 4, 0);
     b.levelOf = keep(b.levelOf, 1, -1).fill(-1, 0, n);
     b.nextOf = keep(b.nextOf, 1, NO_NEXT).fill(NO_NEXT, 0, n);
@@ -945,7 +1118,7 @@ export class MapObjectLayer {
       this.writeInstance(b, i);
       return before.some((v, k) => v !== b.source.matrices[at + k]);
     }
-    const y = Math.fround(seatHeight(b.entry, o, this.seatGround, this.seatWater) + o.z);
+    const y = Math.fround(seatHeight(b.entry, o, this.groundOf(b), this.seatWater) + o.z);
     const at = i * 16 + 13;
     const lift = y - b.source.matrices[at];
     if (lift === 0) return false;
@@ -969,8 +1142,8 @@ export class MapObjectLayer {
     // Vegetation varies in size and shade, trees also in lean (instance-variation.ts): in the matrix and colour only
     const look = instanceVariation(o.id, e.category, e.tags);
     const s = (o.scale || 1) * look.size;
-    const lean = this.sheared(b) ? wallShear(e, o, this.seatGround) : null;
-    const ground = lean ? lean.height : seatHeight(e, o, this.seatGround, this.seatWater);
+    const lean = this.sheared(b) ? wallShear(e, o, this.groundOf(b)) : null;
+    const ground = lean ? lean.height : seatHeight(e, o, this.groundOf(b), this.seatWater);
     mapToScene(o.x, o.y, ground + o.z, this.tmpPos);
     this.tmpQuat.setFromAxisAngle(this.up, o.rotation);
     if (o.pitch || o.roll) this.tmpQuat.multiply(this.tilt.setFromEuler(this.tiltEuler.set(o.pitch ?? 0, 0, o.roll ?? 0, 'XZY')));
@@ -996,7 +1169,43 @@ export class MapObjectLayer {
       colors[i * 3 + 1] = (c?.g ?? 1) * look.g;
       colors[i * 3 + 2] = (c?.b ?? 1) * look.b;
     }
+    if (b.damage) this.writeDamageOf(b, i);
     b.dueAt[i] = -Infinity;
+  }
+
+  /** The ground an asset's objects stand on: buildings, walls and structures on the map's own (standingAt) */
+  private groundOf(b: AssetBatch): (x: number, y: number) => number {
+    return DESTRUCTIBLE_CATEGORIES.has(b.entry.category) ? this.standGround : this.seatGround;
+  }
+
+  /**
+   * A ruin's damage from its instance: the ground rectangle (the catalogue's
+   * box, else a square inside the footprint) and height as the matrix
+   * places them, the ruin rolled from the object's id
+   */
+  private writeDamageOf(b: AssetBatch, i: number): void {
+    const o = b.objects[i];
+    const m = b.source.matrices;
+    const at = i * 16;
+    const half = b.entry.footprint * 0.7;
+    const [mx, mz, hx, hz] = b.entry.box ?? [0, 0, half, half];
+    const d = this.damaged.get(o.id);
+    const frame = {
+      cx: m[at + 12] + m[at] * mx + m[at + 8] * mz,
+      cz: m[at + 14] + m[at + 2] * mx + m[at + 10] * mz,
+      ax: m[at] * hx,
+      az: m[at + 2] * hx,
+      bx: m[at + 8] * hz,
+      bz: m[at + 10] * hz,
+      seatY: m[at + 13],
+      height: b.model.height * Math.hypot(m[at + 4], m[at + 5], m[at + 6]),
+    };
+    const shape = ruinShape(structureSeed(o.id), frame);
+    const stage = d?.stage ?? 0;
+    const fallStart = d?.fallStart ?? FELL_LONG_AGO;
+    writeDamage(b.damage!, i, stage, fallStart, shape);
+    // Floors inside a building, not a wall's
+    if (b.entry.category === 'building') this.slabs?.set(o.id, frame, shape, stage, fallStart, rubbleMaterialOf(o, b.entry.tags));
   }
 
   /** The shadow pass's material for an asset's rotor parts, shared by assets turning as fast */
@@ -1016,7 +1225,7 @@ export class MapObjectLayer {
    * for flames (foliage cards that glow). The per-asset numbers are
    * uniforms, so all of them share a handful of shader programs.
    */
-  private objectMaterial(source: Material, entry: CatalogObject): Material {
+  private objectMaterial(source: Material, entry: CatalogObject, ruin = false): Material {
     const m0 = source as MeshStandardMaterial;
     const card = m0.name.startsWith('foliage-');
     const waterfall = m0.name.startsWith('foliage-waterfall');
@@ -1035,7 +1244,7 @@ export class MapObjectLayer {
     const bob = !!entry.float && entry.category !== 'structure';
     // Several looks in one atlas (a herd of several breeds): only for objects that stay where they are
     const variants = !card && !bob && (entry.variants ?? 1) > 1 ? entry.variants! : 1;
-    const key = `${source.uuid}|${entry.grime ? 1 : 0}|${crownWarp ? 1 : 0}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin || rotor ? period : 0}|${rotor ? 1 : 0}|${variants}`;
+    const key = `${source.uuid}|${entry.grime ? 1 : 0}|${crownWarp ? 1 : 0}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin || rotor ? period : 0}|${rotor ? 1 : 0}|${variants}|${ruin ? 1 : 0}`;
     const cached = this.materials.get(key);
     if (cached) return cached;
     // Always an own copy: the library's material is shared (other views, the editor's thumbnails)
@@ -1054,6 +1263,7 @@ export class MapObjectLayer {
       addWindowGlow(m, source);
       addLodFade(m);
       addHeightFog(m);
+      if (ruin) asRuin(m);
       this.materials.set(key, m);
       return m;
     }
@@ -1257,9 +1467,16 @@ transformed.xz = spinTurn * transformed.xz;
     if (!card) addWindowGlow(m, source);
     addLodFade(m);
     addHeightFog(m);
+    if (ruin) asRuin(m);
     this.materials.set(key, m);
     return m;
   }
+}
+
+/** A ruin's material: the damage in its shader, its inside drawn (ruin-damage.ts) */
+function asRuin(m: Material): void {
+  addDamage(m);
+  m.side = DoubleSide;
 }
 
 /**
@@ -1312,18 +1529,25 @@ function mergedParts(model: ObjectModel): ModelPart[] {
   return parts;
 }
 
-/** Objects by asset and whether they block sight (`asset|1` or `asset|0`): one batch each */
-function groupByAsset(catalog: AssetCatalog, objects: readonly MapObject[]): Map<string, MapObject[]> {
+/**
+ * Objects by asset, whether they block sight and whether they are damaged
+ * (`asset|1|0`: blocking, intact): one batch each
+ */
+function groupByAsset(catalog: AssetCatalog, objects: readonly MapObject[], damaged: ReadonlyMap<string, unknown>): Map<string, MapObject[]> {
   const groups = new Map<string, MapObject[]>();
   for (const o of objects) {
     const blocks = o.blocksLos ?? entriesOf(catalog).get(o.asset)?.blocksLos ?? false;
-    const key = `${o.asset}|${blocks ? 1 : 0}`;
+    const key = `${o.asset}|${blocks ? 1 : 0}|${damaged.has(o.id) ? 1 : 0}`;
     let list = groups.get(key);
     if (!list) groups.set(key, (list = []));
     list.push(o);
   }
   return groups;
 }
+
+/** Whether a group's objects block sight, and whether they are damaged (groupByAsset) */
+const keyBlocks = (key: string): boolean => key.endsWith('|1|0') || key.endsWith('|1|1');
+const keyRuin = (key: string): boolean => key.endsWith('|1');
 
 const entryMaps = new WeakMap<AssetCatalog, Map<string, CatalogObject>>();
 

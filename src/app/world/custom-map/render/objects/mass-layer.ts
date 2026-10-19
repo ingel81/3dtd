@@ -2,6 +2,7 @@ import {
   BufferAttribute,
   BufferGeometry,
   Color,
+  DoubleSide,
   Group,
   InstancedBufferAttribute,
   InstancedMesh,
@@ -19,13 +20,16 @@ import {
   type Texture,
 } from 'three';
 import { MAP_MASS_FACADES, MASS_ASSET, type MapMass, type MapMassFacade, type MapObject } from '../../map-document';
-import { MASS_PARAPET, massBounds, massContains, massInset, massPitched, massRadius } from '../../object-mass';
+import { MASS_PARAPET, massBounds, massContains, massInset, massPitched, massRadius, massTop } from '../../object-mass';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary, ObjectModel } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
 import { mapToScene } from '../map-coords';
 import { NIGHT_WINDOW_UNIFORMS } from './night-windows';
 import { seatHeight, type ObjectFooting } from './object-seat';
+import { rubbleMaterialOf } from '../../rubble-material';
+import type { RuinSlabs } from './ruin-slabs';
+import { addDamage, DAMAGE_LOS, damageDepthMaterial, emberPoint, FELL_LONG_AGO, ruinShape, structureSeed, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
 
 /**
  * The buildings a map raises from their own footprint (MapObject.mass,
@@ -47,6 +51,12 @@ import { seatHeight, type ObjectFooting } from './object-seat';
  * bitumen, roof tiles) are the textures of the catalogue's `building-mass`
  * (tools/map-assets/build_modern2.py, mass_kit), one square per surface as
  * wide as one repeat of its texture.
+ *
+ * A damaged building (setDamage) leaves those batches (its instances
+ * shrink to nothing there) for the ruins': the same pieces with the damage
+ * in the shader (ruin-damage.ts) and both sides drawn, a fallen one's walls
+ * split at its break line so what stands above it falls whole. Only the
+ * ruins are built anew on a change, a handful of buildings, not the map.
  */
 
 /** Metres the walls reach below the seat: the ground under a building on a slope (object-seat.ts) */
@@ -101,6 +111,9 @@ interface WallPiece {
   kind: number;
   /** Metres at the top without windows: the cornice, the parapet */
   band: number;
+  /** A piece of a split wall (splitWalls): the whole wall's top, and minus the metres its bottom stands over the seat */
+  wallTop?: number;
+  lift?: number;
 }
 
 /** A roof triangle in the building's own frame: corners a, b, c (x, y, z) with their texture places in metres */
@@ -296,6 +309,17 @@ interface Batch {
   owners: MapObject[];
 }
 
+/** What the mass layer does with damage (ObjectLayerOptions): ruins built with the map, the ground buildings stand on */
+export interface MassDamageOptions {
+  ruins?: boolean;
+  standingAt?: (x: number, y: number) => number;
+  /** The ruins' floors (ruin-slabs.ts), shared with the object layer */
+  slabs?: RuinSlabs | null;
+}
+
+/** Gap between a fallen wall's stump and the piece that falls, m: the stump stays, the piece goes whole */
+const SPLIT_GAP = 0.01;
+
 /** The surfaces of the kit (catalogue `building-mass`) by material name, with their repeat in metres */
 interface Surface {
   material: MeshStandardMaterial;
@@ -345,11 +369,23 @@ export class MassLayer {
   /** Where each building stands (its seat plus its own z), by id: a change of the ground moves its instances up or down */
   private readonly seats = new Map<string, number>();
   private batches: Batch[] = [];
+  /** The ruins' batches (also in `batches`), built anew on each change of damage */
+  private ruinBatches: Batch[] = [];
+  /** Each building's instances in the intact batches, which a damaged one leaves */
+  private readonly ranges = new Map<string, { batch: Batch; start: number; count: number }[]>();
+  /** Damaged buildings by id (setDamage) */
+  private readonly damaged = new Map<string, { stage: number; fallStart: number }>();
+  /** The ruins as last built, with their seats */
+  private readonly ruinShapes = new Map<string, { shape: RuinShape; seat: number }>();
+  private ruinDepth: MeshDepthMaterial | null = null;
+  private ruinWallDepth: MeshDepthMaterial | null = null;
   private surfaces: Map<string, Surface> | null = null;
   private loading: Promise<Map<string, Surface> | null> | null = null;
   private readonly materials = new Map<string, Material>();
   private readonly depthMaterial: MeshDepthMaterial;
   private generation = 0;
+  /** The generation whose build stands (rebuild) */
+  private built = -1;
   private readonly m = new Matrix4();
   private readonly local = new Matrix4();
   private readonly q = new Quaternion();
@@ -366,6 +402,7 @@ export class MassLayer {
     private readonly waterLevelAt: (x: number, y: number) => number | null = () => null,
     /** Hears every change the sun's shadow map shows */
     private readonly onChange: () => void = () => undefined,
+    private readonly damageOptions: MassDamageOptions = {},
   ) {
     this.group.name = 'custom-map-masses';
     this.group.userData['losTransparent'] = true;
@@ -443,10 +480,45 @@ export class MassLayer {
     this.onChange();
   }
 
-  /** Where a building stands: on its outline's rectangle like any building (object-seat.ts), plus its own z */
+  /** Where a building stands: on its outline's rectangle like any building (object-seat.ts), on the map's own ground, plus its own z */
   private seatOf(o: MapObject): number {
     const footing: ObjectFooting = { category: 'building', footprint: 1, height: o.mass!.height };
-    return seatHeight(footing, o, (x, y) => this.field.heightAt(x, y), this.waterLevelAt) + o.z;
+    return seatHeight(footing, o, this.damageOptions.standingAt ?? ((x, y) => this.field.heightAt(x, y)), this.waterLevelAt) + o.z;
+  }
+
+  /**
+   * Damage of raised buildings (ObjectMapLayer.setDamage): a building
+   * from stage 1 leaves the intact batches for the ruins'; one that stands
+   * whole again builds everything anew (a new run, a seek back)
+   */
+  setDamage(changes: readonly { id: string; stage: number; fallStart: number }[]): void {
+    let healed = false;
+    const hide: string[] = [];
+    for (const c of changes) {
+      const was = this.damaged.has(c.id);
+      if (c.stage > 0) this.damaged.set(c.id, { stage: c.stage, fallStart: c.fallStart });
+      else {
+        this.damaged.delete(c.id);
+        this.damageOptions.slabs?.delete(c.id);
+      }
+      if (was && c.stage <= 0) healed = true;
+      else if (!was && c.stage > 0) hide.push(c.id);
+    }
+    if (healed) {
+      void this.rebuild();
+      return;
+    }
+    // Not built yet: the build to come takes the damage
+    if (!this.surfaces || this.generation !== this.built) return;
+    for (const id of hide) {
+      for (const r of this.ranges.get(id) ?? []) {
+        (r.batch.mesh.instanceMatrix.array as Float32Array).fill(0, r.start * 16, (r.start + r.count) * 16);
+        r.batch.mesh.instanceMatrix.needsUpdate = true;
+      }
+    }
+    this.rebuildRuins(this.surfaces);
+    this.version++;
+    this.onChange();
   }
 
   /** The first raised building a scene-space ray hits */
@@ -470,16 +542,16 @@ export class MassLayer {
     for (const m of this.materials.values()) m.dispose();
     this.materials.clear();
     this.depthMaterial.dispose();
+    this.ruinDepth?.dispose();
+    this.ruinWallDepth?.dispose();
     this.group.removeFromParent();
   }
 
   private clear(): void {
-    for (const b of this.batches) {
-      b.mesh.removeFromParent();
-      if (b.mesh.geometry.userData['owned']) b.mesh.geometry.dispose();
-      b.mesh.dispose();
-    }
+    for (const b of this.batches) disposeBatch(b);
     this.batches = [];
+    this.ruinBatches = [];
+    this.ranges.clear();
   }
 
   /** The kit's surfaces, loaded once */
@@ -501,27 +573,100 @@ export class MassLayer {
     if (generation !== this.generation) return;
     this.clear();
     this.seats.clear();
+    this.built = generation;
     this.version++;
     this.onChange();
     if (!surfaces || !this.objects.length) return;
     for (const blocks of [true, false]) {
-      const list = this.objects.filter((o) => (o.blocksLos ?? true) === blocks);
-      if (list.length) this.build(list, surfaces, blocks ? this.losGroup : this.group);
+      const list = this.objects.filter((o) => (o.blocksLos ?? true) === blocks && !this.damaged.has(o.id));
+      if (list.length) this.batches.push(...this.build(list, surfaces, blocks ? this.losGroup : this.group));
     }
+    if (this.damageOptions.ruins) this.batches.push(...this.warmRuins(surfaces));
+    this.rebuildRuins(surfaces);
   }
 
-  private build(objects: readonly MapObject[], surfaces: Map<string, Surface>, parent: Group): void {
+  /** Where a ruin smoulders (emberPoint), null for one not drawn as a ruin here */
+  emberOf<T extends { x: number; y: number; z: number }>(id: string, fallen: boolean, out: T): T | null {
+    const r = this.ruinShapes.get(id);
+    return r ? emberPoint(r.shape, r.seat, fallen, out) : null;
+  }
+
+  /** The damaged buildings' batches anew */
+  private rebuildRuins(surfaces: Map<string, Surface>): void {
+    this.ruinShapes.clear();
+    for (const b of this.ruinBatches) disposeBatch(b);
+    const gone = new Set(this.ruinBatches);
+    this.batches = this.batches.filter((b) => !gone.has(b));
+    this.ruinBatches = [];
+    for (const blocks of [true, false]) {
+      const list = this.objects.filter((o) => (o.blocksLos ?? true) === blocks && this.damaged.has(o.id));
+      if (list.length) this.ruinBatches.push(...this.build(list, surfaces, blocks ? this.losGroup : this.group, true));
+    }
+    this.batches.push(...this.ruinBatches);
+  }
+
+  /**
+   * Hidden ruin batches of one building per facade and covering the map
+   * has: the warm-up shows them (CustomMapView.withAllShown), so the ruins'
+   * programs are built with the map's, not at the first damage
+   */
+  private warmRuins(surfaces: Map<string, Surface>): Batch[] {
+    const facades = new Set<MapMassFacade>();
+    const coverings = new Set<Covering>();
+    const picked: MapObject[] = [];
+    for (const o of this.objects) {
+      const shape = massShape(o.mass!, seedOf(o.id));
+      if (facades.has(o.mass!.facade) && coverings.has(shape.covering)) continue;
+      facades.add(o.mass!.facade);
+      coverings.add(shape.covering);
+      picked.push(o);
+    }
+    const batches = this.build(picked, surfaces, this.losGroup, true);
+    for (const b of batches) b.mesh.visible = false;
+    return batches;
+  }
+
+  /**
+   * The batches of these buildings, intact or as ruins (`ruin`: damage per
+   * instance, a fallen one's walls split at its break line)
+   */
+  private build(objects: readonly MapObject[], surfaces: Map<string, Surface>, parent: Group, ruin = false): Batch[] {
+    // A ruin's shape and stage, and its walls as drawn (split where it falls), once per building
+    const ruins = new Map<MapObject, { shape: RuinShape; stage: number; fallStart: number }>();
+    const wallsOf = (o: MapObject, shape: MassShape): readonly WallPiece[] => {
+      const r = ruins.get(o);
+      return r && r.stage >= 3 ? splitWalls(shape.walls, (r.shape.breakY - this.seatOf(o)) / (o.scale || 1), SPLIT_GAP / (o.scale || 1)) : shape.walls;
+    };
+    if (ruin) {
+      for (const o of objects) {
+        const d = this.damaged.get(o.id);
+        const { frame, shape } = this.ruinOf(o);
+        ruins.set(o, { shape, stage: d?.stage ?? 0, fallStart: d?.fallStart ?? FELL_LONG_AGO });
+        if (!d) continue;
+        this.ruinShapes.set(o.id, { shape, seat: frame.seatY });
+        this.damageOptions.slabs?.set(o.id, frame, shape, d.stage, d.fallStart, rubbleMaterialOf(o));
+      }
+    }
     // Count the instances per batch first: one allocation each
     const wallCount = new Map<MapMassFacade, number>();
     const roofCount = new Map<Covering, number>();
     let capCount = 0;
     for (const o of objects) {
       const shape = massShape(o.mass!, seedOf(o.id));
-      wallCount.set(o.mass!.facade, (wallCount.get(o.mass!.facade) ?? 0) + shape.walls.length);
+      wallCount.set(o.mass!.facade, (wallCount.get(o.mass!.facade) ?? 0) + wallsOf(o, shape).length);
       roofCount.set(shape.covering, (roofCount.get(shape.covering) ?? 0) + shape.roof.length);
       capCount += shape.caps.length;
     }
-    const walls = new Map<MapMassFacade, { batch: Batch; a: Float32Array; b: Float32Array; n: number }>();
+    /** A ruin batch's damage attributes, four floats per instance each */
+    const damageOf = (mesh: InstancedMesh, count: number): DamageArrays | null => {
+      if (!ruin) return null;
+      const arrays: DamageArrays = [new Float32Array(count * 4), new Float32Array(count * 4), new Float32Array(count * 4)];
+      mesh.geometry.setAttribute('aDamage', new InstancedBufferAttribute(arrays[0], 4));
+      mesh.geometry.setAttribute('aDamageB', new InstancedBufferAttribute(arrays[1], 4));
+      mesh.geometry.setAttribute('aDamageC', new InstancedBufferAttribute(arrays[2], 4));
+      return arrays;
+    };
+    const walls = new Map<MapMassFacade, { batch: Batch; a: Float32Array; b: Float32Array; damage: DamageArrays | null; n: number }>();
     for (const [facade, count] of wallCount) {
       const surface = surfaces.get(FACADE_SURFACE[facade]);
       if (!surface || !count) continue;
@@ -532,22 +677,31 @@ export class MassLayer {
       geometry.setAttribute('aWall', new InstancedBufferAttribute(a, 4));
       geometry.setAttribute('aWallB', new InstancedBufferAttribute(b, 4));
       geometry.userData['owned'] = true;
-      const mesh = new InstancedMesh(geometry, this.wallMaterial(facade, surface, surfaces.get('mass-plinth')), count);
-      mesh.customDepthMaterial = this.depthMaterial;
-      walls.set(facade, { batch: { mesh, owners: [] }, a, b, n: 0 });
+      const mesh = new InstancedMesh(geometry, this.wallMaterial(facade, surface, surfaces.get('mass-plinth'), ruin), count);
+      mesh.customDepthMaterial = ruin ? (this.ruinWallDepth ??= damageDepthMaterial('mass-wall', 'attribute vec4 aWallB;', GABLE_GLSL)) : this.depthMaterial;
+      walls.set(facade, { batch: { mesh, owners: [] }, a, b, damage: damageOf(mesh, count), n: 0 });
     }
-    const roofs = new Map<Covering, { batch: Batch; uv: Float32Array; n: number }>();
+    const roofs = new Map<Covering, { batch: Batch; uv: Float32Array; damage: DamageArrays | null; n: number }>();
     for (const [covering, count] of roofCount) {
       const surface = surfaces.get(`mass-roof-${covering}`);
       if (!surface || !count) continue;
       const geometry = UNIT_TRIANGLE.clone();
       geometry.userData['owned'] = true;
-      const mesh = new InstancedMesh(geometry, this.roofMaterial(covering, surface), count);
+      const mesh = new InstancedMesh(geometry, this.roofMaterial(covering, surface, ruin), count);
+      if (ruin) mesh.customDepthMaterial = this.ruinDepthMaterial();
       const uv = new Float32Array(count * 6);
-      roofs.set(covering, { batch: { mesh, owners: [] }, uv, n: 0 });
+      roofs.set(covering, { batch: { mesh, owners: [] }, uv, damage: damageOf(mesh, count), n: 0 });
     }
     const plinth = surfaces.get('mass-plinth');
-    const caps = plinth && capCount ? { batch: { mesh: new InstancedMesh(UNIT_FLAT, this.capMaterial(plinth), capCount), owners: [] as MapObject[] }, n: 0 } : null;
+    let caps: { batch: Batch; damage: DamageArrays | null; n: number } | null = null;
+    if (plinth && capCount) {
+      // A ruin's caps have attributes of their own: their geometry is a copy
+      const geometry = ruin ? UNIT_FLAT.clone() : UNIT_FLAT;
+      if (ruin) geometry.userData['owned'] = true;
+      const mesh = new InstancedMesh(geometry, this.capMaterial(plinth, ruin), capCount);
+      if (ruin) mesh.customDepthMaterial = this.ruinDepthMaterial();
+      caps = { batch: { mesh, owners: [] }, damage: damageOf(mesh, capCount), n: 0 };
+    }
     const color = new Color();
     const tint = new Color();
 
@@ -556,6 +710,11 @@ export class MassLayer {
       const seed = seedOf(o.id);
       const shape = massShape(mass, seed);
       const scale = o.scale || 1;
+      const r = ruins.get(o);
+      // Where its instances start in each batch, for the ranges a damaged building leaves
+      const w = walls.get(mass.facade);
+      const rf = roofs.get(shape.covering);
+      const starts = [w?.n ?? 0, rf?.n ?? 0, caps?.n ?? 0];
       // The object's own frame: seated like a building on its outline's rectangle (object-seat.ts), turned and scaled
       const seat = this.seatOf(o);
       this.seats.set(o.id, seat);
@@ -564,23 +723,22 @@ export class MassLayer {
       this.s.setScalar(scale);
       this.m.compose(this.v, this.q, this.s);
       tint.set(o.tint ?? '#ffffff');
-      const w = walls.get(mass.facade);
       if (w) {
-        for (const p of shape.walls) {
+        for (const p of wallsOf(o, shape)) {
           const height = p.top - p.bottom;
           this.local.set(p.ax * p.length, 0, p.nx, p.sx, 0, height, 0, p.bottom, p.az * p.length, 0, p.nz, p.sz, 0, 0, 0, 1);
           this.local.premultiply(this.m);
           w.batch.mesh.setMatrixAt(w.n, this.local);
           w.batch.mesh.setColorAt(w.n, tint);
           // Length and height in metres (scaled), the foundation below the seat, the storeys
-          w.a.set([p.length * scale, height * scale, Math.max(0, -p.bottom) * scale, mass.floors], w.n * 4);
-          w.b.set([seed, p.kind, p.band * scale, p.kind === WALL_PLAIN ? 0 : Math.max(0, p.top) * scale], w.n * 4);
+          w.a.set([p.length * scale, height * scale, (p.lift ?? Math.max(0, -p.bottom)) * scale, mass.floors], w.n * 4);
+          w.b.set([seed, p.kind, p.band * scale, p.kind === WALL_PLAIN ? 0 : Math.max(0, p.wallTop ?? p.top) * scale], w.n * 4);
+          if (r && w.damage) writeDamage(w.damage, w.n, r.stage, r.fallStart, r.shape);
           w.batch.owners.push(o);
           w.n++;
         }
       }
-      const r = roofs.get(shape.covering);
-      if (r) {
+      if (rf) {
         // The covering varies a little per building, the same way round as its tiles
         color.setHSL(0, 0, 0.92 + (seed % 7) * 0.02);
         for (const t of shape.roof) {
@@ -607,11 +765,12 @@ export class MassLayer {
           const nl = Math.hypot(nx, ny, nz) || 1;
           this.local.set(ux, nx / nl, wx, ax, uy, ny / nl, wy, ay, uz, nz / nl, wz, az, 0, 0, 0, 1);
           this.local.premultiply(this.m);
-          r.batch.mesh.setMatrixAt(r.n, this.local);
-          r.batch.mesh.setColorAt(r.n, color);
-          r.uv.set([t.uv[0] * scale, t.uv[1] * scale, uvB[0] * scale, uvB[1] * scale, uvC[0] * scale, uvC[1] * scale], r.n * 6);
-          r.batch.owners.push(o);
-          r.n++;
+          rf.batch.mesh.setMatrixAt(rf.n, this.local);
+          rf.batch.mesh.setColorAt(rf.n, color);
+          rf.uv.set([t.uv[0] * scale, t.uv[1] * scale, uvB[0] * scale, uvB[1] * scale, uvC[0] * scale, uvC[1] * scale], rf.n * 6);
+          if (r && rf.damage) writeDamage(rf.damage, rf.n, r.stage, r.fallStart, r.shape);
+          rf.batch.owners.push(o);
+          rf.n++;
         }
       }
       if (caps) {
@@ -620,9 +779,17 @@ export class MassLayer {
           this.local.set(c.ax * c.length, 0, c.nx * t, c.sx, 0, 1, 0, c.y, c.az * c.length, 0, c.nz * t, c.sz, 0, 0, 0, 1);
           this.local.premultiply(this.m);
           caps.batch.mesh.setMatrixAt(caps.n, this.local);
+          if (r && caps.damage) writeDamage(caps.damage, caps.n, r.stage, r.fallStart, r.shape);
           caps.batch.owners.push(o);
           caps.n++;
         }
+      }
+      if (!ruin) {
+        const ranges: { batch: Batch; start: number; count: number }[] = [];
+        if (w && w.n > starts[0]) ranges.push({ batch: w.batch, start: starts[0], count: w.n - starts[0] });
+        if (rf && rf.n > starts[1]) ranges.push({ batch: rf.batch, start: starts[1], count: rf.n - starts[1] });
+        if (caps && caps.n > starts[2]) ranges.push({ batch: caps.batch, start: starts[2], count: caps.n - starts[2] });
+        this.ranges.set(o.id, ranges);
       }
     }
     for (const r of roofs.values()) {
@@ -645,14 +812,47 @@ export class MassLayer {
       if (b.mesh.instanceColor) b.mesh.instanceColor.needsUpdate = true;
       b.mesh.computeBoundingSphere();
       b.mesh.computeBoundingBox();
+      // What is gone of a ruin does not block the towers' sight
+      if (ruin) b.mesh.userData['losVertex'] = DAMAGE_LOS;
       parent.add(b.mesh);
-      this.batches.push(b);
     }
+    return all;
+  }
+
+  /** A raised building's ruin: its outline's rectangle in the frame `build` set up (this.m), rolled from its id */
+  private ruinOf(o: MapObject): { frame: RuinFrame; shape: RuinShape } {
+    const mass = o.mass!;
+    const scale = o.scale || 1;
+    mapToScene(o.x, o.y, this.seatOf(o), this.v);
+    this.q.setFromAxisAngle(this.up, o.rotation);
+    this.s.setScalar(scale);
+    const e = this.m.compose(this.v, this.q, this.s).elements;
+    const b = massBounds(mass);
+    const mx = (b.minX + b.maxX) / 2;
+    const mz = (b.minZ + b.maxZ) / 2;
+    const hx = (b.maxX - b.minX) / 2;
+    const hz = (b.maxZ - b.minZ) / 2;
+    const frame: RuinFrame = {
+      cx: e[12] + e[0] * mx + e[8] * mz,
+      cz: e[14] + e[2] * mx + e[10] * mz,
+      ax: e[0] * hx,
+      az: e[2] * hx,
+      bx: e[8] * hz,
+      bz: e[10] * hz,
+      seatY: e[13],
+      height: massTop(mass) * scale,
+    };
+    return { frame, shape: ruinShape(structureSeed(o.id), frame) };
+  }
+
+  /** The sun's shadow of ruined roofs and copings */
+  private ruinDepthMaterial(): MeshDepthMaterial {
+    return (this.ruinDepth ??= damageDepthMaterial('mass'));
   }
 
   /** The walls of one facade: its surface in metres, the plinth's below, the windows from the shader */
-  private wallMaterial(facade: MapMassFacade, surface: Surface, plinth: Surface | undefined): Material {
-    const key = `wall-${facade}`;
+  private wallMaterial(facade: MapMassFacade, surface: Surface, plinth: Surface | undefined, ruin = false): Material {
+    const key = `wall-${facade}${ruin ? '-ruin' : ''}`;
     const cached = this.materials.get(key);
     if (cached) return cached;
     const m = surface.material.clone();
@@ -678,13 +878,14 @@ export class MassLayer {
     };
     m.customProgramCacheKey = () => `mass-wall-${facade}`;
     addHeightFog(m);
+    if (ruin) asRuin(m);
     this.materials.set(key, m);
     return m;
   }
 
   /** A roof covering: its surface in metres along the roof, a little variation per building */
-  private roofMaterial(covering: Covering, surface: Surface): Material {
-    const key = `roof-${covering}`;
+  private roofMaterial(covering: Covering, surface: Surface, ruin = false): Material {
+    const key = `roof-${covering}${ruin ? '-ruin' : ''}`;
     const cached = this.materials.get(key);
     if (cached) return cached;
     const m = surface.material.clone();
@@ -700,13 +901,15 @@ export class MassLayer {
     };
     m.customProgramCacheKey = () => `mass-roof-${covering}`;
     addHeightFog(m);
+    if (ruin) asRuin(m);
     this.materials.set(key, m);
     return m;
   }
 
   /** The parapet's coping: the plinth's concrete */
-  private capMaterial(surface: Surface): Material {
-    const cached = this.materials.get('cap');
+  private capMaterial(surface: Surface, ruin = false): Material {
+    const key = ruin ? 'cap-ruin' : 'cap';
+    const cached = this.materials.get(key);
     if (cached) return cached;
     const m = surface.material.clone();
     const uniforms = { uTile: { value: surface.tile } };
@@ -736,9 +939,41 @@ export class MassLayer {
     };
     m.customProgramCacheKey = () => 'mass-cap';
     addHeightFog(m);
-    this.materials.set('cap', m);
+    if (ruin) asRuin(m);
+    this.materials.set(key, m);
     return m;
   }
+}
+
+/** A ruin's material: the damage in its shader, its inside drawn (ruin-damage.ts) */
+function asRuin(m: Material): void {
+  addDamage(m);
+  m.side = DoubleSide;
+}
+
+function disposeBatch(b: Batch): void {
+  b.mesh.removeFromParent();
+  if (b.mesh.geometry.userData['owned']) b.mesh.geometry.dispose();
+  b.mesh.dispose();
+}
+
+/**
+ * A fallen building's walls: each that crosses the break line `at` (over
+ * the seat, the building's units) as its stump and the piece above, a
+ * `gap` apart, so each piece lies wholly on one side of it. Gables stay
+ * whole: they rise from the eaves, above any break line but a low hut's
+ */
+export function splitWalls(walls: readonly WallPiece[], at: number, gap: number): WallPiece[] {
+  const out: WallPiece[] = [];
+  for (const p of walls) {
+    if (p.kind === WALL_GABLE || p.bottom >= at - gap || p.top <= at + gap) {
+      out.push(p);
+      continue;
+    }
+    // Both keep the wall's top for its storeys and cornice; the upper one's metres start at its bottom
+    out.push({ ...p, top: at - gap / 2, wallTop: p.top }, { ...p, bottom: at + gap / 2, wallTop: p.top, lift: -(at + gap / 2) });
+  }
+  return out;
 }
 
 /** The kit's materials by name with the metres one repeat of each covers (its square's side) */
