@@ -323,7 +323,7 @@ describe('SimCore in the same thread', () => {
     expect(run().gsm.stateHash()).toBe(core.gsm.stateHash());
   });
 
-  it('wrecks a destructible world in a wave and comes to the same in a replay, after a seek and from a save (docs/DESTRUCTION_PLAN.md)', () => {
+  it('wrecks a destructible world in a wave and comes to the same in a replay, after a seek and from a save (docs/DESTRUCTION_PLAN.md)', { timeout: 120_000 }, () => {
     const mathRandom = Math.random;
     Math.random = mulberry32(SEED + 4);
     try {
@@ -397,15 +397,21 @@ describe('SimCore in the same thread', () => {
       const steps = [...live.keys()].filter((step) => step > record.startStep && step < record.endStep!);
       const middle = steps[steps.length >> 1];
       replay.core.rpc('replaySeek', middle - record.startStep);
-      packet = replay.tick({ replay: { playing: false, speed: 10 } });
+      // A seek runs in slices of wall time, so tick until it has arrived
+      const seekOps: string[] = [];
+      for (let f = 0; f < 2000; f++) {
+        packet = replay.tick({ replay: { playing: false, speed: 10 } });
+        seekOps.push(...packet.ops.map((op) => op[0]));
+        if (packet.scalars.replay!.seeking === null) break;
+      }
+      expect(packet.scalars.replay!.seeking).toBeNull();
       expect(replay.core.gsm.subStep).toBe(middle);
       expect(replay.core.gsm.stateHash()).toBe(live.get(middle));
       // Already worn and dug by then
       expect(replay.core.gsm.worldDamage.craters.size).toBeGreaterThan(0);
       expect(replay.core.gsm.worldDamage.structures.hpList().slice(0, -1).some((hp) => hp < 240)).toBe(true);
-      const after = packet.ops.map((op) => op[0]);
-      expect(after).toContain('structures.setStages');
-      expect(after).toContain('craters.setAll');
+      expect(seekOps).toContain('structures.setStages');
+      expect(seekOps).toContain('craters.setAll');
       replay.core.rpc('replayExit');
     } finally {
       Math.random = mathRandom;
