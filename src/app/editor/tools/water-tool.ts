@@ -79,7 +79,7 @@ export class WaterTool implements EditorTool {
     // A body to work on: the main water appears at the clicked height when there is none
     if (!waterBody(editor.doc.terrain, s.body)) {
       if (s.body >= 0) {
-        ctx.status('Choose a body in the panel first');
+        ctx.status(ctx.t().editor.water.chooseBody);
         return true;
       }
       waterCommands.enable(editor, Math.round((p.hit.z - (s.mode === 'lake' ? 0 : 0.2)) * 10) / 10);
@@ -87,7 +87,8 @@ export class WaterTool implements EditorTool {
     this.on = s.mode === 'erase' ? p.shift : !p.shift;
     const targets: PatchTarget[] = [maskTarget(s.body)];
     if (s.mode === 'lake') targets.push('heights');
-    const label = s.mode === 'lake' ? 'Dig lake' : this.on ? 'Paint water' : 'Erase water';
+    const says = ctx.t().editor.water;
+    const label = s.mode === 'lake' ? says.digLake : this.on ? says.paintWater : says.eraseWater;
     this.stroke = editor.begin(label);
     for (const target of targets) this.stroke.record(target);
     this.symmetry = ctx.settings.symmetry();
@@ -109,7 +110,7 @@ export class WaterTool implements EditorTool {
       const { before, river } = this.riverDrag;
       this.riverDrag = null;
       const after = ctx.editor.doc.terrain.rivers;
-      if (JSON.stringify(before) !== JSON.stringify(after)) relayRiver(ctx.editor, ctx.catalog, 'Move river point', river, before);
+      if (JSON.stringify(before) !== JSON.stringify(after)) relayRiver(ctx.editor, ctx.catalog, ctx.t().editor.water.moveRiverPoint, river, before);
     }
   }
 
@@ -121,7 +122,7 @@ export class WaterTool implements EditorTool {
     if (s.riverPoint >= 0 && river && river.points.length > 2) {
       const before = structuredClone(editor.doc.terrain.rivers);
       removePoint(river, s.riverPoint);
-      relayRiver(editor, ctx.catalog, 'Remove river point', s.river, before);
+      relayRiver(editor, ctx.catalog, ctx.t().editor.water.removeRiverPoint, s.river, before);
     } else {
       removeWholeRiver(editor, s.river, ctx.catalog);
     }
@@ -174,22 +175,21 @@ export class WaterTool implements EditorTool {
   hint(ctx: ToolContext): string {
     const s = ctx.settings.water();
     const body = waterBody(ctx.editor.doc.terrain, s.body);
-    const name = s.body < 0 ? 'the main water' : `body ${s.body + 1}`;
+    const says = ctx.t().editor.water;
+    const name = s.body < 0 ? says.theMain : says.bodyN(s.body + 1);
     switch (s.mode) {
       case 'fill':
-        return !body
-          ? 'Click a hollow to fill it up to its rim'
-          : `Click a hollow to fill ${name} up to ${body.level} m | Ctrl click fills to the rim | Shift erases`;
+        return !body ? says.hintFillAny : says.hintFill(name, body.level);
       case 'pour':
-        return `Click to pour ${s.pour}: it fills the hollow, spills over and fills every hollow on its way down to the map's edge`;
+        return says.hintPour(says.pourWords[s.pour]);
       case 'lake':
-        return `Hold to dig a lake bed under ${name} and fill it | [ ] size`;
+        return says.hintLake(name);
       case 'paint':
-        return `Hold to paint ${name}, Shift erases | [ ] size`;
+        return says.hintPaint(name);
       case 'erase':
-        return `Hold to erase ${name}, Shift paints | [ ] size`;
+        return says.hintErase(name);
       case 'river':
-        return 'Drag a river point to move it | Shift click on a river adds a point | Del removes the point (or the river)';
+        return says.hintRiver;
     }
     return '';
   }
@@ -208,10 +208,10 @@ export class WaterTool implements EditorTool {
     const body = waterBody(t, s.body);
     const fresh = !body || !body.mask.some((v) => v);
     if (!body && s.body >= 0) {
-      ctx.status('Choose a body in the panel first');
+      ctx.status(ctx.t().editor.water.chooseBody);
       return;
     }
-    const tx = editor.begin('Fill basin');
+    const tx = editor.begin(ctx.t().editor.water.fillBasin);
     tx.snapshot('water');
     if (s.body < 0 && !t.water) t.water = emptyWater(t, 0);
     const target = waterBody(t, s.body)!;
@@ -231,16 +231,16 @@ export class WaterTool implements EditorTool {
       tx.abort();
       ctx.status(
         !fresh && !p.ctrl
-          ? `The ground here lies above the level (${level} m); Ctrl click fills to the rim`
-          : 'This spot is no hollow: the water would run off',
+          ? ctx.t().editor.water.aboveLevel(level)
+          : ctx.t().editor.water.noHollow,
       );
       return;
     }
     tx.commit({ water: true });
     // A body that keeps its level fills a deeper hollow only part way: say so, and how to fill it up
     if (brim - level > LOW_FILL) {
-      const name = s.body < 0 ? 'the main water' : `body ${s.body + 1}`;
-      ctx.status(`Filled up to ${level} m, the level of ${name}; this hollow holds water up to ${brim} m: Ctrl click fills it to the rim`);
+      const says = ctx.t().editor.water;
+      ctx.status(says.filledPart(level, s.body < 0 ? says.theMain : says.bodyN(s.body + 1), brim));
     }
   }
 
@@ -258,7 +258,7 @@ export class WaterTool implements EditorTool {
     const { i, j } = nearestSample(t, p.hit!.x, p.hit!.y);
     const wet = wetSamples(t);
     if (wet[j * g.columns + i]) {
-      ctx.status('There is water here already: pour onto dry ground');
+      ctx.status(ctx.t().editor.water.wetHere);
       return;
     }
     const starts = symmetryImages(ctx.settings.symmetry(), g.columns === g.rows).map((img) => {
@@ -268,27 +268,26 @@ export class WaterTool implements EditorTool {
     const doc = editor.doc;
     const state = editor.stateId;
     this.pouring = true;
-    ctx.status(`Pouring ${kind}…`);
+    ctx.status(ctx.t().editor.water.pouring(ctx.t().editor.water.pourWords[kind]));
     pourOffThread({ columns: g.columns, rows: g.rows, heights: g.heights, starts, wet, cellSize: g.cellSize })
       .then((result) => {
         if (editor.doc !== doc || editor.stateId !== state) {
-          ctx.status('The map changed while the water ran: pour again');
+          ctx.status(ctx.t().editor.water.changedWhile);
           return;
         }
-        const tx = editor.begin(kind === 'lava' ? 'Pour lava' : 'Pour water');
+        const tx = editor.begin(ctx.t().editor.water.pourStep(kind === 'lava'));
         tx.snapshot('water');
         const added = addPouredBodies(t, result.lakes, kind, MAX_WATER_BODIES);
         if (!added) {
           tx.abort();
-          ctx.status(`The ${kind} runs off to the map's edge: no hollow on its way deep enough for a lake`);
+          ctx.status(ctx.t().editor.water.runsOff(ctx.t().editor.water.pourWords[kind]));
           return;
         }
         tx.commit({ water: true });
-        const what = kind === 'lava' ? 'lava pool' : 'lake';
         const full = result.skipped > 0 || (t.waterBodies?.length ?? 0) >= MAX_WATER_BODIES;
-        ctx.status(`${added} ${what}${added === 1 ? '' : 's'} filled${full ? `; further hollows on the way stayed dry (one pour fills at most ${POUR_MAX_LAKES}, a map holds ${MAX_WATER_BODIES} bodies)` : ''}`);
+        ctx.status(ctx.t().editor.water.filled(added, kind === 'lava', full, POUR_MAX_LAKES, MAX_WATER_BODIES));
       })
-      .catch((err: Error) => ctx.status(`The pour failed: ${err.message}`))
+      .catch((err: Error) => ctx.status(ctx.t().editor.water.pourFailed(err.message)))
       .finally(() => (this.pouring = false));
   }
 

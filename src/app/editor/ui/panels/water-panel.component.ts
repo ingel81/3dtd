@@ -12,21 +12,10 @@ import { panelRev } from './panel-shown';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
 import { ModePickerComponent, type EditorMode } from './mode-picker.component';
+import { injectT } from '../../../i18n/i18n.service';
 
-/** What a water edit says when it has to wait */
-const WATER = 'Changing the water';
-const RIVER = 'Changing the river';
-
-const WATER_MODES: readonly EditorMode[] = [
-  { id: 'fill', label: 'Fill a hollow', hint: 'Click into a hollow: every connected spot below the level floods. Without water yet, the hollow\'s rim sets the level' },
-  { id: 'pour', label: 'Pour', hint: 'Click to pour water or lava: the hollow fills to its rim, the overflow runs downhill and fills each hollow on its way, down to the map\'s edge or a body. Each hollow becomes a new body' },
-  { id: 'lake', label: 'Dig a lake', hint: 'Hold to dig a lake bed to the depth set below and fill it' },
-  { id: 'paint', label: 'Paint', hint: 'Hold to paint water of the chosen body by hand' },
-  { id: 'erase', label: 'Erase', hint: 'Hold to take water away' },
-  { id: 'river', label: 'Rivers', hint: 'Edit rivers drawn with Landscape, River: move points, width, water or lava' },
-];
-
-const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', swamp: 'Swamp', ice: 'Ice', lava: 'Lava' };
+/** The tool's modes in their order; their names and hints are the dictionary's (i18n `editor.water.modes`) */
+const WATER_MODES: readonly WaterMode[] = ['fill', 'pour', 'lake', 'paint', 'erase', 'river'];
 
 /**
  * Water and lava bodies: the main water and further bodies, each with its
@@ -39,19 +28,19 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', s
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-stack is-loose' },
   template: `
-    <app-editor-modes label="Water tool" [modes]="modes" [value]="mode()" (picked)="setMode($any($event))" />
+    <app-editor-modes [label]="t().editor.water.tool" [modes]="modes()" [value]="mode()" (picked)="setMode($any($event))" />
 
     <div class="td-group">
-      <h3 class="td-section">Water bodies <span class="td-note">the tool works on the chosen one</span></h3>
-      <div class="td-rows" role="listbox" aria-label="Water bodies">
+      <h3 class="td-section">{{ t().editor.water.bodies }} <span class="td-note">{{ t().editor.water.bodiesNote }}</span></h3>
+      <div class="td-rows" role="listbox" [attr.aria-label]="t().editor.water.bodies">
         @for (b of bodies(); track b.index) {
           <div class="td-row wp-row" role="option" tabindex="0" [attr.aria-selected]="active() === b.index" (click)="choose(b.index)"
                (keydown.enter)="choose(b.index)" [attr.data-body]="b.index">
             <span class="td-swatch is-lg" [style.--td-mark]="b.color"></span>
             <span class="td-trunc wp-name">{{ b.name }}</span>
-            <span class="td-muted td-num">{{ b.exists ? b.level + ' m' : 'none' }}</span>
+            <span class="td-muted td-num">{{ b.exists ? t().editor.water.metres(b.level) : t().editor.water.none }}</span>
             @if (b.exists) {
-              <button class="td-tool is-sm" type="button" aria-label="Remove" matTooltip="Remove" (click)="$event.stopPropagation(); remove(b.index)">
+              <button class="td-tool is-sm" type="button" [attr.aria-label]="t().editor.water.remove" [matTooltip]="t().editor.water.remove" (click)="$event.stopPropagation(); remove(b.index)">
                 <td-icon name="trash" [size]="14" />
               </button>
             }
@@ -59,29 +48,29 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', s
         }
       </div>
       <div class="td-actions is-start">
-        <button class="td-btn-secondary td-btn-sm" type="button" (click)="add('water')" data-test="add-lake">Add lake</button>
-        <button class="td-btn-secondary td-btn-sm" type="button" (click)="add('lava')" data-test="add-lava">Add lava</button>
-        <button class="td-btn-secondary td-btn-sm" type="button" (click)="add('swamp')">Add swamp</button>
-        <button class="td-btn-secondary td-btn-sm" type="button" (click)="add('ice')">Add ice</button>
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="add('water')" data-test="add-lake">{{ t().editor.water.addLake }}</button>
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="add('lava')" data-test="add-lava">{{ t().editor.water.addLava }}</button>
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="add('swamp')">{{ t().editor.water.addSwamp }}</button>
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="add('ice')">{{ t().editor.water.addIce }}</button>
       </div>
     </div>
 
     @if (current(); as c) {
       <div class="td-group">
         <h3 class="td-section">{{ c.name }}</h3>
-        <div class="td-seg is-sm" role="radiogroup" aria-label="What fills it">
+        <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.water.fills">
           @for (k of kinds; track k) {
             <button type="button" role="radio" [attr.aria-checked]="c.kind === k" (click)="set({ kind: k }, kindName(k))">{{ kindName(k) }}</button>
           }
         </div>
-        <app-editor-range label="Level" unit="m" [min]="-100" [max]="400" [step]="0.5" [value]="c.level" (changed)="set({ level: $event }, 'Level')" />
+        <app-editor-range [label]="t().editor.water.level" unit="m" [min]="-100" [max]="400" [step]="0.5" [value]="c.level" (changed)="set({ level: $event }, t().editor.water.level)" />
         <label class="td-setting">
-          <span>Colour</span>
-          <input type="color" [value]="c.color" (change)="set({ color: $any($event.target).value }, 'Colour')" aria-label="Colour" />
+          <span>{{ t().editor.water.colour }}</span>
+          <input type="color" [value]="c.color" (change)="set({ color: $any($event.target).value }, t().editor.water.colour)" [attr.aria-label]="t().editor.water.colour" />
         </label>
         <div class="td-actions is-start">
-          <button class="td-btn-secondary td-btn-sm" type="button" (click)="sea()" matTooltip="Flood it in from the map's edge over all ground below its level">Sea from the edge</button>
-          <button class="td-btn-ghost td-btn-sm" type="button" (click)="clear()">Clear</button>
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="sea()" [matTooltip]="t().editor.water.seaTip">{{ t().editor.water.sea }}</button>
+          <button class="td-btn-ghost td-btn-sm" type="button" (click)="clear()">{{ t().editor.water.clear }}</button>
         </div>
       </div>
     }
@@ -89,49 +78,49 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', s
 
     @if (mode() === 'pour') {
       <div class="td-group">
-        <h3 class="td-section">Pour <span class="td-note">each hollow it fills becomes a new body</span></h3>
-        <div class="td-seg is-sm" role="radiogroup" aria-label="What to pour">
-          <button type="button" role="radio" [attr.aria-checked]="pour() === 'water'" (click)="setPour('water')" data-test="pour-water">Water</button>
-          <button type="button" role="radio" [attr.aria-checked]="pour() === 'lava'" (click)="setPour('lava')" data-test="pour-lava">Lava</button>
+        <h3 class="td-section">{{ t().editor.water.pour }} <span class="td-note">{{ t().editor.water.pourNote }}</span></h3>
+        <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.water.whatPour">
+          <button type="button" role="radio" [attr.aria-checked]="pour() === 'water'" (click)="setPour('water')" data-test="pour-water">{{ t().editor.water.water }}</button>
+          <button type="button" role="radio" [attr.aria-checked]="pour() === 'lava'" (click)="setPour('lava')" data-test="pour-lava">{{ t().editor.water.lava }}</button>
         </div>
-        <p class="td-note">Click where it should run from: the hollow there fills to its rim, the overflow runs downhill into the next hollow and fills that too, until it reaches the map's edge or other water.</p>
+        <p class="td-note">{{ t().editor.water.pourHelp }}</p>
       </div>
     }
 
     @if (mode() === 'river') {
       <div class="td-group">
-        <h3 class="td-section">Rivers <span class="td-note">drawn with Landscape, River</span></h3>
-        <div class="td-rows" role="listbox" aria-label="Rivers">
+        <h3 class="td-section">{{ t().editor.water.rivers }} <span class="td-note">{{ t().editor.water.riversNote }}</span></h3>
+        <div class="td-rows" role="listbox" [attr.aria-label]="t().editor.water.rivers">
           @for (r of rivers(); track r.index) {
             <div class="td-row wp-row" role="option" tabindex="0" [attr.aria-selected]="r.index === river()" (click)="chooseRiver(r.index)"
                  (keydown.enter)="chooseRiver(r.index)" [attr.data-river]="r.index">
               <span class="td-swatch is-lg" [style.--td-mark]="r.kind === 'lava' ? '#ff5a14' : '#2f6f8f'"></span>
-              <span class="td-trunc wp-name">{{ r.kind === 'lava' ? 'Lava flow' : 'River' }} {{ r.index + 1 }}</span>
-              <span class="td-muted td-num">{{ r.length }} m | {{ r.points }} points</span>
+              <span class="td-trunc wp-name">{{ t().editor.water.riverName(r.kind === 'lava', r.index + 1) }}</span>
+              <span class="td-muted td-num">{{ t().editor.water.riverSize(r.length, r.points) }}</span>
             </div>
           } @empty {
-            <p class="td-note">No rivers yet: draw one with the Landscape tool's River brush (1).</p>
+            <p class="td-note">{{ t().editor.water.noRivers }}</p>
           }
         </div>
       </div>
       @if (chosenRiver(); as c) {
         <div class="td-group">
-          <app-editor-range label="Width" unit="m" [min]="2" [max]="80" [step]="1" [value]="c.width" (changed)="setRiverWidth($event)" />
-          <div class="td-seg is-sm" role="radiogroup" aria-label="What flows">
-            <button type="button" role="radio" [attr.aria-checked]="c.kind === 'water'" (click)="setRiverKind('water')">Water</button>
-            <button type="button" role="radio" [attr.aria-checked]="c.kind === 'lava'" (click)="setRiverKind('lava')">Lava</button>
+          <app-editor-range [label]="t().editor.water.width" unit="m" [min]="2" [max]="80" [step]="1" [value]="c.width" (changed)="setRiverWidth($event)" />
+          <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.water.flows">
+            <button type="button" role="radio" [attr.aria-checked]="c.kind === 'water'" (click)="setRiverKind('water')">{{ t().editor.water.water }}</button>
+            <button type="button" role="radio" [attr.aria-checked]="c.kind === 'lava'" (click)="setRiverKind('lava')">{{ t().editor.water.lava }}</button>
           </div>
           <div class="td-actions is-start">
-            <button class="td-btn-secondary td-btn-sm" type="button" (click)="recarve()" matTooltip="Set the surface just below the banks and carve the bed again along the points as they are now">Carve the bed</button>
-            <button class="td-btn-secondary td-btn-sm" type="button" (click)="simplify()" matTooltip="Fewer points where the river runs straight, easier to edit">Fewer points</button>
-            <button class="td-btn-ghost td-btn-sm" type="button" (click)="removeRiver()">Remove river</button>
+            <button class="td-btn-secondary td-btn-sm" type="button" (click)="recarve()" [matTooltip]="t().editor.water.carveTip">{{ t().editor.water.carve }}</button>
+            <button class="td-btn-secondary td-btn-sm" type="button" (click)="simplify()" [matTooltip]="t().editor.water.fewerTip">{{ t().editor.water.fewer }}</button>
+            <button class="td-btn-ghost td-btn-sm" type="button" (click)="removeRiver()">{{ t().editor.water.removeRiver }}</button>
           </div>
         </div>
       }
-      <p class="td-note">Drag a point to move it, Shift click on a river adds one, Del removes the chosen point. Remove river takes it off with its bed, banks and reeds.</p>
+      <p class="td-note">{{ t().editor.water.riverHelp }}</p>
     } @else if (mode() !== 'fill' && mode() !== 'pour') {
       @if (mode() === 'lake') {
-        <app-editor-range label="Depth" unit="m" [min]="0.5" [max]="20" [step]="0.5" [value]="depth()" (changing)="setDepth($event)" />
+        <app-editor-range [label]="t().editor.water.depth" unit="m" [min]="0.5" [max]="20" [step]="0.5" [value]="depth()" (changing)="setDepth($event)" />
       }
       <app-brush-panel />
     }
@@ -139,11 +128,12 @@ const KIND_NAMES: Record<MapWaterKind, string> = { water: 'Water', sea: 'Sea', s
   styles: [`.wp-row { justify-content: flex-start; gap: 8px; cursor: pointer; min-height: 32px; } .wp-name { flex: 1 1 auto; }`],
 })
 export class WaterPanelComponent {
+  protected readonly t = injectT();
   private readonly session = inject(EditorSession);
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('water', 'terrain');
   readonly kinds: MapWaterKind[] = ['water', 'sea', 'swamp', 'ice', 'lava'];
-  readonly modes = WATER_MODES;
+  readonly modes = computed<EditorMode[]>(() => WATER_MODES.map((id) => ({ id, ...this.t().editor.water.modes[id] })));
   readonly mode = computed(() => this.session.tools.settings.water().mode);
   readonly active = computed(() => this.session.tools.settings.water().body);
   readonly pour = computed(() => this.session.tools.settings.water().pour);
@@ -155,17 +145,17 @@ export class WaterPanelComponent {
     if (!t) return [];
     const main = t.water;
     const list = [
-      { index: -1, name: 'Main water', exists: !!main, level: main?.level ?? 0, color: main?.color ?? '#2f5f6f', kind: main?.kind ?? 'water' },
+      { index: -1, name: this.t().editor.water.mainWater, exists: !!main, level: main?.level ?? 0, color: main?.color ?? '#2f5f6f', kind: main?.kind ?? 'water' },
     ];
     (t.waterBodies ?? []).forEach((b, k) =>
-      list.push({ index: k, name: `${KIND_NAMES[b.kind ?? 'water']} ${k + 1}`, exists: true, level: b.level, color: b.color, kind: b.kind ?? 'water' }),
+      list.push({ index: k, name: this.t().editor.water.bodyName(this.t().editor.water.kinds[b.kind ?? 'water'], k + 1), exists: true, level: b.level, color: b.color, kind: b.kind ?? 'water' }),
     );
     return list;
   });
   readonly current = computed(() => this.bodies().find((b) => b.index === this.active() && b.exists) ?? null);
 
   kindName(k: MapWaterKind): string {
-    return KIND_NAMES[k];
+    return this.t().editor.water.kinds[k];
   }
 
   choose(index: number): void {
@@ -195,18 +185,18 @@ export class WaterPanelComponent {
   }
 
   setRiverWidth(width: number): void {
-    this.reshapeRiver('River width', (r) => setMeanWidth(r, width));
+    this.reshapeRiver(this.t().editor.water.undoWidth, (r) => setMeanWidth(r, width));
   }
 
   setRiverKind(kind: 'water' | 'lava'): void {
-    this.editRiver(kind === 'lava' ? 'Lava flow' : 'River', (r) => (r.kind = kind));
+    this.editRiver(kind === 'lava' ? this.t().editor.water.undoLavaFlow : this.t().editor.water.undoRiver, (r) => (r.kind = kind));
   }
 
   recarve(): void {
     const river = this.session.doc?.terrain.rivers?.[this.river()];
     if (!river) return;
-    this.session.edit(RIVER, (e) => {
-      const stroke = new LandscapeContext(e.begin('Carve the river bed'), 1, this.session.catalog());
+    this.session.edit(this.t().editor.water.changingRiver, (e) => {
+      const stroke = new LandscapeContext(e.begin(this.t().editor.water.undoCarve), 1, this.session.catalog());
       // The surface first, from the banks as they are: a river from before sinks into a channel
       relevelRiver(stroke, river);
       recarveRiver(stroke, river);
@@ -215,13 +205,13 @@ export class WaterPanelComponent {
   }
 
   simplify(): void {
-    this.reshapeRiver('Fewer river points', (r) => simplifyRiver(r, Math.max(1.5, meanWidth(r) / 6)));
+    this.reshapeRiver(this.t().editor.water.undoFewer, (r) => simplifyRiver(r, Math.max(1.5, meanWidth(r) / 6)));
     patch(this.session.tools.settings.water, { riverPoint: -1 });
   }
 
   removeRiver(): void {
     const index = this.river();
-    if (index < 0 || !this.session.edit(RIVER, (e) => removeWholeRiver(e, index, this.session.catalog()))) return;
+    if (index < 0 || !this.session.edit(this.t().editor.water.changingRiver, (e) => removeWholeRiver(e, index, this.session.catalog()))) return;
     patch(this.session.tools.settings.water, { river: -1, riverPoint: -1 });
   }
 
@@ -229,7 +219,7 @@ export class WaterPanelComponent {
   private reshapeRiver(label: string, edit: (r: MapRiver) => void): void {
     const index = this.river();
     if (!this.session.doc?.terrain.rivers?.[index]) return;
-    this.session.edit(RIVER, (e) => {
+    this.session.edit(this.t().editor.water.changingRiver, (e) => {
       const before = structuredClone(e.doc.terrain.rivers);
       edit(e.doc.terrain.rivers![index]);
       relayRiver(e, this.session.catalog(), label, index, before);
@@ -238,7 +228,7 @@ export class WaterPanelComponent {
 
   private editRiver(label: string, edit: (r: MapRiver) => void): void {
     const index = this.river();
-    if (index >= 0) this.session.edit(RIVER, (e) => e.execute(riverEdit(e, label, (rivers) => rivers[index] && edit(rivers[index]))));
+    if (index >= 0) this.session.edit(this.t().editor.water.changingRiver, (e) => e.execute(riverEdit(e, label, (rivers) => rivers[index] && edit(rivers[index]))));
   }
 
   setMode(mode: WaterMode): void {
@@ -255,25 +245,25 @@ export class WaterPanelComponent {
 
   add(kind: MapWaterKind): void {
     const level = Math.round((this.session.view.hover()?.height ?? 0) * 10) / 10;
-    if (!this.session.edit(WATER, (e) => waterCommands.addBody(e, kind, level))) return;
+    if (!this.session.edit(this.t().editor.water.changing, (e) => waterCommands.addBody(e, kind, level))) return;
     const index = (this.session.doc!.terrain.waterBodies?.length ?? 1) - 1;
     patch(this.session.tools.settings.water, { body: index, mode: 'fill' });
-    this.session.notices.flash(`${KIND_NAMES[kind]} ${index + 1} added: click a hollow to fill it, or dig a lake`);
+    this.session.notices.flash(this.t().editor.water.added(this.t().editor.water.bodyName(this.t().editor.water.kinds[kind], index + 1)));
   }
 
   remove(index: number): void {
-    if (this.session.edit(WATER, (e) => waterCommands.remove(e, index)) && index >= 0 && this.active() >= index) this.choose(this.active() - 1);
+    if (this.session.edit(this.t().editor.water.changing, (e) => waterCommands.remove(e, index)) && index >= 0 && this.active() >= index) this.choose(this.active() - 1);
   }
 
   set(patch: { level?: number; color?: string; kind?: MapWaterKind }, label: string): void {
-    this.session.edit(WATER, (e) => waterCommands.set(e, this.active(), patch, label));
+    this.session.edit(this.t().editor.water.changing, (e) => waterCommands.set(e, this.active(), patch, label));
   }
 
   sea(): void {
-    this.session.edit(WATER, (e) => waterCommands.sea(e, this.active()));
+    this.session.edit(this.t().editor.water.changing, (e) => waterCommands.sea(e, this.active()));
   }
 
   clear(): void {
-    this.session.edit(WATER, (e) => waterCommands.clearMask(e, this.active()));
+    this.session.edit(this.t().editor.water.changing, (e) => waterCommands.clearMask(e, this.active()));
   }
 }
