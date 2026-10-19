@@ -247,7 +247,12 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   neu und kommt auf dieselben Höhen (Spec).
 - **Gebündelt aufbauen:** geänderte Proben schreiben in Kacheln von 32 x 32, höchstens zwei Kacheln je Bild als ein
   Rechteck an `CustomMapView.updateHeights` (gemessen 1 bis 3 ms je Aufruf); ein Raketenkrater steht im nächsten Bild,
-  der Neuaufbau nach einem Sprung verteilt sich über Bilder statt des ganzen Rasters (118 bis 174 ms).
+  der Neuaufbau nach einem Sprung verteilt sich über Bilder statt des ganzen Rasters (118 bis 174 ms). Je Kachel zählt
+  nur das Rechteck der Proben, die sich änderten (E256): ein Krater in einer Kachel am Kartenrand baute sonst die
+  Schürze um die Karte neu (6 bis 11 ms), obwohl am Rand keine Probe sich bewegte. `MapTerrainLayer.rebuild` schneidet
+  das Rechteck auf das Raster zu: mit dem Rand von einer Probe aus `gridRect` ragte es darüber hinaus, der Auftrag
+  `heights` im Ground-Worker warf, der Worker fiel aus, und von da an liefen Verdeckung und Fernschatten jedes
+  Einschlags auf dem Hauptthread (je Einschlag zwei Bilder von 35 bis 98 und 37 bis 77 ms).
 - **Tower im Bild gehalten:** unter einem stehenden Tower (3 m) behält der Boden die Höhe, die er hatte, als der Tower
   kam; ein Krater daneben lässt ihm seinen Fuß, einer unter einem Tower, der in einem Krater gebaut wurde, hebt ihn nicht.
   Die Simulation braucht das nicht: dort liegt das Raster nur über Routenzellen, auf denen nie ein Tower steht.
@@ -255,7 +260,11 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   verbrannte Sohle, Erdklumpen am Rand, Ruß in Strahlen; Schutt: zerbrochene Platten der Materialklasse mit Schattenfugen,
   Krümel, Staub über den Fuß hinaus; Korn je Meter, nicht je Spur. Ein Draw Call.
 - **Kein Gras auf aufgerissenem Boden:** Proben mit 10 cm oder mehr Stempel kommen als Maske in die Cover-Map
-  (`CustomMapView.setGroundBare`), die dort Gras wie an einem Grundriss weglässt.
+  (`CustomMapView.setGroundBare`), die dort Gras wie an einem Grundriss weglässt. Die Cover-Map rechnet nach einem
+  Einschlag nur das Rechteck neu, samt ganzer Dächer, deren Mitte darin steht (`CoverMap.set` mit `rect`, statt jedes
+  Grundrisses der Karte: auf Ruined City 4 bis 7 ms je Einschlag), und lädt nur dessen Zeilen hoch.
+- **Fall ohne Neuaufbau:** ein gefallenes Bauwerk geht einzeln aus den Bauverboten und Dächern
+  (`CustomMapSurface.dropObjects`), statt alle Objekte der Karte neu einzusortieren (3 bis 4 ms auf Ruined City).
 - **Verdeckung und Krümmung:** der Ground-Worker des Spiels bekommt die geänderten Höhen als Patch, bevor er sie schattiert
   (`GroundWorker.heightsChanged`).
 - Wasser, Brücken, Objektsitze, Straßenbänder und Gras folgen dem Rechteck von `updateHeights`.

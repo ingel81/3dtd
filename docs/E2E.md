@@ -127,6 +127,12 @@ node e2e/perf/sim-load.ts --url http://localhost:4244 --browser chromium --heade
   über das Startmenü mit Globus). Mit `--place` oder `--dice` öffnet er eine echte Kartensitzung.
 - `e2e/perf/menu-shots.ts`: Screenshots von Startmenü, Ladeplatte und Sinkflug an einem echten Ort, danach das Menü in
   kleineren Fenstern (eine Kartensitzung, sichtbares Fenster).
+- `e2e/perf/siege-probe.ts`: Ruckler beim Beschuss zerstörbarer Bauwerke (TODO E256). Lädt Ruined City, schickt wie
+  Wave Debug „Single“ einen Jumper (`--start spawn`: direkt auf die Route) und misst über das Fenster jeden Frame
+  (Abstand, GPU-Zeit per Timer-Query, Warten auf den GPU-Prozess, neue Programme und Uploads, Tick des Workers) und
+  die Aufrufe der Darstellung (Schuss, Einschlag, Stufen und Krater der Zerstörung, die Schichten der Karte) mit ihrer
+  Zeit; je langem Frame steht dabei, was in ihm lief. `--close` setzt die Kamera an den ersten Schuss, `--trace`
+  listet jeden Aufruf benannter Methoden mit Argumenten, `--profile` das CPU-Profil langer Frames. Dev-Server nötig.
 
 ## Coop-Läufe mit Bots (`e2e/coop-bots/run.ts`)
 
