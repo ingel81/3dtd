@@ -28,6 +28,7 @@ import { distanceField, fillRings, sampleGrid, stampLine, type RasterGrid } from
 import type { WaterResult } from './water';
 import { FURNITURE_ASSETS } from './furniture';
 import { POI_ASSETS } from './pois';
+import { standScale } from '../../../map-ops/tree-stands';
 import { AREA_ASSETS } from './areas';
 
 /** Share of the scene budget the plants may take; buildings and furniture get the rest */
@@ -269,12 +270,15 @@ export function growVegetation(doc: CustomMapDocument, features: OsmFeatures, la
         const near = routeShare(nearRoute(x, y));
         const roll = random(i, j, channel + 2);
         if (roll >= (density / most) * near || !free(x, y, kind.clear)) continue;
+        const asset = pick(kind.assets, random(i, j, channel + 3));
+        // Trees by the age of their stand round the kind's middle size (map-ops tree-stands.ts), the rest at random
+        const own = random(i, j, channel + 5);
         candidates.push({
-          asset: pick(kind.assets, random(i, j, channel + 3)),
+          asset,
           x,
           y,
           rotation: random(i, j, channel + 4) * Math.PI * 2,
-          scale: lerp(kind.scale, random(i, j, channel + 5)),
+          scale: asset.startsWith('tree-') ? standScale(x, y, kind.scale[0], kind.scale[1], own, seed) : lerp(kind.scale, own),
           priority: 1 + roll / near,
           source,
         });

@@ -7,12 +7,27 @@ describe('instanceVariation', () => {
     expect(instanceVariation('o17', 'tree')).toEqual(instanceVariation('o17', 'tree'));
   });
 
-  it('varies trees in size and lean within their bounds, most nearly upright', () => {
-    const trees = ids.map((id) => instanceVariation(id, 'tree'));
-    const sizes = trees.map((t) => t.size);
+  it('varies trees in size within their bounds', () => {
+    const sizes = ids.map((id) => instanceVariation(id, 'tree').size);
     expect(Math.min(...sizes)).toBeGreaterThanOrEqual(0.88);
     expect(Math.max(...sizes)).toBeLessThanOrEqual(1.12);
     expect(Math.max(...sizes) - Math.min(...sizes)).toBeGreaterThan(0.2);
+  });
+
+  it('gives each crown a width of its own and leaves other kinds their shape', () => {
+    const trees = ids.map((id) => instanceVariation(id, 'tree'));
+    for (const t of trees) {
+      expect(t.widthX).toBeGreaterThanOrEqual(0.82);
+      expect(t.widthX).toBeLessThanOrEqual(1.19);
+      expect(Math.abs(t.widthX / t.widthZ - 1)).toBeLessThanOrEqual(0.13);
+    }
+    expect(Math.max(...trees.map((t) => t.widthX)) - Math.min(...trees.map((t) => t.widthX))).toBeGreaterThan(0.2);
+    expect(instanceVariation('o1', 'plant').widthX).toBe(1);
+    expect(instanceVariation('o1', 'rock').widthZ).toBe(1);
+  });
+
+  it('leans trees within their bounds, most nearly upright', () => {
+    const trees = ids.map((id) => instanceVariation(id, 'tree'));
     const leans = trees.map((t) => t.lean);
     expect(Math.max(...leans)).toBeLessThanOrEqual(0.07);
     expect(leans.filter((l) => l < 0.02).length).toBeGreaterThan(trees.length / 2);

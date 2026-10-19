@@ -273,9 +273,11 @@ export class ObjectTool implements EditorTool {
     // With symmetry the scatter grows in the stroke's own sector and is copied to the others
     const rockOf = (asset: string) => rockShape(ctx.catalog.object(asset));
     const floats = (asset: string) => !!ctx.catalog.object(asset).float;
+    // Trees take their size from the age of their stand (map-ops tree-stands.ts)
+    const stands = (asset: string) => ctx.catalog.object(asset).category === 'tree';
     const grid = b.grid!;
     const ids = ctx.editor.objectIds;
-    const own = scatterDab(t, p.hit, brush, { ...s.scatter, assets: this.scatterAssets(ctx) }, grid, ids, Math.random, Math.min(dt, 0.1) * 6, rockOf, floats)
+    const own = scatterDab(t, p.hit, brush, { ...s.scatter, assets: this.scatterAssets(ctx) }, grid, ids, Math.random, Math.min(dt, 0.1) * 6, rockOf, floats, stands)
       .filter((o) => sameSector(mode, o, origin));
     // Each image tilts with its own ground, and a rock settles from the ground up on its own
     const images = objectImages(own, symmetryImages(mode, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2).map((o) => {

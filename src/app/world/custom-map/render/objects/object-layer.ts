@@ -1046,12 +1046,12 @@ export class MapObjectLayer {
       this.leanAxis.set(Math.sin(look.leanToward), 0, Math.cos(look.leanToward));
       this.tmpQuat.premultiply(this.tilt.setFromAxisAngle(this.leanAxis, look.lean));
     }
-    this.tmpScale.setScalar(s);
+    this.tmpScale.set(s * look.widthX, s, s * look.widthZ);
     this.tmpMatrix.compose(this.tmpPos, this.tmpQuat, this.tmpScale);
     // Along a slope (wallShear): model y rises with model x, the posts stay upright
     if (lean) this.tmpMatrix.multiply(this.shear.set(1, 0, 0, 0, lean.shear, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1));
     this.tmpMatrix.toArray(b.source.matrices, i * 16);
-    const radius = Math.max(e.footprint, b.model.height * 0.6) * s;
+    const radius = Math.max(e.footprint, b.model.height * 0.6) * s * Math.max(1, look.widthX, look.widthZ);
     b.spheres[i * 4] = this.tmpPos.x;
     b.spheres[i * 4 + 1] = this.tmpPos.y + (b.model.height * s) / 2;
     b.spheres[i * 4 + 2] = this.tmpPos.z;
@@ -1096,12 +1096,14 @@ export class MapObjectLayer {
     const rotor = isRotor(m0);
     const period = rotor ? (entry.rotor ?? DEFAULT_ROTOR) : (entry.spin ?? DEFAULT_SPIN);
     const wind = waterfall ? 0 : entry.wind;
+    // Trees bend their crowns apart (in the wind block, before the rest pose)
+    const crownWarp = wind > 0 && entry.category === 'tree';
     // Floating objects that are not moored structures rock on the water
     const bob = !!entry.float && entry.category !== 'structure';
     // Several looks in one atlas (a herd of several breeds): only for objects that stay where they are
     const variants = !card && !bob && (entry.variants ?? 1) > 1 ? entry.variants! : 1;
     const damage = damaged ? this.options.damage : undefined;
-    const key = `${source.uuid}|${damage ? damage.key : ''}|${entry.grime ? 1 : 0}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin || rotor ? period : 0}|${rotor ? 1 : 0}|${variants}`;
+    const key = `${source.uuid}|${damage ? damage.key : ''}|${entry.grime ? 1 : 0}|${crownWarp ? 1 : 0}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin || rotor ? period : 0}|${rotor ? 1 : 0}|${variants}`;
     const cached = this.materials.get(key);
     if (cached) return cached;
     // Always an own copy: the library's material is shared (other views, the editor's thumbnails)
@@ -1134,7 +1136,7 @@ export class MapObjectLayer {
       uSpinPeriod: { value: Math.max(0.5, period) },
     };
     if (card) this.fades.push({ range: local.uFadeRange.value, drawDistance: entry.drawDistance });
-    const variant = `${wind > 0 ? 'w' : ''}${card ? 'c' : ''}${waterfall ? 'f' : ''}${flame ? 'l' : ''}${bob ? 'b' : ''}${cloth ? 'k' : ''}${spin ? 's' : ''}${rotor ? 'r' : ''}`;
+    const variant = `${crownWarp ? 't' : ''}${wind > 0 ? 'w' : ''}${card ? 'c' : ''}${waterfall ? 'f' : ''}${flame ? 'l' : ''}${bob ? 'b' : ''}${cloth ? 'k' : ''}${spin ? 's' : ''}${rotor ? 'r' : ''}`;
     m.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, WIND_UNIFORMS);
       shader.uniforms['uWindBend'] = local.uWindBend;
@@ -1146,6 +1148,17 @@ export class MapObjectLayer {
         shader.vertexShader = shader.vertexShader.replace(
           '#include <begin_vertex>',
           /* glsl */ `#include <begin_vertex>
+          ${crownWarp ? `{
+            // Each crown its own: low bulges up the crown (none on the trunk), their phase from where the tree
+            // stands, so one model's trees part in outline, not only in size and turn
+            float crownSeed = 0.0;
+            #ifdef USE_INSTANCING
+            crownSeed = dot(instanceMatrix[3].xz, vec2(0.173, 0.119));
+            #endif
+            float crownH = clamp(transformed.y / uWindHeight, 0.0, 1.3);
+            vec2 bulge = vec2(sin(crownH * 5.2 + crownSeed * 6.1 + transformed.z * 0.35), cos(crownH * 4.3 + crownSeed * 4.7 + transformed.x * 0.35));
+            transformed.xz += bulge * 0.05 * uWindHeight * smoothstep(0.3, 0.6, crownH);
+          }` : ''}
           // The rest pose, for the shadow lookup below
           vec3 windRest = transformed;
           {

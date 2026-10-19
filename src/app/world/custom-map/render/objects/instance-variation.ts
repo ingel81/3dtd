@@ -1,15 +1,21 @@
 /**
  * How one plant differs from the next of its model, from a hash of its id
  * (the same object keeps its look across rebuilds and on every client): its
- * brightness and a hue drift, a size, and for trees a lean. All of it
- * goes into the instance's matrix and colour, so a forest of one model
- * looks grown, not cloned, without a draw call more. Autumn foliage
- * (catalogue tag `autumn`) spreads further, between red, rust and yellow:
- * a stand of one autumn model turns at its own pace, tree by tree.
+ * brightness and a hue drift, a size, and for trees a lean and the width of
+ * the crown. All of it goes into the instance's matrix and colour, so a
+ * forest of one model looks grown, not cloned, without a draw call more.
+ * Autumn foliage (catalogue tag `autumn`) spreads further, between red,
+ * rust and yellow: a stand of one autumn model turns at its own pace, tree
+ * by tree.
+ *
+ * The ages of trees in stands are their placed scale (map-ops tree-stands.ts).
  */
 
 /** Size of a tree against its object's scale: 0.88 to 1.12 */
 const TREE_SIZE = 0.12;
+/** A crown is wider or slimmer than its model by up to this, and a little wider one way than the other */
+const CROWN_WIDTH = 0.12;
+const CROWN_ASYMMETRY = 0.06;
 /** Size of other vegetation against its object's scale: 0.92 to 1.08 */
 const PLANT_SIZE = 0.08;
 /** Most a tree leans off the vertical, radians (about 4 degrees) */
@@ -18,6 +24,9 @@ const TREE_LEAN = 0.07;
 export interface InstanceVariation {
   /** Factor on the object's scale */
   size: number;
+  /** Factors on its width across model x and z (1 for all but trees): a tree's crown wider or slimmer */
+  widthX: number;
+  widthZ: number;
   /** Lean off the vertical (radians) and the map direction it leans toward (radians from map +x) */
   lean: number;
   leanToward: number;
@@ -46,14 +55,19 @@ function idHashes(id: string): [number, number, number, number, number, number] 
 
 /**
  * The variation of an object of `category` with the catalogue's `tags`:
- * trees get size and lean, plants a smaller size spread, both a shade
- * (other categories only a shade, used where they are tinted)
+ * trees get size, lean and crown width, plants a smaller size spread, both
+ * a shade (other categories only a shade, used where they are tinted)
  */
 export function instanceVariation(id: string, category: string, tags?: readonly string[]): InstanceVariation {
   const [r1, r2, r3, r4, r5, r6] = idHashes(id);
   const tree = category === 'tree';
   // Rocks, buildings and props keep the size they were placed at
   const size = tree || category === 'plant' ? 1 + (r5 * 2 - 1) * (tree ? TREE_SIZE : PLANT_SIZE) : 1;
+  // A crown wider or slimmer, a little more one way (the hashes the lean's direction does not lean on)
+  const width = tree ? 1 + (fract(r1 * 7.13 + r6 * 3.7) * 2 - 1) * CROWN_WIDTH : 1;
+  const skew = tree ? (fract(r2 * 5.31 + r5 * 2.9) * 2 - 1) * CROWN_ASYMMETRY : 0;
+  const widthX = width * (1 + skew);
+  const widthZ = width * (1 - skew);
   // Most stand nearly upright, a few lean clearly
   const lean = tree ? TREE_LEAN * r6 * r6 : 0;
   const leanToward = r4 * Math.PI * 2;
@@ -63,6 +77,8 @@ export function instanceVariation(id: string, category: string, tags?: readonly 
     const turn = r2 * 2 - 1;
     return {
       size,
+      widthX,
+      widthZ,
       lean,
       leanToward,
       r: v * (1 + r3 * 0.12),
@@ -77,10 +93,16 @@ export function instanceVariation(id: string, category: string, tags?: readonly 
   const olive = tree ? (r4 - 0.5) * 0.12 : 0;
   return {
     size,
+    widthX,
+    widthZ,
     lean,
     leanToward,
     r: v * (0.92 + r2 * 0.16 + turning * 0.25 + olive),
     g: v * (0.96 + r3 * 0.06),
     b: v * (1.06 - r2 * 0.2 - turning * 0.2 - olive),
   };
+}
+
+function fract(v: number): number {
+  return v - Math.floor(v);
 }

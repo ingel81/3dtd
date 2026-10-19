@@ -3,6 +3,7 @@
  * minimum distance, sinking into slopes), its eraser, box selection, grid
  * snap and duplicates. Ids are `o<number>`, counted on from the highest.
  */
+import { standScale } from './tree-stands';
 import type { CustomMapDocument, MapObject, MapPaths, MapPoint, MapTerrain } from '../world/custom-map/map-document';
 import { heightAt, slopeAt, insideMap, sampleRectAround, sampleX, sampleY, type GridRect } from './grid';
 import { waterLevelAt } from '../world/custom-map/water-level';
@@ -424,6 +425,8 @@ export function scatterDab(
   rockOf: (asset: string) => RockShape | undefined = () => undefined,
   /** Floating assets: they lie at the waterline, neither sunk nor tilted by the ground under the water */
   floats: (asset: string) => boolean = () => false,
+  /** Trees: their scale from the age of their stand (tree-stands.ts), round the middle of the scale range */
+  stands: (asset: string) => boolean = () => false,
 ): MapObject[] {
   if (!options.assets.length) return [];
   const area = Math.PI * brush.radius * brush.radius;
@@ -438,8 +441,11 @@ export function scatterDab(
     if (random() > brushWeight(r, brush.radius, brush.falloff)) continue;
     if (!insideMap(terrain, p, 1)) continue;
     if (grid.near(p, options.minDistance)) continue;
-    const scale = options.scaleMin + (options.scaleMax - options.scaleMin) * random();
+    const roll = random();
     const asset = options.assets[Math.floor(random() * options.assets.length)];
+    const scale = stands(asset)
+      ? standScale(p.x, p.y, options.scaleMin, options.scaleMax, roll)
+      : options.scaleMin + (options.scaleMax - options.scaleMin) * roll;
     const rock = rockOf(asset);
     const float = floats(asset);
     const slope = options.sinkOnSlope && !rock && !float ? slopeAt(terrain, p.x, p.y) : 0;
