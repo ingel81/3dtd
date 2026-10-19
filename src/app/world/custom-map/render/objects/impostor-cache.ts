@@ -1,6 +1,6 @@
 import type { WebGLRenderer } from 'three';
 import type { ObjectModel } from '../map-asset-library';
-import { bakeImpostor, bakeImpostorAsync, type Impostor } from './impostor';
+import { bakeImpostor, bakeImpostorAsync, type Impostor, type ImpostorLights } from './impostor';
 import { ImpostorArrays, type ImpostorSlot } from './impostor-array';
 
 /**
@@ -18,7 +18,13 @@ export class ImpostorCache {
   private readonly arrays: ImpostorArrays;
   private disposed = false;
 
-  constructor(readonly renderer: WebGLRenderer) {
+  constructor(
+    readonly renderer: WebGLRenderer,
+    /** The map's lights the tone probe bakes under (impostor.ts ImpostorLights); without, a high sun */
+    private readonly lights: () => ImpostorLights | undefined = () => undefined,
+    /** Settles once those lights stand (the environment map filled): the bakes ahead wait for it */
+    private readonly lit: () => Promise<unknown> = () => Promise.resolve(),
+  ) {
     this.arrays = new ImpostorArrays(renderer);
   }
 
@@ -37,7 +43,8 @@ export class ImpostorCache {
     if (!this.wants(model) || this.baked.has(id)) return Promise.resolve();
     let job = this.jobs.get(id);
     if (!job) {
-      job = bakeImpostorAsync(this.renderer, model)
+      job = this.lit()
+        .then(() => bakeImpostorAsync(this.renderer, model, this.lights()))
         .then((imp) => {
           if (this.disposed || this.baked.has(id)) imp?.dispose();
           else this.baked.set(id, this.store(imp));
@@ -55,7 +62,7 @@ export class ImpostorCache {
     const id = model.entry.id;
     let slot = this.baked.get(id);
     if (slot === undefined) {
-      slot = this.store(bakeImpostor(this.renderer, model));
+      slot = this.store(bakeImpostor(this.renderer, model, this.lights()));
       this.baked.set(id, slot);
     }
     return slot;

@@ -50,6 +50,7 @@ import type { RoadCover } from './paths/path-mask';
 import type { TexelRect } from './terrain/texture-ranges';
 import { LAVA_GLOW_UNIFORMS } from './environment/height-fog';
 import { ImpostorCache } from './objects/impostor-cache';
+import type { ImpostorLights } from './objects/impostor';
 import { groundCuts } from './terrain/terrain-cuts';
 import { MapTerrainLayer } from './terrain/map-terrain';
 import { ApronField, EDGE_TREE_BAND, edgeTreeObjects } from './objects/edge-trees';
@@ -327,8 +328,15 @@ export class CustomMapView {
     this.terrain.grass.setCover(this.cover);
     this.environment.setFogBase(lowGround(t.grid.heights, t.water?.level));
     this.updateWater();
-    // One bake per asset for both object layers, all of them in the view's texture arrays (impostor-array.ts)
-    this.impostors = options.renderer ? new ImpostorCache(options.renderer) : undefined;
+    // One bake per asset for both object layers, all of them in the view's texture arrays (impostor-array.ts); the
+    // tone probe measures under the map's own sun, sky, ambient and environment map, once that is filled
+    this.impostors = options.renderer
+      ? new ImpostorCache(
+          options.renderer,
+          () => impostorLights(this.environment),
+          () => this.environment.envReady,
+        )
+      : undefined;
     const standing = options.standingGround ? new HeightField(options.standingGround, t.width, t.depth) : null;
     this.objects = new MapObjectLayer(this.heights, assets, this.losBlockers, {
       impostors: this.impostors,
@@ -1855,4 +1863,17 @@ function hangs(a: MapLifeArea): boolean {
 /** Whether any of `objects` writes a sign */
 function hasSigns(objects: readonly MapObject[]): boolean {
   return objects.some((o) => !!o.sign);
+}
+
+/** The lights of a map's environment as the impostors' tone probe takes them (colours times intensities) */
+function impostorLights(env: CustomMapEnvironment): ImpostorLights {
+  return {
+    sunDir: env.sunDir.clone(),
+    sun: env.sun.color.clone().multiplyScalar(env.sun.intensity),
+    sky: env.hemi.color.clone().multiplyScalar(env.hemi.intensity),
+    ground: env.hemi.groundColor.clone().multiplyScalar(env.hemi.intensity),
+    ambient: env.ambient.color.clone().multiplyScalar(env.ambient.intensity),
+    environment: env.environmentMap?.texture ?? null,
+    environmentIntensity: env.environmentMap?.intensity ?? 0,
+  };
 }

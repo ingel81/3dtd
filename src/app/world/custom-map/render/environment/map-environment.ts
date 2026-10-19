@@ -930,6 +930,11 @@ export class CustomMapEnvironment {
     scene.environmentIntensity = this.envIntensity(p);
   }
 
+  /** The prefiltered environment map the materials read and its share of the light, once it is filled (null before) */
+  get environmentMap(): { texture: Texture; intensity: number } | null {
+    return this.pmremReady && this.envTarget ? { texture: this.envTarget.texture, intensity: this.envIntensity(this.look()) } : null;
+  }
+
   /** The environment map's share of the light: the look's, less under a storm's dark sky */
   private envIntensity(p: BiomeLook): number {
     return p.envIntensity * ((this.env.weather ?? 'clear') === 'storm' ? 1 - 0.4 * Math.min(1, Math.max(0, this.env.weatherStrength ?? 0.6)) : 1);

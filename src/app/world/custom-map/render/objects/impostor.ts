@@ -89,10 +89,47 @@ export function impostorCell(radius: number, screen: number): number {
 const BLEED = 6;
 /** Pixels per side of each probe view of the tone measurement */
 const PROBE = 96;
-/** Directions the tone measurement looks from: azimuth and elevation, degrees */
-const PROBE_VIEWS: readonly [number, number][] = [[20, 12], [140, 18], [260, 10], [70, 50]];
-/** Towards the probe's sun */
-const PROBE_SUN = new Vector3(0.45, 0.8, 0.35).normalize();
+/**
+ * Directions the tone measurement looks from: azimuth and elevation, degrees. All round at the game camera's pitch
+ * and a little flatter: a card lights as a solid crown and a model's sparse leaves do not (lit leaves behind its gaps
+ * against the sun), so the two part with the side the sun stands on; the tone matches them over all sides, as the
+ * camera sees a map's woods from every side
+ */
+const PROBE_VIEWS: readonly [number, number][] = [
+  [0, 35], [45, 25], [90, 35], [135, 25], [180, 35], [225, 25], [270, 35], [315, 25],
+];
+/**
+ * The lights of the map an impostor is baked for, as its objects stand
+ * under them: the direction towards the sun and the colours (times their
+ * intensities, linear) of the sun, the sky and the ground of the
+ * hemisphere light, and the ambient. The tone probe draws model and card
+ * under these: a low evening sun lights a crown's leaves and its card's
+ * baked normals otherwise than a high noon one, and a tone measured under
+ * a fixed sun and no environment map left Autumn Keep's far wood darker than its trees
+ */
+export interface ImpostorLights {
+  sunDir: Vector3;
+  sun: Color;
+  sky: Color;
+  ground: Color;
+  ambient: Color;
+  /** The map's prefiltered environment map and its intensity: most of a far wood's light from the sky comes through it */
+  environment?: Texture | null;
+  environmentIntensity?: number;
+}
+
+/** The probe's lights when the map gives none: a high sun, a sky and a little ambient */
+export const DEFAULT_IMPOSTOR_LIGHTS: ImpostorLights = {
+  sunDir: new Vector3(0.45, 0.8, 0.35).normalize(),
+  sun: new Color(0xfff4e0).multiplyScalar(1.3),
+  sky: new Color(0xb8d0f0).multiplyScalar(0.7),
+  ground: new Color(0x5a4a32).multiplyScalar(0.7),
+  ambient: new Color(0xb8d0f0).multiplyScalar(0.12),
+};
+/** The probe's sun stands at least this high (a sun at the horizon lights nothing to measure) */
+const PROBE_MIN_SUN = 0.12;
+/** The probe's lights together bring a white surface to at most this (linear): no channel clips in its 8-bit target */
+const PROBE_LIGHT = 1.4;
 /** The tone stays within this factor either way: a bake gone wrong is not hidden by it (blue runs widest: autumn leaves hold little of it, and the sky and the sheen add much of what the model shows) */
 const TONE_LIMIT = 1.6;
 /** How dark the card's self shadow gets (1: the sun's light all gone, like the model in its own shadow) */
@@ -294,7 +331,9 @@ function prepareBake(model: ObjectModel, renderer: WebGLRenderer): Bake | null {
     // Leaves and bark count by how much of the model they make (their triangles' share is near enough)
     const tris = (part.geometry.index?.count ?? part.geometry.getAttribute('position').count) / 3;
     rough += (src.roughness ?? 0.9) * tris;
-    metal += (src.metalness ?? 0) * tris;
+    // A metalness map scales its factor (glTF writes the factor 1 beside a bark's ORM texture, whose metal is 0): the
+    // factor alone made the far wood half metal, its light from the sky halved
+    metal += (src.metalnessMap ? 0 : (src.metalness ?? 0)) * tris;
     weight += tris;
   }
   return {
@@ -380,11 +419,11 @@ export function normalDepthMaterial(src: MeshStandardMaterial, center: Vector3, 
   });
 }
 
-export function bakeImpostor(renderer: WebGLRenderer, model: ObjectModel): Impostor | null {
+export function bakeImpostor(renderer: WebGLRenderer, model: ObjectModel, lights: ImpostorLights = DEFAULT_IMPOSTOR_LIGHTS): Impostor | null {
   const bake = prepareBake(model, renderer);
   if (!bake) return null;
   const imp = drawImpostor(renderer, bake);
-  const probe = toneProbe(bake, imp);
+  const probe = toneProbe(bake, imp, lights);
   probe.draw(renderer);
   renderer.readRenderTargetPixels(probe.target, 0, 0, probe.target.width, probe.target.height, probe.pixels);
   settleLook(imp, probe.pixels);
@@ -401,7 +440,7 @@ export function bakeImpostor(renderer: WebGLRenderer, model: ObjectModel): Impos
  * draws: a material made anew would free the compiled program with the
  * old one and link again in the bake
  */
-export async function bakeImpostorAsync(renderer: WebGLRenderer, model: ObjectModel): Promise<Impostor | null> {
+export async function bakeImpostorAsync(renderer: WebGLRenderer, model: ObjectModel, lights: ImpostorLights = DEFAULT_IMPOSTOR_LIGHTS): Promise<Impostor | null> {
   const bake = prepareBake(model, renderer);
   if (!bake) return null;
   const camera = new OrthographicCamera(-1, 1, 1, -1, 0.01, 10);
@@ -428,7 +467,7 @@ export async function bakeImpostorAsync(renderer: WebGLRenderer, model: ObjectMo
     target.dispose();
   }
   const imp = drawImpostor(renderer, bake);
-  const probe = toneProbe(bake, imp);
+  const probe = toneProbe(bake, imp, lights);
   try {
     // The probe's programs (both sides under its lights) built off the main thread as well
     await Promise.all([compileInto(renderer, probe.target, probe.model, probe.camera), compileInto(renderer, probe.target, probe.card, probe.camera)]);
@@ -476,7 +515,7 @@ function compileInto(renderer: WebGLRenderer, target: WebGLRenderTarget, scene: 
 }
 
 /** The views of `bake` with each part in `materials` into an atlas, its empty pixels bled into, mipmapped */
-function drawAtlas(renderer: WebGLRenderer, bake: Bake, materials: Material[], cell: number, colorSpace: string, clear: number): WebGLRenderTarget {
+function drawAtlas(renderer: WebGLRenderer, bake: Bake, materials: Material[], cell: number, colorSpace: string, clear: number, bleed: boolean): WebGLRenderTarget {
   const { scene, meshes, center, radius } = bake;
   const side = cell * IMPOSTOR_FRAMES;
   meshes.forEach((m, k) => (m.material = materials[k]));
@@ -514,6 +553,7 @@ function drawAtlas(renderer: WebGLRenderer, bake: Bake, materials: Material[], c
   const copy = bake.copy;
   copy.material.uniforms['uSource'].value = msaa.texture;
   copy.material.uniforms['uCell'].value = cell;
+  copy.material.uniforms['uBleed'].value = bleed ? 1 : 0;
   renderer.setRenderTarget(target);
   renderer.render(copy.scene, copy.camera);
   copy.material.uniforms['uSource'].value = null;
@@ -524,11 +564,13 @@ function drawAtlas(renderer: WebGLRenderer, bake: Bake, materials: Material[], c
 function drawImpostor(renderer: WebGLRenderer, bake: Bake): Impostor {
   const restore = saveState(renderer);
   // A leaf-dark clear colour with no alpha under the bleed: what it does not reach blends towards it, not towards black
-  const albedo = drawAtlas(renderer, bake, bake.albedo, bake.cell, SRGBColorSpace, 0x2c3a22);
+  const albedo = drawAtlas(renderer, bake, bake.albedo, bake.cell, SRGBColorSpace, 0x2c3a22, true);
   // Empty pixels: facing up and as far behind the card as the bake reaches (nothing there shades anything). At half
   // the colour's size: light and the self shadow change slower over a crown than its leaves' colour, and at the
-  // distance impostors stand the colour itself is read a mip level down
-  const normalDepth = drawAtlas(renderer, bake, bake.normal, bake.cell / 2, NoColorSpace, 0x80ff80);
+  // distance impostors stand the colour itself is read a mip level down. Copied without the bleed: its alpha is the
+  // depth, not the coverage, and a bleed by it gave the crown's far half (lit leaves seen through its gaps against the
+  // sun) the near half's normals: the card went dark where the model still showed light
+  const normalDepth = drawAtlas(renderer, bake, bake.normal, bake.cell / 2, NoColorSpace, 0x80ff80, false);
   bake.meshes.forEach((m, k) => (m.material = bake.albedo[k]));
   restore();
 
@@ -584,22 +626,37 @@ function drawImpostor(renderer: WebGLRenderer, bake: Bake): Impostor {
   };
 }
 
-/** The lights both sides of the tone probe stand under: a sun, a sky and a little ambient, as the maps light objects */
-function probeRig(bake: Bake): [DirectionalLight, HemisphereLight, AmbientLight] {
-  const sun = new DirectionalLight(0xfff4e0, 1.3);
-  // The sun casts as the map's does (where the shadow map reaches): the model onto itself, the card its self shadow
-  sun.position.copy(bake.center).addScaledVector(PROBE_SUN, bake.radius * 2);
-  sun.target.position.copy(bake.center);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(512, 512);
-  const cam = sun.shadow.camera;
-  cam.left = cam.bottom = -bake.radius;
-  cam.right = cam.top = bake.radius;
-  cam.near = 0.01;
-  cam.far = bake.radius * 4;
-  cam.updateProjectionMatrix();
-  sun.shadow.bias = -0.0005;
-  return [sun, new HemisphereLight(0xb8d0f0, 0x5a4a32, 0.7), new AmbientLight(0xb8d0f0, 0.12)];
+/**
+ * The probe's sun towards which it lights: the map's, raised to PROBE_MIN_SUN when it stands lower (a night map's moon,
+ * an evening sun at the horizon)
+ */
+export function probeSun(lights: ImpostorLights, out = new Vector3()): Vector3 {
+  out.copy(lights.sunDir);
+  out.y = Math.max(out.y, PROBE_MIN_SUN);
+  return out.normalize();
+}
+
+/** The factor on all the probe's lights, the environment map's too: a white surface stays below PROBE_LIGHT */
+export function probeScale(lights: ImpostorLights): number {
+  const peak = (c: Color) => Math.max(c.r, c.g, c.b);
+  const env = lights.environment ? (lights.environmentIntensity ?? 1) : 0;
+  return PROBE_LIGHT / Math.max(peak(lights.sun) + Math.max(peak(lights.sky), peak(lights.ground)) + peak(lights.ambient) + env, 1e-3);
+}
+
+/**
+ * The lights both sides of the tone probe stand under: the map's sun, sky and ambient (ImpostorLights), scaled
+ * together so a white surface stays below PROBE_LIGHT (the tone is a ratio: the scale cancels, clipping would not)
+ */
+export function probeRig(center: Vector3, radius: number, lights: ImpostorLights): [DirectionalLight, HemisphereLight, AmbientLight] {
+  const k = probeScale(lights);
+  const sun = new DirectionalLight(lights.sun.clone().multiplyScalar(k), 1);
+  // No shadow: impostors stand beyond the shadow map (380 m and more from the camera), where neither the model nor the
+  // card shades itself. Measured with the model in its own shadow, the tone darkened every far card for a self shadow
+  // it never gets there (Autumn Keep's far wood 6 % under its trees); where the map does cast, the card's own self
+  // shadow (impSelfShade) stands in for the model's
+  sun.position.copy(center).addScaledVector(probeSun(lights), radius * 2);
+  sun.target.position.copy(center);
+  return [sun, new HemisphereLight(lights.sky.clone().multiplyScalar(k), lights.ground.clone().multiplyScalar(k), 1), new AmbientLight(lights.ambient.clone().multiplyScalar(k), 1)];
 }
 
 /**
@@ -619,21 +676,24 @@ interface ToneProbe {
   dispose(): void;
 }
 
-function toneProbe(bake: Bake, imp: Impostor): ToneProbe {
+function toneProbe(bake: Bake, imp: Impostor, lights: ImpostorLights): ToneProbe {
   const views = PROBE_VIEWS.length;
   const target = new WebGLRenderTarget(PROBE * views, PROBE * 2);
   target.texture.colorSpace = NoColorSpace;
   target.scissorTest = true;
   const model = new Scene();
-  const modelSun = probeRig(bake);
+  const modelSun = probeRig(bake.center, bake.radius, lights);
   model.add(...modelSun, modelSun[0].target);
   for (let k = 0; k < bake.meshes.length; k++) {
-    const m = new Mesh(bake.meshes[k].geometry, bake.lit[k]);
-    m.castShadow = m.receiveShadow = true;
-    model.add(m);
+    model.add(new Mesh(bake.meshes[k].geometry, bake.lit[k]));
   }
   const card = new Scene();
-  const cardSun = probeRig(bake);
+  const cardSun = probeRig(bake.center, bake.radius, lights);
+  // Both under the map's environment map, scaled as the lights are
+  for (const scene of [model, card]) {
+    scene.environment = lights.environment ?? null;
+    scene.environmentIntensity = (lights.environmentIntensity ?? 1) * probeScale(lights);
+  }
   card.add(...cardSun, cardSun[0].target);
   // The card's blended alpha as it is (no coverage, no test, no blending): measureLook picks the test
   const raw = imp.material.clone();
@@ -643,20 +703,13 @@ function toneProbe(bake: Bake, imp: Impostor): ToneProbe {
   raw.transparent = true;
   raw.blending = NoBlending;
   raw.alphaTest = 0.004;
-  const cardMesh = new Mesh(imp.geometry, raw);
-  cardMesh.castShadow = cardMesh.receiveShadow = true;
-  cardMesh.customDepthMaterial = imp.depthMaterial;
-  card.add(cardMesh);
+  card.add(new Mesh(imp.geometry, raw));
   const { center, radius } = bake;
   const camera = new OrthographicCamera(-radius, radius, radius, -radius, 0.01, radius * 4);
   camera.position.copy(center).add(new Vector3(0, 0, radius * 2));
   camera.lookAt(center);
   const draw = (renderer: WebGLRenderer): void => {
     const restore = saveState(renderer);
-    // The cards turn their shadow to the probe's sun meanwhile; the map's shadow map keeps its cache
-    const sun = IMPOSTOR_SUN.uImpSun.value.clone();
-    IMPOSTOR_SUN.uImpSun.value.copy(PROBE_SUN);
-    const shadowUpdate = renderer.shadowMap.needsUpdate;
     renderer.setRenderTarget(target);
     renderer.setClearColor(0x000000, 0);
     renderer.autoClear = false;
@@ -675,18 +728,14 @@ function toneProbe(bake: Bake, imp: Impostor): ToneProbe {
         target.viewport.set(v * PROBE, row * PROBE, PROBE, PROBE);
         target.scissor.set(v * PROBE, row * PROBE, PROBE, PROBE);
         renderer.setRenderTarget(target);
-        renderer.shadowMap.needsUpdate = true;
         renderer.render(scene, camera);
       }
     });
-    renderer.shadowMap.needsUpdate = shadowUpdate;
-    IMPOSTOR_SUN.uImpSun.value.copy(sun);
     restore();
   };
   return { target, raw, model, card, camera, pixels: new Uint8Array(PROBE * views * PROBE * 2 * 4), draw, dispose: () => {
     target.dispose();
     raw.dispose();
-    for (const l of [modelSun[0], cardSun[0]]) l.shadow.dispose();
   } };
 }
 
@@ -711,7 +760,7 @@ function copyQuad(): CopyQuad {
     depthTest: false,
     depthWrite: false,
     toneMapped: false,
-    uniforms: { uSource: { value: null as Texture | null }, uCell: { value: 64 } },
+    uniforms: { uSource: { value: null as Texture | null }, uCell: { value: 64 }, uBleed: { value: 1 } },
     vertexShader: /* glsl */ `
       varying vec2 vCopyUv;
       void main() {
@@ -721,12 +770,13 @@ function copyQuad(): CopyQuad {
     fragmentShader: /* glsl */ `
       uniform sampler2D uSource;
       uniform float uCell;
+      uniform float uBleed;
       varying vec2 vCopyUv;
       void main() {
         ivec2 size = textureSize(uSource, 0);
         ivec2 p = ivec2(vCopyUv * vec2(size));
         vec4 c = texelFetch(uSource, p, 0);
-        if (c.a < 0.5) {
+        if (uBleed > 0.5 && c.a < 0.5) {
           // The view's own cell only: a neighbour view's crown never bleeds in
           ivec2 lo = (p / int(uCell)) * int(uCell);
           ivec2 hi = lo + int(uCell) - 1;

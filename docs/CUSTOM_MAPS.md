@@ -618,16 +618,20 @@ Kosten: Demo-Tal 151 → 160 Calls in der Spielansicht, beim Schwenk 155 → 171
 Rauschen des geteilten Messrechners (Spielansicht 1,01 bis 1,06 ms).
 
 Impostor (`impostor.ts`, oktaedrisch): das Modell aus 8 x 8 Richtungen über der oberen Halbkugel (hemi-oktaedrisches
-Raster) in zwei Atlanten gerendert (mit 4x MSAA gezeichnet, in ein Ziel ohne MSAA kopiert, leere Pixel aus den
-belegten derselben Ansicht aufgefüllt, damit Mipmaps zur Kronenfarbe mischen): Farbe mit Deckung und, in halber
+Raster) in zwei Atlanten gerendert (mit 4x MSAA gezeichnet, in ein Ziel ohne MSAA kopiert, im Farbatlas leere
+Pixel aus den belegten derselben Ansicht aufgefüllt, damit Mipmaps zur Kronenfarbe mischen; im Normalatlas nicht, dort
+ist Alpha die Tiefe): Farbe mit Deckung und, in halber
 Größe, Normale im Modellrahmen mit der Tiefe vor der Kartenebene. Laubkarten backen mit ihrer gesetzten Normale und
 blenden von der Kante gesehen aus wie im Spiel. Gezeigt als eine Karte, die sich zur Kamera dreht; sie nimmt die vier
 Ansichten um die Blickrichtung und mischt sie nach Nähe, von unten gelten die Ansichten am Horizont. Beleuchtet wird
 je Pixel mit der gebackenen Normale; Schnee legt sich nach ihr (`SURFACE_VIEW_NORMAL` in `height-fog.ts`). Wo die
 Schattenkarte reicht, beschattet sich die Karte selbst: ein Punkt liegt in seiner Tiefe, und die Ansicht nächst der
 Sonne sagt, ob die Krone zwischen ihm und der Sonne steht. Pixel je Ansicht: 128 für Bäume und große Felsen ab 1400 px
-Zeichenhöhe, sonst 64 (`impostorCell`). Beim Backen zeichnet eine Probe Modell und Karte unter denselben Lichtern mit
-Schatten aus vier Richtungen: die Alpha-Schwelle der Karte ist die, unter der sie so viel deckt wie das Modell (vier
+Zeichenhöhe, sonst 64 (`impostorCell`). Beim Backen zeichnet eine Probe Modell und Karte unter den Lichtern der Karte
+(Sonne, mindestens 0,12 hoch, Himmel, Umgebungslicht, Environment-Map, gemeinsam so skaliert, dass Weiß nicht
+abschneidet) ohne Schatten aus acht Richtungen rundum, denn Impostoren stehen jenseits der Schattenkarte (mit
+Eigenschatten gemessen war der ferne Wald in Autumn Keep 6 % dunkler als seine Bäume, jetzt wie Frost und Demo-Tal
+unter 1 %); Metall aus einer ORM-Textur zählt dabei 0: die Alpha-Schwelle der Karte ist die, unter der sie so viel deckt wie das Modell (vier
 gemischte Ansichten decken mehr als jede einzelne, eine lichte Krone wurde voll und reiner in Laubfarbe), der Ton
 (`uImpTone`) das Verhältnis der Mittelfarben je Kanal. Im Schattenpass dreht sich die Karte zur Sonne (eigenes
 `customDepthMaterial`) und wirft den Umriss von dort. Die gesehene Karte liest den Schatten anderer Werfer einen Radius

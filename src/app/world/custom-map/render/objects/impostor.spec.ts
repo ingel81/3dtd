@@ -1,5 +1,5 @@
-import { Matrix3, MeshStandardMaterial, ShaderLib, UniformsUtils, Vector3 } from 'three';
-import { IMPOSTOR_FRAMES, hemiOctDirection, hemiOctPoint, impostorCell, measureLook, normalDepthMaterial, turnToCamera } from './impostor';
+import { Color, Matrix3, MeshStandardMaterial, ShaderLib, UniformsUtils, Vector3 } from 'three';
+import { DEFAULT_IMPOSTOR_LIGHTS, IMPOSTOR_FRAMES, hemiOctDirection, hemiOctPoint, impostorCell, measureLook, normalDepthMaterial, probeRig, probeScale, probeSun, turnToCamera } from './impostor';
 
 describe('octahedral impostor', () => {
   it('gives an untextured part a matrix for its map transform, as three uploads the mat3 on every draw', () => {
@@ -75,5 +75,20 @@ describe('octahedral impostor', () => {
     expect(look.tone.b).toBeCloseTo(1.6, 5);
     // A card all faint keeps the lowest test; nothing covered: no tone
     expect(measureLook(new Uint8Array(px.length), size, views).tone.r).toBe(1);
+  });
+
+  it('measures the tone under the lights of the map, without the shadow far cards never get', () => {
+    const evening = { ...DEFAULT_IMPOSTOR_LIGHTS, sunDir: new Vector3(1, 0.02, 0).normalize(), sun: new Color(3, 1.8, 1.2), environmentIntensity: 0.5, environment: null };
+    // A sun at the horizon is raised to light something to measure
+    expect(probeSun(evening).y).toBeGreaterThan(0.11);
+    const [sun, hemi, ambient] = probeRig(new Vector3(), 5, evening);
+    // Far cards stand beyond the shadow map: so does the probe
+    expect(sun.castShadow).toBe(false);
+    // All lights scaled together, a white surface below the 8-bit target's ceiling
+    const peak = (c: Color) => Math.max(c.r, c.g, c.b);
+    expect(peak(sun.color) + peak(hemi.color) + peak(ambient.color)).toBeLessThanOrEqual(1.4 + 1e-6);
+    expect(sun.color.r / sun.color.b).toBeCloseTo(3 / 1.2, 5);
+    // An environment map counts into that ceiling
+    expect(probeScale({ ...evening, environment: {} as never })).toBeLessThan(probeScale(evening));
   });
 });

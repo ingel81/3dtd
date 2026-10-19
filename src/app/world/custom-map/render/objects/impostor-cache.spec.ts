@@ -21,4 +21,17 @@ describe('impostor cache', () => {
     expect(empty.get(tree)).toBeNull();
     expect(empty.get(tree)).toBeNull();
   });
+
+  it('bakes ahead only once the lights of the map stand', async () => {
+    const order: string[] = [];
+    let release!: () => void;
+    const lit = new Promise<void>((resolve) => (release = resolve)).then(() => order.push('lit'));
+    const cache = new ImpostorCache({} as WebGLRenderer, () => undefined, () => lit);
+    const job = cache.prepare(model('tree', 12)).then(() => order.push('baked'));
+    await Promise.resolve();
+    expect(order).toEqual([]);
+    release();
+    await job;
+    expect(order).toEqual(['lit', 'baked']);
+  });
 });
