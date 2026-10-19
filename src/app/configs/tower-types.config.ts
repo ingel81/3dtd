@@ -420,6 +420,14 @@ const LIGHTNING_MODEL_URL = 'assets/models/towers/lightning.glb';
 const CHAOS_MODEL_URL = 'assets/models/towers/chaos.glb';
 const BASTION_MODEL_URL = 'assets/models/towers/bastion.glb';
 const SENTINEL_MODEL_URL = 'assets/models/towers/sentinel.glb';
+/**
+ * How a saw tower's arm moves, game ms, the same in the simulation (no cut
+ * before) and in the drawn arms (tower-saw-arms.ts): out from the dock to
+ * its enemy in `extendMs`, home as long; already out, over to a new enemy
+ * in `swingMs`. It cuts once it is out and has been on its enemy that long.
+ */
+export const SAW_ARM_TIMING = { extendMs: 1000, swingMs: 700 } as const;
+
 const CHAINSAW_MODEL_URL = 'assets/models/towers/chainsaw.glb';
 const SHAWARMA_MODEL_URL = 'assets/models/towers/shawarma.glb';
 

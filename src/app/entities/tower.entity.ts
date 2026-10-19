@@ -46,6 +46,19 @@ export interface TowerSimState {
   laserHold?: { targetId: string; heldMs: number } | null;
   /** See Tower.streamDrive; absent for every other tower and in older snapshots, which read as 0 */
   streamDrive?: number;
+  /** See Tower.sawHold; absent for every other tower and in older snapshots, which read as every arm docked */
+  sawHold?: SawArmHold[];
+}
+
+/**
+ * One arm of a saw tower in the simulation (Tower.sawHold): the enemy its
+ * saw is on (null: none, it goes home), the game ms it has been on it and
+ * how far out it is, 0 docked to SAW_ARM_TIMING.extendMs out
+ */
+export interface SawArmHold {
+  targetId: string | null;
+  heldMs: number;
+  reachMs: number;
 }
 
 /**
@@ -116,6 +129,15 @@ export class Tower extends GameObject {
    * TowerCombatService.updateStreamTowers, 0 at the wave end.
    */
   streamDrive = 0;
+
+  /**
+   * A saw (attackType 'saw'): its arms in TowerTypeConfig.sawArms order, empty while all are docked. A saw cuts
+   * only once its arm is out and has swung over to its enemy (SAW_ARM_TIMING), as the arms are drawn. Simulation
+   * state like laserHold, set by TowerCombatService.updateSawTowers, empty at the wave end.
+   */
+  sawHold: SawArmHold[] = [];
+  /** The player changed the targeting: the saw's arms choose anew at the next step (an arm whose enemy is chosen again cuts on) */
+  sawRetarget = false;
 
   /** Whether this tower is sleeping (no enemies in range) */
   isSleeping = false;
@@ -495,6 +517,16 @@ export class Tower extends GameObject {
   }
 
   /**
+   * The best of `candidates` by the tower's targeting strategy, as
+   * findTarget() picks a new target; `candidates` passed mayEngage() this
+   * step (a body's distance) and may be filtered in place (prefersAir).
+   */
+  bestByStrategy(candidates: Enemy[]): Enemy | null {
+    if (this.prefersAir) keepAirIfAny(candidates);
+    return this.selectByStrategy(candidates);
+  }
+
+  /**
    * Select the best target from valid candidates based on the current targeting strategy.
    */
   private selectByStrategy(candidates: Enemy[]): Enemy | null {
@@ -738,6 +770,7 @@ export class Tower extends GameObject {
       // Only where it is used: every other tower's state stays as it was
       ...(this.typeConfig.attackType === 'laser' ? { laserHold: this.laserHold ? { ...this.laserHold } : null } : {}),
       ...(this.typeConfig.attackType === 'stream' ? { streamDrive: this.streamDrive } : {}),
+      ...(this.typeConfig.attackType === 'saw' ? { sawHold: this.sawHold.map((arm) => ({ ...arm })) } : {}),
     };
   }
 
@@ -765,6 +798,7 @@ export class Tower extends GameObject {
     this.pathId = state.pathId ?? null;
     this.laserHold = state.laserHold ? { ...state.laserHold } : null;
     this.streamDrive = state.streamDrive ?? 0;
+    this.sawHold = state.sawHold ? state.sawHold.map((arm) => ({ ...arm })) : [];
   }
 
   /**

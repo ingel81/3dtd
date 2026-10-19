@@ -236,7 +236,10 @@ export class GameCommandsHandler {
       if (event.strategy) tower.targetingStrategy = event.strategy;
       if (event.airSubStrategy) tower.airSubStrategy = event.airSubStrategy;
       // The strategy is read only when a target is chosen: the kept one went on until it died or left the range
-      if (changed) tower.clearTarget();
+      if (changed) {
+        tower.clearTarget();
+        tower.sawRetarget = true;
+      }
     });
 
     this.on('command:set-hold-fire', (event) => {

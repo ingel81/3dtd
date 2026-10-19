@@ -976,6 +976,8 @@ export class ThreeTilesEngine {
     this.towers.updateAnimations(deltaTime, this.camera);
     // Recoil and reload over the aim just drawn, in game time
     this.towers.updateFiring(gameDeltaSeconds);
+    // The saw arms in game time, as the simulation has them cut
+    this.towers.updateSaws(gameDeltaSeconds);
     // Scaffolds count the build down in game time (Tower.builtAtMs)
     this.towers.updateBuilds(gameDeltaSeconds * 1000);
 

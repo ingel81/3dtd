@@ -344,10 +344,10 @@ in §12.3.
 
 ### 3.16 Chainsaw: Pierce (seit 2026-10-15)
 - **Drei Roboterarme** (`attackType: 'saw'`, `sawArms`) mit je einer Kettensäge, je Arm 30 Schaden je Sekunde mal
-  Kettentempo, Dauerschaden je Sub-Step. Jeder Arm sägt ein eigenes Ziel, solange genug in Reichweite sind; die
-  Ziele gehen nach Entfernung an die Arme (nächstes an den unteren, mittleres an den seitlichen, fernstes an den
-  oberen), freie Arme gehen mit auf das fernste. Gleich weite nach ID, damit jeder Client gleich wählt. So bleibt
-  jeder Arm in seinem Band der Straße und nichts kreuzt; die Bögen sind dazu gestaffelt (unten, mitte, hoch).
+  Kettentempo, Dauerschaden je Sub-Step, erst wenn der Arm ausgefahren und an seinem Gegner ist (1 s aus dem Dock,
+  0,7 s hinüber zu einem neuen). Jeder Arm sägt ein eigenes Ziel, solange genug in Reichweite sind, und behält es,
+  solange er darf; freie Arme nehmen neue nach der Zielwahl des Towers, bei zu wenigen gehen sie mit auf das beste.
+  Welcher gezeichnete Arm welches Ziel nimmt, entscheidet das Bild nach Seite, so kreuzt nichts.
 - **Reichweite 14 m:** vom nächsten erlaubten Platz (10 m von der Route) über die Straße. Der Tower gehört direkt an
   den Rand, sein Text sagt es.
 - **Rolle:** Häcksler am Straßenrand gegen Fleisch und Schwärme am Boden: Pierce 1,25 gegen Unarmored, 1,6 gegen

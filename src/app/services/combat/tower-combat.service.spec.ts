@@ -19,6 +19,7 @@ import { TowerCombatService } from './tower-combat.service';
 import { NO_RESEARCH } from '../../managers/research.manager';
 import { COMBAT_TUNING } from '../../configs/combat-tuning.config';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
+import { SAW_ARM_TIMING } from '../../configs/tower-types.config';
 import { Tower } from '../../entities/tower.entity';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { SimCoords } from '../../sim/core/sim-coords';
@@ -514,18 +515,19 @@ describe('TowerCombatService', () => {
   });
 
   // ────────────────────────────────────────────────────────────────
-  // Saw: an arm per target, by distance
+  // Saw: an arm per target, cutting once it is at its enemy
   // ────────────────────────────────────────────────────────────────
   describe('updateSawTowers', () => {
     const towerPos = { lat: 48.0, lon: 9.0, height: 0 };
+    const { extendMs, swingMs } = SAW_ARM_TIMING;
 
-    function enemyNorthOf(meters: number, id = `e-${meters}`) {
+    function enemyNorthOf(meters: number, id = `e-${meters}`, hp = 100) {
       return {
         id,
         alive: true,
-        health: { hp: 100 },
+        health: { hp },
         position: { lat: towerPos.lat + meters / METERS_PER_DEGREE_LAT, lon: towerPos.lon },
-        typeConfig: { id: 'zombie', isAirUnit: false, heightOffset: 0, scale: 1 },
+        typeConfig: { id: 'zombie', isAirUnit: false, heightOffset: 0, scale: 1, canBleed: true },
         heightOffset: 0,
         transform: { terrainHeight: 0 },
         movement: { getPathProgress: () => 0.5 },
@@ -543,54 +545,119 @@ describe('TowerCombatService', () => {
         isPositionVisibleFromTower: () => true,
       };
       const applyBeamDamage = vi.fn();
-      mockInjections['CombatEffectService'] = { applyBeamDamage };
+      const emitSawBlood = vi.fn();
+      mockInjections['CombatEffectService'] = { applyBeamDamage, emitSawBlood };
       service = new TowerCombatService();
       service.initialize(NO_RESEARCH);
       const tower = new Tower(towerPos, 'chainsaw');
       tower.losReady = true;
       tower.visibleCells = [{} as never];
       const towerManager = { getAllActive: () => [tower] };
-      const step = () => {
-        service.updateSawTowers(16, towerManager as never, 1000);
+      let time = 1000;
+      /** `ms` of game time in steps of 16 ms */
+      const run = (ms = 16) => {
+        for (let t = 0; t < ms; t += 16) {
+          time += 16;
+          service.updateSawTowers(16, towerManager as never, time);
+        }
         service.flushBeams();
       };
-      /** The enemy each arm sawed in the last step, in arm order */
-      const sawed = () => applyBeamDamage.mock.calls.slice(-3).map((call) => (call[0] as { id: string }).id);
-      return { tower, applyBeamDamage, step, sawed };
+      /** The enemy each arm sawed in one more step, in arm order (none for an arm not cutting) */
+      const sawed = () => {
+        applyBeamDamage.mockClear();
+        run();
+        return applyBeamDamage.mock.calls.map((call) => (call[0] as { id: string }).id);
+      };
+      return { tower, applyBeamDamage, emitSawBlood, run, sawed };
     }
 
-    it('gives the nearest to the first arm, the farthest to the last, and leaves out what is beyond the arms', () => {
-      const { tower, applyBeamDamage, step, sawed } = setup([enemyNorthOf(12), enemyNorthOf(5), enemyNorthOf(9), enemyNorthOf(20)]);
-      step();
-      expect(sawed()).toEqual(['e-5', 'e-9', 'e-12']);
-      expect(applyBeamDamage.mock.calls[0][1]).toBeCloseTo(tower.typeConfig.damage * 0.016, 9);
+    it('cuts only once an arm is out at its enemy, as the arms are drawn', () => {
+      const { tower, applyBeamDamage, run, sawed } = setup([enemyNorthOf(6)]);
+      run();
+      // The arms go out at once, the saw is not there yet
       expect(sink.towers.setSawTargets).toHaveBeenLastCalledWith(tower.id, [expect.anything(), expect.anything(), expect.anything()]);
+      run(extendMs - 64);
+      expect(applyBeamDamage).not.toHaveBeenCalled();
+      run(64);
+      expect(sawed()).toEqual(['e-6', 'e-6', 'e-6']);
+      expect(applyBeamDamage.mock.calls[0][1]).toBeCloseTo(tower.typeConfig.damage * 0.016, 9);
     });
 
-    it('sends the free arms to the farthest of fewer targets', () => {
-      const { step, sawed } = setup([enemyNorthOf(10), enemyNorthOf(6)]);
-      step();
-      expect(sawed()).toEqual(['e-6', 'e-10', 'e-10']);
+    it('gives the arms the best by the targeting strategy, and leaves out what is beyond them', () => {
+      const { run, sawed } = setup([enemyNorthOf(12), enemyNorthOf(5), enemyNorthOf(9), enemyNorthOf(20)]);
+      run(extendMs);
+      expect(sawed()).toEqual(['e-5', 'e-9', 'e-12']);
     });
 
-    it('takes equal distances by id, the same on every client', () => {
-      const { step, sawed } = setup([enemyNorthOf(8, 'b'), enemyNorthOf(8, 'a'), enemyNorthOf(8, 'c')]);
-      step();
-      expect(sawed()).toEqual(['a', 'b', 'c']);
+    it('follows the targeting the player set on the tower', () => {
+      const { tower, run, sawed } = setup([enemyNorthOf(5, 'weak', 50), enemyNorthOf(9, 'strong', 400), enemyNorthOf(12, 'mid', 200)]);
+      tower.targetingStrategy = 'highest-hp';
+      run(extendMs);
+      expect(sawed()).toEqual(['strong', 'mid', 'weak']);
+      // Changed while they cut: the arms choose anew, an enemy chosen again by the same arm is cut on
+      tower.targetingStrategy = 'lowest-hp';
+      tower.sawRetarget = true;
+      expect(sawed()).toEqual(['mid']);
+      run(SAW_ARM_TIMING.swingMs);
+      expect(sawed()).toEqual(['weak', 'mid', 'strong']);
     });
 
-    it('docks the arms once nothing is in reach, and at the wave end', () => {
+    it('sends the free arms to the best of fewer targets', () => {
+      const { run, sawed } = setup([enemyNorthOf(10), enemyNorthOf(6)]);
+      run(extendMs);
+      expect(sawed()).toEqual(['e-6', 'e-10', 'e-6']);
+    });
+
+    it('takes equal ones in the order the grid lists them, the same on every client', () => {
+      const { run, sawed } = setup([enemyNorthOf(8, 'b'), enemyNorthOf(8, 'a'), enemyNorthOf(8, 'c')]);
+      run(extendMs);
+      expect(sawed()).toEqual(['b', 'a', 'c']);
+    });
+
+    it('keeps each arm on its enemy, and swings a free one over to the next before it cuts', () => {
+      const enemies = [enemyNorthOf(5), enemyNorthOf(9), enemyNorthOf(12)];
+      const { run, sawed } = setup(enemies);
+      run(extendMs);
+      // A nearer one comes: no arm leaves its enemy for it
+      enemies.push(enemyNorthOf(3));
+      expect(sawed()).toEqual(['e-5', 'e-9', 'e-12']);
+      // The middle one dies: its arm swings over to the newcomer, the others cut on
+      enemies[1].alive = false;
+      expect(sawed()).toEqual(['e-5', 'e-12']);
+      run(swingMs);
+      expect(sawed()).toEqual(['e-5', 'e-3', 'e-12']);
+    });
+
+    it('sprays blood as a saw bites in, and on while it cuts, throttled', () => {
+      const { emitSawBlood, run } = setup([enemyNorthOf(6)]);
+      run(extendMs);
+      // All three saws bite into the one enemy
+      expect(emitSawBlood.mock.calls.map((call) => call[1])).toEqual([true, true, true]);
+      run(1000);
+      // Then about one spray a COMBAT_TUNING.beamBloodEffectIntervalMs
+      expect(emitSawBlood.mock.calls.length - 3).toBeGreaterThan(3);
+      expect(emitSawBlood.mock.calls.length - 3).toBeLessThan(7);
+      expect(emitSawBlood.mock.calls.at(-1)![1]).toBe(false);
+    });
+
+    it('docks the arms on hold fire, once nothing is in reach, and at the wave end', () => {
       const enemies = [enemyNorthOf(6)];
-      const { tower, step } = setup(enemies);
-      step();
+      const { tower, applyBeamDamage, run } = setup(enemies);
+      tower.holdFire = true;
+      run(160);
+      expect(applyBeamDamage).not.toHaveBeenCalled();
+      expect(tower.sawHold).toEqual([]);
+      tower.holdFire = false;
+      run();
       enemies.length = 0;
-      step();
+      run();
       expect(sink.towers.setSawTargets).toHaveBeenLastCalledWith(tower.id, []);
       enemies.push(enemyNorthOf(7));
-      step();
-      service.stopAllBeams();
+      run();
+      service.stopAllBeams([tower]);
       service.flushBeams();
       expect(sink.towers.setSawTargets).toHaveBeenLastCalledWith(tower.id, []);
+      expect(tower.sawHold).toEqual([]);
     });
   });
 

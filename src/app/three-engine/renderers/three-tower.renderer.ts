@@ -637,6 +637,14 @@ export class ThreeTowerRenderer {
     else if (this.hoveredId === data.id) this.setRangeVisible(next, true);
   }
 
+  /**
+   * The saw arms of one render frame, in game time (0 while paused): they go
+   * out as fast as the simulation lets them cut (SAW_ARM_TIMING)
+   */
+  updateSaws(gameDeltaSeconds: number): void {
+    for (const data of this.towers.values()) data.sawArms?.update(gameDeltaSeconds);
+  }
+
   /** The builds of one render frame, `gameDeltaMs` of game time (0 while paused) */
   updateBuilds(gameDeltaMs: number): void {
     for (const [id, build] of this.builds) {
@@ -1002,7 +1010,6 @@ export class ThreeTowerRenderer {
         }
       }
 
-      data.sawArms?.update(deltaSeconds);
       data.stream?.update(deltaSeconds);
 
       // Selection ring (visual), also on the hovered tower

@@ -25,7 +25,7 @@ function turret(): Object3D {
 }
 
 describe('SawArms', () => {
-  it('rest docked, go out to their targets within 0.8 s and come home without one', () => {
+  it('rest docked, go out to their targets within 1.2 s and come home without one', () => {
     const part = turret();
     const arms = new SawArms(TOWER_TYPES.chainsaw, part);
     const saw = part.getObjectByName('saw_down')!;
@@ -34,14 +34,14 @@ describe('SawArms', () => {
 
     const target = new Vector3(0, 0, 3);
     arms.setTargets([target, null, null]);
-    for (let i = 0; i < 48; i++) arms.update(1 / 60);
+    for (let i = 0; i < 72; i++) arms.update(1 / 60);
     // At the target, its mount short of it
     expect(saw.position.distanceTo(target)).toBeLessThan(0.6);
     expect(saw.scale.x).toBeCloseTo(1.25, 5);
     expect(part.getObjectByName('saw_up')!.position.distanceTo(home)).toBeLessThan(1);
 
     arms.setTargets([]);
-    for (let i = 0; i < 48; i++) arms.update(1 / 60);
+    for (let i = 0; i < 72; i++) arms.update(1 / 60);
     expect(saw.position.distanceTo(home)).toBeLessThan(1e-6);
     arms.dispose();
     expect(part.getObjectByName('saw_arms')).toBeUndefined();
@@ -127,6 +127,36 @@ describe('SawArms', () => {
     arms.setTargets([]);
     for (let i = 0; i < 60; i++) arms.update(1 / 60);
     expect(saw.position.distanceTo(new Vector3(...DOCKS['saw_down']))).toBeLessThan(1e-6);
+    arms.dispose();
+  });
+
+  it('strokes each saw at its own pace, not all arms in one move', () => {
+    const part = turret();
+    const arms = new SawArms(TOWER_TYPES.chainsaw, part);
+    const down = part.getObjectByName('saw_down')!;
+    const up = part.getObjectByName('saw_up')!;
+    // Two enemies straight out along +z: both saws stroke along x
+    arms.setTargets([new Vector3(-0.5, 0, 2.4), null, new Vector3(0.5, 0, 3.4)]);
+    for (let i = 0; i < 120; i++) arms.update(1 / 60);
+    const a: number[] = [];
+    const b: number[] = [];
+    for (let i = 0; i < 180; i++) {
+      arms.update(1 / 60);
+      a.push(down.position.x);
+      b.push(up.position.x);
+    }
+    const mean = (v: number[]) => v.reduce((sum, x) => sum + x, 0) / v.length;
+    const ma = mean(a);
+    const mb = mean(b);
+    let ab = 0;
+    let aa = 0;
+    let bb = 0;
+    for (let i = 0; i < a.length; i++) {
+      ab += (a[i] - ma) * (b[i] - mb);
+      aa += (a[i] - ma) ** 2;
+      bb += (b[i] - mb) ** 2;
+    }
+    expect(Math.abs(ab / Math.sqrt(aa * bb))).toBeLessThan(0.7);
     arms.dispose();
   });
 

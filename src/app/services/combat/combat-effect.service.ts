@@ -500,6 +500,11 @@ export class CombatEffectService {
     this.damageService.applyBeamDamage(this.vfx, enemy, damage, damageType, sourceTowerId, showBloodEffects);
   }
 
+  /** Blood where a saw cuts an enemy that bleeds: a spray as it bites in (`bite`), a smaller one while it cuts */
+  emitSawBlood(enemy: Enemy, bite: boolean): void {
+    this.vfx.emitHitBlood(enemy, !bite);
+  }
+
   /**
    * Set or refresh a fire beam's burn on an enemy in its cone.
    * Called every sub-step while the enemy stays in the cone.

@@ -318,7 +318,10 @@ Paket F5, Gegner, Tower, Ton:
   einen auf ein Hausdach setzen. *Auf der Mauer rückt er auf die Mittellinie, Konsolen tragen ihn beidseitig; auf dem
   Dach steht er auf dem Dach.* Palisade oder Zaun: *kein Bauplatz.*
 - **F5.3 Sägearme:** Chainsaw gegen eine Welle, danach verkaufen. *Arme klappen in zwei Stufen aus, bleiben auf ihrer
-  Seite, kreuzen und durchdringen sich nicht, folgen weich; nach dem Verkauf sofort still.*
+  Seite, kreuzen und durchdringen sich nicht, folgen weich; nach dem Verkauf sofort still.* Seit 2026-10-19: *kein
+  Gegner stirbt, bevor eine Säge an ihm ist; die Arme sägen nicht im Gleichtakt und schwenken beim Gegnerwechsel
+  ruhig; Blut spritzt beim Ansetzen und beim Sägen (nicht bei Skeletten, Panzern oder Mechs); Zielwahl am Tower
+  (z. B. stärkster) gilt auch für die Arme.*
 - **F5.4 Ton:** Sentinel Laser, Chainsaw, Shawarma Slicer und Iron Bastion bauen, eine Welle. *Eigene Klänge (Laser
   zündet und brummt, Säge läuft an, läuft, schneidet, Slicer-Maschine), die Flak-Salve knallt dort, wo sie platzt.*
   Demo Valley eine Minute hinhören: *Umgebung leiser, Vögel als einzelne Rufe mit Pausen, keine Dauerschleife.*

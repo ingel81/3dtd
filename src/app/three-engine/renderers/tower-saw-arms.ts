@@ -11,7 +11,7 @@ import {
   Vector3,
   type Object3D,
 } from 'three';
-import type { TowerTypeConfig } from '../../configs/tower-types.config';
+import { SAW_ARM_TIMING, type TowerTypeConfig } from '../../configs/tower-types.config';
 import { ChainLoop, chainLinkGeometry, chainMaterial, chainlessGeometry } from './tower-saw-chain';
 
 /** Radius of an arm, model units: even all along, a robot arm, not a taper (the concept of 2026-10-02) */
@@ -20,14 +20,20 @@ const RADIUS = 0.15;
 const SEGMENT = 0.15;
 /** Vertebrae per arm at most: 6 units of arm, beyond every range upgrade */
 const MAX_SEGMENTS = 40;
-/** Seconds an arm takes out or home: first it unfolds into its own quarter, then it reaches */
-const EXTEND_SECONDS = 0.7;
+/** Seconds an arm takes out or home, game time: first it unfolds into its own quarter, then it reaches */
+const EXTEND_SECONDS = SAW_ARM_TIMING.extendMs / 1000;
 /** Share of the way out spent unfolding: the saw lifts off its dock out to its deployed point, clear of the body */
 const UNFOLD_SHARE = 0.4;
 /** Deployed point of an arm: this far along its `out` from the socket, and up by its `lift` times as much, model units */
 const DEPLOY_REACH = 0.9;
-/** How fast a saw out at work follows its enemy, rad/s of a critically damped spring: a swing, never a jump */
-const FOLLOW_RATE = 9;
+/**
+ * How fast a saw out at work follows its enemy, rad/s of a critically damped
+ * spring: a swing, never a jump; over to a new enemy nine tenths of the way
+ * in SAW_ARM_TIMING.swingMs, when the simulation lets it cut
+ */
+const FOLLOW_RATE = 5.5;
+/** An enemy this close to where an arm's enemy was is the same one, model units: the arm keeps it */
+const SAME_ENEMY = 0.6;
 /**
  * A saw as the arms keep clear of it, model units at its built size: a
  * capsule from its mount along its bar to the nose, as thick as its housing
@@ -40,7 +46,7 @@ const GAP = 0.05;
 /** Straight pieces an arm's curve is taken as when the arms keep clear of each other */
 const BODY_PIECES = 8;
 /** Rounds of pushing apart a frame at most; one without a push ends them */
-const SOLVE_PASSES = 10;
+const SOLVE_PASSES = 16;
 /**
  * Weight of an enemy outside an arm's quarter (away from its `out`) against
  * the distance its saw would travel, model units at a right angle: each arm
@@ -59,8 +65,13 @@ const SAMPLES = 24;
 const MAX_STEP = 1 / 60;
 /** At work a saw strokes across its enemy, sideways on the ground: this far each way, model units (about 0.7 m) */
 const STROKE = 0.18;
-/** Strokes there and back a second */
-const STROKE_RATE = 1.1;
+/** Strokes there and back a second, each arm at its own share of it and from its own phase: they do not move in step */
+const STROKE_RATE = 0.9;
+const STROKE_RATES = [1, 0.81, 1.23];
+const STROKE_PHASES = [0, 2.3, 4.1];
+/** How much the stroke swells and ebbs, slowly and per arm: never the same move twice */
+const STROKE_SWELL = 0.3;
+const SWELL_RATE = 0.55;
 /** With each stroke it pushes in and draws back along the bar this much, twice a stroke, model units */
 const STROKE_PUSH = 0.05;
 /** The bar trails each stroke by this much at its fastest, rad: dragged through, not slid */
@@ -116,6 +127,9 @@ interface Arm {
   bar: Vector3;
   /** 0 to 1, how far the stroke has set in (STROKE_EASE) */
   stroke: number;
+  /** Where in its stroke the saw is, rad, and how fast it strokes (STROKE_RATES) */
+  strokePhase: number;
+  strokeRate: number;
   /** This frame: how the arm bows to keep clear (added to both inner control points), its saw's turn, size and nose, its curve in BODY_PIECES */
   bow: Vector3;
   sawTurn: Quaternion;
@@ -150,15 +164,18 @@ const ORDERS: readonly (readonly number[])[] = [
  * back. At work the saw follows its enemy on a critically damped spring, so
  * a moving enemy or a new one swings the arm over instead of jumping it.
  * There it saws (E241): it strokes across the enemy, sideways on the
- * ground to the way the arm comes in, all saws in step, pushing in twice a
- * stroke, its bar trailing and lying flat (rolled so as it unfolds,
+ * ground to the way the arm comes in, each saw at its own pace and phase,
+ * swelling and ebbing, pushing in twice a stroke, its bar trailing and
+ * lying flat (rolled so as it unfolds,
  * layFlat); its chain runs round the bar (tower-saw-chain.ts, all links in
  * one InstancedMesh), idling docked, faster out and spinning up at work.
  * The simulation names the enemies; which arm takes which is drawn here:
  * the order with the least travel and the fewest enemies outside an arm's
  * quarter, so arms keep to their sides and do not cross; arms and saws
- * never touch (keepClear). Purely visual: the simulation deals the damage
- * (TowerCombatService.updateSawTowers) and sends the enemies once a frame
+ * never touch (keepClear). An arm at an enemy keeps it. Purely visual, in
+ * game time: the simulation deals the damage once an arm is out and over
+ * at its enemy, on the same timing (SAW_ARM_TIMING,
+ * TowerCombatService.updateSawTowers), and sends the enemies once a frame
  * (`towers.setSawTargets`).
  */
 export class SawArms {
@@ -195,11 +212,9 @@ export class SawArms {
   private atA = 0;
   private atB = 0;
   private time = 0;
-  /**
-   * Where in their stroke the saws are, rad: all in step, so saws side by
-   * side stroke the same way and keep their distance instead of meeting
-   */
-  private strokePhase = 0;
+  /** Per arm, the target it keeps this frame (-1: free), and which targets are kept */
+  private readonly kept: number[] = [];
+  private readonly used: boolean[] = [];
 
   constructor(config: TowerTypeConfig, private readonly turret: Object3D) {
     const specs = config.sawArms ?? [];
@@ -234,6 +249,8 @@ export class SawArms {
         c2: new Vector3(),
         bar: new Vector3(),
         stroke: 0,
+        strokePhase: STROKE_PHASES[index % STROKE_PHASES.length],
+        strokeRate: STROKE_RATE * STROKE_RATES[index % STROKE_RATES.length],
         bow: new Vector3(),
         sawTurn: new Quaternion(),
         sawScale: 1,
@@ -292,8 +309,8 @@ export class SawArms {
   /** Once per render frame: the arms go out or home and are drawn where they are. */
   update(deltaSeconds: number): void {
     this.time += deltaSeconds;
-    this.strokePhase = (this.strokePhase + deltaSeconds * STROKE_RATE * 2 * Math.PI) % (2 * Math.PI);
     for (const arm of this.arms) {
+      arm.strokePhase = (arm.strokePhase + deltaSeconds * arm.strokeRate * 2 * Math.PI) % (2 * Math.PI);
       const step = deltaSeconds / EXTEND_SECONDS;
       arm.reach = arm.hasTarget ? Math.min(1, arm.reach + step) : Math.max(0, arm.reach - step);
       const cutting = arm.hasTarget && arm.reach >= 1;
@@ -332,17 +349,21 @@ export class SawArms {
 
   /**
    * Which target each arm takes, the order with the least cost; null with no
-   * target. Cost per arm: the way its saw would travel (from where it is
-   * bound, or from its deployed point when docked) and the angle of the
-   * enemy off its quarter. Keeping an enemy costs no travel, so arms do not
-   * trade enemies that only walk on.
+   * target. An arm at an enemy keeps it (the target nearest where its enemy
+   * was, within SAME_ENEMY): arms never trade enemies that only walk on, as
+   * the simulation keeps an arm on its enemy (Tower.sawHold). The rest go by
+   * cost per arm: the way its saw would travel (from where it is bound, or
+   * from its deployed point when docked) and the angle of the enemy off its
+   * quarter.
    */
   private bestOrder(count: number): readonly number[] | null {
     if (count === 0) return null;
+    this.keepEnemies(count);
     let best: readonly number[] | null = null;
     let bestCost = Infinity;
     for (const order of ORDERS) {
       if (order.length < this.arms.length && this.arms.length > 0) continue;
+      if (this.kept.some((t, i) => t >= 0 && order[i] !== t)) continue;
       let cost = 0;
       for (let i = 0; i < this.arms.length && i < order.length; i++) {
         const t = order[i];
@@ -360,6 +381,35 @@ export class SawArms {
       }
     }
     return best;
+  }
+
+  /** Into `kept`: for each arm at an enemy the target that is still it, nearest pairs first */
+  private keepEnemies(count: number): void {
+    const arms = this.arms;
+    this.kept.length = arms.length;
+    this.kept.fill(-1);
+    this.used.length = count;
+    this.used.fill(false);
+    for (;;) {
+      let bestArm = -1;
+      let bestT = -1;
+      let bestD = SAME_ENEMY;
+      for (let i = 0; i < arms.length; i++) {
+        if (!arms[i].hasTarget || this.kept[i] >= 0) continue;
+        for (let t = 0; t < count; t++) {
+          if (this.used[t]) continue;
+          const d = arms[i].target.distanceTo(this.local[t]);
+          if (d < bestD) {
+            bestD = d;
+            bestArm = i;
+            bestT = t;
+          }
+        }
+      }
+      if (bestArm < 0) return;
+      this.kept[bestArm] = bestT;
+      this.used[bestT] = true;
+    }
   }
 
   /** Where the saw's mount goes to cut: short of the enemy, the bar tilted down into it */
@@ -397,9 +447,9 @@ export class SawArms {
     else arm.tip.lerpVectors(arm.deployed, arm.aim, smooth((r - UNFOLD_SHARE) / (1 - UNFOLD_SHARE)));
     if (arm.stroke <= 0) return;
     const dir = this.inward(arm);
-    const set = smooth(arm.stroke);
-    const across = Math.sin(this.strokePhase) * STROKE * set;
-    const push = Math.sin(2 * this.strokePhase) * STROKE_PUSH * set;
+    const set = smooth(arm.stroke) * (1 - STROKE_SWELL * (0.5 + 0.5 * Math.sin(this.time * SWELL_RATE * arm.strokeRate + arm.lift * 9)));
+    const across = Math.sin(arm.strokePhase) * STROKE * set;
+    const push = Math.sin(2 * arm.strokePhase) * STROKE_PUSH * set;
     arm.tip.x += -dir.z * across + dir.x * push;
     arm.tip.z += dir.x * across + dir.z * push;
     // The motor's buzz while it cuts
@@ -575,7 +625,7 @@ export class SawArms {
     const reach = smooth(arm.reach);
     // The bar along the curve's end: as docked, turning into the enemy (tilted down) as it reaches, trailing its stroke
     const dir = this.inward(arm);
-    const yaw = Math.cos(this.strokePhase) * STROKE_YAW * smooth(arm.stroke);
+    const yaw = Math.cos(arm.strokePhase) * STROKE_YAW * smooth(arm.stroke);
     if (yaw !== 0) dir.applyAxisAngle(UP, yaw);
     arm.bar.set(dir.x, -Math.tan(SAW_TILT), dir.z).normalize();
     arm.bar.lerpVectors(arm.axis, arm.bar, reach).normalize();

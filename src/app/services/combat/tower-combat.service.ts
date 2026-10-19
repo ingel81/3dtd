@@ -5,12 +5,12 @@ import { SpatialGridService } from '../world/spatial-grid.service';
 import { CombatEffectService } from './combat-effect.service';
 import { NO_RESEARCH, type SimResearch } from '../../managers/research.manager';
 import { Enemy } from '../../entities/enemy.entity';
-import { Tower } from '../../entities/tower.entity';
+import { Tower, type SawArmHold } from '../../entities/tower.entity';
 import { TowerManager } from '../../managers/tower.manager';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD, geoHeading } from '../../utils/geo-utils';
 import { getEnemyAimOffsetY } from '../../utils/enemy-aim.util';
 import { COMBAT_TUNING } from '../../configs/combat-tuning.config';
-import { laserHeat, upgradeFactor } from '../../configs/tower-types.config';
+import { SAW_ARM_TIMING, laserHeat, upgradeFactor } from '../../configs/tower-types.config';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { ProjectileManager } from '../../managers/projectile.manager';
 import type { GeoPosition } from '../../models/game.types';
@@ -94,8 +94,9 @@ export class TowerCombatService {
    */
   private readonly streamFrames = new Map<string, { target: OpVec3 | null; drive: number }>();
   private readonly streamsStopped = new Set<string>();
-  private readonly _sawPicks: Enemy[] = [];
-  private readonly _sawDist: number[] = [];
+  private readonly _sawPicks: (Enemy | null)[] = [];
+  private readonly _sawRest: Enemy[] = [];
+  private readonly _sawTaken: Enemy[] = [];
   private readonly _laserDir = new Vector3();
 
   // Reusable vectors for cone collision
@@ -839,6 +840,7 @@ export class TowerCombatService {
     for (const tower of towers) {
       tower.laserHold = null;
       tower.streamDrive = 0;
+      tower.sawHold = [];
     }
     this.beamsCleared = true;
     this.lastBeamBloodEffect.clear();
@@ -955,15 +957,18 @@ export class TowerCombatService {
 
   /**
    * Update saw towers: every arm (TowerTypeConfig.sawArms) saws on a target of
-   * its own, `damage` per second each. The targets the tower may attack (range,
-   * sight, air or ground) go by distance to the arms in their order, the
-   * nearest to the first; with fewer targets than arms the free arms join the
-   * farthest. Ties go by enemy id, so every client picks alike. The turret
-   * turns to the nearest; the arms do not wait for it. Called once per
-   * gameplay sub-step (game time).
+   * its own, `damage` per second each, once it is out and has swung over to
+   * it (SAW_ARM_TIMING, Tower.sawHold): a saw does not cut before it is at
+   * its enemy. An arm keeps its enemy while the tower may attack it (range,
+   * sight, air or ground); the free arms take new ones by the tower's
+   * targeting strategy, in arm order, and with fewer targets than arms join
+   * the best of them. Hold fire docks them. Where a saw bites into an enemy
+   * that bleeds, blood sprays. The turret turns to the first arm's enemy; the
+   * arms do not wait for it. Called once per gameplay sub-step (game time).
    */
   updateSawTowers(deltaTime: number, towerManager: TowerManager, gameTimeMs: number): void {
     const dt = deltaTime / 1000;
+    const { extendMs, swingMs } = SAW_ARM_TIMING;
     for (const tower of towerManager.getAllActive()) {
       const arms = tower.typeConfig.sawArms;
       if (tower.typeConfig.attackType !== 'saw' || !arms) continue;
@@ -971,58 +976,128 @@ export class TowerCombatService {
       if (tower.isSleeping && !this.tryWakeTower(tower, gameTimeMs)) continue;
 
       const picks = this.pickSawTargets(tower, arms.length);
-      if (picks.length === 0) {
-        if (gameTimeMs - tower.lastTargetTime > Tower.SLEEP_DELAY) tower.isSleeping = true;
+      const hold = tower.sawHold;
+      if (!picks.some((enemy) => enemy)) {
+        if (gameTimeMs - tower.lastTargetTime > Tower.SLEEP_DELAY) {
+          tower.isSleeping = true;
+          hold.length = 0;
+        }
+        for (const arm of hold) this.sawArmHome(arm, deltaTime);
         if (this.sawFrames.delete(tower.id)) this.sawsDocked.add(tower.id);
         releaseAim(tower.aim);
         continue;
       }
       tower.lastTargetTime = gameTimeMs;
       tower.isSleeping = false;
-      aimAt(tower.aim, this.calculateHeading(tower.position, this.targetPoint(picks[0])));
+      while (hold.length < arms.length) hold.push({ targetId: null, heldMs: 0, reachMs: 0 });
 
       const targets: (OpVec3 | null)[] = [];
       // Per arm: damage per second times the chain speed
       const dps = tower.combat.damage * tower.combat.fireRate;
       const damageType = tower.typeConfig.damageType;
-      for (let arm = 0; arm < arms.length; arm++) {
-        const enemy = picks[Math.min(arm, picks.length - 1)];
-        if (!enemy.alive) {
+      let aimed = false;
+      for (let i = 0; i < arms.length; i++) {
+        const enemy = picks[i];
+        const arm = hold[i];
+        if (!enemy) {
+          this.sawArmHome(arm, deltaTime);
           targets.push(null);
           continue;
         }
+        const wasCutting = arm.reachMs >= extendMs && arm.heldMs >= swingMs;
+        if (arm.targetId === enemy.id) {
+          arm.heldMs = Math.min(swingMs, arm.heldMs + deltaTime);
+        } else {
+          arm.targetId = enemy.id;
+          arm.heldMs = 0;
+        }
+        arm.reachMs = Math.min(extendMs, arm.reachMs + deltaTime);
+        if (!aimed) {
+          aimAt(tower.aim, this.calculateHeading(tower.position, this.targetPoint(enemy)));
+          aimed = true;
+        }
         // Before the damage: on a body it also puts the hit where the saw lands
         targets.push(opVec(this.aimLocalInto(enemy, this._beamTargetScratch)));
+        if (arm.reachMs < extendMs || arm.heldMs < swingMs) continue;
+        this.sawBlood(enemy, !wasCutting, gameTimeMs);
         this.combatEffectService.applyBeamDamage(enemy, dps * dt, damageType, tower.id);
+        if (!enemy.alive) this.lastBeamBloodEffect.delete(enemy.id);
       }
       this.sawFrames.set(tower.id, targets);
       this.sawsDocked.delete(tower.id);
     }
   }
 
-  /** Up to `count` targets of a saw tower, nearest first (ties by id), into `_sawPicks`. */
-  private pickSawTargets(tower: Tower, count: number): Enemy[] {
+  /** A saw arm without an enemy goes home */
+  private sawArmHome(arm: SawArmHold, deltaTime: number): void {
+    arm.targetId = null;
+    arm.heldMs = 0;
+    arm.reachMs = Math.max(0, arm.reachMs - deltaTime);
+  }
+
+  /** Blood where a saw cuts: a spray as it bites in, then one per BEAM_BLOOD_EFFECT_INTERVAL and enemy while it cuts */
+  private sawBlood(enemy: Enemy, bite: boolean, gameTimeMs: number): void {
+    if (!enemy.typeConfig.canBleed) return;
+    const last = this.lastBeamBloodEffect.get(enemy.id) ?? -Infinity;
+    if (!bite && gameTimeMs - last <= this.BEAM_BLOOD_EFFECT_INTERVAL) return;
+    this.lastBeamBloodEffect.set(enemy.id, gameTimeMs);
+    this.combatEffectService.emitSawBlood(enemy, bite);
+  }
+
+  /**
+   * The enemy of each of a saw tower's `count` arms, null for none, into
+   * `_sawPicks`. An arm keeps the enemy of its Tower.sawHold while the tower
+   * may still attack it; the free arms take the best of the rest by the
+   * tower's targeting strategy (Tower.bestByStrategy), in arm order, and with
+   * none left the enemy they had, else the best of those taken; after the
+   * player changed the targeting every arm is free (Tower.sawRetarget). None
+   * on hold fire or manned, as findTarget().
+   */
+  private pickSawTargets(tower: Tower, count: number): (Enemy | null)[] {
+    const picks = this._sawPicks;
+    picks.length = count;
+    picks.fill(null);
+    const rest = this._sawRest;
+    rest.length = 0;
+    if (tower.holdFire || tower.manned) return picks;
     const candidates = this.collectCandidates(tower);
     this.beginBodyAim(tower);
     const losCheck = this.buildLosCheck(tower);
     const airTargeting = this.research.airTargetingFor(tower.ownerId);
-    const picks = this._sawPicks;
-    const dist = this._sawDist;
-    picks.length = 0;
-    dist.length = 0;
     for (const enemy of candidates) {
-      if (!tower.mayEngage(enemy, airTargeting, losCheck, this.bodyDistSq)) continue;
-      const d = enemy.body ? this.bodyDistSq(enemy) : tower.distanceSqTo(enemy.position);
-      // Insert in order, keep the nearest `count`
-      let at = picks.length;
-      while (at > 0 && (dist[at - 1] > d || (dist[at - 1] === d && picks[at - 1].id > enemy.id))) at--;
-      if (at >= count) continue;
-      picks.splice(at, 0, enemy);
-      dist.splice(at, 0, d);
-      if (picks.length > count) {
-        picks.length = count;
-        dist.length = count;
-      }
+      if (tower.mayEngage(enemy, airTargeting, losCheck, this.bodyDistSq)) rest.push(enemy);
+    }
+    const retarget = tower.sawRetarget;
+    tower.sawRetarget = false;
+    if (rest.length === 0) return picks;
+    const hold = tower.sawHold;
+    // Each arm keeps its own enemy (not after the player changed the targeting); one an earlier arm holds too is
+    // shared, the arm is free while there is another
+    for (let i = 0; i < count && !retarget; i++) {
+      const id = hold[i]?.targetId;
+      if (!id) continue;
+      const at = rest.findIndex((enemy) => enemy.id === id);
+      if (at < 0) continue;
+      picks[i] = rest[at];
+      rest.splice(at, 1);
+    }
+    // The free arms take the best of the rest
+    for (let i = 0; i < count && rest.length > 0; i++) {
+      if (picks[i]) continue;
+      const best = tower.bestByStrategy(rest);
+      if (!best) break;
+      picks[i] = best;
+      rest.splice(rest.indexOf(best), 1);
+    }
+    // None left: the free arms stay on the enemy they shared, else join the best of those taken
+    const taken = this._sawTaken;
+    taken.length = 0;
+    for (const enemy of picks) if (enemy && !taken.includes(enemy)) taken.push(enemy);
+    if (taken.length === 0) return picks;
+    for (let i = 0; i < count; i++) {
+      if (picks[i]) continue;
+      const id = hold[i]?.targetId;
+      picks[i] = (id ? taken.find((enemy) => enemy.id === id) : undefined) ?? tower.bestByStrategy(taken.slice());
     }
     return picks;
   }

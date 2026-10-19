@@ -109,8 +109,6 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ### Spiel und Balance
 
-- [ ] **E241 Kettensägen-Tower feiner abstimmen** (User, 2026-10-18): die Sägen fahren am Gegner eher horizontal hin
-      und her, die Sägeblätter drehen sich.
 - [ ] **E1 Balancing aufrollen**: Phase 1 und 2 gebaut, Baseline und sechs Tuning-Runden gelaufen. Offen: Zielbänder
       (3b) und Kampagnenende (3a), [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
 - [ ] **E105 Spieltiefe, Rest der Balance-Nacht**: Schild am Skarnax-Kopf, Gegnereigenschaften Shielded und Aura,
@@ -199,6 +197,8 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 - [ ] **K6 Nachzug 2026-10-19**: E248 Grundstücke (Vorgarten, Einfahrt, Hecke; Hecken noch aus echten OSM-Linien
       und billiger, mehrere Orte), E249 Fallrichtung aus dem Treffer (schräger Treffer im Bild ungeprüft) und Klänge
       der Zerstörung (Einsturz je Material und Größe, Nachrieseln, Krater), E250 Impostor-Ton.
+- [ ] **K7 Kettensäge** (E241, 2026-10-19): Schaden erst, wenn die Säge am Gegner ist, Arme behalten ihren
+      Gegner und folgen der Zielwahl des Towers, eigener Takt je Arm, ruhiger beim Wechsel, Blut beim Sägen (F5.3).
 
 ### Licht durch Munition (2026-10-18, Branch `wt/r7-muzzle`, Nachtests in PLAYTEST.md I)
 

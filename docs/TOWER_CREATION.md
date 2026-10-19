@@ -47,7 +47,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 | Lightning | **chain** | lightning | 35 | 65m | 0.8/s | 130 | Hitscan-Kette (`maxJumps: 2`, `chainFalloff: 0.7`, `jumpRange: 15m`). Idle-Crackle am Turm-Tip + lokale Aufhell-Halos pro Hit (additive Sprites). Air+Ground. |
 | Chaos | projectile | chaos | 50 | 60m | 1.2/s | 200 | Generalist (1,0 gegen jede Rüstung), Air+Ground, Projektil `chaos-orb`. Kenney-Modell, der mittlere Kristall dreht sich (`turretNode: 'crystal'`) |
 | Iron Bastion | projectile | pierce | 36 | 65m | 0.75/s | 150 | Flak: Splash 5 m (max. 6 Ziele), Air+Ground, Rohr neigt sich (`pitchNodes: ['gun']`). Modell aus `tools/blender/build_tower.py` |
-| Chainsaw | **saw** | pierce | 30 DPS je Arm | 14m | (Chain Speed) | 140 | Drei Arme, jeder auf einem eigenen Ziel nach Entfernung (`sawArms`), nur Boden; Arme gezeichnet von `tower-saw-arms.ts` |
+| Chainsaw | **saw** | pierce | 30 DPS je Arm | 14m | (Chain Speed) | 140 | Drei Arme, jeder auf einem eigenen Ziel nach der Zielwahl des Towers (`sawArms`), nur Boden; Arme gezeichnet von `tower-saw-arms.ts` |
 | Shawarma Slicer | **stream** | physical | 80 DPS voll | 35m | (Drive) | 150 | Strom auf einer Linie, dreht in 2,5 s hoch (`stream`), nur Boden; Spieß, Arm und Stücke von `tower-doner-stream.ts` |
 | Sentinel Laser | **laser** | lightning | 24 DPS kalt | 60m | – | 170 | Strahl auf ein Ziel, heizt in 4 s auf ×4 (`laser`), neues Ziel kalt; Air+Ground, Kopf neigt sich (`pitchNodes: ['head']`) |
 | Research Center | **passive** | – | 0 | 0 | 0 | 75 | Kein Combat, siehe Research-System. Einmal je Karte |
@@ -1095,37 +1095,44 @@ auf -14 LUFS gebracht (Schleifen mit linearer Verstärkung, damit die Naht bleib
 ## Beispiel: Chainsaw (Saw Attack)
 
 `attackType: 'saw'`: `TowerCombatService.updateSawTowers` nimmt je Sub-Step die Ziele, die der Tower angreifen darf
-(`mayEngage`: Reichweite, Sicht, Boden), die nächsten `sawArms.length` nach Entfernung (gleich weit nach ID), und
-gibt sie den Armen in ihrer Reihenfolge, freie Arme an das fernste. Jeder Arm trifft sein Ziel mit
-`damage × fireRate × dt` (`applyBeamDamage`). Kein eigener Zustand je Tower: die Wahl ist jeden Sub-Step neu. Ans
+(`mayEngage`: Reichweite, Sicht, Boden; bei Feuerpause oder bemannt keine). Jeder Arm behält seinen Gegner, solange
+er erlaubt bleibt; freie Arme nehmen in Armreihenfolge den besten der übrigen nach der Zielwahl des Towers
+(`Tower.bestByStrategy`, dieselbe Regel wie `findTarget`, gleich gute in der Reihenfolge des Rasters), ohne übrige
+gehen sie mit auf den besten der genommenen. Der Zustand je Arm steht in `Tower.sawHold` (Gegner, Zeit auf ihm,
+wie weit ausgefahren; im Snapshot und im Zustands-Hash, am Wellenende leer). Ein Arm schneidet erst, wenn er
+ausgefahren ist und lange genug auf seinem Gegner (`SAW_ARM_TIMING`: 1 s aus dem Dock, 0,7 s hinüber zu einem neuen
+Gegner), wie die Arme gezeichnet werden; vorher macht er keinen Schaden. Dann trifft er sein Ziel mit
+`damage × fireRate × dt` (`applyBeamDamage`), und bei einem Gegner, der bluten kann (`canBleed`), spritzt Blut:
+beim Ansetzen ein großer Spritzer, danach einer je 200 ms und Gegner (`emitSawBlood`). Ans
 Bild geht einmal je Frame `towers.setSawTargets(id, Ziele)` (leer: alle Arme heim), `SawArms` im
 `ThreeTowerRenderer` fährt die Arme aus und ein. Ton (`SAW_SOUND`): mit dem ersten Ziel `saw-spinup` am Turm
 (Servos, Kupplung, drei Sägen laufen an), `saw-loop` blendet in 1,4 s ein; solange ein Arm sägt, `saw-cut` am
 ersten Ziel, mit einem Arm 73 %, mit dreien voll. Ohne Ziel endet die Last sofort, die Motoren laufen 2 s nach.
 
-Die Bewegung der Arme (E221, `tower-saw-arms.ts`, nur Bild): Ausfahren in zwei Stufen, 0,7 s: erst entfaltet sich
+Die Bewegung der Arme (E221, `tower-saw-arms.ts`, nur Bild, in Spielzeit): Ausfahren in zwei Stufen, 1 s: erst entfaltet sich
 die Säge vom Dock zu einem Punkt im eigenen Viertel des Arms (entlang `out`, um `lift` angehoben, frei vom Rumpf),
 dann greift sie über die Straße zum Gegner; heim denselben Weg zurück. Bei der Arbeit folgt die Säge ihrem Gegner an
-einer kritisch gedämpften Feder (9 rad/s): ein Gegner, der weiterläuft, oder ein neuer schwenkt den Arm hinüber,
-statt ihn springen zu lassen. Welcher Arm welchen Gegner nimmt, entscheidet das Bild (die Simulation zählt nur
-Treffer je Gegner): die Zuordnung mit dem kürzesten Weg und den wenigsten Gegnern außerhalb des Viertels eines Arms,
-so bleibt jeder Arm auf seiner Seite und die Arme kreuzen nicht; einen Gegner zu behalten kostet keinen Weg, die
-Arme tauschen also nicht, nur weil die Simulation die Liste anders ordnet. Gibt es mindestens so viele erreichbare
-Gegner wie Arme, hat jeder Arm seinen eigenen; nur bei weniger teilen sich Arme einen (die freien gehen an den
-fernsten).
+einer kritisch gedämpften Feder (5,5 rad/s, in den 0,7 s der Simulation neun Zehntel des Wegs): ein Gegner, der
+weiterläuft, oder ein neuer schwenkt den Arm ruhig hinüber, statt ihn springen zu lassen. Welcher Arm welchen Gegner
+nimmt, entscheidet das Bild: ein Arm an einem Gegner behält ihn (das Ziel, das höchstens 0,6 Modelleinheiten von
+seinem bisherigen steht), wie die Simulation; die übrigen bekommen die Zuordnung mit dem kürzesten Weg und den
+wenigsten Gegnern außerhalb des Viertels eines Arms, so bleibt jeder Arm auf seiner Seite und die Arme kreuzen nicht.
+Gibt es mindestens so viele erreichbare Gegner wie Arme, hat jeder Arm seinen eigenen; nur bei weniger teilen sich
+Arme einen.
 
 Arme und Sägen berühren sich nie (`keepClear`): jeder Arm gilt als Kette aus 8 geraden Stücken mit seinem Radius
 (0,15), jede Säge als Kapsel vom Halter bis zur Nase (0,85 lang, 0,17 dick, mal ihre Größe). Kommen sich zwei näher
 als ihre Dicken und 0,05 Luft, werden sie entlang der Linie ihrer nächsten Punkte auseinandergeschoben, jeder so weit,
 wie er ausgefahren ist (eingefahren stehen sie wie modelliert): eine Säge an ihrem Halter, ein Arm nahe seiner Säge
 über die Säge, sonst durch Biegen (beide inneren Kontrollpunkte). Danach werden die Arme neu geformt und wieder
-geprüft, bis eine Runde nichts mehr schiebt, höchstens 10 Runden je Bild. Alle Sägen ziehen im Gleichtakt, so laufen
-Nachbarn beim Zug parallel statt aufeinander zu. Ein Szenario-Spec misst das über Straßen in drei Abständen und
+geprüft, bis eine Runde nichts mehr schiebt, höchstens 16 Runden je Bild. Ein Szenario-Spec misst das über Straßen in drei Abständen und
 Winkeln, Gedränge, einen und zwei Gegner, Aus- und Einfahren.
 
 Das Sägen (E241, nur Bild): am Gegner fährt die Säge quer über ihn hin und her, waagerecht und quer zur Richtung,
-aus der der Arm kommt (0,18 Modelleinheiten je Seite, gut 0,7 m, 1,1 Mal je Sekunde), stößt zweimal je Zug ein
-wenig nach und das Schwert schleppt dem Zug bis 11° nach; der Zug setzt in 0,35 s ein und aus.
+aus der der Arm kommt (0,18 Modelleinheiten je Seite, gut 0,7 m), stößt zweimal je Zug ein wenig nach und das
+Schwert schleppt dem Zug bis 11° nach; der Zug setzt in 0,35 s ein und aus. Jede Säge zieht in ihrem eigenen Takt
+(0,9 Mal je Sekunde mal 1, 0,81 und 1,23, versetzt begonnen) und schwillt langsam um bis 30 % ab und an, so machen
+die Arme nie dieselbe Bewegung.
 Beim Entfalten rollt die Säge um ihr Schwert, bis dessen Fläche waagerecht liegt (die nähere der beiden Lagen,
 höchstens eine Vierteldrehung), so schneidet das Blatt quer wie der Zug; eingefahren steht sie wie modelliert. Die
 Kette läuft um
