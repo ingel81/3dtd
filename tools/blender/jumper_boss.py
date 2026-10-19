@@ -26,6 +26,15 @@ here:
            two-link IK in each leg's plane; the body dips as a pair lands,
            rolls and pitches a little; the claws hover off the ground and
            sway, the pincers work. The feet land at FOOTSTEP_PHASES.
+           SCUTTLE: the crab's gait, the same pairs and timing stepping
+           sideways: the body goes to its left (+y, glTF +x), the feet
+           reach out on the leading side and push on the trailing one; the
+           body lurches over each landing pair, rolls hard and sways across.
+           Played backwards it goes to its right (EnemyTypeConfig.crabGait).
+           Same stride and period as WALK, so one animationSpeed fits both.
+           The Jumper repository (KingKongRobotics/jumper) has no keyframed
+           clip to take: its locomotion is a learned policy for a physics
+           simulation, its recorded motions are dances.
            DEATH: the legs give way (the body drops onto its belly, the feet
            slide out), the claws fall, the barrels sag, it rolls to one side
            and lies still from 1.4 s; the clip ends at 1.5 s.
@@ -88,6 +97,12 @@ FOOTSTEP_PHASES = (SWING, 0.5 + SWING)
 BOB = 0.003
 ROLL = 0.014
 PITCH_NOD = 0.008
+# The crab's sideways gait: stride as WALK (one animationSpeed for both), a heavier lurch
+SCUTTLE_BOB = 0.004
+SCUTTLE_ROLL = 0.03
+SCUTTLE_SWAY = 0.004
+# The feet step in this much nearer the body than WALK's: the stride across stays within WALK's width
+SCUTTLE_TUCK = 0.03
 # How high the claws hover over the ground while it walks (lowest point, model units)
 CLAW_HOVER = 0.02
 CLAW_SWAY = 0.05
@@ -443,13 +458,13 @@ def claw_on_ground(arm, shoulder, sign, height):
     return Euler((shoulder.x + sign * hi, shoulder.y, shoulder.z))
 
 
-def body_matrix(rest, z, roll, pitch):
-    """base_link's matrix_basis for a body raised by `z` and turned by roll (x) and pitch (y)"""
+def body_matrix(rest, z, roll, pitch, y=0.0):
+    """base_link's matrix_basis for a body raised by `z`, moved across by `y` and turned by roll (x) and pitch (y)"""
     m = rest.basis['base_link'].copy()
     turn = Euler((roll, pitch, 0)).to_matrix().to_4x4()
     loc = m.translation.copy()
     m = turn @ m
-    m.translation = loc + Vector((0, 0, z))
+    m.translation = loc + Vector((0, y, z))
     return m
 
 
@@ -481,9 +496,9 @@ def key_link(name, frame, rot=None, loc=None):
         o.keyframe_insert('location', frame=frame)
 
 
-def key_body(rest, frame, z, roll, pitch):
+def key_body(rest, frame, z, roll, pitch, y=0.0):
     o = obj('base_link')
-    o.matrix_basis = body_matrix(rest, z, roll, pitch)
+    o.matrix_basis = body_matrix(rest, z, roll, pitch, y)
     o.keyframe_insert('location', frame=frame)
     o.keyframe_insert('rotation_euler', frame=frame)
 
@@ -530,9 +545,38 @@ def animate_walk(rest, legs, lift_sign):
     return frames
 
 
-def body_frame(rest, z, roll, pitch):
+def body_frame(rest, z, roll, pitch, y=0.0):
     """base_link's world matrix (source frame, before the root's turn) for that body pose"""
-    return rest.world['base_link'] @ rest.basis['base_link'].inverted() @ body_matrix(rest, z, roll, pitch)
+    return rest.world['base_link'] @ rest.basis['base_link'].inverted() @ body_matrix(rest, z, roll, pitch, y)
+
+
+def animate_scuttle(rest, legs, lift_sign):
+    """The crab's gait: WALK's pairs and timing, the feet stepping across, the body to its left"""
+    frames = round(WALK_S * FPS)
+    for f in range(frames + 1):
+        phase = f / frames
+        # Down as a pair lands, over onto it and across with it
+        bob = SCUTTLE_BOB * math.cos(4 * math.pi * (phase - SWING / 2))
+        roll = SCUTTLE_ROLL * math.cos(4 * math.pi * (phase - SWING))
+        sway = SCUTTLE_SWAY * math.sin(4 * math.pi * (phase - SWING))
+        key_body(rest, f, bob, roll, 0.0, sway)
+        body = body_frame(rest, bob, roll, 0.0, sway)
+        for leg in legs.values():
+            dy, lift = foot_walk(leg.name, phase)
+            tuck = -math.copysign(SCUTTLE_TUCK, leg.foot_world.y)
+            foot = leg.foot_world + Vector((0, dy + tuck, lift))
+            pose_leg(rest, leg, body, foot, f)
+        for arm in ARMS:
+            # The claws hover low, swing across with the lurch and snap
+            swing = math.sin(4 * math.pi * (phase - SWING) + (0 if arm == 'LF' else 0.6))
+            s = Euler(rest.rot[f'{arm}_shoulder_link'])
+            s.z += 1.4 * CLAW_SWAY * swing
+            hover = CLAW_HOVER * (1 + 0.3 * swing)
+            key_link(f'{arm}_shoulder_link', f, rot=claw_on_ground(arm, s, lift_sign[arm], hover))
+            p = Euler(rest.rot[f'{arm}_finger_link'])
+            p.z += PINCER * (0.5 + 0.5 * math.sin(2 * math.pi * phase * 2 + (0.8 if arm == 'LF' else 2.5)))
+            key_link(f'{arm}_finger_link', f, rot=p)
+    return frames
 
 
 HULL_PARTS = ('base_link_visual', 'LM_hip_link_visual', 'LR_hip_link_visual', 'RM_hip_link_visual', 'RR_hip_link_visual')
@@ -688,6 +732,25 @@ def preview(directory):
             low = min((m.matrix_world @ v.co for v in m.data.vertices), key=lambda p: p.z)
             row.append(f'{leg} x{low.x:+.3f} z{low.z:+.4f}')
         print(f'walk f{f:02d}', '  '.join(row))
+    for o in O:
+        if o.animation_data:
+            for t in o.animation_data.nla_tracks:
+                t.mute = t.name != 'Scuttle'
+    for f in range(0, frames + 1, 4):
+        scene.frame_set(f)
+        row = []
+        for leg in LEGS:
+            m = obj(f'{leg}_foot_tip_link_visual')
+            low = min((m.matrix_world @ v.co for v in m.data.vertices), key=lambda p: p.z)
+            row.append(f'{leg} y{low.y:+.3f} z{low.z:+.4f}')
+        print(f'scuttle f{f:02d}', '  '.join(row))
+    shot('scuttle_0', (0.6, -0.9, 0.35), 0)
+    shot('scuttle_1', (0.6, -0.9, 0.35), round(0.3 * frames))
+    shot('scuttle_front', (1.0, 0.0, 0.25), round(0.6 * frames))
+    for o in O:
+        if o.animation_data:
+            for t in o.animation_data.nla_tracks:
+                t.mute = t.name != 'Walk'
     for k, phase in enumerate((0.0, 0.25, 0.5, 0.75)):
         shot(f'walk_{k}', (0.6, -0.9, 0.35), round(phase * WALK_S * FPS))
     shot('walk_side', (0.0, -1.0, 0.12), 0)
@@ -725,6 +788,8 @@ def main():
     calibrate(rest, legs)
     lift = claw_signs(rest)
     walk_frames = bake_clip('Walk', lambda: animate_walk(rest, legs, lift))
+    reset_pose(rest)
+    bake_clip('Scuttle', lambda: animate_scuttle(rest, legs, lift))
     reset_pose(rest)
     bake_clip('Death', lambda: animate_death(rest, legs, lift))
     reset_pose(rest)

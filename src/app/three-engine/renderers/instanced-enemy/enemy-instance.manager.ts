@@ -15,7 +15,7 @@ import { attachBlobShadow } from './blob-shadow';
 import { createPortalClipUniforms, type PortalClipUniforms } from '../portal-clip';
 import { STATE_LERP_JUMP_M, StateLerp } from '../state-lerp';
 import { bloodMoonMultiplier } from '../../blood-moon/blood-moon-mood';
-import { EnemyTypeConfig } from '../../../configs/enemy-types.config';
+import type { EnemyCrabGait, EnemyTypeConfig } from '../../../configs/enemy-types.config';
 import { InstanceSlotAllocator, grownAttribute } from '../instance-slot-allocator';
 import { DrawGate } from '../draw-gate';
 import { clothSeed } from './vat-cloth';
@@ -30,6 +30,10 @@ import { turretPoint } from './vat-turret';
  */
 const INITIAL_INSTANCES_PER_TYPE = 512;
 const UP = new Vector3(0, 1, 0);
+/** A crab's body stands across its way (EnemyTypeConfig.crabGait), its side clip plays from this turn on */
+const CRAB_ACROSS = Math.PI / 4;
+/** How far its guns aim to one side before a crab turns its front there, rad: no turning to and fro about ahead */
+const CRAB_SIDE_SWITCH = 0.35;
 
 /** Per-enemy animation and visual state */
 export interface EnemyInstanceState {
@@ -91,6 +95,14 @@ export interface EnemyInstanceState {
   turretPitch: number;
   /** performance.now() of its last shot (fireTurret), -Infinity before one: the guns' recoil */
   firedAt: number;
+  /**
+   * A crab (EnemyTypeConfig.crabGait): the body's turn off the way it goes as
+   * shown, rad, the side it turns its front to (1 left, -1 right), and
+   * whether its side clip plays backwards. 0, 0 and false for the rest
+   */
+  bodyTurn: number;
+  crabSide: number;
+  crabReverse: boolean;
   // Debug overrides (only set for debug-spawned enemies, undefined in normal gameplay)
   debugScale?: number;
   debugHeightOffset?: number;
@@ -406,6 +418,8 @@ export class EnemyInstanceManager {
     const config = pool.config;
     const walkAnim = config.walkAnimation ?? '';
     const initialAnim = pool.vatData.animations.has(walkAnim) ? walkAnim : 'static';
+    // A crab comes out across its way, to a side by its id, until its guns pick one
+    const crabSide = config.crabGait ? ((id.charCodeAt(id.length - 1) & 1) === 0 ? 1 : -1) : 0;
 
     const state: EnemyInstanceState = {
       id,
@@ -437,6 +451,9 @@ export class EnemyInstanceManager {
       turretYaw: 0,
       turretPitch: 0,
       firedAt: -Infinity,
+      bodyTurn: (crabSide * Math.PI) / 2,
+      crabSide,
+      crabReverse: false,
     };
 
     pool.instances.set(id, state);
@@ -568,10 +585,17 @@ export class EnemyInstanceManager {
    * `yaw` from the body's forward and the guns tilted by `pitch`, rad, as the
    * simulation has it. The turn slides from where it is shown, on the clock
    * of the bodies' slide (beginState); a type without turret joints ignores it.
+   * A crab turns its front to the side the guns aim at, the turret the rest.
    */
   setTurret(state: EnemyInstanceState, yaw: number, pitch: number): void {
+    if (state.released) return;
+    if (state.config.crabGait) {
+      if (yaw > CRAB_SIDE_SWITCH) state.crabSide = 1;
+      else if (yaw < -CRAB_SIDE_SWITCH) state.crabSide = -1;
+      yaw = wrapAngle(yaw - state.bodyTurn);
+    }
     const attr = state.pool.turretAttr;
-    if (!attr || state.released) return;
+    if (!attr) return;
     if (yaw === state.turretYaw && pitch === state.turretPitch && attr.getZ(state.index) === 0) return;
     const shown = state.turretYaw + attr.getZ(state.index) * this.carry;
     let slide = this.stateLerp.enabled ? wrapAngle(shown - yaw) : 0;
@@ -789,8 +813,10 @@ export class EnemyInstanceManager {
       const gaitStride = pool.config.gaitStride;
       const stepPhases = this.onFootstep !== null ? pool.config.footstep?.phases : undefined;
       const walkClip = pool.config.walkAnimation;
+      const crab = pool.config.crabGait;
 
       for (const state of pool.instances.values()) {
+        if (crab !== undefined && !state.isDead) this.stepCrab(state, crab, deltaTime);
         const entry = pool.vatData.animations.get(state.currentAnim);
         if (!entry) continue;
 
@@ -817,16 +843,20 @@ export class EnemyInstanceManager {
           // Loop
           const loopsBefore = state.animTime / totalTime;
           state.animTime += deltaTime * state.animSpeed * state.speedMultiplier;
-          if (stepPhases && state.currentAnim === walkClip) {
+          if (stepPhases && (state.currentAnim === walkClip || state.currentAnim === crab?.sideAnimation)) {
             const loopsAfter = state.animTime / totalTime;
-            for (const phase of stepPhases) {
+            // Backwards, clip phase p comes at loop phase 1 - p
+            const phases = state.crabReverse ? crab!.reverseFootstepPhases : stepPhases;
+            for (const p of phases) {
+              const phase = state.crabReverse ? 1 - p : p;
               if (Math.floor(loopsAfter - phase) > Math.floor(loopsBefore - phase)) {
                 this.onFootstep!(state.id);
                 break;
               }
             }
           }
-          at = ((state.animTime / totalTime) % 1.0) * count;
+          const loopPhase = (state.animTime / totalTime) % 1.0;
+          at = (state.crabReverse && loopPhase > 0 ? 1 - loopPhase : loopPhase) * count;
         }
 
         // The shader blends the frame with the next (a loop's last with its first), so a clip
@@ -845,6 +875,31 @@ export class EnemyInstanceManager {
         }
       }
     }
+  }
+
+  /**
+   * A crab's body turns toward its side at the gait's rate (the matrix takes
+   * it with the next state), and its clip follows: the side clip while it
+   * stands across its way, backwards when it goes to its right, the walk
+   * while it turns past ahead. The clip's phase as shown carries over a change
+   * of direction, so the feet do not jump.
+   */
+  private stepCrab(state: EnemyInstanceState, crab: EnemyCrabGait, deltaTime: number): void {
+    const to = (state.crabSide * Math.PI) / 2;
+    const left = to - state.bodyTurn;
+    const step = crab.turnRate * deltaTime;
+    state.bodyTurn = Math.abs(left) <= step ? to : state.bodyTurn + Math.sign(left) * step;
+    const across = Math.abs(state.bodyTurn) >= CRAB_ACROSS;
+    const anim = across ? crab.sideAnimation : state.config.walkAnimation;
+    const entry = anim === undefined ? undefined : state.pool.vatData.animations.get(anim);
+    if (!entry) return;
+    const reverse = across && state.bodyTurn > 0;
+    if (reverse !== state.crabReverse) {
+      const loops = Math.floor(state.animTime / entry.totalTime);
+      state.animTime = (2 * loops + 1) * entry.totalTime - state.animTime;
+      state.crabReverse = reverse;
+    }
+    state.currentAnim = anim!;
   }
 
   /** The guns of the instances that fired lately slide back and home (recoilAt) */
@@ -1132,7 +1187,8 @@ export class EnemyInstanceManager {
   ): void {
     const configOffset = pool.config.headingOffset ?? 0;
     const rotationOffset = state?.debugRotation ?? 0;
-    const totalHeading = heading + configOffset + rotationOffset;
+    // A crab's body stands across the way it goes (stepCrab)
+    const totalHeading = heading + configOffset + rotationOffset + (state?.bodyTurn ?? 0);
     // Position changes every frame (enemy moving) so compose() always runs, but
     // the rotation quaternion only needs rebuilding (sin/cos) when the heading
     // actually changed — cache it per instance.

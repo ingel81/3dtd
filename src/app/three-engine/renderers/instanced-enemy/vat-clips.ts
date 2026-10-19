@@ -29,7 +29,8 @@ export interface VATClip {
 
 type VATClipConfig = Pick<
   EnemyTypeConfig,
-  'walkAnimation' | 'runAnimation' | 'deathAnimation' | 'deathAnimations' | 'animationSpeed' | 'deathAnimationSpeed' | 'deathDuration' | 'clipStart'
+  | 'walkAnimation' | 'runAnimation' | 'deathAnimation' | 'deathAnimations' | 'animationSpeed' | 'deathAnimationSpeed' | 'deathDuration'
+  | 'clipStart' | 'crabGait'
 >;
 
 /** Playback speed of a type's death clips (EnemyTypeConfig.deathAnimationSpeed) */
@@ -47,8 +48,8 @@ export function vatDeathSeconds(config: Pick<EnemyTypeConfig, 'animationSpeed' |
 }
 
 /**
- * Clips baked for an enemy type, in bake order. Walk and run loop and are
- * baked whole; death clips only up to vatDeathSeconds(), the rest of the clip
+ * Clips baked for an enemy type, in bake order. Walk, run and a crab's side
+ * clip loop and are baked whole; death clips only up to vatDeathSeconds(), the rest of the clip
  * would never be on screen.
  */
 export function vatClips(config: VATClipConfig): VATClip[] {
@@ -62,6 +63,7 @@ export function vatClips(config: VATClipConfig): VATClip[] {
   };
   add(config.walkAnimation, Infinity);
   add(config.runAnimation, Infinity);
+  add(config.crabGait?.sideAnimation, Infinity);
   const deathSeconds = vatDeathSeconds(config);
   add(config.deathAnimation, deathSeconds);
   for (const name of config.deathAnimations ?? []) add(name, deathSeconds);

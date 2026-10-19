@@ -145,6 +145,24 @@ export interface EnemySiegeConfig {
 }
 
 /**
+ * A crab's gait (the jumper): the body goes sideways along its route and
+ * turns its front to the side its turret aims at, the side it keeps while
+ * nothing is in reach. Presentation only (EnemyInstanceManager): the
+ * simulation moves the enemy along its route as any other, its heading the
+ * way it goes. While the body stands across that way the side clip plays,
+ * forwards to the body's left, backwards to its right; while it turns from
+ * one side to the other it passes the walk.
+ */
+export interface EnemyCrabGait {
+  /** Clip stepping to the body's left (model +x), with the walk's stride and period, so animationSpeed fits both */
+  sideAnimation: string;
+  /** How fast the body turns from one side to the other, rad per second of game time */
+  turnRate: number;
+  /** Clip phases where a foot lands while the side clip plays backwards: where its feet lift playing forwards */
+  reverseFootstepPhases: readonly number[];
+}
+
+/**
  * An enemy type. Its name and a boss's honorific are the dictionary's
  * (i18n `names.enemies`, `epithets`), by id.
  */
@@ -328,6 +346,8 @@ export interface EnemyTypeConfig {
   turret?: EnemyTurret;
   /** Fires at the structures of a destructible world with its turret, see EnemySiegeConfig */
   siege?: EnemySiegeConfig;
+  /** Goes sideways like a crab, its front to its targets, see EnemyCrabGait */
+  crabGait?: EnemyCrabGait;
   /**
    * Left out of the enemy lists of Custom Wave and Enemy Debug
    * (getDebugEnemyTypes): a model of another type's body that is no use to
@@ -1530,7 +1550,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // stays half-float (2 mm, VAT_HALF_FLOAT_MAX_ERROR; at 3.5 it would be RGBA32F, twice the memory)
     modelUrl: 'assets/models/enemies/jumper.glb',
     scale: 3.25,
-    modelRangeY: { min: -0.012, max: 2.834 },
+    modelRangeY: { min: -0.012, max: 2.843 },
     armorType: 'fortified',
     // About a golem king; the wave's budget sets what it brings (sources/budget)
     baseHp: 5000,
@@ -1581,6 +1601,13 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
       structureDamage: 1200,
       splashRadiusM: 5,
       craterRadiusM: 3.5,
+    },
+    crabGait: {
+      // Scuttle: Walk's legs stepping across (tools/blender/jumper_boss.py); its pairs lift at 0 and 0.5
+      sideAnimation: 'Scuttle',
+      // Half a turn, one side to the other, in about 4 s
+      turnRate: 0.8,
+      reverseFootstepPhases: [0, 0.5],
     },
     previewScale: 1.25,
     previewCameraDistance: 7.5,

@@ -117,6 +117,7 @@ function roleOf(config: EnemyTypeConfig, name: string): string {
   const roles: string[] = [];
   if (name === config.walkAnimation) roles.push('walk');
   if (name === config.runAnimation) roles.push('run');
+  if (name === config.crabGait?.sideAnimation) roles.push('side');
   if (name === config.deathAnimation || config.deathAnimations?.includes(name)) roles.push('death');
   return roles.join('+');
 }

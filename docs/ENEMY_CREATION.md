@@ -1,6 +1,6 @@
 # Enemy Creation Guide
 
-**Stand:** 2026-10-19 (Boss Jumper: Geschützturm, Belagerung)
+**Stand:** 2026-10-19 (Boss Jumper: Geschützturm, Belagerung, Krebsgang)
 
 Anleitung zum Erstellen neuer Enemy-Typen mit Animationen, Sounds und visuellen Effekten.
 
@@ -729,7 +729,7 @@ nicht auf einer echten Karte.
 ## Geschützturm und Belagerung (`jumper`)
 
 Der Jumper (2026-10-19) ist ein Krabben-Läufer aus starren Teilen: vier Beine, zwei Scheren, ein Zwillingsgeschütz
-auf dem Rücken. Zwei Felder, die jeder Gegnertyp setzen kann:
+auf dem Rücken. Drei Felder, die jeder Gegnertyp setzen kann:
 
 ```typescript
 turret: {
@@ -745,11 +745,16 @@ siege: {
   turnRate: 0.7, pitchRate: 0.5, alignTolerance: 0.035,
   shellSpeedMps: 180, structureDamage: 1200, splashRadiusM: 5, craterRadiusM: 3.5,
 },
+crabGait: {
+  sideAnimation: 'Scuttle',       // Clip zur linken Seite des Körpers, Schritt und Takt wie walkAnimation
+  turnRate: 0.8,                  // rad je Sekunde Spielzeit, von einer Seite zur anderen
+  reverseFootstepPhases: [0, 0.5], // Clip-Phasen, an denen rückwärts ein Fuß aufsetzt
+},
 ```
 
 | Punkt | Regel | Code |
 |---|---|---|
-| Modell | `tools/blender/jumper_boss.py` baut `jumper.glb` aus der Quellszene (41 Link-Empties, 47 starre Meshes, keine Clips): Turmteile nach losen Teilen von der Deckplatte getrennt (unter `turret_yaw`, Kanonenwiege und Rohre unter `turret_pitch`, Mündungs-Empties), Meshes auf 28 000 Dreiecke und 14 112 Vertices reduziert (Boss-Budget 15 000), Normalen nach Flächeninhalt statt harter Kanten (sonst 36 000 bis 49 000 Vertices), Farben der Materialien unverändert. Im Spiel `scale` 3,25 (14 m breit, 9,2 m hoch): bis dahin bleibt das VAT RGBA16F (1,98 mm Fehler, Grenze 2 mm), bei 3,5 wäre es RGBA32F mit doppeltem Speicher. Clips von Hand gebaut: `Walk` (Diagonalgang, IK je Bein, Füße stehen im Stand, Scheren schweben und arbeiten) und `Death` (Beine knicken weg, Bauch auf den Boden, Rohre sacken). Modell in Dezimetern (Wurzel ×10), Blick nach +z | `tools/blender/jumper_boss.py` |
+| Modell | `tools/blender/jumper_boss.py` baut `jumper.glb` aus der Quellszene (41 Link-Empties, 47 starre Meshes, keine Clips): Turmteile nach losen Teilen von der Deckplatte getrennt (unter `turret_yaw`, Kanonenwiege und Rohre unter `turret_pitch`, Mündungs-Empties), Meshes auf 28 000 Dreiecke und 14 112 Vertices reduziert (Boss-Budget 15 000), Normalen nach Flächeninhalt statt harter Kanten (sonst 36 000 bis 49 000 Vertices), Farben der Materialien unverändert. Im Spiel `scale` 3,25 (14 m breit, 9,2 m hoch): bis dahin bleibt das VAT RGBA16F (1,98 mm Fehler, Grenze 2 mm), bei 3,5 wäre es RGBA32F mit doppeltem Speicher. Clips von Hand gebaut: `Walk` (Diagonalgang, IK je Bein, Füße stehen im Stand, Scheren schweben und arbeiten), `Scuttle` (dieselben Paare und derselbe Takt seitwärts, der Rumpf wiegt schwer über das landende Paar) und `Death` (Beine knicken weg, Bauch auf den Boden, Rohre sacken). Modell in Dezimetern (Wurzel ×10), Blick nach +z | `tools/blender/jumper_boss.py` |
 | Turmgelenke im VAT | Der Bake schreibt je Frame vier Punkte hinter die Vertices: Drehpunkt und Achse von `yawNode`, Drehpunkt und Achse von `pitchNode`; jeder Vertex sagt, zu welchem Teil er gehört (`aTurretPart`). Der Shader neigt die Rohre um die Achse der Wiege, dreht dann den Turm um die Achse des Turms, beide aus dem Frame, den die Instanz zeigt: der Turm reitet die Bewegung des Körpers mit. Die Winkel kommen je Instanz (`aTurret`: Drehung, Neigung, Rest der Drehung zum Gleiten, Rückstoß). Kein Draw Call mehr, kein zweiter Pool, ein Attribut mehr nur für Typen mit Turm. Nur starre Teile (Node-Animation oder statisch); ein geskinntes Modell mit `turret` warnt und bekommt keinen | `vat-turret.ts`, `vat-baker.ts`, `vat-material.ts`, [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md#turmgelenke-turret) |
 | Simulation | `EnemySiege` je Sub-Step nach dem Verschleiß, in Spielzeit: ohne Bauwerke (Tiles, DevWorld, Karte ohne Zerstörung) läuft nichts, der Turm schaut nach vorn. Sonst sucht ein Geschütz ohne Ziel alle 500 ms das nächste stehende Bauwerk in Reichweite, das ein Treffer beschädigen kann (kein Tower auf dem Dach), bei Gleichstand das erste der Laufregeln. Der Turm dreht mit `turnRate` relativ zum Körper, der Körper dreht sich darunter weiter; die Rohre neigen sich auf 45 % der Bauwerkshöhe (höchstens 12 m). Geladen und auf `alignTolerance` am Ziel, fliegt eine Granate mit `shellSpeedMps` auf die Fassade zum Geschütz hin (0,7 des Radius vor der Mitte, die Ruine fällt vom Geschütz weg) und nimmt beim Einschlag `structureDamage` von allem in `splashRadiusM` plus 1 m plus Radius, dazu ein Krater. Gefallen, außer Reichweite oder mit Tower auf dem Dach: neues Ziel. Betäubt oder eingefroren hält es; eine Granate eines sterbenden Gegners schlägt noch ein | `managers/enemy-siege.ts`, `entities/enemy-gun.ts`, `WorldDamage.shell`, `StructureLedger.nearestTarget` |
 | Zustand | `Enemy.gun` (`EnemyGun`): Winkel, Ladezeit, Ziel, Granate im Flug; nur einfache Felder, also im Wellen-Schnappschuss (`SavedEnemy.gun`) und in der Prüfsumme (nur bei Gegnern mit Geschütz, andere Zeilen bleiben gleich). Die Werte von `siege` gehen in den Weltschlüssel zerstörbarer Welten (`destructionKeyParts`) | `simulator/state-hash.ts`, `enemy.manager.ts` |
@@ -757,6 +762,7 @@ siege: {
 | Darstellung | `SiegeEffects`: Rückstoß der Rohre, Mündungsfeuer und Licht an beiden Mündungen (aus der Ruhepose des Turms, ohne das Wiegen des Gangs), Feuerball mit Rauch vor den Rohren, Staub um die Füße, die Granate als weißglühender Strich mit Rauchspur (`SiegeShellRenderer`, ein Draw Call, Spielzeit, Licht); beim Einschlag Feuerball, Funken und Splitter, Staub, Licht und Trümmer aus dem Material des Bauwerks (fliegende Brocken der Zerstörung). Einsturz, Krater und Schutt sind die vorhandenen Effekte der Zerstörung. Alles nach `SIEGE_LOOKS` je Typ | `presentation/siege-effects.ts`, `three-engine/renderers/siege-shell.renderer.ts`, `configs/siege-look.config.ts` |
 | Klang | Schuss und Einschlag (`vfx:siege-shot`, `vfx:siege-impact`, GameSoundsService), das Surren des Turms als Loop, solange er schneller als `servoFromRadPerS` dreht (`GunPresenter`), schwere Schritte (`JUMPER_FOOTSTEP`, Phasen 0,4 und 0,9 von `Walk`), Lauf-Loop, Tod (`deathSound: 'jumper'`), Boss-Intro, eigene Boss-Musik (`BACKGROUND_MUSIC.bossTracks`). ElevenLabs, siehe [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) | `game-sounds.config.ts`, `siege-look.config.ts`, `background-music.config.ts` |
 | Erschütterung | Schuss und Einschlag je mit eigener Reichweite (`SIEGE_LOOKS.shake`), Schritte mit `footstep`, Tod mit `bossDeath` | `screen-shake.service.ts` |
+| Krebsgang | Nur Darstellung: die Simulation führt ihn die Route entlang wie jeden Gegner, ihr Kurs ist der Weg. Auf dem Hauptthread steht der Rumpf quer dazu (`bodyTurn` ±90°, im Instanz-Matrix zum Kurs addiert) und `Scuttle` läuft, vorwärts für den Gang zur linken Körperseite, rückwärts zur rechten; die Füße stehen im Stand, weil `Scuttle` den Schritt von `Walk` hat und `animationSpeed` beiden passt. Die Front zeigt zur Seite, auf die das Geschütz zielt (Drehung der Simulation über 0,35 rad, sonst bleibt die Seite), ohne Ziel bleibt die Seite, beim Erscheinen nach der Id. Der Wechsel dreht den Rumpf mit `turnRate` über vorn, unter 45° läuft dabei `Walk`; die gezeigte Clip-Phase bleibt beim Richtungswechsel, die Schritte fallen rückwärts auf `reverseFootstepPhases`. Der Turm zeigt die Drehung der Simulation minus `bodyTurn`, das Ziel bleibt also getroffen | `EnemyInstanceManager.stepCrab`, `setTurret`, `enemy-instance.crab.spec.ts` |
 | Welle | Laufplan W45 „Boss: Jumper“ mit Panzern und Zombie-Soldaten (Stärke 1,3); in der Schleife ab W61 wieder, mit der Budgetkurve ab und zu zwei | `run-plan.json`, [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md) |
 
 Geprüft per Spec: Teile, Marker und Drehrichtungen am echten Modell (`vat-turret.spec.ts`), Zielwahl, Drehrate,
@@ -770,6 +776,10 @@ Grenzen:
 - Die Zielhöhe rechnet die Bauwerkshöhe über dem Boden des Gegners, nicht über dem Fuß des Bauwerks.
 - Die Granate trifft immer; sie fliegt geradeaus, ohne Bogen.
 - Die Werte (5000 HP, 1200 Bauwerksschaden, 80 m, 5,5 s) sind nicht im Spiel abgestimmt.
+- Der Krebsgang ist nur Bild: Treffer und Sichtlinien rechnen mit der Position der Simulation wie bei jedem Gegner,
+  die Drehung des Rumpfs geht nicht in sie ein.
+- Das Repository des Roboters (KingKongRobotics/jumper) hat keine Keyframe-Clips: Gang und Bewegungen sind dort eine
+  gelernte Steuerung für eine Physiksimulation und Tanz-Aufnahmen von Gelenkwinkeln; die Clips hier sind neu gebaut.
 
 ---
 

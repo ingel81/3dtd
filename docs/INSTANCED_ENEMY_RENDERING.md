@@ -416,6 +416,16 @@ Ein Teil des Modells, der sich je Instanz unabhängig vom Clip dreht (EnemyTypeC
   nicht); `fireTurret` startet den Rückstoß (Wanduhr, 45 ms zurück, 750 ms nach vorn); `turretMuzzles` gibt die
   Mündungen in Szenenkoordinaten für Feuer und Granate. Ein Typ ohne Turm hat weder Attribute noch Zweig.
 
+### Krebsgang (`crabGait`)
+
+Ein Typ mit `EnemyTypeConfig.crabGait` (der Jumper) geht seitwärts: `EnemyInstanceManager.stepCrab` dreht in
+`updateAnimations` den Rumpf (`bodyTurn`, Spielzeit, `turnRate`) zur Seite `crabSide`, `setInstanceMatrix` addiert ihn
+zum Kurs. Ab 45° quer läuft `sideAnimation`, vorwärts bei negativem `bodyTurn` (Gang zur linken Körperseite = auf dem
+Weg), rückwärts bei positivem (`crabReverse`: Clip-Phase `1 - Phase`); darunter `walkAnimation`. Kippt die Richtung,
+springt `animTime` so, dass die gezeigte Phase bleibt. Die Seite setzt `setTurret` aus der Drehung des Geschützes
+(Hysterese 0,35 rad) und zieht `bodyTurn` von der gezeigten Turmdrehung ab. Kein Attribut mehr, kein Draw Call mehr;
+ohne `crabGait` ist `bodyTurn` 0 und die Matrix bitgleich.
+
 ### LogDepthBuf
 
 Beide Shader (VAT + Health Bar) enthalten die Three.js `logdepthbuf` Chunks für korrekte Tiefendarstellung mit 3D Tiles.
