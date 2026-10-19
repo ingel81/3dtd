@@ -159,6 +159,15 @@ describe('I18n', () => {
     expect(document.documentElement.getAttribute('lang')).toBe('en');
   });
 
+  it('loads a stored choice as it is made, before any change detection: the app waits for it before the first frame', async () => {
+    TestBed.resetTestingModule();
+    localStorage.setItem('td-ui-state', JSON.stringify({ locale: 'de' }));
+    const fresh = TestBed.inject(I18n);
+    await fresh.ready();
+    expect(fresh.locale()).toBe('de');
+    localStorage.removeItem('td-ui-state');
+  });
+
   it('the last choice wins when loads overlap', async () => {
     ui.localePreference.set('de');
     TestBed.tick();

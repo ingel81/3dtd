@@ -1,4 +1,4 @@
-import { DOCUMENT, InjectionToken, computed, effect, inject, signal, type Provider, type Signal } from '@angular/core';
+import { DOCUMENT, InjectionToken, computed, effect, inject, signal, untracked, type Provider, type Signal } from '@angular/core';
 import { UIStore } from '../store/ui.store';
 import { DICTIONARIES } from './dictionaries';
 import { SOURCE_LOCALE, resolveLocale, type Locale, type LocalePreference } from './locale';
@@ -30,6 +30,8 @@ export class I18nService {
 
   /** @param preference the player's choice (UIStore.localePreference) */
   constructor(private readonly preference: Signal<LocalePreference>) {
+    // The stored choice loads at once, so the app initializer can wait for it before the first frame
+    this.loading = this.use(resolveLocale(untracked(preference), this.languages()));
     try {
       effect(() => {
         this.loading = this.use(resolveLocale(this.preference(), this.languages()));
@@ -45,13 +47,16 @@ export class I18nService {
   }
 
   private async use(locale: Locale): Promise<void> {
+    // The effect's first run asks again for what the constructor loads already
+    if (this.wanted === locale) return this.loading;
     this.wanted = locale;
     if (this.active().locale === locale) return;
     let t: Messages;
     try {
       t = await DICTIONARIES[locale]();
     } catch {
-      // The chunk did not load (offline after an update): the game stays in the language it has
+      // The chunk did not load (offline after an update): the game stays in the language it has, a new choice tries again
+      if (this.wanted === locale) this.wanted = this.active().locale;
       return;
     }
     if (this.wanted !== locale) return;
