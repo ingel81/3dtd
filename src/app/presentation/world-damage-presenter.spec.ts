@@ -1,6 +1,6 @@
 import { Vector3 } from 'three';
 import { createMainEventBus } from '../sim/client/view-events';
-import { WorldDamagePresenter } from './world-damage-presenter';
+import { WorldDamagePresenter, collapseClass } from './world-damage-presenter';
 import { StampField, craterStampOf, rubbleStampOf, type ToLocal } from '../utils/stamp-field';
 import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
 import type { RunStructure } from '../sim/protocol/run-rules';
@@ -107,6 +107,24 @@ describe('WorldDamagePresenter (docs/DESTRUCTION_PLAN.md)', () => {
     presenter.fell(0, 0.001, 0.002, 5, 6);
     expect(destruction.setStages).not.toHaveBeenCalled();
     expect(engine.effects.spawnExplosion).not.toHaveBeenCalled();
+  });
+
+  it('sounds a fall by its class and size with the rubble settling, and a crater as it is dug', () => {
+    const { bus, destruction, presenter } = setup(true);
+    destruction.structures.mockReturnValue([{ material: 'brick' }, { material: 'metal' }] as never);
+    const played: unknown[] = [];
+    bus.on('audio:play', (e) => played.push(e.sound));
+    presenter.fell(0, 0.001, 0.002, 5, 6);
+    presenter.fell(1, 0.001, 0.002, 4, 12);
+    presenter.dig(0, 100, 100, 25, 30);
+    expect(played).toEqual([
+      'destroy_collapse_masonry_small', 'destroy_rubble_settle',
+      'destroy_collapse_metal_large', 'destroy_rubble_settle',
+      'destroy_crater_impact',
+    ]);
+    expect(collapseClass('plaster')).toBe('masonry');
+    expect(collapseClass('wood')).toBe('wood');
+    presenter.destroy();
   });
 
   it('hits a point through the simulation from DevTools', () => {

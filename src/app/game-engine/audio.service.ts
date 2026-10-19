@@ -4,6 +4,7 @@ import type { ThreeTilesEngine } from '../three-engine';
 import type { MainEventBus } from '../sim/client/view-events';
 import {
   ABILITY_IMPACT_SOUNDS,
+  DESTRUCTION_SOUNDS,
   type AbilityBeamSound,
   type AbilityImpactSample,
   type AbilityLaunchSound,
@@ -138,6 +139,12 @@ export class AudioService {
         const { refDistance, rolloffFactor, volume } = loop;
         audio.registerSound(loop.id, loop.url, { refDistance, rolloffFactor, volume, loop: true });
       }
+    }
+    // A structure falling and a crater dug, played by WorldDamagePresenter over `audio:play`
+    const { collapse, rubble, crater, refDistance, rolloffFactor, volume, maxInstances } = DESTRUCTION_SOUNDS;
+    for (const sample of [...Object.values(collapse).flatMap((sizes) => [sizes.small, sizes.large]), rubble, crater]) {
+      const gain = 'volume' in sample ? sample.volume : volume;
+      audio.registerSound(sample.id, sample.url, { refDistance, rolloffFactor, volume: gain, maxInstances });
     }
   }
 

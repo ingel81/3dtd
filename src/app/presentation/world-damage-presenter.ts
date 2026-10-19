@@ -6,7 +6,8 @@ import type { WorldDestruction, WorldGroundDamage } from '../world/world-provide
 import type { Tower } from '../entities/tower.entity';
 import type { TowerChange } from '../sim/client/mirror/sim-mirror';
 import { MAP_METERS_PER_DEGREE } from '../world/custom-map/map-document';
-import { RUBBLE_COLOURS } from '../world/custom-map/rubble-material';
+import { RUBBLE_COLOURS, type RubbleMaterial } from '../world/custom-map/rubble-material';
+import { DESTRUCTION_SOUNDS } from '../configs/audio.config';
 import type { RunStructure } from '../sim/protocol/run-rules';
 import type { StructureStage } from '../configs/destruction.config';
 import { CRATER_STRIDE } from '../managers/game-state/crater-ledger';
@@ -72,7 +73,7 @@ export class WorldDamagePresenter {
 
   constructor(
     private readonly engine: DamageEngine,
-    bus: MainEventBus,
+    private readonly bus: MainEventBus,
     private readonly ground: StampGround | null = null,
     private readonly towerSource: TowerSource | null = null,
   ) {
@@ -149,6 +150,7 @@ export class WorldDamagePresenter {
     this.craters.set([x, y, radius, depth], k);
     field?.crater(craterStampOf(x, y, radius, depth, this.toLocal), 1);
     this.drawn?.crater(x, y, radius, depth, 1);
+    if (this.destruction) this.playAt(DESTRUCTION_SOUNDS.crater.id, y / MAP_METERS_PER_DEGREE, x / MAP_METERS_PER_DEGREE);
   }
 
   /**
@@ -177,6 +179,16 @@ export class WorldDamagePresenter {
     effects.spawnBurstAtGeo(lat, lon, ground + height * 0.3, Math.round(16 + size * 4), [rgb(grit, 0.6), rgb(grit, 1.1), rgb(dust, 1.2)]);
     // Pieces of it thrown up and out, coming down round its heap
     this.drawn?.debris(lon * MAP_METERS_PER_DEGREE, lat * MAP_METERS_PER_DEGREE, radius, height, material, index * 7.31 + 1);
+    // Its collapse by class and size, the rubble settling with it
+    const sizes = DESTRUCTION_SOUNDS.collapse[collapseClass(material)];
+    const large = Math.max(height, radius) >= DESTRUCTION_SOUNDS.largeFrom;
+    this.playAt((large ? sizes.large : sizes.small).id, lat, lon);
+    this.playAt(DESTRUCTION_SOUNDS.rubble.id, lat, lon);
+  }
+
+  private playAt(sound: string, lat: number, lon: number): void {
+    const height = this.engine.getTerrainHeightAtGeo(lat, lon) ?? 0;
+    this.bus.emit({ type: 'audio:play', sound, lat, lon, height });
   }
 
   /** The craters as the simulation said them last, CRATER_STRIDE numbers each */
@@ -250,4 +262,9 @@ export class WorldDamagePresenter {
     const global = globalThis as Record<string, unknown>;
     if (this.debugApi && global['__worldDamage'] === this.debugApi) delete global['__worldDamage'];
   }
+}
+
+/** The collapse sound a rubble class falls with: plaster, brick and stone as masonry */
+export function collapseClass(material: RubbleMaterial): keyof typeof DESTRUCTION_SOUNDS.collapse {
+  return material === 'concrete' || material === 'wood' || material === 'metal' ? material : 'masonry';
 }

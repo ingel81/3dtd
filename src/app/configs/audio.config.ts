@@ -170,6 +170,40 @@ const LASER_SPATIAL = {
   priority: true,
 } as const;
 
+/**
+ * A structure falling and a crater dug (presentation/world-damage-presenter.ts),
+ * ElevenLabs, picked 2026-10-19: one collapse per rubble class and size, the
+ * rubble settling after it, the crater's impact. Plaster, brick and stone
+ * share the masonry sound. `large` from `largeFrom` m of height or radius on.
+ */
+export const DESTRUCTION_SOUNDS = {
+  collapse: {
+    masonry: {
+      small: { id: 'destroy_collapse_masonry_small', url: 'assets/sounds/destruction/collapse-masonry-small.mp3' },
+      large: { id: 'destroy_collapse_masonry_large', url: 'assets/sounds/destruction/collapse-masonry-large.mp3' },
+    },
+    concrete: {
+      small: { id: 'destroy_collapse_concrete_small', url: 'assets/sounds/destruction/collapse-concrete-small.mp3' },
+      large: { id: 'destroy_collapse_concrete_large', url: 'assets/sounds/destruction/collapse-concrete-large.mp3' },
+    },
+    wood: {
+      small: { id: 'destroy_collapse_wood_small', url: 'assets/sounds/destruction/collapse-wood-small.mp3' },
+      large: { id: 'destroy_collapse_wood_large', url: 'assets/sounds/destruction/collapse-wood-large.mp3' },
+    },
+    metal: {
+      small: { id: 'destroy_collapse_metal_small', url: 'assets/sounds/destruction/collapse-metal-small.mp3' },
+      large: { id: 'destroy_collapse_metal_large', url: 'assets/sounds/destruction/collapse-metal-large.mp3' },
+    },
+  },
+  rubble: { id: 'destroy_rubble_settle', url: 'assets/sounds/destruction/rubble-settle.mp3', volume: 0.6 },
+  crater: { id: 'destroy_crater_impact', url: 'assets/sounds/destruction/crater-impact.mp3', volume: 0.7 },
+  largeFrom: 9,
+  refDistance: 40,
+  rolloffFactor: 1,
+  volume: 1,
+  maxInstances: 4,
+} as const;
+
 /** Game state sounds configuration */
 export const GAME_SOUNDS = {
   /**
