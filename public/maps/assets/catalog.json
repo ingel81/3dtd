@@ -9456,7 +9456,7 @@
         {
           "file": "models/apartment-block-lod1.glb",
           "distance": 350,
-          "triangles": 3716
+          "triangles": 3735
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete"
@@ -9500,7 +9500,7 @@
         {
           "file": "models/apartment-block-tall-lod1.glb",
           "distance": 350,
-          "triangles": 1936
+          "triangles": 1926
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_block_wall; https://polyhaven.com/a/brushed_concrete"
@@ -9589,7 +9589,7 @@
         {
           "file": "models/brick-block-lod1.glb",
           "distance": 350,
-          "triangles": 2511
+          "triangles": 2553
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/hessian_230"
@@ -9634,7 +9634,7 @@
         {
           "file": "models/brick-house-lod1.glb",
           "distance": 350,
-          "triangles": 1903
+          "triangles": 1937
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete"
@@ -9766,7 +9766,7 @@
         {
           "file": "models/shop-lod1.glb",
           "distance": 350,
-          "triangles": 819
+          "triangles": 827
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/brushed_concrete"
@@ -14081,7 +14081,7 @@
         {
           "file": "models/office-tower-lod1.glb",
           "distance": 350,
-          "triangles": 2541
+          "triangles": 2531
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/gravel_floor_02"
@@ -14729,7 +14729,7 @@
         {
           "file": "models/rocket-lod1.glb",
           "distance": 350,
-          "triangles": 1026
+          "triangles": 1038
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete"
@@ -15027,7 +15027,7 @@
         {
           "file": "models/siege-tower-lod1.glb",
           "distance": 350,
-          "triangles": 1188
+          "triangles": 1176
         }
       ],
       "source": "procedural (tools/map-assets/build_extras.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/hessian_230"
@@ -16257,7 +16257,7 @@
         {
           "file": "models/carport-lod1.glb",
           "distance": 350,
-          "triangles": 140
+          "triangles": 144
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete"
@@ -17293,7 +17293,7 @@
         {
           "file": "models/greenhouse-lod1.glb",
           "distance": 350,
-          "triangles": 232
+          "triangles": 236
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brick_wall_07"
@@ -17532,7 +17532,7 @@
         {
           "file": "models/shelter-lean-to-lod1.glb",
           "distance": 350,
-          "triangles": 301
+          "triangles": 302
         }
       ],
       "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/wood_planks_grey; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/bark_brown_01; https://polyhaven.com/a/brushed_concrete"

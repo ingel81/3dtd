@@ -44,17 +44,33 @@ describe('shipped asset catalogue', () => {
     }
   });
 
-  it('keeps every material of a building in its distance copies (a hall without its roof past 350 m)', () => {
-    // The material names of a GLB, flat LOD stand-ins (`<name>-lod`) under their full model's name
-    const materials = (file: string): string[] => {
+  it('keeps every material of a building in its distance copies, its small parts whole (a hall without its roof past 350 m)', () => {
+    // Triangles per material of a GLB, flat LOD stand-ins (`<name>-lod`) under their full model's name
+    const triangles = (file: string): Map<string, number> => {
       const glb = readFileSync(ROOT + file);
-      const gltf = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8')) as { materials?: { name: string }[] };
-      return (gltf.materials ?? []).map((m) => m.name.replace(/-lod$/, ''));
+      const gltf = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8')) as {
+        materials?: { name: string }[];
+        meshes: { primitives: { material?: number; indices?: number; attributes: { POSITION: number } }[] }[];
+        accessors: { count: number }[];
+      };
+      const out = new Map<string, number>();
+      for (const mesh of gltf.meshes) {
+        for (const p of mesh.primitives) {
+          const name = (gltf.materials?.[p.material ?? 0]?.name ?? '').replace(/-lod$/, '');
+          out.set(name, (out.get(name) ?? 0) + gltf.accessors[p.indices ?? p.attributes.POSITION].count / 3);
+        }
+      }
+      return out;
     };
     for (const o of shipped.objects) {
       if (o.category !== 'building' || !o.lod) continue;
-      const full = materials(o.file);
-      for (const l of o.lod) expect(full.filter((m) => !materials(l.file).includes(m)), l.file).toEqual([]);
+      const full = triangles(o.file);
+      for (const l of o.lod) {
+        const lod = triangles(l.file);
+        expect([...full.keys()].filter((m) => !lod.has(m)), l.file).toEqual([]);
+        // decimate_keeping leaves a material of up to 24 faces (here triangles) whole: a roof of a few big quads
+        expect([...full].filter(([m, n]) => n <= 24 && lod.get(m) !== n).map(([m]) => m), l.file).toEqual([]);
+      }
     }
   });
 
