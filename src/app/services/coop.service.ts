@@ -54,7 +54,7 @@ import { WORLD_URL_PARAM, worldUrlValue, worldsMatch, type WorldRef } from '../w
 import { packageWorldRef } from '../coop/world-package';
 import { MapAssembler, PacedMapSend, splitMapFile, type MapPart } from '../coop/map-transfer';
 import { hasMapHere, packMapOffThread, storeSharedMap } from '../world/custom-map/map-share';
-import { openedCustomMap } from '../world/custom-map/custom-map-world';
+import { openedCustomMap } from '../world/custom-map/custom-map-start';
 
 /** Pause between two pieces of a map the host sends: the relay takes some 4 MB a second from one connection */
 /** How long a guest on the host's map waits for its own start to stand or fail before it reloads into the map */
@@ -278,7 +278,7 @@ export class CoopService {
   /** Host: the map (id and hash) this room has from us already, sent once per room */
   private sentMapKey: string | null = null;
   /** Host: the packed file of the map last packed (id and hash), so a resend packs nothing */
-  private packedMap: { key: string; bytes: Uint8Array } | null = null;
+  private packedMap: { key: string; bytes: Promise<Uint8Array> } | null = null;
   /** Host: a map being packed for the room; shares after it wait for it, so the world never overtakes its map */
   private mapPacking: Promise<void> | null = null;
   /** Guest: the map (content hash) asked for from the room once, so a world naming it waits instead of failing */
@@ -1372,10 +1372,11 @@ export class CoopService {
     const key = `${ref.mapId}\n${map.contentHash}`;
     if (key === this.sentMapKey) return null;
     this.sentMapKey = key;
-    const packed = this.packedMap?.key === key ? Promise.resolve(this.packedMap.bytes) : packMapOffThread(map.doc);
-    return packed.then(
+    // The packing itself is kept, not only its bytes: a share or resend while it runs waits for the same one
+    if (this.packedMap?.key !== key) this.packedMap = { key, bytes: packMapOffThread(map.doc) };
+    const packing = this.packedMap;
+    return packing.bytes.then(
       (bytes) => {
-        this.packedMap = { key, bytes };
         const parts = splitMapFile(bytes, ref.mapId, map.contentHash);
         if (!parts) {
           this.notify(`This map is too big to send over the relay (${Math.round(bytes.length / 2 ** 20)} MB of at most ${MAX_MAP_BYTES / 2 ** 20}): only players who have it can join`, 'warn');
@@ -1384,8 +1385,9 @@ export class CoopService {
         return parts;
       },
       (e: unknown) => {
-        // Not sent: the next share tries again
+        // Not sent: the next share tries again, packing anew
         if (this.sentMapKey === key) this.sentMapKey = null;
+        if (this.packedMap === packing) this.packedMap = null;
         this.notify(`The map could not be packed for the room (${(e as Error).message}): only players who have it can join`, 'warn');
         return null;
       },
