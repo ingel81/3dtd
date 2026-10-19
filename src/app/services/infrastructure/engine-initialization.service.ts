@@ -1,5 +1,6 @@
 import { inject, Injectable, NgZone, signal, WritableSignal } from '@angular/core';
 import { ThreeTilesEngine } from '../../three-engine';
+import type { FirstModels } from '../../three-engine/three-tiles-engine';
 import { readVfxSettings } from '../../three-engine/vfx-settings';
 import { settleContexts } from '../../three-engine/context-release';
 import { loadDisplayOptions } from '../../utils/display-options.storage';
@@ -276,6 +277,8 @@ export class EngineInitializationService {
     onScheduleHeightUpdate: () => Promise<void>;
     onSetupClickHandler: () => void;
     onCheckAllLoaded: () => void;
+    /** The models the game needs before it counts as loaded, the rest after; none: all before */
+    firstModels?: () => FirstModels | undefined;
   }): Promise<void> {
     // The load this call makes; a world taken down meanwhile (abandon) leaves it behind
     const run = this.run;
@@ -343,7 +346,7 @@ export class EngineInitializationService {
       // a lost context) is said in the console instead of an unhandled rejection
       // The loading screen waits for it: a program built in a frame holds the picture for seconds
       this.engine
-        .preloadModels()
+        .preloadModels(callbacks.firstModels?.())
         .catch((err: unknown) => console.error('[Engine] preloading the models failed', err))
         .finally(() => {
           if (gone()) return;

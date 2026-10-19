@@ -59,6 +59,12 @@ class CompileSlice extends Object3D {
 export interface FrameAheadOptions {
   /** The world's scene, whose draws compile with its lights */
   scene: Scene;
+  /**
+   * In place of the scene's own renderables for its draw: these objects,
+   * lit by the scene (models loaded after the game stood, stand-ins never
+   * drawn; ThreeTilesEngine.compileAhead)
+   */
+  objects?: readonly Object3D[];
   /** Main-thread time a frame's task spends compiling */
   budgetMs?: number;
   /** The work has become moot (a newer switch, a disposed engine) */
@@ -184,7 +190,7 @@ export class FrameAhead {
     private readonly draws: readonly RecordedDraw[],
     private readonly options: FrameAheadOptions,
   ) {
-    this.objects = draws.map((d) => (d.object === options.scene ? renderables(d.object) : [d.object]));
+    this.objects = draws.map((d) => (d.object === options.scene ? [...(options.objects ?? renderables(d.object))] : [d.object]));
     options.scene.traverse((o) => {
       if ((o as { isLight?: boolean }).isLight) this.lights.push(o);
     });

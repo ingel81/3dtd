@@ -37,11 +37,13 @@ import { TOWER_PATHS, getTowerPath, towerConfigOf } from '../../configs/tower-pa
 import { addShotLightTo } from '../shot-lights/shot-light-shader';
 
 /** Every model a tower can wear: each type's, its paths' swaps and attachments */
-function towerModelUrls(): string[] {
+function towerModelUrls(types: readonly TowerTypeId[] = Object.keys(TOWER_TYPES) as TowerTypeId[]): string[] {
   return [
     ...new Set([
-      ...Object.values(TOWER_TYPES).map((config) => config.modelUrl),
-      ...Object.values(TOWER_PATHS).flatMap((path) => [path.swap?.modelUrl, path.attachment?.modelUrl].filter((url): url is string => !!url)),
+      ...types.flatMap((id) => (TOWER_TYPES[id] ? [TOWER_TYPES[id].modelUrl] : [])),
+      ...Object.values(TOWER_PATHS)
+        .filter((path) => types.includes(path.towerId))
+        .flatMap((path) => [path.swap?.modelUrl, path.attachment?.modelUrl].filter((url): url is string => !!url)),
     ]),
   ];
 }
@@ -257,12 +259,13 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Preload every model a tower can wear: its type's, its paths' swaps and
-   * attachments (an upgrade otherwise fetched and parsed one in the game)
+   * Preload every model the tower types can wear (all by default): each
+   * type's, its paths' swaps and attachments (an upgrade otherwise fetched
+   * and parsed one in the game)
    */
-  async preloadAllModels(): Promise<void> {
+  async preloadModels(types?: readonly TowerTypeId[]): Promise<void> {
     await Promise.all(
-      towerModelUrls().map(async (url) => {
+      towerModelUrls(types).map(async (url) => {
         try {
           await this.assetManager.loadModel(url);
           this.loadedModelUrls.add(url);
@@ -281,14 +284,17 @@ export class ThreeTowerRenderer {
    * number of clipping planes is part of a program), each path's attachment,
    * the scaffold, the rings and markers. Their programs are the real
    * towers', whose first placement linked them in its frame (archer 250 ms,
-   * tentacle 470 ms).
+   * tentacle 470 ms). `types`: only these towers and their paths (all by
+   * default); `shared` false leaves out the scaffold, rings and markers (the
+   * models loaded later, ThreeTilesEngine.warmRest).
    */
-  warmUpObjects(): Object3D[] {
+  warmUpObjects(types?: readonly TowerTypeId[], shared = true): Object3D[] {
     const out: Object3D[] = [];
     const { scaffold, plane } = scaffoldWarmUp();
+    const wanted = (id: TowerTypeId): boolean => !types || types.includes(id);
     const configs = [
-      ...Object.values(TOWER_TYPES),
-      ...Object.values(TOWER_PATHS).flatMap((path) => (path.swap ? [towerConfigOf(path.towerId, path.id)] : [])),
+      ...(Object.keys(TOWER_TYPES) as TowerTypeId[]).filter(wanted).map((id) => TOWER_TYPES[id]),
+      ...Object.values(TOWER_PATHS).flatMap((path) => (path.swap && wanted(path.towerId) ? [towerConfigOf(path.towerId, path.id)] : [])),
     ];
     for (const config of configs) {
       for (const clipped of [false, true]) {
@@ -309,10 +315,11 @@ export class ThreeTowerRenderer {
       }
     }
     for (const path of Object.values(TOWER_PATHS)) {
-      const model = path.attachment ? this.assetManager.cloneModel(path.attachment.modelUrl) : null;
+      const model = path.attachment && wanted(path.towerId) ? this.assetManager.cloneModel(path.attachment.modelUrl) : null;
       if (model) addShotLightTo(model);
       if (model) out.push(model);
     }
+    if (!shared) return out;
     const selectionRing = new Mesh(ThreeTowerRenderer.sharedSelectionGeometry!, ThreeTowerRenderer.sharedSelectionMaterial!);
     out.push(...scaffold, this.rangeRings.create(), selectionRing, createTipMarker(0, 0, 0, true), createLosRing(0, 0, 0, this.LOS_OFFSET_MIN, true));
     return out;

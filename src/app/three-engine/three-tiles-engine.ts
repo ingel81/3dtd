@@ -74,7 +74,8 @@ import { ScreenShake, offsetProjection } from './screen-shake';
 import { ShakeBenchmark, type ShakeBenchResult } from './screen-shake-benchmark';
 import { MISSILE_LAUNCH_LOOK, MUSHROOM_CLOUD_LOOK, SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
 import { ABILITIES } from '../configs/abilities.config';
-import { TOWER_TYPES } from '../configs/tower-types.config';
+import { TOWER_TYPES, type TowerTypeId } from '../configs/tower-types.config';
+import { ENEMY_TYPES, type EnemyTypeId } from '../configs/enemy-types.config';
 import type { GeoPosition } from '../models/game.types';
 import { NO_TILE_STATS, type WorldProvider, type WorldSurface } from '../world/world-provider';
 import { GpuFrameMeter, type GpuTimeReader } from './gpu-timer';
@@ -96,6 +97,16 @@ const QUIET_MS = 4;
 /** Calm without a quiet moment this long, ms: the background takes a task per frame (quietMoment) */
 const STARVE_MS = 2000;
 
+
+/**
+ * The towers and enemies the game needs before it counts as loaded
+ * (ThreeTilesEngine.preloadModels): the ones it can place or that come in its
+ * first waves; the others load after it stands (warmRest)
+ */
+export interface FirstModels {
+  towers: readonly TowerTypeId[];
+  enemies: readonly EnemyTypeId[];
+}
 
 /** Called right before and right after a frame is drawn (ThreeTilesEngine.setFrameProbe) */
 export interface FrameProbe {
@@ -1426,10 +1437,10 @@ export class ThreeTilesEngine {
     return { ready, total: programs.length };
   }
 
-  async preloadModels(): Promise<void> {
+  async preloadModels(first?: FirstModels): Promise<void> {
     const [, , , , hero] = await Promise.all([
-      this.enemies.preloadAllModels(),
-      this.towers.preloadAllModels(),
+      this.enemies.preloadModels(first?.enemies),
+      this.towers.preloadModels(first?.towers),
       this.projectiles.whenLoaded(),
       new Promise<void>((resolve) => this.world.onFirstGround(resolve)),
       this.hero.warmUpObject(),
@@ -1437,7 +1448,7 @@ export class ThreeTilesEngine {
     if (this.disposed) return;
     const standIns = new Group();
     standIns.name = 'warm-up stand-ins';
-    for (const o of [...this.towers.warmUpObjects(), this.plinths.warmUpObject(), this.tentacles.warmUpObject(), this.oozes.warmUpObject(), ...lineStandIns(this.portalClip)]) standIns.add(o);
+    for (const o of [...this.towers.warmUpObjects(first?.towers), this.plinths.warmUpObject(), this.tentacles.warmUpObject(), this.oozes.warmUpObject(), ...lineStandIns(this.portalClip)]) standIns.add(o);
     if (hero) standIns.add(hero);
     standIns.scale.setScalar(1e-4);
     this.scene.add(standIns);
@@ -1478,6 +1489,115 @@ export class ThreeTilesEngine {
       `${this.pins.count.shaders} shaders and ${this.pins.count.programs} programs kept`
     );
     void this.prepareSwitchStates();
+    if (first) this.warmRest(first);
+  }
+
+  /** Tower and enemy types preloadModels left for later, next first (warmNow puts a type ahead) */
+  private readonly warmQueue: { kind: 'tower' | 'enemy'; type: string; urgent: boolean }[] = [];
+  /** Types whose model and programs are ready, as `tower:<id>` and `enemy:<id>` */
+  private readonly warmed = new Set<string>();
+  private warmRunning = false;
+
+  /**
+   * The towers and enemies preloadModels left out, after the game stands:
+   * one type after the other, each in a quiet moment (quietMoment), is
+   * loaded (an enemy's VAT baked) and its programs compiled off the frame
+   * with the scene's lights (FrameAhead, compileOnly, as prepareSwitchStates
+   * makes the other states ready), so its first appearance links nothing.
+   * A type the game asks for before draws as it always could: the tower
+   * loads its model on the spot, the enemy bakes its pool
+   * (InstancedEnemyRenderer.create); its programs link in that frame.
+   */
+  private warmRest(first: FirstModels): void {
+    for (const type of first.towers) this.warmed.add(`tower:${type}`);
+    for (const type of first.enemies) this.warmed.add(`enemy:${type}`);
+    for (const type of Object.keys(TOWER_TYPES) as TowerTypeId[]) {
+      if (!this.warmed.has(`tower:${type}`)) this.warmQueue.push({ kind: 'tower', type, urgent: false });
+    }
+    for (const type of Object.keys(ENEMY_TYPES) as EnemyTypeId[]) {
+      if (!ENEMY_TYPES[type].ooze && !this.warmed.has(`enemy:${type}`)) this.warmQueue.push({ kind: 'enemy', type, urgent: false });
+    }
+    void this.runWarmQueue();
+  }
+
+  /**
+   * Readies these types now, ahead of the queue and without waiting for a
+   * quiet moment: a tower just unlocked, a type a save or a partner brought.
+   * Ready ones are skipped; before preloadModels has run nothing is queued
+   * (the first warm-up takes them).
+   */
+  warmNow(types: Partial<FirstModels>): void {
+    const jobs = [
+      ...(types.towers ?? []).map((type) => ({ kind: 'tower' as const, type: type as string })),
+      ...(types.enemies ?? []).filter((type) => ENEMY_TYPES[type] && !ENEMY_TYPES[type].ooze).map((type) => ({ kind: 'enemy' as const, type: type as string })),
+    ].filter((job) => !this.warmed.has(`${job.kind}:${job.type}`));
+    if (jobs.length === 0 || (this.warmQueue.length === 0 && !this.warmRunning)) return;
+    for (const job of jobs.reverse()) {
+      const at = this.warmQueue.findIndex((j) => j.kind === job.kind && j.type === job.type);
+      if (at >= 0) this.warmQueue.splice(at, 1);
+      this.warmQueue.unshift({ ...job, urgent: true });
+    }
+    void this.runWarmQueue();
+  }
+
+  private async runWarmQueue(): Promise<void> {
+    if (this.warmRunning) return;
+    this.warmRunning = true;
+    const gone = () => this.disposed;
+    const t0 = performance.now();
+    const programs0 = this.renderer.info.programs?.length ?? 0;
+    let count = 0;
+    try {
+      for (let job = this.warmQueue.shift(); job; job = this.warmQueue.shift()) {
+        const key = `${job.kind}:${job.type}`;
+        if (this.warmed.has(key)) continue;
+        if (!job.urgent) await this.quietMoment(gone);
+        if (gone()) return;
+        let objects: Object3D[];
+        if (job.kind === 'tower') {
+          await this.towers.preloadModels([job.type as TowerTypeId]);
+          objects = this.towers.warmUpObjects([job.type as TowerTypeId], false);
+        } else {
+          await this.enemies.preloadModel(job.type as EnemyTypeId);
+          objects = this.enemies.poolMeshes([job.type as EnemyTypeId]);
+        }
+        if (gone()) return;
+        await this.compileAhead(objects, gone, job.urgent);
+        if (gone()) return;
+        this.warmed.add(key);
+        count++;
+      }
+    } finally {
+      this.warmRunning = false;
+    }
+    console.log(
+      `[Warmup] ${count} tower and enemy types made ready after the game stood ` +
+      `(${(this.renderer.info.programs?.length ?? 0) - programs0} programs, ${((performance.now() - t0) / 1000).toFixed(1)} s)`,
+    );
+  }
+
+  /**
+   * The programs of `objects` (stand-ins out of the scene's draw, or pool
+   * meshes standing in it) compiled with the scene's lights off the frame,
+   * then used once (FrameAhead, compileOnly); `urgent` paces by frames
+   * instead of quiet moments
+   */
+  private async compileAhead(objects: Object3D[], gone: () => boolean, urgent: boolean): Promise<void> {
+    const meshes: Object3D[] = [];
+    for (const root of objects) root.traverse((o) => { if ((o as Mesh).isMesh) meshes.push(o); });
+    if (meshes.length === 0) return;
+    // Stand-ins are compiled where the world's lights reach them; they are never drawn
+    for (const root of objects) root.updateMatrixWorld(true);
+    const draw: RecordedDraw = { object: this.scene, camera: this.camera, target: null, material: undefined };
+    const frame = new FrameAhead(this.renderer, [draw], {
+      scene: this.scene,
+      objects: meshes,
+      gone,
+      compileOnly: true,
+      budgetMs: BACKGROUND_COMPILE_MS,
+      ...(urgent ? {} : { pace: () => this.quietMoment(gone) }),
+    });
+    if (await frame.compiled) this.pins.pinPrograms(this.renderer);
   }
 
   /** Since when the game has been calm: no enemy, no switch being made ready (quietMoment) */

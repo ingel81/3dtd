@@ -1,4 +1,7 @@
 import { Injectable, inject, Injector, effect, untracked } from '@angular/core';
+import { ENEMY_TYPES, type EnemyTypeId } from '../../configs/enemy-types.config';
+import { TOWER_TYPES, UpgradeId, type TowerTypeId } from '../../configs/tower-types.config';
+import type { FirstModels } from '../../three-engine/three-tiles-engine';
 import { RouteGridVizService } from '../world/route-grid-viz.service';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { BackgroundMusicService } from '../../game-engine/background-music.service';
@@ -35,7 +38,6 @@ import { OnboardingService } from '../onboarding/onboarding.service';
 import { BestWaveService } from '../location/best-wave.service';
 import { ThreeTilesEngine } from '../../three-engine';
 import { Tower } from '../../entities/tower.entity';
-import { UpgradeId } from '../../configs/tower-types.config';
 import { researchSnapshotOf, type ResearchSnapshot } from '../../managers/research-snapshot';
 import { watchResearchOf } from '../../sim/client/mirror/mirror-research';
 import { Vector3 } from 'three';
@@ -197,6 +199,12 @@ export class TowerDefenseFacadeService {
     const injector = component.injector;
     this.gameLoopFacade.initEffects(injector);
     this.vizFacade.initEffects(injector);
+
+    // A tower unlocked in the run gets its model and programs ready at once, not in the background's turn
+    effect(() => {
+      const unlocked = (Object.keys(TOWER_TYPES) as TowerTypeId[]).filter((id) => this.researchStore.isTowerUnlocked(id));
+      untracked(() => this.engineInit.getEngine()?.warmNow({ towers: unlocked }));
+    }, { injector });
   }
 
   /**
@@ -459,6 +467,7 @@ export class TowerDefenseFacadeService {
         onScheduleHeightUpdate: () => this.vizFacade.scheduleOverlayHeightUpdate(),
         onSetupClickHandler: () => this.vizFacade.setupClickHandlerWithGameState(),
         onCheckAllLoaded: () => this.vizFacade.checkAllLoaded(),
+        firstModels: () => this.firstModels(),
       });
 
       // The game went while the engine was built: abandon() freed it
@@ -542,6 +551,24 @@ export class TowerDefenseFacadeService {
   /**
    * Load street network wrapper (used as initEngine callback).
    */
+  /**
+   * The models the game needs before it counts as loaded (ThreeTilesEngine.preloadModels): the towers it can
+   * build and the enemies of the next wave, and every type that stands or walks already (a save, a partner's
+   * game); the others load once it stands. Undefined, all of them, while the wave source does not know that
+   * wave's enemies yet.
+   */
+  private firstModels(): FirstModels | undefined {
+    const enemies = new Set<EnemyTypeId>();
+    for (const wave of this.waveDirector.peek({ fromWave: this.store.waveNumber() + 1, count: 1 })) {
+      for (const [type] of wave.enemies) if (type in ENEMY_TYPES) enemies.add(type as EnemyTypeId);
+    }
+    if (enemies.size === 0) return undefined;
+    for (const enemy of this.mirror.enemies()) enemies.add(enemy.typeConfig.id as EnemyTypeId);
+    const towers = new Set((Object.keys(TOWER_TYPES) as TowerTypeId[]).filter((id) => this.researchStore.isTowerUnlocked(id)));
+    for (const tower of this.mirror.towers()) towers.add(tower.typeConfig.id as TowerTypeId);
+    return { towers: [...towers], enemies: [...enemies] };
+  }
+
   private async loadStreetsInternal(): Promise<number> {
     const center = this.store.centerCoords();
     const result = await this.engineInit.loadStreets(center.lat, center.lon);

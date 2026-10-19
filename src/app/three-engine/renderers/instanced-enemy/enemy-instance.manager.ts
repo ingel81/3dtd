@@ -826,6 +826,11 @@ export class EnemyInstanceManager {
     return this.pools.has(typeId);
   }
 
+  /** The instanced mesh of a type's pool, null without one */
+  poolMesh(typeId: string): InstancedMesh | null {
+    return this.pools.get(typeId)?.instancedMesh ?? null;
+  }
+
   /**
    * Get instance state
    */

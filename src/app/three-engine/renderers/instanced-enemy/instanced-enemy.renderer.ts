@@ -146,12 +146,18 @@ export class InstancedEnemyRenderer {
   }
 
   /**
-   * A pool for every type that spawns as an instance; an ooze's body is drawn
-   * by the ooze renderer, a type with `renderAs` by that type's pool.
+   * A pool for each of `types` (every type by default) that spawns as an
+   * instance; an ooze's body is drawn by the ooze renderer, a type with
+   * `renderAs` by that type's pool.
    */
-  async preloadAllModels(): Promise<void> {
-    const types = (Object.keys(ENEMY_TYPES) as EnemyTypeId[]).filter((t) => !ENEMY_TYPES[t].ooze && !ENEMY_TYPES[t].renderAs);
-    await Promise.all(types.map((t) => this.preloadModel(t)));
+  async preloadModels(types: readonly EnemyTypeId[] = Object.keys(ENEMY_TYPES) as EnemyTypeId[]): Promise<void> {
+    await Promise.all(types.filter((t) => ENEMY_TYPES[t] && !ENEMY_TYPES[t].ooze).map((t) => this.preloadModel(t)));
+  }
+
+  /** The meshes of the pools of `types` (their `renderAs` pools), for compiling their programs ahead */
+  poolMeshes(types: readonly EnemyTypeId[]): Object3D[] {
+    const pools = new Set(types.filter((t) => ENEMY_TYPES[t]).map((t) => ENEMY_TYPES[t].renderAs ?? t));
+    return [...pools].flatMap((t) => this.instanceManager.poolMesh(t) ?? []);
   }
 
   private async bakeAndCreatePool(typeId: string, config: EnemyTypeConfig): Promise<void> {
@@ -241,10 +247,8 @@ export class InstancedEnemyRenderer {
     const poolType = config.renderAs ?? typeId;
     const size = config.renderAs ? config.scale / ENEMY_TYPES[poolType].scale : 1;
 
-    // Wait for baking if still in progress
-    if (this.bakingPromises.has(poolType)) {
-      await this.bakingPromises.get(poolType);
-    }
+    // Baked now if it was not among the first models (ThreeTilesEngine.preloadModels), else waited for
+    await this.preloadModel(poolType);
 
     if (!this.instanceManager.hasPool(poolType)) {
       console.warn(`[InstancedRenderer] No pool for ${typeId} — cannot create enemy`);
