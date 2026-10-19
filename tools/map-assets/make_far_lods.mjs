@@ -1,6 +1,8 @@
 // Distance copies (-lod1) for the packed models that have none: the heavy ones (over 1500 triangles: houses,
 // castles, vehicles, lamps) and walls of many copies. Each look of the model (its parts by material) is merged
-// over its positions alone, simplified by meshoptimizer to a share of its triangles within an error of its size,
+// over its positions alone, simplified by meshoptimizer (permissive: across seams, not on a grid) to a share of its
+// triangles within an error of its size; small looks and accents (a lighthouse's bands, a sign) and turning parts
+// stay whole, only a look the error still holds up (a wall of many stones) is collapsed on a grid. Each look is
 // shaded flat; textures go, each material becomes `<name>-lod` in its colour factor, which match_lods.py then
 // sets to the full model's colour from afar. Foliage cards cannot be simplified: models with them are left out
 // (the vegetation has its own impostors). The silhouette keeps: the simplifier collapses what moves the surface
@@ -21,9 +23,16 @@ const HEAVY = 1500;
 const WALL = 150;
 /** Share of the triangles a copy keeps at most, and the error it may make, as a share of the model's size */
 const RATIO = 0.25;
-const ERROR = 0.05;
+const ERROR = 0.02;
 /** Looks of at most this many triangles stay whole */
 const SMALL = 24;
+/**
+ * Accents stay whole too: a look of at most ACCENT triangles that is at most ACCENT_SHARE of the model (a
+ * lighthouse's red bands, a sign, a trim) costs little and the simplifier would thin it to a sliver; a wall made of
+ * two such looks is no accent and is simplified
+ */
+const ACCENT = 128;
+const ACCENT_SHARE = 0.15;
 
 // GLTFExporter reads its blobs with a FileReader, which Node has not
 globalThis.FileReader ??= class {
@@ -88,6 +97,8 @@ for (const o of wanted) {
     continue;
   }
   const scene = new Group();
+  let total = 0;
+  for (const look of looks.values()) total += look.positions.length / 9;
   let before = 0;
   let after = 0;
   for (const [name, look] of looks) {
@@ -97,14 +108,17 @@ for (const o of wanted) {
     const indices = new Uint32Array(remap);
     before += indices.length / 3;
     // A small look stays whole (a roof of a few big quads, a window's glass), as the builders' copies keep it
+    const n = indices.length / 3;
+    const whole = n <= SMALL || (n <= ACCENT && n <= total * ACCENT_SHARE);
     const target = Math.max(SMALL * 3, Math.floor((indices.length * RATIO) / 3) * 3);
     let kept = indices;
     // Turning parts stay whole: their hub is worked out from their corners (rotor.ts rotorHub), a simplified blade
     // would move it and the rotor wobble
     const turns = name.startsWith('rotor-') || name.startsWith('spin-');
-    if (!turns && indices.length > SMALL * 3) {
-      [kept] = MeshoptSimplifier.simplify(indices, corners, 3, target, ERROR, []);
-      // A shape the error holds up (thin walls with many seams): collapsed regardless of topology
+    if (!turns && !whole) {
+      [kept] = MeshoptSimplifier.simplify(indices, corners, 3, target, ERROR, ['Permissive']);
+      // Only a shape the error still holds up (a wall of many stones): collapsed on a grid, which ignores the
+      // looks' borders and would swallow a stripe or a sign
       if (kept.length > target * 2) kept = MeshoptSimplifier.simplifySloppy(indices, corners, 3, null, target, 1)[0];
       // Every look stays in the copy, if only as it was
       if (!kept.length) kept = indices;
