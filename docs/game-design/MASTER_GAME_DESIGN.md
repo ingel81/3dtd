@@ -147,7 +147,7 @@ Gebaut sind diese Eigenschaften je Gegnertyp (`EnemyTypeConfig` in
 | Kette | `chain` | ein Spawn bringt einen Wurm aus Segmenten | Skarnax |
 | Regen | `regenPerSecond` | heilt je Sekunde einen Anteil der max. HP, in Schritten von 0,5 s Spielzeit, nie solange er brennt | Mammoth 1 %, Slime Clump 2 % |
 | Phasing | `immuneToSlow` | ein Slow greift nicht; Freeze und Stun schon; ein Siegel (Magic, Pfad Binding Sigil) hebt es 4 s auf | Wraith |
-| Wut | `traits.rage` | unter einem Anteil der HP schneller und nimmt weniger Turmschaden, rot | Herbert (50 %), Golem King (40 %), Dragon Matriarch (50 %) |
+| Wut | `traits.rage` | unter einem Anteil der HP schneller und nimmt weniger Turmschaden, rot; mit `runAnimation` im Lauf-Clip, mit `rageSound` ein Schrei | Herbert (50 %), Golem King (40 %), Dragon Matriarch (50 %), Ironclad Warlord (35 %, kein Boss) |
 | Eigenes Leck | `leakDamage` | kostet im HQ diesen Wert statt dem aus den HP | Skarnax 150 |
 | Elite | (je Welle, `ELITE_SHARE`) | etwa jeder 20. einer Art ab zehn, 4,5-fache HP, gold, ein Viertel größer | alle außer Bossen, Wurm und Ooze |
 
@@ -420,6 +420,7 @@ in §12.3.
 | **Wraith** | Ethereal | schnell, Phasing (kein Slow) | Ethereal-Schwarm (W17 Night Flight mit Fledermäusen, W52 Wraith Storm) |
 | **Mammoth** | Fortified | langsam, Regen 1 % je s | DPS-Check (`mammoth_siege`, W14) |
 | **Stone Golem** | Fortified | langsam | DPS-Check (W15), Gefolge des Golem King (W40) |
+| **Ironclad Warlord** | Heavy | Elite, Wut unter 35 % (Sturmlauf ×2, 80 % Schaden) | Spitze der schweren Wellen: W28 (3 vor Mechs), W43 (4 vor Wallsmashern), W46 (5 in der Mech-Kolonne) |
 | **Herbert** | Fortified | Boss, Wut unter 50 % | Boss W10 (ein Herbert mit Panzern und Zombies) |
 | **Golem King** | Fortified | Boss, Wut unter 40 %, Golem in 1,6-facher Größe (`renderAs`) | Boss W40 mit Golems und Mammuts |
 | **Dragon Matriarch** | Heavy | Boss, Luft, Wut unter 50 %, Drache in 1,6-facher Größe (`renderAs`) | Boss W50 mit Drachen und Hornissen |
@@ -429,6 +430,27 @@ in §12.3.
 | **Skarnax Segment** | Heavy | Körperring des Wurms | einzeln nur per Custom Wave oder Enemy Debug |
 | **Ooze** | Unarmored | Boss, Körper als Schleimband entlang der Route (bis 80 m), fließt Meter für Meter in die Basis, Split in bis zu 20 Slime Clumps mit drei Zehnteln ihrer HP | Boss W20, 100 Slime Clumps als Gefolge |
 | **Slime Clump** | Unarmored | Regen 2 % je s | Split der Ooze, Gefolge der Ooze (W20) |
+
+### 4.1 Ironclad Warlord: Werte (2026-10-19, gerechnet)
+
+Ein schwerer Elite-Gegner, wenige je Welle, kein Boss. Die Werte setzen sein Gewicht in der Welle; was eine Welle an
+HP bringt, setzt das Budget (`B = S(N) · k · R`, ein HP-Faktor für die ganze Welle).
+
+| Wert | Warlord | Vergleich | Folge |
+|---|---:|---|---|
+| Rüstung | heavy | Panzer, Mech, Zombie Soldier | Siege 1,75 und Lightning 1,2 beißen, Physical 0,5, Fire 0,6, Pierce 0,35 |
+| `baseHp` | 1500 | Mech 500, Golem 480, Herbert 4000 | drei Mechs in einem Körper |
+| Tempo | 3 m/s, in der Wut 6 | Mech, Panzer, Mammut 3 | in der Wut so schnell wie Zombie Soldier und Drache (6), nur der Bär (8) ist schneller |
+| Wut | unter 35 %: ×2, 80 % Schaden | Herbert 50 %, ×1,35, 75 % | `rageFactor` = 1 − 0,35 + 0,35 · 2 / 0,8 = 1,53; das Budget rechnet ihn mit 1,53-mal seiner HP |
+| Gold-Gewicht | √1500 = 38,7 | Mech 22,4, Herbert 63,2 | ein Warlord zahlt so viel wie 1,7 Mechs derselben Welle |
+| Leck | round(√1500 / 5) = 8 | Mech 4, Golem 4, Herbert 13 | vor der Leckskala der Welle |
+| Elite | keine | ab zehn einer Art (`ELITE_SHARE`) | bei 3 bis 5 je Welle rundet `eliteCount` auf 0 |
+
+Balance-Rechnung (`tools/balance-calc`, Abwehr des menschlichen Laufs vom 2026-10-01, Rechenwerte, keine Messung):
+HQ nach W10 bis W60 vor und nach dem Einbau gleich, für Mensch ×1, ×0,7 und ×1,3, kein Leck in W28, W43, W46. Die drei
+Zeilen behalten ihr Budget, die übrigen Gegner bekommen weniger HP (HP-Faktor W28 3,30 → 2,65, W43 9,16 → 7,17, W46
+8,53 → 6,67, Mensch ×1). Ein Warlord kommt damit in W28 mit rund 4.000 HP (ein Mech 1.300), in W43 und W46 mit rund
+10.000 bis 10.800 HP.
 
 Boss-Wellen des Laufplans: [WAVE_SYSTEM.md](../WAVE_SYSTEM.md#boss-waves). Nicht
 gebaut sind Lich, Slime (mit Regen) und Banshee sowie die früher hier geführten

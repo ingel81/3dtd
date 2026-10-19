@@ -317,7 +317,8 @@
     "name": "Mech Army",
     "enemies": {
       "mech": 40,
-      "zombie-soldier": 30
+      "zombie-soldier": 30,
+      "warlord": 3
     },
     "strength": 1,
     "spawnDelay": 900,
@@ -502,7 +503,8 @@
     "name": "Wall Breakers",
     "enemies": {
       "wallsmasher": 110,
-      "tank": 30
+      "tank": 30,
+      "warlord": 4
     },
     "strength": 1,
     "spawnDelay": 500,
@@ -539,7 +541,8 @@
     "enemies": {
       "mech": 40,
       "tank": 40,
-      "zombie-soldier": 30
+      "zombie-soldier": 30,
+      "warlord": 5
     },
     "camo": {
       "tank": 0.5

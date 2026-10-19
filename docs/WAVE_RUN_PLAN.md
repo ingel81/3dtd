@@ -311,7 +311,7 @@ so dass jede Zeile lang genug für ihr Budget bleibt (Zeilendauer nach W20 30 bi
 | W25 | Siege Line | 30 mammoth, 6 stone-golem, 24 wallsmasher | 0,8 | clustered |  |
 | W26 | Horde and Hornets | 420 zombie, 60 zombie-v2, 60 hornet | 1 | random, ±30 % |  |
 | W27 | Dragon Patrol | 60 bat, 40 hornet, 10 dragon | 1 | wave-in-wave |  |
-| W28 | Mech Army | 40 mech, 30 zombie-soldier | 1 | interleaved | Regeneration |
+| W28 | Mech Army | 40 mech, 30 zombie-soldier, 3 warlord | 1 | interleaved | Regeneration |
 | W29 | Final Mix | 60 zombie, 40 tank, 40 hornet, 40 bear, 20 ghost | 1 | random, ±20 % |  |
 | W31 | Penguin Breather | 300 penguin, 60 rat | 0,7 | interleaved, ±30 % |  |
 | W32 | Armor Gauntlet | 27 rat, 27 tank, 27 mammoth, 27 ghost | 1 | sequential |  |
@@ -324,10 +324,10 @@ so dass jede Zeile lang genug für ihr Budget bleibt (Zeilendauer nach W20 30 bi
 | W39 | Plague and Iron | 20 mech, 700 rat | 1 | front-loaded |  |
 | W41 | Bear Pack | 80 bear | 0,7 | - |  |
 | W42 | Dragon Night | 80 bat, 60 hornet, 45 dragon | 1 | wave-in-wave | Swift |
-| W43 | Wall Breakers | 110 wallsmasher, 30 tank | 1 | interleaved |  |
+| W43 | Wall Breakers | 110 wallsmasher, 30 tank, 4 warlord | 1 | interleaved |  |
 | W44 | Swarm Surge | 500 rat, 250 spider, 150 bat | 1,5 | wave-in-wave, ±30 % |  |
 | W45 | Haunted Pack | 70 bear, 60 wraith, 30 ghost | 1 | random |  |
-| W46 | Mech Column | 40 mech, 40 tank, 30 zombie-soldier | 1 | clustered |  |
+| W46 | Mech Column | 40 mech, 40 tank, 30 zombie-soldier, 5 warlord | 1 | clustered |  |
 | W47 | Hornet Raid | 150 hornet, 80 wallsmasher | 1 | interleaved, ±20 % |  |
 | W48 | Skeleton Swarm | 820 skeleton | 0,8 | -, ±30 % |  |
 | W49 | Ether Assault | 150 penguin, 120 wraith, 60 ghost | 1 | random | Swarm |
@@ -343,7 +343,8 @@ so dass jede Zeile lang genug für ihr Budget bleibt (Zeilendauer nach W20 30 bi
 
 Rollen: Panzer mit Schwarm dahinter (`front-loaded`: W22, W39, W56), Luft über Boden (W26, W47), ätherisch
 in einer Horde (W24, W49, W52), Golems vor Spinnen (W33), Schübe mit drei Sekunden Pause (`wave-in-wave`: W27,
-W42, W44, W58). `wave-in-wave` verlängert die Welle um die Pausen, das Budget rechnet ohne sie (der Deckel
+W42, W44, W58), Ironclad Warlords an der Spitze schwerer Wellen (W28, W43, W46, seit 2026-10-19, gerechnet in
+[MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) §4.1). `wave-in-wave` verlängert die Welle um die Pausen, das Budget rechnet ohne sie (der Deckel
 greift also eher früher).
 
 ### 16.2 Mutatoren der Blutmond-Wellen
