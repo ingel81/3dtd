@@ -394,7 +394,8 @@ describe('CorridorBuild', () => {
       const result = await corridor.build('location load');
 
       expect(calls).toEqual(['clearColumns', 'measure', 'commit', 'routes', 'band', 'routes', 'cells', 'routes', 'overlays', 'sim']);
-      expect(clock).toBe(0);
+      // No tile wait: only the two frames between band, cells and lines, which each take one of their own
+      expect(clock).toBe(2 * FRAME_MS);
       expect(result).toMatchObject({ unmeasured: 4, fallbackStations: 0, fallbackCells: 0 });
     });
 

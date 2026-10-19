@@ -344,6 +344,10 @@ export class CorridorBuild {
         pathRoute.refreshRouteLines(spawns);
         return pathRoute.buildBands();
       }));
+      // The band and the cells each a frame of their own (on a large OSM map some 100 ms apiece): the columns
+      // they read stay frozen meanwhile, a newer build drops this one
+      await this.nextFrame();
+      if (dropped()) return null;
       traced(() => corridorTrace.within('build', () => {
         pathRoute.refreshRouteLines(spawns);
         this.deps.world.rebuildCells();
@@ -372,8 +376,9 @@ export class CorridorBuild {
         traced(() => corridorTrace.log('build.fallback', { what: 'cells', missing: bare, found: fallbackCells, why }));
       }
 
-      // 6. The route line on the final cells, the corner arcs of these routes,
-      // the overlays, the animation: frozen.
+      await this.nextFrame();
+      if (dropped()) return null;
+      // 6. The route line on the final cells, the overlays, the animation: frozen.
       let t = this.now();
       traced(() => corridorTrace.within('lines', () => pathRoute.refreshRouteLines(spawns)));
       ms.lines = this.now() - t;

@@ -1460,7 +1460,9 @@ Ein Bau (`build`) läuft in dieser Reihenfolge:
    suchen. `MAX_PASSES`, die Zyklenerkennung über `walkState()` und
    `build.unsettled` sind mit der Kappen-Schleife weg. Der Trace schreibt
    `build.band` mit Routen, Stationen, Durchgängen, steilster Bewegung und
-   engster Krümmung der Gegnerlinie.
+   engster Krümmung der Gegnerlinie. Band, Zellen und die rote Linie in
+   Schritt 6 laufen je in einem Frame für sich (auf einer großen OSM-Karte je
+   rund 100 ms); die Säulen sind dabei schon eingefroren.
 5. **Rückfall für Zellen:** Zellen ohne Höhe bekommen dieselbe gröbere
    Stufe (`retryUnsampledCells`). Anders als bei den Stationen geht es danach
    nicht zurück auf die feinste Stufe (seit 2026-09-16): Rote Linie und
