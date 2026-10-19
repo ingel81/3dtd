@@ -325,7 +325,11 @@ export class SpatialAudioManager {
 
   // ─── Sound registration ──────────────────────────────────
 
-  registerSound(id: string, url: string, config: SpatialSoundConfig = {}): void {
+  /**
+   * `url` is the file, or what builds a synthesised one (a data URL): built only when the file loads, after the
+   * world stood (holdLoads) or as the sound first plays, not as it is registered
+   */
+  registerSound(id: string, url: string | (() => string), config: SpatialSoundConfig = {}): void {
     const fullConfig = { ...DEFAULT_CONFIG, ...config };
 
     const sound: RegisteredSound = {
@@ -336,8 +340,10 @@ export class SpatialAudioManager {
 
     this.sounds.set(id, sound);
 
-    const cached = this.bufferCache.getOrLoad(url);
-    sound.want = () => this.bufferCache.want(url);
+    // A synthesised file is kept by its sound's id: there is no URL before it is built
+    const key = typeof url === 'string' ? url : `synth:${id}`;
+    const cached = this.bufferCache.getOrLoad(key, typeof url === 'string' ? undefined : url);
+    sound.want = () => this.bufferCache.want(key);
 
     if (cached.buffer) {
       sound.buffer = cached.buffer;

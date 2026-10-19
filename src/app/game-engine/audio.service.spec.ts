@@ -55,7 +55,9 @@ describe('AudioService nuclear strike', () => {
     expect(new Set(ids).size).toBe(ids.length);
     for (const soundId of [id, ...tail.map(soundOf)]) {
       const [, url, config] = registered(soundId)!;
-      expect(url.startsWith('data:audio/wav;base64,')).toBe(true);
+      // Built when its file loads, not as it is registered
+      expect(typeof url).toBe('function');
+      expect((url as unknown as () => string)().startsWith('data:audio/wav;base64,')).toBe(true);
       expect(config).toEqual({
         refDistance: nuke.refDistance,
         rolloffFactor: nuke.rolloffFactor,

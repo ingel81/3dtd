@@ -53,6 +53,18 @@ describe('AudioBufferCache', () => {
     });
   });
 
+  it('builds a synthesised file only as it loads, under the key it was asked by', async () => {
+    cache.hold();
+    const build = vi.fn(() => 'data:audio/wav;base64,AAAA');
+    const entry = cache.getOrLoad('synth:nuke', build);
+    await Promise.resolve();
+    expect(build).not.toHaveBeenCalled();
+    cache.want('synth:nuke');
+    await entry.loading;
+    expect(build).toHaveBeenCalledTimes(1);
+    expect(loader.load.mock.calls.map(([url]) => url)).toEqual(['data:audio/wav;base64,AAAA']);
+  });
+
   describe('touchBuffer via getOrLoad', () => {
     it('should assign increasing timestamps on access', () => {
       cache.getOrLoad('a.mp3');

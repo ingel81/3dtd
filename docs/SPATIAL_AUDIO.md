@@ -268,7 +268,8 @@ private readonly MAX_CACHED_BUFFERS = 50;  // ~50 Sounds max in Memory
   `EngineInitializationService` gleich nach dem Anlegen der Engine): die rund 100 Dateien teilten sich sonst die
   Leitung mit Modellen und Kartendaten. Mit `ready` startet `releaseLoads` alle; ein Sound, der vorher spielen soll,
   lädt seine Datei sofort (`want`). Die Hintergrundmusik lädt beim Laden nur die Build-Tracks, den Rest, sobald der
-  Ladeschirm geht (`onLoadingComplete`)
+  Ladeschirm geht (`onLoadingComplete`). Ein synthetisierter Sound (Atomschlag, Laser) wird mit seiner Bau-Funktion
+  registriert und erst gebaut, wenn seine Datei laden darf (Schlüssel `synth:<id>`), nicht beim Registrieren
 
 ## Hintergrundmusik (BackgroundMusicService)
 

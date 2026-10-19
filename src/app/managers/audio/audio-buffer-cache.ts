@@ -44,14 +44,16 @@ export class AudioBufferCache {
    * MAX_LOAD_ROUNDS times per URL; until then the entry has neither buffer
    * nor load, which every player treats as "cannot play".
    */
-  getOrLoad(url: string): { buffer: AudioBuffer | null; loading: Promise<AudioBuffer | null> | null } {
+  getOrLoad(url: string, build?: () => string): { buffer: AudioBuffer | null; loading: Promise<AudioBuffer | null> | null } {
     let cached = this.bufferCache.get(url);
 
     if (!cached) {
       if (this.isFailed(url)) return { buffer: null, loading: null };
       const entry: { buffer: AudioBuffer | null; loading: Promise<AudioBuffer | null> | null } = { buffer: null, loading: null };
       const held = this.held;
-      const load = held ? new Promise<void>((resolve) => held.set(url, resolve)).then(() => this.loadBuffer(url)) : this.loadBuffer(url);
+      // `build` makes the file (a synthesised sample's data URL) when it loads; `url` is then its key
+      const start = (): Promise<AudioBuffer> => this.loadBuffer(build ? build() : url);
+      const load = held ? new Promise<void>((resolve) => held.set(url, resolve)).then(start) : start();
       entry.loading = load.then(
         (buffer) => {
           entry.buffer = buffer;

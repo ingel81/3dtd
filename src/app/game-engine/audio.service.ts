@@ -122,15 +122,14 @@ export class AudioService {
       for (const sample of [sound, ...sound.tail.map((repeat) => repeat.sample ?? sound)]) {
         if (registered.has(sample.id)) continue;
         registered.add(sample.id);
-        const url = typeof sample.url === 'string' ? sample.url : sample.url();
-        audio.registerSound(sample.id, url, spatialConfig(sample));
+        // A synthesised sample is built when its file would load (SpatialAudioManager.registerSound)
+        audio.registerSound(sample.id, sample.url, spatialConfig(sample));
       }
       if (sound.launch) {
         for (const sample of [sound.launch.ignition, sound.launch.dive]) {
           if (registered.has(sample.id)) continue;
           registered.add(sample.id);
-          const url = typeof sample.url === 'string' ? sample.url : sample.url();
-          audio.registerSound(sample.id, url, spatialConfig(sample));
+          audio.registerSound(sample.id, sample.url, spatialConfig(sample));
         }
       }
       for (const loop of [sound.warning, sound.beam, sound.launch?.engine]) {
