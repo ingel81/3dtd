@@ -51,6 +51,10 @@ BUILDING_LOD_DISTANCE = 140
 TAN_HALF_FOV = math.tan(math.radians(30))
 # A building's box (objects/far-boxes.ts) takes over where it fills less than this share of the screen's height
 FAR_SCREEN = 0.045
+# Trees with a hand-built far copy (objects.json lodSharesTextures) take it nearer: the impostor keeps its distance
+# (render-quality impostorFrom), the copy halves the triangles of the trees before it instead of holding the impostor
+# back (which drew a million triangles more on Demo Valley)
+TREE_LOD_DISTANCE = 175
 ORDER = ['id', 'name', 'category', 'file', 'footprint', 'height', 'base', 'box', 'roof', 'blocksLos', 'blocksBuild', 'scaleRange',
          'randomRotation', 'wind', 'drawDistance', 'float', 'aloft', 'stilts', 'roadThrough', 'groundCut', 'spin', 'rotor', 'cable', 'grip', 'variants', 'signPanel', 'grime', 'tags', 'effects', 'light', 'textures', 'lod', 'far', 'source']
 
@@ -120,7 +124,7 @@ def main():
         if 'lod' not in o and (o['id'] + '-lod1' in report or (not (kept and 'lod' in kept) and os.path.exists(lod_file))):
             # Decimated copy from the builders (export_lod) or make_far_lods.mjs; small plants vanish at their draw distance:
             # switch well before that
-            distance = BUILDING_LOD_DISTANCE if e['category'] == 'building' else LOD_DISTANCE
+            distance = BUILDING_LOD_DISTANCE if e['category'] == 'building' else TREE_LOD_DISTANCE if o.get('lodSharesTextures') else LOD_DISTANCE
             e['lod'] = [{'file': f'models/{o["id"]}-lod1.glb', 'screen': lod_screen(e, min(distance, round(e['drawDistance'] * 0.4)))}]
         elif kept and 'lod' in kept and 'lod' not in o:
             e['lod'] = kept['lod']

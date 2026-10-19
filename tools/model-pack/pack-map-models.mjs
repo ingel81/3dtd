@@ -4,9 +4,9 @@
 //
 // Every texture of models/<id>.glb goes to textures/<name>-<hash>.ktx2, no
 // larger than the model's texture size (512 px, `"textureSize": 1024` in
-// tools/map-assets/objects.json, half of it for a -lod1 copy, at least 256;
-// normals NORMAL_SIZE: UASTC weighs three to four times ETC1S, and the map
-// download stays where it was with WebP), and
+// tools/map-assets/objects.json, half of it for a -lod1 copy, at least 256, unless the copy
+// shares its model's textures: `"lodSharesTextures": true`; normals NORMAL_SIZE: UASTC weighs
+// three to four times ETC1S, and the map download stays where it was with WebP), and
 // the GLB points at it by URI ("../textures/..."): the hash is the texture's
 // content (pixels and encoding, textures.mjs), so the brick or plaster that
 // dozens of buildings use is one file, downloaded once and, in the game, one
@@ -61,8 +61,10 @@ const NORMAL_SIZE = 256;
 /** Longest texture edge of a model */
 function textureSize(id) {
   const lod = /-lod\d+$/.exec(id);
-  const size = spec[lod ? id.slice(0, lod.index) : id]?.textureSize ?? 512;
-  return lod ? Math.max(256, size / 2) : size;
+  const model = spec[lod ? id.slice(0, lod.index) : id];
+  const size = model?.textureSize ?? 512;
+  // A copy drawn with its model's materials (`lodSharesTextures`, the trees' far copies) keeps their size: the same files
+  return lod && !model?.lodSharesTextures ? Math.max(256, size / 2) : size;
 }
 
 const slug = (name) => (name || 'texture').toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);

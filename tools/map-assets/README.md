@@ -36,6 +36,9 @@ blender --background --factory-startup --python tools/map-assets/build_models.py
 # Braucht `npm install` in tools/model-pack und KTX_TOOL (ktx.exe aus KTX-Software 4.4)
 python -I tools/map-assets/pack_models.py $DL/glb-raw public/maps/assets [<id> ...]
 
+# Laub- und Nadelbäume bauen ihre Fernkopie (-lod1) in broadleaf()/conifer() selbst, auf den Materialien des Modells
+# (gleiche Namen: das Spiel zeichnet sie mit dessen Materialien); objects.json `lodSharesTextures` packt ihre Texturen
+# in der Größe des Modells, so sind es dieselben geteilten KTX2-Dateien
 # Farbe, Rauheit und Metall der LOD-Modelle (-lod1) aus den vollen Modellen (Mittel der Texturen, linear; liest die
 # KTX2-Dateien mit KTX_TOOL)
 python -I tools/map-assets/match_lods.py public/maps/assets [<id> ...]

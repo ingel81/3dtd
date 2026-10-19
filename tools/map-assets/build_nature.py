@@ -33,6 +33,7 @@ def broadleaf(name, seed, height, crown_r, trunk_r, bark, leaves, bark_tint=None
     tube(wood, pts, radii, 9)
     crown_c = Vector((0, 0, height - crown_r * (0.95 if not slender else 1.15)))
     tips = []
+    limbs = []
     primaries = 6 if not slender else 5
     for b in range(primaries):
         t = 0.55 + 0.45 * b / primaries
@@ -44,6 +45,7 @@ def broadleaf(name, seed, height, crown_r, trunk_r, bark, leaves, bark_tint=None
         mid = start + out * length * 0.5 + Vector((0, 0, length * 0.1))
         end = start + out * length + Vector((0, 0, length * 0.2))
         tube(wood, [start, mid, end], [trunk_r * 0.5, trunk_r * 0.32, trunk_r * 0.14], 6)
+        limbs.append((start, mid, end))
         tips.append((end, crown_r * 0.42))
         for s in range(2):
             a2 = ang + (s - 0.5) * rnd.uniform(1.0, 1.6)
@@ -74,6 +76,33 @@ def broadleaf(name, seed, height, crown_r, trunk_r, bark, leaves, bark_tint=None
     if extra:
         extra(wood, foliage, pts)
     export(name, [wood.to_object(name + '-wood'), foliage.to_object(name + '-leaves'), inner.to_object(name + '-inner')])
+    broadleaf_far(name, seed, wood.material, foliage.material, pts, radii, limbs, tips, crown_c, trunk_r, extra)
+
+
+def broadleaf_far(name, seed, bark, leaves, pts, radii, limbs, tips, crown_c, trunk_r, extra):
+    """The broadleaf's far copy (catalogue `lod`, about a third of its triangles): the trunk on six sides in three
+    pieces and the primary branches on four, no secondaries; each leaf cluster as four larger cards round its middle,
+    no dark cards inside (two parts, two draws; from afar the crown's depth is its shading). Its materials are the full
+    model's (same names): the map's library draws it with those, no second copy of their textures
+    (map-asset-library.ts lodModels; pack_models.py packs its own at 32 px)"""
+    rnd = random.Random(seed + 7001)
+    wood = Part(bark)
+    foliage = Part(leaves)
+    tube(wood, [pts[0], pts[2], pts[4], pts[6]], [radii[0], radii[2], radii[4], radii[6]], 6)
+    for start, mid, end in limbs:
+        tube(wood, [start, mid, end], [trunk_r * 0.5, trunk_r * 0.32, trunk_r * 0.14], 4)
+    for c, rc in tips:
+        for k in range(4):
+            u = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-0.4, 1))).normalized()
+            p = c + u * rc * rnd.uniform(0.15, 0.4)
+            out = ((p - crown_c).normalized() * 0.6 + u * 0.4).normalized()
+            d = (Vector((0, 0, 1)) + out * rnd.uniform(0.3, 1.0)).normalized()
+            hint = (out + d.cross(out) * rnd.uniform(-0.4, 0.4)).normalized()
+            size = rc * rnd.uniform(1.9, 2.3)
+            card(foliage, p - d * size * 0.5, d, hint, size, size, crown_c)
+    if extra:
+        extra(wood, foliage, pts)
+    export(name + '-lod1', [wood.to_object(name + '-lod-wood'), foliage.to_object(name + '-lod-leaves')])
 
 
 def conifer(name, seed, height, radius, bare, trunk_r, leaves='leaves-conifer'):
@@ -89,10 +118,13 @@ def conifer(name, seed, height, radius, bare, trunk_r, leaves='leaves-conifer'):
     h0 = height * bare
     z = h0
     whorl = 0
+    whorls = []
     while z < height - 0.4:
         t = (z - h0) / (height - h0)
         reach = radius * (1 - t) ** 0.9 + 0.35
         n = 7 if reach > 1.2 else 5
+        branches = []
+        whorls.append((z, reach, t, branches))
         for k in range(n):
             ang = (k / n + whorl * 0.37) * math.tau + rnd.uniform(-0.2, 0.2)
             out = Vector((math.cos(ang), math.sin(ang), 0))
@@ -104,6 +136,7 @@ def conifer(name, seed, height, radius, bare, trunk_r, leaves='leaves-conifer'):
             hint_a = Vector((0, 0, 1)).cross(out).cross(d).normalized()
             if hint_a.z < 0:
                 hint_a = -hint_a
+            branches.append((d, hint_a, out))
             card(foliage, base, d, hint_a, reach * 1.05, reach * 1.1, center)
             hint_b = (hint_a + out.cross(d) * 1.5).normalized()
             card(foliage, base + Vector((0, 0, 0.1)), d, hint_b, reach * 0.7, reach, center)
@@ -116,10 +149,37 @@ def conifer(name, seed, height, radius, bare, trunk_r, leaves='leaves-conifer'):
         ang = k / 3 * math.tau
         d = Vector((math.cos(ang) * 0.12, math.sin(ang) * 0.12, 1)).normalized()
         card(foliage, Vector((0, 0, height - 1.8)), d, Vector((-math.sin(ang), math.cos(ang), 0)), 0.5, 1.6, Vector((0, 0, height - 2.5)))
+    has_inner = bool(inner.bm.faces)
     objects = [wood.to_object(name + '-wood'), foliage.to_object(name + '-leaves')]
-    if inner.bm.faces:
+    if has_inner:
         objects.append(inner.to_object(name + '-inner'))
     export(name, objects)
+    conifer_far(name, wood.material, foliage.material, height, trunk_r, whorls)
+
+
+def conifer_far(name, bark, leaves, height, trunk_r, whorls):
+    """The conifer's far copy (catalogue `lod`, about a third of its triangles): the trunk on five sides, every second
+    whorl with one card a branch, a little longer to close the gap, and its crossed card on every other branch (no dark
+    inner cards: two parts, two draws);
+    two tip cards. Its materials are the full model's (same names, map-asset-library.ts lodModels)"""
+    wood = Part(bark)
+    foliage = Part(leaves)
+    tube(wood, [Vector((0, 0, -0.3)), Vector((0, 0, height * 0.5)), Vector((0, 0, height * 0.9))], [trunk_r * 1.4, trunk_r * 0.6, trunk_r * 0.1], 5)
+    for w, (z, reach, t, branches) in enumerate(whorls):
+        if w % 2:
+            continue
+        base = Vector((0, 0, z))
+        center = Vector((0, 0, z + reach * 0.3))
+        for k, (d, hint, out) in enumerate(branches):
+            card(foliage, base, d, hint, reach * 1.15, reach * 1.35, center)
+            if k % 2 == 0:
+                # Every other branch keeps its crossed card: the whorl keeps some depth seen from the side
+                card(foliage, base + Vector((0, 0, 0.1)), d, (hint + out.cross(d) * 1.5).normalized(), reach * 0.8, reach * 1.2, center)
+    for k in range(2):
+        ang = k / 2 * math.pi
+        d = Vector((math.cos(ang) * 0.12, math.sin(ang) * 0.12, 1)).normalized()
+        card(foliage, Vector((0, 0, height - 1.8)), d, Vector((-math.sin(ang), math.cos(ang), 0)), 0.6, 1.7, Vector((0, 0, height - 2.5)))
+    export(name + '-lod1', [wood.to_object(name + '-lod-wood'), foliage.to_object(name + '-lod-leaves')])
 
 
 def dead_tree(name, seed, tint=(0.62, 0.6, 0.58), extra=None, bark='bark_brown_02'):

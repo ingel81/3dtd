@@ -239,7 +239,7 @@ Nebel der Szene wieder her.
   (Zellen von 0,8 m, jede zieht ihre Halme verschieden stark zur Mitte, am Rand kürzer), nah an der Kamera sind sie
   schmaler (bis 60 % unter 2 m). Um Gebäude, Bauwerke, stehende Mauern ab 1,5 m und Felsen werden sie über 1,5 m zur
   Wand hin kürzer, ab 0,3 m keiner mehr: der Abstand zum Grundriss (Rechteck `box`, Umriss gehobener Gebäude, sonst
-  Fußkreis) liegt im zweiten Kanal der CoverMap. Die Farbe kommt aus `groundColorAt` (gebackene Bodenfarbe, unten),
+  Fußkreis) liegt als Byte je Sample in `CoverMap.rim` (1,2 cm je Stufe; im Float der Deckung waren es auf einer OSM-Welt 5,8 MB mehr). Die Farbe kommt aus `groundColorAt` (gebackene Bodenfarbe, unten),
   im Gegenlicht leuchtet der Halm zur Spitze hin durch (im Lichtdurchlauf nach dem Schatten der Sonne, GRASS_LIGHTS)
 - **Gebackene Bodenfarbe** (`terrain/ground-albedo.ts`): die Farbe, die der Gelände-Shader malt (Schichten,
   Makrovariation, grobe Eigenstruktur, Stimmung des Bioms mit Kuppen, Mulden, Flecken, Trampelrändern, Ufern), einmal
@@ -659,9 +659,22 @@ werden alpha-getestet mit Alpha-to-Coverage und blenden aus, wenn man sie von de
 erreichen; Wasserfall-Karten (`foliage-waterfall*`) fließen, leuchtende Laubkarten (Flammen) flackern. Windstärke und
 Ausblendung sind Uniforms, alle Assets teilen sich wenige Shader-Programme. Vegetation bekommt je Instanz eine
 leicht andere Helligkeit, einen Farbton und eine Größe (Bäume 0,88 bis 1,12, Pflanzen 0,92 bis 1,08), Bäume dazu eine
-Neigung (bis 4°, die meisten fast aufrecht); Laub mit Katalog-Tag `autumn` streut weiter zwischen Rot, Rost und Gelb und
-in der Helligkeit. Alles im Instanz-Matrix und -Farbe aus einem Hash der Objekt-Id (`instance-variation.ts`, kein Draw
-Call mehr, Impostoren tragen dieselbe Instanzfarbe; Sichtlinien sehen die Bäume so, wie sie gezeichnet sind). Die Drehung
+Kronenbreite (0,88 bis 1,12, in x und z bis 6 % verschieden, als ungleiche Skalierung der Instanz), eine Neigung (bis 4°,
+die meisten fast aufrecht) und im Shader eine Ausbeulung der Krone (oberhalb von 30 % der Höhe, 5 % der Höhe, Phase aus
+dem Ort; vor der Ruhelage, nach der der Schatten gelesen wird), so trennen sich die Bäume eines Modells auch im Umriss.
+Bäume wachsen in Beständen eines Alters: wer Bäume setzt (Streupinsel des Editors, OSM-Wälder), nimmt ihre Skala aus
+dem Ort (`map-ops/tree-stands.ts`: weiches Wertrauschen über Zellen von 42 m; die Mitte des Skalenbereichs mal 0,68 für
+einen jungen bis 1,3 für einen alten Bestand, der Baum selbst 0,92 bis 1,08 davon; im Mittel die Mitte des Bereichs).
+Das steht als `scale` im Dokument: fertige Karten behalten ihre, Level-Skripte (map-kit) streuen wie bisher. Laub mit
+Katalog-Tag `autumn` streut weiter zwischen Rot, Rost und Gelb und in der Helligkeit. Alles in Instanz-Matrix und -Farbe aus einem Hash der Objekt-Id
+(`instance-variation.ts`, kein Draw Call mehr, Impostoren tragen dieselbe Instanzfarbe; Sichtlinien sehen die
+Bäume so, wie sie gezeichnet sind, die Ausbeulung nicht). **Fernkopien der Bäume**: die Laub- und Nadelbäume aus
+`broadleaf` und `conifer` (`build_nature.py`) haben ein handgebautes `-lod1` mit etwa einem Drittel der Dreiecke (Laub:
+Stamm auf sechs Seiten, nur Hauptäste, je Blattbüschel vier größere Karten, keine dunklen Innenkarten (zwei Teile, zwei Draws); Nadel: jeder zweite Quirl mit einer Karte je
+Ast und dem Kreuz auf jedem zweiten), in der Spielansicht ab etwa 175 m (`screen` des Katalogs; der Impostor bleibt bei 380 m: die Kopie halbiert die Dreiecke der Bäume davor, statt den Impostor hinauszuschieben, was auf Demo Valley eine Million Dreiecke mehr zeichnete). Ihre Materialien heißen
+wie die des Modells: `lodModels` gibt ihnen dessen Materialien (`sharedMaterials`, keine zweite Texturkopie, dieselben
+Programme), ihre Texturen packt `pack-map-models.mjs` in der Größe des Modells (`lodSharesTextures`): dieselben
+geteilten KTX2-Dateien. Die Drehung
 um die Hochachse kommt aus dem Dokument (Biom-Pinsel und Pinsel mit Zufallsdrehung). **Fenster bei Nacht** (`night-windows.ts`): das
 Fensterglas der Gebäude (Materialien `window-glass…`, `window`; in zusammengelegten Teilen je Vertex `nightGlow`)
 leuchtet mit der Dunkelheit warm, etwa jedes zweite Fenster nach einem Hash seiner Zelle in der Welt (2,5 m breit,

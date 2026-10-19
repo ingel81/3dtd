@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseCatalog } from './asset-catalog';
-import { MapAssetLibrary, packMaterial, type ImagePixels } from './map-asset-library';
+import { MapAssetLibrary, packMaterial, sharedMaterials, type ImagePixels } from './map-asset-library';
 import { mergeParts } from './objects/merge-parts';
 
 const catalog = {
@@ -200,5 +200,36 @@ describe('MapAssetLibrary', () => {
     const p = packMaterial('x', 1, image(1, [1, 2, 3, 255]), image(1, [4, 5, 6, 255]), image(1, [7, 8, 9, 255]), [0, 0, 0]);
     expect(Array.from(p.color)).toEqual([1, 2, 3, 9]);
     expect(Array.from(p.data)).toEqual([4, 5, 8, 7]);
+  });
+});
+
+describe('sharedMaterials', () => {
+  it("draws a far copy's parts with the full model's materials of the same name, and frees its own", () => {
+    const named = (name: string, map?: Texture): MeshStandardMaterial => Object.assign(new MeshStandardMaterial({ map: map ?? null }), { name });
+    const bark = named('bark-oak');
+    const leaves = named('foliage-oak');
+    const full = [
+      { geometry: new BoxGeometry(), material: bark },
+      { geometry: new BoxGeometry(), material: leaves },
+    ];
+    const token = new Texture();
+    const disposed = vi.spyOn(token, 'dispose');
+    const own = named('foliage-oak', token);
+    const other = named('paint');
+    // A plain-coloured copy of the bark (a flat LOD, no texture) keeps its own colour
+    const flatBark = named('bark-oak');
+    const lod = sharedMaterials(
+      [
+        { geometry: new BoxGeometry(), material: own },
+        { geometry: new BoxGeometry(), material: other },
+        { geometry: new BoxGeometry(), material: flatBark },
+      ],
+      full,
+    );
+    expect(lod[0].material).toBe(leaves);
+    // A material the model does not have stays the copy's own
+    expect(lod[1].material).toBe(other);
+    expect(lod[2].material).toBe(flatBark);
+    expect(disposed).toHaveBeenCalled();
   });
 });

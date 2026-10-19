@@ -2668,6 +2668,13 @@
       "tags": [
         "temperate"
       ],
+      "lod": [
+        {
+          "file": "models/tree-oak-lod1.glb",
+          "screen": 0.0713,
+          "triangles": 284
+        }
+      ],
       "source": "procedural (tools/map-assets/build_models.py); Rinde https://polyhaven.com/a/bark_brown_02; Blätter https://ambientcg.com/view?id=LeafSet024, LeafSet016"
     },
     {
@@ -2689,6 +2696,13 @@
       "drawDistance": 2500,
       "tags": [
         "temperate"
+      ],
+      "lod": [
+        {
+          "file": "models/tree-birch-lod1.glb",
+          "screen": 0.0772,
+          "triangles": 244
+        }
       ],
       "source": "procedural (tools/map-assets/build_models.py); Rinde https://polyhaven.com/a/bark_platanus; Blätter https://ambientcg.com/view?id=LeafSet014"
     },
@@ -2714,6 +2728,13 @@
         "mountain",
         "conifer"
       ],
+      "lod": [
+        {
+          "file": "models/tree-pine-lod1.glb",
+          "screen": 0.101,
+          "triangles": 210
+        }
+      ],
       "source": "procedural (tools/map-assets/build_models.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
     },
     {
@@ -2737,6 +2758,13 @@
         "temperate",
         "mountain",
         "conifer"
+      ],
+      "lod": [
+        {
+          "file": "models/tree-fir-lod1.glb",
+          "screen": 0.0772,
+          "triangles": 254
+        }
       ],
       "source": "procedural (tools/map-assets/build_models.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
     },
@@ -3510,6 +3538,13 @@
       "tags": [
         "autumn"
       ],
+      "lod": [
+        {
+          "file": "models/tree-oak-autumn-lod1.glb",
+          "screen": 0.0754,
+          "triangles": 284
+        }
+      ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_02; Blätter https://ambientcg.com/view?id=LeafSet012, LeafSet030"
     },
     {
@@ -3533,6 +3568,13 @@
         "temperate",
         "village"
       ],
+      "lod": [
+        {
+          "file": "models/tree-oak-young-lod1.glb",
+          "screen": 0.0439,
+          "triangles": 284
+        }
+      ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_02; Blätter https://ambientcg.com/view?id=LeafSet024, LeafSet016"
     },
     {
@@ -3555,6 +3597,13 @@
       "tags": [
         "temperate"
       ],
+      "lod": [
+        {
+          "file": "models/tree-maple-lod1.glb",
+          "screen": 0.0701,
+          "triangles": 284
+        }
+      ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet010"
     },
     {
@@ -3576,6 +3625,13 @@
       "drawDistance": 2500,
       "tags": [
         "autumn"
+      ],
+      "lod": [
+        {
+          "file": "models/tree-maple-autumn-lod1.glb",
+          "screen": 0.0701,
+          "triangles": 284
+        }
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet027, LeafSet028"
     },
@@ -3600,6 +3656,13 @@
         "autumn",
         "castle"
       ],
+      "lod": [
+        {
+          "file": "models/tree-maple-red-lod1.glb",
+          "screen": 0.0558,
+          "triangles": 284
+        }
+      ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet027, LeafSet028"
     },
     {
@@ -3621,6 +3684,13 @@
       "drawDistance": 2500,
       "tags": [
         "autumn"
+      ],
+      "lod": [
+        {
+          "file": "models/tree-birch-autumn-lod1.glb",
+          "screen": 0.076,
+          "triangles": 244
+        }
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_platanus; Blätter https://ambientcg.com/view?id=LeafSet007, LeafSet008"
     },
@@ -3667,6 +3737,13 @@
       "tags": [
         "swamp",
         "coast"
+      ],
+      "lod": [
+        {
+          "file": "models/tree-mangrove-lod1.glb",
+          "screen": 0.0635,
+          "triangles": 524
+        }
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_willow; Blätter https://ambientcg.com/view?id=LeafSet022"
     },
@@ -3740,6 +3817,13 @@
         "conifer",
         "arctic"
       ],
+      "lod": [
+        {
+          "file": "models/tree-pine-snow-lod1.glb",
+          "screen": 0.1015,
+          "triangles": 210
+        }
+      ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
     },
     {
@@ -3765,6 +3849,13 @@
         "conifer",
         "arctic"
       ],
+      "lod": [
+        {
+          "file": "models/tree-fir-snow-lod1.glb",
+          "screen": 0.0766,
+          "triangles": 254
+        }
+      ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
     },
     {
@@ -3789,6 +3880,13 @@
         "mountain",
         "conifer"
       ],
+      "lod": [
+        {
+          "file": "models/tree-fir-young-lod1.glb",
+          "screen": 0.0344,
+          "triangles": 160
+        }
+      ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
     },
     {
@@ -3812,6 +3910,13 @@
         "winter",
         "mountain",
         "conifer"
+      ],
+      "lod": [
+        {
+          "file": "models/tree-fir-young-snow-lod1.glb",
+          "screen": 0.0344,
+          "triangles": 160
+        }
       ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/knotted_pine_bark; Nadeln https://ambientcg.com/view?id=LeafSet019"
     },
@@ -15653,6 +15758,13 @@
         "city",
         "village"
       ],
+      "lod": [
+        {
+          "file": "models/tree-street-lod1.glb",
+          "screen": 0.0463,
+          "triangles": 284
+        }
+      ],
       "source": "procedural (tools/map-assets/build_nature.py); Rinde https://polyhaven.com/a/bark_platanus; Blätter https://ambientcg.com/view?id=LeafSet010"
     },
     {
@@ -21183,6 +21295,13 @@
       "tags": [
         "temperate",
         "village"
+      ],
+      "lod": [
+        {
+          "file": "models/fruit-tree-lod1.glb",
+          "screen": 0.0362,
+          "triangles": 284
+        }
       ],
       "source": "procedural (tools/map-assets/build_modern.py, build_nature.py); Rinde https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet002"
     },

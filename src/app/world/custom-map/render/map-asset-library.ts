@@ -240,6 +240,9 @@ export class MapAssetLibrary {
   /**
    * The lower detail models of a catalogue object (`lod` entries), nearest
    * first, with the screen share each one takes over at. Broken files are skipped.
+   * A part whose material has the name of one of the full model's draws
+   * with that one (sharedMaterials): a tree's far copy shares the model's
+   * materials and programs (its textures are the model's shared files).
    */
   async lodModels(id: string): Promise<{ model: ObjectModel; screen: number }[]> {
     const entry = await this.objectEntry(id);
@@ -251,8 +254,8 @@ export class MapAssetLibrary {
         let p = this.models.get(key);
         if (!p) {
           this.startTextures(lod.textures);
-          p = this.loadModelFn(this.url(lod.file)).then((root) => {
-            const parts = collectParts(root);
+          p = Promise.all([this.loadModelFn(this.url(lod.file)), this.model(id)]).then(([root, full]) => {
+            const parts = sharedMaterials(collectParts(root), full.parts);
             return this.keep({ id, entry, parts, height: partsHeight(parts), placeholder: false });
           });
           this.models.set(key, p);
@@ -454,6 +457,31 @@ function prepareMaterial(material: Material): void {
 }
 
 /** Every mesh of a model with its node transform baked into a copy of the geometry */
+/**
+ * `parts` with each textured material that has the name of one of
+ * `full`'s replaced by that one, the replaced material and its textures
+ * freed (never drawn, so never uploaded). Only textured parts with UVs: a
+ * plain-coloured copy (the builders' flat LODs, no UVs) keeps its own
+ * colour, and merges with its like as before
+ */
+export function sharedMaterials(parts: ModelPart[], full: readonly ModelPart[]): ModelPart[] {
+  const byName = new Map<string, Material>();
+  for (const p of full) if (p.material.name && !byName.has(p.material.name)) byName.set(p.material.name, p.material);
+  const freed = new Set<Material>();
+  const out = parts.map((p) => {
+    const textured = !!(p.material as MeshStandardMaterial).map && p.geometry.hasAttribute('uv');
+    const shared = textured && p.material.name ? byName.get(p.material.name) : undefined;
+    if (!shared || shared === p.material) return p;
+    freed.add(p.material);
+    return { geometry: p.geometry, material: shared };
+  });
+  for (const m of freed) {
+    for (const value of Object.values(m)) if (value instanceof Texture) value.dispose();
+    m.dispose();
+  }
+  return out;
+}
+
 function collectParts(root: Object3D): ModelPart[] {
   root.updateMatrixWorld(true);
   const parts: ModelPart[] = [];
