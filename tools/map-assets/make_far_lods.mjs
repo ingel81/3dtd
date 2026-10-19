@@ -99,7 +99,10 @@ for (const o of wanted) {
     // A small look stays whole (a roof of a few big quads, a window's glass), as the builders' copies keep it
     const target = Math.max(SMALL * 3, Math.floor((indices.length * RATIO) / 3) * 3);
     let kept = indices;
-    if (indices.length > SMALL * 3) {
+    // Turning parts stay whole: their hub is worked out from their corners (rotor.ts rotorHub), a simplified blade
+    // would move it and the rotor wobble
+    const turns = name.startsWith('rotor-') || name.startsWith('spin-');
+    if (!turns && indices.length > SMALL * 3) {
       [kept] = MeshoptSimplifier.simplify(indices, corners, 3, target, ERROR, []);
       // A shape the error holds up (thin walls with many seams): collapsed regardless of topology
       if (kept.length > target * 2) kept = MeshoptSimplifier.simplifySloppy(indices, corners, 3, null, target, 1)[0];

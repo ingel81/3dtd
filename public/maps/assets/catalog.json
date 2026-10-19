@@ -7674,7 +7674,7 @@
         {
           "file": "models/watermill-lod1.glb",
           "screen": 0.0586,
-          "triangles": 1338
+          "triangles": 3514
         }
       ],
       "far": {
@@ -7742,7 +7742,7 @@
         {
           "file": "models/windmill-lod1.glb",
           "screen": 0.1277,
-          "triangles": 836
+          "triangles": 2409
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/reed_roof_04; https://polyhaven.com/a/hessian_230; https://polyhaven.com/a/dark_planks"
