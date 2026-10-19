@@ -149,6 +149,7 @@ export function packet(parts: PacketParts = {}): SimFramePacket {
     towers: towerTable(parts.towers ?? []),
     oozes: { data: new Float64Array(0), count: 0 },
     worms: wormTable(parts.worms ?? []),
+    guns: { data: new Float64Array(0), count: 0 },
     heroes: [],
     towerStates: parts.towerStates ?? [],
     removedTowers: parts.removedTowers ?? [],

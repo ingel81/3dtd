@@ -15,6 +15,7 @@ import type { WormLink } from '../managers/worm/worm-group';
 import type { RouteBody } from '../utils/route-body';
 import type { SpatialEntry } from '../services/world/spatial-grid.service';
 import { EnemyRush } from './enemy-rush';
+import { EnemyGun } from './enemy-gun';
 import type { BossTraits } from '../managers/boss-traits';
 
 /**
@@ -58,6 +59,11 @@ export class Enemy extends GameObject {
    * clip; null for everyone else, so EnemyManager skips it on a field check.
    */
   readonly rush: EnemyRush | null;
+  /**
+   * The gun that fires at structures (EnemyTypeConfig.siege), null for every
+   * enemy without one, so EnemySiege skips it on a field check.
+   */
+  readonly gun: EnemyGun | null;
 
   /**
    * Height of the model origin above `transform.terrainHeight` (m): the
@@ -135,6 +141,7 @@ export class Enemy extends GameObject {
       this.typeConfig.animationVariation && this.typeConfig.runAnimation
         ? new EnemyRush(this.id, this.typeConfig.runSpeedMultiplier ?? 1)
         : null;
+    this.gun = this.typeConfig.siege ? new EnemyGun(this.typeConfig.siege.firstShotMs) : null;
 
     // Add components
     this._transform = this.addComponent(

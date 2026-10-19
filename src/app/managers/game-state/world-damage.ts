@@ -185,6 +185,16 @@ export class WorldDamage {
     if (what.crater) this.dig(x, y, what.crater.radiusM, what.crater.depthCm);
   }
 
+  /**
+   * A shell of an enemy's gun (EnemySiege) lands at map metres (`x`, `y`):
+   * `amount` off every structure within `reach` m plus its radius, and a
+   * crater of `craterRadiusM` where the world digs them
+   */
+  shell(x: number, y: number, amount: number, reach: number, craterRadiusM: number): void {
+    if (amount > 0) this.structures.hit(x, y, reach, amount);
+    if (craterRadiusM > 0) this.dig(x, y, craterRadiusM, null);
+  }
+
   /** A crater of `radiusM` at map metres, `depthCm` deeper (its radius's hit depth when null), when the world digs them */
   private dig(x: number, y: number, radiusM: number, depthCm: number | null): void {
     if (!this.cratersOn) return;

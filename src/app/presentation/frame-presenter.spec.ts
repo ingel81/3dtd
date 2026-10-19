@@ -20,6 +20,7 @@ import {
   PROJECTILE_TYPE_IDS,
   TOWER_STRIDE,
   WORM_STRIDE,
+  GUN_STRIDE,
   type HeroFrame,
   type SimFramePacket,
   type SimTable,
@@ -57,6 +58,7 @@ interface PacketParts {
   towers?: number[][];
   oozes?: number[][];
   worms?: number[][];
+  guns?: number[][];
   heroes?: HeroFrame[];
 }
 
@@ -71,6 +73,7 @@ function packet(parts: PacketParts = {}): SimFramePacket {
     towers: table(TOWER_STRIDE, parts.towers ?? []),
     oozes: table(OOZE_STRIDE, parts.oozes ?? []),
     worms: table(WORM_STRIDE, parts.worms ?? []),
+    guns: table(GUN_STRIDE, parts.guns ?? []),
     heroes: parts.heroes ?? [],
     towerStates: [],
     removedTowers: [],

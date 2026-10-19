@@ -244,6 +244,21 @@ export interface SimSink {
      * what it is built of
      */
     structureFell(index: number, lat: number, lon: number, radius: number, height: number): void;
+    /**
+     * The gun of enemy `enemyId` fired a shell at a structure (EnemySiege):
+     * it lands at (`lat`, `lon`, geo `height`) in `flightMs` of game time.
+     * The player shows it (SiegeEffects): the guns recoil, flash and smoke
+     * at the muzzles the renderer has (EnemyInstanceManager.turretMuzzles),
+     * the boom, a shell flying there, the camera shakes near it
+     */
+    siegeShot(enemyId: string, lat: number, lon: number, height: number, flightMs: number): void;
+    /**
+     * The shell of enemy `enemyId` (of type `typeId`), fired at structure
+     * `structure` (run rules' order), landed at (`lat`, `lon`, geo `height`):
+     * its blast, the structure's pieces, smoke, sound and shake (SiegeEffects);
+     * what it damaged follows as `structures.stage`, `main.structureFell`, `craters.dig`
+     */
+    siegeImpact(enemyId: string, typeId: string, structure: number, lat: number, lon: number, height: number): void;
   };
 }
 

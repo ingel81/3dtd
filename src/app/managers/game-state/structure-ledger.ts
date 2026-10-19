@@ -269,6 +269,38 @@ export class StructureLedger {
   }
 
   /**
+   * The standing structure nearest map metres (`x`, `y`) whose ground comes
+   * within `reach` m, that a hit can damage (no tower on its roof); -1 for
+   * none. Nearest by its middle; of two alike the first in the run rules'
+   * order, on every client the same.
+   */
+  nearestTarget(x: number, y: number, reach: number): number {
+    let best = -1;
+    let bestSq = Infinity;
+    for (const i of this.near(x, y, reach)) {
+      const dx = this.x[i] - x;
+      const dy = this.y[i] - y;
+      const sq = dx * dx + dy * dy;
+      if (sq < bestSq && this.takesDamage(i)) {
+        best = i;
+        bestSq = sq;
+      }
+    }
+    return best;
+  }
+
+  /** Structure `index` stands and a hit would damage it: no tower on its roof */
+  takesDamage(index: number): boolean {
+    if (index < 0 || index >= this.structures.length || this.hp[index] <= 0) return false;
+    return Number.isNaN(this.roof[index * ROOF_STRIDE]) || !this.events.carried(index);
+  }
+
+  /** Ground radius of structure `index`, m */
+  radiusOf(index: number): number {
+    return this.radius[index];
+  }
+
+  /**
    * `amount` off structure `index` by a hit at map metres (`x`, `y`) unless
    * it carries a tower; whether its stage changed (and took the hit's heading)
    */

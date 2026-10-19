@@ -27,7 +27,7 @@ export interface WireFrame {
 /** The worker's side: the packet's tables are the store's own (the writer wrote into store.table()). */
 export function toWire(packet: SimFramePacket, store: TableStore): { frame: WireFrame; transfer: ArrayBuffer[] } {
   const counts = {} as Record<TableName, number>;
-  const { enemies: _e, projectiles: _p, towers: _t, oozes: _o, worms: _w, ...rest } = packet;
+  const { enemies: _e, projectiles: _p, towers: _t, oozes: _o, worms: _w, guns: _g, ...rest } = packet;
   for (const name of TABLE_NAMES) counts[name] = packet[name].count;
   if (store.shared) {
     const frame = { packet: { ...rest, counts, set: store.set }, buffers: store.takeReplaced(), shared: true, control: store.takeControl() };

@@ -1,6 +1,7 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { MAP_METERS_PER_DEGREE } from '../world/custom-map/map-document';
 import { WorldDamage } from './game-state/world-damage';
+import { EnemySiege } from './enemy-siege';
 import { Vector3 } from 'three';
 import { EnemyManager } from './enemy.manager';
 import { TowerManager } from './tower.manager';
@@ -276,6 +277,9 @@ export class GameStateManager {
     seeAround: (x, y, radius) => this.seeAround(x, y, radius),
   });
   private readonly damageLocal = new Vector3();
+
+  /** Enemies whose guns fire at the structures of a destructible world (EnemyTypeConfig.siege) */
+  readonly enemySiege = new EnemySiege(this.worldDamage, this.sink);
 
   /** A custom map's wave events (RunRules.events, TODO E170): lanes that open later, objects that come and go */
   readonly waveEvents = new WaveEvents(
@@ -1172,6 +1176,8 @@ export class GameStateManager {
     this.enemyManager.update(stepMs, now);
     // The enemies passing by wear the structures down, where the map says so
     this.worldDamage.tick(stepMs, now);
+    // ... and the guns of a siege boss shell them
+    this.enemySiege.tick(stepMs, now, this.enemyManager.getAllActive());
 
     // Camouflaged enemies near a scout, before anything picks a target
     revealCamo(this.enemyManager.getAllActive(), this.towerManager.getAll(), now, this.scouts);

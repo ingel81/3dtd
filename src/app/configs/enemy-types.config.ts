@@ -113,6 +113,37 @@ export interface EnemyTurret {
 }
 
 /**
+ * Fires at the structures of a destructible world (managers/enemy-siege.ts):
+ * the turret (EnemyTurret) turns to the nearest standing structure in
+ * range, and once it is on it and loaded a heavy shell flies there and takes
+ * `structureDamage` off every structure within `splashRadiusM` of where it
+ * lands, digging a crater where the world digs them. Where nothing can be
+ * destroyed (the tiles, DevWorld, a map without destruction) it never fires
+ * and its turret looks ahead. A boss's ability, configurable per type.
+ */
+export interface EnemySiegeConfig {
+  /** Structures this far from the enemy (plus their radius) are in reach, m */
+  rangeM: number;
+  /** Game time between two shots, ms */
+  reloadMs: number;
+  /** Game time from its spawn to its first possible shot, ms: out of the portal first */
+  firstShotMs: number;
+  /** How fast the turret turns and the guns tilt, rad per second of game time */
+  turnRate: number;
+  pitchRate: number;
+  /** How far off its structure the turret may be and still fire, rad */
+  alignTolerance: number;
+  /** Speed of the shell, m/s: its flight takes the distance over this */
+  shellSpeedMps: number;
+  /** Whole HP a shell takes off every structure it reaches */
+  structureDamage: number;
+  /** A shell reaches the structures this far from where it lands, m (plus IMPACT_REACH_M and their radius) */
+  splashRadiusM: number;
+  /** The crater it digs where the world takes craters, m */
+  craterRadiusM: number;
+}
+
+/**
  * An enemy type. Its name and a boss's honorific are the dictionary's
  * (i18n `names.enemies`, `epithets`), by id.
  */
@@ -294,6 +325,8 @@ export interface EnemyTypeConfig {
   ooze?: OozeConfig;
   /** A turret that turns apart from the body, see EnemyTurret */
   turret?: EnemyTurret;
+  /** Fires at the structures of a destructible world with its turret, see EnemySiegeConfig */
+  siege?: EnemySiegeConfig;
   /**
    * Left out of the enemy lists of Custom Wave and Enemy Debug
    * (getDebugEnemyTypes): a model of another type's body that is no use to

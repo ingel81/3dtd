@@ -18,7 +18,7 @@ import { TableStore } from '../protocol/table-store';
 import { wormGroupNum } from './event-export';
 import {
   E_ANIM_SPEED, E_DIST, E_EFF_SPEED, E_FLAGS, E_HOFF, E_HP, E_ID, E_LAT, E_LON, E_MAXHP, E_PROGRESS, E_ROT, E_ROUTE,
-  E_TERRAIN, E_TYPE, EF_ACTIVE, EF_ALIVE, EF_ANY_STATUS, EF_BODY, EF_BURNING, EF_FROZEN, EF_MOVING, EF_POISONED,
+  E_TERRAIN, E_TYPE, G_ID, G_PITCH, G_YAW, GUN_STRIDE, EF_ACTIVE, EF_ALIVE, EF_ANY_STATUS, EF_BODY, EF_BURNING, EF_FROZEN, EF_MOVING, EF_POISONED,
   EF_CAMO, EF_ELITE, EF_ENRAGED, EF_REVEALED, EF_RUNNING, EF_RUSH, EF_SLOWED, EF_STUNNED, ENEMY_STRIDE, ENEMY_TYPE_IDS, O_FLAGS, O_HP, O_ID, O_TAIL, O_TIP,
   OF_BURNING, OF_FROZEN, OF_POISONED, OF_SLOWED, OF_STUNNED, OOZE_STRIDE, P_DX, P_DY, P_DZ, P_FLAGS, P_HEIGHT, P_ID,
   P_LAT, P_LON, P_TYPE, PF_ROTATES, PROJECTILE_STRIDE, PROJECTILE_TYPE_IDS, T_AIM, T_COOLDOWN, T_DAMAGE, T_FLAGS,
@@ -51,6 +51,8 @@ export class PacketWriter {
   private readonly sent = new Map<string, SentTower>();
   /** Route arrays by index in the world's spawn order, rebuilt when the spawn points change */
   private routeIndexCache: { spawns: readonly unknown[]; index: Map<readonly GeoPosition[], number> } | null = null;
+  /** The enemies with a siege gun among those writeEnemies wrote, for writeGuns */
+  private readonly gunEnemies: Enemy[] = [];
 
   constructor(
     private readonly gsm: GameStateManager,
@@ -82,6 +84,7 @@ export class PacketWriter {
     this.writeTowers();
     this.writeOozes();
     this.writeWorms();
+    this.writeGuns();
     const { towerStates, removedTowers } = this.towerChanges();
     const tables = this.store.all();
     this.store.publish(++this.frame);
@@ -95,6 +98,7 @@ export class PacketWriter {
       towers: tables.towers,
       oozes: tables.oozes,
       worms: tables.worms,
+      guns: tables.guns,
       heroes: gsm.heroes.map((seat) => this.heroFrame(seat.heroId, seat.owner.playerId, seat.getPresentation())),
       towerStates,
       removedTowers,
@@ -154,8 +158,10 @@ export class PacketWriter {
     const table = this.store.table('enemies', enemies.length);
     const data = table.data;
     const now = this.gsm.gameTimeMs;
+    this.gunEnemies.length = 0;
     let o = 0;
     for (const enemy of enemies) {
+      if (enemy.gun !== null) this.gunEnemies.push(enemy);
       const m = enemy.movement;
       const effects = m.hasStatusEffects;
       let flags = 0;
@@ -271,6 +277,22 @@ export class PacketWriter {
       data[o + O_FLAGS] = flags;
     }
     table.count = rows;
+  }
+
+  /** The turn and tilt of every siege gun (Enemy.gun), from the enemies writeEnemies wrote */
+  private writeGuns(): void {
+    const enemies = this.gunEnemies;
+    const table = this.store.table('guns', enemies.length);
+    const data = table.data;
+    let o = 0;
+    for (const enemy of enemies) {
+      const gun = enemy.gun!;
+      data[o + G_ID] = entityNum(enemy.id);
+      data[o + G_YAW] = gun.yaw;
+      data[o + G_PITCH] = gun.pitch;
+      o += GUN_STRIDE;
+    }
+    table.count = enemies.length;
   }
 
   private writeWorms(): void {

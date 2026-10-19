@@ -5,13 +5,15 @@
  * enemies passing by. A projectile type's own share is on the type
  * (ProjectileTypeConfig.structureDamage, craterRadius).
  *
- * Every value here and on the projectile types acts in the simulation and
- * goes into the world key of a world that can be damaged
+ * Every value here, on the projectile types and of the enemies' siege guns
+ * (EnemyTypeConfig.siege) acts in the simulation and goes into the world key
+ * of a world that can be damaged
  * (destructionKeyParts), never into the balance hash: the tiles, DevWorld
  * and a custom map without destruction play and hash as before.
  */
 import type { AbilityId } from './abilities.config';
 import { PROJECTILE_TYPES } from './projectile-types.config';
+import { ENEMY_TYPES } from './enemy-types.config';
 
 /** 0 standing, 1 battered, 2 heavily damaged, 3 fallen (a ruin with its rubble) */
 export type StructureStage = 0 | 1 | 2 | 3;
@@ -108,9 +110,10 @@ export const WEAR = {
   bossHp: 10,
 } as const;
 
-/** Every value above and of the projectile types as text, for the world key of a world that can be damaged */
+/** Every value above, of the projectile types and of the siege guns as text, for the world key of a world that can be damaged */
 export function destructionKeyParts(): string[] {
   const projectiles = Object.values(PROJECTILE_TYPES).map((p) => `${p.id}:${p.structureDamage}:${p.craterRadius ?? 0}:${p.splashRadius ?? 0}`);
+  const guns = Object.values(ENEMY_TYPES).flatMap((t) => (t.siege ? [`${t.id}:${JSON.stringify(t.siege)}:${t.turret?.pivotHeight ?? 0}`] : []));
   return [
     JSON.stringify(STRUCTURE_STAGE_PERCENT),
     JSON.stringify(PRESET_HP_SHARE),
@@ -120,5 +123,6 @@ export function destructionKeyParts(): string[] {
     JSON.stringify(RUBBLE),
     JSON.stringify(WEAR),
     ...projectiles,
+    ...guns,
   ];
 }

@@ -215,6 +215,8 @@ export class StateHasher {
       this.num(this.d >>> 0);
       // Walk or run: the speed differs only once the phase turns
       if (enemy.rush) this.digest(enemy.rush);
+      // A siege gun's aim, load and shell: only on the enemies that carry one
+      if (enemy.gun) this.digest(enemy.gun);
       // Camouflaged: shows otherwise only in whom the towers pick. Only then, a plain enemy's row stays short;
       // `revealed` follows from the positions every sub-step
       if (enemy.camo) this.str('camo');

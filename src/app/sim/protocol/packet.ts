@@ -136,6 +136,14 @@ export const W_HP = 6;
 export const W_MAXHP = 7;
 export const WORM_STRIDE = 8;
 
+// ── Siege guns: every enemy with a gun (Enemy.gun), dying ones included ──
+export const G_ID = 0;
+/** EnemyGun.yaw: the turret's turn from the body's forward, rad */
+export const G_YAW = 1;
+/** EnemyGun.pitch: the guns' tilt, rad, muzzle up positive */
+export const G_PITCH = 2;
+export const GUN_STRIDE = 3;
+
 /** A table: rows of `stride` numbers, `count` of them valid. */
 export interface SimTable {
   data: Float64Array;
@@ -256,6 +264,7 @@ export interface SimFramePacket {
   towers: SimTable;
   oozes: SimTable;
   worms: SimTable;
+  guns: SimTable;
   heroes: HeroFrame[];
   /** Towers whose state changed (placed, upgraded, settings, line of sight) */
   towerStates: TowerStateDto[];

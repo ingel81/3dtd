@@ -92,6 +92,8 @@ export interface SavedEnemy {
   movement: PlainRecord;
   statusEffects: PlainRecord[];
   rush: PlainRecord | null;
+  /** Its siege gun (Enemy.gun); absent in a snapshot from before guns and for an enemy without one */
+  gun?: PlainRecord | null;
   portalExit: PlainRecord | null;
   /** A worm segment: its group (index into EnemiesState.worms.groups) and place, else null */
   worm: { group: number; slot: number; head: boolean; tail: boolean; target: number | string; lateral: number | string } | null;

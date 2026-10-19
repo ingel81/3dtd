@@ -9,7 +9,7 @@ function packet(frame: number, parts: Partial<SimFramePacket> = {}): SimFramePac
     scalars: { gameTimeMs: frame * 16, tickMs: 2, replay: null } as unknown as SimFramePacket['scalars'],
     enemies: { data: new Float64Array(0), count: frame }, projectiles: { data: new Float64Array(0), count: 0 },
     towers: { data: new Float64Array(0), count: 0 }, oozes: { data: new Float64Array(0), count: 0 },
-    worms: { data: new Float64Array(0), count: 0 },
+    worms: { data: new Float64Array(0), count: 0 }, guns: { data: new Float64Array(0), count: 0 },
     heroes: [], towerStates: [], removedTowers: [], ops: [], events: [],
     ...parts,
   };

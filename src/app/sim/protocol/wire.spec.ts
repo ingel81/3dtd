@@ -39,7 +39,7 @@ describe('Packet tables across the worker boundary', () => {
   it('sends the shared buffers of every set once and views them in place after, the sets in turn', () => {
     const store = new TableStore(true);
     const first = toWire(packetOf(store, 2), store).frame;
-    expect(first.buffers.length).toBe(15);
+    expect(first.buffers.length).toBe(18);
     expect(first.control).not.toBeNull();
     const views = new TableViews();
     const a = fromWire(first, views);

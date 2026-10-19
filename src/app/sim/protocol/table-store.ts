@@ -29,10 +29,10 @@
  * and the transport sends the tables with every frame instead.
  */
 import {
-  ENEMY_STRIDE, OOZE_STRIDE, PROJECTILE_STRIDE, TOWER_STRIDE, WORM_STRIDE, type SimTable,
+  ENEMY_STRIDE, GUN_STRIDE, OOZE_STRIDE, PROJECTILE_STRIDE, TOWER_STRIDE, WORM_STRIDE, type SimTable,
 } from './packet';
 
-export type TableName = 'enemies' | 'projectiles' | 'towers' | 'oozes' | 'worms';
+export type TableName = 'enemies' | 'projectiles' | 'towers' | 'oozes' | 'worms' | 'guns';
 
 export const TABLE_STRIDES: Readonly<Record<TableName, number>> = {
   enemies: ENEMY_STRIDE,
@@ -40,6 +40,7 @@ export const TABLE_STRIDES: Readonly<Record<TableName, number>> = {
   towers: TOWER_STRIDE,
   oozes: OOZE_STRIDE,
   worms: WORM_STRIDE,
+  guns: GUN_STRIDE,
 };
 
 export const TABLE_NAMES = Object.keys(TABLE_STRIDES) as TableName[];
@@ -51,6 +52,7 @@ const INITIAL_ROWS: Readonly<Record<TableName, number>> = {
   towers: 256,
   oozes: 16,
   worms: 64,
+  guns: 8,
 };
 
 /** Sets of tables in shared memory, see the head of this file */

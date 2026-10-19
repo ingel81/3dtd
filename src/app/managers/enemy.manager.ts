@@ -1088,6 +1088,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       movement: plainFields(m),
       statusEffects: m.statusEffects.map((effect) => plainFields(effect)),
       rush: enemy.rush ? plainFields(enemy.rush) : null,
+      gun: enemy.gun ? plainFields(enemy.gun) : null,
       portalExit: enemy.portalExit ? plainFields(enemy.portalExit) : null,
       worm: this.saveWormLink(enemy.worm),
     };
@@ -1134,6 +1135,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       return out;
     });
     if (enemy.rush && saved.rush) assignPlainFields(enemy.rush, saved.rush);
+    if (enemy.gun && saved.gun) assignPlainFields(enemy.gun, saved.gun);
     if (saved.portalExit) {
       const exit = {} as AirPortalExit;
       assignPlainFields(exit, saved.portalExit);
