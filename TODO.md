@@ -41,8 +41,9 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
 - [ ] **E249 Zerstörung Rest**: Klänge (Auswahlseite `tmp/sound-audition`, Gruppe „Zerstörung“, User wählt).
       Fallrichtung aus dem auslösenden Treffer gebaut, nicht übernommen: `wt/r8-destroy-b` e8f7d03d8 und 3e4dbb40a,
       Suite grün; im Bild nur mit Mittentreffer geprüft, ein schräger Treffer fehlt. Später Bewehrung und Glas.
-- [ ] **E250 Impostor-Ton Autumn Keep** 6 % dunkler als das Modell, Tonprobe mit den Kartenlichtern
-      (WIP `tmp/plan/r8/WIP_r8-veg.md`).
+- [ ] **E250 Impostor-Ton**: Fix gebaut, nicht übernommen, `wt/r8-veg-c` c4f65db86 (Tonprobe unter Kartenlicht ohne
+      Schatten, Metall aus Maps 0): alle vier Karten im Flächenmaß in ±1 %, an Kanten Autumn Keep noch 4 %; nach dem
+      Rebase lief nur custom-map, die volle Suite vor der Übernahme.
 - [ ] **E251 Laden nach Bedarf, Rest**: Freischalten im Lauf per Probe geprüft (0 Links, längstes Bild 14 ms; ein
       Zeitvorteil des Vorziehens ist nicht nachweisbar); rund 65 Links direkt bei ready (Grafikstufen noch im
       Aufwärmen, zu E246); Bildspitzen unter Ruhe nachmessen (`tmp/plan/r6/MESSUNGEN_SPAETER.md`).
