@@ -56,9 +56,6 @@ jobs:
         shell: bash
         run: node desktop/scripts/changelog.js check "$TAG"
 
-      - name: Install dependencies (game)
-        run: npm ci
-
       # The installer ships without keys, like the web build: each player
       # enters their own Cesium Ion token (or Google Maps key) in the game.
       - name: Create environment files
@@ -78,6 +75,9 @@ jobs:
             cesiumIonToken: '',
             cesiumAssetId: '2275207',
           };" > src/environments/environment.prod.ts
+
+      - name: Install dependencies (game)
+        run: npm ci
 
       - name: Test the game
         run: npx vitest run

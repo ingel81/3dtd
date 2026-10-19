@@ -38,9 +38,6 @@ jobs:
             package-lock.json
             desktop/package-lock.json
 
-      - name: Install dependencies (game)
-        run: npm ci
-
       # No keys in CI, as in the release: the tests need the files, not a token.
       - name: Create environment files
         shell: bash
@@ -53,6 +50,9 @@ jobs:
             cesiumAssetId: '2275207',
           };" > src/environments/environment.ts
           cp src/environments/environment.ts src/environments/environment.prod.ts
+
+      - name: Install dependencies (game)
+        run: npm ci
 
       - name: Lint
         run: npm run lint
