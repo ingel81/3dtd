@@ -3,7 +3,7 @@ import type { MapWater } from '../../map-document';
 import { HeightField } from '../height-field';
 import { HeightTexture } from '../terrain/height-texture';
 import { ApronProfile } from '../terrain/terrain-apron';
-import { WaterSurface } from './water-surface';
+import { maskBounds, WaterSurface } from './water-surface';
 
 /** 201 x 201 samples of 2 m, flat at 0; a lake in the south-west and one reaching the east border */
 function setup() {
@@ -92,5 +92,27 @@ describe('WaterSurface tiles', () => {
     expect(maskData(surface)).toEqual(maskData(whole));
     surface.dispose();
     whole.dispose();
+  });
+});
+
+describe('maskBounds', () => {
+  it('finds the samples a mask sets as a scan of every sample does, whatever the grid and the offset', () => {
+    const scan = (mask: Uint8Array, cols: number, rows: number, grow: number) => {
+      let i0 = cols, j0 = rows, i1 = -1, j1 = -1;
+      for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) if (mask[j * cols + i]) { i0 = Math.min(i0, i); i1 = Math.max(i1, i); j0 = Math.min(j0, j); j1 = Math.max(j1, j); }
+      return i1 < 0 ? null : { i0: Math.max(0, i0 - grow), j0: Math.max(0, j0 - grow), i1: Math.min(cols - 1, i1 + grow), j1: Math.min(rows - 1, j1 + grow) };
+    };
+    let seed = 7;
+    const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (const [cols, rows] of [[1, 1], [7, 5], [33, 17], [1201, 3]]) {
+      for (let t = 0; t < 20; t++) {
+        // Some at an odd byte offset, so the word scan cannot take them
+        const buffer = new Uint8Array(cols * rows + 1);
+        const mask = t % 2 ? buffer.subarray(1) : buffer.subarray(0, cols * rows);
+        const spots = Math.floor(rand() * 4);
+        for (let s = 0; s < spots; s++) mask[Math.floor(rand() * cols * rows)] = 1 + Math.floor(rand() * 200);
+        expect(maskBounds(mask, cols, rows, 2)).toEqual(scan(mask, cols, rows, 2));
+      }
+    }
   });
 });

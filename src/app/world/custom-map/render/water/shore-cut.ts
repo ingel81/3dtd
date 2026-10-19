@@ -200,6 +200,47 @@ export function bakeShoreCut(
   }
 }
 
+/** Samples around a bake's rectangle that bakeShoreCut reads: the measured band, the waterline's reach and a cell */
+const SHORE_CUT_READS = SHORE_CUT_REACH + BLUR + TOOTH_SPREAD + 1 + SHORE_CUT_REACH;
+
+/**
+ * The input of a whole bake of `rect` cut down to the samples it reads (a pool on a large map copies its
+ * corner, not the grid), with the window it was cut from; pasteShoreCut puts the result back. The same bytes as
+ * the bake over the whole grid
+ */
+export function shoreCutInput(
+  heights: Float32Array,
+  columns: number,
+  rows: number,
+  cellSize: number,
+  level: number,
+  mask: Uint8Array,
+  rect: GridRect,
+): { input: ShoreCutInput; window: GridRect } {
+  const m = SHORE_CUT_READS;
+  const window = { i0: Math.max(0, rect.i0 - m), j0: Math.max(0, rect.j0 - m), i1: Math.min(columns - 1, rect.i1 + m), j1: Math.min(rows - 1, rect.j1 + m) };
+  const w = window.i1 - window.i0 + 1;
+  const h = window.j1 - window.j0 + 1;
+  const subHeights = new Float32Array(w * h);
+  const subMask = new Uint8Array(w * h);
+  for (let j = 0; j < h; j++) {
+    const from = (j + window.j0) * columns + window.i0;
+    subHeights.set(heights.subarray(from, from + w), j * w);
+    subMask.set(mask.subarray(from, from + w), j * w);
+  }
+  const local = { i0: rect.i0 - window.i0, j0: rect.j0 - window.j0, i1: rect.i1 - window.i0, j1: rect.j1 - window.j0 };
+  return { input: { heights: subHeights, columns: w, rows: h, cellSize, level, mask: subMask, rect: local }, window };
+}
+
+/** A cut bake (shoreCutInput's) into the whole grid's bytes `out` (two per sample, `columns` wide) */
+export function pasteShoreCut(cut: Uint8Array, window: GridRect, out: Uint8Array, columns: number): void {
+  const w = window.i1 - window.i0 + 1;
+  for (let j = window.j0; j <= window.j1; j++) {
+    const from = (j - window.j0) * w * 2;
+    out.set(cut.subarray(from, from + w * 2), (j * columns + window.i0) * 2);
+  }
+}
+
 /** What a whole bake reads: the height grid, the level, the mask and the samples to bake, as plain arrays */
 export interface ShoreCutInput {
   heights: Float32Array;

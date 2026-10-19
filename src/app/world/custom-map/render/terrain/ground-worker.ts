@@ -1,5 +1,5 @@
 import { groundJobMap, groundJobTransfer, readRows, runGroundJob, type GroundJob, type GroundJobMap, type GroundJobResult, type GroundJobResults } from './ground-jobs';
-import type { FarShadowTexels, GroundBaker, SampleRect, ShapePatch } from './ground-shape';
+import type { FarShadowTexels, GridNormalTexels, GroundBaker, SampleRect, ShapePatch } from './ground-shape';
 import type { PathMaskInput } from '../paths/path-mask';
 
 /**
@@ -44,6 +44,11 @@ export class GroundWorker implements GroundBaker {
 
   farShadow(sunDir: { x: number; y: number; z: number }): Promise<FarShadowTexels | null> {
     return this.ask({ kind: 'farShadow', sunDir: { x: sunDir.x, y: sunDir.y, z: sunDir.z } });
+  }
+
+  normals(mask: Uint8Array | null): Promise<GridNormalTexels | null> {
+    // A copy: the map keeps its mask
+    return this.ask({ kind: 'normals', mask: mask ? mask.slice() : null });
   }
 
   pathMask(input: PathMaskInput): Promise<Uint8Array | null> {

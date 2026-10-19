@@ -251,6 +251,8 @@ export class CustomMapView {
   private decalsFor = { objects: null as unknown, count: -1, paths: null as unknown, edges: -1 };
   private decalsDue: ReturnType<typeof setTimeout> | null = null;
   private lavaBaked = false;
+  /** The water surfaces stand (updateWater once); before, the terrain's banks are those of its constructor */
+  private watersPlaced = false;
   /** The view's own baker (CustomMapViewOptions.groundBaker), ended with the view */
   private ownBaker: GroundWorker | null = null;
   /** The first bakes of the far shadow and of the closeness to lava, which `ready` waits for */
@@ -905,7 +907,9 @@ export class CustomMapView {
       this.updateMainMask(rect);
       return;
     }
-    this.terrain.refreshWater();
+    // The terrain just made built its wet banks and apron from this water: the first time they stand
+    if (this.watersPlaced) this.terrain.refreshWater();
+    this.watersPlaced = true;
     // Rain stops and grass ends at the new surfaces, the mirrored trees beyond the border at the sea
     this.coverDirty = true;
     this.edgeTreesLater(this.shownObjects());
@@ -1745,6 +1749,7 @@ export class CustomMapView {
       prepareNoiseTextures(),
       // The ground's shape and the water's first bakes, off the page's thread where there is a baker
       this.terrain.occlusion.settled,
+      this.terrain.normalsSettled,
       this.farShadowFirst,
       this.lavaFirst,
       ...this.waters.map((w) => w?.settled),

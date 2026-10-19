@@ -170,7 +170,7 @@ export class MapTerrainLayer {
     this.placeholder.customProgramCacheKey = () => 'custom-map-terrain-placeholder';
     this.apronProfile = new ApronProfile(field, terrain.water, BACKDROP_HEIGHT[biome]);
     this.apron = buildTerrainApron(this.apronProfile, this.apronPlaceholder);
-    this.normals = new GridNormalTexture(field, terrain.water?.mask ?? null);
+    this.normals = new GridNormalTexture(field, terrain.water?.mask ?? null, baker);
     this.occlusion = new GroundOcclusion(field, baker);
     this.cuts = new TerrainCuts(terrain.width, terrain.depth);
     this.roads = new RoadSurfaceLayer(field, this.heightTexture, this.normals.texture);
@@ -178,6 +178,11 @@ export class MapTerrainLayer {
     this.grass = new GrassLayers(this.heightTexture);
     this.albedo = new GroundAlbedo(terrain.width, terrain.depth);
     for (const m of this.grass.meshes) m.visible = false;
+  }
+
+  /** The ground normals' first texels are in (a baker works them out off the page's thread) */
+  get normalsSettled(): Promise<void> {
+    return this.normals.settled;
   }
 
   /**
@@ -188,7 +193,10 @@ export class MapTerrainLayer {
     const t = this.terrain;
     const generation = ++this.generation;
     // The roads first: the mask leaves the ground under their surface to them. The mask is painted while the
-    // materials load, off the page's thread where there is a baker; new layers keep it
+    // materials load, off the page's thread where there is a baker; new layers keep it. A task of its own: the
+    // road network of a big map (some 300 ms) held the view's construction otherwise
+    await new Promise((resolve) => setTimeout(resolve));
+    if (generation !== this.generation) return;
     this.roads.set(paths);
     const painting = this.pathMask ? null : this.bakePathMask(paths);
     const { ids, slots } = assignLayerSlots(t);

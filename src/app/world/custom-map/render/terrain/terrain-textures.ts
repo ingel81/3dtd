@@ -16,6 +16,8 @@ import {
 } from 'three';
 import type { MapSplat } from '../../map-document';
 import type { HeightField } from '../height-field';
+import type { GroundBaker } from './ground-shape';
+import { gridWet, wetReach, writeGridNormals } from './grid-normals';
 import type { MapAssetLibrary, MaterialCompressed, MaterialPixels } from '../map-asset-library';
 import { uploadRect, type TexelRect } from './texture-ranges';
 
@@ -226,26 +228,30 @@ export function maskTexture(pixels: Uint8Array, resolution: number): DataTexture
   return t;
 }
 
-/** Samples from the water within which a bank counts as wet (alpha 1), and where the shore strip ends (alpha 0) */
-const WET_REACH = 2;
-const SHORE_REACH = 6;
-
 
 /**
  * Surface normals of the height grid, one texel per sample (x and z of the
  * scene-space normal in RGB, half floats; alpha: near water, for wet banks). The terrain shader reads them bilinearly:
  * the cliff test and the base normal then change smoothly inside a cell
  * instead of following the mesh's diagonal, which drew saw teeth along
- * cliff edges.
+ * cliff edges. The texels come from grid-normals.ts, worked out here or by a
+ * `baker` (the game's ground worker) the first time; until it answers the
+ * ground stands flat and dry (`settled`).
  */
 export class GridNormalTexture {
   readonly texture: DataTexture;
   private readonly pixels: Uint16Array;
+  private wet: Float32Array | null = null;
+  /** Counts the changes made here: a baker's answer for an older state is dropped */
+  private changes = 0;
+  /** The first texels are in */
+  readonly settled: Promise<void>;
 
   /** @param water The water's mask (setWater): normals and wet banks worked out once, not the normals twice */
   constructor(
     private readonly field: HeightField,
     water: Uint8Array | null = null,
+    baker: GroundBaker | null = null,
   ) {
     // Half floats: 8 bits per component band visibly on gentle slopes
     this.pixels = new Uint16Array(field.columns * field.rows * 4);
@@ -255,106 +261,55 @@ export class GridNormalTexture {
     this.texture.magFilter = LinearFilter;
     this.texture.minFilter = LinearFilter;
     this.texture.generateMipmaps = false;
-    this.setWater(water);
+    const ask = baker?.normals?.(water);
+    if (!ask) {
+      this.setWater(water);
+      this.settled = Promise.resolve();
+      return;
+    }
+    // Flat and dry until the baker's texels are in
+    const up = DataUtils.toHalfFloat(1);
+    for (let q = 1; q < this.pixels.length; q += 4) this.pixels[q] = up;
+    uploadRect(this.texture, undefined);
+    const asked = this.changes;
+    this.settled = ask.then((done) => {
+      if (asked !== this.changes) return;
+      if (!done) {
+        this.setWater(water);
+        return;
+      }
+      this.pixels.set(done.pixels);
+      this.wet = done.wet;
+      uploadRect(this.texture, undefined);
+    });
   }
-
-  private wet: Float32Array | null = null;
 
   /**
    * How near each sample lies to the water, in the alpha channel: 1 within
    * WET_REACH samples (the shader darkens banks just above the water level
    * there), fading to 0 at SHORE_REACH (the shore strip of the biome). A
-   * chamfer distance over the mask; a brush redoes its rectangle and the
-   * reach round it.
+   * chamfer distance over the mask (gridWet); a brush redoes its rectangle
+   * and the reach round it.
    */
   setWater(mask: Uint8Array | null, rect?: { i0: number; j0: number; i1: number; j1: number }): void {
     const f = this.field;
-    const cols = f.columns;
-    const rows = f.rows;
-    const g = SHORE_REACH;
-    // A brush on the mask: the samples within the reach of its rectangle; the distances there need the mask a reach further
-    const r = rect && this.wet ? { i0: Math.max(0, rect.i0 - g), j0: Math.max(0, rect.j0 - g), i1: Math.min(cols - 1, rect.i1 + g), j1: Math.min(rows - 1, rect.j1 + g) } : null;
-    if (!mask) {
-      this.wet = null;
-    } else {
-      const wet = r ? this.wet! : new Float32Array(cols * rows);
-      const w0 = { i0: Math.max(0, (r?.i0 ?? 0) - g), j0: Math.max(0, (r?.j0 ?? 0) - g), i1: Math.min(cols - 1, (r?.i1 ?? cols - 1) + g), j1: Math.min(rows - 1, (r?.j1 ?? rows - 1) + g) };
-      const ww = w0.i1 - w0.i0 + 1;
-      const wh = w0.j1 - w0.j0 + 1;
-      const d = new Float32Array(ww * wh);
-      for (let j = 0; j < wh; j++) for (let i = 0; i < ww; i++) d[j * ww + i] = mask[(j + w0.j0) * cols + i + w0.i0] > 0 ? 0 : 1e6;
-      // Two passes of a 3-4 chamfer (in samples: 1 along, 1.41 across)
-      const D = Math.SQRT2;
-      for (let j = 0; j < wh; j++) {
-        for (let i = 0; i < ww; i++) {
-          const k = j * ww + i;
-          let v = d[k];
-          if (i > 0) v = Math.min(v, d[k - 1] + 1);
-          if (j > 0) {
-            v = Math.min(v, d[k - ww] + 1);
-            if (i > 0) v = Math.min(v, d[k - ww - 1] + D);
-            if (i < ww - 1) v = Math.min(v, d[k - ww + 1] + D);
-          }
-          d[k] = v;
-        }
-      }
-      for (let j = wh - 1; j >= 0; j--) {
-        for (let i = ww - 1; i >= 0; i--) {
-          const k = j * ww + i;
-          let v = d[k];
-          if (i < ww - 1) v = Math.min(v, d[k + 1] + 1);
-          if (j < wh - 1) {
-            v = Math.min(v, d[k + ww] + 1);
-            if (i < ww - 1) v = Math.min(v, d[k + ww + 1] + D);
-            if (i > 0) v = Math.min(v, d[k + ww - 1] + D);
-          }
-          d[k] = v;
-        }
-      }
-      for (let j = r?.j0 ?? 0; j <= (r?.j1 ?? rows - 1); j++) {
-        for (let i = r?.i0 ?? 0; i <= (r?.i1 ?? cols - 1); i++) {
-          const dist = d[(j - w0.j0) * ww + i - w0.i0];
-          wet[j * cols + i] = dist <= WET_REACH ? 1 : Math.max(0, 1 - (dist - WET_REACH) / (SHORE_REACH - WET_REACH));
-        }
-      }
-      this.wet = wet;
-    }
+    const r = rect && this.wet ? wetReach(rect, f.columns, f.rows) : null;
+    this.wet = mask ? gridWet(mask, f.columns, f.rows, r ? rect! : null, r ? this.wet : null) : null;
     this.update(r ?? undefined);
   }
 
   /** Recomputes the samples in a rectangle (all when omitted) and re-uploads */
   update(rect?: { i0: number; j0: number; i1: number; j1: number }): void {
+    this.changes++;
     const f = this.field;
-    const i0 = Math.max(0, rect?.i0 ?? 0);
-    const j0 = Math.max(0, rect?.j0 ?? 0);
-    const i1 = Math.min(f.columns - 1, rect?.i1 ?? f.columns - 1);
-    const j1 = Math.min(f.rows - 1, rect?.j1 ?? f.rows - 1);
-    const inv = 1 / (2 * f.cellSize);
-    const h = f.grid.heights;
-    const cols = f.columns;
-    const last = cols - 1;
-    const lastRow = f.rows - 1;
-    const pixels = this.pixels;
-    const wet = this.wet;
-    // Per brush frame over the whole brush (a 200 m mountain: some 160 000 samples), so the samples are read
-    // straight from the grid (clamped at the border as HeightField.sample does) and normalised without Math.hypot
-    for (let j = j0; j <= j1; j++) {
-      const row = j * cols;
-      const up = (j > 0 ? j - 1 : 0) * cols;
-      const down = (j < lastRow ? j + 1 : lastRow) * cols;
-      for (let i = i0; i <= i1; i++) {
-        const dhdx = (h[row + (i < last ? i + 1 : last)] - h[row + (i > 0 ? i - 1 : 0)]) * inv;
-        const dhdy = (h[down + i] - h[up + i]) * inv;
-        // Scene normal (dhdx, 1, -dhdy), normalised
-        const k = 1 / Math.sqrt(dhdx * dhdx + 1 + dhdy * dhdy);
-        const q = (row + i) * 4;
-        pixels[q] = DataUtils.toHalfFloat(dhdx * k);
-        pixels[q + 1] = DataUtils.toHalfFloat(k);
-        pixels[q + 2] = DataUtils.toHalfFloat(-dhdy * k);
-        pixels[q + 3] = wet ? DataUtils.toHalfFloat(wet[row + i]) : 0;
-      }
-    }
-    uploadRect(this.texture, rect ? { i0, j0, i1, j1 } : undefined);
+    const r = {
+      i0: Math.max(0, rect?.i0 ?? 0),
+      j0: Math.max(0, rect?.j0 ?? 0),
+      i1: Math.min(f.columns - 1, rect?.i1 ?? f.columns - 1),
+      j1: Math.min(f.rows - 1, rect?.j1 ?? f.rows - 1),
+    };
+    writeGridNormals(f.grid.heights, f.columns, f.rows, f.cellSize, this.wet, this.pixels, r);
+    uploadRect(this.texture, rect ? r : undefined);
   }
 
   dispose(): void {

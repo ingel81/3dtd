@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cellHeight } from '../height-field';
-import { bakeShoreCut, SHORE_CUT_SCALE } from './shore-cut';
+import { bakeShoreCut, bakeShoreCutWhole, pasteShoreCut, SHORE_CUT_RADIUS, SHORE_CUT_SCALE, shoreCutInput } from './shore-cut';
 
 const N = 81;
 const LEVEL = 19.5;
@@ -110,5 +110,24 @@ describe('shore cut', () => {
     expect(out[(40 * N + 41) * 2]).toBe(0);
     // Far inside the water the cut is open
     expect(out[(40 * N + 40) * 2 + 1]).toBeGreaterThan(128);
+  });
+});
+
+describe('the shore cut of a pool, baked from its corner of the grid', () => {
+  it('comes out as the bake over the whole grid, in the middle and at an edge', () => {
+    const n = 120;
+    const heights = new Float32Array(n * n);
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) heights[j * n + i] = 2 + Math.sin(i * 0.37) * 1.5 + Math.cos(j * 0.23 + i * 0.11) * 1.2;
+    for (const [ci, cj] of [[60, 60], [3, 100]]) {
+      const mask = new Uint8Array(n * n);
+      for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) if (Math.hypot(i - ci, j - cj) < 9) mask[j * n + i] = 1;
+      const rect = { i0: Math.max(0, ci - 9 - SHORE_CUT_RADIUS), j0: Math.max(0, cj - 9 - SHORE_CUT_RADIUS), i1: Math.min(n - 1, ci + 9 + SHORE_CUT_RADIUS), j1: Math.min(n - 1, cj + 9 + SHORE_CUT_RADIUS) };
+      const whole = bakeShoreCutWhole({ heights, columns: n, rows: n, cellSize: 2, level: 2.5, mask, rect });
+      const { input, window } = shoreCutInput(heights, n, n, 2, 2.5, mask, rect);
+      const cut = new Uint8Array(n * n * 2);
+      pasteShoreCut(bakeShoreCutWhole(input), window, cut, n);
+      expect(cut).toEqual(whole);
+      expect(input.heights.length).toBeLessThan(heights.length);
+    }
   });
 });

@@ -186,7 +186,8 @@ Nebel der Szene wieder her.
   von Höhen und Lava beim Bau der Ansicht, die Karte steht dort still), der Editor im Editor-Worker (`EditorGround`,
   Aufträge `groundShape`, `lava`, `farShadow`), beide von der ersten Rechnung an (`CustomMapViewOptions.groundBaker`);
   bis sie da ist, zeichnet der Boden offen, `ready` wartet auf sie. Die Ergebnisse kommen als Rechteck in die Textur.
-  Derselbe Worker malt beim Laden die ganze Pfadmaske (`pathMask`, `path-mask.ts` `pathMaskOf`: Wege, Straßendeckel,
+  Derselbe Worker rechnet beim Laden die Bodennormalen samt nassen Ufern (`grid-normals.ts`, `GridNormalTexture` bis dahin
+  flach und trocken, `settled`) und malt die ganze Pfadmaske (`pathMask`, `path-mask.ts` `pathMaskOf`: Wege, Straßendeckel,
   Flussufer, Plätze), während die Bodenmaterialien laden; geänderte Höhen bekommt seine Kopie über
   `GroundBaker.heightsChanged` (Krater). Auf 1025² (Node): ein
   80-m-Strich vorher 64 ms Horizontsuche im Hauptthread (in Scheiben zu 2 ms je Bild), jetzt 0,4 ms Einschreiben; die
@@ -388,7 +389,7 @@ Viertelzelle): an der Wand endet das Wasser auf einer glatten Linie knapp vor de
 bleibt sichtbar; am glatten flachen Ufer schneidet weiter die Tiefe je Pixel. Kein zusätzlicher Texturzugriff (derselbe
 Maskenzugriff liest R und G). Gebacken über die Maskengrenzen bei neuem Spiegel, neuer Maske oder Ganzneubau (rund 40
 bis 70 ms auf einem 1025er-Raster mit Ufer überall; ein kleiner See nur sein Rechteck): immer in einem Worker
-(`shore-cut.worker.ts`, Kopien von Höhen und Maske), beim Laden ebenso (`WaterSurface.settled`, `ready` wartet), bis
+(`shore-cut.worker.ts`, Kopien nur des Ausschnitts, den der Schnitt liest: `shoreCutInput`/`pasteShoreCut`), beim Laden ebenso (`WaterSurface.settled`, `ready` wartet), bis
 dahin zeigt die Textur den alten Schnitt (beim ersten Mal keinen); ein neuerer Auftrag verwirft den älteren. Sonst um das Pinsel-Rechteck auf dem Hauptthread
 (unter 2 ms); ein Pinsel, während der Worker rechnet, wird über dessen Ergebnis noch einmal gebacken. `losTransparent`. Wasser empfängt den Schatten der Sonne (Bäume, Brücken, Ufer dunkeln Körper, Glanz und
 etwas die Spiegelung) und die Lichter des Lichtpuffers (Pool der Laternen, Fackeln, Lava, dazu die Schüsse) als

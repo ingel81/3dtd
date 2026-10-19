@@ -26,7 +26,7 @@ import type { MapEffects } from '../map-effects';
 import type { SceneCopy } from './scene-copy';
 import { setHeatHaze } from './heat-haze';
 import { bakeFlowMap, bakeFlowOffThread, flowInput } from './flow-map';
-import { bakeShoreCut, bakeShoreCutOffThread, SHORE_CUT_RADIUS } from './shore-cut';
+import { bakeShoreCut, bakeShoreCutOffThread, pasteShoreCut, SHORE_CUT_RADIUS, shoreCutInput } from './shore-cut';
 
 /**
  * One area body of a map (water, sea, swamp, ice or lava over a mask): a
@@ -56,6 +56,9 @@ export class WaterSurface {
   private readonly mask: DataTexture;
   /** The mask array the texture was last baked from (a new one, say after an undo, bakes all) */
   private maskSource: Uint8Array | null = null;
+  /** The samples the mask sets (maskBounds, ungrown), worked out once per mask array and grown by its brushes */
+  private bounds: GridRect | null = null;
+  private boundsOf: Uint8Array | null = null;
   private maskLevel = Number.NaN;
   /** The whole bake in a worker the texture waits for; a newer one (or the end) leaves an older one's unused */
   private shoreJob = 0;
@@ -142,10 +145,12 @@ export class WaterSurface {
     setWaterColor(this.material, kind, water.color);
     this.level = water.level;
     const f = this.field;
-    // A tile's cells reach two samples past the mask (the grown mask) and one for their far corner
-    const r = rect
-      ? { i0: Math.max(0, rect.i0 - 3), j0: Math.max(0, rect.j0 - 3), i1: Math.min(f.columns - 2, rect.i1 + 2), j1: Math.min(f.rows - 2, rect.j1 + 2) }
-      : { i0: 0, j0: 0, i1: f.columns - 2, j1: f.rows - 2 };
+    const bounds = this.waterBounds(water, rect);
+    // A tile's cells reach two samples past the mask (the grown mask) and one for their far corner; a whole
+    // rebuild only where the mask has water, the tiles beyond go
+    const reach = rect ?? bounds;
+    const r = reach && { i0: Math.max(0, reach.i0 - 3), j0: Math.max(0, reach.j0 - 3), i1: Math.min(f.columns - 2, reach.i1 + 2), j1: Math.min(f.rows - 2, reach.j1 + 2) };
+    if (!rect) this.dropTilesBeyond(r);
     this.bakeMask(water, rect);
     // Ice stands still. The current runs over the whole body, in a worker (tens of ms to a second on a big
     // body): the first bake right away, edits (a mask or height brush) once they pause for a quarter second
@@ -162,10 +167,42 @@ export class WaterSurface {
         this.bakeFlow(water);
       }
     }
-    for (let tj = Math.floor(r.j0 / TILE); tj <= Math.floor(r.j1 / TILE); tj++) {
-      for (let ti = Math.floor(r.i0 / TILE); ti <= Math.floor(r.i1 / TILE); ti++) this.buildTile(water, ti, tj);
+    if (r) {
+      for (let tj = Math.floor(r.j0 / TILE); tj <= Math.floor(r.j1 / TILE); tj++) {
+        for (let ti = Math.floor(r.i0 / TILE); ti <= Math.floor(r.i1 / TILE); ti++) this.buildTile(water, ti, tj);
+      }
     }
     if (apron || !rect) this.buildApron(water, apron);
+  }
+
+  /**
+   * The samples the mask sets: anew for a new mask array or a whole rebuild (the mask may have changed in place),
+   * grown by a brush's rectangle (a brush that takes water away leaves them larger, which only costs a look)
+   */
+  private waterBounds(water: MapWater, rect?: GridRect): GridRect | null {
+    const f = this.field;
+    if (!rect || water.mask !== this.boundsOf) {
+      this.bounds = maskBounds(water.mask, f.columns, f.rows, 0);
+      this.boundsOf = water.mask;
+    } else {
+      const r = { i0: Math.max(0, rect.i0), j0: Math.max(0, rect.j0), i1: Math.min(f.columns - 1, rect.i1), j1: Math.min(f.rows - 1, rect.j1) };
+      this.bounds = this.bounds ? unionRect(this.bounds, r) : r;
+    }
+    return this.bounds;
+  }
+
+  /** The tile meshes outside `r` (cells) go: no water there any more; all of them without one */
+  private dropTilesBeyond(r: GridRect | null): void {
+    for (const [key, mesh] of this.tiles) {
+      const ti = key % 4096;
+      const tj = Math.floor(key / 4096);
+      const inside = r && ti >= Math.floor(r.i0 / TILE) && ti <= Math.floor(r.i1 / TILE) && tj >= Math.floor(r.j0 / TILE) && tj <= Math.floor(r.j1 / TILE);
+      if (inside) continue;
+      setHeatHaze(mesh, null);
+      mesh.geometry.dispose();
+      mesh.removeFromParent();
+      this.tiles.delete(key);
+    }
   }
 
   /** The first bakes of the current and of the shore cut are in (the view's `ready` waits for them) */
@@ -216,7 +253,8 @@ export class WaterSurface {
     const job = ++this.shoreJob;
     this.shorePending = true;
     this.shoreSince = null;
-    const rect = maskBounds(water.mask, f.columns, f.rows, SHORE_CUT_RADIUS);
+    const b = this.bounds;
+    const rect = b && { i0: Math.max(0, b.i0 - SHORE_CUT_RADIUS), j0: Math.max(0, b.j0 - SHORE_CUT_RADIUS), i1: Math.min(f.columns - 1, b.i1 + SHORE_CUT_RADIUS), j1: Math.min(f.rows - 1, b.j1 + SHORE_CUT_RADIUS) };
     if (!rect) {
       // No water: nothing to wait for
       this.shorePending = false;
@@ -224,13 +262,15 @@ export class WaterSurface {
       uploadRect(this.mask, undefined);
       return;
     }
-    const input = { heights: f.grid.heights.slice(), columns: f.columns, rows: f.rows, cellSize: f.cellSize, level: water.level, mask: water.mask.slice(), rect };
+    // Only the samples the bake reads go to the worker: a pool on a big map copies its corner, not the grid
+    const { input, window } = shoreCutInput(f.grid.heights, f.columns, f.rows, f.cellSize, water.level, water.mask, rect);
     this.shoreBaking = bakeShoreCutOffThread(input).then((cut) => {
       if (job !== this.shoreJob) return;
       this.shorePending = false;
       // A failed worker: the bake here after all
-      const data = cut ?? new Uint8Array(f.columns * f.rows * 2);
-      if (!cut) bakeShoreCut(f.grid.heights, f.columns, f.rows, f.cellSize, water.level, water.mask, data, rect);
+      const data = new Uint8Array(f.columns * f.rows * 2);
+      if (cut) pasteShoreCut(cut, window, data, f.columns);
+      else bakeShoreCut(f.grid.heights, f.columns, f.rows, f.cellSize, water.level, water.mask, data, rect);
       const since = this.shoreSince;
       this.shoreSince = null;
       if (since) bakeShoreCut(f.grid.heights, f.columns, f.rows, f.cellSize, water.level, water.mask, data, since);
@@ -467,22 +507,34 @@ function unionRect(a: GridRect, b: GridRect): GridRect {
   return { i0: Math.min(a.i0, b.i0), j0: Math.min(a.j0, b.j0), i1: Math.max(a.i1, b.i1), j1: Math.max(a.j1, b.j1) };
 }
 
-/** The samples a mask sets, grown by `grow` and clamped to the grid; null when it is empty */
-function maskBounds(mask: Uint8Array, columns: number, rows: number, grow: number): GridRect | null {
-  let i0 = columns;
-  let j0 = rows;
-  let i1 = -1;
-  let j1 = -1;
-  for (let j = 0; j < rows; j++) {
-    const row = j * columns;
-    for (let i = 0; i < columns; i++) {
-      if (!mask[row + i]) continue;
-      if (i < i0) i0 = i;
-      if (i > i1) i1 = i;
-      j0 = Math.min(j0, j);
-      j1 = j;
-    }
+/**
+ * The samples a mask sets, grown by `grow` and clamped to the grid; null when it is empty. The first and last
+ * set sample are found four bytes at a time, then each row between only scans in from both ends: a pool on a
+ * large map reads little more than the empty grid in words
+ */
+export function maskBounds(mask: Uint8Array, columns: number, rows: number, grow: number): GridRect | null {
+  const n = columns * rows;
+  let first = -1;
+  let last = -1;
+  const words = mask.byteOffset % 4 === 0 ? new Uint32Array(mask.buffer, mask.byteOffset, n >> 2) : null;
+  const tail = words ? words.length * 4 : 0;
+  if (words) {
+    for (let w = 0; w < words.length && first < 0; w++) if (words[w]) for (let k = w * 4; k < w * 4 + 4; k++) if (mask[k]) { first = k; break; }
   }
-  if (i1 < 0) return null;
+  for (let k = tail; k < n && first < 0; k++) if (mask[k]) first = k;
+  if (first < 0) return null;
+  for (let k = n - 1; k >= tail && last < 0; k--) if (mask[k]) last = k;
+  if (words) {
+    for (let w = words.length - 1; w >= 0 && last < 0; w--) if (words[w]) for (let k = w * 4 + 3; k >= w * 4; k--) if (mask[k]) { last = k; break; }
+  }
+  const j0 = Math.floor(first / columns);
+  const j1 = Math.floor(last / columns);
+  let i0 = columns;
+  let i1 = -1;
+  for (let j = j0; j <= j1; j++) {
+    const row = j * columns;
+    for (let i = 0; i < i0; i++) if (mask[row + i]) { i0 = i; break; }
+    for (let i = columns - 1; i > i1; i--) if (mask[row + i]) { i1 = i; break; }
+  }
   return { i0: Math.max(0, i0 - grow), j0: Math.max(0, j0 - grow), i1: Math.min(columns - 1, i1 + grow), j1: Math.min(rows - 1, j1 + grow) };
 }

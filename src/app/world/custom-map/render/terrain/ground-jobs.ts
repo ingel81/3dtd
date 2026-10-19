@@ -8,7 +8,8 @@
 import type { MapTerrain, MapWater } from '../../map-document';
 import { HeightField } from '../height-field';
 import { pathMaskOf, type PathMaskInput } from '../paths/path-mask';
-import { farShadowData, lavaCloseness, lavaSamples, shapePatch, type FarShadowTexels, type SampleRect, type ShapePatch } from './ground-shape';
+import { gridWet, writeGridNormals } from './grid-normals';
+import { farShadowData, lavaCloseness, lavaSamples, shapePatch, type FarShadowTexels, type GridNormalTexels, type SampleRect, type ShapePatch } from './ground-shape';
 
 /** The part of a map the jobs read: its height grid and extent, the lava among its water */
 export type GroundJobMap = Pick<MapTerrain, 'width' | 'depth' | 'grid' | 'water' | 'waterBodies' | 'rivers'>;
@@ -17,6 +18,7 @@ export type GroundJob =
   | { kind: 'shape'; rect: SampleRect | null }
   | { kind: 'heights'; rect: SampleRect; rows: Float32Array }
   | { kind: 'pathMask'; input: PathMaskInput }
+  | { kind: 'normals'; mask: Uint8Array | null }
   | { kind: 'lava' }
   | { kind: 'farShadow'; sunDir: { x: number; y: number; z: number } };
 
@@ -24,6 +26,7 @@ export interface GroundJobResults {
   shape: ShapePatch;
   heights: null;
   pathMask: Uint8Array;
+  normals: GridNormalTexels;
   lava: { closeness: Uint8Array; any: boolean };
   farShadow: FarShadowTexels;
 }
@@ -62,6 +65,13 @@ export function runGroundJob(map: GroundJobMap, job: GroundJob): GroundJobResult
       return null;
     case 'pathMask':
       return pathMaskOf(job.input);
+    case 'normals': {
+      const { columns, rows, cellSize, heights } = map.grid;
+      const wet = job.mask ? gridWet(job.mask, columns, rows, null, null) : null;
+      const pixels = new Uint16Array(columns * rows * 4);
+      writeGridNormals(heights, columns, rows, cellSize, wet, pixels, { i0: 0, j0: 0, i1: columns - 1, j1: rows - 1 });
+      return { pixels, wet };
+    }
     case 'lava': {
       const lava = lavaSamples(map, field);
       return { closeness: lavaCloseness(lava, field), any: lava.includes(1) };
@@ -89,6 +99,7 @@ function writeRows(heights: Float32Array, columns: number, rect: SampleRect, row
 export function groundResultTransfer(result: GroundJobResult): ArrayBuffer[] {
   if (result === null) return [];
   if (result instanceof Uint8Array) return [result.buffer as ArrayBuffer];
+  if ('pixels' in result) return [result.pixels.buffer as ArrayBuffer, ...(result.wet ? [result.wet.buffer as ArrayBuffer] : [])];
   if ('terrain' in result) return [result.terrain, result.curvature, ...(result.drainage ? [result.drainage] : [])].map((a) => a.buffer as ArrayBuffer);
   if ('closeness' in result) return [result.closeness.buffer as ArrayBuffer];
   return [result.data.buffer as ArrayBuffer];

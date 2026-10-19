@@ -38,6 +38,12 @@ export interface ShapePatch {
   drainage?: Uint8Array;
 }
 
+/** The ground normals' texels (RGBA half floats) and the wet banks they were made with (GridNormalTexture) */
+export interface GridNormalTexels {
+  pixels: Uint16Array;
+  wet: Float32Array | null;
+}
+
 /** The far shadow's texels (farShadowData) */
 export interface FarShadowTexels {
   data: Uint8Array;
@@ -57,6 +63,11 @@ export interface GroundBaker {
   lava(): Promise<{ closeness: Uint8Array; any: boolean } | null>;
   /** The far shadow for the sun in `sunDir` (scene space, towards the sun) */
   farShadow(sunDir: { x: number; y: number; z: number }): Promise<FarShadowTexels | null>;
+  /**
+   * The ground normals' texels and wet banks (grid-normals.ts) for the main water's `mask` (null: none) on the
+   * heights as they are; missing: worked out in place
+   */
+  normals?(mask: Uint8Array | null): Promise<GridNormalTexels | null>;
   /** The whole path mask (path-mask.ts) of a map that loads; missing: painted in place */
   pathMask?(input: PathMaskInput): Promise<Uint8Array | null>;
   /**
