@@ -1,0 +1,13 @@
+{
+  "name": "3dtd-model-pack",
+  "private": true,
+  "type": "module",
+  "description": "Packs the GLB models for the game: meshopt geometry, KTX2 textures (Basis ETC1S, UASTC for normals), shared map textures. Not part of the game.",
+  "devDependencies": {
+    "@gltf-transform/core": "4.5.1",
+    "@gltf-transform/extensions": "4.5.1",
+    "@gltf-transform/functions": "4.5.1",
+    "meshoptimizer": "1.1.1",
+    "sharp": "0.35.5"
+  }
+}

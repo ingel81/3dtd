@@ -13,12 +13,17 @@ metalness of its texture times their factors. The LOD meshes have no second UV
 set, so their materials lose the occlusion texture they still pointed at (the
 full model's baked AO, read at one texel), and images nothing uses any more
 leave the file. Run after pack_models.py; running it again changes nothing.
+The textures are the shared KTX2 files of pack-map-models.mjs (or embedded
+images of an older model); reading a KTX2 file needs the ktx tool of
+KTX-Software 4.4 in KTX_TOOL.
 """
 import io
 import json
 import os
 import struct
+import subprocess
 import sys
+import tempfile
 
 import numpy as np
 from PIL import Image
@@ -49,29 +54,52 @@ def write_glb(path, gltf, binary):
             f.write(struct.pack('<II', len(binary), 0x004E4942) + binary)
 
 
-def image_of(gltf, binary, texture):
-    tex = gltf['textures'][texture['index']]
-    source = tex.get('extensions', {}).get('EXT_texture_webp', {}).get('source', tex.get('source'))
-    view = gltf['bufferViews'][gltf['images'][source]['bufferView']]
-    start = view.get('byteOffset', 0)
-    return np.asarray(Image.open(io.BytesIO(binary[start:start + view['byteLength']])).convert('RGB'), dtype=np.float64) / 255
+def source_of(tex):
+    """The image index of a texture, plain or through EXT_texture_webp / KHR_texture_basisu"""
+    ext = tex.get('extensions', {})
+    for name in ('KHR_texture_basisu', 'EXT_texture_webp'):
+        if name in ext:
+            return ext[name]['source']
+    return tex.get('source')
+
+
+def ktx2_rgb(path):
+    """RGB of a KTX2 file's full-size level, through `ktx extract`"""
+    tool = os.environ.get('KTX_TOOL', 'ktx')
+    with tempfile.TemporaryDirectory() as tmp:
+        out = os.path.join(tmp, 'level0.png')
+        subprocess.run([tool, 'extract', '--transcode', 'rgba8', path, out], check=True,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return Image.open(out).convert('RGB')
+
+
+def image_of(models, gltf, binary, texture):
+    image = gltf['images'][source_of(gltf['textures'][texture['index']])]
+    if 'uri' in image:
+        # A shared texture file (../textures/<name>-<hash>.ktx2)
+        picture = ktx2_rgb(os.path.normpath(os.path.join(models, image['uri'])))
+    else:
+        view = gltf['bufferViews'][image['bufferView']]
+        start = view.get('byteOffset', 0)
+        picture = Image.open(io.BytesIO(binary[start:start + view['byteLength']])).convert('RGB')
+    return np.asarray(picture, dtype=np.float64) / 255
 
 
 def linear(c):
     return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
 
 
-def far_look(gltf, binary, m):
+def far_look(models, gltf, binary, m):
     """Colour, roughness and metalness of a material seen from afar: texture means times factors"""
     pbr = m.get('pbrMetallicRoughness', {})
     colour = list(pbr.get('baseColorFactor', [1, 1, 1, 1]))
     if 'baseColorTexture' in pbr:
-        mean = linear(image_of(gltf, binary, pbr['baseColorTexture'])).mean(axis=(0, 1))
+        mean = linear(image_of(models, gltf, binary, pbr['baseColorTexture'])).mean(axis=(0, 1))
         colour[:3] = [float(f * v) for f, v in zip(colour[:3], mean)]
     rough = pbr.get('roughnessFactor', 1.0)
     metal = pbr.get('metallicFactor', 1.0)
     if 'metallicRoughnessTexture' in pbr:
-        mean = image_of(gltf, binary, pbr['metallicRoughnessTexture']).mean(axis=(0, 1))
+        mean = image_of(models, gltf, binary, pbr['metallicRoughnessTexture']).mean(axis=(0, 1))
         rough, metal = rough * float(mean[1]), metal * float(mean[2])
     return colour, rough, metal
 
@@ -109,15 +137,17 @@ def prune_images(gltf, binary):
 
     renumber(gltf['materials'])
     gltf['textures'] = [textures[i] for i in keep]
-    sources = {t.get('extensions', {}).get('EXT_texture_webp', {}).get('source', t.get('source')) for t in gltf['textures']}
+    sources = {source_of(t) for t in gltf['textures']}
     images = gltf.get('images', [])
-    drop_views = {images[i]['bufferView'] for i in range(len(images)) if i not in sources}
+    # A shared file (uri) has no bytes here
+    drop_views = {images[i]['bufferView'] for i in range(len(images)) if i not in sources and 'bufferView' in images[i]}
     image_map = {old: new for new, old in enumerate(i for i in range(len(images)) if i in sources)}
     gltf['images'] = [images[i] for i in range(len(images)) if i in sources]
     for t in gltf['textures']:
-        ext = t.get('extensions', {}).get('EXT_texture_webp')
-        if ext:
-            ext['source'] = image_map[ext['source']]
+        for name in ('EXT_texture_webp', 'KHR_texture_basisu'):
+            ext = t.get('extensions', {}).get(name)
+            if ext:
+                ext['source'] = image_map[ext['source']]
         if 'source' in t:
             t['source'] = image_map[t['source']]
     for key in ('textures', 'images', 'samplers'):
@@ -127,7 +157,7 @@ def prune_images(gltf, binary):
         gltf.pop('samplers', None)
         for key in ('extensionsUsed', 'extensionsRequired'):
             if key in gltf:
-                gltf[key] = [e for e in gltf[key] if e != 'EXT_texture_webp']
+                gltf[key] = [e for e in gltf[key] if e not in ('EXT_texture_webp', 'KHR_texture_basisu')]
                 if not gltf[key]:
                     del gltf[key]
     return drop_buffer_views(gltf, binary, drop_views)
@@ -174,7 +204,8 @@ def drop_buffer_views(gltf, binary, drop):
         if 'bufferView' in a:
             a['bufferView'] = remap[a['bufferView']]
     for im in gltf.get('images', []):
-        im['bufferView'] = remap[im['bufferView']]
+        if 'bufferView' in im:
+            im['bufferView'] = remap[im['bufferView']]
     gltf['buffers'][0]['byteLength'] = len(out)
     return bytes(out)
 
@@ -193,7 +224,7 @@ def match(models, mid, lod_file):
         source = by_name.get(name[:-4]) if name.endswith('-lod') else None
         if source is None:
             continue
-        colour, rough, metal = far_look(full, full_bin, source)
+        colour, rough, metal = far_look(models, full, full_bin, source)
         pbr = m.setdefault('pbrMetallicRoughness', {})
         before = pbr.get('baseColorFactor', [1, 1, 1, 1])
         pbr['baseColorFactor'] = [round(v, 4) for v in colour]

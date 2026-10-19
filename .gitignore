@@ -92,6 +92,7 @@ public/agent/
 
 # One-shot tools with their own dependencies
 tools/google3d/node_modules
+tools/model-pack/node_modules
 e2e/node_modules
 e2e/playwright-report
 e2e/test-results

@@ -25,6 +25,7 @@
     "wave-planner": "vitest run tools/wave-planner/generate.spec.ts",
     "model-budget": "vitest run tools/model-budget/generate.spec.ts",
     "previews": "node e2e/previews/bake.ts",
+    "models:pack": "node tools/model-pack/pack-game-models.mjs",
     "shader-check": "vitest run tools/shader-check/shader-check.spec.ts --reporter=verbose",
     "balance-calc": "vitest run tools/balance-calc/balance-calc.spec.ts",
     "w3x-import": "vitest run tools/w3x/import.spec.ts --mode w3x --silent=false",

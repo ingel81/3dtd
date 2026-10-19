@@ -31,10 +31,13 @@ python -I tools/map-assets/fetch_model_sources.py $DL/models
 # Modelle in Blender bauen (GLB, unkomprimiert); Ids oder Präfixe mit * bauen nur diese
 blender --background --factory-startup --python tools/map-assets/build_models.py -- $DL/models $DL/foliage $DL/glb-raw [<id> ...]
 
-# Komprimieren (meshopt, WebP 512 px, 1024 px für textureSize 1024 in objects.json) und vermessen
+# Komprimieren und vermessen: meshopt, dann die Texturen als geteilte KTX2-Dateien in textures/ (512 px, 1024 px für
+# textureSize 1024 in objects.json; ETC1S, UASTC für Normalen und wo ETC1S die Textur nicht hält; tools/model-pack).
+# Braucht `npm install` in tools/model-pack und KTX_TOOL (ktx.exe aus KTX-Software 4.4)
 python -I tools/map-assets/pack_models.py $DL/glb-raw public/maps/assets [<id> ...]
 
-# Farbe, Rauheit und Metall der LOD-Modelle (-lod1) aus den vollen Modellen (Mittel der Texturen, linear)
+# Farbe, Rauheit und Metall der LOD-Modelle (-lod1) aus den vollen Modellen (Mittel der Texturen, linear; liest die
+# KTX2-Dateien mit KTX_TOOL)
 python -I tools/map-assets/match_lods.py public/maps/assets [<id> ...]
 
 # Himmelsbilder (Poly-Haven-HDRIs, 4k): obere Halbkugel als WebP und skies/skies.json mit Sonne und Farben,
@@ -64,7 +67,8 @@ npx -y @gltf-transform/cli@4.5.1 meshopt public/maps/assets/models/<id>-lod1.glb
 node tools/map-assets/bake_far_boxes.mjs public/maps/assets
 
 # Objekte in catalog.json schreiben (objects.json + Messwerte + bases.json), Dreiecke je Modell und LOD
-# (count_triangles.py, auch allein nach einem pack_models.py), LICENSES.md neu. Nicht gebaute Modelle (ein Bau
+# (count_triangles.py, auch allein nach einem pack_models.py), LICENSES.md neu; vorher pack-map-models.mjs über alle
+# Modelle (räumt Texturen weg, die kein Modell mehr nennt) und je Datei die geteilten Texturen (`textures`). Nicht gebaute Modelle (ein Bau
 # einzelner Ids) behalten Fußabdruck, Höhe und LOD aus dem bisherigen catalog.json. Neue LODs: match_lods.py
 # braucht ihren Katalogeintrag, also update_catalog.py, match_lods.py, update_catalog.py
 python -I tools/map-assets/update_catalog.py $DL/glb-raw public/maps/assets

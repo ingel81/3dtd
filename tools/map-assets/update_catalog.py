@@ -12,15 +12,22 @@ from bases.json (measure_bases.mjs), the ground rectangle of buildings and walls
 (measure_roofs.mjs), the far stage of buildings (`far`) from farboxes.json (bake_far_boxes.mjs); the triangle counts from the packed models
 (count_triangles.py). Objects <glb-raw-dir> has not measured (a build of a few
 models) keep their measured fields from the current catalog.json.
-Also rewrites LICENSES.md.
+First it runs tools/model-pack/pack-map-models.mjs over all models (a model
+still with images of its own gets the shared KTX2 textures, files no model
+names any more go), then writes per model file the shared textures it names
+(`textures`, also per `lod` entry): the game fetches them beside the GLB.
+Needs the ktx tool in KTX_TOOL. Also rewrites LICENSES.md.
 """
 import json
 import math
 import os
+import posixpath
+import struct
 import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+PACK = os.path.join(HERE, '..', 'model-pack')
 
 DEFAULTS = {
     'tree': {'blocksLos': True, 'blocksBuild': True, 'scaleRange': [0.8, 1.2], 'randomRotation': True, 'wind': 0.5, 'drawDistance': 2500},
@@ -45,7 +52,7 @@ TAN_HALF_FOV = math.tan(math.radians(30))
 # A building's box (objects/far-boxes.ts) takes over where it fills less than this share of the screen's height
 FAR_SCREEN = 0.045
 ORDER = ['id', 'name', 'category', 'file', 'footprint', 'height', 'base', 'box', 'roof', 'blocksLos', 'blocksBuild', 'scaleRange',
-         'randomRotation', 'wind', 'drawDistance', 'float', 'aloft', 'stilts', 'roadThrough', 'groundCut', 'spin', 'rotor', 'cable', 'grip', 'variants', 'signPanel', 'grime', 'tags', 'effects', 'light', 'lod', 'far', 'source']
+         'randomRotation', 'wind', 'drawDistance', 'float', 'aloft', 'stilts', 'roadThrough', 'groundCut', 'spin', 'rotor', 'cable', 'grip', 'variants', 'signPanel', 'grime', 'tags', 'effects', 'light', 'textures', 'lod', 'far', 'source']
 
 
 def lod_screen(e, distance):
@@ -55,8 +62,19 @@ def lod_screen(e, distance):
     return round(radius / (distance * TAN_HALF_FOV), 4)
 
 
+def shared_textures(out, file):
+    """The shared texture files a packed model names (images with a URI), as catalogue paths"""
+    with open(os.path.join(out, file), 'rb') as f:
+        data = f.read()
+    length = struct.unpack_from('<I', data, 12)[0]
+    gltf = json.loads(data[20:20 + length])
+    folder = posixpath.dirname(file)
+    return sorted({posixpath.normpath(posixpath.join(folder, im['uri'])) for im in gltf.get('images', []) if 'uri' in im})
+
+
 def main():
     raw, out = sys.argv[1], sys.argv[2]
+    subprocess.run(['node', os.path.join(PACK, 'pack-map-models.mjs'), out], check=True)
     spec = json.load(open(os.path.join(HERE, 'objects.json'), encoding='utf8'))
     report = json.load(open(os.path.join(raw, 'report.json'), encoding='utf8'))
     bases = json.load(open(os.path.join(HERE, 'bases.json'), encoding='utf8'))
@@ -74,6 +92,7 @@ def main():
             objects.append({k: e[k] for k in ORDER if k in e})
             continue
         e.pop('textureSize', None)
+        e.pop('textureCodec', None)
         m = report.get(o['id'])
         # Not built this time (a build of a few models): the measured fields stay as the catalogue has them
         kept = current.get(o['id']) if m is None else None
@@ -107,6 +126,15 @@ def main():
             e['lod'] = kept['lod']
         if o['id'] in farboxes:
             e['far'] = {'screen': FAR_SCREEN, **farboxes[o['id']]}
+        if os.path.exists(os.path.join(out, e['file'])):
+            textures = shared_textures(out, e['file'])
+            if textures:
+                e['textures'] = textures
+            for level in e.get('lod', []):
+                level.pop('textures', None)
+                lod_textures = shared_textures(out, level['file']) if os.path.exists(os.path.join(out, level['file'])) else []
+                if lod_textures:
+                    level['textures'] = lod_textures
         objects.append({k: e[k] for k in ORDER if k in e})
     taken = {m['id'] for m in catalog['materials']}
     for o in objects:
