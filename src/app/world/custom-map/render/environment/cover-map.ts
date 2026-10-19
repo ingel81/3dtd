@@ -53,8 +53,13 @@ export class CoverMap {
     this.set([], new Map());
   }
 
-  /** Terrain heights plus the roofs of buildings, structures and rocks, and the surfaces of water bodies and rivers */
-  set(objects: MapObject[], entries: Map<string, CatalogObject>, terrain?: MapTerrain): void {
+  /**
+   * Terrain heights plus the roofs of buildings, structures and rocks, and
+   * the surfaces of water bodies and rivers. `bare`: samples where the fight
+   * tore the ground up (a crater, a heap of rubble, custom-map-ground-damage.ts),
+   * which grow no grass, as at a footprint
+   */
+  set(objects: MapObject[], entries: Map<string, CatalogObject>, terrain?: MapTerrain, bare?: Uint8Array | null): void {
     const f = this.field;
     this.tops.set(f.grid.heights);
     this.rims.fill(COVER_RIM);
@@ -88,6 +93,7 @@ export class CoverMap {
         }
       }
     }
+    if (bare) for (let k = 0; k < bare.length; k++) if (bare[k]) this.rims[k] = 0;
     for (let k = 0; k < this.tops.length; k++) {
       this.data[k * 2] = this.tops[k];
       this.data[k * 2 + 1] = this.rims[k];

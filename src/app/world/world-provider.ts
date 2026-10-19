@@ -2,6 +2,7 @@ import type { Signal } from '@angular/core';
 import type { Group, Matrix4, Object3D, PerspectiveCamera, Raycaster, Scene, Texture, Vector2, Vector3, Vector4, WebGLRenderer } from 'three';
 import type { LaneChoice } from './custom-map/lane-choice';
 import type { StructureStage } from '../configs/destruction.config';
+import type { RubbleMaterial } from './custom-map/rubble-material';
 import type { TilesRenderer } from '3d-tiles-renderer';
 import type { CameraRig } from '../three-engine/camera-rig';
 import type { ColumnHit, ColumnSample } from '../three-engine/column-sample';
@@ -468,6 +469,8 @@ export interface WorldStructure {
   readonly maxHp: number;
   /** As the simulation has it: 0 standing, 1 battered, 2 heavily damaged, 3 fallen (destruction.config.ts) */
   stage: StructureStage;
+  /** What it is built of: its rubble, dust and pieces (custom-map/rubble-material.ts); plaster when missing */
+  readonly material?: RubbleMaterial;
 }
 
 /**

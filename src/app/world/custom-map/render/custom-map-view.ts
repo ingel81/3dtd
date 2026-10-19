@@ -249,6 +249,8 @@ export class CustomMapView {
   private readonly decals: GroundDecals;
   /** Craters and rubble of the fight (impact-marks.ts), with options.impactMarks */
   private readonly impactMarks: ImpactMarks | null = null;
+  /** Samples where the fight tore the ground up: no grass (setGroundBare) */
+  private groundBare: Uint8Array | null = null;
   /** The pieces on the fallen structures' heaps (rubble-pieces.ts), with options.impactMarks */
   private readonly rubblePieces: RubblePieces | null = null;
   /** Which objects the view shows (an editor hides categories); null shows all */
@@ -788,6 +790,15 @@ export class CustomMapView {
     }
     this.environment.matchFog(this.camPos, this.focusPoint);
     this.environment.setFogMap(this.group.position.x, this.group.position.z, this.doc.terrain.width / 2, this.doc.terrain.depth / 2);
+  }
+
+  /**
+   * Samples where the fight tore the ground up (custom-map-ground-damage.ts),
+   * kept by reference and read with the next cover: no grass grows there
+   */
+  setGroundBare(bare: Uint8Array | null): void {
+    this.groundBare = bare;
+    this.coverDirty = true;
   }
 
   /** The fight's marks on the ground as they stand now (with options.impactMarks) */
@@ -1440,7 +1451,7 @@ export class CustomMapView {
     this.coverAge = 0;
     const catalog = await this.assets.catalog();
     if (this.disposed) return;
-    this.cover.set(this.shownObjects(), this.catalogEntries(catalog), this.doc.terrain);
+    this.cover.set(this.shownObjects(), this.catalogEntries(catalog), this.doc.terrain, this.groundBare);
   }
 
   /** Contact shadows of the objects in the baked ground occlusion */

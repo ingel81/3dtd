@@ -277,7 +277,7 @@ describe('SimCore in the same thread', () => {
     packet = drive.tick();
     expect(packet.ops.filter((op) => op[0].startsWith('structures.') || op[0] === 'main.structureFell')).toEqual([
       ['structures.stage', 0, 3],
-      ['main.structureFell', barn.lat, barn.lon, 5, 6],
+      ['main.structureFell', 0, barn.lat, barn.lon, 5, 6],
     ]);
     // The cannon 29 m off asks for its sight again (still its first, so as 'place'), to see past where the barn stood
     const cannon = core.gsm.towerManager.getAll()[0];

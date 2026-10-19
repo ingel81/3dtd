@@ -234,8 +234,12 @@ export interface SimSink {
     iceExplosion(lat: number, lon: number, explosionHeight: number, groundHeight: number, air: boolean): void;
     /** One frost decal under a splash target of the ice shard, as iceExplosion's small ones */
     iceDecal(lat: number, lon: number, groundHeight: number): void;
-    /** A structure of a destructible world fell just now (StructureLedger): an explosion of its size */
-    structureFell(lat: number, lon: number, radius: number, height: number): void;
+    /**
+     * Structure `index` (run rules' order) of a destructible world fell just
+     * now (StructureLedger): its dust and grit thrown up, of its size and
+     * what it is built of
+     */
+    structureFell(index: number, lat: number, lon: number, radius: number, height: number): void;
   };
 }
 

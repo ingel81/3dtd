@@ -236,7 +236,7 @@ export class WorldDamage {
     if (to !== 3) return;
     const s = this.structures.list()[index];
     // The moment of the fall: a show op, left out while the show is muted (a replay's seek)
-    this.host.sink.main.structureFell(s.lat, s.lon, s.radius, s.height);
+    this.host.sink.main.structureFell(index, s.lat, s.lon, s.radius, s.height);
     // Its stage is 3 already: a field made now stamps its rubble with the rest
     if (this.field) this.field.rubbleHeap(rubbleStampOf(s, this.host.toLocal), 1);
     else this.restamp(this.newField());

@@ -187,7 +187,7 @@ export class RubblePieces {
         const y = m.y + Math.sin(a) * d;
         this.axis.set(rand(m.seed, k * 7 + 3) - 0.5, 1.6, rand(m.seed, k * 7 + 4) - 0.5).normalize();
         this.quat.setFromAxisAngle(this.axis, rand(m.seed, k * 7 + 5) * Math.PI * 2);
-        const s = (0.75 + rand(m.seed, k * 7 + 6) * 0.7) * (0.8 + m.strength * 0.6);
+        const s = (0.9 + rand(m.seed, k * 7 + 6) * 0.8) * (0.9 + m.strength * 0.7);
         this.scale.set(s, s, s);
         // Half sunk into the heap, as a piece that fell into it lies
         this.pos.set(-x, -0.06 * s, y);

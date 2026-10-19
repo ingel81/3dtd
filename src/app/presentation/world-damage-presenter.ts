@@ -6,6 +6,7 @@ import type { WorldDestruction, WorldGroundDamage } from '../world/world-provide
 import type { Tower } from '../entities/tower.entity';
 import type { TowerChange } from '../sim/client/mirror/sim-mirror';
 import { MAP_METERS_PER_DEGREE } from '../world/custom-map/map-document';
+import { RUBBLE_COLOURS } from '../world/custom-map/rubble-material';
 import type { RunStructure } from '../sim/protocol/run-rules';
 import type { StructureStage } from '../configs/destruction.config';
 import { CRATER_STRIDE } from '../managers/game-state/crater-ledger';
@@ -150,13 +151,30 @@ export class WorldDamagePresenter {
     this.drawn?.crater(x, y, radius, depth, 1);
   }
 
-  /** A structure fell just now (op `main.structureFell`): it goes up in an explosion of its size */
-  fell(lat: number, lon: number, radius: number, height: number): void {
+  /**
+   * Structure `index` fell just now (op `main.structureFell`): a short flash
+   * where it breaks, a wall of dust rolling out over the ground round its
+   * foot, a column of it up its height, grit of what it was built of thrown
+   * up, smoke that hangs on; all of its size
+   */
+  fell(index: number, lat: number, lon: number, radius: number, height: number): void {
     if (!this.destruction) return;
+    const effects = this.engine.effects;
     const ground = this.engine.getTerrainHeightAtGeo(lat, lon) ?? 0;
     const at = this.engine.sync.geoToLocalSimple(lat, lon, 0);
     const size = Math.max(2, radius);
-    this.engine.effects.spawnExplosion(at.x, ground + height / 2, at.z, Math.round(10 + size * 3), size, Math.round(size));
+    const material = this.destruction.structures()[index]?.material ?? 'plaster';
+    const { grit, dust } = RUBBLE_COLOURS[material];
+    // The break: a little fire, much smoke
+    effects.spawnExplosion(at.x, ground + height * 0.4, at.z, Math.round(4 + size), size * 0.7, Math.round(size * 1.5));
+    // The dust wall over the ground, wider than the house, and its column up the height
+    effects.spawnGroundDust(at.x, ground + 0.3, at.z, Math.round(18 + size * 5), size * 1.6, 3 + size * 0.6);
+    for (let k = 1; k <= 3; k++) {
+      effects.spawnGroundDust(at.x, ground + (height * k) / 4, at.z, Math.round(6 + size * 1.5), size * (0.9 - k * 0.15), 1.2);
+    }
+    // Grit of its class, lit like dust: the palette's dark, mid and light
+    const rgb = (c: readonly [number, number, number], k: number) => ({ r: c[0] * k, g: c[1] * k, b: c[2] * k });
+    effects.spawnBurstAtGeo(lat, lon, ground + height * 0.3, Math.round(16 + size * 4), [rgb(grit, 0.6), rgb(grit, 1.1), rgb(dust, 1.2)]);
   }
 
   /** The craters as the simulation said them last, CRATER_STRIDE numbers each */

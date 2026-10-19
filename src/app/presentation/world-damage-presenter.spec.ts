@@ -12,7 +12,7 @@ function setup(destructible: boolean) {
   const toLocal = (lat: number, lon: number, _h: number, out: Vector3) => out.set(-lon * M, 0, lat * M);
   const engine = {
     world: { capabilities: { destructible }, destruction, runRules: () => ({ structures: [BARN] }) },
-    effects: { spawnExplosion: vi.fn() },
+    effects: { spawnExplosion: vi.fn(), spawnGroundDust: vi.fn(), spawnBurstAtGeo: vi.fn() },
     sync: {
       geoToLocalSimple: (lat: number, lon: number, height: number) => ({ x: lon * 1000, y: height, z: -lat * 1000 }),
       geoToLocalSimpleInto: toLocal,
@@ -42,9 +42,13 @@ describe('WorldDamagePresenter (docs/DESTRUCTION_PLAN.md)', () => {
     expect(destruction.setStages).toHaveBeenCalledWith(new Uint8Array([1]));
     presenter.setStage(0, 2);
     expect(destruction.setStage).toHaveBeenCalledWith(0, 2);
-    presenter.fell(0.001, 0.002, 5, 6);
-    // At the barn's middle, half its height over the ground, as wide as the barn
-    expect(engine.effects.spawnExplosion).toHaveBeenCalledWith(2, 15, -1, 25, 5, 5);
+    presenter.fell(0, 0.001, 0.002, 5, 6);
+    // At the barn's middle: a small break where it breaks, a dust wall wider than the barn over the ground,
+    // a column of dust up its height, grit of its class thrown up
+    expect(engine.effects.spawnExplosion).toHaveBeenCalledWith(2, 12 + 6 * 0.4, -1, 9, 3.5, 8);
+    expect(engine.effects.spawnGroundDust).toHaveBeenCalledWith(2, 12.3, -1, 43, 8, 6);
+    expect(engine.effects.spawnGroundDust).toHaveBeenCalledTimes(4);
+    expect(engine.effects.spawnBurstAtGeo).toHaveBeenCalledTimes(1);
     presenter.destroy();
   });
 
@@ -99,7 +103,7 @@ describe('WorldDamagePresenter (docs/DESTRUCTION_PLAN.md)', () => {
   it('stays out of a world where nothing falls', () => {
     const { destruction, engine, presenter } = setup(false);
     presenter.setStages(new Uint8Array([3]));
-    presenter.fell(0.001, 0.002, 5, 6);
+    presenter.fell(0, 0.001, 0.002, 5, 6);
     expect(destruction.setStages).not.toHaveBeenCalled();
     expect(engine.effects.spawnExplosion).not.toHaveBeenCalled();
   });

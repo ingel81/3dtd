@@ -410,7 +410,9 @@ export class PresentationHost implements SimPresenterApi {
     });
     // A custom map's wave events as far as the simulation reached them (TODO E170)
     ops.override('waveEvents.setReached', (args) => engine.world.showWaveEvents?.(args[0] as number));
-    ops.override('main.structureFell', (args) =>
-      this.worldDamage.fell(args[0] as number, args[1] as number, args[2] as number, args[3] as number));
+    ops.override('main.structureFell', (args) => {
+      const [index, lat, lon, radius, height] = args as [number, number, number, number, number];
+      this.worldDamage.fell(index, lat, lon, radius, height);
+    });
   }
 }

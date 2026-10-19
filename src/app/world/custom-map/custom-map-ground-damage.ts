@@ -32,6 +32,8 @@ export interface ImpactMark {
 export const GROUND_TILE = 32;
 /** Tiles the ground rebuilds at most per frame (CustomMapView.updateHeights of their union) */
 export const GROUND_TILES_PER_FRAME = 2;
+/** Centimetres a sample has to be torn up by to grow no grass */
+export const BARE_FROM_CM = 10;
 /** Around a standing tower the ground keeps the height it had when the tower came, m */
 export const TOWER_HOLD_M = 3;
 
@@ -76,6 +78,8 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
   /** Towers holding a sample, and the centimetres it shows while held */
   private held: Uint8Array | null = null;
   private frozen: Int32Array | null = null;
+  /** 1 where the ground shows torn up (BARE_FROM_CM): no grass there */
+  private bare: Uint8Array | null = null;
   /** Tiles whose samples changed, in the order they came */
   private readonly dirty = new Set<number>();
   /** The towers holding the ground: map metres */
@@ -94,6 +98,8 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     private readonly showMarks: (marks: Iterable<ImpactMark>) => void = () => undefined,
     /** What structure `id` is built of (CustomMapDestruction.materialOf) */
     private readonly materialOf: (id: string) => RubbleMaterial = () => 'plaster',
+    /** The samples that show torn up, kept by reference (CustomMapView.setGroundBare) */
+    private readonly showBare: (bare: Uint8Array) => void = () => undefined,
   ) {
     this.columns = grid.columns;
     this.rows = grid.rows;
@@ -197,6 +203,7 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     const sum = this.sum!;
     const held = this.held!;
     const frozen = this.frozen!;
+    const bare = this.bare!;
     const heights = this.grid.heights;
     let i0 = Infinity, j0 = Infinity, i1 = -Infinity, j1 = -Infinity;
     let done = 0;
@@ -212,7 +219,9 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
       for (let j = b0; j <= b1; j++) {
         for (let i = a0; i <= a1; i++) {
           const k = j * this.columns + i;
-          heights[k] = base[k] + (held[k] > 0 ? frozen[k] : sum[k]) / 100;
+          const cm = held[k] > 0 ? frozen[k] : sum[k];
+          heights[k] = base[k] + cm / 100;
+          bare[k] = cm >= BARE_FROM_CM || cm <= -BARE_FROM_CM ? 1 : 0;
         }
       }
       i0 = Math.min(i0, a0);
@@ -220,6 +229,7 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
       i1 = Math.max(i1, a1);
       j1 = Math.max(j1, b1);
     }
+    this.showBare(bare);
     this.apply({
       minX: this.originX + i0 * this.cell,
       minY: this.originY + j0 * this.cell,
@@ -236,6 +246,7 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     this.sum = new Int32Array(n);
     this.held = new Uint8Array(n);
     this.frozen = new Int32Array(n);
+    this.bare = new Uint8Array(n);
     // Towers that came before the first stamp hold the ground as built
     for (const [, at] of this.towers) this.disc(at.x, at.y, (k) => this.held![k]++);
   }
