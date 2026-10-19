@@ -28,8 +28,8 @@ export interface AmbientCalls {
   answer: readonly [number, number];
 }
 
+/** A sound of the map; its name is the dictionary's (i18n `editor.life.sounds`, by id) */
 export interface AmbientSound {
-  label: string;
   /** The loop, under the app's base as `/assets/sounds/...` paths elsewhere; none for a sound of calls only */
   file?: string;
   /** Its level against the others, 0..1 */
@@ -42,11 +42,10 @@ export interface AmbientSound {
 const CALLS = 'assets/sounds/ambient/calls/';
 const callFiles = (...names: string[]) => names.map((n) => `${CALLS}${n}.mp3`);
 
-export const AMBIENT_SOUNDS: Readonly<Record<string, AmbientSound>> = {
-  wind: { label: 'Wind', file: 'assets/sounds/ambient/wind.mp3', variants: ['assets/sounds/ambient/wind-2.mp3'], gain: 0.7 },
+const LOOPS = {
+  wind: { file: 'assets/sounds/ambient/wind.mp3', variants: ['assets/sounds/ambient/wind-2.mp3'], gain: 0.7 },
   // A light breeze under songbirds now and then, a few seconds apart, sometimes one answering another
   birdsong: {
-    label: 'Birdsong',
     file: 'assets/sounds/ambient/wind.mp3',
     variants: ['assets/sounds/ambient/wind-2.mp3'],
     gain: 0.2,
@@ -58,38 +57,39 @@ export const AMBIENT_SOUNDS: Readonly<Record<string, AmbientSound>> = {
       answer: [0.8, 2.5],
     },
   },
-  'night-insects': { label: 'Crickets at night', file: 'assets/sounds/ambient/night-insects.mp3', gain: 0.3 },
-  stream: { label: 'Stream', file: 'assets/sounds/ambient/stream.mp3', variants: ['assets/sounds/ambient/stream-2.mp3'], gain: 0.6 },
-  surf: { label: 'Surf', file: 'assets/sounds/ambient/surf.mp3', variants: ['assets/sounds/ambient/surf-2.mp3'], gain: 0.7 },
-  swamp: { label: 'Frogs and swamp', file: 'assets/sounds/ambient/swamp.mp3', gain: 0.55 },
-  lava: { label: 'Lava rumbling', file: 'assets/sounds/ambient/lava.mp3', gain: 0.6 },
-  fire: { label: 'Crackling fire', file: 'assets/sounds/ambient/fire.mp3', gain: 0.6 },
-  city: { label: 'City hum', file: 'assets/sounds/ambient/city.mp3', gain: 0.5 },
+  'night-insects': { file: 'assets/sounds/ambient/night-insects.mp3', gain: 0.3 },
+  stream: { file: 'assets/sounds/ambient/stream.mp3', variants: ['assets/sounds/ambient/stream-2.mp3'], gain: 0.6 },
+  surf: { file: 'assets/sounds/ambient/surf.mp3', variants: ['assets/sounds/ambient/surf-2.mp3'], gain: 0.7 },
+  swamp: { file: 'assets/sounds/ambient/swamp.mp3', gain: 0.55 },
+  lava: { file: 'assets/sounds/ambient/lava.mp3', gain: 0.6 },
+  fire: { file: 'assets/sounds/ambient/fire.mp3', gain: 0.6 },
+  city: { file: 'assets/sounds/ambient/city.mp3', gain: 0.5 },
   gulls: {
-    label: 'Gulls',
     gain: 0,
     calls: { files: callFiles('gull-single', 'gull-laugh', 'gull-pair'), gain: 0.5, gap: [5, 15], reply: 0.35, answer: [0.6, 2] },
   },
   crows: {
-    label: 'Crows and ravens',
     gain: 0,
     calls: { files: callFiles('crow-caw', 'crow-three', 'raven-croak'), gain: 0.45, gap: [7, 20], reply: 0.25, answer: [1, 3] },
   },
   // A siren wailing far off now and then, sometimes another one answering from elsewhere: a city that is gone
   'sirens-far': {
-    label: 'Sirens far off, now and then',
     gain: 0,
     calls: { files: ['assets/sounds/ambient/siren-distant.mp3'], gain: 0.3, gap: [50, 120], reply: 0.35, answer: [2, 8] },
   },
-  'radio-hiss': { label: 'Radio hiss', file: 'assets/sounds/ambient/radio-hiss.mp3', gain: 0.4 },
-  harbor: { label: 'Harbour (water at the quay, ropes)', file: 'assets/sounds/ambient/harbor.mp3', gain: 0.55 },
-  cowbells: { label: 'Cowbells', file: 'assets/sounds/ambient/cowbells.mp3', gain: 0.5 },
-  'pine-wind': { label: 'Wind in pines', file: 'assets/sounds/ambient/pine-wind.mp3', gain: 0.6 },
-  rain: { label: 'Rain', file: 'assets/sounds/ambient/rain.mp3', gain: 0.6 },
+  'radio-hiss': { file: 'assets/sounds/ambient/radio-hiss.mp3', gain: 0.4 },
+  harbor: { file: 'assets/sounds/ambient/harbor.mp3', gain: 0.55 },
+  cowbells: { file: 'assets/sounds/ambient/cowbells.mp3', gain: 0.5 },
+  'pine-wind': { file: 'assets/sounds/ambient/pine-wind.mp3', gain: 0.6 },
+  rain: { file: 'assets/sounds/ambient/rain.mp3', gain: 0.6 },
   // A storm's downpour with gusts (the storm weather plays it, WEATHER_BEDS)
-  'storm-rain': { label: 'Heavy rain', file: 'assets/sounds/ambient/storm-rain.mp3', gain: 0.75 },
-  'cave-wind': { label: 'Cave wind', file: 'assets/sounds/ambient/cave-wind.mp3', gain: 0.6 },
-};
+  'storm-rain': { file: 'assets/sounds/ambient/storm-rain.mp3', gain: 0.75 },
+  'cave-wind': { file: 'assets/sounds/ambient/cave-wind.mp3', gain: 0.6 },
+} satisfies Record<string, AmbientSound>;
+
+/** The loops a map may play over itself or an area, by id */
+export const AMBIENT_SOUNDS: Readonly<Record<string, AmbientSound>> = LOOPS;
+export type AmbientSoundId = keyof typeof LOOPS;
 
 /** The files of a sound's loop: its own and its variants' (none for calls only) */
 export function soundFiles(entry: AmbientSound): readonly string[] {
@@ -102,11 +102,14 @@ export function soundFiles(entry: AmbientSound): readonly string[] {
  * whole files, no loop pad. Placeholders like the loops
  * (make_placeholders.py ONE_SHOTS), recordings replace them under the ids
  */
-export const WAVE_SOUNDS: Readonly<Record<string, AmbientSound>> = {
-  bell: { label: 'Church bell', file: 'assets/sounds/ambient/bell.mp3', gain: 0.8 },
-  'siren-distant': { label: 'Distant siren', file: 'assets/sounds/ambient/siren-distant.mp3', gain: 0.7 },
-  'ship-horn': { label: "Ship's horn", file: 'assets/sounds/ambient/ship-horn.mp3', gain: 0.8 },
-};
+const ONE_SHOTS = {
+  bell: { file: 'assets/sounds/ambient/bell.mp3', gain: 0.8 },
+  'siren-distant': { file: 'assets/sounds/ambient/siren-distant.mp3', gain: 0.7 },
+  'ship-horn': { file: 'assets/sounds/ambient/ship-horn.mp3', gain: 0.8 },
+} satisfies Record<string, AmbientSound>;
+
+export const WAVE_SOUNDS: Readonly<Record<string, AmbientSound>> = ONE_SHOTS;
+export type WaveSoundId = keyof typeof ONE_SHOTS;
 
 /**
  * What a weather plays over the whole map, at its strength k (soundscape.ts):

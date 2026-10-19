@@ -12,7 +12,7 @@
  * step); edits of one area later stay on that area.
  */
 import type { MapLife, MapLifeArea, MapPoint } from '../../world/custom-map/map-document';
-import { LIFE_KIND_INFO, MAX_LIFE_AREAS, MAX_LIFE_POINTS, nearestOnShape, newLifeId, outlineArea, shapeLength } from '../../world/custom-map/map-life';
+import { MAX_LIFE_AREAS, MAX_LIFE_POINTS, nearestOnShape, newLifeId, outlineArea, shapeLength } from '../../world/custom-map/map-life';
 import { SnapshotCommand } from '../model/commands/snapshot';
 import { insideMap } from '../../map-ops/grid';
 import { lifeAreaImages, symmetryImages } from '../ops/symmetry';
@@ -108,7 +108,7 @@ export class LifeTool implements EditorTool {
     this.dragging = null;
     if (!d?.moved) return;
     const editor = ctx.editor;
-    editor.push(new SnapshotCommand('Move life point', { life: d.before }, { life: structuredClone(editor.doc.life) }), { life: true });
+    editor.push(new SnapshotCommand(ctx.t().editor.life.movePoint, { life: d.before }, { life: structuredClone(editor.doc.life) }), { life: true });
   }
 
   frame(_dt: number, p: ToolPointer | null, ctx: ToolContext): void {
@@ -135,11 +135,11 @@ export class LifeTool implements EditorTool {
       const least = area.shape === 'area' ? 3 : 2;
       if (s.point >= 0 && area.points.length > least) {
         const at = s.point;
-        this.change(ctx, 'Remove life point', (life) => life.areas?.find((a) => a.id === area.id)?.points.splice(at, 1));
+        this.change(ctx, ctx.t().editor.life.removePoint, (life) => life.areas?.find((a) => a.id === area.id)?.points.splice(at, 1));
         patch(ctx.settings.life, { point: -1 });
       } else {
         const id = area.id;
-        this.change(ctx, `Remove ${LIFE_KIND_INFO[area.kind].label.toLowerCase()}`, (life) => (life.areas = life.areas?.filter((a) => a.id !== id)));
+        this.change(ctx, ctx.t().editor.life.removeArea(ctx.t().editor.life.kinds[area.kind].label), (life) => (life.areas = life.areas?.filter((a) => a.id !== id)));
         patch(ctx.settings.life, { chosen: null, point: -1 });
       }
       return true;
@@ -162,16 +162,11 @@ export class LifeTool implements EditorTool {
 
   hint(ctx: ToolContext): string {
     const s = ctx.settings.life();
-    const what = LIFE_KIND_INFO[s.kind].label;
-    if (s.mode === 'area') {
-      return this.draft.length
-        ? `${what}: click the next corner; Enter, a double click or a right click closes the outline`
-        : `${what}: click the corners of an outline, or hold and paint it freehand`;
-    }
-    if (s.mode === 'route') {
-      return this.draft.length ? `${what}: click the next point; Enter, a double click or a right click ends the line` : `${what}: click the points of a line, or hold and draw it freehand`;
-    }
-    return s.chosen ? 'Drag a point; Shift+click on the edge adds one; Delete removes the point or the area' : 'Click inside an area or on a line to change it';
+    const says = ctx.t().editor.life;
+    const what = says.kinds[s.kind].label;
+    if (s.mode === 'area') return this.draft.length ? says.hintAreaNext(what) : says.hintArea(what);
+    if (s.mode === 'route') return this.draft.length ? says.hintLineNext(what) : says.hintLine(what);
+    return s.chosen ? says.hintChosen : says.hintEdit;
   }
 
   /** Ends the outline or line being drawn: a new life area, the chosen one */
@@ -185,16 +180,16 @@ export class LifeTool implements EditorTool {
     const least = shape === 'area' ? 3 : 2;
     const usable = dedupe(points);
     if (usable.length < least || (shape === 'area' ? outlineArea(usable) < 16 : shapeLength(usable, false) < 4)) {
-      ctx.status(shape === 'area' ? 'An outline needs three corners around some ground' : 'A line needs two points apart');
+      ctx.status(shape === 'area' ? ctx.t().editor.life.needOutline : ctx.t().editor.life.needLine);
       return;
     }
     const areas = ctx.editor.doc.life?.areas ?? [];
     if (areas.length >= MAX_LIFE_AREAS) {
-      ctx.status(`A map holds at most ${MAX_LIFE_AREAS} life areas`);
+      ctx.status(ctx.t().editor.life.tooMany(MAX_LIFE_AREAS));
       return;
     }
     const id = newLifeId(areas, s.kind);
-    const label = `${LIFE_KIND_INFO[s.kind].label} ${shape === 'area' ? 'area' : 'route'}`;
+    const label = ctx.t().editor.life.areaName(ctx.t().editor.life.kinds[s.kind].label, shape);
     const area = newLifeArea(id, s.kind, shape, usable);
     const t = ctx.editor.doc.terrain;
     const taken = [...areas, area];
@@ -205,7 +200,7 @@ export class LifeTool implements EditorTool {
     }, t.width / 2, t.depth / 2).slice(0, MAX_LIFE_AREAS - areas.length - 1);
     this.change(ctx, label, (life) => (life.areas = [...(life.areas ?? []), area, ...images]));
     patch(ctx.settings.life, { chosen: id, point: -1 });
-    ctx.status(`${label} added: its settings are in the panel`);
+    ctx.status(ctx.t().editor.life.added(label));
   }
 
   private editDown(p: ToolPointer, ctx: ToolContext): boolean {
@@ -223,7 +218,7 @@ export class LifeTool implements EditorTool {
       if (p.shift) {
         const at = nearestSegment(chosen, hit, reach);
         if (at >= 0) {
-          this.change(ctx, 'Add life point', (life) => life.areas?.find((a) => a.id === chosen.id)?.points.splice(at + 1, 0, round({ x: hit.x, y: hit.y })));
+          this.change(ctx, ctx.t().editor.life.addPoint, (life) => life.areas?.find((a) => a.id === chosen.id)?.points.splice(at + 1, 0, round({ x: hit.x, y: hit.y })));
           patch(ctx.settings.life, { point: at + 1 });
           return true;
         }
@@ -231,7 +226,7 @@ export class LifeTool implements EditorTool {
     }
     const picked = pickArea(ctx.editor.doc.life?.areas ?? [], hit, reach);
     patch(ctx.settings.life, { chosen: picked?.id ?? null, point: -1 });
-    if (picked) ctx.status(`${LIFE_KIND_INFO[picked.kind].label} ${picked.shape === 'area' ? 'area' : 'route'} chosen`);
+    if (picked) ctx.status(ctx.t().editor.life.chosen(ctx.t().editor.life.areaName(ctx.t().editor.life.kinds[picked.kind].label, picked.shape)));
     return true;
   }
 

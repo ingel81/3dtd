@@ -26,20 +26,21 @@ export const LIFE_DENSITY = { min: 0, max: 2 } as const;
 export const LIFE_SOUND_REACH = { min: 10, max: 300, default: 70 } as const;
 
 /** What each kind is, for the editor and the agent: name, a line on what it does, the outline's colour in the editor */
-export const LIFE_KIND_INFO: Readonly<Record<MapLifeKind, { label: string; about: string; color: string }>> = {
-  birds: { label: 'Birds', about: 'A flock circles over the area by day (bats by night), or flies along the route and back', color: '#e8e8f0' },
-  fireflies: { label: 'Fireflies', about: 'Glowing at night over the area or along the line', color: '#d8ff6a' },
-  fog: { label: 'Fog', about: 'Soft banks of fog drifting low with the wind', color: '#c8d0d4' },
-  leaves: { label: 'Leaves', about: 'Leaves falling and drifting with the wind', color: '#d0903a' },
-  embers: { label: 'Embers', about: 'Glowing embers rising from the ground', color: '#ff8a30' },
-  sparks: { label: 'Sparks', about: 'Bright sparks bursting up and falling, strongest at night', color: '#ffd060' },
-  snow: { label: 'Snow', about: 'Snow flurries drifting down with the wind', color: '#f4f8ff' },
-  dust: { label: 'Dust devils', about: 'Whirls of dust wandering over the ground and rising', color: '#d8b080' },
-  surf: { label: 'Surf', about: 'Spray thrown up where waves break, in bursts on the swell: draw it along a rocky shore', color: '#bfe8ff' },
-  haze: { label: 'Heat haze', about: 'The air over hot ground wavers (with the lava glow effect, High and up)', color: '#ffa060' },
-  boats: { label: 'Boats', about: 'Boats drifting slowly on the water of the area, or along the route and back', color: '#6ab0ff' },
-  movers: { label: 'Movers', about: 'Any object going round the area or along the route and back over the ground: a rover, a cart, grazing animals', color: '#a0e070' },
-  sound: { label: 'Sound', about: 'An ambient sound, loud inside the area or along the line, fading with distance', color: '#ff70d0' },
+/** The kinds' colours in the editor; their names and what they are are the dictionary's (i18n `editor.life.kinds`) */
+export const LIFE_KIND_INFO: Readonly<Record<MapLifeKind, { color: string }>> = {
+  birds: { color: '#e8e8f0' },
+  fireflies: { color: '#d8ff6a' },
+  fog: { color: '#c8d0d4' },
+  leaves: { color: '#d0903a' },
+  embers: { color: '#ff8a30' },
+  sparks: { color: '#ffd060' },
+  snow: { color: '#f4f8ff' },
+  dust: { color: '#d8b080' },
+  surf: { color: '#bfe8ff' },
+  haze: { color: '#ffa060' },
+  boats: { color: '#6ab0ff' },
+  movers: { color: '#a0e070' },
+  sound: { color: '#ff70d0' },
 };
 
 /** The map's switches with their defaults filled in */
