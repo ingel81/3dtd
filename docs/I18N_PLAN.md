@@ -169,6 +169,32 @@ Je Paket: Texte ins Wörterbuch (en und de zugleich), Komponenten auf `t()`, bet
 Die deutschen Texte schreibe ich je Paket mit, im Ton des Glossars (8). Der User nimmt Glossar und Stichproben je
 Paket ab, nicht jeden Text.
 
+### Stand und offener Rest (2026-10-19)
+
+Gebaut und auf next: I0 (Sprache vor dem ersten Bild, Sprachwahl in Settings, Pseudo-Sprache xx nur im Dev-Build,
+Wächter mit Baseline), I1 (Configs nach Id), I2 (Codes aus Worker und Relay), große Teile von I3 (HUD, Hinweise,
+Ladeprobleme, Hotkeys) und I7 (Editor-Shell, Prüfung, fast alle Panels, Werkzeuge, Dienste, Kartenanlage). Turm- und
+Gegnernamen bleiben englisch. Zahlen laut `node tools/i18n/inventory.mjs` (Texte, die der Scan noch findet):
+
+- **Menüs, Welten, Globus, Laden** (~760): Settings-Seite (bis auf die Sprachzeile), Hauptmenü und Pausemenü mit
+  Saves, Kartenliste, Ladeplatte, Weltmenüs und Pfadleiste (`world-path`: Worlds, Built Worlds, Play/Edit),
+  Globen, Token-Dialog, OSM-Rahmen, Update-Hinweis; die Knöpfe des Game-Over-Fußes (`mainMenu.editMapLabel`,
+  `restartLabel`, „All worlds“) kommen aus dem Hauptmenü-Dienst.
+- **Dialoge** (~100): Forschung, Tech-Tree, Schadensmatrix, Quellen, Hotkeys (Reste), Läufe, Run-Summary/Charts.
+- **Coop** (~310): Lobby, Raum-Optionen, Coop-Dienst, Coop-Bausteine.
+- **Editor-Reste** (~230): Flächen-Werkzeug und -Panel (neu), Malen, Ansehen, Spawns und HQ (Panel, Werkzeug,
+  Schritte), neue Zerstörungsoptionen im Regelpanel (Krater, Abnutzung, Struktur-HP), Himmel und Wetter
+  (environment-panel, WEATHERS), Agent-Leiste und -Status, Boden- und Kartenschritte (ground-commands,
+  map-operations, describe, doc-mirror), Katalog-Namen und -Kategorien (heute englisch aus catalog.json).
+- **Kartenprüfung und Import** (~420): map-repair-, map-file-, osm-, w3x-Texte (Formatprobleme behalten heute
+  englische Details), Wellen-Tabellenprüfung (`validateWaveTable`).
+- **HUD-Reste** (~270), **Simulation** (~60), **Fehler/Ablehnungen** (~30), **Configs-Reste** (~175: Wellen- und
+  Run-Plan-Notizen), **mitgelieferte Karten** (26), **Desktop-App** (32, `desktop/src/i18n.js`).
+- **TODO, nicht begonnen:** Wörterbuch nur für die aktive Sprache laden (heute `en.ts` als Fallback im Startpaket,
+  rund 107 kB roh); der Editor-Template-Worker bündelt `en.ts` über `EditorDocument.words` mit.
+- **I9 Layout-Prüfung**: E2E über Menüs, HUD, Dialoge und Editor in `de` und `xx` (7.4), Bilder zur Abnahme;
+  bekannt: „Ungepanzert“ im Wellen-Tooltip abgeschnitten.
+
 ## 7. Prüfung
 
 1. **Wörterbuch-Spec** (`src/app/i18n/i18n.spec.ts`, gebaut): jede Sprache hat genau die Schlüssel des Englischen,
