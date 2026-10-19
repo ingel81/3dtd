@@ -145,11 +145,13 @@ const PLAIN = { fogScale: 1, fogFalloff: 1 / 70, stars: 0, aurora: 0, particles:
 const SKY_EXPOSURE: Record<MapEnvironment['sky'], number> = { day: 1.4, overcast: 1.4, dusk: 1.55, night: 1.7 };
 /** Looks whose ground is bright on its own (snow, sand) need less */
 const BIOME_EXPOSURE: Partial<Record<MapBiome, number>> = { arctic: 0.82, desert: 0.9 };
+/** Looks whose night ground is dark on its own (black swamp water, dark reeds) need more at night to read from the game camera */
+const NIGHT_EXPOSURE: Partial<Record<MapBiome, number>> = { swamp: 1.35 };
 
 /** The look of a biome under a sky preset */
 export function biomeLook(biome: MapBiome | undefined, sky: MapEnvironment['sky']): BiomeLook {
   const look = biomeLookUnclamped(biome, sky);
-  look.exposure = (SKY_EXPOSURE[sky] ?? 1.4) * (BIOME_EXPOSURE[biome ?? 'temperate'] ?? 1);
+  look.exposure = (SKY_EXPOSURE[sky] ?? 1.4) * (BIOME_EXPOSURE[biome ?? 'temperate'] ?? 1) * (sky === 'night' ? (NIGHT_EXPOSURE[biome ?? 'temperate'] ?? 1) : 1);
   // Biomes colour their clouds and sky light by day; at night those must not outshine the night
   // preset, or the sky glows (a swamp's pale green clouds over a black marsh). Hell and the moon
   // set their own dark skies
@@ -332,11 +334,14 @@ function biomeLookUnclamped(biome: MapBiome | undefined, sky: MapEnvironment['sk
         cloudColor: 0xc8d0c0,
         cloudShadow: 0x6a7468,
         grade: [1.05, 0.85, 0xeef6e4],
-        fogScale: 3.2,
+        // Thinner by night: the thick ground fog swallowed walks and enemies under the game camera
+        fogScale: night ? 2.4 : 3.2,
         fogFalloff: 1 / 18,
         // Pale mist on the water and in the reeds, moonlit at night: it reads as mist, not as darkness
-        mist: night ? 0x3c4e4a : dusk ? 0x8c8678 : 0xb4c0ac,
-        mistAmount: 0.85,
+        mist: night ? 0x5e7670 : dusk ? 0x8c8678 : 0xb4c0ac,
+        mistAmount: night ? 0.75 : 0.85,
+        // A swamp's night lifts its islands and water more than open land's: they read from the game camera
+        nightLight: night ? 2 : p.nightLight,
         stars: nightStars * 0.5,
       };
     case 'desert':
