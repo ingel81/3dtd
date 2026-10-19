@@ -356,8 +356,8 @@ dem Build fehlt, aus dem `public/maps` des Checkouts (`mapDataRoot` in `createAp
   aller im Renderer (`ThreeTilesEngine.compileProgress`, alle 250 ms gelesen, `EngineInitializationService.compilingAhead`);
   vorher stand dort sekundenlang „Preparing Intro Flight“. Zwischen den Ladeschritten wartet der Ablauf nur dann ein
   gezeichnetes Bild ab, wenn sich ein Schritt geändert hat (`afterNextPaint`), statt fest 50 ms je Wechsel
-- Beim Verlassen gibt die Welt die geteilte `MapAssetLibrary` frei (etwa 88 MB Materialpixel); die nächste Karte
-  legt eine neue an
+- Die geteilte `MapAssetLibrary` bleibt über den Wechsel zum Editor derselben Karte; eine andere Karte, ein echter Ort
+  oder die Globen leeren sie (etwa 88 MB Materialpixel, `CUSTOM_MAPS.md`, Speicher)
 - Höhen für das Overlay: eine Runde sofort statt vier Runden zu 500 ms, weil der Boden nicht streamt
   (`HeightUpdateService`, `capabilities.streaming`)
 - Messen: `e2e/perf/map-load.ts` gegen einen Produktions-Build (Schritte als `performance.mark`

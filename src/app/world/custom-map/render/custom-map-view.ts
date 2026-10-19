@@ -300,7 +300,7 @@ export class CustomMapView {
     readonly assets: MapAssetLibrary,
     private readonly options: CustomMapViewOptions = {},
   ) {
-    assets.retain();
+    assets.retain(doc.meta.id);
     const t = doc.terrain;
     this.env = doc.environment;
     this.heights = new HeightField(t.grid, t.width, t.depth);

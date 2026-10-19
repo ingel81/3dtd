@@ -4,6 +4,7 @@ import { startMenuSkipped } from '../components/main-menu/start-menu-skipped';
 import { LocationManagementService } from '../services/location/location-management.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { closeCustomMaps } from './custom-map/custom-map-world';
+import { bringMapToFront } from './custom-map/map-in-front';
 import { AppScreen } from './app-screen.service';
 import { WorldStartService, type WorldStart } from './world-start';
 import type { WorldId, WorldPick } from '../worlds/world-rules';
@@ -125,6 +126,7 @@ export class WorldSession {
 
   /** Back to the globes: the open world goes, engine, worker and canvas with it */
   close(): void {
+    bringMapToFront(null);
     this.parked.set(null);
     this.isOpen.set(false);
   }
@@ -191,6 +193,8 @@ export class WorldSession {
     this.screens.waitingRun.set(null);
     for (const listener of [...this.leaving]) listener();
     this.start.set(order);
+    // The map assets of another map or world go (MapAssetLibrary.release), those of this map stay
+    bringMapToFront(order.world?.kind === 'custom-map' ? order.world.mapId : null);
     this.world.update((n) => n + 1);
     this.isOpen.set(true);
   }

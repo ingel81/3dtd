@@ -1303,7 +1303,11 @@ Ebenen behält sie nicht, ihre Dateien liegen im Cache der Kartendaten. Die
 Textur-Arrays der offenen Ansicht behalten keine Kopie: nach dem Hochladen setzt `onUpdate` ihre Pixel auf `null`
 (`terrain-textures.ts`); nach einem Kontextverlust lassen sie sich nicht neu hochladen, die Ansicht muss neu gebaut
 werden.
-`MapAssetLibrary.dispose()` gibt ihn frei; `shared()` legt danach eine neue an.
+Er bleibt, solange seine Karte vorn steht (`map-in-front.ts`: der Editor dieser Karte und ihre Testläufe), so lädt
+und dekodiert der Wechsel Editor ⇄ Test nichts neu; jede Ansicht hält ihn mit `retain(mapId)` und lässt ihn mit
+`release()`. Leer wird er, sobald keine Ansicht ihn hält und eine andere Karte, ein echter Ort oder die Globen nach vorn
+kommen, eine Ansicht einer anderen Karte ihn nimmt oder `KEEP_LEASES` Leihen des Renderers ohne ihn vergingen
+(`clear()`, Katalog bleibt). `MapAssetLibrary.dispose()` gibt ihn ganz frei; `shared()` legt danach eine neue an.
 
 **Modelle laden** (E154, PF-K3): Modelle und Detailmodelle aller Assets laden gleichzeitig (`setObjects`,
 `lodModels`, beim Kartenstart schon vorab); vorher wartete jedes Asset auf das vorige. Die Transforms der Knoten

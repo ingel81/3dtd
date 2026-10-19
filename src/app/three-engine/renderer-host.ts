@@ -28,6 +28,18 @@ export const CANVAS_RENDERER_OPTIONS = {
   stencil: true,
 } as const;
 
+const leaseBegins = new Set<() => void>();
+
+/**
+ * `listener` hears each new lease of a page's renderer, before its owner
+ * draws (what outlives a view counts the leases it was not used in, as the
+ * map assets do); returns the unsubscribe
+ */
+export function onLeaseBegin(listener: () => void): () => void {
+  leaseBegins.add(listener);
+  return () => leaseBegins.delete(listener);
+}
+
 /** A renderer lent to one owner: give it back with `release`, never dispose it */
 export interface RendererLease {
   readonly renderer: WebGLRenderer;
@@ -116,6 +128,7 @@ export class RendererHost {
     canvas.style.width = '100%';
     canvas.style.height = '100%';
     slot.appendChild(canvas);
+    for (const listener of [...leaseBegins]) listener();
     return {
       renderer,
       msaa,

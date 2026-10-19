@@ -13,6 +13,7 @@ import type { RoadCover } from '../../world/custom-map/render/paths/path-mask';
 import type { TexelRect } from '../../world/custom-map/render/terrain/texture-ranges';
 import type { GroundBaker } from '../../world/custom-map/render/terrain/ground-shape';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
+import { bringMapToFront } from '../../world/custom-map/map-in-front';
 import type { ShotLights } from '../../three-engine/shot-lights/shot-lights';
 import { mapToScene as toScene } from '../../world/custom-map/render/map-coords';
 import type { GridRect } from '../../map-ops/grid';
@@ -34,6 +35,8 @@ export class EditorMapView {
     /** The viewport's light buffer, the lamps' lights at night */
     lights?: ShotLights,
   ) {
+    // The editor shows this map: the assets the test runs of it loaded stay
+    bringMapToFront(doc.meta.id);
     this.view = new CustomMapView(doc, MapAssetLibrary.shared(), { anisotropy: renderer.capabilities.getMaxAnisotropy(), renderer, groundBaker, lights });
     this.view.attach(scene);
     this.view.environment.apply(scene, renderer);

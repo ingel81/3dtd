@@ -20,6 +20,8 @@ import {
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createModelLoader, loadKtx2Texture, sharedTexture } from '../../../three-engine/models/model-loader';
 import { mapDataFetch, mapDataUrl } from '../map-data';
+import { mapInFront, onMapInFront } from '../map-in-front';
+import { KEEP_LEASES, onLeaseBegin } from '../../../three-engine/renderer-host';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { hexToRgb, parseCatalog, type AssetCatalog, type CatalogMaterial, type CatalogObject } from './asset-catalog';
 
@@ -93,13 +95,6 @@ export interface AssetLibraryOptions {
   loadTexture?: (url: string) => Promise<Texture>;
 }
 
-/**
- * How long a shared library stays once no view draws from it, ms: the
- * switch between the editor and a test run of its map (the game's view
- * goes, the editor's comes) finds its models, textures and material pixels
- * loaded and on the GPU; leaving the custom maps frees them after this
- */
-export const LIBRARY_LINGER_MS = 15_000;
 
 /** The atlas of the buildings' far stage (objects/far-boxes.ts, tools/map-assets/bake_far_boxes.mjs) */
 export const FAR_ATLAS_FILE = 'models/far-boxes.ktx2';
@@ -107,20 +102,28 @@ export const FAR_ATLAS_FILE = 'models/far-boxes.ktx2';
 export class MapAssetLibrary {
   private static readonly instances = new Map<string, MapAssetLibrary>();
 
-  /** The library for a base URL (the map data's assets, map-data.ts, by default), created on first use */
-  static shared(baseUrl = mapDataUrl(DEFAULT_ASSET_BASE)): MapAssetLibrary {
+  /** The library for a base URL (the map data's assets, map-data.ts, by default), created on first use with `options` */
+  static shared(baseUrl = mapDataUrl(DEFAULT_ASSET_BASE), options?: AssetLibraryOptions): MapAssetLibrary {
     let lib = MapAssetLibrary.instances.get(baseUrl);
     if (!lib) {
-      lib = new MapAssetLibrary(baseUrl);
+      lib = new MapAssetLibrary(baseUrl, options);
       MapAssetLibrary.instances.set(baseUrl, lib);
     }
     return lib;
   }
 
+  /** Runs `fn` on each shared library */
+  static forEachShared(fn: (lib: MapAssetLibrary) => void): void {
+    for (const lib of [...MapAssetLibrary.instances.values()]) fn(lib);
+  }
+
   readonly textureSize: number;
-  /** Views that draw from the library now (retain), and the dispose due once none does */
+  /** Views that draw from the library now (retain) */
   private users = 0;
-  private lingering: ReturnType<typeof setTimeout> | null = null;
+  /** The map whose view retained it last: what it holds is for that map; null once cleared (a prefetch then fills it for the map in front) */
+  private map: string | null = null;
+  /** Renderer leases begun since no view draws from it (see leaseBegan) */
+  private idleLeases = 0;
   private catalogPromise: Promise<AssetCatalog> | null = null;
   private readonly materials = new Map<string, Promise<MaterialPixels>>();
   private readonly models = new Map<string, Promise<ObjectModel>>();
@@ -280,31 +283,55 @@ export class MapAssetLibrary {
     return loaded.filter((l): l is { model: ObjectModel; screen: number } => l !== null);
   }
 
-  /** A view draws from the library: it stays while one does */
-  retain(): void {
+  /**
+   * A view of `mapId` draws from the library: it stays while one does. A
+   * shared library that no view used comes to another map's view empty
+   * first, so a map change never keeps the last map's models and material
+   * pixels (some 88 MB on a big map)
+   */
+  retain(mapId: string): void {
+    if (this.users === 0 && this.map !== null && this.map !== mapId && this.isShared()) this.clear();
     this.users++;
-    if (this.lingering) clearTimeout(this.lingering);
-    this.lingering = null;
+    this.map = mapId;
+    this.idleLeases = 0;
   }
 
   /**
-   * A view no longer draws from it. A shared library (shared()) goes once
-   * none has for LIBRARY_LINGER_MS (some 88 MB of material pixels with its
-   * models); one made for a single owner stays that owner's to dispose
+   * A view no longer draws from it. A shared library (shared()) keeps what
+   * it holds while its map is the one in front (mapInFront: the editor and
+   * the test runs of that map), at most KEEP_LEASES renderer leases that
+   * do not use it; another map in front, a real place or the globes free
+   * it at once. One made for a single owner stays that owner's to dispose
    */
   release(): void {
     this.users = Math.max(0, this.users - 1);
-    if (this.users > 0 || this.lingering || ![...MapAssetLibrary.instances.values()].includes(this)) return;
-    this.lingering = setTimeout(() => {
-      this.lingering = null;
-      if (this.users === 0) this.dispose();
-    }, LIBRARY_LINGER_MS);
+    this.idleLeases = 0;
+    if (this.users === 0 && this.isShared() && this.map !== mapInFront()) this.clear();
   }
 
-  /** Frees the GPU side of every loaded model and forgets them */
-  dispose(): void {
-    if (this.lingering) clearTimeout(this.lingering);
-    this.lingering = null;
+  /** The map in front changed: an unused shared library of another map, or prefetched for the one before, goes empty */
+  frontChanged(front: string | null): void {
+    if (this.users === 0 && this.map !== front && this.holdsAny()) this.clear();
+  }
+
+  /** A renderer lease begins: the KEEP_LEASES-th one after the last without this library in use empties it */
+  leaseBegan(): void {
+    if (this.users > 0 || !this.holdsAny()) return;
+    if (this.idleLeases >= KEEP_LEASES) this.clear();
+    else this.idleLeases++;
+  }
+
+  /** Whether it holds any model or material pixels (what clear frees) */
+  holdsAny(): boolean {
+    return this.models.size > 0 || this.materials.size > 0 || this.farAtlasPromise !== null;
+  }
+
+  /**
+   * Frees the GPU side of every loaded model and forgets models, material
+   * pixels and the far atlas; the catalogue stays. The library stays usable:
+   * what a view asks for next loads again
+   */
+  clear(): void {
     this.releaseGpu();
     this.models.clear();
     this.loaded.clear();
@@ -312,6 +339,13 @@ export class MapAssetLibrary {
     void this.farAtlasPromise?.then((t) => t?.dispose());
     this.farAtlasPromise = null;
     this.sharedTextures.clear();
+    this.idleLeases = 0;
+    this.map = null;
+  }
+
+  /** Frees the GPU side of every loaded model and forgets them; a shared library is made anew on its next use */
+  dispose(): void {
+    this.clear();
     for (const [key, lib] of MapAssetLibrary.instances) if (lib === this) MapAssetLibrary.instances.delete(key);
   }
 
@@ -327,6 +361,10 @@ export class MapAssetLibrary {
         part.material.dispose();
       }
     }
+  }
+
+  private isShared(): boolean {
+    return [...MapAssetLibrary.instances.values()].includes(this);
   }
 
   private keep(model: ObjectModel): ObjectModel {
@@ -625,3 +663,7 @@ function placeholderParts(entry: CatalogObject): ModelPart[] {
 function disposeTextures(material: Material): void {
   for (const value of Object.values(material)) if (value instanceof Texture) value.dispose();
 }
+
+// The shared libraries hear the map in front and the renderer's leases (retain, release)
+onMapInFront((front) => MapAssetLibrary.forEachShared((lib) => lib.frontChanged(front)));
+onLeaseBegin(() => MapAssetLibrary.forEachShared((lib) => lib.leaseBegan()));
