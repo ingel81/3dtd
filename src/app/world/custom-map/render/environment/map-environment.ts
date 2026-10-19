@@ -80,8 +80,12 @@ export const SKY_FADE_S = 2.5;
 
 /** Sine of the elevation the haze takes the sky's colour at: where the dome's gradient holds a third of the zenith */
 const HAZE_ELEVATION = 0.07;
-/** Night light (linear): the floor every surface keeps at moonlight 0, the moon rim's light at moonlight 1 */
-const NIGHT_FLOOR = new Color(0.022, 0.026, 0.036);
+/**
+ * Night light (linear): the floor every surface keeps without a moon and under a full one (which lights the land
+ * itself, so less), the moon rim's light at moonlight 1
+ */
+const NIGHT_FLOOR = new Color(0.05, 0.058, 0.08);
+const NIGHT_FLOOR_MOON = new Color(0.033, 0.039, 0.054);
 const NIGHT_RIM = new Color(0.32, 0.4, 0.6);
 /** Directions averaged per entry of the haze ring */
 const HAZE_SAMPLES = 4;
@@ -363,7 +367,7 @@ export class CustomMapEnvironment {
     mist.set(SCRATCH.a.r, SCRATCH.a.g, SCRATCH.a.b, p.mist === undefined ? 0 : (p.mistAmount ?? 0));
     // Night: a cool floor of light on every surface and a rim towards the moon, brighter with the map's moonlight
     const nightLight = p.nightLight * (1 - k * 0.5);
-    HEIGHT_FOG_UNIFORMS.uNightFloor.value.copy(NIGHT_FLOOR).multiply(tint).multiplyScalar(nightLight * (1 + 0.5 * moon));
+    HEIGHT_FOG_UNIFORMS.uNightFloor.value.copy(NIGHT_FLOOR).lerp(NIGHT_FLOOR_MOON, moon).multiply(tint).multiplyScalar(nightLight);
     HEIGHT_FOG_UNIFORMS.uNightRim.value.copy(NIGHT_RIM).multiply(tint).multiplyScalar(nightLight * (0.5 + 0.5 * moon));
     HEIGHT_FOG_UNIFORMS.uNightDir.value.copy(this.sunDir);
     HEIGHT_FOG_UNIFORMS.uNightSheen.value = nightLight * 0.8;

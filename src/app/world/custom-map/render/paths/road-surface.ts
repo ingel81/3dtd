@@ -107,6 +107,8 @@ export class RoadSurfaceMaterial extends DrapedMaterial {
     const sidewalk = { value: -1 };
     super('custom-map-roads', roadLook(sidewalk), MAX_ROAD_SURFACES, heights, gridNormals, field);
     this.sidewalk = sidewalk;
+    // Roads take the night's dew: moon and lamps glint on them (height-fog.ts uNightSheen, after ROAD_SAMPLE's roughness)
+    this.userData['nightSheen'] = true;
   }
 }
 
