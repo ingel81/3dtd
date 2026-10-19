@@ -796,23 +796,32 @@ accAvg /= total;
 accGlow /= total;
 terrainNormal = safeNormalize(accN, nGeo);
 
+// Within a settlement (streets, squares and paths close together: the path mask's level of about 28 m) the ground
+// is gardens and verges, mown and even: its large patches and blots calm down, which far off competed with the
+// streets. Covers are blue with no road or path (path-mask.ts); a painted path's blue is its across position, which
+// its red or green outweighs
+float maskTexel = uMapSize.x / float(textureSize(uPathMask, 0).x);
+vec4 town4 = textureLod(uPathMask, tuv, log2(max(28.0 / maskTexel, 1.0)));
+float town = smoothstep(0.04, 0.22, town4.r + town4.g + max(town4.b - 2.0 * (town4.r + town4.g), 0.0)) * inside;
+float calm = 1.0 - 0.5 * town;
+
 // Macro variation and far blend
 vec3 albedo = accC.rgb;
-float macro = n1 * 0.6 + n2 * 0.4;
-albedo *= mix(0.86, 1.1, macro) * mix(0.93, 1.06, n3);
+float macro = mix(0.5, n1 * 0.6 + n2 * 0.4, calm);
+albedo *= mix(0.86, 1.1, macro) * mix(1.0, mix(0.93, 1.06, n3), calm);
 // A paved surface keeps its own look: the ground's wear, tints, islands and scree below stay off it (paved weight)
 float paved = 0.0;
 for (int k = 0; k < TERRAIN_LAYERS; k++) paved += w[k] * uPaved[k];
 paved = smoothstep(0.15, 0.6, paved);
 vec3 pavedAlbedo = albedo;
 // Large patches in the biome's two kinds (ground-mood.ts): drier and sunlit in some, lush and cool in others
-albedo = mix(albedo, albedo * uMoodPatchA, smoothstep(0.5, 0.85, n2) * 0.5);
-albedo = mix(albedo, albedo * uMoodPatchB, smoothstep(0.45, 0.15, n1) * 0.6);
+albedo = mix(albedo, albedo * uMoodPatchA, smoothstep(0.5, 0.85, n2) * 0.5 * calm);
+albedo = mix(albedo, albedo * uMoodPatchB, smoothstep(0.45, 0.15, n1) * 0.6 * calm);
 // And the same two kinds again in patches of about a dozen metres with firm edges (a stand of clover, a dry
 // knoll, a damp spot), and clumps of a few metres: what a meadow or a sand flat shows from the game camera
 float midPatch = varFine.r * 0.7 + n3 * 0.3;
-albedo = mix(albedo, albedo * uMoodPatchA, smoothstep(0.56, 0.62, midPatch) * 0.8);
-albedo = mix(albedo, albedo * uMoodPatchB, smoothstep(0.43, 0.37, midPatch) * 0.6);
+albedo = mix(albedo, albedo * uMoodPatchA, smoothstep(0.56, 0.62, midPatch) * 0.8 * calm);
+albedo = mix(albedo, albedo * uMoodPatchB, smoothstep(0.43, 0.37, midPatch) * 0.6 * calm);
 albedo *= mix(0.9, 1.06, smoothstep(0.35, 0.65, varFiner.r));
 // Photo grass reads olive under a warm sun: where green leads, pull red and blue back a little
 float greenLead = smoothstep(0.0, 0.08, albedo.g - max(albedo.r, albedo.b));
@@ -828,7 +837,7 @@ albedo = mix(albedo, accAvg * mix(0.8, 1.15, macro), far * 0.45);
 vec3 coarseRatio = coarseCol / max(uAverage[domLayer], vec3(0.02));
 float coarseLum = clamp(1.0 + (dot(coarseRatio, vec3(0.3333)) - 1.0) * 2.4, 0.5, 1.6);
 vec3 coarseHue = clamp(1.0 + (coarseRatio / max(dot(coarseRatio, vec3(0.3333)), 0.05) - 1.0) * 1.8, vec3(0.7), vec3(1.35));
-float coarseAmount = uCoarse[domLayer] * clamp(domW, 0.0, 1.0) * (1.0 - cliff) * (uEmissive[domLayer] > 0.0 ? 0.0 : 1.0);
+float coarseAmount = uCoarse[domLayer] * clamp(domW, 0.0, 1.0) * (1.0 - cliff) * (uEmissive[domLayer] > 0.0 ? 0.0 : 1.0) * mix(1.0, 0.5, town);
 albedo *= mix(vec3(1.0), coarseHue * coarseLum, coarseAmount);
 // Rock faces: strata along the height, warped by noise, and weathering streaks running down. The
 // cliff texture alone repeats every few metres and from afar blurs into one flat colour; the bands
@@ -893,7 +902,6 @@ if (islands > 0.01) {
 }
 // Trodden rims along roads and paths: a coarse level of the path mask (about 2.2 m) is a halo round them;
 // outside the way itself the sward is trampled darker, then worn to the biome's bare earth in ragged tongues
-float maskTexel = uMapSize.x / float(textureSize(uPathMask, 0).x);
 vec4 halo4 = textureLod(uPathMask, tuv, log2(max(2.2 / maskTexel, 1.0)));
 float worn = clamp((halo4.r + halo4.g) * 2.0, 0.0, 1.0) * natural;
 if (worn > 0.01) {
@@ -958,6 +966,10 @@ terrainSpec *= 1.0 - 0.6 * pow(grazing, 4.0);
 // Texture AO and the baked ground occlusion (hollows, slope feet, contact shadows of objects)
 float groundAO = mix(shape.r, 1.0, outside);
 terrainAO = mix(1.0, accD.a, 0.85) * groundAO;
+// Contact shade along road surfaces and squares (their covers in the halo level, about 2.2 m): the ground at a kerb
+// darker, so a street sits in the land rather than on it
+float coverNear = clamp(halo4.b - 2.0 * (halo4.r + halo4.g), 0.0, 1.0) * inside;
+terrainAO *= 1.0 - 0.55 * smoothstep(0.04, 0.45, coverNear);
 diffuseColor.rgb = albedo;
 }
 #ifdef TERRAIN_ALBEDO_BAKE
