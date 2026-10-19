@@ -4,8 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { GeocodingService, GeocodingResult, NominatimAddress } from '../services/location/geocoding.service';
 import { TdIconComponent } from './icon/icon.component';
+import { injectT } from '../i18n/i18n.service';
 
-type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results' | 'error' | 'selected';
+type SearchState = 'idle' | 'too-short' | 'ready' | 'searching' | 'results' | 'no-results' | 'error' | 'selected';
 
 @Component({
   selector: 'app-td-address-autocomplete',
@@ -19,6 +20,7 @@ export class AddressAutocompleteComponent {
   @ViewChild('inputElement') inputElement!: ElementRef<HTMLInputElement>;
 
   readonly geocoding = inject(GeocodingService);
+  protected readonly t = injectT();
 
   // Inputs
   placeholder = input<string>('Search address...');
@@ -34,6 +36,8 @@ export class AddressAutocompleteComponent {
    * (nothing it read had changed).
    */
   readonly searchText = signal('');
+  /** The text last searched for: until Enter or the search button, what is typed is not searched */
+  readonly searchedText = signal<string | null>(null);
   readonly hasFocus = signal(false);
   readonly showDropdown = signal(false);
   /** The result the arrow keys stand on, -1 for none */
@@ -43,13 +47,18 @@ export class AddressAutocompleteComponent {
   readonly dropdownShown = computed(() => this.showDropdown() && this.shownResults().length > 0);
 
   // Computed search state for status display
+  /** The search button and Enter search only a text long enough, and not again while it runs */
+  readonly canSearch = computed(() =>
+    this.searchText().trim().length >= this.geocoding.MIN_QUERY_LENGTH && !this.geocoding.isLoading());
+
   readonly searchState = computed<SearchState>(() => {
     const length = this.searchText().length;
     if (this.currentValue()) return 'selected';
     if (this.geocoding.error()) return 'error';
     if (this.geocoding.isLoading()) return 'searching';
     if (length === 0) return 'idle';
-    if (length < 3) return 'too-short';
+    if (length < this.geocoding.MIN_QUERY_LENGTH) return 'too-short';
+    if (this.searchedText() !== this.searchText()) return 'ready';
     if (this.geocoding.results().length > 0) return 'results';
     return 'no-results';
   });
@@ -66,15 +75,25 @@ export class AddressAutocompleteComponent {
     });
   }
 
-  /** Each keystroke in the field ((ngModelChange)). */
+  /** Each keystroke in the field ((ngModelChange)): only the text, the results of an earlier search go */
   onSearchChange(query: string): void {
     this.searchText.set(query);
     this.activeIndex.set(-1);
-    this.geocoding.search(query);
-    // Show dropdown when we have results
-    if (query.length >= 3) {
-      this.showDropdown.set(true);
+    if (this.searchedText() !== null) {
+      this.searchedText.set(null);
+      this.geocoding.clearResults();
     }
+    this.showDropdown.set(false);
+  }
+
+  /** Search for the text in the field: Enter or the search button */
+  submitSearch(): void {
+    if (!this.canSearch()) return;
+    const query = this.searchText();
+    this.searchedText.set(query);
+    this.activeIndex.set(-1);
+    this.geocoding.search(query);
+    this.showDropdown.set(true);
   }
 
   onFocus(): void {
@@ -158,8 +177,9 @@ export class AddressAutocompleteComponent {
   }
 
   /**
-   * The list by keyboard: the arrows walk the results, Enter takes the one
-   * stood on (the first when none is), Escape closes the list.
+   * The field by keyboard: Enter searches; with the list open, the arrows walk
+   * the results, Enter takes the one stood on (the first when none is),
+   * Escape closes the list.
    */
   onKeyDown(event: KeyboardEvent): void {
     const results = this.shownResults();
@@ -167,6 +187,11 @@ export class AddressAutocompleteComponent {
       if (event.key === 'ArrowDown' && results.length > 0) {
         this.showDropdown.set(true);
         event.preventDefault();
+      } else if (event.key === 'Enter') {
+        this.submitSearch();
+        event.preventDefault();
+        // The dialog behind does not take the Enter
+        event.stopPropagation();
       }
       return;
     }
@@ -195,6 +220,7 @@ export class AddressAutocompleteComponent {
     event.preventDefault();
     event.stopPropagation();
     this.searchText.set('');
+    this.searchedText.set(null);
     this.geocoding.clearResults();
     this.locationCleared.emit();
     // Focus input after clearing

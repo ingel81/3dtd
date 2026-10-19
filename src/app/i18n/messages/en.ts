@@ -346,6 +346,12 @@ export const en = {
     delete: 'Delete',
     retry: 'Retry',
   },
+  /** The address search of the place pickers: it searches on Enter or the button, not while typing */
+  addressSearch: {
+    search: 'Search',
+    searchLabel: 'Search for the address',
+    pressEnter: 'Press Enter to search',
+  },
   settings: {
     language: 'Language',
     languageSystem: (name: string) => `System (${name})`,

@@ -228,6 +228,11 @@ export const de: Messages = {
     delete: 'Löschen',
     retry: 'Nochmal',
   },
+  addressSearch: {
+    search: 'Suchen',
+    searchLabel: 'Nach der Adresse suchen',
+    pressEnter: 'Enter drücken, um zu suchen',
+  },
   settings: {
     language: 'Sprache',
     languageSystem: (name) => `System (${name})`,

@@ -1,6 +1,6 @@
 <div class="autocomplete-container">
   <div class="input-wrapper td-input is-group" [class.has-value]="currentValue()">
-    <td-icon class="input-icon" [name]="currentValue() ? 'pin' : 'search'" [size]="16"></td-icon>
+    <td-icon class="input-icon" name="pin" [size]="16"></td-icon>
     <input
       #inputElement
       type="text"
@@ -19,6 +19,11 @@
     />
     @if (geocoding.isLoading()) {
       <mat-spinner diameter="14"></mat-spinner>
+    } @else if (!currentValue()) {
+      <!-- mousedown keeps the focus in the field: its blur would close the list as it opens -->
+      <button type="button" class="td-tool search-btn" [disabled]="!canSearch()" (mousedown)="$event.preventDefault()" (click)="submitSearch()" [title]="t().addressSearch.search" [attr.aria-label]="t().addressSearch.searchLabel">
+        <td-icon name="search" [size]="14"></td-icon>
+      </button>
     }
     @if (currentValue() && !geocoding.isLoading()) {
       <button type="button" class="td-tool clear-btn" (mousedown)="$event.preventDefault()" (click)="clearValue($event)" title="Clear" aria-label="Clear the address">
@@ -38,6 +43,12 @@
           <span class="td-note hint">
             <td-icon name="grid" [size]="12"></td-icon>
             {{ 3 - searchText().length }} more characters
+          </span>
+        }
+        @case ('ready') {
+          <span class="td-note hint">
+            <td-icon name="search" [size]="12"></td-icon>
+            {{ t().addressSearch.pressEnter }}
           </span>
         }
         @case ('searching') {

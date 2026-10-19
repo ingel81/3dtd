@@ -1,4 +1,4 @@
-// Layout of the address search: the field with its icon and clear button,
+// Layout of the address search: the field with its icon, search and clear button,
 // a status line under it, the results as a list under it in the flow. A
 // place chosen shows its pin in green.
 
@@ -10,7 +10,8 @@
   color: var(--td-green);
 }
 
-.clear-btn {
+.clear-btn,
+.search-btn {
   width: 24px;
   height: 24px;
 }

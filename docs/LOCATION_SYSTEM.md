@@ -43,7 +43,7 @@ services/location/best-waves.ts                             - Beste Welle je Ort
 services/location/best-wave.service.ts                      - Beste Welle je Ort: Aufzeichnung am Event-Bus, neuer Rekord bei Game Over
 services/location/place-choice.ts                           - PlaceChoice, Koordinaten lesen (rein)
 components/main-menu/pages/new-game/place-picker.component.ts - Ortswahl der Menüseite New game
-components/address-autocomplete.component.ts        - Adress-Autocomplete
+components/address-autocomplete.component.ts        - Adresssuche (Enter oder Lupe, Ergebnisliste)
 components/world-globe/world-globe.component.ts             - Weltkarte: Globus auf 2D-Canvas
 components/world-globe/globe-projection.ts                  - Orthografische Projektion, Horizont-Schnitt, Drehen, Zoom
 components/world-globe/world-outlines.data.ts               - Küsten und Landgrenzen (generiert, Natural Earth)
@@ -323,7 +323,10 @@ Nominatim (OpenStreetMap) API für Forward- und Reverse-Geocoding.
 
 ```typescript
 search(query: string): void
-// - Debounced (300ms)
+// - nur auf Enter oder den Such-Knopf mit der Lupe, nie beim Tippen: Nominatims
+//   Nutzungsrichtlinie verbietet Suche beim Tippen über die API
+// - gleiche Anfrage (ohne Groß/Klein und Rand) aus dem Cache der Sitzung (50 Anfragen)
+// - höchstens eine Anfrage je Sekunde, eine spätere wartet den Rest ab
 // - Min. 3 Zeichen
 // - Max. 8 Ergebnisse
 // - AbortController für Request-Cancellation

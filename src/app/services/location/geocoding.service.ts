@@ -3,6 +3,10 @@ import { readJson, writeJson } from '../../utils/storage';
 
 /** A search or reverse lookup without an answer for this long fails, ms (it showed "Searching..." until the browser gave up) */
 const GEOCODE_TIMEOUT_MS = 10_000;
+/** Nominatim's usage policy: at most one request a second, so a search waits out what is left of the last one's */
+const MIN_REQUEST_GAP_MS = 1000;
+/** Searches answered this session, by query: asking the same twice is against the policy */
+const SEARCH_CACHE_SIZE = 50;
 
 export interface GeocodingResult {
   placeId: number;
@@ -50,21 +54,25 @@ export interface ReverseGeocodeResult {
 export const UNKNOWN_LOCATION_NAME = 'Unknown location';
 
 /**
- * Geocoding Service using Nominatim (OpenStreetMap) API
- * Provides address search with autocomplete functionality
+ * Geocoding Service using Nominatim (OpenStreetMap) API: address search and
+ * reverse lookup. A search runs only when the player asks for it (Enter or the
+ * search button), never as they type: Nominatim's usage policy forbids
+ * search-as-you-type on its API. Answers are cached, and requests keep a
+ * second apart.
  */
 @Injectable({
   providedIn: 'root',
 })
 export class GeocodingService {
   private readonly NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
-  private readonly DEBOUNCE_MS = 300;
-  private readonly MIN_QUERY_LENGTH = 3;
+  readonly MIN_QUERY_LENGTH = 3;
   private readonly MAX_RESULTS = 8;
   private readonly REVERSE_CACHE_KEY = 'td_geocode_cache_v1';
 
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private abortController: AbortController | null = null;
+  /** When the last search went out, ms (performance.now) */
+  private lastRequestAt = -Infinity;
+  private readonly searchCache = new Map<string, GeocodingResult[]>();
 
   // Reverse geocoding cache (memory + localStorage)
   private reverseCache = new Map<string, string>();
@@ -105,41 +113,43 @@ export class GeocodingService {
   }
 
   /**
-   * Search for addresses with autocomplete
-   * Debounced to avoid excessive API calls
+   * Search for an address, when the player asks for it. A query under
+   * MIN_QUERY_LENGTH characters clears the results; one asked before comes
+   * from the cache; a newer search cancels one still running.
    */
   search(query: string): void {
-    // Clear previous timer
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-    }
-
-    // Clear previous request
-    if (this.abortController) {
-      this.abortController.abort();
-    }
-
-    // Reset state for short queries
-    if (query.length < this.MIN_QUERY_LENGTH) {
+    this.abortController?.abort();
+    const key = query.trim().toLowerCase();
+    if (key.length < this.MIN_QUERY_LENGTH) {
       this.results.set([]);
       this.error.set(null);
+      this.isLoading.set(false);
       return;
     }
-
+    const cached = this.searchCache.get(key);
+    if (cached) {
+      this.results.set(cached);
+      this.error.set(null);
+      this.isLoading.set(false);
+      return;
+    }
     this.isLoading.set(true);
-
-    this.debounceTimer = setTimeout(() => {
-      this.executeSearch(query);
-    }, this.DEBOUNCE_MS);
+    void this.executeSearch(query.trim(), key);
   }
 
   /**
    * Execute the actual search request
    */
-  private async executeSearch(query: string): Promise<void> {
-    this.abortController = new AbortController();
+  private async executeSearch(query: string, key: string): Promise<void> {
+    const controller = new AbortController();
+    this.abortController = controller;
 
     try {
+      const wait = this.lastRequestAt + MIN_REQUEST_GAP_MS - performance.now();
+      if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+      if (controller.signal.aborted) return;
+      this.lastRequestAt = performance.now();
+
       const params = new URLSearchParams({
         q: query,
         format: 'json',
@@ -149,7 +159,7 @@ export class GeocodingService {
 
       const response = await fetch(`${this.NOMINATIM_URL}/search?${params}`, {
         // A newer search cancels it; a server that does not answer ends it after a while (TimeoutError, shown)
-        signal: AbortSignal.any([this.abortController.signal, AbortSignal.timeout(GEOCODE_TIMEOUT_MS)]),
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(GEOCODE_TIMEOUT_MS)]),
         headers: {
           // Nominatim requires a user-agent
           'User-Agent': 'Nervbox-TowerDefense/1.0',
@@ -182,6 +192,8 @@ export class GeocodingService {
         })
       );
 
+      this.searchCache.set(key, results);
+      if (this.searchCache.size > SEARCH_CACHE_SIZE) this.searchCache.delete(this.searchCache.keys().next().value!);
       this.results.set(results);
       this.error.set(null);
     } catch (err) {
@@ -193,7 +205,8 @@ export class GeocodingService {
       this.error.set('Address search failed');
       this.results.set([]);
     } finally {
-      this.isLoading.set(false);
+      // A newer search keeps loading
+      if (this.abortController === controller) this.isLoading.set(false);
     }
   }
 
@@ -327,12 +340,7 @@ export class GeocodingService {
    * Clear search results
    */
   clearResults(): void {
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-    }
-    if (this.abortController) {
-      this.abortController.abort();
-    }
+    this.abortController?.abort();
     this.results.set([]);
     this.error.set(null);
     this.isLoading.set(false);
