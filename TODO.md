@@ -38,17 +38,25 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
 - [ ] **E248 Grundstücke in OSM-Welten** (Vorgarten, Einfahrt, Hecke): gebaut, nicht übernommen, auf
       `wt/r6-surface-b` 8672588f0 (Miltenberg +617 Vorgärten, +411 Einfahrten, +0,84 M Dreiecke vor allem durch Hecken,
       Budget ausgeschöpft). Vor der Übernahme: Hecken aus echten OSM-Linien zuerst, Hecken billiger, mehrere Orte.
-- [ ] **E249 Zerstörung Rest**: Klänge (Auswahlseite `tmp/sound-audition`, Gruppe „Zerstörung“, User wählt).
-      Fallrichtung aus dem auslösenden Treffer gebaut, nicht übernommen: `wt/r8-destroy-b` e8f7d03d8 und 3e4dbb40a,
-      Suite grün; im Bild nur mit Mittentreffer geprüft, ein schräger Treffer fehlt. Später Bewehrung und Glas.
+- [ ] **E249 Zerstörung Rest**: Klänge (Auswahl in `tmp/sound-audition/choices.json`, User 2026-10-19): gewählt
+      Einsturz klein Mauerwerk 3, Holz 1, Metall 3, Nachrieseln 3; neu erzeugen alle großen Einstürze, Beton klein und
+      Krater („vieles zu dumpf und qualitativ zu schlecht“), dann `install.py` und einbauen. Fallrichtung aus dem Treffer
+      gebaut, nicht übernommen: `wt/r8-destroy-b` e8f7d03d8 und 3e4dbb40a, schräger Treffer im Bild ungeprüft.
 - [ ] **E250 Impostor-Ton**: Fix gebaut, nicht übernommen, `wt/r8-veg-c` c4f65db86 (Tonprobe unter Kartenlicht ohne
       Schatten, Metall aus Maps 0): alle vier Karten im Flächenmaß in ±1 %, an Kanten Autumn Keep noch 4 %; nach dem
       Rebase lief nur custom-map, die volle Suite vor der Übernahme.
 - [ ] **E251 Laden nach Bedarf, Rest**: Freischalten im Lauf per Probe geprüft (0 Links, längstes Bild 14 ms; ein
       Zeitvorteil des Vorziehens ist nicht nachweisbar); rund 65 Links direkt bei ready (Grafikstufen noch im
       Aufwärmen, zu E246); Bildspitzen unter Ruhe nachmessen (`tmp/plan/r6/MESSUNGEN_SPAETER.md`).
-- [ ] **Offene Entscheidungen beim User**: Witch Marsh nachts heller, Nachtlicht, schärfere Texturen
-      1024 px, Kantenglättung (MSAA), Schildgrenze, Fähigkeiten/Held/Mutatoren deutsch, Klänge der Zerstörung.
+- [ ] **E252 Kantenglättung nach Grafikstufe** (User 2026-10-19): MSAA nur High und Ultra, Low und Medium FXAA, auch
+      im Editor; der gemeinsame Renderer legt MSAA beim Anlegen fest (Wechsel der Stufe baut ihn neu).
+- [ ] **E253 Schärfere Texturen** (User 2026-10-19: ja): häufigste Fassadentexturen und Wahrzeichen auf 1024 px
+      (`textureSize` in `tools/map-assets/objects.json`, Packlauf), etwa +1 MiB je Textur und Karte.
+- [ ] **E254 Witch Marsh nachts heller** (User 2026-10-19): mehr Mondlicht, hellerer Bodennebel, Wege lesbar.
+- [ ] **E255 Flächen-Zuordnung prüfen** (User 2026-10-19: „Spielplatz mit rotem Boden gesehen“): Bodenart je
+      Nutzungsfläche in OSM-Welten gegen echte Orte durchsehen (E237).
+- Entschieden 2026-10-19: Schildgrenze 512 bleibt; Fähigkeiten, Held und Mutatoren bleiben übersetzt (nur Turm- und
+  Gegnernamen englisch); Nachtlicht ohne Mond aufgehellt (gebaut).
 
 ### Jetzt: Showreel Runde 5
 
