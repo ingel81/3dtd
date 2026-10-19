@@ -7,6 +7,7 @@
  */
 import type { MapTerrain, MapWater } from '../../map-document';
 import { HeightField } from '../height-field';
+import { pathMaskOf, type PathMaskInput } from '../paths/path-mask';
 import { farShadowData, lavaCloseness, lavaSamples, shapePatch, type FarShadowTexels, type SampleRect, type ShapePatch } from './ground-shape';
 
 /** The part of a map the jobs read: its height grid and extent, the lava among its water */
@@ -15,12 +16,14 @@ export type GroundJobMap = Pick<MapTerrain, 'width' | 'depth' | 'grid' | 'water'
 export type GroundJob =
   | { kind: 'shape'; rect: SampleRect | null }
   | { kind: 'heights'; rect: SampleRect; rows: Float32Array }
+  | { kind: 'pathMask'; input: PathMaskInput }
   | { kind: 'lava' }
   | { kind: 'farShadow'; sunDir: { x: number; y: number; z: number } };
 
 export interface GroundJobResults {
   shape: ShapePatch;
   heights: null;
+  pathMask: Uint8Array;
   lava: { closeness: Uint8Array; any: boolean };
   farShadow: FarShadowTexels;
 }
@@ -57,6 +60,8 @@ export function runGroundJob(map: GroundJobMap, job: GroundJob): GroundJobResult
     case 'heights':
       writeRows(map.grid.heights, map.grid.columns, job.rect, job.rows);
       return null;
+    case 'pathMask':
+      return pathMaskOf(job.input);
     case 'lava': {
       const lava = lavaSamples(map, field);
       return { closeness: lavaCloseness(lava, field), any: lava.includes(1) };
@@ -83,6 +88,7 @@ function writeRows(heights: Float32Array, columns: number, rect: SampleRect, row
 /** The arrays of a result that go back transferred */
 export function groundResultTransfer(result: GroundJobResult): ArrayBuffer[] {
   if (result === null) return [];
+  if (result instanceof Uint8Array) return [result.buffer as ArrayBuffer];
   if ('terrain' in result) return [result.terrain, result.curvature, ...(result.drainage ? [result.drainage] : [])].map((a) => a.buffer as ArrayBuffer);
   if ('closeness' in result) return [result.closeness.buffer as ArrayBuffer];
   return [result.data.buffer as ArrayBuffer];

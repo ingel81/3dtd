@@ -185,7 +185,10 @@ Nebel der Szene wieder her.
   das Spiel und die Kartenvorschau rechnen sie in einem Worker der Ansicht (`GroundWorker`, `ground-jobs.ts`: eine Kopie
   von Höhen und Lava beim Bau der Ansicht, die Karte steht dort still), der Editor im Editor-Worker (`EditorGround`,
   Aufträge `groundShape`, `lava`, `farShadow`), beide von der ersten Rechnung an (`CustomMapViewOptions.groundBaker`);
-  bis sie da ist, zeichnet der Boden offen, `ready` wartet auf sie. Die Ergebnisse kommen als Rechteck in die Textur. Auf 1025² (Node): ein
+  bis sie da ist, zeichnet der Boden offen, `ready` wartet auf sie. Die Ergebnisse kommen als Rechteck in die Textur.
+  Derselbe Worker malt beim Laden die ganze Pfadmaske (`pathMask`, `path-mask.ts` `pathMaskOf`: Wege, Straßendeckel,
+  Flussufer, Plätze), während die Bodenmaterialien laden; geänderte Höhen bekommt seine Kopie über
+  `GroundBaker.heightsChanged` (Krater). Auf 1025² (Node): ein
   80-m-Strich vorher 64 ms Horizontsuche im Hauptthread (in Scheiben zu 2 ms je Bild), jetzt 0,4 ms Einschreiben; die
   Lava-Nähe vorher 60 ms, jetzt 2,6 ms (nur Kanal A); ein Vollaufbau (Generieren, Größe) vorher rund 2 s im Bild,
   jetzt 7 ms; der Fernschatten (114 ms in Scheiben) und die Höhenlinien des Editors (2 m: 112 ms je halbe Sekunde im

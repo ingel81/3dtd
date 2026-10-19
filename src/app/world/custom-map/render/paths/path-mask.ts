@@ -49,6 +49,22 @@ export function edgePolyline(edge: MapPathEdge, nodes: Map<string, MapPoint>): M
   return [a, ...(edge.via ?? []), b];
 }
 
+/** What a whole mask is painted from (rasterizePathMask), as plain data: a worker takes it (GroundWorker) */
+export interface PathMaskInput {
+  paths: MapPaths;
+  width: number;
+  depth: number;
+  resolution: number;
+  rivers: MapRiver[];
+  covers: readonly RoadCover[];
+  surfaces: readonly MapSurface[];
+}
+
+/** The whole mask of `input` (rasterizePathMask) */
+export function pathMaskOf(input: PathMaskInput): Uint8Array {
+  return rasterizePathMask(input.paths, input.width, input.depth, input.resolution, input.rivers, input.covers, input.surfaces);
+}
+
 /**
  * Rasterises the paths into an RGBA mask (see above) of `resolution`^2 texels over a map of
  * `width` x `depth` metres (texel (0, 0) at the south-west corner). Full

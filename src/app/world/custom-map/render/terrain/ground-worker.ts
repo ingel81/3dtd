@@ -1,5 +1,6 @@
 import { groundJobMap, groundJobTransfer, readRows, runGroundJob, type GroundJob, type GroundJobMap, type GroundJobResult, type GroundJobResults } from './ground-jobs';
 import type { FarShadowTexels, GroundBaker, SampleRect, ShapePatch } from './ground-shape';
+import type { PathMaskInput } from '../paths/path-mask';
 
 /**
  * Works the ground's shape of a map that holds still (the game, the map
@@ -43,6 +44,10 @@ export class GroundWorker implements GroundBaker {
 
   farShadow(sunDir: { x: number; y: number; z: number }): Promise<FarShadowTexels | null> {
     return this.ask({ kind: 'farShadow', sunDir: { x: sunDir.x, y: sunDir.y, z: sunDir.z } });
+  }
+
+  pathMask(input: PathMaskInput): Promise<Uint8Array | null> {
+    return this.ask({ kind: 'pathMask', input });
   }
 
   /**

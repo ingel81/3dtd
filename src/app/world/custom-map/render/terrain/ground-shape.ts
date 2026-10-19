@@ -9,6 +9,7 @@
 import type { MapTerrain } from '../../map-document';
 import { cellHeight, type HeightField } from '../height-field';
 import { sampleRiver } from '../water/river-line';
+import type { PathMaskInput } from '../paths/path-mask';
 
 const DIRECTIONS = 8;
 const STEPS = [2, 4, 8, 16, 32];
@@ -56,6 +57,8 @@ export interface GroundBaker {
   lava(): Promise<{ closeness: Uint8Array; any: boolean } | null>;
   /** The far shadow for the sun in `sunDir` (scene space, towards the sun) */
   farShadow(sunDir: { x: number; y: number; z: number }): Promise<FarShadowTexels | null>;
+  /** The whole path mask (path-mask.ts) of a map that loads; missing: painted in place */
+  pathMask?(input: PathMaskInput): Promise<Uint8Array | null>;
   /**
    * The heights of `rect` changed (MapTerrainLayer.rebuild): a baker that works on a copy of its own takes them
    * before the next job (GroundWorker). Missing: it reads the map as it is (the editor's mirror)

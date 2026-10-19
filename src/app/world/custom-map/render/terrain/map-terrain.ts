@@ -11,7 +11,7 @@ import {
 import { MAX_GROUND_LAYERS, type MapBiome, type MapTerrain as MapTerrainDoc, type MapPaths } from '../../map-document';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary } from '../map-asset-library';
-import { pathMaskResolution, rasterizePathMask } from '../paths/path-mask';
+import { pathMaskOf, pathMaskResolution, type PathMaskInput } from '../paths/path-mask';
 import { addHeightFog } from '../environment/height-fog';
 import { ApronProfile, BACKDROP_HEIGHT, buildTerrainApron, writeApronGeometry } from './terrain-apron';
 import { APRON_LOOK, ApronMaterial } from './apron-material';
@@ -187,6 +187,10 @@ export class MapTerrainLayer {
   async load(assets: MapAssetLibrary, paths: MapPaths, anisotropy: number): Promise<void> {
     const t = this.terrain;
     const generation = ++this.generation;
+    // The roads first: the mask leaves the ground under their surface to them. The mask is painted while the
+    // materials load, off the page's thread where there is a baker; new layers keep it
+    this.roads.set(paths);
+    const painting = this.pathMask ? null : this.bakePathMask(paths);
     const { ids, slots } = assignLayerSlots(t);
     const [{ arrays, materials: pixels }, catalog] = await Promise.all([loadMaterialArrays(assets, ids, anisotropy), assets.catalog()]);
     const scales = ids.map((id) => {
@@ -215,18 +219,26 @@ export class MapTerrainLayer {
       return;
     }
     const splat = new SplatTextures(t.splat);
-    // The roads first: the mask leaves the ground under their surface to them. New layers keep the mask
-    this.roads.set(paths);
-    if (!this.pathMask) {
-      this.pathMask = this.buildPathMask(paths);
-      this.pathMaskBuilt?.();
+    let pathMask = this.pathMask;
+    if (!pathMask) {
+      const texels = await (painting ?? this.bakePathMask(paths));
+      if (generation !== this.generation) {
+        arrays.dispose();
+        return;
+      }
+      pathMask = this.pathMask ?? maskTexture(texels, pathMaskResolution(t.width, t.depth));
+      if (pathMask !== this.pathMask) {
+        uploadRect(pathMask, undefined);
+        this.pathMask = pathMask;
+        this.pathMaskBuilt?.();
+      }
     }
     this.refreshApronPaint();
     const params: TerrainMaterialParams = {
       colorArray: arrays.color,
       dataArray: arrays.data,
       splat: splat.maps,
-      pathMask: this.pathMask,
+      pathMask,
       apronPaint: this.apronPaint ?? undefined,
       gridNormals: this.normals.texture,
       gridOcclusion: this.occlusion.texture,
@@ -518,11 +530,18 @@ export class MapTerrainLayer {
     this.surfaces.dispose();
   }
 
-  private buildPathMask(paths: MapPaths): DataTexture {
+  /** The whole path mask's texels: by the baker (the game's GroundWorker), else here; the same either way */
+  private async bakePathMask(paths: MapPaths): Promise<Uint8Array> {
     const t = this.terrain;
-    const resolution = pathMaskResolution(t.width, t.depth);
-    const texture = maskTexture(rasterizePathMask(paths, t.width, t.depth, resolution, t.rivers ?? [], this.roads.covers(), this.surfaces.surfaces), resolution);
-    uploadRect(texture, undefined);
-    return texture;
+    const input: PathMaskInput = {
+      paths,
+      width: t.width,
+      depth: t.depth,
+      resolution: pathMaskResolution(t.width, t.depth),
+      rivers: t.rivers ?? [],
+      covers: this.roads.covers(),
+      surfaces: this.surfaces.surfaces,
+    };
+    return (await this.occlusion.baker?.pathMask?.(input)) ?? pathMaskOf(input);
   }
 }
