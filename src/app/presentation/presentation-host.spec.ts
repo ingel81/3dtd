@@ -62,6 +62,7 @@ function makeEngine() {
     orbitalBeams: { setGround: vi.fn(), clear: vi.fn() },
     abilityMarkers: { clear: vi.fn() },
     missileLaunches: { clear: vi.fn() },
+    siegeShells: { clear: vi.fn() },
     mushroomClouds: { clear: vi.fn() },
     frostBursts: { clear: vi.fn() },
     empPulses: { clear: vi.fn() },

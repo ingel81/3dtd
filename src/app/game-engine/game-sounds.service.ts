@@ -19,11 +19,12 @@ import {
   type GlobalCue,
 } from '../configs/game-sounds.config';
 import { isBloodMoonWave } from '../configs/blood-moon.config';
-import { getAllEnemyTypes } from '../configs/enemy-types.config';
 import { BACKGROUND_MUSIC, cueLeadMs } from '../configs/background-music.config';
 import type { AbilityStatus } from '../configs/abilities.config';
 import type { HeroStatus } from '../configs/hero.config';
 import type { GeoPosition } from '../models/game.types';
+import { getAllEnemyTypes, type EnemyTypeId } from '../configs/enemy-types.config';
+import { SIEGE_LOOKS } from '../configs/siege-look.config';
 
 /**
  * The sounds of game events that are not a tower's shot or an ability's
@@ -73,7 +74,9 @@ export class GameSoundsService {
       ...Object.values(WORLD_SOUNDS),
       ...Object.values(IMPACT_SOUNDS),
       ...Object.values(RAGE_SOUNDS),
+      // Every heavy step and every siege gun's shot and blast
       ...getAllEnemyTypes().flatMap((type) => (type.footstep ? [type.footstep.sound] : [])),
+      ...Object.values(SIEGE_LOOKS).flatMap((look) => (look ? [look.sounds.shot, look.sounds.impact] : [])),
       ...Object.values(ABILITY_CAST_SOUNDS).filter((s): s is GameSoundSample => s !== null),
     ];
     const registered = new Set<string>();
@@ -125,6 +128,15 @@ export class GameSoundsService {
     this.subs.add(bus.onShow('enemy:enraged', ({ enemy }) => {
       const id = enemy.typeConfig.rageSound;
       if (id) this.playAt(RAGE_SOUNDS[id].id, enemy.position);
+    }));
+    // A siege gun's shot at its muzzles, its shell's blast where it lands (SIEGE_LOOKS)
+    this.subs.add(bus.onShow('vfx:siege-shot', ({ enemyTypeId, lat, lon, height }) => {
+      const look = SIEGE_LOOKS[enemyTypeId as EnemyTypeId];
+      if (look) this.playAt(look.sounds.shot.id, { lat, lon, height });
+    }));
+    this.subs.add(bus.onShow('vfx:siege-impact', ({ enemyTypeId, lat, lon, height }) => {
+      const look = SIEGE_LOOKS[enemyTypeId as EnemyTypeId];
+      if (look) this.playAt(look.sounds.impact.id, { lat, lon, height });
     }));
     this.subs.add(bus.onShow('tower:upgraded', ({ tower }) => {
       this.playAt(WORLD_SOUNDS.towerUpgrade.id, tower.position);

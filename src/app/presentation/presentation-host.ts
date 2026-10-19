@@ -27,6 +27,7 @@ import { DEFAULT_RUN_RULES } from '../sim/protocol/run-rules';
 import { registerCombatSounds } from './combat-sounds';
 import { ManualShots } from './manual-shots';
 import { iceDecal, iceExplosion } from './ice-effects';
+import { SiegeEffects } from './siege-effects';
 import { TOWER_TYPES, type TowerTypeId } from '../configs/tower-types.config';
 import type { ScorchGround } from '../three-engine/renderers/scorch-marks';
 
@@ -80,6 +81,8 @@ export class PresentationHost implements SimPresenterApi {
   /** The Shawarma Slicer's spin-up and machine */
   readonly streams: TowerLoopSounds;
   readonly manualShots: ManualShots;
+  /** The siege guns' shots and blasts (EnemyTypeConfig.siege) */
+  readonly siege: SiegeEffects;
 
   private readonly engine: ThreeTilesEngine;
   private readonly subs = new SubscriptionBag();
@@ -104,6 +107,7 @@ export class PresentationHost implements SimPresenterApi {
     this.hq = new HqDamagePresenter(engine, bus, () => (engine.world.runRules() ?? DEFAULT_RUN_RULES).hqHealth);
     this.manualShots = new ManualShots(bus, source);
     this.worldDamage = new WorldDamagePresenter(engine, bus, stampGround ?? null, towers ?? null);
+    this.siege = new SiegeEffects(engine, bus, source);
 
     // Scorch marks sit on route cells at the grid's ground height, the hero
     // and the foot of the orbital laser's beam stand on it like the enemies
@@ -157,6 +161,8 @@ export class PresentationHost implements SimPresenterApi {
     this.lasers.advance(gameTimeDeltaMs);
     this.saws.advance(gameTimeDeltaMs);
     this.streams.advance(gameTimeDeltaMs);
+    // The siege guns' servos linger
+    this.frame.guns.advance(gameTimeDeltaMs);
   }
 
   /**
@@ -197,6 +203,7 @@ export class PresentationHost implements SimPresenterApi {
    */
   clearShow(): void {
     this.engine.effects.clear();
+    this.engine.siegeShells.clear();
     clearStrikeEffects(this.engine);
     this.audio.clearAbilitySounds();
     this.engine.spatialAudio.stopOneShots();
@@ -413,6 +420,15 @@ export class PresentationHost implements SimPresenterApi {
     ops.override('main.structureFell', (args) => {
       const [index, lat, lon, radius, height] = args as [number, number, number, number, number];
       this.worldDamage.fell(index, lat, lon, radius, height);
+    });
+    // A siege gun fires at a structure, its shell lands (EnemySiege)
+    ops.override('main.siegeShot', (args) => {
+      const [enemyId, lat, lon, height, flightMs] = args as [string, number, number, number, number];
+      this.siege.shot(enemyId, lat, lon, height, flightMs);
+    });
+    ops.override('main.siegeImpact', (args) => {
+      const [enemyId, typeId, structure, lat, lon, height] = args as [string, string, number, number, number, number];
+      this.siege.impact(enemyId, typeId, structure, lat, lon, height);
     });
   }
 }

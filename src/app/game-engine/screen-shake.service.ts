@@ -9,6 +9,8 @@ import {
   type ScreenShakePreset,
 } from '../configs/visual-effects.config';
 import { loadDisplayOptions } from '../utils/display-options.storage';
+import { SIEGE_LOOKS } from '../configs/siege-look.config';
+import type { EnemyTypeId } from '../configs/enemy-types.config';
 
 /**
  * Share of full strength an impact keeps at `distance` metres from the
@@ -145,6 +147,20 @@ export class ScreenShakeService {
         if (!enemy.typeConfig.footstep?.shake) return;
         const { lat, lon, height } = enemy.position;
         this.shakeAt(presets.footstep, lat, lon, height ?? 0);
+      }),
+    );
+
+    // A siege gun's shot and its shell's blast, each with its own reach (SIEGE_LOOKS)
+    this.subs.add(
+      this.eventBus.onShow('vfx:siege-shot', ({ enemyTypeId, lat, lon, height }) => {
+        const shake = SIEGE_LOOKS[enemyTypeId as EnemyTypeId]?.shake.shot;
+        if (shake) this.shakeAt(shake, lat, lon, height, shake.near, shake.far);
+      }),
+    );
+    this.subs.add(
+      this.eventBus.onShow('vfx:siege-impact', ({ enemyTypeId, lat, lon, height }) => {
+        const shake = SIEGE_LOOKS[enemyTypeId as EnemyTypeId]?.shake.impact;
+        if (shake) this.shakeAt(shake, lat, lon, height, shake.near, shake.far);
       }),
     );
 

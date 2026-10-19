@@ -47,4 +47,23 @@ export type EffectEvent =
       type: 'vfx:chain-lightning';
       points: { x: number; y: number; z: number }[];
       sourceTowerId: string;
+    }
+  | {
+      /**
+       * A siege gun fired (op main.siegeShot, SiegeEffects): its boom and
+       * shake (SIEGE_LOOKS of the type) where its muzzles are
+       */
+      type: 'vfx:siege-shot';
+      enemyTypeId: string;
+      lat: number;
+      lon: number;
+      height: number;
+    }
+  | {
+      /** A siege gun's shell landed (op main.siegeImpact, SiegeEffects): its blast's sound and shake */
+      type: 'vfx:siege-impact';
+      enemyTypeId: string;
+      lat: number;
+      lon: number;
+      height: number;
     };

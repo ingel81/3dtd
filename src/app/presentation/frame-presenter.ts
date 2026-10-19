@@ -29,6 +29,10 @@ import {
   EF_RUNNING,
   EF_RUSH,
   ENEMY_STRIDE,
+  G_ID,
+  G_PITCH,
+  G_YAW,
+  GUN_STRIDE,
   P_DX,
   P_DY,
   P_DZ,
@@ -52,6 +56,7 @@ import { MARK_LOOKS, NO_MARK, enemyMarkOf } from './enemy-marks';
 import { EnemySounds } from './enemy-sounds';
 import { OozePresenter, type PresentationGround } from './ooze-presenter';
 import { WormSounds } from './worm-sounds';
+import { GunPresenter } from './gun-presenter';
 
 /**
  * Spawn one trail-particle burst per this many meters travelled.
@@ -109,6 +114,7 @@ interface ProjectileRecord {
  * The tables of a frame packet to the renderers (SimPresenterApi.present):
  * enemies to their instance slots with the walk or run clip, status looks
  * and their own sounds; oozes to their bands and loops; worms' voices;
+ * siege guns to their turrets and servos;
  * projectiles to their instances, trail bursts and streaks; heroes, the
  * local player's on engine.hero and each partner's on a renderer of its
  * own; veteran badges from the kills. What is created and removed comes as
@@ -122,6 +128,7 @@ export class FramePresenter {
   readonly enemySounds = new EnemySounds();
   readonly oozes: OozePresenter;
   readonly wormSounds = new WormSounds();
+  readonly guns: GunPresenter;
 
   private readonly enemies = new Map<number, EnemyRecord>();
   private readonly projectiles = new Map<number, ProjectileRecord>();
@@ -137,6 +144,7 @@ export class FramePresenter {
   private readonly trailPos = new Vector3();
   private readonly lead = new Vector3();
   private readonly direction = { dx: 0, dy: 0, dz: 0 };
+  private readonly gunAt = new Vector3();
   private readonly headAt = (num: number, out: Vector3): boolean => this.wormHead(num, out);
 
   constructor(
@@ -144,6 +152,7 @@ export class FramePresenter {
     private readonly ground: PresentationGround,
   ) {
     this.oozes = new OozePresenter(ground);
+    this.guns = new GunPresenter(() => engine.spatialAudio ?? null);
   }
 
   present(packet: SimFramePacket): void {
@@ -157,6 +166,7 @@ export class FramePresenter {
       this.engine.projectiles.beginState(carry);
       this.landProjectiles();
       this.presentEnemies(packet, frame, gameTimeMs, deltaMs);
+      this.presentGuns(packet, frame, gameTimeMs);
       this.oozes.present(packet.oozes, this.engine);
       this.wormSounds.present(packet.worms, this.headAt, this.engine.spatialAudio ?? null, gameTimeMs);
       this.presentProjectiles(packet, frame);
@@ -214,6 +224,7 @@ export class FramePresenter {
     this.statusVisuals.clear(this.engine);
     this.oozes.clear(this.engine);
     this.wormSounds.clear(audio);
+    this.guns.clear();
     this.enemies.clear();
     this.projectiles.clear();
     this.towerKills.clear();
@@ -321,6 +332,32 @@ export class FramePresenter {
       this.enemySounds.forget(num, audio);
       this.statusVisuals.forget(record.id, engine);
     }
+  }
+
+  /**
+   * Each siege gun's turn and tilt onto its enemy's slot (the turret joints of
+   * its VAT), and its servo while it turns, at the enemy as this frame shows it
+   */
+  private presentGuns(packet: SimFramePacket, frame: number, gameTimeMs: number): void {
+    const table = packet.guns;
+    const d = table.data;
+    const e = this.enemyTable;
+    for (let r = 0; r < table.count; r++) {
+      const o = r * GUN_STRIDE;
+      const record = this.enemies.get(d[o + G_ID]);
+      if (record === undefined || record.seen !== frame) continue;
+      const yaw = d[o + G_YAW];
+      const slot = record.slot;
+      if (slot !== null && !slot.released) this.engine.enemies.setTurret(slot, yaw, d[o + G_PITCH]);
+      let at: Vector3 | null = null;
+      if (record.row >= 0 && e !== null) {
+        at = this.engine.sync.geoToLocalSimpleInto(e[record.row + E_LAT], e[record.row + E_LON], 0, this.gunAt);
+        at.y = e[record.row + E_TERRAIN] + e[record.row + E_HOFF] - this.engine.sync.getOrigin().height
+          + (record.type.turret?.pivotHeight ?? 0) * record.type.scale;
+      }
+      this.guns.present(record.id, record.type, yaw, at, gameTimeMs, frame);
+    }
+    this.guns.endFrame(frame);
   }
 
   /** The head of a worm chain: local position of enemy `num` lifted to where its voice sits. */

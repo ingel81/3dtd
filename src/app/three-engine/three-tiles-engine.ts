@@ -49,6 +49,7 @@ import { TowerBadgeRenderer } from './renderers/tower-badge/tower-badge.renderer
 import { AbilityMarkerRenderer } from './renderers/ability-marker.renderer';
 import { MushroomCloudRenderer } from './renderers/mushroom-cloud.renderer';
 import { MissileLaunchRenderer } from './renderers/missile-launch.renderer';
+import { SiegeShellRenderer } from './renderers/siege-shell.renderer';
 import { OozeBandRenderer } from './renderers/ooze/ooze-band.renderer';
 import { OozeDebrisRenderer } from './renderers/ooze/ooze-debris.renderer';
 import { createPortalClipUniforms } from './renderers/portal-clip';
@@ -187,6 +188,8 @@ export class ThreeTilesEngine {
   readonly mushroomClouds: MushroomCloudRenderer;
   /** The nuclear strike's missile from its silo to the target, with its smoke */
   readonly missileLaunches: MissileLaunchRenderer;
+  /** The shells of the siege guns in flight (EnemyTypeConfig.siege) */
+  readonly siegeShells: SiegeShellRenderer;
   /** Bodies of the oozes along the route, see OozeBodies */
   readonly oozes: OozeBandRenderer;
   /** Searchlights on the towers, lit by the blood moon */
@@ -411,6 +414,8 @@ export class ThreeTilesEngine {
     const siloUrl = siloType ? TOWER_TYPES[siloType].modelUrl : null;
     this.missileLaunches = new MissileLaunchRenderer(this.scene, this.mushroomClouds.spriteMaterials, () =>
       (siloUrl ? assets.getCachedModel(siloUrl)?.scene.getObjectByName(MISSILE_LAUNCH_LOOK.missile.node) : null) ?? null);
+    // Their smoke goes through the effects' trail particles
+    this.siegeShells = new SiegeShellRenderer(this.scene, (x, y, z, config) => this.effects.spawnConfigurableTrail(x, y, z, config));
     // A killed ooze's bubbles and splashes go through the effects, its debris to a renderer of its own
     this.oozes = new OozeBandRenderer(
       this.scene, { effects: this.effects, debris: new OozeDebrisRenderer(this.scene) }, this.portalClip,
@@ -437,7 +442,7 @@ export class ThreeTilesEngine {
     // Its embers take the ground marks' blood moon tint
     this.orbitalBeams = new OrbitalBeamRenderer(this.scene, this.effects.particleShaderMaterials, this.effects.groundMarkTint);
     // The glowing projectiles and the beams hold their own lights
-    for (const source of [this.projectiles, this.flameBeams, this.laserBeams, this.orbitalBeams, this.missileLaunches]) {
+    for (const source of [this.projectiles, this.flameBeams, this.laserBeams, this.orbitalBeams, this.missileLaunches, this.siegeShells]) {
       this.shotLights.addSource(source);
     }
 
@@ -1019,6 +1024,8 @@ export class ThreeTilesEngine {
     this.postProcessing?.setBloomKick(this.mushroomClouds.bloomKick, MUSHROOM_CLOUD_LOOK.bloomKick);
     // The missile flies in game time too, onto the impact the simulation counts down to
     this.missileLaunches.update(gameDeltaSeconds * 1000, this.camera);
+    // The siege guns' shells fly in game time onto the impact the simulation lands them at
+    this.siegeShells.update(gameDeltaSeconds * 1000);
     // Frost bursts run in game time as well
     this.frostBursts.update(gameDeltaSeconds * 1000, this.camera, this.renderer.domElement.height);
     this.empPulses.update(gameDeltaSeconds * 1000, this.camera, this.renderer.domElement.height);
@@ -1805,6 +1812,7 @@ export class ThreeTilesEngine {
     // Before the clouds, whose sprite materials it shares
     this.missileLaunches.dispose();
     this.mushroomClouds.dispose();
+    this.siegeShells.dispose();
     this.oozes.dispose();
     this.searchlights.dispose();
     this.bloodMoon.dispose();
