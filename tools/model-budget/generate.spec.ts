@@ -45,6 +45,7 @@ import {
 } from '../../src/app/three-engine/renderers/instanced-enemy/vat-encoding';
 import type { VATAlpha } from '../../src/app/three-engine/renderers/instanced-enemy/vat-surface';
 import { ktx2Opaque } from '../../src/app/three-engine/models/model-loader';
+import { TURRET_MARKERS } from '../../src/app/three-engine/renderers/instanced-enemy/vat-turret';
 import { writeGeneratedFile } from '../generated-file';
 import {
   decodePng,
@@ -229,7 +230,8 @@ async function buildRows(): Promise<Row[]> {
     const bake = planBake(config, model);
     const vertices = bake.meshes.reduce((s, m) => s + m.vertices, 0);
     const triangles = bake.meshes.reduce((s, m) => s + m.triangles, 0);
-    const { texWidth, rowsPerFrame } = vatLayout(Math.max(1, vertices));
+    // A turret's joints take their markers behind the vertices (vat-turret.ts)
+    const { texWidth, rowsPerFrame } = vatLayout(Math.max(1, vertices + (config.turret ? TURRET_MARKERS : 0)));
     // The shader samples the map of the mesh with the most vertices.
     let diffuse: ImageInfo | null = null;
     let best = 0;

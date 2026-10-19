@@ -21,6 +21,7 @@ import { DrawGate } from '../draw-gate';
 import { clothSeed } from './vat-cloth';
 import { drawnInWorldSpace } from '../../static-group';
 import { isSharedGpu } from '../../shared-gpu';
+import { turretPoint } from './vat-turret';
 
 /**
  * Instances a type's buffers hold at first; they double whenever an enemy
@@ -85,6 +86,11 @@ export interface EnemyInstanceState {
   markScale: number;
   /** Tint the instance shows while no status tint is on (an elite, a raging boss), null for none. */
   baseTint: readonly [number, number, number] | null;
+  /** Turret turn and gun tilt the simulation said last (setTurret), rad; 0 without turret joints */
+  turretYaw: number;
+  turretPitch: number;
+  /** performance.now() of its last shot (fireTurret), -Infinity before one: the guns' recoil */
+  firedAt: number;
   // Debug overrides (only set for debug-spawned enemies, undefined in normal gameplay)
   debugScale?: number;
   debugHeightOffset?: number;
@@ -113,6 +119,11 @@ export interface TypePool {
   prevOffsetAttr: InstancedBufferAttribute;
   /** aClothSeed, the seed of the look per instance (vat-cloth.ts); goes out with the tint. Null for a type without looks */
   clothAttr: InstancedBufferAttribute | null;
+  /** aTurret (vat-turret.ts): turn, tilt, turn to slide, recoil. Null for a type without turret joints */
+  turretAttr: InstancedBufferAttribute | null;
+  /** Instances whose guns recoil now, so the frame update skips the others */
+  recoiling: EnemyInstanceState[];
+  turretDirty: boolean;
 
   // Dirty flags for batched GPU buffer updates (set per-instance, flushed once per frame)
   matrixDirty: boolean;
@@ -144,6 +155,23 @@ const POISON_TINT_B = 0.1;
 const BURN_TINT_R = 1.0;
 const BURN_TINT_G = 0.45;
 const BURN_TINT_B = 0.05;
+
+/** The guns' recoil after a shot (wall ms): back in KICK_MS, home again over RETURN_MS */
+const RECOIL_KICK_MS = 45;
+const RECOIL_RETURN_MS = 750;
+
+/** Share of the recoil `ms` after a shot, 0 to 1 */
+export function recoilAt(ms: number): number {
+  if (ms < 0) return 0;
+  if (ms < RECOIL_KICK_MS) return ms / RECOIL_KICK_MS;
+  const back = 1 - (ms - RECOIL_KICK_MS) / RECOIL_RETURN_MS;
+  return back > 0 ? back * back : 0;
+}
+
+/** A turn into -π..π */
+function wrapAngle(a: number): number {
+  return a - Math.PI * 2 * Math.round(a / (Math.PI * 2));
+}
 
 // Hit-flash tint color (electric blue-white, used for lightning chain hits)
 const HIT_FLASH_R = 0.85;
@@ -302,6 +330,8 @@ export class EnemyInstanceManager {
     instancedMesh.geometry.setAttribute('aPrevOffset', prevOffsetAttr);
     const clothAttr = config.clothVariants?.regions.length ? new InstancedBufferAttribute(new Float32Array(INITIAL_INSTANCES_PER_TYPE), 1) : null;
     if (clothAttr) instancedMesh.geometry.setAttribute('aClothSeed', clothAttr);
+    const turretAttr = vatData.turret ? new InstancedBufferAttribute(new Float32Array(INITIAL_INSTANCES_PER_TYPE * 4), 4) : null;
+    if (turretAttr) instancedMesh.geometry.setAttribute('aTurret', turretAttr);
 
     // count=0 → GPU renders nothing; slots are initialized on first use.
     // The gate keeps the empty mesh out of the render list.
@@ -322,9 +352,12 @@ export class EnemyInstanceManager {
       tintColorAttr,
       prevOffsetAttr,
       clothAttr,
+      turretAttr,
+      recoiling: [],
       matrixDirty: false,
       tintDirty: false,
       animFrameDirty: false,
+      turretDirty: false,
     });
   }
 
@@ -361,6 +394,11 @@ export class EnemyInstanceManager {
     pool.tintColorAttr.setXYZW(index, baseTint?.[0] ?? 0, baseTint?.[1] ?? 0, baseTint?.[2] ?? 0, 0);
     // The look it has for its life, by its id (vat-cloth.ts)
     if (pool.clothAttr) pool.clothAttr.setX(index, clothSeed(id));
+    // A turret looks ahead until the simulation says otherwise
+    if (pool.turretAttr) {
+      pool.turretAttr.setXYZW(index, 0, 0, 0, 0);
+      pool.turretDirty = true;
+    }
     pool.animFrameDirty = true;
     pool.tintDirty = true;
 
@@ -396,6 +434,9 @@ export class EnemyInstanceManager {
       size,
       markScale: 1,
       baseTint,
+      turretYaw: 0,
+      turretPitch: 0,
+      firedAt: -Infinity,
     };
 
     pool.instances.set(id, state);
@@ -520,6 +561,60 @@ export class EnemyInstanceManager {
     state.markScale = scale;
     state.baseTint = tint;
     this.applyTint(state, state.pool);
+  }
+
+  /**
+   * Where the turret of `state` points (EnemyTypeConfig.turret): turned by
+   * `yaw` from the body's forward and the guns tilted by `pitch`, rad, as the
+   * simulation has it. The turn slides from where it is shown, on the clock
+   * of the bodies' slide (beginState); a type without turret joints ignores it.
+   */
+  setTurret(state: EnemyInstanceState, yaw: number, pitch: number): void {
+    const attr = state.pool.turretAttr;
+    if (!attr || state.released) return;
+    if (yaw === state.turretYaw && pitch === state.turretPitch && attr.getZ(state.index) === 0) return;
+    const shown = state.turretYaw + attr.getZ(state.index) * this.carry;
+    let slide = this.stateLerp.enabled ? wrapAngle(shown - yaw) : 0;
+    // A jump (a restore, a seek): no slide through a wide turn
+    if (Math.abs(slide) > 1) slide = 0;
+    attr.setXYZ(state.index, yaw, pitch, slide);
+    state.turretYaw = yaw;
+    state.turretPitch = pitch;
+    state.pool.turretDirty = true;
+  }
+
+  /** The guns of enemy `id` fire now: they recoil (wall clock) */
+  fireTurret(id: string): void {
+    const state = this.getState(id);
+    if (!state?.pool.turretAttr) return;
+    const now = performance.now();
+    if (recoilAt(now - state.firedAt) === 0) state.pool.recoiling.push(state);
+    state.firedAt = now;
+  }
+
+  /**
+   * The muzzles of enemy `id` in the scene's frame as its guns point now (the
+   * rest pose of its clip, without the walk's sway), into `out` (grown as
+   * needed); how many. 0 without turret joints or slot.
+   */
+  turretMuzzles(id: string, out: Vector3[]): number {
+    const state = this.getState(id);
+    const turret = state?.pool.vatData.turret;
+    if (!state || !turret) return 0;
+    const te = state.pool.instancedMesh.instanceMatrix.array as Float32Array;
+    const m = this.matrix.fromArray(te, state.index * 16);
+    const off = state.pool.prevOffsetAttr.array as Float32Array;
+    const left = 1 - this.stateLerp.uniform.value;
+    const p = state.index * 3;
+    const muzzles = turret.rest.muzzles;
+    for (let i = 0; i < muzzles.length; i++) {
+      const point = (out[i] ??= new Vector3());
+      turretPoint(turret.rest, state.turretYaw, state.turretPitch, muzzles[i], point).applyMatrix4(m);
+      point.x += off[p] * left;
+      point.y += off[p + 1] * left;
+      point.z += off[p + 2] * left;
+    }
+    return muzzles.length;
   }
 
   /** Camouflage of the enemy (vat-material.ts aTintColor.a): 1 hidden, 0.5 revealed, 0 none */
@@ -690,6 +785,7 @@ export class EnemyInstanceManager {
   updateAnimations(deltaTime: number): void {
     for (const pool of this.pools.values()) {
       if (pool.instances.size === 0) continue;
+      if (pool.recoiling.length > 0) this.updateRecoil(pool);
       const gaitStride = pool.config.gaitStride;
       const stepPhases = this.onFootstep !== null ? pool.config.footstep?.phases : undefined;
       const walkClip = pool.config.walkAnimation;
@@ -749,6 +845,23 @@ export class EnemyInstanceManager {
         }
       }
     }
+  }
+
+  /** The guns of the instances that fired lately slide back and home (recoilAt) */
+  private updateRecoil(pool: TypePool): void {
+    const attr = pool.turretAttr!;
+    const now = performance.now();
+    const list = pool.recoiling;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const state = list[i];
+      const recoil = state.released ? 0 : recoilAt(now - state.firedAt);
+      if (!state.released) attr.setW(state.index, recoil);
+      if (recoil === 0) {
+        list[i] = list[list.length - 1];
+        list.pop();
+      }
+    }
+    pool.turretDirty = true;
   }
 
   /**
@@ -891,6 +1004,7 @@ export class EnemyInstanceManager {
       pool.prevOffsetAttr.clearUpdateRanges();
       pool.prevOffsetAttr.needsUpdate = true;
       pool.instances.clear();
+      pool.recoiling.length = 0;
       pool.slots.reset();
       this.syncDrawCount(pool);
     }
@@ -994,6 +1108,10 @@ export class EnemyInstanceManager {
     if (pool.clothAttr) {
       pool.clothAttr = grownAttribute(pool.clothAttr, capacity);
       mesh.geometry.setAttribute('aClothSeed', pool.clothAttr);
+    }
+    if (pool.turretAttr) {
+      pool.turretAttr = grownAttribute(pool.turretAttr, capacity);
+      mesh.geometry.setAttribute('aTurret', pool.turretAttr);
     }
     pool.slots.grow(capacity);
   }
@@ -1159,6 +1277,14 @@ export class EnemyInstanceManager {
           pool.animFrameAttr.needsUpdate = true;
         }
         pool.animFrameDirty = false;
+      }
+      if (pool.turretDirty && pool.turretAttr) {
+        if (activeCount > 0) {
+          pool.turretAttr.clearUpdateRanges();
+          pool.turretAttr.addUpdateRange(0, activeCount * 4);
+          pool.turretAttr.needsUpdate = true;
+        }
+        pool.turretDirty = false;
       }
     }
   }

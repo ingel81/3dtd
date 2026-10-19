@@ -12,6 +12,7 @@ import { createPortalClipUniforms, PORTAL_CLIP_GLSL, type PortalClipUniforms } f
 import type { ClothVariants } from '../../../configs/enemy-types.config';
 import { CLOTH_FRAGMENT_GLSL, CLOTH_VERTEX_GLSL, CLOTH_VERTEX_MAIN_GLSL, clothUniforms } from './vat-cloth';
 import { SHOT_LIGHT_PARS, SHOT_LIGHT_UNIFORMS } from '../../shot-lights/shot-light-shader';
+import { TURRET_VERTEX_GLSL, TURRET_VERTEX_MAIN_GLSL, turretUniforms } from './vat-turret';
 
 /** Shader switch per VAT alpha mode. */
 const ALPHA_DEFINES: Record<VATAlphaMode, Record<string, string>> = {
@@ -76,6 +77,8 @@ export interface VATMaterialOptions {
  *     revealed by a scout (a cold rim), 0 none
  *   aPrevOffset (vec3) - from the state's position back to where the body
  *     was shown before it; the body slides in over uStateLerp (state-lerp.ts)
+ *   aTurret (vec4) - only with turret joints (VAT_TURRET, vat-turret.ts):
+ *     the turret's turn and the guns' tilt, the turn still to slide, recoil
  *
  * Rim light (rimLight, shared by every type): a cool edge on custom maps,
  * none on tiles.
@@ -136,6 +139,13 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
     clothDefines['VAT_CLOTH'] = '';
   }
 
+  // Turret joints (vat-turret.ts): only a model with a turret pays for them
+  const turretDefines: Record<string, string> = {};
+  if (vatData.turret) {
+    Object.assign(uniforms, turretUniforms(vatData.turret));
+    turretDefines['VAT_TURRET'] = '';
+  }
+
   if (vatData.diffuseMap) {
     uniforms['diffuseMap'] = { value: vatData.diffuseMap };
     uniforms['hasDiffuse'] = { value: 1.0 };
@@ -168,6 +178,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       uniform float rowsPerFrame;
       uniform vec3 vatOrigin;
       uniform vec3 vatExtent;
+      ${TURRET_VERTEX_GLSL}
 
       // Varyings
       varying vec2 vUv;
@@ -207,9 +218,11 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
         // it relative to their bounding box (vatEncoding in vat-encoding.ts),
         // float VATs as it is (extent 1, origin 0).
         vec3 animatedPosition = vatPos.xyz * vatExtent + vatOrigin;
+        vec3 objectNormal = normal;
+        ${TURRET_VERTEX_MAIN_GLSL}
 
         // Transform normal to world space (light directions are world-space)
-        vNormal = normalize(mat3(instanceMatrix) * normal);
+        vNormal = normalize(mat3(instanceMatrix) * objectNormal);
 
         // Apply instance transform
         vec4 worldPosition = modelMatrix * instanceMatrix * vec4(animatedPosition, 1.0);
@@ -404,7 +417,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
         #endif
       }
     `,
-    defines: { ...ALPHA_DEFINES[vatData.alpha.mode], ...clothDefines },
+    defines: { ...ALPHA_DEFINES[vatData.alpha.mode], ...clothDefines, ...turretDefines },
     transparent: vatData.alpha.mode === 'blend',
     side: vatData.side,
     // One pass also for double-sided blending. ShaderMaterial's own default

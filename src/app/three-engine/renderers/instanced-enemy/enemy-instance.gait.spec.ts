@@ -42,6 +42,7 @@ function clipVat(clip: string): VATData {
     side: FrontSide,
     modelMinY: 0,
     modelMaxY: 1,
+    turret: null,
   };
 }
 

@@ -13,7 +13,7 @@ import {
   LoopOnce,
   type Side,
 } from 'three';
-import type { EnemyTypeConfig } from '../../../configs/enemy-types.config';
+import type { EnemyTurret, EnemyTypeConfig } from '../../../configs/enemy-types.config';
 import { clipFrom, DEFAULT_BAKE_FPS, vatClipRegistry, vatClips, type VATAnimationEntry, type VATClip } from './vat-clips';
 import {
   createPositionTexture,
@@ -26,6 +26,7 @@ import {
   type VATEncoding,
 } from './vat-encoding';
 import { mergeBakedMeshes, texturePixels, vatAlpha, vatSide, type BakedMeshPart, type TexturePixels, type VATAlpha } from './vat-surface';
+import { TURRET_MARKERS, TurretRig, type VATTurret } from './vat-turret';
 
 /** Result of VAT baking for one enemy type */
 export interface VATData {
@@ -61,6 +62,11 @@ export interface VATData {
   modelMinY: number;
   /** Highest baked vertex Y across all frames (unscaled bake/root space). */
   modelMaxY: number;
+  /**
+   * Turret joints (EnemyTypeConfig.turret, vat-turret.ts): their markers sit in the texture behind the
+   * `vertexCount` vertices, the geometry has aTurretPart. Null for a model without a turret
+   */
+  turret: VATTurret | null;
 }
 
 /**
@@ -75,13 +81,12 @@ export function bakeEnemyVAT(
   animations: AnimationClip[],
   pixels?: ReadonlyMap<Texture, TexturePixels | null>,
 ): VATData | null {
-  if (!config.hasAnimations || animations.length === 0) return bakeStaticVAT(model, config.scale, pixels);
+  if (!config.hasAnimations || animations.length === 0) return bakeStaticVAT(model, config.scale, pixels, config.turret);
   const clips = vatClips(config);
   const grounded = config.groundedBake === true;
-  return (
-    bakeVAT(model, animations, clips, config.scale, DEFAULT_BAKE_FPS, grounded, pixels) ??
-    bakeObjectAnimVAT(model, animations, clips, config.scale, DEFAULT_BAKE_FPS, grounded, pixels)
-  );
+  const skinned = bakeVAT(model, animations, clips, config.scale, DEFAULT_BAKE_FPS, grounded, pixels);
+  if (skinned && config.turret) console.warn(`[VATBaker] ${config.id}: turret joints take rigid parts, not a skinned mesh: no turret`);
+  return skinned ?? bakeObjectAnimVAT(model, animations, clips, config.scale, DEFAULT_BAKE_FPS, grounded, pixels, config.turret);
 }
 
 /**
@@ -173,6 +178,7 @@ export function bakeVAT(
     isUnlit: merged.isUnlit,
     fps,
     ...modelHeightRange(bounds),
+    turret: null,
   };
 }
 
@@ -193,6 +199,7 @@ export function bakeVAT(
  * @param fps - Baking framerate (default: 30)
  * @param grounded - Each frame's lowest vertex at y 0 (EnemyTypeConfig.groundedBake)
  * @param pixels - Colour maps read beforehand (mergeBakedMeshes)
+ * @param turretConfig - Turret joints (vat-turret.ts): their markers go behind the vertices of every frame
  */
 export function bakeObjectAnimVAT(
   modelRoot: Object3D,
@@ -202,6 +209,7 @@ export function bakeObjectAnimVAT(
   fps: number = DEFAULT_BAKE_FPS,
   grounded = false,
   pixels?: ReadonlyMap<Texture, TexturePixels | null>,
+  turretConfig?: EnemyTurret,
 ): VATData | null {
   // Collect all non-skinned Mesh nodes
   interface ObjMeshInfo {
@@ -229,10 +237,13 @@ export function bakeObjectAnimVAT(
 
   if (totalVertices === 0) return null;
 
+  const rig = turretConfig ? TurretRig.find(modelRoot, turretConfig) : null;
   const tempVec = new Vector3();
   const meshToRoot = new Matrix4();
   const rootInverse = new Matrix4();
-  const baked = bakeClips(modelRoot, animations, clips, fps, totalVertices, grounded, (scratch) => {
+  const setMarker = (scratch: FrameScratch) => (i: number, p: Vector3) => scratch.set(totalVertices + i, p);
+  const texels = totalVertices + (rig ? TURRET_MARKERS : 0);
+  const baked = bakeClips(modelRoot, animations, clips, fps, texels, grounded, (scratch) => {
     rootInverse.copy(modelRoot.matrixWorld).invert();
     // Bake vertices from all meshes with current-frame transforms
     for (const info of meshInfos) {
@@ -244,6 +255,7 @@ export function bakeObjectAnimVAT(
         scratch.set(info.vertexOffset + v, tempVec);
       }
     }
+    rig?.markers(rootInverse, setMarker(scratch));
   });
   if (!baked) {
     console.warn('[VATBaker] No matching animation clips found for object-anim bake');
@@ -264,6 +276,7 @@ export function bakeObjectAnimVAT(
 
   // Build merged geometry (rest-pose positions)
   const merged = mergeBakedMeshes(parts, totalVertices, undefined, pixels);
+  if (rig) merged.geometry.setAttribute('aTurretPart', rig.partAttribute(meshInfos, totalVertices));
 
   return {
     positionTexture,
@@ -281,6 +294,7 @@ export function bakeObjectAnimVAT(
     isUnlit: merged.isUnlit,
     fps,
     ...modelHeightRange(bounds),
+    turret: rig ? rig.vatTurret(modelRoot, totalVertices) : null,
   };
 }
 
@@ -488,11 +502,13 @@ class FrameScratch {
  *
  * @param worldScale - Scale the model is shown at in game, picks the texel type (vatEncoding)
  * @param pixels - Colour maps read beforehand (mergeBakedMeshes)
+ * @param turretConfig - Turret joints (vat-turret.ts): their markers go behind the vertices
  */
 export function bakeStaticVAT(
   modelRoot: Object3D,
   worldScale: number,
   pixels?: ReadonlyMap<Texture, TexturePixels | null>,
+  turretConfig?: EnemyTurret,
 ): VATData | null {
   // Collect all non-skinned meshes
   const meshes: Mesh[] = [];
@@ -530,18 +546,30 @@ export function bakeStaticVAT(
   const bounds = emptyBounds();
   const merged = mergeBakedMeshes(meshInfos, totalVertices, bounds, pixels);
 
+  const rig = turretConfig ? TurretRig.find(modelRoot, turretConfig) : null;
+  const positions = merged.positions;
+  const markers = new Float32Array(rig ? TURRET_MARKERS * 3 : 0);
+  rig?.markers(rootInverse, (i, p) => {
+    markers.set([p.x, p.y, p.z], i * 3);
+    growBounds(bounds, p);
+  });
+  if (rig) merged.geometry.setAttribute('aTurretPart', rig.partAttribute(meshInfos, totalVertices));
+  const texels = totalVertices + (rig ? TURRET_MARKERS : 0);
+
   // VAT texture: 1-frame with tiled layout
-  const { texWidth, rowsPerFrame } = vatLayout(totalVertices);
+  const { texWidth, rowsPerFrame } = vatLayout(texels);
   const texHeight = rowsPerFrame;
 
   const data = new Float32Array(texWidth * texHeight * 4);
-  for (let v = 0; v < totalVertices; v++) {
+  for (let v = 0; v < texels; v++) {
     const col = v % texWidth;
     const localRow = Math.floor(v / texWidth);
     const offset = (localRow * texWidth + col) * 4;
-    data[offset] = merged.positions[v * 3];
-    data[offset + 1] = merged.positions[v * 3 + 1];
-    data[offset + 2] = merged.positions[v * 3 + 2];
+    const source = v < totalVertices ? positions : markers;
+    const k = (v < totalVertices ? v : v - totalVertices) * 3;
+    data[offset] = source[k];
+    data[offset + 1] = source[k + 1];
+    data[offset + 2] = source[k + 2];
     data[offset + 3] = 1.0;
   }
 
@@ -574,6 +602,7 @@ export function bakeStaticVAT(
     isUnlit: merged.isUnlit,
     fps: DEFAULT_BAKE_FPS,
     ...modelHeightRange(bounds),
+    turret: rig ? rig.vatTurret(modelRoot, totalVertices) : null,
   };
 }
 

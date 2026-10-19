@@ -375,6 +375,21 @@ export class InstancedEnemyRenderer {
     );
   }
 
+  /** Where the turret of `slot` points, see EnemyInstanceManager.setTurret */
+  setTurret(slot: EnemyInstanceState, yaw: number, pitch: number): void {
+    this.instanceManager.setTurret(slot, yaw, pitch);
+  }
+
+  /** The guns of enemy `id` fire now, see EnemyInstanceManager.fireTurret */
+  fireTurret(id: string): void {
+    this.instanceManager.fireTurret(id);
+  }
+
+  /** The muzzles of enemy `id` as its guns point now, see EnemyInstanceManager.turretMuzzles */
+  turretMuzzles(id: string, out: Vector3[]): number {
+    return this.instanceManager.turretMuzzles(id, out);
+  }
+
   // =====================================================
   // ANIMATIONS
   // =====================================================

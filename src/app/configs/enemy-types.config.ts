@@ -85,6 +85,34 @@ export interface OozeConfig {
 }
 
 /**
+ * A gun turret on the model that turns apart from the walking body (the
+ * jumper): the meshes under `yawNode` turn about its up axis, those under
+ * `pitchNode` also tilt about its side axis, per instance, in the VAT shader
+ * (vat-turret.ts). The nodes are the model's, rigid parts of a model whose
+ * clips move nodes (bakeObjectAnimVAT) or of a static one. The simulation
+ * says where it points (EnemyGun, EnemySiegeConfig); without a siege it
+ * looks ahead.
+ */
+export interface EnemyTurret {
+  /** Node the turret turns with, about its own up (+y) */
+  yawNode: string;
+  /** Node the guns tilt with, under `yawNode`, about the axis across its barrels */
+  pitchNode: string;
+  /** Empties at the barrels' mouths, under `pitchNode`: where a shot leaves */
+  muzzleNodes: readonly string[];
+  /**
+   * Height of `pitchNode` over the model's origin at rest, model units:
+   * where the simulation aims from (a constant like modelRangeY, checked
+   * against the model by enemy-model-range.spec.ts)
+   */
+  pivotHeight: number;
+  /** How far the guns tilt, rad, muzzle up positive */
+  pitchRange: { readonly min: number; readonly max: number };
+  /** How far the gun part slides back along its barrels as it fires, model units */
+  recoil: number;
+}
+
+/**
  * An enemy type. Its name and a boss's honorific are the dictionary's
  * (i18n `names.enemies`, `epithets`), by id.
  */
@@ -264,6 +292,8 @@ export interface EnemyTypeConfig {
   chain?: EnemyChain; // Walks as a chain of segments, each an enemy of this type (worm)
   /** A body along the route instead of a model instance (the ooze), see OozeConfig */
   ooze?: OozeConfig;
+  /** A turret that turns apart from the body, see EnemyTurret */
+  turret?: EnemyTurret;
   /**
    * Left out of the enemy lists of Custom Wave and Enemy Debug
    * (getDebugEnemyTypes): a model of another type's body that is no use to

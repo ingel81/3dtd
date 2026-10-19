@@ -58,7 +58,7 @@ function fakeVat(): VATData {
     encoding: { type: FloatType, origin: [0, 0, 0], extent: [1, 1, 1], halfFloatError: 0 },
     vertexCount: 3, totalFrames: 10, animations: new Map(), geometry, diffuseMap: null, isUnlit: false,
     alpha: { mode: 'opaque', cutoff: 0 }, fps: 10, texWidth: 3, rowsPerFrame: 1, baseColor: { r: 1, g: 1, b: 1 },
-    side: FrontSide, modelMinY: 0, modelMaxY: 1,
+    side: FrontSide, modelMinY: 0, modelMaxY: 1, turret: null,
   };
 }
 
