@@ -6,6 +6,7 @@ import { capturePrefab } from '../../ops/stamp';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { patch } from '../../tools/tool';
+import { injectT } from '../../../i18n/i18n.service';
 
 /** A saved piece and where it is kept */
 export interface KeptStamp {
@@ -26,19 +27,19 @@ export interface KeptStamp {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-group' },
   template: `
-    <h3 class="td-section">Prefabs</h3>
+    <h3 class="td-section">{{ t().editor.stamps.prefabs }}</h3>
     @if (count(); as n) {
       <div class="pf-save">
-        <input class="td-input is-sm" type="text" maxlength="40" placeholder="Name" [value]="name()" (input)="name.set($any($event.target).value)" aria-label="Prefab name" />
-        <button class="td-btn-secondary td-btn-sm" type="button" (click)="save()" data-test="save-prefab" [matTooltip]="'Keep the ' + n + ' selected objects to place again'">Save as prefab</button>
+        <input class="td-input is-sm" type="text" maxlength="40" [placeholder]="t().editor.stamps.name" [value]="name()" (input)="name.set($any($event.target).value)" [attr.aria-label]="t().editor.stamps.prefabName" />
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="save()" data-test="save-prefab" [matTooltip]="t().editor.stamps.saveTip(n)">{{ t().editor.stamps.savePrefab }}</button>
       </div>
       <div class="td-setting">
-        <span matTooltip="The heights, ground paint and water under the objects come along">With the ground under them</span>
-        <input class="td-switch" type="checkbox" [checked]="ground()" (change)="ground.set($any($event.target).checked)" aria-label="With the ground under them" />
+        <span [matTooltip]="t().editor.stamps.groundTip">{{ t().editor.stamps.withGround }}</span>
+        <input class="td-switch" type="checkbox" [checked]="ground()" (change)="ground.set($any($event.target).checked)" [attr.aria-label]="t().editor.stamps.withGround" />
       </div>
-      <div class="td-seg is-sm" role="radiogroup" aria-label="Keep for">
-        <button type="button" role="radio" [attr.aria-checked]="keep() === 'library'" (click)="keep.set('library')" matTooltip="In this browser, for every map">Every map</button>
-        <button type="button" role="radio" [attr.aria-checked]="keep() === 'map'" (click)="keep.set('map')" matTooltip="In this map's file: it travels with the map">This map</button>
+      <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.stamps.keepFor">
+        <button type="button" role="radio" [attr.aria-checked]="keep() === 'library'" (click)="keep.set('library')" [matTooltip]="t().editor.stamps.everyMapTip">{{ t().editor.stamps.everyMap }}</button>
+        <button type="button" role="radio" [attr.aria-checked]="keep() === 'map'" (click)="keep.set('map')" [matTooltip]="t().editor.stamps.thisMapTip">{{ t().editor.stamps.thisMap }}</button>
       </div>
     }
     <div class="td-rows">
@@ -51,14 +52,14 @@ export interface KeptStamp {
           }
           <span class="pf-text">
             <span class="td-name">{{ k.saved.name }}</span>
-            <span class="td-sub">{{ k.saved.stamp.objects.length }} objects{{ k.saved.stamp.parts?.heights ? ' with ground' : '' }} | {{ k.keep === 'map' ? 'this map' : 'every map' }}</span>
+            <span class="td-sub">{{ t().editor.stamps.prefabLine(k.saved.stamp.objects.length, !!k.saved.stamp.parts?.heights, k.keep === 'map') }}</span>
           </span>
-          <button class="td-tool is-sm" type="button" aria-label="Delete prefab" matTooltip="Delete" (click)="$event.stopPropagation(); remove(k)">
+          <button class="td-tool is-sm" type="button" [attr.aria-label]="t().editor.stamps.deletePrefab" [matTooltip]="t().editor.stamps.delete" (click)="$event.stopPropagation(); remove(k)">
             <td-icon name="trash" [size]="14" />
           </button>
         </div>
       } @empty {
-        <p class="td-note">Select objects and save them as a prefab; it shows here to place again, turned with R.</p>
+        <p class="td-note">{{ t().editor.stamps.noPrefabs }}</p>
       }
     </div>
   `,
@@ -70,6 +71,7 @@ export interface KeptStamp {
   ],
 })
 export class PrefabPanelComponent implements OnInit {
+  protected readonly t = injectT();
   private readonly session = inject(EditorSession);
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('prefabs');
@@ -110,11 +112,11 @@ export class PrefabPanelComponent implements OnInit {
     const catalog = this.session.catalog();
     const taken = capturePrefab(doc, sel.ids, this.ground(), (asset) => catalog.object(asset).radius);
     if (!taken) return;
-    const name = this.name().trim() || `Prefab ${this.prefabs().length + 1}`;
+    const name = this.name().trim() || this.t().editor.stamps.prefabDefault(this.prefabs().length + 1);
     const saved = await this.session.saveStamp(name, taken.stamp, taken.rect, this.keep());
     if (!saved) return;
     this.name.set('');
-    this.session.notices.flash(`Saved prefab ${saved.name}${this.keep() === 'map' ? ' in this map' : ''}: click it below to place it`);
+    this.session.notices.flash(this.t().editor.stamps.prefabSaved(saved.name, this.keep() === 'map'));
   }
 
   /** Place it with Copy and stamps */

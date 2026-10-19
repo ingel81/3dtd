@@ -79,7 +79,7 @@ export class StampTool implements EditorTool {
     }
     if (ctrl && k === 'v') {
       if (!s.current) {
-        ctx.status('Copy a piece first (drag a rectangle, Ctrl+C) or pick a stamp');
+        ctx.status(ctx.t().editor.stamps.copyFirst);
         return true;
       }
       patch(ctx.settings.stamp, { mode: 'paste' });
@@ -110,32 +110,32 @@ export class StampTool implements EditorTool {
     const s = ctx.settings.stamp();
     if (s.mode === 'paste') {
       return s.current
-        ? `Click to place ${s.currentName || 'the copy'} | R turn 90 | , . turn 15 | Esc back to selecting`
-        : 'Nothing to place: copy a piece or pick a stamp';
+        ? ctx.t().editor.stamps.hintPlace(s.currentName || ctx.t().editor.stamps.theCopy)
+        : ctx.t().editor.stamps.hintNothing;
     }
-    return s.region ? 'Ctrl+C copies the rectangle | drag again for another' : 'Drag a rectangle on the map to copy';
+    return s.region ? ctx.t().editor.stamps.hintCopy : ctx.t().editor.stamps.hintDrag;
   }
 
   /** Copies the chosen rectangle and switches to placing it */
   copy(ctx: ToolContext): boolean {
     const s = ctx.settings.stamp();
     if (!s.region) {
-      ctx.status('Drag a rectangle first');
+      ctx.status(ctx.t().editor.stamps.dragFirst);
       return false;
     }
     const current = captureStamp(ctx.editor.doc, s.region);
     patch(ctx.settings.stamp, { current, currentName: 'the copy', rotation: 0, mode: 'paste' });
-    ctx.status(`Copied ${Math.round(current.width)} x ${Math.round(current.depth)} m: click to place`);
+    ctx.status(ctx.t().editor.stamps.copied(Math.round(current.width), Math.round(current.depth)));
     return true;
   }
 
   private paste(at: MapPoint, ctx: ToolContext): void {
     const s = ctx.settings.stamp();
     if (!s.current) {
-      ctx.status('Nothing to place');
+      ctx.status(ctx.t().editor.stamps.nothing);
       return;
     }
-    const stroke = new LandscapeContext(ctx.editor.begin('Paste'), 0, ctx.catalog);
+    const stroke = new LandscapeContext(ctx.editor.begin(ctx.t().editor.stamps.paste), 0, ctx.catalog);
     pasteStamp(stroke, s.current, at, { parts: s.parts, rotation: s.rotation, feather: s.feather });
     stroke.finish();
   }

@@ -6,6 +6,7 @@ import { heightAt } from '../../../map-ops/grid';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { RangeRowComponent } from './range-row.component';
+import { injectT } from '../../../i18n/i18n.service';
 
 type IntroKind = 'default' | MapIntro['kind'];
 
@@ -21,40 +22,40 @@ type IntroKind = 'default' | MapIntro['kind'];
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-group', 'data-test': 'intro-panel' },
   template: `
-    <h3 class="td-section">Intro flight</h3>
-    <div class="td-seg is-sm" role="radiogroup" aria-label="Intro flight">
-      @for (k of kinds; track k.id) {
-        <button type="button" role="radio" [attr.aria-checked]="kind() === k.id" [matTooltip]="k.hint" (click)="choose(k.id)" [attr.data-test]="'intro-' + k.id">{{ k.label }}</button>
+    <h3 class="td-section">{{ t().editor.intro.title }}</h3>
+    <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.intro.title">
+      @for (k of kinds; track k) {
+        <button type="button" role="radio" [attr.aria-checked]="kind() === k" [matTooltip]="t().editor.intro.kinds[k].hint" (click)="choose(k)" [attr.data-test]="'intro-' + k">{{ t().editor.intro.kinds[k].label }}</button>
       }
     </div>
     @switch (intro()?.kind) {
       @case ('orbit') {
         @if (orbit(); as o) {
-          <p class="td-note">{{ o.radius }} m around the HQ, {{ o.height }} m above it</p>
-          <app-editor-range label="Turn" unit="°" [min]="sweep.min" [max]="sweep.max" [step]="15" [value]="o.sweep" (changed)="setSweep($event)" />
+          <p class="td-note">{{ t().editor.intro.orbitLine(o.radius, o.height) }}</p>
+          <app-editor-range [label]="t().editor.intro.turn" unit="°" [min]="sweep.min" [max]="sweep.max" [step]="15" [value]="o.sweep" (changed)="setSweep($event)" />
         }
-        <button class="td-btn-secondary td-btn-sm" type="button" (click)="orbitFromView()" data-test="intro-orbit-view">Orbit from this view</button>
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="orbitFromView()" data-test="intro-orbit-view">{{ t().editor.intro.orbitFromView }}</button>
       }
       @case ('path') {
         <ol class="ip-views">
           @for (v of views(); track $index) {
             <li>
-              <button class="td-btn-ghost td-btn-sm" type="button" (click)="showView($index)" matTooltip="Look from this view">View {{ $index + 1 }}</button>
-              <button class="td-btn-ghost td-btn-sm" type="button" (click)="removeView($index)" [attr.aria-label]="'Remove view ' + ($index + 1)">Remove</button>
+              <button class="td-btn-ghost td-btn-sm" type="button" (click)="showView($index)" [matTooltip]="t().editor.intro.lookFrom">{{ t().editor.intro.view($index + 1) }}</button>
+              <button class="td-btn-ghost td-btn-sm" type="button" (click)="removeView($index)" [attr.aria-label]="t().editor.intro.removeViewLabel($index + 1)">{{ t().editor.intro.remove }}</button>
             </li>
           }
         </ol>
-        <button class="td-btn-secondary td-btn-sm" type="button" [disabled]="views().length >= maxViews" (click)="addView()" data-test="intro-add-view">Add this view</button>
-        <p class="td-note">The camera flies through the views in turn, the same time between each two.</p>
+        <button class="td-btn-secondary td-btn-sm" type="button" [disabled]="views().length >= maxViews" (click)="addView()" data-test="intro-add-view">{{ t().editor.intro.addView }}</button>
+        <p class="td-note">{{ t().editor.intro.pathNote }}</p>
       }
       @default {
-        <p class="td-note">The game flies from the HQ past every spawn and back to the overview.</p>
+        <p class="td-note">{{ t().editor.intro.defaultNote }}</p>
       }
     }
     @if (intro(); as i) {
-      <app-editor-range label="Length" unit="s" [min]="seconds.min" [max]="seconds.max" [value]="i.seconds" (changed)="setSeconds($event)" />
-      <button class="td-btn-secondary td-btn-sm" type="button" (click)="preview()" data-test="intro-preview">{{ session.view.introPreviewing() ? 'Stop' : 'Preview' }}</button>
-      <p class="td-note">A click or the wheel in the view stops the preview. In the game the flight swings in from the start view and ends in the overview; a click skips it.</p>
+      <app-editor-range [label]="t().editor.intro.length" unit="s" [min]="seconds.min" [max]="seconds.max" [value]="i.seconds" (changed)="setSeconds($event)" />
+      <button class="td-btn-secondary td-btn-sm" type="button" (click)="preview()" data-test="intro-preview">{{ session.view.introPreviewing() ? t().editor.intro.stop : t().editor.intro.preview }}</button>
+      <p class="td-note">{{ t().editor.intro.previewNote }}</p>
     }
   `,
   styles: `
@@ -70,17 +71,14 @@ type IntroKind = 'default' | MapIntro['kind'];
   `,
 })
 export class IntroPanelComponent {
+  protected readonly t = injectT();
   readonly session = inject(EditorSession);
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('intro', 'terrain');
   readonly seconds = INTRO_SECONDS;
   readonly sweep = INTRO_ORBIT.sweep;
   readonly maxViews = MAX_INTRO_VIEWS;
-  readonly kinds: { id: IntroKind; label: string; hint: string }[] = [
-    { id: 'default', label: 'Default', hint: 'The game’s tour from the HQ past every spawn' },
-    { id: 'orbit', label: 'Orbit the HQ', hint: 'Circles the HQ from the current view' },
-    { id: 'path', label: 'Camera path', hint: 'Flies through views you keep one by one' },
-  ];
+  readonly kinds: readonly IntroKind[] = ['default', 'orbit', 'path'];
 
   readonly intro = computed(() => (this.rev(), this.session.doc?.intro ?? null));
   readonly kind = computed<IntroKind>(() => this.intro()?.kind ?? 'default');
@@ -98,11 +96,11 @@ export class IntroPanelComponent {
     if (kind === this.kind()) return;
     this.session.view.previewIntro(null);
     const seconds = this.intro()?.seconds ?? INTRO_SECONDS.default;
-    if (kind === 'default') this.session.editIntro(undefined, 'Default intro flight');
+    if (kind === 'default') this.session.editIntro(undefined, this.t().editor.intro.defaultStep);
     else if (kind === 'orbit') this.orbitFromView(seconds);
     else {
       const view = this.session.view.introView();
-      if (view) this.session.editIntro({ kind: 'path', seconds, views: [view] }, 'Intro camera path');
+      if (view) this.session.editIntro({ kind: 'path', seconds, views: [view] }, this.t().editor.intro.pathStep);
     }
   }
 
@@ -124,7 +122,7 @@ export class IntroPanelComponent {
         angle: Math.atan2(view.y - hq.y, view.x - hq.x),
         ...(prev?.kind === 'orbit' && prev.sweep !== undefined ? { sweep: prev.sweep } : {}),
       },
-      'Intro orbit',
+      this.t().editor.intro.orbitStep,
     );
   }
 
@@ -132,14 +130,14 @@ export class IntroPanelComponent {
     const i = this.intro();
     const view = this.session.view.introView();
     if (i?.kind !== 'path' || !view || i.views.length >= MAX_INTRO_VIEWS) return;
-    this.session.editIntro({ ...i, views: [...i.views, view] }, 'Intro view');
+    this.session.editIntro({ ...i, views: [...i.views, view] }, this.t().editor.intro.viewStep);
   }
 
   removeView(k: number): void {
     const i = this.intro();
     if (i?.kind !== 'path') return;
     const views = i.views.filter((_, j) => j !== k);
-    this.session.editIntro(views.length ? { ...i, views } : undefined, 'Remove intro view');
+    this.session.editIntro(views.length ? { ...i, views } : undefined, this.t().editor.intro.removeViewStep);
   }
 
   /** The editor camera to a kept view: it orbits the view's look point from where the view stood */
@@ -163,12 +161,12 @@ export class IntroPanelComponent {
 
   setSeconds(seconds: number): void {
     const i = this.intro();
-    if (i) this.session.editIntro({ ...i, seconds }, 'Intro length');
+    if (i) this.session.editIntro({ ...i, seconds }, this.t().editor.intro.lengthStep);
   }
 
   setSweep(sweep: number): void {
     const i = this.intro();
-    if (i?.kind === 'orbit') this.session.editIntro({ ...i, sweep }, 'Intro orbit turn');
+    if (i?.kind === 'orbit') this.session.editIntro({ ...i, sweep }, this.t().editor.intro.turnStep);
   }
 
   preview(): void {

@@ -9,15 +9,10 @@ import { panelRev } from './panel-shown';
 import type { KeptStamp } from './prefab-panel.component';
 import { RangeRowComponent } from './range-row.component';
 import { patch } from '../../tools/tool';
+import { injectT } from '../../../i18n/i18n.service';
 
-const PARTS: { id: keyof StampParts; label: string }[] = [
-  { id: 'heights', label: 'Heights' },
-  { id: 'paint', label: 'Ground paint' },
-  { id: 'water', label: 'Water' },
-  { id: 'objects', label: 'Objects' },
-  { id: 'roads', label: 'Roads' },
-  { id: 'life', label: 'Life areas' },
-];
+/** The parts a stamp takes along, in their order; their names are the dictionary's (i18n `editor.stamps.parts`) */
+const PARTS: readonly (keyof StampParts)[] = ['heights', 'paint', 'water', 'objects', 'roads', 'life'];
 
 /** Copy a rectangle, place it, save it as a stamp, and the stamp library */
 @Component({
@@ -27,49 +22,49 @@ const PARTS: { id: keyof StampParts; label: string }[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-stack is-loose' },
   template: `
-    <div class="td-seg is-sm" role="radiogroup" aria-label="Copy and stamps">
-      <button type="button" role="radio" [attr.aria-checked]="s().mode === 'select'" (click)="setMode('select')" data-mode="select">Select</button>
-      <button type="button" role="radio" [attr.aria-checked]="s().mode === 'paste'" (click)="setMode('paste')" data-mode="paste">Place</button>
+    <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.stamps.modeLabel">
+      <button type="button" role="radio" [attr.aria-checked]="s().mode === 'select'" (click)="setMode('select')" data-mode="select">{{ t().editor.stamps.select }}</button>
+      <button type="button" role="radio" [attr.aria-checked]="s().mode === 'paste'" (click)="setMode('paste')" data-mode="paste">{{ t().editor.stamps.place }}</button>
     </div>
     @if (s().mode === 'select') {
       <div class="td-group">
         @if (s().region; as r) {
-          <p class="td-note">{{ size(r.x1 - r.x0) }} x {{ size(r.y1 - r.y0) }} m chosen</p>
+          <p class="td-note">{{ t().editor.stamps.chosen(size(r.x1 - r.x0), size(r.y1 - r.y0)) }}</p>
         } @else {
-          <p class="td-note">Drag a rectangle on the map.</p>
+          <p class="td-note">{{ t().editor.stamps.dragRect }}</p>
         }
         <button class="td-btn-secondary td-btn-sm" type="button" [attr.aria-disabled]="!s().region || null" (click)="copy()" data-test="copy">
-          Copy <kbd class="td-kbd">Ctrl+C</kbd>
+          {{ t().editor.stamps.copy }} <kbd class="td-kbd">Ctrl+C</kbd>
         </button>
       </div>
     } @else {
       <div class="td-group">
-        <p class="td-note">{{ s().current ? 'Placing ' + (s().currentName || 'the copy') + ', turned ' + degrees() + ' degrees' : 'Copy a piece or pick a stamp below.' }}</p>
+        <p class="td-note">{{ s().current ? t().editor.stamps.placing(s().currentName || t().editor.stamps.theCopy, degrees()) : t().editor.stamps.copyOrPick }}</p>
         <div class="td-actions is-start">
-          <button class="td-btn-secondary td-btn-sm" type="button" (click)="turn(90)">Turn left <kbd class="td-kbd">R</kbd></button>
-          <button class="td-btn-secondary td-btn-sm" type="button" (click)="turn(-90)">Turn right</button>
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="turn(90)">{{ t().editor.stamps.turnLeft }} <kbd class="td-kbd">R</kbd></button>
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="turn(-90)">{{ t().editor.stamps.turnRight }}</button>
         </div>
-        <app-editor-range label="Soft rim" unit="%" [min]="0" [max]="100" [value]="s().feather * 100" (changing)="setFeather($event / 100)" />
+        <app-editor-range [label]="t().editor.stamps.softRim" unit="%" [min]="0" [max]="100" [value]="s().feather * 100" (changing)="setFeather($event / 100)" />
       </div>
     }
     <div class="td-group">
-      <h3 class="td-section">Take along</h3>
-      @for (p of parts; track p.id) {
+      <h3 class="td-section">{{ t().editor.stamps.takeAlong }}</h3>
+      @for (p of parts; track p) {
         <div class="td-setting">
-          <span>{{ p.label }}</span>
-          <input class="td-switch" type="checkbox" [checked]="s().parts[p.id]" (change)="setPart(p.id, $any($event.target).checked)" [attr.aria-label]="p.label" />
+          <span>{{ t().editor.stamps.parts[p] }}</span>
+          <input class="td-switch" type="checkbox" [checked]="s().parts[p]" (change)="setPart(p, $any($event.target).checked)" [attr.aria-label]="t().editor.stamps.parts[p]" />
         </div>
       }
     </div>
     <div class="td-group">
-      <h3 class="td-section">Stamps and prefabs</h3>
+      <h3 class="td-section">{{ t().editor.stamps.title }}</h3>
       <div class="sp-save">
-        <input class="td-input is-sm" type="text" maxlength="40" placeholder="Name" [value]="name()" (input)="name.set($any($event.target).value)" aria-label="Stamp name" />
-        <button class="td-btn-secondary td-btn-sm" type="button" [attr.aria-disabled]="!s().current || null" (click)="save()" data-test="save-stamp">Save the copy</button>
+        <input class="td-input is-sm" type="text" maxlength="40" [placeholder]="t().editor.stamps.name" [value]="name()" (input)="name.set($any($event.target).value)" [attr.aria-label]="t().editor.stamps.stampName" />
+        <button class="td-btn-secondary td-btn-sm" type="button" [attr.aria-disabled]="!s().current || null" (click)="save()" data-test="save-stamp">{{ t().editor.stamps.saveCopy }}</button>
       </div>
-      <div class="td-seg is-sm" role="radiogroup" aria-label="Keep for">
-        <button type="button" role="radio" [attr.aria-checked]="keep() === 'library'" (click)="keep.set('library')" matTooltip="In this browser, for every map">Every map</button>
-        <button type="button" role="radio" [attr.aria-checked]="keep() === 'map'" (click)="keep.set('map')" matTooltip="In this map's file: it travels with the map">This map</button>
+      <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.stamps.keepFor">
+        <button type="button" role="radio" [attr.aria-checked]="keep() === 'library'" (click)="keep.set('library')" [matTooltip]="t().editor.stamps.everyMapTip">{{ t().editor.stamps.everyMap }}</button>
+        <button type="button" role="radio" [attr.aria-checked]="keep() === 'map'" (click)="keep.set('map')" [matTooltip]="t().editor.stamps.thisMapTip">{{ t().editor.stamps.thisMap }}</button>
       </div>
       <div class="td-rows">
         @for (k of stamps(); track k.saved.id) {
@@ -83,14 +78,14 @@ const PARTS: { id: keyof StampParts; label: string }[] = [
             }
             <span class="sp-text">
               <span class="td-name">{{ st.name }}</span>
-              <span class="td-sub">{{ st.stamp.prefab ? 'Prefab, ' : '' }}{{ size(st.stamp.width) }} x {{ size(st.stamp.depth) }} m | {{ st.stamp.objects.length }} objects{{ k.keep === 'map' ? ' | this map' : '' }}</span>
+              <span class="td-sub">{{ t().editor.stamps.line(!!st.stamp.prefab, size(st.stamp.width), size(st.stamp.depth), st.stamp.objects.length, k.keep === 'map') }}</span>
             </span>
-            <button class="td-tool is-sm" type="button" aria-label="Delete stamp" matTooltip="Delete" (click)="$event.stopPropagation(); remove(k)">
+            <button class="td-tool is-sm" type="button" [attr.aria-label]="t().editor.stamps.deleteStamp" [matTooltip]="t().editor.stamps.delete" (click)="$event.stopPropagation(); remove(k)">
               <td-icon name="trash" [size]="14" />
             </button>
           </div>
         } @empty {
-          <p class="td-note">No stamps yet. Copy a piece of the map and save it here, for every map or in this map's file.</p>
+          <p class="td-note">{{ t().editor.stamps.noStamps }}</p>
         }
       </div>
     </div>
@@ -103,6 +98,7 @@ const PARTS: { id: keyof StampParts; label: string }[] = [
   ],
 })
 export class StampPanelComponent implements OnInit {
+  protected readonly t = injectT();
   private readonly session = inject(EditorSession);
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('prefabs');
@@ -152,10 +148,10 @@ export class StampPanelComponent implements OnInit {
   async save(): Promise<void> {
     const st = this.session.tools.settings.stamp();
     if (!st.current) return;
-    const name = this.name().trim() || `Stamp ${this.stamps().length + 1}`;
+    const name = this.name().trim() || this.t().editor.stamps.defaultName(this.stamps().length + 1);
     if (!(await this.session.saveStamp(name, st.current, st.region, this.keep()))) return;
     this.name.set('');
-    this.session.notices.flash(`Saved stamp ${name}${this.keep() === 'map' ? ' in this map' : ''}`);
+    this.session.notices.flash(this.t().editor.stamps.saved(name, this.keep() === 'map'));
   }
 
   use(st: SavedStamp): void {
