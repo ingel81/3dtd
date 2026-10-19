@@ -17,6 +17,7 @@ import type { MapVersion } from '../model/version-store';
 import { downloadBlob } from '../../utils/download';
 import type { EditorNotices } from './editor-notices';
 import type { MapLibrary } from './map-library';
+import type { Messages } from '../../i18n/messages/en';
 
 export const AUTOSAVE_DELAY_MS = 2000;
 
@@ -116,7 +117,7 @@ export class SaveService {
   async save(manual = false): Promise<boolean> {
     if (!this.host.editor) return false;
     // Half a stroke or a job's land is no state to keep: Ctrl+S says why, an autosave comes again later
-    if (manual ? this.host.blocked('Saving') : this.host.busyReason()) {
+    if (manual ? this.host.blocked(this.notices.t().editor.session.saving) : this.host.busyReason()) {
       if (!manual) this.schedule();
       return false;
     }
@@ -147,7 +148,7 @@ export class SaveService {
       if (manual && !changed && this.versionedState === state) {
         const preview = await this.host.thumbnail();
         if (preview) await store.setPreview(doc.meta.id, preview);
-        this.notices.flash('Saved');
+        this.notices.flash(this.notices.t().editor.session.saved);
         return true;
       }
       const original = doc.meta.name;
@@ -174,7 +175,7 @@ export class SaveService {
           throw e;
         },
       );
-      if (folderRefused) this.notices.error.set(`Saved in the game, but the map folder did not take ${folderRefused.file} (full, locked or no rights); the file there is older. The next save tries again.`);
+      if (folderRefused) this.notices.error.set(this.notices.t().editor.session.folderRefused(folderRefused.file));
       // A version for the history; a full browser store must not fail the save
       const id = doc.meta.id;
       void this.library.history
@@ -188,12 +189,12 @@ export class SaveService {
       this.savedState = state;
       editor.markSaved();
       this.savedAt.set(doc.meta.updatedAt);
-      if (copyOf) this.notices.flash(`Saved as your own copy of ${original}; the original stays as it is`);
-      else if (manual) this.notices.flash('Saved');
+      if (copyOf) this.notices.flash(this.notices.t().editor.session.savedAsCopy(original));
+      else if (manual) this.notices.flash(this.notices.t().editor.session.saved);
       this.guardStorage();
       return true;
     } catch (e) {
-      this.notices.error.set(saveErrorText(e));
+      this.notices.error.set(saveErrorText(this.notices.t(), e));
       // An invalid map: the check lists each problem with the thing or the tool to fix it
       if (e instanceof MapFileError) this.host.showCheck();
       return false;
@@ -223,7 +224,7 @@ export class SaveService {
     try {
       await this.library.history.pin(version, pinned);
     } catch (e) {
-      this.notices.error.set(`The version could not be ${pinned ? 'pinned' : 'unpinned'} (${(e as Error).message}).`);
+      this.notices.error.set(this.notices.t().editor.session.pinFailed(pinned, (e as Error).message));
     }
     await this.loadVersions();
   }
@@ -244,7 +245,7 @@ export class SaveService {
       downloadBlob(new Blob([file as Uint8Array<ArrayBuffer>], { type: 'application/zip' }), `${doc.meta.id}${MAP_FILE_EXTENSION}`);
       this.laterReminder();
     } catch (e) {
-      this.notices.error.set(saveErrorText(e, 'downloaded'));
+      this.notices.error.set(saveErrorText(this.notices.t(), e, 'downloaded'));
       if (e instanceof MapFileError) this.host.showCheck();
     }
   }
@@ -286,15 +287,11 @@ export class SaveService {
 }
 
 /** What a failed save (or download) tells the player: what happened, that nothing is lost yet, what to do */
-export function saveErrorText(e: unknown, what: 'saved' | 'downloaded' = 'saved'): string {
-  if (e instanceof MapFileError) {
-    // Saving and the download write the same file: neither helps until the problem is fixed
-    const more = e.problems.length > 1 ? ` (and ${e.problems.length - 1} more)` : '';
-    return `The map was not ${what}: ${e.problems[0]}${more}. Your changes are still here; the check (V) lists each problem and where to fix it, then save again.`;
-  }
+export function saveErrorText(t: Messages, e: unknown, what: 'saved' | 'downloaded' = 'saved'): string {
+  const says = t.editor.session;
+  // Saving and the download write the same file: neither helps until the problem is fixed
+  if (e instanceof MapFileError) return says.notWritten(what, e.problems[0], e.problems.length - 1);
   const err = e as { name?: string; message?: string } | null;
-  if (err?.name === 'QuotaExceededError' || /quota|storage full/i.test(err?.message ?? '')) {
-    return 'The map was not saved: the browser has no more room for maps. Your changes are still here: download the map (File menu) and delete maps you no longer need.';
-  }
-  return `The map was not saved (${err?.message ?? 'unknown error'}). Your changes are still here; try again or download the map (File menu).`;
+  if (err?.name === 'QuotaExceededError' || /quota|storage full/i.test(err?.message ?? '')) return says.noRoom;
+  return says.notSaved(err?.message ?? says.unknownError);
 }

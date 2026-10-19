@@ -19,6 +19,8 @@ import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { mergeChanges, type DocChange, type EditCommand } from './doc-change';
 import { EditTransaction, type TxPart } from './edit-transaction';
 import { objectIdNumber, type ObjectIdSource } from '../../map-ops/object-ops';
+import { en } from '../../i18n/messages/en';
+import type { Messages } from '../../i18n/messages/en';
 
 export type Selection =
   | { kind: 'objects'; ids: string[] }
@@ -108,8 +110,9 @@ export class EditorHeldError extends Error {
   constructor(
     readonly label: string,
     readonly reason: string,
+    words: Messages = en,
   ) {
-    super(`${label} waits: ${reason}`);
+    super(words.editor.session.waits(label, reason));
     this.name = 'EditorHeldError';
   }
 }
@@ -132,9 +135,15 @@ export class EditorDocument {
   /** Why the document is held, the latest hold first; empty when free */
   private holds: { reason: string }[] = [];
 
+  /**
+   * `words`: the player's language, for the names of the steps the ops make
+   * and the refusal line; English for a document no player sees (an agent's
+   * dry run, a template)
+   */
   constructor(
     private current: CustomMapDocument,
     private readonly limits: HistoryLimits = DEFAULT_HISTORY_LIMITS,
+    readonly words: () => Messages = () => en,
   ) {}
 
   get doc(): CustomMapDocument {
@@ -368,7 +377,7 @@ export class EditorDocument {
   /** The map is back as it was before the step `label`; tell the view and the refusal listeners, and stop the caller */
   private refuse(label: string, change: DocChange): never {
     this.emit(change);
-    const error = new EditorHeldError(label, this.heldReason!);
+    const error = new EditorHeldError(label, this.heldReason!, this.words());
     for (const l of this.refusalListeners) l(error);
     throw error;
   }

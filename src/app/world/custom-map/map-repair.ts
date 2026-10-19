@@ -29,6 +29,7 @@ import { introProblems } from './map-intro';
 import { massProblem } from './object-mass';
 import { BIRD_SPECIES, lifeProblems, MAX_LIFE_AREAS } from './map-life';
 import { markingProblems, MAX_SURFACES, surfaceProblems } from './map-surfaces';
+import type { Messages } from '../../i18n/messages/en';
 
 /**
  * The content of a map file, checked softly: a file from outside (an
@@ -140,9 +141,8 @@ export function mapRepairs(doc: CustomMapDocument, fix = false): MapProblem[] {
 }
 
 /** What the game and the editor tell the player of a map that reading set right or left parts of (UnpackedMap.repaired) */
-export function repairedMapText(name: string, repaired: readonly string[]): string {
-  const more = repaired.length > 1 ? ` (and ${repaired.length - 1} more)` : '';
-  return `${name} had parts this game does not take; it opened with them set right or left out: ${repaired[0]}${more}.`;
+export function repairedMapText(t: Messages, name: string, repaired: readonly string[]): string {
+  return t.check.repairedMap(name, repaired[0], repaired.length - 1);
 }
 
 function environmentRepairs(doc: CustomMapDocument, fix: boolean, out: MapProblem[]): void {

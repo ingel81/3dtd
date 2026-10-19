@@ -20,6 +20,7 @@ import type { WorldCoverage } from './world-coverage';
 import type { WorldCapabilities, WorldLogo, WorldProvider } from './world-provider';
 import { worldLabel, type WorldKind, type WorldRef } from './world-ref';
 import { WorldStartService } from './world-start';
+import { I18n } from '../i18n/i18n.service';
 
 /** What a factory gets to make its world */
 export interface WorldCreateContext {
@@ -134,7 +135,7 @@ const CUSTOM_MAP_FACTORY: WorldFactory = {
     // Said here, as the world opens: the banner of the world before is gone by now (UIStore.resetWorld)
     if (map.repaired?.length) {
       console.warn(`[maps] ${map.doc.meta.name}: set right or left out as it was read:`, map.repaired);
-      injector.get(UIStore).notice.set({ text: repairedMapText(map.doc.meta.name, map.repaired), tone: 'warn', lasting: true });
+      injector.get(UIStore).notice.set({ text: repairedMapText(injector.get(I18n).t(), map.doc.meta.name, map.repaired), tone: 'warn', lasting: true });
     }
     return new CustomMapWorld(map, origin, spawnLimit, null, undefined, startWave);
   },

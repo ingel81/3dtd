@@ -99,7 +99,7 @@ export class MapLifecycle {
   async switchTo(id: string): Promise<string> {
     if (this.current && this.isOpen(id)) return this.current.doc.meta.id;
     if (this.current) {
-      if (!(await this.close())) throw new Error('The open map could not be saved, so it stays open');
+      if (!(await this.close())) throw new Error(this.p.notices.t().editor.session.notSavedStaysOpen);
       // The page lets its editor go before the next map opens, so the new one builds its own view
       await new Promise((r) => setTimeout(r));
     }
@@ -120,13 +120,13 @@ export class MapLifecycle {
   async freshCopy(): Promise<string | null> {
     const p = this.p;
     const stale = this.staleCopy();
-    if (!stale || p.blocked('A fresh copy')) return null;
+    if (!stale || p.blocked(p.notices.t().editor.session.freshCopy)) return null;
     if (p.saves.dirty() && !(await p.saves.save(false))) return null;
     this.staleCopy.set(null);
     const loaded = await p.library.store.load(stale.original);
     const copy = await p.library.store.saveCopy(loaded, undefined, { id: stale.original, hash: loaded.summary.contentHash });
     this.setDocument(copy.doc);
-    p.notices.flash(`A fresh copy of ${loaded.doc.meta.name}; your earlier copy stays in the list`);
+    p.notices.flash(p.notices.t().editor.session.freshCopyDone(loaded.doc.meta.name));
     return copy.doc.meta.id;
   }
 
@@ -168,7 +168,7 @@ export class MapLifecycle {
 
   /** Asks the tab that edits this map to save and let go; this one edits then */
   takeOver(): Promise<void> {
-    this.p.notices.flash('Asking the other tab to save and let go');
+    this.p.notices.flash(this.p.notices.t().editor.session.askingTab);
     return this.lock?.takeOver() ?? Promise.resolve();
   }
 
@@ -179,11 +179,11 @@ export class MapLifecycle {
   async close(): Promise<boolean> {
     const p = this.p;
     const editor = this.current;
-    if (editor && !this.readOnly() && p.blocked('Leaving the map')) return false;
+    if (editor && !this.readOnly() && p.blocked(p.notices.t().editor.session.leaving)) return false;
     if (editor && !this.readOnly()) {
       if (p.saves.dirty() || p.saves.running) {
         if (!(await p.saves.save(true)) || p.saves.dirty()) {
-          p.notices.flash('The map could not be saved; it stays open');
+          p.notices.flash(p.notices.t().editor.session.saveFailedStays);
           return false;
         }
       } else {
@@ -249,7 +249,7 @@ export class MapLifecycle {
       this.setDocument(copy.doc);
       const now = await store.originalHash(id);
       if (now && now !== known.copyOf!.hash) this.staleCopy.set({ original: id, name: copy.doc.meta.name });
-      else p.notices.flash(`Your own copy of this map; the original stays as it is`);
+      else p.notices.flash(p.notices.t().editor.session.ownCopy);
       return known.id;
     }
     const loaded = await store.load(id);
@@ -261,7 +261,7 @@ export class MapLifecycle {
     const name = loaded.doc.meta.name;
     this.setDocument(loaded.doc);
     p.saves.copyOf = { id, hash: loaded.summary.contentHash };
-    p.notices.flash(`${name} as it ships; your own copy comes with the first change, the original stays as it is`);
+    p.notices.flash(p.notices.t().editor.session.asShipped(name));
     return id;
   }
 
@@ -290,19 +290,19 @@ export class MapLifecycle {
       if (this.lock !== lock) return;
       this.show(loaded.doc, false);
     } catch (e) {
-      p.notices.error.set(`The map could not be read again (${(e as Error).message}). Reload the page before you change it.`);
+      p.notices.error.set(p.notices.t().editor.session.unreadableAgain((e as Error).message));
       return;
     }
     this.setReadOnly(false);
     p.view.lock(false);
-    p.notices.flash('You edit this map now');
+    p.notices.flash(p.notices.t().editor.session.youEdit);
   }
 
   /** Read-only (another tab edits the map) holds the document, so nothing here writes to it */
   private setReadOnly(on: boolean): void {
     this.readOnly.set(on);
     this.readOnlyHold?.();
-    this.readOnlyHold = on && this.current ? this.current.hold('another tab edits this map (Take over editing)') : null;
+    this.readOnlyHold = on && this.current ? this.current.hold(this.p.notices.t().editor.session.busyReadOnly) : null;
   }
 
   /** Another tab edits this map: this one turns read-only */
@@ -321,7 +321,7 @@ export class MapLifecycle {
     p.jobs.cancel();
     await p.jobs.settled();
     if (p.saves.dirty() || p.saves.running) await p.saves.save(false);
-    p.notices.flash('Another tab took over this map; this one is read-only now');
+    p.notices.flash(p.notices.t().editor.session.takenOver);
   }
 
   private show(doc: CustomMapDocument, frame: boolean): void {
@@ -330,7 +330,7 @@ export class MapLifecycle {
     patch(p.settings.look, { at: null });
     if (this.current) this.current.replace(doc);
     else {
-      this.current = new EditorDocument(doc);
+      this.current = new EditorDocument(doc, undefined, p.notices.t);
       // One document serves every map: its refusals reach the status bar
       this.current.onRefused((e) => p.notices.flash(e.message));
     }

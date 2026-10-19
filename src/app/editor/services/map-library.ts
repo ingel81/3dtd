@@ -20,7 +20,6 @@ export interface ImportState {
   file: string;
   /** `options` waits for the player to start it, `running` converts, `done` has the report */
   phase: 'options' | 'running' | 'done';
-  step: string;
   options: W3xImportOptions;
   report: W3xImportReport | null;
   /** The new map, once imported */
@@ -62,7 +61,7 @@ export class MapLibrary {
   async deleteMap(id: string, name = id): Promise<string | null> {
     const trashed = await whileMapFree(id, () => this.store.trash(id));
     if (trashed.done) return trashed.value;
-    this.notices.error.set(`${name} is open in another tab. Close it there, then delete it.`);
+    this.notices.error.set(this.notices.t().editor.session.openElsewhere(name));
     return null;
   }
 
@@ -112,7 +111,7 @@ export class MapLibrary {
     if (lower.endsWith(MAP_FILE_EXTENSION)) {
       // Packed, a map is never larger than unpacked: a bigger file is no map, and is not read into memory first
       if (file.size > MAX_FILE_BYTES) {
-        this.notices.error.set(`${name}: the file is too large for a map (${Math.round(file.size / 2 ** 20)} MB).`);
+        this.notices.error.set(this.notices.t().editor.session.tooLarge(name, Math.round(file.size / 2 ** 20)));
         return null;
       }
       try {
@@ -135,14 +134,13 @@ export class MapLibrary {
       this.importState.set({
         file: file.name,
         phase: 'options',
-        step: 'Choose how to import',
         options: { fileName: file.name, ...DEFAULT_W3X_OPTIONS },
         report: null,
         error: null,
       });
       return null;
     }
-    this.notices.error.set(`${name} is neither a 3DTD map (${MAP_FILE_EXTENSION}) nor a Warcraft 3 map (.w3x).`);
+    this.notices.error.set(this.notices.t().editor.session.notAMap(name, MAP_FILE_EXTENSION));
     return null;
   }
 
@@ -162,7 +160,7 @@ export class MapLibrary {
         // A tab editing the map would save its own state over the new content
         const replaced = await whileMapFree(id, () => this.store.replaceWith(id, match.loaded));
         if (!replaced.done) {
-          this.notices.error.set(`${match.file}: ${match.existing.name} is open in another tab. Close it there, then import again (or import as a copy).`);
+          this.notices.error.set(this.notices.t().editor.session.importOpenElsewhere(match.file, match.existing.name));
           return null;
         }
         await this.history.record(id, replaced.value.created, replaced.value.before, true).catch(() => undefined);
@@ -196,7 +194,6 @@ export class MapLibrary {
     const state: ImportState = {
       ...current,
       phase: 'running',
-      step: 'Converting the Warcraft map',
       options: { ...current.options, ...options },
       error: null,
     };
@@ -207,10 +204,10 @@ export class MapLibrary {
       if (abort.signal.aborted) return null;
       doc.meta.id = await this.store.freeId(slugMapId(doc.meta.name || file.name.replace(/\.w3[xm]$/i, '')));
       this.pendingW3x = null;
-      const done = (id: string) => this.importState.set({ ...state, phase: 'done', step: 'Done', report, mapId: id });
+      const done = (id: string) => this.importState.set({ ...state, phase: 'done', report, mapId: id });
       const existing = await this.store.ownMatch(doc);
       if (existing) {
-        this.importState.set({ ...state, phase: 'done', step: 'Replace or keep both?', report });
+        this.importState.set({ ...state, phase: 'done', report });
         this.importMatch.set({ file: file.name, existing, loaded: { doc, preview: null }, done });
         return null;
       }
@@ -228,7 +225,7 @@ export class MapLibrary {
   /** What the file carried that the game does not take was set right or left out as it opened: the banner says which (map-repair.ts) */
   sayRepaired(name: string, repaired: readonly string[] | undefined): void {
     if (!repaired?.length) return;
-    this.notices.error.set(`${repairedMapText(name, repaired)} The next save keeps the corrected map.`);
+    this.notices.error.set(this.notices.t().editor.session.repairedKept(repairedMapText(this.notices.t(), name, repaired)));
   }
 
   dispose(): void {

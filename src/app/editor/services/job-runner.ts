@@ -75,10 +75,11 @@ export class JobRunner {
    */
   async generate(options: GenerateOptions, repaint: boolean): Promise<boolean> {
     const editor = this.host.editor;
-    if (!editor || this.host.blocked('Generating the terrain')) return false;
+    const says = this.notices.t().editor.session;
+    if (!editor || this.host.blocked(says.generating)) return false;
     const t = editor.doc.terrain;
     const catalog = this.host.catalog();
-    const stroke = new LandscapeContext(editor.begin('Generate terrain'), options.seed, catalog);
+    const stroke = new LandscapeContext(editor.begin(says.generate), options.seed, catalog);
     const all = { i0: 0, j0: 0, i1: t.grid.columns - 1, j1: t.grid.rows - 1 };
     const texels = { i0: 0, j0: 0, i1: t.splat.resolution - 1, j1: t.splat.resolution - 1 };
     stroke.tx.touch('heights', all);
@@ -88,7 +89,7 @@ export class JobRunner {
     let finished: Extract<TerrainJobMessage, { kind: 'finished' }> | null = null;
     // The worker finishes the map too (roads levelled, layers, auto paint) from its mirror: over a big map that stood the page
     const ok = await this.terrainJob(
-      'Generating the terrain',
+      says.generating,
       stroke,
       { kind: 'generate', options, finish: { materials: [...catalog.materials.keys()], repaint } },
       (m) => {
@@ -113,16 +114,17 @@ export class JobRunner {
    * fans everywhere, `strength` 0..1 sets how many and how hard. Shows the
    * land between slices; Cancel puts it back; one undo step.
    */
-  async erodeWholeMap(strength: number, seed = Math.floor(Math.random() * 1e9), label = 'Erode the map'): Promise<boolean> {
+  async erodeWholeMap(strength: number, seed = Math.floor(Math.random() * 1e9), label = this.notices.t().editor.session.erode): Promise<boolean> {
     const editor = this.host.editor;
-    if (!editor || this.host.blocked('Eroding the map')) return false;
+    const says = this.notices.t().editor.session;
+    if (!editor || this.host.blocked(says.eroding)) return false;
     const g = editor.doc.terrain.grid;
     const stroke = new LandscapeContext(editor.begin(label), seed, this.host.catalog());
     const all = { i0: 0, j0: 0, i1: g.columns - 1, j1: g.rows - 1 };
     stroke.tx.touch('heights', all);
     let latest: Float32Array | null = null;
     let shownAt = performance.now();
-    const ok = await this.terrainJob(label.startsWith(AGENT_LABEL) ? label : 'Eroding the map', stroke, { kind: 'erode', strength, seed }, (m) => {
+    const ok = await this.terrainJob(label.startsWith(AGENT_LABEL) ? label : says.eroding, stroke, { kind: 'erode', strength, seed }, (m) => {
       // The whole ground redraws for each look: about one a second, and the last one always
       if (m.kind === 'heights') {
         latest = m.heights;
@@ -157,12 +159,12 @@ export class JobRunner {
     } catch (e) {
       tx.abort();
       const stopped = (e as Error).name === 'AbortError';
-      this.notices.flash(stopped ? `${label} stopped; the map is as it was` : `${label} failed; the map is as it was`);
+      this.notices.flash(stopped ? this.notices.t().editor.session.agentStopped(label) : this.notices.t().editor.session.agentFailed(label));
       this.host.refresh();
       throw stopped ? new Error('The player stopped it; the map is as it was') : e;
     }
     tx.commit();
-    this.notices.flash(`${label} done; Ctrl+Z takes it back`);
+    this.notices.flash(this.notices.t().editor.session.agentDone(label));
     this.host.refresh();
     return out;
   }
@@ -175,7 +177,7 @@ export class JobRunner {
    */
   private withJob<T>(editor: EditorDocument, label: string, run: (signal: AbortSignal) => Promise<T>): Promise<T> {
     const abort = new AbortController();
-    const release = editor.hold('a job runs (Cancel stops it)');
+    const release = editor.hold(this.notices.t().editor.session.heldJob);
     this.abort = abort;
     this.job.set({ label, progress: 0 });
     this.host.lockView(true);
@@ -225,8 +227,8 @@ export class JobRunner {
       return true;
     } catch (e) {
       stroke.tx.abort();
-      if ((e as Error).name === 'AbortError') this.notices.flash(`${label.replace(/^\w/, (c) => c.toUpperCase())} stopped; the land is as it was`);
-      else this.notices.error.set(`${label} failed (${(e as Error).message}); the land is as it was.`);
+      if ((e as Error).name === 'AbortError') this.notices.flash(this.notices.t().editor.session.jobStopped(label));
+      else this.notices.error.set(this.notices.t().editor.session.jobFailed(label, (e as Error).message));
       return false;
     }
   }

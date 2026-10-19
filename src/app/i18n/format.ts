@@ -13,6 +13,8 @@ export interface Formatters {
   fixed(n: number, digits: number): string;
   /** A number with as many decimals as it has, up to `digits` ("2.8", "3" / "2,8", "3") */
   num(n: number, digits?: number): string;
+  /** A moment as date and time, short ("Oct 19, 2026, 2:41 PM" / "19.10.2026, 14:41") */
+  dateTime(at: string | number | Date): string;
 }
 
 const made = new Map<Locale, Formatters>();
@@ -24,6 +26,7 @@ export function formatters(locale: Locale): Formatters {
   const ints = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
   const fixed = new Map<number, Intl.NumberFormat>();
   const upTo = new Map<number, Intl.NumberFormat>();
+  let moments: Intl.DateTimeFormat | null = null;
   f = {
     plural: (n, one, other) => (rules.select(n) === 'one' ? one : other),
     // Below a thousand no language groups digits: the HUD's counts skip Intl
@@ -44,6 +47,7 @@ export function formatters(locale: Locale): Formatters {
       }
       return nf.format(n);
     },
+    dateTime: (at) => (moments ??= new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' })).format(new Date(at)),
   };
   made.set(locale, f);
   return f;

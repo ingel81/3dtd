@@ -66,7 +66,7 @@ export class EditorSession implements OnDestroy {
   /** The asset catalogue is read before a map opens, so the view never swaps it */
   readonly catalogReady: Promise<void> = loadAssetCatalog().then((c) => this.catalog.set(new CatalogIndex(c)));
 
-  readonly notices = new EditorNotices();
+  readonly notices = new EditorNotices(() => this.t());
   readonly core = new EditorCore();
   private readonly pathMask = new EditorPathMask(this.core);
   private readonly ground = new EditorGround(this.core);
@@ -237,7 +237,7 @@ export class EditorSession implements OnDestroy {
     if (lost) {
       this.state.refresh();
       if (this.saves.dirty() && !this.maps.readOnly()) void this.saves.save(false);
-    } else this.notices.flash('The view is back');
+    } else this.notices.flash(this.t().editor.session.viewBack);
   }
 
   // ---------------------------------------------------------------- the door
@@ -279,65 +279,69 @@ export class EditorSession implements OnDestroy {
    * job on Cancel, over steps already undone. Null when free.
    */
   busyReason(): string | null {
-    if (this.maps.readOnly()) return 'another tab edits this map (Take over editing)';
-    if (this.jobs.job()) return 'the terrain job runs (Cancel stops it)';
-    if (this.viewHost.dragging) return 'finish the stroke or drag first';
+    const says = this.t().editor.session;
+    if (this.maps.readOnly()) return says.busyReadOnly;
+    if (this.jobs.job()) return says.busyJob;
+    if (this.viewHost.dragging) return says.busyDrag;
     return null;
   }
 
   /** True (with a line in the status bar) when `what` has to wait */
   blocked(what: string): boolean {
     const reason = this.busyReason();
-    if (reason) this.notices.flash(`${what} waits: ${reason}`);
+    if (reason) this.notices.flash(this.t().editor.session.waits(what, reason));
     return !!reason;
   }
 
   undo(): void {
-    if (this.blocked('Undo')) return;
+    const says = this.t().editor.session;
+    if (this.blocked(says.undo)) return;
     const e = this.editor;
-    if (e?.undo()) this.notices.flash(`Undone: ${e.redoLabel ?? ''}`);
+    if (e?.undo()) this.notices.flash(says.undone(e.redoLabel ?? ''));
     this.state.refresh();
   }
 
   /** Back or forward to the state after `steps` steps (0: as opened) */
   jumpTo(steps: number): void {
-    if (this.blocked('Going through the history')) return;
+    const says = this.t().editor.session;
+    if (this.blocked(says.history)) return;
     const e = this.editor;
     if (!e || steps === e.historySteps) return;
-    if (e.jumpTo(steps)) this.notices.flash(steps ? `Back to: ${e.undoLabel}` : 'Back to the map as it was opened');
+    if (e.jumpTo(steps)) this.notices.flash(steps ? says.backTo(e.undoLabel ?? '') : says.backToOpened);
     this.state.refresh();
   }
 
   redo(): void {
-    if (this.blocked('Redo')) return;
+    const says = this.t().editor.session;
+    if (this.blocked(says.redo)) return;
     const e = this.editor;
-    if (e?.redo()) this.notices.flash(`Redone: ${e.undoLabel}`);
+    if (e?.redo()) this.notices.flash(says.redone(e.undoLabel ?? ''));
     this.state.refresh();
   }
 
   // ---------------------------------------------------------------- edits of the map's parts
 
   editMeta(patch: Partial<Pick<MapMeta, 'name' | 'author' | 'description'>>): void {
-    this.edit('Map details', (e) => e.execute(metaCommand(e.doc, patch)));
+    this.edit(this.t().editor.session.mapDetails, (e) => e.execute(metaCommand(e.doc, patch)));
   }
 
   /** The map's life with `change` made to a copy, one step */
   editLife(change: (life: MapLife) => void, label: string): void {
-    this.edit('Changing the life', (e) => e.execute(lifeCommand(e.doc, change, label)));
+    this.edit(this.t().editor.life.changing, (e) => e.execute(lifeCommand(e.doc, change, label)));
   }
 
   /** The map's intro flight replaced, none for the game's default tour; one step */
-  editIntro(intro: MapIntro | undefined, label = 'Intro flight'): void {
-    this.edit('Changing the intro', (e) => e.execute(introCommand(e.doc, intro, label)));
+  editIntro(intro: MapIntro | undefined, label = this.t().editor.session.introFlight): void {
+    this.edit(this.t().editor.session.changingIntro, (e) => e.execute(introCommand(e.doc, intro, label)));
   }
 
-  editEnvironment(patch: Partial<CustomMapDocument['environment']>, label = 'Environment'): void {
-    this.edit('Changing the environment', (e) => e.execute(environmentCommand(e.doc, patch, label)));
+  editEnvironment(patch: Partial<CustomMapDocument['environment']>, label = this.t().editor.session.environment): void {
+    this.edit(this.t().editor.session.changingEnvironment, (e) => e.execute(environmentCommand(e.doc, patch, label)));
   }
 
   resize(width: number, depth: number): void {
     let dropped = { droppedObjects: 0, droppedNodes: 0 };
-    const done = this.edit('Resizing', (e) => {
+    const done = this.edit(this.t().editor.session.resizing, (e) => {
       const step = resizeCommand(e.doc, width, depth);
       dropped = step.dropped;
       e.execute(step.command);
@@ -345,20 +349,20 @@ export class EditorSession implements OnDestroy {
     if (!done) return;
     this.view.frameMap();
     const lost = dropped.droppedObjects + dropped.droppedNodes;
-    this.notices.flash(lost ? `Resized; ${dropped.droppedObjects} objects and ${dropped.droppedNodes} road nodes fell outside` : 'Resized');
+    this.notices.flash(lost ? this.t().editor.session.resizedLost(dropped.droppedObjects, dropped.droppedNodes) : this.t().editor.session.resized);
   }
 
   /** Refines coarse ground to the detail of new maps (2 m height points, the splat to match); one undo step */
   increaseDetail(): void {
     let target: DetailTarget | null = null;
-    this.edit('Increasing the detail', (e) => {
+    this.edit(this.t().editor.session.detail, (e) => {
       const step = detailCommand(e.doc);
       if (!step) return;
       e.execute(step.command);
       target = step.target;
     });
     const done = target as DetailTarget | null;
-    if (done) this.notices.flash(`Height points every ${+done.cellSize.toFixed(2)} m, ground paint ${done.splatResolution} px; Ctrl+Z takes it back`);
+    if (done) this.notices.flash(this.t().editor.session.detailDone(done.cellSize, done.splatResolution));
   }
 
   /**
@@ -369,35 +373,35 @@ export class EditorSession implements OnDestroy {
   mirrorNow(): void {
     const mode = this.tools.settings.symmetry();
     if (mode === 'none') {
-      this.notices.flash('Choose a symmetry first (top bar or M)');
+      this.notices.flash(this.t().editor.session.chooseSymmetry);
       return;
     }
     let mirrored: MirrorResult | null = null;
-    this.edit('Mirroring', (e) => {
+    this.edit(this.t().editor.session.mirroring, (e) => {
       const step = mirrorCommand(e.doc, mode, this.viewHost.viewCenter() ?? e.doc.hq);
       e.execute(step.command);
       mirrored = step.result;
     });
     const result = mirrored as MirrorResult | null;
     if (!result) return;
-    const leftOut = result.spawnsLeftOut ? ` (${result.spawnsLeftOut} spawns left out: a map holds at most ${MAX_SPAWN_PORTALS})` : '';
-    this.notices.flash(`Mirrored from the part in view: ${result.objects} objects, ${result.spawns} spawns, ${result.roads} roads${result.life ? `, ${result.life} life areas` : ''} copied${leftOut}`);
+    this.notices.flash(this.t().editor.session.mirrored(result, MAX_SPAWN_PORTALS));
   }
 
   /** Puts a kept version back as one undo step: all of the map (SnapshotCommand.restore) but its name and details */
   async restoreVersion(version: MapVersion): Promise<void> {
     const editor = this.editor;
-    if (!editor || this.blocked('Restore')) return;
+    if (!editor || this.blocked(this.t().editor.session.restore)) return;
     let old: CustomMapDocument;
     try {
       old = await this.saves.versionDoc(version);
     } catch (e) {
-      this.notices.error.set(`This version could not be read (${(e as Error).message}). The map is as it was.`);
+      this.notices.error.set(this.t().editor.session.versionUnreadable((e as Error).message));
       return;
     }
     if (this.editor !== editor) return;
-    if (this.edit('Restore', (e) => e.execute(SnapshotCommand.restore(e.doc, old, 'Restore version')))) {
-      this.notices.flash(`Back to the version of ${new Date(version.savedAt).toLocaleString()}`);
+    const says = this.t().editor.session;
+    if (this.edit(says.restore, (e) => e.execute(SnapshotCommand.restore(e.doc, old, says.restoreVersion)))) {
+      this.notices.flash(says.backToVersion(version.savedAt));
     }
   }
 
@@ -408,9 +412,9 @@ export class EditorSession implements OnDestroy {
    * is no heightmap.
    */
   async importHeightmap(file: File, low: number, high: number): Promise<boolean> {
-    if (!this.editor || this.blocked('Importing a heightmap')) return false;
+    if (!this.editor || this.blocked(this.t().editor.session.heightmap)) return false;
     if (!heightmapRangeOk(low, high)) {
-      this.notices.error.set('The heightmap needs a lowest and a highest height in metres, at most 10 km apart.');
+      this.notices.error.set(this.t().editor.session.heightmapRange);
       return false;
     }
     let image: HeightImage;
@@ -421,9 +425,9 @@ export class EditorSession implements OnDestroy {
       this.notices.error.set(`${file.name}: ${(e as Error).message}`);
       return false;
     }
-    if (!this.edit('Importing a heightmap', (e) => importHeights(e, this.catalog(), image, low, high))) return false;
+    if (!this.edit(this.t().editor.session.heightmap, (e) => importHeights(e, this.catalog(), image, low, high))) return false;
     const g = this.doc!.terrain.grid;
-    this.notices.flash(`Heightmap ${image.width} x ${image.height} on the ${g.columns} x ${g.rows} grid, ${low} to ${high} m; Ctrl+Z takes it back`);
+    this.notices.flash(this.t().editor.session.heightmapDone(image.width, image.height, g.columns, g.rows, low, high));
     return true;
   }
 
@@ -437,7 +441,7 @@ export class EditorSession implements OnDestroy {
     const image = format === 'raw' ? squareImage(grid.image) : grid.image;
     const bytes = format === 'png' ? encodePng16(image) : encodeRaw16(image);
     downloadBlob(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: format === 'png' ? 'image/png' : 'application/octet-stream' }), heightmapName(doc.meta.id, low, high, format));
-    this.notices.flash(`Heightmap ${image.width} x ${image.height}, ${Math.round(low * 10) / 10} to ${Math.round(high * 10) / 10} m`);
+    this.notices.flash(this.t().editor.session.heightmapOut(image.width, image.height, low, high));
   }
 
   // ---------------------------------------------------------------- stamps and prefabs
@@ -458,11 +462,11 @@ export class EditorSession implements OnDestroy {
     if (!editor) return null;
     const list = editor.doc.prefabs ?? [];
     if (list.length >= MAX_MAP_PREFABS) {
-      this.notices.flash(`This map keeps ${MAX_MAP_PREFABS} prefabs at most; remove one first`);
+      this.notices.flash(this.t().editor.session.prefabMax(MAX_MAP_PREFABS));
       return null;
     }
     const saved = stampEntry(name, stamp, preview);
-    this.edit('Keeping a prefab', (e) => e.execute(SnapshotCommand.record(e.doc, `Keep ${saved.name}`, ['prefabs'], (d) => (d.prefabs = [...list, saved]))));
+    this.edit(this.t().editor.session.keepingPrefab, (e) => e.execute(SnapshotCommand.record(e.doc, this.t().editor.session.keepPrefab(saved.name), ['prefabs'], (d) => (d.prefabs = [...list, saved]))));
     return saved;
   }
 
@@ -475,9 +479,9 @@ export class EditorSession implements OnDestroy {
   removeMapStamp(id: string): void {
     const saved = this.editor?.doc.prefabs?.find((p) => p.id === id);
     if (!saved) return;
-    this.edit('Removing a prefab', (e) => {
+    this.edit(this.t().editor.session.removingPrefab, (e) => {
       const rest = e.doc.prefabs!.filter((p) => p.id !== id);
-      e.execute(SnapshotCommand.record(e.doc, `Remove ${saved.name}`, ['prefabs'], (d) => (d.prefabs = rest.length ? rest : undefined)));
+      e.execute(SnapshotCommand.record(e.doc, this.t().editor.session.removePrefab(saved.name), ['prefabs'], (d) => (d.prefabs = rest.length ? rest : undefined)));
     });
   }
 

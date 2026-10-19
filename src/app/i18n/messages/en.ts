@@ -13,6 +13,7 @@ import type { VeteranLevel } from '../../configs/veteran-ranks.config';
 import type { OnboardingStep } from '../../services/onboarding/onboarding';
 import type { ToolId } from '../../editor/tools/tool-defs';
 import type { LifeMode, ObjectMode } from '../../editor/tools/tool';
+import type { MirrorResult } from '../../editor/ops/mirror-map';
 import type { MapLifeKind } from '../../world/custom-map/map-document';
 import type { AmbientSoundId, WaveSoundId } from '../../world/custom-map/ambience/ambient-sounds';
 import type { LifeSpot } from '../../editor/ui/panels/life-panel.component';
@@ -380,6 +381,8 @@ export const en = {
     } satisfies Record<OnboardingStep, { title: string; text: string }> as Record<OnboardingStep, { title: string; text: string }>,
   },
   check: {
+    repairedMap: (name: string, first: string, more: number) =>
+      `${name} had parts this game does not take; it opened with them set right or left out: ${first}${more ? ` (and ${more} more)` : ''}.`,
     /** A thing of the map an issue names */
     thing: (ref: CheckThing): string => {
       switch (ref.kind) {
@@ -931,6 +934,86 @@ export const en = {
       hearEditor: 'Hear it in the editor',
       hearMap: 'Hear the map\'s sound',
       soundMapNote: 'The look\'s own plays its sounds by day and by night. Sound areas and lines add a sound where you draw them (pick Sound above). The wave sound plays once as each wave starts, from the area it comes from (quieter far off) or alike everywhere.',
+    },
+    session: {
+      waits: (what: string, reason: string) => `${what} waits: ${reason}`,
+      busyReadOnly: 'another tab edits this map (Take over editing)',
+      busyJob: 'the terrain job runs (Cancel stops it)',
+      busyDrag: 'finish the stroke or drag first',
+      heldJob: 'a job runs (Cancel stops it)',
+      viewBack: 'The view is back',
+      undo: 'Undo',
+      redo: 'Redo',
+      history: 'Going through the history',
+      undone: (label: string) => `Undone: ${label}`,
+      redone: (label: string) => `Redone: ${label}`,
+      backTo: (label: string) => `Back to: ${label}`,
+      backToOpened: 'Back to the map as it was opened',
+      mapDetails: 'Map details',
+      changingIntro: 'Changing the intro',
+      introFlight: 'Intro flight',
+      changingEnvironment: 'Changing the environment',
+      environment: 'Environment',
+      resizing: 'Resizing',
+      resized: 'Resized',
+      resizedLost: (objects: number, nodes: number) => `Resized; ${f.int(objects)} objects and ${f.int(nodes)} road nodes fell outside`,
+      detail: 'Increasing the detail',
+      detailDone: (cell: number, px: number) => `Height points every ${f.num(cell)} m, ground paint ${px} px; Ctrl+Z takes it back`,
+      chooseSymmetry: 'Choose a symmetry first (top bar or M)',
+      mirroring: 'Mirroring',
+      mirrored: (r: MirrorResult, max: number) =>
+        `Mirrored from the part in view: ${r.objects} objects, ${r.spawns} spawns, ${r.roads} roads${r.life ? `, ${r.life} life areas` : ''} copied` +
+        (r.spawnsLeftOut ? ` (${r.spawnsLeftOut} spawns left out: a map holds at most ${max})` : ''),
+      restore: 'Restore',
+      restoreVersion: 'Restore version',
+      versionUnreadable: (message: string) => `This version could not be read (${message}). The map is as it was.`,
+      backToVersion: (savedAt: string) => `Back to the version of ${f.dateTime(savedAt)}`,
+      heightmap: 'Importing a heightmap',
+      heightmapRange: 'The heightmap needs a lowest and a highest height in metres, at most 10 km apart.',
+      heightmapDone: (w: number, h: number, columns: number, rows: number, low: number, high: number) =>
+        `Heightmap ${w} x ${h} on the ${columns} x ${rows} grid, ${f.num(low, 1)} to ${f.num(high, 1)} m; Ctrl+Z takes it back`,
+      heightmapOut: (w: number, h: number, low: number, high: number) => `Heightmap ${w} x ${h}, ${f.num(low, 1)} to ${f.num(high, 1)} m`,
+      prefabMax: (n: number) => `This map keeps ${n} prefabs at most; remove one first`,
+      keepingPrefab: 'Keeping a prefab',
+      keepPrefab: (name: string) => `Keep ${name}`,
+      removingPrefab: 'Removing a prefab',
+      removePrefab: (name: string) => `Remove ${name}`,
+      notSavedStaysOpen: 'The open map could not be saved, so it stays open',
+      freshCopy: 'A fresh copy',
+      freshCopyDone: (name: string) => `A fresh copy of ${name}; your earlier copy stays in the list`,
+      askingTab: 'Asking the other tab to save and let go',
+      leaving: 'Leaving the map',
+      saveFailedStays: 'The map could not be saved; it stays open',
+      ownCopy: 'Your own copy of this map; the original stays as it is',
+      asShipped: (name: string) => `${name} as it ships; your own copy comes with the first change, the original stays as it is`,
+      unreadableAgain: (message: string) => `The map could not be read again (${message}). Reload the page before you change it.`,
+      youEdit: 'You edit this map now',
+      takenOver: 'Another tab took over this map; this one is read-only now',
+      generating: 'Generating the terrain',
+      generate: 'Generate terrain',
+      eroding: 'Eroding the map',
+      erode: 'Erode the map',
+      jobStopped: (label: string) => `${label} stopped; the land is as it was`,
+      jobFailed: (label: string, message: string) => `${label} failed (${message}); the land is as it was.`,
+      agentStopped: (label: string) => `${label} stopped; the map is as it was`,
+      agentFailed: (label: string) => `${label} failed; the map is as it was`,
+      agentDone: (label: string) => `${label} done; Ctrl+Z takes it back`,
+      saving: 'Saving',
+      saved: 'Saved',
+      savedAsCopy: (original: string) => `Saved as your own copy of ${original}; the original stays as it is`,
+      folderRefused: (file: string) => `Saved in the game, but the map folder did not take ${file} (full, locked or no rights); the file there is older. The next save tries again.`,
+      pinFailed: (pinned: boolean, message: string) => `The version could not be ${pinned ? 'pinned' : 'unpinned'} (${message}).`,
+      notWritten: (what: 'saved' | 'downloaded', problem: string, more: number) =>
+        `The map was not ${what}: ${problem}${more ? ` (and ${more} more)` : ''}. Your changes are still here; the check (V) lists each problem and where to fix it, then save again.`,
+      noRoom: 'The map was not saved: the browser has no more room for maps. Your changes are still here: download the map (File menu) and delete maps you no longer need.',
+      notSaved: (message: string) => `The map was not saved (${message}). Your changes are still here; try again or download the map (File menu).`,
+      unknownError: 'unknown error',
+      openElsewhere: (name: string) => `${name} is open in another tab. Close it there, then delete it.`,
+      tooLarge: (name: string, mb: number) => `${name}: the file is too large for a map (${mb} MB).`,
+      notAMap: (name: string, extension: string) => `${name} is neither a 3DTD map (${extension}) nor a Warcraft 3 map (.w3x).`,
+      importOpenElsewhere: (file: string, name: string) => `${file}: ${name} is open in another tab. Close it there, then import again (or import as a copy).`,
+      repairedKept: (text: string) => `${text} The next save keeps the corrected map.`,
+      converting: 'Converting the Warcraft map',
     },
     // editor:end
   },

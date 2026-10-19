@@ -27,6 +27,7 @@ import { AppScreen } from '../../world/app-screen.service';
 import { PLAIN_START, type WorldStart } from '../../world/world-start';
 import type { MapTrialResult } from '../../world/map-trial';
 import { patch } from '../tools/tool';
+import { en } from '../../i18n/messages/en';
 
 function session(): { s: EditorSession; backend: MemoryMapBackend; history: VersionHistory; versions: MemoryVersionBackend } {
   const s = TestBed.runInInjectionContext(() => new EditorSession());
@@ -465,13 +466,13 @@ describe('editor session holds the map during a job', () => {
 
 describe('save errors in plain words', () => {
   it('say what happened, that nothing is lost and what to do', () => {
-    const full = saveErrorText(Object.assign(new Error('x'), { name: 'QuotaExceededError' }));
+    const full = saveErrorText(en, Object.assign(new Error('x'), { name: 'QuotaExceededError' }));
     expect(full).toMatch(/no more room/);
     expect(full).toMatch(/still here/);
-    const invalid = saveErrorText(new MapFileError('The map is not valid: river r needs two points', ['river r needs two points', 'object o has a bad placement']));
+    const invalid = saveErrorText(en, new MapFileError('The map is not valid: river r needs two points', ['river r needs two points', 'object o has a bad placement']));
     expect(invalid).toBe('The map was not saved: river r needs two points (and 1 more). Your changes are still here; the check (V) lists each problem and where to fix it, then save again.');
-    expect(saveErrorText(new MapFileError('x', ['x']), 'downloaded')).toMatch(/^The map was not downloaded: x\. /);
-    expect(saveErrorText(new Error('boom'))).toMatch(/boom.*still here/);
+    expect(saveErrorText(en, new MapFileError('x', ['x']), 'downloaded')).toMatch(/^The map was not downloaded: x\. /);
+    expect(saveErrorText(en, new Error('boom'))).toMatch(/boom.*still here/);
   });
 });
 
