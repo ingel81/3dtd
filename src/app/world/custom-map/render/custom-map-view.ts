@@ -348,6 +348,7 @@ export class CustomMapView {
       this.heights,
       (x, y) => this.waterLevelAt(x, y),
       (x, y) => waterLevelAt(this.doc.terrain, x, y, this.heights.heightAt(x, y) - 1, 'lava') !== null,
+      this.terrain.light,
     );
     this.effects.setLife(doc.life);
     options.lights?.addSteadySource(this.effects);

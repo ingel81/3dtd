@@ -184,8 +184,7 @@ export class TerrainMaterial extends MeshStandardMaterial {
     uRoadLayer: { value: -1 },
     uPathLayer: { value: -1 },
     uCliffCos: { value: Math.cos((40 * Math.PI) / 180) },
-    /** The far cascade of the sun's shadow and where it applies (far-shadow.ts); replaced by MapTerrainLayer's */
-    uFarShadow: { value: null as Texture | null },
+    /** Where the far cascade of the sun's shadow applies (far-shadow.ts; the shadow is the light grid's); replaced by MapTerrainLayer's */
     /** The wind's direction (the shared wind uniform), where snow drifts pile up */
     uDriftWind: WIND_UNIFORMS.uWindDir,
     uFarShadowArea: { value: new Vector4() },
@@ -353,7 +352,6 @@ uniform sampler2D uApronPaint;
 #endif
 uniform sampler2D uGridNormals;
 uniform sampler2D uGridOcclusion;
-uniform sampler2D uFarShadow;
 // The map's wind direction in the scene (wind.ts), for snow drifts
 uniform vec2 uDriftWind;
 uniform vec4 uFarShadowArea;
@@ -463,15 +461,6 @@ void sideBlend(vec4 cx, vec4 dx4, vec4 cz, vec4 dz4, vec3 t, vec3 nGeo, vec3 sgn
   col = cx * t.x + col * t.y + cz * t.z;
   dat = dx4 * t.x + dat * t.y + dz4 * t.z;
 }
-
-// The sun's light left by the far cascade: 1 inside the cached shadow map, the baked land shadow beyond it
-float farSunShade() {
-  if (uFarShadowArea.w < 0.5) return 1.0;
-  vec2 m = vec2(-vTerrainPos.x, vTerrainPos.z);
-  float beyond = smoothstep(0.7, 0.95, length(m - uFarShadowArea.xy) / uFarShadowArea.z);
-  if (beyond <= 0.0) return 1.0;
-  return mix(1.0, texture2D(uFarShadow, m / uMapSize + 0.5).r, beyond);
-}
 `;
 
 /**
@@ -480,12 +469,19 @@ float farSunShade() {
  */
 const TERRAIN_LIGHTS = ShaderChunk.lights_fragment_begin.replace(
   /(vDirectionalShadowCoord\[ i \] \) : 1\.0;\s*#endif)/,
-  '$1\n\t\tdirectLight.color *= farSunShade();',
+  '$1\n\t\tdirectLight.color *= terrainFarSun;',
 );
 
 const TERRAIN_SAMPLE = /* glsl */ `
 vec3 tPos = vTerrainPos;
 vec2 mapPos = vec2(-tPos.x, tPos.z);
+// The sun's light left by the far cascade (TERRAIN_LIGHTS): 1 inside the cached shadow map, beyond it the baked
+// land shadow, the alpha of the light grid's flickering layer (far-shadow.ts, height-fog.ts's lamp light)
+float terrainFarSun = 1.0;
+if (uFarShadowArea.w > 0.5) {
+  float beyond = smoothstep(0.7, 0.95, length(mapPos - uFarShadowArea.xy) / uFarShadowArea.z);
+  if (beyond > 0.0) terrainFarSun = mix(1.0, texture(uLampGrid, vec3(mapPos * uLampGridUv.xy + uLampGridUv.zw, 1.0)).a, beyond);
+}
 #ifndef TERRAIN_APRON
 // Inside the opening of a model set into the ground (a tunnel's vault): the model's own surfaces show
 if (terrainCut(mapPos, tPos.y)) discard;

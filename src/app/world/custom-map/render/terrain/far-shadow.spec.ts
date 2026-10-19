@@ -1,10 +1,11 @@
-import { ShaderLib, UniformsUtils, Vector3 } from 'three';
+import { DataUtils, ShaderLib, UniformsUtils, Vector3, Vector4 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { HeightField } from '../height-field';
 import { sunDirection } from '../environment/map-environment';
 import { FAR_SHADOW_SLICE_ROWS, FarShadow } from './far-shadow';
 import { farShadowData } from './ground-shape';
 import { TerrainMaterial } from './terrain-material';
+import { LIGHT_FLICKER, LightGrid } from '../effects/light-grid';
 
 /** A flat 400 x 400 m map with a 60 m high ridge running north-south through x = 0 */
 function ridge(): HeightField {
@@ -52,7 +53,7 @@ describe('TerrainMaterial far shadow', () => {
     const fs = compileTerrain(shader);
     const loop = fs.slice(fs.indexOf('NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )'));
     const shadow = loop.indexOf('vDirectionalShadowCoord[ i ]');
-    const far = loop.indexOf('directLight.color *= farSunShade();');
+    const far = loop.indexOf('directLight.color *= terrainFarSun;');
     expect(shadow).toBeGreaterThan(0);
     expect(far).toBeGreaterThan(shadow);
     expect(far).toBeLessThan(loop.indexOf('RE_Direct('));
@@ -81,21 +82,46 @@ function compileTerrain(shader: { uniforms: object; vertexShader: string; fragme
   return shader.fragmentShader;
 }
 
-describe('FarShadow.bakeSliced', () => {
+describe('FarShadow', () => {
+  /** The far shadow the grid holds at map point (x, y), 0 to 1 */
+  const shadowAt = (grid: LightGrid, x: number, y: number): number => {
+    const uv = grid.gridUv(new Vector4());
+    const i = Math.round((x * uv.x + uv.z) * grid.columns - 0.5);
+    const j = Math.round((y * uv.y + uv.w) * grid.rows - 0.5);
+    return DataUtils.fromHalfFloat(grid.data[grid.layerStart(LIGHT_FLICKER) + (j * grid.columns + i) * 4 + 3]);
+  };
+
+  it('puts the bake into the light grid, lit until then, and leaves the lamp light there alone', async () => {
+    const field = ridge();
+    const grid = new LightGrid(field);
+    expect(shadowAt(grid, -60, 0)).toBe(1);
+    const lamp = DataUtils.toHalfFloat(2);
+    grid.data[grid.layerStart(LIGHT_FLICKER)] = lamp;
+    const shadow = new FarShadow(grid, 400, 400);
+    const version = grid.texture.version;
+    shadow.bake(field, new Vector3(-1, 0.25, 0).normalize(), 400, 400);
+    expect(grid.texture.version).toBeGreaterThan(version);
+    expect(shadowAt(grid, -60, 0)).toBe(0);
+    expect(shadowAt(grid, -150, 30)).toBe(0);
+    expect(shadowAt(grid, 60, 0)).toBe(1);
+    expect(grid.data[grid.layerStart(LIGHT_FLICKER)]).toBe(lamp);
+  });
+
   it('bakes the same over several tasks as at once, and stops for a newer bake', async () => {
     const field = ridge();
     const sun = new Vector3(-1, 0.25, 0).normalize();
-    const whole = farShadowData(field, sun, 400, 400);
-    const shadow = new FarShadow();
+    const whole = new LightGrid(field);
+    new FarShadow(whole, 400, 400).bake(field, sun, 400, 400);
+    const grid = new LightGrid(field);
+    const shadow = new FarShadow(grid, 400, 400);
     let tasks = 0;
     const done = await shadow.bakeSliced(field, sun, 400, 400, () => (tasks++, true));
     expect(done).toBe(true);
-    expect(tasks).toBe(Math.ceil(whole.rows / FAR_SHADOW_SLICE_ROWS));
-    expect(shadow.texture.value.image.data).toEqual(whole.data);
-    const before = shadow.texture.value.image.data;
-    // A newer bake took over: this one leaves the texture as it is
+    expect(tasks).toBe(Math.ceil(farShadowData(field, sun, 400, 400).rows / FAR_SHADOW_SLICE_ROWS));
+    expect(grid.data).toEqual(whole.data);
+    const before = grid.data.slice();
+    // A newer bake took over: this one leaves the grid as it is
     expect(await shadow.bakeSliced(field, new Vector3(1, 0.25, 0).normalize(), 400, 400, () => false)).toBe(false);
-    expect(shadow.texture.value.image.data).toBe(before);
-    shadow.dispose();
+    expect(grid.data).toEqual(before);
   });
 });

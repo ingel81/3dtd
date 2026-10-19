@@ -67,7 +67,7 @@ describe('EffectLayer', () => {
   it('bakes its lights onto the land and lets them shine by darkness, not without lights', () => {
     const layer = new EffectLayer(flat());
     layer.set([place('t', 'torch', 10)], catalog);
-    expect(LAMP_LIGHT_UNIFORMS.uLampFlicker.value).not.toBeNull();
+    expect(LAMP_LIGHT_UNIFORMS.uLampGrid.value).not.toBeNull();
     layer.setDarkness(1);
     expect(LAMP_LIGHT_UNIFORMS.uLampOn.value).toBe(1);
     layer.setDarkness(0);
@@ -76,7 +76,7 @@ describe('EffectLayer', () => {
     layer.setDarkness(1);
     expect(LAMP_LIGHT_UNIFORMS.uLampOn.value).toBe(0);
     layer.dispose();
-    expect(LAMP_LIGHT_UNIFORMS.uLampSteady.value).toBeNull();
+    expect(LAMP_LIGHT_UNIFORMS.uLampGrid.value).toBeNull();
   });
 
   it("puts a house's chimney smoke at its chimney, turned with it, and none where smoke is placed over it", () => {

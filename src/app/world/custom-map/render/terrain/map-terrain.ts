@@ -25,6 +25,8 @@ import { HeightTexture } from './height-texture';
 import { setGroundColors } from './ground-color';
 import { GroundAlbedo } from './ground-albedo';
 import { FarShadow } from './far-shadow';
+import { LightGrid } from '../effects/light-grid';
+import { LAMP_LIGHT_UNIFORMS } from '../effects/lamp-light';
 import { TerrainCuts } from './terrain-cuts';
 import { RoadSurfaceLayer } from '../paths/road-surface';
 import { SurfaceLayer } from '../surfaces/surface-layer';
@@ -132,8 +134,13 @@ export class MapTerrainLayer {
   pathMaskBuilt: (() => void) | null = null;
   private readonly normals: GridNormalTexture;
   readonly occlusion: GroundOcclusion;
-  /** The far cascade of the sun's shadow (the shadowCascade effect), shared with the material */
-  readonly farShadow = new FarShadow();
+  /**
+   * The light baked onto the ground (light-grid.ts): the lamps' (the effect layer bakes them into it) and the far
+   * shadow's, one texture unit in every map material; the map's while it shows (LAMP_LIGHT_UNIFORMS)
+   */
+  readonly light: LightGrid;
+  /** The far cascade of the sun's shadow (the shadowCascade effect), into the light grid; its area shared with the material */
+  readonly farShadow: FarShadow;
   /** Blades on the grass layers, near the camera and in a ring beyond */
   readonly grass: GrassLayers;
   /** The ground's colour baked from above for the grass and the water's view of the land (ground-albedo.ts) */
@@ -168,6 +175,10 @@ export class MapTerrainLayer {
     baker: GroundBaker | null = null,
   ) {
     this.heightTexture = new HeightTexture(field);
+    this.light = new LightGrid(field);
+    this.farShadow = new FarShadow(this.light, terrain.width, terrain.depth);
+    LAMP_LIGHT_UNIFORMS.uLampGrid.value = this.light.texture;
+    this.light.gridUv(LAMP_LIGHT_UNIFORMS.uLampGridUv.value);
     this.chunks = new TerrainChunks(field, this.heightTexture, this.placeholder);
     // The plain ground draws the chunks' heights too (TerrainChunks: they live on the GPU)
     this.placeholder.onBeforeCompile = (shader) => patchTerrainVertex(shader, this.chunks.uniforms);
@@ -270,7 +281,6 @@ export class MapTerrainLayer {
     const material = new TerrainMaterial(params);
     material.onBeforeRender = this.flushSplat;
     Object.assign(material.terrainUniforms, this.chunks.uniforms);
-    material.terrainUniforms.uFarShadow = this.farShadow.texture;
     material.terrainUniforms.uFarShadowArea = this.farShadow.area;
     Object.assign(material.terrainUniforms, this.cuts.uniforms);
     addHeightFog(material);
@@ -536,7 +546,8 @@ export class MapTerrainLayer {
     this.normals.dispose();
     this.occlusion.dispose();
     this.grass.dispose();
-    this.farShadow.dispose();
+    if (LAMP_LIGHT_UNIFORMS.uLampGrid.value === this.light.texture) LAMP_LIGHT_UNIFORMS.uLampGrid.value = null;
+    this.light.dispose();
     this.heightTexture.dispose();
     this.cuts.dispose();
     this.roads.dispose();

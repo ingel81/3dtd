@@ -19,6 +19,7 @@ import { mapToScene } from '../map-coords';
 import { ParticleField, particleCount, type ParticleEmitter, type ParticleKind } from './particle-field';
 import { buildWaterfalls, fallFoot, fallLip, fallReach, type WaterfallSpec } from './waterfall';
 import { LAMP_LIGHT_UNIFORMS, LampLight, type LampSpot } from './lamp-light';
+import { LightGrid } from './light-grid';
 import { BIRD_LOOK, BirdFlocks, circleFlock, type Flock } from './bird-flocks';
 import { isParticleLife, lifeEmitters, lifeFlock } from './life-areas';
 import { buildBeams, type Beam } from './light-beams';
@@ -144,6 +145,8 @@ export class EffectLayer implements SteadyLightSource {
   private readonly scenePos = new Vector3();
   /** The lights baked onto the land (lamp-light.ts); lit: whether any light falls on the map */
   private readonly lamps: LampLight;
+  /** The light grid when the layer made its own (none handed in) */
+  private readonly ownLight: LightGrid | null;
   private lampsLit = false;
   private darkness = 0;
   private readonly nearestSpots: LightSpot[] = [];
@@ -168,10 +171,13 @@ export class EffectLayer implements SteadyLightSource {
     private readonly waterLevelAt: (x: number, y: number) => number | null = () => null,
     /** Whether lava stands at a map point: a waterfall into or out of it is a lava fall */
     private readonly lavaAt: (x: number, y: number) => boolean = () => false,
+    /** The map's light grid the lamps bake into (MapTerrainLayer's); its own without */
+    light?: LightGrid,
   ) {
     this.group.name = 'custom-map-effects';
     this.group.userData['losTransparent'] = true;
-    this.lamps = new LampLight(field);
+    this.ownLight = light ? null : new LightGrid(field);
+    this.lamps = new LampLight(field, light ?? this.ownLight!);
     this.group.add(this.birds.mesh);
   }
 
@@ -412,15 +418,14 @@ export class EffectLayer implements SteadyLightSource {
     ];
     this.lampsLit = this.lamps.bake(lamps);
     const u = LAMP_LIGHT_UNIFORMS;
-    u.uLampSteady.value = this.lamps.steady;
-    u.uLampFlicker.value = this.lamps.flicker;
+    u.uLampGrid.value = this.lamps.grid.texture;
     this.lamps.gridUv(u.uLampGridUv.value);
     this.lightLamps();
   }
 
   /** The baked light's strength by darkness; none without lights */
   private lightLamps(): void {
-    if (LAMP_LIGHT_UNIFORMS.uLampSteady.value !== this.lamps.steady) return;
+    if (LAMP_LIGHT_UNIFORMS.uLampGrid.value !== this.lamps.grid.texture) return;
     LAMP_LIGHT_UNIFORMS.uLampOn.value = this.lampsLit ? this.darkness : 0;
   }
 
@@ -578,7 +583,7 @@ export class EffectLayer implements SteadyLightSource {
    */
   update(dt: number, focus: Vector3): void {
     this.time.value += dt;
-    if (LAMP_LIGHT_UNIFORMS.uLampSteady.value === this.lamps.steady) LAMP_LIGHT_UNIFORMS.uLampTime.value = this.time.value;
+    if (LAMP_LIGHT_UNIFORMS.uLampGrid.value === this.lamps.grid.texture) LAMP_LIGHT_UNIFORMS.uLampTime.value = this.time.value;
     if (this.retired.length && ++this.retiredFrames > 2) this.freeRetired();
     const found = this.darkness > 0.05 ? this.nearest(focus) : 0;
     const live = Math.min(found, this.lightCount);
@@ -626,12 +631,11 @@ export class EffectLayer implements SteadyLightSource {
     this.fireflies = null;
     this.birds.dispose();
     this.poolCount = 0;
-    if (LAMP_LIGHT_UNIFORMS.uLampSteady.value === this.lamps.steady) {
+    if (LAMP_LIGHT_UNIFORMS.uLampGrid.value === this.lamps.grid.texture) {
       LAMP_LIGHT_UNIFORMS.uLampOn.value = 0;
-      LAMP_LIGHT_UNIFORMS.uLampSteady.value = null;
-      LAMP_LIGHT_UNIFORMS.uLampFlicker.value = null;
+      if (this.ownLight) LAMP_LIGHT_UNIFORMS.uLampGrid.value = null;
     }
-    this.lamps.dispose();
+    this.ownLight?.dispose();
     this.group.removeFromParent();
   }
 

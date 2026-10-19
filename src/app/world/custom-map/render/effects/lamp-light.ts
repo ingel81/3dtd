@@ -1,22 +1,21 @@
-import { ClampToEdgeWrapping, Color, DataTexture, DataUtils, HalfFloatType, LinearFilter, NoColorSpace, RGBAFormat, Vector4, type Vector3 } from 'three';
+import { Color, DataUtils, Vector4, type DataArrayTexture, type Vector3 } from 'three';
 import type { HeightField } from '../height-field';
+import { LIGHT_FLICKER, LIGHT_LAMPS, type LightGrid } from './light-grid';
 
 /**
  * The light of every lamp, torch, fire and glowing lava point on the land
- * around it, baked into two textures over the map (one texel per metre up
- * to 512 a side): what the six real point lights near the camera cannot
+ * around it, baked into the map's light grid (light-grid.ts, one texel per
+ * metre up to 512 a side): what the six real point lights near the camera cannot
  * carry. Every map material samples it at its fragment (height-fog.ts,
  * LAMP_LIGHT_UNIFORMS) and adds it, times its own colour, as light: a
  * street lamp lights a disc of road under it, a brazier the wall beside it,
- * at no cost per light. Steady lights in one texture, flickering ones
+ * at no cost per light. Steady lights in one layer, flickering ones
  * (fire, lava) in the other, which the shader lets flicker by a phase that
- * changes over the map. Alpha holds the ground height the light stands on
+ * changes over the map. The steady layer's alpha holds the ground height the light stands on
  * (weighted), so a roof high over a lamp stays dark. Faded in by darkness
  * like the point lights.
  */
 
-/** Most texels a side */
-const MAX_TEXELS = 512;
 /** Light at the foot of a lamp of catalogue intensity 1 */
 const GAIN = 2.8;
 /**
@@ -62,16 +61,14 @@ const LAMP_GLINT_HEIGHT = 4;
 export const LAMP_LIGHT_UNIFORMS = {
   /** 0 off (by day, no lights), up to 1 at night */
   uLampOn: { value: 0 },
-  uLampSteady: { value: null as DataTexture | null },
-  uLampFlicker: { value: null as DataTexture | null },
-  /** Map metres to the textures' uv */
+  /** The map's light grid (light-grid.ts): steady lamp light and ground height, flickering light and the far shadow */
+  uLampGrid: { value: null as DataArrayTexture | null },
+  /** Map metres to the grid's uv */
   uLampGridUv: { value: new Vector4() },
   uLampTime: { value: 0 },
 };
 
 export class LampLight {
-  readonly steady: DataTexture;
-  readonly flicker: DataTexture;
   private readonly columns: number;
   private readonly rows: number;
   private readonly texel: number;
@@ -87,26 +84,24 @@ export class LampLight {
   private signature: Float64Array | null = null;
   private lit = false;
 
-  constructor(private readonly field: HeightField) {
-    const width = (field.columns - 1) * field.cellSize;
-    const depth = (field.rows - 1) * field.cellSize;
-    this.texel = Math.max(1, Math.max(width, depth) / (MAX_TEXELS - 1));
-    this.columns = Math.ceil(width / this.texel) + 1;
-    this.rows = Math.ceil(depth / this.texel) + 1;
-    this.originX = field.originX;
-    this.originY = field.originY;
-    this.steady = this.make();
-    this.flicker = this.make();
+  constructor(
+    private readonly field: HeightField,
+    /** Where the light goes: its lamp layers' colour, and the steady one's ground height */
+    readonly grid: LightGrid,
+  ) {
+    this.texel = grid.texel;
+    this.columns = grid.columns;
+    this.rows = grid.rows;
+    this.originX = grid.originX;
+    this.originY = grid.originY;
     this.steadyValues = new Float32Array(this.columns * this.rows * 4);
     this.flickerValues = new Float32Array(this.columns * this.rows * 4);
     this.weight = new Float32Array(this.columns * this.rows);
   }
 
-  /** The textures' uv for map metres (x, y): u = x * uv.x + uv.z, v = y * uv.y + uv.w */
+  /** The grid's uv for map metres (x, y): u = x * uv.x + uv.z, v = y * uv.y + uv.w */
   gridUv(target: Vector4): Vector4 {
-    const sx = 1 / (this.texel * this.columns);
-    const sy = 1 / (this.texel * this.rows);
-    return target.set(sx, sy, -this.originX * sx + 0.5 / this.columns, -this.originY * sy + 0.5 / this.rows);
+    return this.grid.gridUv(target);
   }
 
   /**
@@ -184,11 +179,11 @@ export class LampLight {
         // Without light the texel's own ground, so the height blends smoothly into a pool's edge
         const ground = weight[k] > 0 ? steady[k * 4 + 3] / weight[k] : this.field.heightAt(this.originX + i * this.texel, this.originY + j * this.texel);
         steady[k * 4 + 3] = ground;
-        flicker[k * 4 + 3] = ground;
       }
     }
-    this.upload(this.steady, steady, dirty);
-    this.upload(this.flicker, flicker, dirty);
+    // The flickering layer's alpha is the far shadow's (light-grid.ts)
+    this.upload(LIGHT_LAMPS, steady, dirty, 4);
+    this.upload(LIGHT_FLICKER, flicker, dirty, 3);
     this.baked = rect;
     return !!rect;
   }
@@ -204,29 +199,16 @@ export class LampLight {
     }
   }
 
-  dispose(): void {
-    this.steady.dispose();
-    this.flicker.dispose();
-  }
-
-  private make(): DataTexture {
-    const t = new DataTexture(new Uint16Array(this.columns * this.rows * 4), this.columns, this.rows, RGBAFormat, HalfFloatType);
-    t.colorSpace = NoColorSpace;
-    t.magFilter = t.minFilter = LinearFilter;
-    t.wrapS = t.wrapT = ClampToEdgeWrapping;
-    t.generateMipmaps = false;
-    t.needsUpdate = true;
-    return t;
-  }
-
-  private upload(texture: DataTexture, values: Float32Array, r: Rect): void {
-    const data = texture.image.data as Uint16Array;
+  /** The first `channels` of each texel in `r` from `values` into a layer of the grid */
+  private upload(layer: number, values: Float32Array, r: Rect, channels: number): void {
+    const data = this.grid.data;
+    const start = this.grid.layerStart(layer);
     for (let j = r.j0; j <= r.j1; j++) {
-      for (let q = (j * this.columns + r.i0) * 4; q < (j * this.columns + r.i1 + 1) * 4; q++) {
-        data[q] = DataUtils.toHalfFloat(Math.max(-6e4, Math.min(6e4, values[q])));
+      for (let q = (j * this.columns + r.i0) * 4; q < (j * this.columns + r.i1 + 1) * 4; q += 4) {
+        for (let c = 0; c < channels; c++) data[start + q + c] = DataUtils.toHalfFloat(Math.max(-6e4, Math.min(6e4, values[q + c])));
       }
     }
-    texture.needsUpdate = true;
+    this.grid.changed(layer);
   }
 }
 
@@ -258,16 +240,16 @@ if (uLampOn > 0.0) {
 /** The baked light at a world position, by darkness (needs HEIGHT_FOG_PARS before it for uFogMap) */
 export const LAMP_LIGHT_PARS = /* glsl */ `
 uniform float uLampOn;
-uniform sampler2D uLampSteady;
-uniform sampler2D uLampFlicker;
+precision highp sampler2DArray;
+uniform sampler2DArray uLampGrid;
 uniform vec4 uLampGridUv;
 uniform float uLampTime;
 vec3 lampLightAt(vec3 worldPos) {
   if (uLampOn <= 0.0) return vec3(0.0);
   vec2 lampAt = vec2(uFogMap.x - worldPos.x, worldPos.z - uFogMap.y);
   vec2 lampUv = lampAt * uLampGridUv.xy + uLampGridUv.zw;
-  vec4 lampSteady = texture2D(uLampSteady, lampUv);
-  vec3 lampFlicker = texture2D(uLampFlicker, lampUv).rgb;
+  vec4 lampSteady = texture(uLampGrid, vec3(lampUv, 0.0));
+  vec3 lampFlicker = texture(uLampGrid, vec3(lampUv, 1.0)).rgb;
   float lampPhase = dot(lampAt, vec2(0.13, 0.17));
   float lampFlick = 0.78 + 0.14 * sin(uLampTime * 9.0 + lampPhase) + 0.08 * sin(uLampTime * 23.0 + lampPhase * 3.0);
   // High over the ground the light stands on (a roof over a street lamp) it fades out
