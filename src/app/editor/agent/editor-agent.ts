@@ -11,6 +11,7 @@
  * only read or copied, never changed; a shipped map opens as it is and its
  * first saved change makes an own copy.
  */
+import { osmErrorMessage } from '../../world/osm/osm-error';
 import type { AgentAnswer, AgentCall } from '../../core/desktop-bridge';
 import type { CatalogIndex } from '../../map-ops/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
@@ -176,7 +177,8 @@ export class EditorAgent {
       return answer;
     } catch (e) {
       if (signal.aborted) return { text: STOPPED, isError: true };
-      return { text: (e as Error).message || String(e), isError: true };
+      // A map's or a place's error words its key in English, as the agents read it
+      return { text: osmErrorMessage(en, e) || String(e), isError: true };
     }
   }
 

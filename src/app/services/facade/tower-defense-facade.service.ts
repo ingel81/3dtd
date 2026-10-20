@@ -1,3 +1,4 @@
+import { osmErrorMessage } from '../../world/osm/osm-error';
 import { Injectable, inject, Injector, effect, untracked } from '@angular/core';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../configs/enemy-types.config';
 import { TOWER_TYPES, UpgradeId, type TowerTypeId } from '../../configs/tower-types.config';
@@ -543,7 +544,7 @@ export class TowerDefenseFacadeService {
       // The game went while it loaded (Esc on the loading): its failure is nobody's
       if (!this.initialized) return;
       console.error('[TD] Engine init error:', err);
-      this.engineInit.setError(err instanceof Error ? err.message : this.t().hud.world.loadError);
+      this.engineInit.setError(err instanceof Error ? osmErrorMessage(this.t(), err) : this.t().hud.world.loadError);
       this.engineInit.setLoading(false);
     }
   }

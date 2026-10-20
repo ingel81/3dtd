@@ -1,3 +1,4 @@
+import { osmErrorMessage } from '../../world/osm/osm-error';
 import { inject, Injectable, NgZone, signal, WritableSignal } from '@angular/core';
 import { ThreeTilesEngine } from '../../three-engine';
 import type { FirstModels } from '../../three-engine/three-tiles-engine';
@@ -408,7 +409,7 @@ export class EngineInitializationService {
       // A load left behind fails in the half taken down: no word of it on the next world
       if (gone()) return;
       console.error('[EngineInit] Engine init error:', err);
-      this.error.set(err instanceof Error ? err.message : this.t().boot.loadError);
+      this.error.set(err instanceof Error ? osmErrorMessage(this.t(), err) : this.t().boot.loadError);
       this.loading.set(false);
     } finally {
       if (!gone()) this.building = null;

@@ -82,7 +82,10 @@ export type MapStoreText = Said<Messages['mapFile']['store']>;
 
 /** What went wrong with a map, for the player: a MapFileError worded in the language of `t`, another error by its message */
 export function mapErrorMessage(t: Messages, error: unknown): string {
-  if (error instanceof MapFileError) return mapFaultText(t, error.fault, error.problems);
-  if (error instanceof MapStoreError) return say(t.mapFile.store, error.said);
+  // The map's error itself, or the one another wraps (`cause`: a world that is not available)
+  for (let e: unknown = error, depth = 0; e instanceof Error && depth < 4; e = e.cause, depth++) {
+    if (e instanceof MapFileError) return mapFaultText(t, e.fault, e.problems);
+    if (e instanceof MapStoreError) return say(t.mapFile.store, e.said);
+  }
   return error instanceof Error ? error.message : String(error);
 }

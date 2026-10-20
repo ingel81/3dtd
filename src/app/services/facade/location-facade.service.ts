@@ -30,7 +30,7 @@ import { canonicalCoords } from '../../utils/geo-utils';
 import { isInsideCoverage } from '../../world/world-coverage';
 import { UIStore } from '../../store/ui.store';
 import { injectT } from '../../i18n/i18n.service';
-import { mapErrorMessage } from '../../world/custom-map/map-text';
+import { osmErrorMessage } from '../../world/osm/osm-error';
 
 /**
  * Callbacks to visualization sub-facade methods,
@@ -204,7 +204,7 @@ export class LocationFacadeService {
         hq = await ownHq;
       } catch (err) {
         // A map that is missing or changed: say so instead of loading forever, in the player's words where it is the map's
-        this.engineInit.setError(mapErrorMessage(this.t(), err instanceof Error && err.cause !== undefined ? err.cause : err));
+        this.engineInit.setError(osmErrorMessage(this.t(), err instanceof Error && err.cause !== undefined ? err.cause : err));
         this.engineInit.setLoading(false);
         return false;
       }

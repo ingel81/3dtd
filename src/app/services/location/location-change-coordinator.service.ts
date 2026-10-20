@@ -1,3 +1,4 @@
+import { osmErrorMessage } from '../../world/osm/osm-error';
 import { Injectable, inject, signal } from '@angular/core';
 import { WorldContext } from '../../world/world-context.service';
 import { STREET_RADIUS_M } from './osm-street.service';
@@ -486,7 +487,7 @@ export class LocationChangeCoordinatorService {
           this.heightUpdate.heightsLoading.set(false);
         }
       } else {
-        const message = err instanceof Error ? err.message : this.t().places.changeFailed;
+        const message = err instanceof Error ? osmErrorMessage(this.t(), err) : this.t().places.changeFailed;
         // The old place may be gone half way: the run cannot go on, the menu says so and offers the way back
         this.engineInit.setError(message);
         this.uiStore.loadProblem.set({ text: this.t().places.didNotLoad(message), retry: () => void this.applyNewLocation(data) });

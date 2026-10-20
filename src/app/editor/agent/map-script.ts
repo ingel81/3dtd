@@ -12,6 +12,7 @@
  * kept command does the same when it is played again: no functions, no
  * references into the map.
  */
+import { osmErrorMessage } from '../../world/osm/osm-error';
 import { CatalogIndex, type MapAssetCatalog } from '../../map-ops/asset-catalog';
 import { TERRAIN_PRESETS } from '../../map-ops/generate';
 import { BIOMES } from '../ops/landscape/biomes';
@@ -1022,7 +1023,7 @@ function scriptLine(stack: string | undefined): number | null {
 
 function describeError(e: unknown, commands: number): string {
   const err = e as { name?: string; message?: string; stack?: string } | null;
-  const message = err?.message ?? String(e);
+  const message = e instanceof Error ? osmErrorMessage(en, e) : (err?.message ?? String(e));
   const at = scriptLine(err?.stack);
   const line = at !== null ? ` (line ${at})` : '';
   const kind = err?.name && err.name !== 'Error' && err.name !== 'ScriptError' ? `${err.name}: ` : '';
