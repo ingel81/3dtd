@@ -216,6 +216,9 @@ export class SimMirror implements SimMirrorApi {
   }
 
   clear(): void {
+    // The world's routes go with it: the next world's minimap drew the old map's until its own came (E266)
+    this.spawnIds = [];
+    this.paths = new Map();
     this.eventTime = null;
     this.eventMoment = null;
     this.soldInPacket.clear();

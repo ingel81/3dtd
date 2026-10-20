@@ -40,6 +40,12 @@ describe('SimMirror', () => {
     expect(mirror.losAwaiting()).toBe(0);
   });
 
+  it('lets the world\'s routes go with it, so the next world shows none of them (E266)', () => {
+    expect([...mirror.routes().keys()]).toEqual(['north', 'south']);
+    mirror.clear();
+    expect(mirror.routes().size).toBe(0);
+  });
+
   describe('shadow towers', () => {
     it('match a real tower in upgrade and sell numbers, without moving the id counter', () => {
       const real = new Tower(AT, 'archer');

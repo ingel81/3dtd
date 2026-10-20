@@ -360,6 +360,10 @@ export class VisualizationFacadeService {
     // Root services this world set up: their document listeners and timers held its canvas, engine and facades
     this.inputHandler.dispose();
     this.heightUpdate.dispose();
+    // The routes and their animation go with this world (E266): kept, the next world held the old map's paths beside
+    // its own, and its route animation drew them on the new map
+    this.routeAnimation.dispose();
+    this.pathRoute.dispose();
     this.initialized = false;
   }
 

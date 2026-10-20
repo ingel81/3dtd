@@ -1256,3 +1256,20 @@ describe('PathAndRouteService: spawns without a route (TODO E232)', () => {
     expect(en.hud.world.unrouted(['A', 'B', 'C'])).toMatch(/^No street leads from A, B and C to the HQ: they send/);
   });
 });
+
+describe('PathAndRouteService: a world gone takes its routes (TODO E266)', () => {
+  const route = (lat: number): RouteWaypoint[] => [{ lat, lon: 9 }, { lat: 48, lon: 9 }];
+
+  it('holds none of the old map\'s paths in the next world: the cells, the world key and the simulation read these', () => {
+    const service = new PathAndRouteService();
+    service.initialize(makeEngine(), makeNetwork([]), { lat: 48, lon: 9 }, (() => false) as never, new OsmStreetService(), null);
+    service.adoptPaths(new Map([['old-1', route(48.01)], ['old-2', route(48.02)]]));
+
+    // The world goes (VisualizationFacadeService.dispose), the next one sets the service up
+    service.dispose();
+    service.initialize(makeEngine(), makeNetwork([]), { lat: 49, lon: 9 }, (() => false) as never, new OsmStreetService(), null);
+
+    expect([...service.getCachedPaths().keys()]).toEqual([]);
+    expect(service.hasRoutes()).toBe(false);
+  });
+});

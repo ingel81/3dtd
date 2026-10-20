@@ -250,6 +250,7 @@ describe('VisualizationFacadeService', () => {
     buildBands: vi.fn(() => ({ routes: 1, stations: 30, passages: 0, maxSlopeM: 0, maxCurvature: 0 })),
     clearCorridorMeasurements: vi.fn(),
     explainCorridorAt: vi.fn(() => null),
+    dispose: vi.fn(),
   };
   const inputHandler = {
     initialize: vi.fn(),
@@ -310,7 +311,7 @@ describe('VisualizationFacadeService', () => {
     applyFrame: vi.fn(),
     computeFrameWithEngine: vi.fn((_hq: unknown, _spawns: unknown, _options: unknown): CameraFrame | null => FRAME),
   };
-  const routeAnimation = { initialize: vi.fn(), isRunning: vi.fn(() => false), startAnimation: vi.fn() };
+  const routeAnimation = { initialize: vi.fn(), isRunning: vi.fn(() => false), startAnimation: vi.fn(), dispose: vi.fn() };
   const introFlight = {
     initialize: vi.fn(),
     isRunning: vi.fn(() => false),
@@ -1435,6 +1436,17 @@ describe('VisualizationFacadeService', () => {
       expect(buildingRendering.reset).toHaveBeenCalled();
       expect(inputHandler.dispose).toHaveBeenCalled();
       expect(heightUpdate.dispose).toHaveBeenCalled();
+    });
+
+    it('lets the routes and their animation go with the world (E266)', () => {
+      facade.initializeVisualizationServices();
+      routeAnimation.dispose.mockClear();
+      pathRoute.dispose.mockClear();
+
+      facade.dispose();
+
+      expect(routeAnimation.dispose).toHaveBeenCalledOnce();
+      expect(pathRoute.dispose).toHaveBeenCalledOnce();
     });
 
     it('cancels a held loading screen frame on dispose', () => {
