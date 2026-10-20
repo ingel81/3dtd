@@ -142,6 +142,10 @@ node e2e/perf/sim-load.ts --url http://localhost:4244 --browser chromium --heade
   `--frame-gpu` (GPU-Zeit je Frame), `--gl-slow <ms>` (wartende WebGL-Aufrufe mit Herkunft), `--sync-draws <ms>`
   (nach jedem Draw ein Rundgang zum GPU-Prozess, seine Zeit je Objekt), `--without los|cube`, `--time <Pfade>`
   (Methoden ab der Engine), `--chrome-trace` (nur die Wahl).
+- `e2e/perf/route-switch.ts`: ob die nächste Welt die Routen der vorigen zeigt (TODO E266). Öffnet eine eigene Karte,
+  merkt sich ihre Pfade, spielt über „Built Worlds“ eine andere (ohne Neuladen) und liest alle 100 ms bis einige
+  Sekunden nach dem Laden die gecachten Pfade und die Linien der Routen-Animation in der neuen Szene; ein Pfad der
+  vorigen Karte darin endet mit Exit 1. `--maps demo-valley,ruined-city`, `--after <ms>`. Dev-Server nötig.
 
 ## Coop-Läufe mit Bots (`e2e/coop-bots/run.ts`)
 
