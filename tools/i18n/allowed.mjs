@@ -22,6 +22,9 @@ const SIGN = 'the words on a shop sign in the world, as the place itself would w
 const NOTE = 'a note for the map makers in the code; no player reads it';
 const CONSOLE = 'the answer of the developer console (__corridor, __routes) or a corridor trace label, English like the debug windows (docs/I18N_PLAN.md 4.10)';
 const WHY_WAVE = "the wave source's reasons for a wave, for the wave debug window and the run log, English (docs/I18N_PLAN.md 4.10)";
+const OURS = 'our own words in the credits, the English key the dialog words them by (dialogs.attributions.words)';
+const WAVE_NAME = "a wave's name as the run plan and the run log keep it; the HUD words it by it (hud.wave.names)";
+const PLACE_NAME = "a place's own name, never translated (decision E245); its description is worded by id";
 const PLACE_DATA = 'a fixed name a place or spawn carries as data (saves, the world package); the HUD words it on display (i18n/place-names.ts)';
 
 export const ALLOWED = {
@@ -208,4 +211,62 @@ export const ALLOWED = {
   },
   'sim/core/sim-core.ts': { Simulation: DIAG },
   'sim/worker/sim.worker.ts': { 'simulation worker: a message from the main thread could not be read': DETAIL },
+  // Configs
+  'configs/attributions.config.ts': {
+    'Amal Kumar, Poly Haven': CREDIT, 'Angular': CREDIT, 'Apache 2.0': CREDIT, 'BSD 3-Clause': CREDIT, 'Barlow Semi Condensed': CREDIT,
+    'Basis Universal (texture transcoder of the menu globe)': OURS, 'Bat': CREDIT, 'Bear': CREDIT, 'Big Arm (Wallsmasher)': CREDIT,
+    'Binomial LLC': CREDIT, 'CC-BY 3.0': CREDIT, 'CC-BY 4.0': CREDIT, 'CC-BY-SA 4.0': CREDIT,
+    'D. Hoffleit, W. H. Warren Jr., Yale University Observatory': CREDIT, 'Dark Rock (top bar, recoloured)': OURS, 'Dragon': CREDIT,
+    'Earth of the menu globe (Blue Marble Next Generation, July 2004; Black Marble 2016; clouds)': OURS,
+    'Flat map of the place before a map is made (vector tiles)': OURS, 'Free use with credit': OURS, 'GEBCO, NASA Visible Earth': CREDIT,
+    'Grey Plaster 02 (menu and dialog surfaces, recoloured)': OURS,
+    'Ground materials and models of the custom maps (list per file in public/maps/assets/LICENSES.md)': OURS,
+    'Ground materials of the custom maps': OURS, 'Herbert': CREDIT, 'Ironclad Warlord': CREDIT, 'Jeremy Tribby': CREDIT, 'JetBrains Mono': CREDIT,
+    'Jumper (reduced, turret split off, animated)': OURS, 'KingKong Robotics': CREDIT, 'Mammoth': CREDIT,
+    'MapLibre GL JS (flat map of a place before its map is made)': OURS, 'MapLibre contributors': CREDIT, 'Maps from a real place: heights': OURS,
+    'Maps from a real place: streets and land (Overpass API)': OURS,
+    'Mapterhorn and its sources; Terrain Tiles (Mapzen, AWS Open Data) as the fallback': OURS, 'Material Symbols': CREDIT,
+    'Mateus Schwaab (Mehrus)': CREDIT, 'Murat Can ÜNAL (avanar)': CREDIT, 'NASA Earth Observatory, NASA Visible Earth': CREDIT,
+    'Natural Earth': CREDIT, 'ODbL 1.0': CREDIT, 'ODbL 1.0 (data)': OURS, 'OFL 1.1': CREDIT,
+    'OpenFreeMap, OpenMapTiles, OpenStreetMap contributors': CREDIT, 'OpenStreetMap contributors': CREDIT, 'Original work': OURS, 'Penguin': CREDIT,
+    'Per source, listed by Mapterhorn': OURS, 'Poly Haven': CREDIT, 'Public Domain': OURS, 'Public domain': OURS, 'Public domain (NASA)': OURS,
+    'Relief and water of the menu globe (GEBCO 2008, via NASA Visible Earth)': OURS,
+    'Roads for the enemy routes (Overpass API) and place search (Nominatim)': OURS, 'Rob Tuytel, Poly Haven': CREDIT,
+    'Routes © OpenStreetMap contributors': CREDIT, 'SWAT (Hero, recoloured, gun added)': OURS, 'Skeleton (Graveyard Kit)': CREDIT,
+    'Sound effects': OURS, 'Soundtrack': CREDIT, 'Spider': CREDIT, 'Stars of the menu globe (Bright Star Catalogue, 5th edition)': OURS,
+    'Stone Golem': CREDIT, 'Tank': CREDIT, 'Tower Round Crystals (Chaos Tower)': CREDIT,
+    'World map outlines (1:110m coastline and land borders)': OURS, 'Zombie': CREDIT, 'Zombie Soldier': CREDIT,
+    'ingel81, generated with Eleven Music (ElevenLabs) and ACE-Step 1.5': OURS, 'ingel81, generated with ElevenLabs': OURS,
+    'ingel81, generated with Krea AI': OURS, 'three.js authors': CREDIT,
+  },
+  'configs/enemy-types.config.ts': {
+    'GltfAnimation 0': "an animation clip's name in its model file", 'Take 001': "an animation clip's name in its model file",
+  },
+  'configs/showcase-locations.config.ts': {
+    'Amsterdam, Dam Square': PLACE_NAME, 'Barcelona, Plaça de Catalunya': PLACE_NAME, 'Madrid, Puerta del Sol': PLACE_NAME,
+    'New York, Times Square': PLACE_NAME, "Paris, Pont d'Iéna": PLACE_NAME, 'Prague, Old Town Square': PLACE_NAME,
+    'Rio de Janeiro, Copacabana': PLACE_NAME, 'San Francisco, Union Square': PLACE_NAME, 'Sydney, Martin Place': PLACE_NAME,
+    'Tokyo, Shibuya Crossing': PLACE_NAME,
+  },
+  'director/sources/budget/run-plan.json': {
+    'Armor Gauntlet': WAVE_NAME, 'Armored Push': WAVE_NAME, 'Bat Swarm': WAVE_NAME, 'Bear Pack': WAVE_NAME, 'Bone Tide': WAVE_NAME,
+    'Boss: Dragon Matriarch': WAVE_NAME, 'Boss: Golem King': WAVE_NAME, 'Boss: Herbert': WAVE_NAME, 'Boss: Jumper': WAVE_NAME,
+    'Boss: Ooze': WAVE_NAME, 'Boss: Skarnax': WAVE_NAME, 'Chaos Wave': WAVE_NAME, 'Dragon Elite': WAVE_NAME, 'Dragon Night': WAVE_NAME,
+    'Dragon Patrol': WAVE_NAME, 'Dusk Flock': WAVE_NAME, 'Ether Assault': WAVE_NAME, 'Final Mix': WAVE_NAME, 'Fortress': WAVE_NAME,
+    'Ghost Riders': WAVE_NAME, 'Ghost Surge': WAVE_NAME, 'Golem Guard': WAVE_NAME, 'Golem Squad': WAVE_NAME, 'Great Horde': WAVE_NAME,
+    'Horde and Hornets': WAVE_NAME, 'Hornet Raid': WAVE_NAME, 'Hornet Strike': WAVE_NAME, 'Iron Night': WAVE_NAME, 'Last Stand': WAVE_NAME,
+    'Light Mix': WAVE_NAME, 'Mammoth Siege': WAVE_NAME, 'Mammoth Stampede': WAVE_NAME, 'Mech Army': WAVE_NAME, 'Mech Column': WAVE_NAME,
+    'Night Flight': WAVE_NAME, 'Penguin Breather': WAVE_NAME, 'Penguin Rush': WAVE_NAME, 'Phantom March': WAVE_NAME, 'Plague and Iron': WAVE_NAME,
+    'Rat Tide': WAVE_NAME, 'Siege Line': WAVE_NAME, 'Skeleton Swarm': WAVE_NAME, 'Sky Siege': WAVE_NAME, 'Spider Nest': WAVE_NAME,
+    'Spider Swarm': WAVE_NAME, 'Swarm Surge': WAVE_NAME, 'Tank Column': WAVE_NAME, 'Wall Breakers': WAVE_NAME, 'Wallsmasher Crew': WAVE_NAME,
+    'Wraith Night': WAVE_NAME, 'Wraith Storm': WAVE_NAME, 'Zombie Horde': WAVE_NAME,
+  },
+  // Desktop app (its own words are in desktop/src/i18n.js)
+  'desktop/src/coop-lan.js': { '3DTD coop relay': DIAG },
+  'desktop/src/log.js': { '[page] (previous message repeated {} times)': DIAG, 'vendor 0x{} device 0x{}': DIAG },
+  'desktop/src/main.js': { 'renderer {}, exit code {}, 3DTD {}': DETAIL },
+  'desktop/src/preload.js': {
+    'The editor gave no answer': AGENT,
+    'The map editor is not open. Ask the player to open a map in the editor (main menu, Map editor).': AGENT,
+  },
 };

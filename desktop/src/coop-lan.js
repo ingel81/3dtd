@@ -81,7 +81,7 @@ function setUpCoopLan({ ipcMain, utilityProcess, relayPath, log, isAppSender, fe
       }
       const child = utilityProcess.fork(relayPath, [], { serviceName: '3DTD coop relay', stdio: 'ignore' });
       relay = child;
-      const timer = setTimeout(() => resolve({ error: 'The coop server did not start in time.' }), RELAY_START_TIMEOUT_MS);
+      const timer = setTimeout(() => resolve({ error: 'timeout' }), RELAY_START_TIMEOUT_MS);
       child.on('message', (message) => {
         if (message?.t === 'log') log.info(`[coop relay] ${message.line}`);
         if (message?.t === 'listening') {
@@ -93,7 +93,7 @@ function setUpCoopLan({ ipcMain, utilityProcess, relayPath, log, isAppSender, fe
         if (message?.t === 'failed') {
           clearTimeout(timer);
           log.warn(`[coop relay] could not start: ${message.error}`);
-          resolve({ error: `The coop server could not start: ${message.error}` });
+          resolve({ error: 'failed', detail: String(message.error ?? '') });
         }
       });
       child.on('exit', (code) => {
@@ -103,7 +103,7 @@ function setUpCoopLan({ ipcMain, utilityProcess, relayPath, log, isAppSender, fe
           relayPort = null;
         }
         log.info(`[coop relay] ended (${code})`);
-        resolve({ error: 'The coop server stopped.' });
+        resolve({ error: 'stopped' });
       });
     });
 

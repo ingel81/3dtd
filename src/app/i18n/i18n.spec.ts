@@ -12,11 +12,12 @@ import { RUN_PLAN } from '../director/sources/budget/run-plan';
 import { WAVE_TABLE } from '../director/sources/table/wave-table';
 import { pseudoText } from './pseudo';
 import { de } from './messages/de';
+import { ATTRIBUTIONS } from '../configs/attributions.config';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /** Sections keyed by data, not by English: a language names there what it words its own way (the catalogue's names) */
-const BY_DATA = new Set(['editor.catalogNames']);
+const BY_DATA = new Set(['editor.catalogNames', 'dialogs.attributions.words']);
 
 /** Every leaf of a dictionary by its key path: a text, or a function and its number of values */
 function leaves(node: unknown, path = '', out = new Map<string, string | number>()): Map<string, string | number> {
@@ -95,6 +96,14 @@ describe('catalogue names', () => {
 
   it("English shows the catalogue's own names", () => {
     expect(en.editor.catalogNames).toEqual({});
+  });
+});
+
+describe('credits', () => {
+  it('German words only texts the credits have', () => {
+    const texts = new Set(ATTRIBUTIONS.flatMap((c) => c.items.flatMap((i) => [i.name, i.author, i.license])));
+    expect(Object.keys(de.dialogs.attributions.words).filter((text) => !texts.has(text))).toEqual([]);
+    expect(en.dialogs.attributions.words).toEqual({});
   });
 });
 

@@ -8,6 +8,8 @@
  */
 
 /** net::ERR_ABORTED: a load replaced by another one, not a failure. */
+const { words } = require('./i18n');
+
 const ERR_ABORTED = -3;
 
 /** Whether a did-fail-load means the game did not come up. */
@@ -19,6 +21,7 @@ const escapeHtml = (text) =>
   String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 function errorPageHtml({ heading, detail, retryUrl, logDir }) {
+  const w = words();
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -43,10 +46,10 @@ function errorPageHtml({ heading, detail, retryUrl, logDir }) {
 <body>
 <main>
   <h1>${escapeHtml(heading)}</h1>
-  <p>Reloading usually helps. If it keeps happening, please open an issue on GitHub with what you did and this line:</p>
+  <p>${escapeHtml(w.errorHelp)}</p>
   <code>${escapeHtml(detail)}</code>
-  <p class="log">The log file is in ${escapeHtml(logDir)}; Ctrl+Shift+L opens the folder.</p>
-  <a href="${escapeHtml(retryUrl)}">Reload</a>
+  <p class="log">${escapeHtml(w.logAt(logDir))}</p>
+  <a href="${escapeHtml(retryUrl)}">${escapeHtml(w.reload)}</a>
 </main>
 </body>
 </html>`;

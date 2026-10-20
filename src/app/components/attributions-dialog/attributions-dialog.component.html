@@ -17,8 +17,8 @@
         @for (item of category.items; track item.name) {
           <div class="td-row">
             <div class="at-info">
-              <span class="td-name">{{ item.name }}</span>
-              <span class="td-sub">{{ t().dialogs.attributions.by(item.author) }}</span>
+              <span class="td-name">{{ word(item.name) }}</span>
+              <span class="td-sub">{{ t().dialogs.attributions.by(word(item.author)) }}</span>
             </div>
             <div class="td-inline at-actions">
               @if (item.licenseUrl) {
@@ -27,10 +27,10 @@
                   target="_blank"
                   rel="noopener"
                   class="td-link td-note"
-                  [title]="item.license"
-                >{{ item.license }}</a>
+                  [title]="word(item.license)"
+                >{{ word(item.license) }}</a>
               } @else {
-                <span class="td-note">{{ item.license }}</span>
+                <span class="td-note">{{ word(item.license) }}</span>
               }
               @if (item.sourceUrl) {
                 <a

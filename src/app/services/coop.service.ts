@@ -45,7 +45,7 @@ import { UI_SOUNDS } from '../configs/audio.config';
 import { toneWavDataUrl } from '../utils/alert-tone';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { relayCandidates, relayForLink, relayLabel, type RelaySource } from '../coop/relay-address';
-import { readCoopLan, readDesktopBridge, type LanGame } from '../core/desktop-bridge';
+import { readCoopLan, readDesktopBridge, type LanGame, type LanHostError } from '../core/desktop-bridge';
 import { coopAccess } from '../coop/coop-access';
 import { CoopLobbyList } from './coop-lobby-list';
 import { WorldPackageLoader } from './world/world-package-loader.service';
@@ -794,7 +794,8 @@ export class CoopService {
     this.status.set('connecting');
     const started = await this.lanBridge.host();
     if ('error' in started) {
-      this.error.set(started.error);
+      const why = this.i18n.t().coop.lanHost;
+      this.error.set(Object.hasOwn(why, started.error) ? why[started.error as LanHostError](started.detail ?? '') : started.error);
       this.status.set('closed');
       return;
     }

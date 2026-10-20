@@ -1,4 +1,5 @@
 import type { RunLogRefusal } from '../../coop/protocol';
+import type { LanHostError } from '../../core/desktop-bridge';
 import type { AirSubStrategy, TargetingStrategy, TowerTypeId, UpgradeTerms, UpgradeText } from '../../configs/tower-types.config';
 import type { EnemyTypeId } from '../../configs/enemy-types.config';
 import type { TowerPathId } from '../../configs/tower-paths.config';
@@ -1006,6 +1007,11 @@ export const en = {
         mapAssets: 'Custom map assets', music: 'Music', mapData: 'Map Data', openSource: 'Open Source',
       } satisfies Record<AttributionCategoryId, string> as Record<AttributionCategoryId, string>,
       by: (author: string) => `by ${author}`,
+      /**
+       * Our own words in the credits (what a work is used for, "Original work") by their English text in
+       * configs/attributions.config.ts; English shows the config's, the licensors' credit lines stay as they write them
+       */
+      words: {} as Readonly<Record<string, string>>,
       source: 'View source',
       sourceOf: (name: string) => `View source: ${name}`,
     },
@@ -4161,6 +4167,13 @@ export const en = {
     runLogRefusals,
     /** "Ann", "Ann and Bob", "Ann, Bob and Carl" */
     and: (names: readonly string[]) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`),
+    /** Why this machine's relay did not start (LanHostError, desktop app) */
+    lanHost: {
+      timeout: () => 'The coop server did not start in time.',
+      failed: (detail: string) => `The coop server could not start: ${detail}`,
+      stopped: () => 'The coop server stopped.',
+      refused: () => 'The app refused to start the coop server.',
+    } satisfies Record<LanHostError, (detail: string) => string>,
     /** Why the relay refused (RefusalReason) */
     refusals: {
       protocol: 'The relay speaks another version of the coop protocol.',

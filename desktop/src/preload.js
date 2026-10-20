@@ -91,6 +91,11 @@ contextBridge.exposeInMainWorld(
       ipcRenderer.send('desktop:install-update');
     },
 
+    /** The game's language ("en", "de"), for the app's own dialogs and pages */
+    setLocale(locale) {
+      ipcRenderer.send('desktop:locale', String(locale ?? ''));
+    },
+
     /**
      * Write a run log next to the app's own logs (`userData/runs`). The page
      * hands over the file name and the JSONL text; the main process decides

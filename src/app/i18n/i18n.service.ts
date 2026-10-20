@@ -3,6 +3,7 @@ import { UIStore } from '../store/ui.store';
 import { DICTIONARIES } from './dictionaries';
 import { SOURCE_LOCALE, resolveLocale, type Locale, type LocalePreference } from './locale';
 import { en, type Messages } from './messages/en';
+import { readDesktopBridge } from '../core/desktop-bridge';
 
 /**
  * The texts in the player's language (TODO E245, docs/I18N_PLAN.md).
@@ -62,6 +63,8 @@ export class I18nService {
     if (this.wanted !== locale) return;
     this.active.set({ locale, t });
     this.document?.documentElement.setAttribute('lang', locale);
+    // The desktop app words its own dialogs in it too
+    readDesktopBridge(this.document?.defaultView)?.setLocale?.(locale);
   }
 
   private languages(): readonly string[] {

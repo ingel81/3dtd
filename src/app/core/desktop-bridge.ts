@@ -27,10 +27,13 @@ export interface LanGame {
   endpoints: { address: string; port: number }[];
 }
 
+/** Why this machine's relay did not start, as a code the game words (coop.lanHost); an older app sent a sentence */
+export type LanHostError = 'timeout' | 'failed' | 'stopped' | 'refused';
+
 /** Coop on the local network, desktop build only (docs/COOP_PLAN.md, C4d) */
 export interface CoopLanBridge {
   /** Start this machine's relay; its port and this machine's addresses, or why not */
-  host(): Promise<{ port: number; addresses: { name: string; address: string }[] } | { error: string }>;
+  host(): Promise<{ port: number; addresses: { name: string; address: string }[] } | { error: LanHostError | string; detail?: string }>;
   /** End this machine's relay */
   stop(): void;
   /** Look for games until the returned function is called; the whole list on every change */
@@ -122,6 +125,8 @@ export interface DesktopBridge {
   onUpdateReady(listener: (update: DesktopUpdate) => void): () => void;
   /** Quit, install the downloaded update and start the new version. */
   installUpdateNow(): void;
+  /** The game's language for the app's own dialogs and pages; missing in apps before E245 */
+  setLocale?(locale: string): void;
   /**
    * Write a run log into the app's `runs` folder. The page hands over the
    * file name and the JSONL text; where it lands is the app's business

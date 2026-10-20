@@ -21,6 +21,11 @@ import { injectT } from '../../i18n/i18n.service';
 })
 export class AttributionsDialogComponent {
   protected readonly t = injectT();
+
+  /** A text of the credits in the player's words where they are ours, else as the licensor writes it */
+  protected word(text: string): string {
+    return this.t().dialogs.attributions.words[text] ?? text;
+  }
   private readonly dialogRef = inject(MatDialogRef<AttributionsDialogComponent>);
   readonly attributions = ATTRIBUTIONS;
   /** Imprint and privacy notice of the project, on the public site */

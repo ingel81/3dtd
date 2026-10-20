@@ -52,6 +52,8 @@ export function isProse(raw, single) {
   if (/,\s*(sans-serif|serif|monospace)$/.test(text) || /^(\d*fr|auto|minmax\([^)]*\))(\s+(\d*fr|auto|minmax\([^)]*\)))*$/.test(text)) return false;
   // A canvas font: "700 48px 'Barlow Semi Condensed'"
   if (/^(\d{3}|bold|normal|italic)\s+\d+px\s/.test(text)) return false;
+  // A directive prologue
+  if (text === 'use strict') return false;
   // An Overpass query
   if (/\[out:json\]/.test(text)) return false;
   if (/(^|[;{]\s*)[a-z-]+\s*:\s*[^ ]+;|var\(--|rgba?\(|\b\d+(px|rem|em|vh|vw|ms|deg)\b.*\b\d+(px|rem|em|vh|vw|ms|deg)\b/.test(text)) return false;
@@ -231,8 +233,9 @@ export function scanSources(root) {
   files.push({ file: 'public/maps/index.json', texts: index.maps.flatMap((m) => [m.name, m.description].filter(Boolean)), errors: [] });
   const desktop = join(root, 'desktop', 'src');
   for (const full of walkFiles(desktop)) {
-    if (!full.endsWith('.js')) continue;
+    // The app's own dictionary (desktop/src/i18n.js) is its words, not a hard-coded text
     const rel = 'desktop/src/' + relative(desktop, full).split(sep).join('/');
+    if (!rel.endsWith('.js') || rel === 'desktop/src/i18n.js') continue;
     const { texts, errors } = tsTexts(readFileSync(full, 'utf8'), rel);
     if (texts.length) files.push({ file: rel, texts, errors });
   }
@@ -268,7 +271,7 @@ const UNGUARDED = new Set(['dev', 'agent']);
  * text the scan finds there fails the guard unless tools/i18n/allowed.mjs
  * names it with why. An area joins once its texts are in the dictionary.
  */
-export const CLOSED_AREAS = new Set(['menus', 'dialogs', 'coop', 'mapops', 'editor', 'hud', 'sim']);
+export const CLOSED_AREAS = new Set(['menus', 'dialogs', 'coop', 'mapops', 'editor', 'hud', 'sim', 'configs', 'desktop']);
 
 /** Texts by file, sorted and unique, of the areas `keep` lets through */
 function textsBy(root, keep) {

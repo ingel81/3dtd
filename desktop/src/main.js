@@ -20,6 +20,7 @@ const { setUpAgentMcp } = require('./agent-mcp');
 const { setUpCoopLan } = require('./coop-lan');
 const { MAX_RUN_LOG_CHARS, runLogFileName, savesSilently, uniqueDownloadPath } = require('./downloads');
 const { errorPageUrl, isFatalLoadFailure } = require('./error-page');
+const { pickLocale, setLocale, words } = require('./i18n');
 const { createMapsFolder, mapFileArg, setUpMapsFolder } = require('./maps-folder');
 const { MAX_LOG_BYTES, createRepeatFilter, describeGpus, maskValue, rendererLine } = require('./log');
 const { APP_ORIGIN, APP_SCHEME, createAppProtocolHandler } = require('./protocol');
@@ -149,11 +150,11 @@ function showErrorPages(contents) {
 
   contents.on('did-fail-load', (_event, errorCode, errorDescription, url, isMainFrame) => {
     if (!isFatalLoadFailure(errorCode, isMainFrame) || url.startsWith('data:')) return;
-    show('The game could not be loaded', `${errorDescription} (${errorCode}) at ${url}, 3DTD ${version}`);
+    show(words().loadFailed, `${errorDescription} (${errorCode}) at ${url}, 3DTD ${version}`);
   });
   contents.on('render-process-gone', (_event, details) => {
     if (details.reason === 'clean-exit') return;
-    show('The game stopped', `renderer ${details.reason}, exit code ${details.exitCode}, 3DTD ${version}`);
+    show(words().stopped, `renderer ${details.reason}, exit code ${details.exitCode}, 3DTD ${version}`);
   });
 }
 
@@ -178,7 +179,7 @@ function saveDownloads(targetSession) {
   targetSession.on('will-download', (_event, item) => {
     const target = uniqueDownloadPath(app.getPath('downloads'), item.getFilename(), existsSync);
     if (!savesSilently(item.getFilename())) {
-      item.setSaveDialogOptions({ title: 'Save file', defaultPath: target });
+      item.setSaveDialogOptions({ title: words().saveFile, defaultPath: target });
       item.once('done', (_doneEvent, state) => {
         if (state === 'interrupted') console.warn(`[downloads] ${path.basename(target)}: ${state}`);
       });
@@ -191,7 +192,7 @@ function saveDownloads(targetSession) {
         return;
       }
       if (!Notification.isSupported()) return;
-      const notification = new Notification({ title: 'Saved to Downloads', body: path.basename(target), silent: true });
+      const notification = new Notification({ title: words().savedToDownloads, body: path.basename(target), silent: true });
       notification.on('click', () => shell.showItemInFolder(target));
       notification.show();
     });
@@ -372,6 +373,11 @@ function setUpUpdates(getWindow) {
   });
 
 
+  // The game's language, for the app's own dialogs and pages (desktop/src/i18n.js)
+  ipcMain.on('desktop:locale', (event, locale) => {
+    if (classifyNavigation(event.senderFrame?.url ?? '', appOrigin) === 'allow') setLocale(String(locale));
+  });
+
   ipcMain.on('desktop:install-update', (event) => {
     const from = event.senderFrame?.url ?? '';
     if (classifyNavigation(from, appOrigin) !== 'allow' || !updater.ready) return;
@@ -464,6 +470,8 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
+    // The system's language until the game says its own
+    setLocale(pickLocale(app.getPreferredSystemLanguages()));
     // A game has no use for File/Edit/View, and dropping the menu also drops
     // its accelerators: no Ctrl+R reload or Ctrl+W close in the middle of a wave.
     Menu.setApplicationMenu(null);
@@ -501,14 +509,15 @@ if (!app.requestSingleInstanceLock()) {
     // dropping the closing silently, as Electron does without this. Game, editor and a double-clicked map
     // switch inside the page (E195) and ask through the editor's own save
     mainWindow.webContents.on('will-prevent-unload', (event) => {
+      const w = words();
       const choice = dialog.showMessageBoxSync(mainWindow, {
         type: 'question',
-        buttons: ['Leave', 'Stay'],
+        buttons: [w.leave, w.stay],
         defaultId: 1,
         cancelId: 1,
         title: '3DTD',
-        message: 'Leave the map editor?',
-        detail: 'The editor is still saving your last changes.',
+        message: w.leaveEditor,
+        detail: w.stillSaving,
       });
       if (choice === 0) event.preventDefault();
     });
