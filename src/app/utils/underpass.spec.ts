@@ -38,23 +38,23 @@ describe('UnderpassIndex.spans', () => {
 
   /**
    * Playtest 2026-09-15, Musterdorf (D2), OSM data of the day: county
-   * road (way 230161781) under the two carriageways of the A6.
+   * road (way 991000000011) under the two carriageways of the A6.
    */
   it('joins the stretches under the two carriageways of a motorway (Musterdorf)', () => {
-    const countyRoad = way(230161781, [
+    const countyRoad = way(991000000011, [
       { id: 1, lat: 49.15651, lon: 9.665124 },
       { id: 2, lat: 49.156353, lon: 9.66503 },
       { id: 3, lat: 49.155991, lon: 9.664769 },
     ], { type: 'secondary', lanes: 2 });
     const a6 = [
-      motorwayBridge(15258911, [{ id: 11, lat: 49.156168, lon: 9.665211 }, { id: 12, lat: 49.156289, lon: 9.664708 }]),
-      motorwayBridge(15258913, [{ id: 13, lat: 49.156154, lon: 9.664632 }, { id: 14, lat: 49.156033, lon: 9.665135 }]),
+      motorwayBridge(991000000000, [{ id: 11, lat: 49.156168, lon: 9.665211 }, { id: 12, lat: 49.156289, lon: 9.664708 }]),
+      motorwayBridge(991000000001, [{ id: 13, lat: 49.156154, lon: 9.664632 }, { id: 14, lat: 49.156033, lon: 9.665135 }]),
     ];
     const path = countyRoad.nodes;
     const spans = new UnderpassIndex([countyRoad, ...a6]).spans(path, [countyRoad, countyRoad], [true, true]);
     // Crossings 33.6 and 49.7 m along, 85 degrees: 9.0 m either side.
     expect(spans).toHaveLength(1);
-    expect(spans[0].wayId).toBe(15258911);
+    expect(spans[0].wayId).toBe(991000000000);
     expect(spans[0].from).toBeCloseTo(24.57, 1);
     expect(spans[0].to).toBeCloseTo(58.72, 1);
 
@@ -62,7 +62,7 @@ describe('UnderpassIndex.spans', () => {
     const split = splitAtSpans(path, spans, [true, true], lerp);
     expect(split.points).toHaveLength(5);
     expect(split.segment).toEqual([0, 1, 1, 1]);
-    expect(split.under).toEqual([null, null, 15258911, null]);
+    expect(split.under).toEqual([null, null, 991000000000, null]);
   });
 
   it('passes under a way on a higher level only, not under its own way, where they meet, or where it cannot', () => {

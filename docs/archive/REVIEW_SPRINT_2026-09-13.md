@@ -1225,7 +1225,7 @@ mit anderer Kontur, dort, wo früher eine Lücke im Korridor war (Punkt 43 in
 REVIEW_SPRINT_2026-09-12), und in der Welle eine Taille im Gegnerstrom.
 `__corridor.pick()` an der Stelle:
 
-- Nächste Station `7:3/32` (Route spawn-1, Way 89873545 residential, alongM
+- Nächste Station `7:3/32` (Route spawn-1, Way 991000000006 residential, alongM
   230,2): `unmeasured: 'no tile'`, links und rechts 2,75 m, rule
   `unmeasured: street width`. Die Stationen um sie herum (alongM 222,2 bis
   238,1) haben alle 7 m.
@@ -1278,14 +1278,14 @@ unterscheiden, nur in `pick()` und `__rg.dumpStats()`.
      wall within the maximum`. In der Nearby-Tabelle keine 2.75.
 207. In derselben Ausgabe die Zellen x=113: `state` stable oder filled,
      `heightM` um 243, kein -3542. Im Overlay keine abweichende Querreihe.
-208. `__routes.describe()`: Way 89873545 zeigt in leftM und rightM keine
+208. `__routes.describe()`: Way 991000000006 zeigt in leftM und rightM keine
      2.75 mehr, solange `noTile` dort keine weiteren Stationen nennt.
 209. Welle starten: an der Stelle keine Taille im Gegnerstrom.
      **Playtest 2 (2026-09-14), 205 bis 209:** Musterdorf, Clearance ohne
      `noTile` (`stations=236 unmeasured=0 rays=944 changed=true in
      373.6ms`), Zellen bis auf einzelne Ausreißer in Bäumen und Hecken gut
      (an corridor3). Die Route lief nicht über den Schießmauerweg (Way
-     89873545), die alte Stelle ist also nicht nachgeprüft.
+     991000000006), die alte Stelle ist also nicht nachgeprüft.
 
 ### Header-Zahlen (hqfix, `8dfe042`)
 

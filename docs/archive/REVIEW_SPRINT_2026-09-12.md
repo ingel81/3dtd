@@ -707,7 +707,7 @@ Auch hier lief nichts im Browser.
     (Musterdorf, Kreisstraße unter einer Autobahnbrücke) steht kein
     `tunnel`/`covered` in `tags`, der Route-Way unter der Brücke trägt hier
     keinen solchen Tag. Befund dabei: Zellen und Gegner liegen auf dem
-    Autobahndeck (Way 31361736, `maxCellAboveStreetM` 10,1); Fix bridge3.
+    Autobahndeck (Way 991000000002, `maxCellAboveStreetM` 10,1); Fix bridge3.
 54. Raketen bei Frame Limit 30 und bei 4x: das Düsenglühen bleibt etwa 6 m
     lang wie bei 60 FPS; die anderen Streaks ebenfalls unverändert lang.
     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)

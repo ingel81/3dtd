@@ -651,8 +651,8 @@ Ausnahmen:
     trotzdem auf dem Deck, greift "Portal unter einem Dach" oben, solange
     die Mittellinie hinter ihm auf der Straße liegt.
   - **Anlass (D2, Playtest 2026-09-15, Musterdorf):** Kreisstraße
-    (Way 230161781, `secondary`, `lanes=2`, ohne `layer`) unter den beiden
-    Fahrbahnen der A6 (Ways 15258911 und 15258913, `motorway`,
+    (Way 991000000011, `secondary`, `lanes=2`, ohne `layer`) unter den beiden
+    Fahrbahnen der A6 (Ways 991000000000 und 991000000001, `motorway`,
     `bridge=yes layer=1 lanes=3`; OSM-Daten über Overpass, 2026-09-15). Sie
     kreuzen die Straße unter 85°, 16 m auseinander; das gibt ein Stück von
     34 m (24,6 bis 58,7 m entlang des Ways ab seinem nördlichen Knoten).
@@ -871,7 +871,7 @@ Seit 2026-09-16 (Phase 2, `89651d26`). Code:
 
 **Anlass** (Nutzerentscheidung E6, 2026-09-15: "Es soll realistisch sein, das
 3D-Modell gilt."): Die OSM-Linie einer Straße läuft über etwas, das die
-Photogrammetrie auf der Straße zeigt: parkende Autos (Musterdorf, Way 959083801:
+Photogrammetrie auf der Straße zeigt: parkende Autos (Musterdorf, Way 991000000016:
 Mittellinienzellen 0,59 bis 1,08 m über der Linie), Erker und Dachecken
 (Rothenburg). Der Korridor nimmt eine Zelle, durch die die Linie läuft, bei jeder
 Breite; die Gegner stiegen über das Auto, die rote Linie nahm seine Dachhöhe. Der
@@ -2351,7 +2351,7 @@ Was der Code dazu sagt:
 
 **Befund Musterdorf** (Playtest 2026-09-14, seit 2026-09-15 als Unterführung
 behoben, siehe Zellhöhe, "Unter einer fremden Brücke"): Route `spawn-1` auf der
-Kreisstraße (Way 31361736, ohne Tags) unter einer Autobahnbrücke,
+Kreisstraße (Way 991000000002, ohne Tags) unter einer Autobahnbrücke,
 die kein Way der Route ist. Zellen und Gegner lagen auf dem Deck,
 `maxCellAboveStreetM` 10,1. Keine Regel der Zellen hebt sie dorthin: Der
 Way ist keine Brücke und lag damals auf keiner Strecke hinter einem
@@ -2381,7 +2381,7 @@ der Straße, `cached` auf dem Deck; c) kein Treffer auf Straßenhöhe. Nicht
 geändert: Jede Änderung dort trifft jede Säulenprobe (Zellen, Tower,
 Overlay).
 
-Die Daten D2 vom 2026-09-15 (Way 230161781) zeigen c): `cached` 220,77 m
+Die Daten D2 vom 2026-09-15 (Way 991000000011) zeigen c): `cached` 220,77 m
 aus Tiefe 23, `fresh` 220,67 m aus Tiefe 25, unter `hits` nur 220,67 m. Auch
 das feinste Tile hat an der Stelle nur das Deck; ein F5 lädt dieselben
 Tiles und ändert daran nichts. Der Unterschied zwischen `cached` und

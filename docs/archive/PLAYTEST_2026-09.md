@@ -260,7 +260,7 @@ an.
 - **717** (649, hqsound): Nach dem Intro Rechtsklick auf "+HP" (-10 HP). Ist an der HQ der Explosionston zu hören?
   Dann eine Welle ohne Tower, einen Zombie ins HQ laufen lassen: Ton auch beim Leck?
   **717, 718 und 720 ok (2026-09-15).** 719: Böschung ok, neben den Autos weiter Löcher in der Straße, die Autos
-  selbst tragen noch Zellen (Zellbericht Musterweg, Way 959083801: fehlende Zellen mit Boden auf Straßenhöhe
+  selbst tragen noch Zellen (Zellbericht Musterweg, Way 991000000016: fehlende Zellen mit Boden auf Straßenhöhe
   und begehbaren Nachbarn, Breite je Station springt zwischen 2 und 7 m). Daten an Worker detour.
 - **718** (D2, underpass): Kamera schräg auf die A6-Brücke über der Kreisstraße. Verschwindet die rote Linie
   unter dem Deck und kommt dahinter wieder heraus, unter dem Deck gelbe Zellen auf Straßenhöhe? Custom Wave, Count 5:
@@ -402,7 +402,7 @@ die Tabelle schicken.
 - **708** (608): Musterdorf, zwei Wohnstraßen, die Böschung auf der Talseite. Keine Zellreihen mehr die
   Böschung hinunter? Bäume und Hecken weiter frei?
   **Ergebnis (2026-09-15):** Böschung besser. Parkende Autos dort schlechter oder weiter so schlecht wie vorher (siehe
-  706). Picks Schulstraße (Way 959083801), drei Autos: die höchste Zelle je Auto ist `walkCheck: 'centre line'`,
+  706). Picks Schulstraße (Way 991000000016), drei Autos: die höchste Zelle je Auto ist `walkCheck: 'centre line'`,
   0,59 bis 1,08 m über der Linie, bis 1,23 m über den Nachbarn; die OSM-Linie läuft an den Autos entlang, die rote
   Linie nimmt die Dachhöhe. Auch die flacheren Nachbarzellen auf den Autos stören. Worker carcells.
 
@@ -775,7 +775,7 @@ Aufbau: je Punkt beschrieben.
   Linksklick auf die rote Linie mitten unter der Brücke, die Zeile `[Corridor] column at the click` schicken. Dann F5:
   liegen Zellen und Gegner danach auf der Straße? Das zeigt die Ursache, behoben ist noch nichts.
   **Daten (2026-09-15):** Die rote Linie liegt weiter oben auf dem Autobahndeck (Screenshot). Pick bei 268,3/-812,8,
-  Way 230161781 (secondary): die Zellen liegen auf 220,6 bis 220,8 m (Deck), zwei Säulen (269/-815, 271/-815) sehen
+  Way 991000000011 (secondary): die Zellen liegen auf 220,6 bis 220,8 m (Deck), zwei Säulen (269/-815, 271/-815) sehen
   unten die Straße bei 214,7 und 215,05 m (`overM` 5,9 und 5,6). Säule am Klick: nur ein Treffer, 220,67 (cached
   220,77, Tiefe 23 und 25). Das Mesh unter der Brücke ist also größtenteils gefüllt. F5-Teil offen. Worker underpass.
 - **D3:** später. **D5:** kein Ort bekannt, Punkt ruht.

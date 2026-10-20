@@ -6,8 +6,8 @@ off the real one passed while the game failed. Scenes build on these lines, not 
 
 | File | Place | Route | For |
 |---|---|---|---|
-| `musterdorf-732.json` | `?l=49.16337,9.66851&s=49.16434,9.65915` | 11 ways, way 959083801 Musterweg | parked cars along the line, street on one side only, holes, columns without a hit |
-| `musterdorf-underpass.json` | spawn and HQ set on a county road either side of the A6 | 3 ways of the county road (230161782, 230161781, 283608415), under the A6 decks 15258911, 15258913 | a route under a bridge of another way (tunnel) |
+| `musterdorf-732.json` | `?l=49.16337,9.66851&s=49.16434,9.65915` | 11 ways, way 991000000016 Musterweg | parked cars along the line, street on one side only, holes, columns without a hit |
+| `musterdorf-underpass.json` | spawn and HQ set on a county road either side of the A6 | 3 ways of the county road (991000000012, 991000000011, 991000000013), under the A6 decks 991000000000, 991000000001 | a route under a bridge of another way (tunnel) |
 | `rothenburg-galgengasse.json` | `?l=49.37721,10.17904&s=49.37944,10.18365` | 14 ways, Galgengasse 1115686347, Georgengasse 139711828 `tunnel=yes`, 39 structures | a car hollow in the mesh, the archway through the gate tower Weisser Turm (139711833), the cells before the arcade of the town hall on the Marktplatz (1311003086) |
 | `berlin-platz-der-republik.json` | `?l=52.51630,13.37759&s=52.51861,13.37529` | 13 ways across the square | an open square with small objects |
 | `paris-pont-d-iena.json` | `?l=48.85889,2.29320&s=48.86239,2.29190` | 8 ways, Place de Varsovie to the bridge 1322092757 | the stretch off a bridge end, a hollow under the road |
@@ -42,7 +42,7 @@ One JSON object per file:
 ## How they were cut
 
 1. The Overpass query in `source.query`: the highways in a box around spawn and HQ (for the A6 scene: around way
-   230161781).
+   991000000011).
 2. The game's own route on that network: `OsmStreetService` parser, `findPath(network, spawn, hq)`,
    `extendPathToOptimalTurnoff`, `leavePathForBase`, `StreetEdgeIndex.match`, `UnderpassIndex.spans`.
 3. Kept: the ways the route matches and the ways above it, with their nodes. `findPath` on the kept ways alone
