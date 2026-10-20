@@ -20,6 +20,7 @@ import type { OsmFrameRequest } from '../../../components/osm-frame/osm-frame-re
 import { placeLabel } from '../../../services/location/place-label';
 import type { NominatimAddress } from '../../../services/location/geocoding.service';
 import { injectT } from '../../../i18n/i18n.service';
+import { catalogName } from '../../ops/describe';
 
 /** A size for a new map; its name is the dictionary's (i18n `editor.browser.sizes`) */
 export interface SizePreset {
@@ -96,6 +97,10 @@ export class MapMakeComponent implements OnInit, OnDestroy {
   readonly newStrength = signal(60);
   readonly newMaterial = signal('grass');
   readonly materials = computed(() => this.session.catalog().catalog.materials);
+  /** A material's name in the player's words */
+  nameOf(entry: GroundMaterialEntry): string {
+    return catalogName(this.t(), entry);
+  }
   readonly thumb = (m: GroundMaterialEntry) => this.session.pictures.materialPicture(m);
 
   /** The page's title, as the path names it */

@@ -34,6 +34,7 @@ import {
   withGroups,
 } from '../../map-ops/object-ops';
 import { levelForBuildings, withGround } from '../ops/object-commands';
+import { catalogName } from '../ops/describe';
 import { objectImages, sameSector, symmetryImages } from '../ops/symmetry';
 import { edgePolyline, nearestOnEdges } from '../../map-ops/path-graph';
 import { TransformGizmo, gizmoAnchor, type GizmoHandle } from '../view/transform-gizmo';
@@ -448,7 +449,7 @@ export class ObjectTool implements EditorTool {
       case 'place': {
         if (!s.asset) return says.hintChoose;
         const turn = this.placeAt?.road != null ? says.facingRoad : s.randomRotation ? says.turnedRandom : says.turned(Math.round((s.rotation * 180) / Math.PI) % 360);
-        return says.hintPlace(ctx.catalog.object(s.asset).name, turn, s.turnStep);
+        return says.hintPlace(catalogName(ctx.t(), ctx.catalog.object(s.asset)), turn, s.turnStep);
       }
       case 'scatter':
         return says.hintScatter;
@@ -507,7 +508,7 @@ export class ObjectTool implements EditorTool {
     }
     const images = objectImages(own, symmetryImages(ctx.settings.symmetry(), t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
     const entry = ctx.catalog.object(s.asset!);
-    const label = ctx.t().editor.objectTool.alongLine(kit ? ctx.t().editor.wallKits[kit.id] : ctx.catalog.object(s.asset!).name);
+    const label = ctx.t().editor.objectTool.alongLine(kit ? ctx.t().editor.wallKits[kit.id] : catalogName(ctx.t(), ctx.catalog.object(s.asset!)));
     const ground = levelForBuildings(doc, label, [...own, ...images], entry);
     const placed = [...own, ...images].map((o) => setDown(t, o, rockShape(entry), s.alignToSlope && !entry.float, entry.radius));
     ctx.editor.execute(withGround(label, ground, ObjectsCommand.add(label, doc, placed)));
@@ -542,7 +543,7 @@ export class ObjectTool implements EditorTool {
       return road === null ? o : { ...o, rotation: road };
     });
     // Each copy tilts with its own ground: a mirror image does not lean as the original does
-    const label = ctx.t().editor.objectTool.place(entry.name);
+    const label = ctx.t().editor.objectTool.place(catalogName(ctx.t(), entry));
     // A building levels its ground first, in the same step
     const ground = levelForBuildings(doc, label, [object, ...images], entry);
     const placed = [object, ...images].map((o) => setDown(t, o, rockShape(entry), s.alignToSlope && !entry.float, entry.radius));

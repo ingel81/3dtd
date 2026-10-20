@@ -42,6 +42,7 @@ export interface HoverInfo {
   x: number;
   y: number;
   height: number;
+  /** The id of the ground layer's material on top there, '' where none */
   material: string;
 }
 
@@ -515,7 +516,7 @@ export class EditorViewport {
     }
     const t = this.editor.doc.terrain;
     const layer = t.layers[dominantLayer(t, hit.x, hit.y)];
-    this.callbacks.hover({ x: hit.x, y: hit.y, height: hit.z, material: layer ? this.catalog.material(layer.material).name : '' });
+    this.callbacks.hover({ x: hit.x, y: hit.y, height: hit.z, material: layer?.material ?? '' });
   }
 
   private reportStats(time: number): void {

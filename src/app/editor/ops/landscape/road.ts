@@ -14,6 +14,8 @@ import { chaikin, simplify } from '../../../map-ops/lines';
 import { roadPaintBands } from '../../../world/custom-map/render/paths/road-style';
 import type { LandscapeContext } from './landscape-context';
 import type { CatalogIndex } from '../../../map-ops/asset-catalog';
+import type { Messages } from '../../../i18n/messages/en';
+import { catalogName } from '../describe';
 
 export interface RoadOptions {
   width: number;
@@ -230,9 +232,12 @@ export const ROAD_SURFACES: readonly string[] = [
 ];
 const ROAD_SURFACE_SET = new Set(ROAD_SURFACES);
 
-/** The road surfaces the catalogue has, in the order of ROAD_SURFACES */
-export function roadSurfaces(catalog: CatalogIndex): { id: string; name: string }[] {
-  return ROAD_SURFACES.filter((id) => catalog.materials.has(id)).map((id) => ({ id, name: catalog.material(id).name }));
+/** The road surfaces the catalogue has, in the order of ROAD_SURFACES, named in `words` (catalog.json's names without) */
+export function roadSurfaces(catalog: CatalogIndex, words?: Messages): { id: string; name: string }[] {
+  return ROAD_SURFACES.filter((id) => catalog.materials.has(id)).map((id) => {
+    const m = catalog.material(id);
+    return { id, name: words ? catalogName(words, m) : m.name };
+  });
 }
 
 /**

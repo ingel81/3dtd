@@ -47,6 +47,7 @@ import { PLAIN_START } from '../../../world/world-start';
 import { WorldsStageService } from '../../../worlds/worlds-stage.service';
 import { PanelShown } from '../panels/panel-shown';
 import { injectT } from '../../../i18n/i18n.service';
+import { catalogName } from '../../ops/describe';
 
 const LEGEND_KEY = '3dtd-editor-legend';
 const SIDE_KEY = '3dtd-editor-side';
@@ -651,7 +652,7 @@ export class EditorShellComponent implements OnDestroy, ActionHost {
         );
       }
       for (const [asset, ids] of byAsset) {
-        add(heads.Select, says.selectAsset(catalog.object(asset).name, ids.length), () => {
+        add(heads.Select, says.selectAsset(catalogName(this.t(), catalog.object(asset)), ids.length), () => {
           this.pick('objects');
           patch(s.tools.settings.objects, { mode: 'select' });
           s.editor?.select({ kind: 'objects', ids });

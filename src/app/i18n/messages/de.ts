@@ -3,6 +3,7 @@ import type { UpgradeTerms } from '../../configs/tower-types.config';
 import { HERO } from '../../configs/hero.config';
 import { DATES, en, type Messages } from './en';
 import { gold, teal, tip } from '../../components/main-menu/loading/field-tips';
+import { CATALOG_DE } from './catalog-de';
 
 const f = formatters('de');
 
@@ -1531,6 +1532,7 @@ export const de: Messages = {
       node: 'Straßenknoten',
       road: (kind, width) => `${kind}, ${f.int(width)} m breit`,
     },
+    catalogNames: CATALOG_DE,
     categories: {
       building: 'Gebäude', fx: 'Effekt', plant: 'Pflanze', prop: 'Requisite', rock: 'Fels', structure: 'Bauwerk', tree: 'Baum', wall: 'Mauer',
       forest: 'Wald', grass: 'Gras', ice: 'Eis', road: 'Straße', sand: 'Sand', snow: 'Schnee', soil: 'Erde', volcanic: 'Vulkanisch', wood: 'Holz',

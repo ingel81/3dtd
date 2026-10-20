@@ -9,7 +9,7 @@
         <select class="td-select pp-select" [value]="l.layer.material" (click)="$event.stopPropagation()"
                 (change)="setMaterial(l.index, selectValue($event))" [attr.aria-label]="w.materialOf(l.index + 1)">
           @for (m of materials(); track m.id) {
-            <option [value]="m.id" [selected]="m.id === l.layer.material">{{ m.name }}</option>
+            <option [value]="m.id" [selected]="m.id === l.layer.material">{{ nameOf(m) }}</option>
           }
         </select>
         <span class="pp-tools">
@@ -45,9 +45,9 @@
         </div>
         <div class="pp-mats">
           @for (m of groupMaterials(); track m.id) {
-            <button class="td-card pp-mat" type="button" [matTooltip]="m.name" (click)="add(m.id); adding.set(false)" [attr.data-material]="m.id">
+            <button class="td-card pp-mat" type="button" [matTooltip]="nameOf(m)" (click)="add(m.id); adding.set(false)" [attr.data-material]="m.id">
               <img [src]="thumb(m)" alt="" />
-              <span class="td-trunc">{{ m.name }}</span>
+              <span class="td-trunc">{{ nameOf(m) }}</span>
             </button>
           }
         </div>
@@ -76,7 +76,7 @@
     <span>{{ w.material }}</span>
     <select class="td-select is-auto" [value]="cliff().material" (change)="setCliff(selectValue($event), cliff().angle)" [attr.aria-label]="w.cliffMaterial">
       @for (m of materials(); track m.id) {
-        <option [value]="m.id" [selected]="m.id === cliff().material">{{ m.name }}</option>
+        <option [value]="m.id" [selected]="m.id === cliff().material">{{ nameOf(m) }}</option>
       }
     </select>
   </label>

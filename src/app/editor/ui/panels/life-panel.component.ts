@@ -9,6 +9,7 @@ import { panelRev } from './panel-shown';
 import { RangeRowComponent } from './range-row.component';
 import { AMBIENT_SOUNDS, BIOME_AMBIENCE, WAVE_SOUNDS, type AmbientSoundId, type WaveSoundId } from '../../../world/custom-map/ambience/ambient-sounds';
 import { injectT } from '../../../i18n/i18n.service';
+import { catalogName } from '../../ops/describe';
 
 
 /** Effect objects a click places (the Objects tool's Place), for one spot instead of an area */
@@ -110,7 +111,7 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
             <select class="td-select is-auto" [value]="a.asset ?? ''" (change)="commitArea(a.id, { asset: $any($event.target).value || undefined }, t().editor.life.undoMover)" [attr.aria-label]="t().editor.life.whatMoves" data-test="life-mover">
               <option value="">{{ t().editor.life.pickOne }}</option>
               @for (b of moverAssets(); track b.id) {
-                <option [value]="b.id">{{ b.name }}</option>
+                <option [value]="b.id">{{ nameOf(b) }}</option>
               }
             </select>
           </label>
@@ -131,7 +132,7 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
             <span>{{ t().editor.life.boat }}</span>
             <select class="td-select is-auto" (change)="commitArea(a.id, { asset: $any($event.target).value === defaultBoat ? undefined : $any($event.target).value }, t().editor.life.boat)" [attr.aria-label]="t().editor.life.boat" data-test="life-boat">
               @for (b of boatAssets(); track b.id) {
-                <option [value]="b.id" [selected]="b.id === (a.asset ?? defaultBoat)">{{ b.name }}</option>
+                <option [value]="b.id" [selected]="b.id === (a.asset ?? defaultBoat)">{{ nameOf(b) }}</option>
               }
             </select>
           </label>
@@ -277,6 +278,10 @@ export class LifePanelComponent {
   readonly modes: LifeMode[] = ['area', 'route', 'edit'];
   readonly settings = this.session.tools.settings.life;
   readonly life = computed(() => (this.rev(), this.session.doc?.life));
+  /** A catalogue entry's name in the player's words */
+  nameOf(entry: { id: string; name: string }): string {
+    return catalogName(this.t(), entry);
+  }
   readonly areas = computed(() => this.life()?.areas ?? []);
   readonly chosen = computed(() => {
     const id = this.settings().chosen;
@@ -286,7 +291,7 @@ export class LifePanelComponent {
   readonly defaultBoat = DEFAULT_BOAT;
   readonly species = ['songbirds', 'gulls', 'crows', 'raptors', 'bats'] as const;
   /** What may move over the ground: the catalogue's props that do not float (vehicles, carts, animals) */
-  readonly moverAssets = computed(() => [...this.session.catalog().objects.values()].filter((o) => !o.float && o.footing?.category === 'prop').sort((a, b) => a.name.localeCompare(b.name)));
+  readonly moverAssets = computed(() => [...this.session.catalog().objects.values()].filter((o) => !o.float && o.footing?.category === 'prop').sort((a, b) => this.nameOf(a).localeCompare(this.nameOf(b))));
   /** What floats and may drift: the catalogue's floating props (boats, buoys) */
   readonly boatAssets = computed(() => [...this.session.catalog().objects.values()].filter((o) => o.float && o.footing?.category === 'prop'));
   /** The map's life before a slider started moving */

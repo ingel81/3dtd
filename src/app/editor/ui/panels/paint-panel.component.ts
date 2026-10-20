@@ -11,6 +11,7 @@ import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
 import { patch } from '../../tools/tool';
 import { injectT } from '../../../i18n/i18n.service';
+import { catalogName } from '../../ops/describe';
 
 /** What a layer edit says when it has to wait */
 
@@ -42,6 +43,10 @@ export class PaintPanelComponent {
     return (doc?.terrain.layers ?? []).map((l, index) => ({ index, layer: l, material: catalog.material(l.material) }));
   });
   readonly materials = computed(() => this.session.catalog().catalog.materials);
+  /** A material's name in the player's words */
+  nameOf(entry: GroundMaterialEntry): string {
+    return catalogName(this.t(), entry);
+  }
   /** The materials by biome for adding a layer; one may stand in several groups */
   readonly materialGroups = computed(() => {
     const index = this.session.catalog();

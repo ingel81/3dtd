@@ -184,9 +184,9 @@
                 <span class="td-label">{{ t().editor.browser.baseMaterial }}</span>
                 <div class="mb-materials">
                   @for (mat of materials(); track mat.id) {
-                    <button class="td-card mb-material" type="button" [attr.aria-pressed]="newMaterial() === mat.id" (click)="newMaterial.set(mat.id)" [matTooltip]="mat.name">
+                    <button class="td-card mb-material" type="button" [attr.aria-pressed]="newMaterial() === mat.id" (click)="newMaterial.set(mat.id)" [matTooltip]="nameOf(mat)">
                       <img [src]="thumb(mat)" alt="" />
-                      <span class="td-trunc">{{ mat.name }}</span>
+                      <span class="td-trunc">{{ nameOf(mat) }}</span>
                     </button>
                   }
                 </div>

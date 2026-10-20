@@ -227,7 +227,7 @@
   </div>
   <div class="op-palette">
     @for (a of shownAssets(); track a.id) {
-      <button class="td-card op-asset" type="button" [attr.aria-pressed]="isChosen(a)" (click)="chooseAsset(a)" [matTooltip]="a.name + ' | ' + categoryWord(t(), a.category)"
+      <button class="td-card op-asset" type="button" [attr.aria-pressed]="isChosen(a)" (click)="chooseAsset(a)" [matTooltip]="nameOf(a) + ' | ' + categoryWord(t(), a.category)"
               [attr.data-asset]="a.id">
         <!-- Pictures only for the cards in view: a big catalogue renders its thumbnails as the list scrolls -->
         @defer (on viewport) {
@@ -235,7 +235,7 @@
         } @placeholder {
           <span class="op-ph" [style.background]="a.color"></span>
         }
-        <span class="td-trunc">{{ a.name }}</span>
+        <span class="td-trunc">{{ nameOf(a) }}</span>
       </button>
     } @empty {
       <p class="td-note">{{ t().editor.objects.noMatch }}</p>

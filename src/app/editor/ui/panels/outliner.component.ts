@@ -5,7 +5,7 @@ import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { patch } from '../../tools/tool';
 import { injectT } from '../../../i18n/i18n.service';
-import { categoryWord } from '../../ops/describe';
+import { catalogName, categoryWord } from '../../ops/describe';
 
 /**
  * What the map holds: markers, roads, objects by category and asset (a
@@ -116,6 +116,7 @@ export class OutlinerComponent {
     const q = this.query().trim().toLowerCase();
     const has = (text: string) => !q || text.toLowerCase().includes(q);
     const catalog = this.session.catalog();
+    const words = this.t();
     const hidden = new Set(this.session.tools.settings.view().hidden ?? []);
     const byAsset = new Map<string, number>();
     const groups = new Map<string, { count: number; names: Set<string> }>();
@@ -124,17 +125,18 @@ export class OutlinerComponent {
       if (o.group) {
         const g = groups.get(o.group) ?? { count: 0, names: new Set<string>() };
         g.count++;
-        g.names.add(catalog.object(o.asset).name);
+        g.names.add(catalogName(words, catalog.object(o.asset)));
         groups.set(o.group, g);
       }
     }
     const categories = new Map<string, { name: string; count: number; hidden: boolean; assets: { asset: string; name: string; count: number }[] }>();
     for (const [asset, count] of byAsset) {
       const entry = catalog.object(asset);
-      if (!has(entry.name) && !has(entry.category) && !has(asset)) continue;
+      const name = catalogName(words, entry);
+      if (!has(name) && !has(entry.name) && !has(entry.category) && !has(asset)) continue;
       const c = categories.get(entry.category) ?? { name: entry.category, count: 0, hidden: hidden.has(entry.category), assets: [] };
       c.count += count;
-      c.assets.push({ asset, name: entry.name, count });
+      c.assets.push({ asset, name, count });
       categories.set(entry.category, c);
     }
     for (const c of categories.values()) c.assets.sort((a, b) => b.count - a.count);
@@ -168,7 +170,7 @@ export class OutlinerComponent {
       groups: [...groups]
         .map(([id, g]) => ({ id, count: g.count, names: [...g.names].slice(0, 3).join(', ') }))
         .filter((g) => has(g.id) || has(g.names)),
-      layers: t.layers.map((l) => catalog.material(l.material).name).join(', '),
+      layers: t.layers.map((l) => catalogName(words, catalog.material(l.material))).join(', '),
       water: water.join(', '),
     };
   });

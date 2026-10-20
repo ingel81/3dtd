@@ -11,10 +11,17 @@ import { en, type Messages } from './messages/en';
 import { RUN_PLAN } from '../director/sources/budget/run-plan';
 import { WAVE_TABLE } from '../director/sources/table/wave-table';
 import { pseudoText } from './pseudo';
+import { de } from './messages/de';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+/** Sections keyed by data, not by English: a language names there what it words its own way (the catalogue's names) */
+const BY_DATA = new Set(['editor.catalogNames']);
 
 /** Every leaf of a dictionary by its key path: a text, or a function and its number of values */
 function leaves(node: unknown, path = '', out = new Map<string, string | number>()): Map<string, string | number> {
-  if (typeof node === 'string') out.set(path, 'text');
+  if (BY_DATA.has(path)) out.set(path, 'by data');
+  else if (typeof node === 'string') out.set(path, 'text');
   else if (node === null) out.set(path, 'none');
   else if (typeof node === 'function') out.set(path, node.length);
   else if (node && typeof node === 'object') for (const [k, v] of Object.entries(node)) leaves(v, path ? `${path}.${k}` : k, out);
@@ -55,7 +62,7 @@ describe('dictionaries (TODO E245)', () => {
     it(`${locale} says something for every key, with all its values in`, async () => {
       const dict = await DICTIONARIES[locale]();
       for (const [key, kind] of leaves(dict)) {
-        if (kind === 'none') continue;
+        if (kind === 'none' || kind === 'by data') continue;
         const leaf = leafAt(dict, key);
         const text = typeof leaf === 'function' ? (leaf as (...a: unknown[]) => unknown)(...Array.from({ length: kind as number }, () => SAMPLE)) : leaf;
         expect(typeof text, key).toBe('string');
@@ -73,6 +80,21 @@ describe('wave names', () => {
       const dict = await DICTIONARIES[locale]();
       expect([...names].filter((name) => !dict.hud.wave.names[name]), locale).toEqual([]);
     }
+  });
+});
+
+describe('catalogue names', () => {
+  const catalog = JSON.parse(readFileSync(resolve(__dirname, '..', '..', '..', 'public', 'maps', 'assets', 'catalog.json'), 'utf8')) as { materials: { id: string }[]; objects: { id: string }[] };
+  const ids = [...catalog.materials, ...catalog.objects].map((e) => e.id);
+
+  it('German names every object and material of the catalogue, and nothing else', () => {
+    const names = de.editor.catalogNames;
+    expect(ids.filter((id) => !names[id]?.trim()), 'without a name').toEqual([]);
+    expect(Object.keys(names).filter((id) => !ids.includes(id)), 'not in the catalogue').toEqual([]);
+  });
+
+  it("English shows the catalogue's own names", () => {
+    expect(en.editor.catalogNames).toEqual({});
   });
 });
 

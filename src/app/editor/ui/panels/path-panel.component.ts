@@ -4,6 +4,7 @@ import type { MapPathKind } from '../../../world/custom-map/map-document';
 import { edgePolyline, polylineLength, smoothEdge, straightenEdge } from '../../../map-ops/path-graph';
 import { selectedEdges, selectedNodes } from '../../model/editor-document';
 import { roadSurfaces } from '../../ops/landscape/road';
+import { catalogName } from '../../ops/describe';
 import { editRoads, flattenRoads, paintRoads, pathCommands, rebuildRoads, setRoadSurface, setRoads } from '../../ops/road-commands';
 import { patch, type PathMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
@@ -103,11 +104,12 @@ export class PathPanelComponent {
   readonly kinds = KINDS;
   readonly s = this.session.tools.settings.paths;
   readonly layer = signal(0);
-  readonly surfaces = computed(() => roadSurfaces(this.session.catalog()));
+  readonly surfaces = computed(() => roadSurfaces(this.session.catalog(), this.t()));
   readonly layers = computed(() => {
     this.rev();
     const catalog = this.session.catalog();
-    return (this.session.doc?.terrain.layers ?? []).map((l, index) => ({ index, name: catalog.material(l.material).name }));
+    const words = this.t();
+    return (this.session.doc?.terrain.layers ?? []).map((l, index) => ({ index, name: catalogName(words, catalog.material(l.material)) }));
   });
   readonly edgeIds = computed(() => {
     this.rev();

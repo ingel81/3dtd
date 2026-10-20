@@ -14,7 +14,7 @@ import { BrushPanelComponent } from './brush-panel.component';
 import { PrefabPanelComponent } from './prefab-panel.component';
 import { RangeRowComponent } from './range-row.component';
 import { injectT } from '../../../i18n/i18n.service';
-import { categoryWord } from '../../ops/describe';
+import { catalogName, categoryWord } from '../../ops/describe';
 
 const MODES: { id: ObjectMode; key: string }[] = [
   { id: 'select', key: 'W E R' },
@@ -76,7 +76,7 @@ export class ObjectPanelComponent {
           !o.internal &&
           (!cat || o.category === cat) &&
           (!biome || !!o.tags?.includes(biome)) &&
-          (!q || o.name.toLowerCase().includes(q) || o.id.includes(q) || !!o.tags?.some((t) => t.startsWith(q))),
+          (!q || catalogName(this.t(), o).toLowerCase().includes(q) || o.name.toLowerCase().includes(q) || o.id.includes(q) || !!o.tags?.some((t) => t.startsWith(q))),
       );
   });
   /** Cards drawn so far of the assets matching */
@@ -346,7 +346,12 @@ export class ObjectPanelComponent {
   }
 
   name(asset: string): string {
-    return this.session.catalog().object(asset).name;
+    return catalogName(this.t(), this.session.catalog().object(asset));
+  }
+
+  /** An entry's name in the player's words */
+  nameOf(entry: ObjectAssetEntry): string {
+    return catalogName(this.t(), entry);
   }
 
   deg(rad: number): number {

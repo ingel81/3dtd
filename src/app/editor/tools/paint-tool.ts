@@ -9,6 +9,7 @@ import { paintDab } from '../../map-ops/paint-ops';
 import { mirrorDab, type SymmetryMode } from '../ops/symmetry';
 import type { EditTransaction } from '../model/edit-transaction';
 import type { EditorTool, ToolContext, ToolPointer } from './tool';
+import { catalogName } from '../ops/describe';
 
 /** Share of full weight per second at full strength */
 const PAINT_RATE = 3;
@@ -58,7 +59,7 @@ export class PaintTool implements EditorTool {
   hint(ctx: ToolContext): string {
     const t = ctx.editor.doc.terrain;
     const layer = t.layers[Math.min(ctx.settings.paint().layer, t.layers.length - 1)];
-    const name = layer ? ctx.catalog.material(layer.material).name : '';
+    const name = layer ? catalogName(ctx.t(), ctx.catalog.material(layer.material)) : '';
     return ctx.t().editor.ground.hint(name);
   }
 

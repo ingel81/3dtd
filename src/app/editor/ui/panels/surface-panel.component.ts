@@ -8,6 +8,7 @@ import { patch, type SurfaceMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { injectT } from '../../../i18n/i18n.service';
+import { catalogName } from '../../ops/describe';
 
 /** Materials a surface takes first (those the catalogue has): pavings, sport and play grounds, sand and gravel */
 const SUGGESTED = [
@@ -58,7 +59,7 @@ const SUGGESTED = [
           <span>{{ w.material }}</span>
           <select class="td-select is-auto" [value]="s.material" (change)="setMaterial(s, $any($event.target).value)" [attr.aria-label]="w.material" data-test="surface-material">
             @for (m of materials(); track m.id) {
-              <option [value]="m.id">{{ m.name }}</option>
+              <option [value]="m.id">{{ nameOf(m) }}</option>
             }
           </select>
         </label>
@@ -92,13 +93,13 @@ const SUGGESTED = [
           <span>{{ w.material }}</span>
           <select class="td-select is-auto" [value]="settings().material" (change)="setNext({ material: $any($event.target).value })" [attr.aria-label]="w.nextMaterial">
             @for (m of materials(); track m.id) {
-              <option [value]="m.id">{{ m.name }}</option>
+              <option [value]="m.id">{{ nameOf(m) }}</option>
             }
           </select>
         </label>
         <div class="td-inline sp-swatches">
           @for (m of suggested(); track m.id) {
-            <button type="button" class="td-tool is-sm sp-swatch" [attr.aria-pressed]="settings().material === m.id" [attr.aria-label]="m.name" [title]="m.name" (click)="setNext({ material: m.id })">
+            <button type="button" class="td-tool is-sm sp-swatch" [attr.aria-pressed]="settings().material === m.id" [attr.aria-label]="nameOf(m)" [title]="nameOf(m)" (click)="setNext({ material: m.id })">
               @if (m.thumbnail) {
                 <img [src]="m.thumbnail" alt="" />
               } @else {
@@ -163,14 +164,18 @@ export class SurfacePanelComponent {
     const id = this.settings().chosen;
     return this.list().find((s) => s.id === id) ?? null;
   });
-  readonly materials = computed(() => [...this.session.catalog().materials.values()].sort((a, b) => a.name.localeCompare(b.name)));
+  readonly materials = computed(() => [...this.session.catalog().materials.values()].sort((a, b) => this.nameOf(a).localeCompare(this.nameOf(b))));
+  /** A material's name in the player's words */
+  nameOf(entry: { id: string; name: string }): string {
+    return catalogName(this.t(), entry);
+  }
   readonly suggested = computed(() => {
     const index = this.session.catalog().materials;
     return SUGGESTED.map((id) => index.get(id)).filter((m) => !!m);
   });
 
   titleOf(s: MapSurface): string {
-    const material = this.session.catalog().material(s.material).name;
+    const material = this.nameOf(this.session.catalog().material(s.material));
     return s.marking ? `${this.t().editor.surfaceMarkings[s.marking.kind]}, ${material}` : material;
   }
 

@@ -1761,6 +1761,11 @@ export const en = {
       node: 'Road node',
       road: (kind: string, width: number) => `${kind}, ${f.int(width)} m wide`,
     },
+    /**
+     * The catalogue's objects and materials by id, where a language words them its own way; English
+     * shows catalog.json's own names (catalogName), so it has none here
+     */
+    catalogNames: {} as Readonly<Record<string, string>>,
     /** The catalogue's categories (catalog.json), as the editor names them */
     categories: {
       building: 'building', fx: 'effect', plant: 'plant', prop: 'prop', rock: 'rock', structure: 'structure', tree: 'tree', wall: 'wall',

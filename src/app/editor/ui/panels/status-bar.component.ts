@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { EditorSession } from '../editor-session.service';
 import { injectT } from '../../../i18n/i18n.service';
+import { catalogName } from '../../ops/describe';
 
 /** The foot line: what the tool does, where the pointer is, what the map costs */
 @Component({
@@ -13,7 +14,7 @@ import { injectT } from '../../../i18n/i18n.service';
     @if (session.view.hover(); as h) {
       <span class="td-num" data-test="cursor">{{ round(h.x) }}, {{ round(h.y) }} m</span>
       <span class="td-num" data-test="height">{{ t().editor.status.height(h.height) }}</span>
-      <span class="sb-mat td-trunc">{{ h.material }}</span>
+      <span class="sb-mat td-trunc">{{ materialName(h.material) }}</span>
     }
     <span class="td-num" data-test="objects">{{ t().editor.status.objects(objects()) }}</span>
     @if (session.view.stats(); as s) {
@@ -32,6 +33,11 @@ export class StatusBarComponent {
   readonly session = inject(EditorSession);
   private readonly objectsRev = this.session.state.rev('objects');
   readonly objects = computed(() => (this.objectsRev(), this.session.doc?.objects.length ?? 0));
+
+  /** The material under the pointer in the player's words */
+  materialName(id: string): string {
+    return id ? catalogName(this.t(), this.session.catalog().material(id)) : '';
+  }
 
   round(v: number): number {
     return Math.round(v);

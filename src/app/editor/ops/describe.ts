@@ -10,7 +10,7 @@ import type { Messages } from '../../i18n/messages/en';
 export function describeGround(t: MapTerrain, x: number, y: number, catalog: CatalogIndex, words: Messages): { what: string; height: string; slope: string; water: string } {
   const w = words.editor.look;
   const layer = t.layers[dominantLayer(t, x, y)];
-  const ground = layer ? catalog.material(layer.material).name : w.ground;
+  const ground = layer ? catalogName(words, catalog.material(layer.material)) : w.ground;
   const h = heightAt(t, x, y);
   const { i, j } = nearestSample(t, x, y);
   const k = j * t.grid.columns + i;
@@ -33,7 +33,7 @@ export function describePick(picked: PickResult, doc: CustomMapDocument, catalog
       const o = doc.objects.find((x) => x.id === picked.id);
       if (!o) return w.object;
       const entry = catalog.object(o.asset);
-      return w.asset(entry.name, categoryWord(words, entry.category));
+      return w.asset(catalogName(words, entry), categoryWord(words, entry.category));
     }
     case 'spawn':
       return w.spawn(doc.spawns.find((s) => s.id === picked.id)?.name ?? '');
@@ -47,6 +47,11 @@ export function describePick(picked: PickResult, doc: CustomMapDocument, catalog
       return e ? w.road(kind, Math.round(e.width)) : kind;
     }
   }
+}
+
+/** A catalogue object's or material's name in the player's words, catalog.json's own where this language has none */
+export function catalogName(words: Messages, entry: { id: string; name: string }): string {
+  return words.editor.catalogNames[entry.id] ?? entry.name;
 }
 
 /** A catalogue category in the player's words, its own name where this build has none */

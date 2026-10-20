@@ -6,6 +6,7 @@ import { BIOMES, type BiomeDef, type BiomeId } from '../../ops/landscape/biomes'
 import { randomSeed } from '../../../map-ops/landscape-noise';
 import { cliffModelIds } from '../../ops/landscape/cliff-rocks';
 import { roadSurfaces, type RoadOptions } from '../../ops/landscape/road';
+import { catalogName } from '../../ops/describe';
 import type { RiverOptions } from '../../ops/landscape/river';
 import { patch, LANDSCAPE_MODES, type LandscapeMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
@@ -32,11 +33,12 @@ export class LandscapePanelComponent {
   });
   readonly biomes = BIOMES;
   readonly s = this.session.tools.settings.landscape;
-  readonly surfaces = computed(() => roadSurfaces(this.session.catalog()));
+  readonly surfaces = computed(() => roadSurfaces(this.session.catalog(), this.t()));
   readonly hasMaterials = computed(() => this.session.catalog().catalog.materials.length > 0);
   readonly cliffModels = computed(() => {
     const catalog = this.session.catalog();
-    return cliffModelIds(catalog).map((id) => ({ id, name: catalog.object(id).name }));
+    const words = this.t();
+    return cliffModelIds(catalog).map((id) => ({ id, name: catalogName(words, catalog.object(id)) }));
   });
 
   setCliffModel(id: string): void {
