@@ -460,6 +460,22 @@ export const BUILD_BLOCKED_WATER: BuildBlock = 'water';
 export const WATER_DEPTH_M = 0.3;
 
 /** A structure of a destructible world: a building, a wall, a tower of the map */
+/**
+ * Where and when a falling structure hits the ground (collapse variants
+ * that break on it, ruin-damage.ts fallImpact): map metres of the middle
+ * of where it lies, the ground's height, the length it lies along (`dx`,
+ * `dy`, map space), the seconds after its fall began
+ */
+export interface FallImpactAt {
+  x: number;
+  y: number;
+  height: number;
+  length: number;
+  dx: number;
+  dy: number;
+  delay: number;
+}
+
 export interface WorldStructure {
   readonly id: string;
   /** Where it stands (its middle) */
@@ -495,6 +511,8 @@ export interface WorldDestruction {
   setStages(stages: Uint8Array, headings?: Int16Array): void;
   /** Structure `index` reached `stage` by damage just now, pushed the way of `heading` (-1 none) */
   setStage(index: number, stage: StructureStage, heading?: number): void;
+  /** Where and when structure `index`, falling just now, hits the ground; null where it does not (it sinks) */
+  impactOf?(index: number): FallImpactAt | null;
   /** The ground that takes the craters and the rubble, drawn; null where the world's ground stays as built */
   readonly ground: WorldGroundDamage | null;
 }

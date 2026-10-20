@@ -29,6 +29,7 @@ import type { ShotLights } from '../../../three-engine/shot-lights/shot-lights';
 import type { MapAssetLibrary } from './map-asset-library';
 import type { AssetCatalog, CatalogObject } from './asset-catalog';
 import { mapToScene, sceneToMap } from './map-coords';
+import type { FallImpactAt } from '../../world-provider';
 import { CustomMapEnvironment } from './environment/map-environment';
 import { fitShadowBox } from './environment/shadow-fit';
 import { EffectLayer, glowStandIn } from './effects/effect-layer';
@@ -789,6 +790,19 @@ export class CustomMapView {
       heading: sceneHeading(c.heading ?? -1),
     })));
     this.effects.setRuinEmbers(this.objects.embers(), !!this.options.ruins);
+  }
+
+  /**
+   * Where and when object `id` hits the ground as it falls now (map
+   * metres, the ground's height, the length it lies along `dx`, `dy`, the
+   * seconds after its fall began), null where it sinks (collapse `tip`) or
+   * is no ruin here
+   */
+  impactOf(id: string): FallImpactAt | null {
+    const hit = this.objects.impactOf(id);
+    if (!hit) return null;
+    const p = sceneToMap({ x: hit.x, z: hit.z }, { x: 0, y: 0 });
+    return { x: p.x, y: p.y, height: hit.y, length: hit.length, dx: -hit.dx, dy: hit.dz, delay: hit.delay };
   }
 
   /** Main-thread cost of update(), smoothed, for measurements (sim-load --world, the preview) */

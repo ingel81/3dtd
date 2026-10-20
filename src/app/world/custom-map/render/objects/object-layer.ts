@@ -49,7 +49,7 @@ import { rubbleMaterialOf } from '../../rubble-material';
 import { RuinSlabs, type RuinFootprint } from './ruin-slabs';
 import { modelSection } from './ruin-section';
 import type { CatalogRoof } from '../../object-roof';
-import { addDamage, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, FELL_LONG_AGO, readDamage, RUIN_EMBERS, ruinGeometry, ruinSeed, ruinShape, writeDamage, type DamageArrays } from './ruin-damage';
+import { addDamage, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, fallImpact, FELL_LONG_AGO, readDamage, RUIN_EMBERS, ruinGeometry, ruinSeed, ruinShape, writeDamage, type DamageArrays } from './ruin-damage';
 
 /**
  * The placed objects of a map, drawn instanced: per asset, detail level and
@@ -500,6 +500,17 @@ export class MapObjectLayer {
   }
 
   /** Where the newest ruins from stage 2 smoulder, a dozen at most (group space) */
+  /**
+   * Where and when ruin `id` hits the ground as it falls now (fallImpact,
+   * group frame), null for one not drawn as a ruin or falling in `tip`
+   */
+  impactOf(id: string): ReturnType<typeof fallImpact> {
+    const raised = this.masses.ruinShapeOf(id);
+    if (raised) return fallImpact(raised);
+    const slot = this.byId.get(id);
+    return slot?.batch.damage ? fallImpact(readDamage(slot.batch.damage, slot.index)) : null;
+  }
+
   embers(max = RUIN_EMBERS): Vector3[] {
     const out: Vector3[] = [];
     const ids = [...this.damaged].filter(([, d]) => d.stage >= 2).slice(-max);

@@ -12,7 +12,7 @@ import { modelSection } from './ruin-section';
 import type { CatalogRoof } from '../../object-roof';
 import { CustomMapDestruction } from '../../custom-map-destruction';
 import {
-  anchorCode, anchorPoint, COLLAPSE_VARIANTS, collapseCuts, collapseRoll, collapseSeconds, collapseVariant, DAMAGE_ATTRIBUTES, DAMAGE_LOS, DAMAGE_UNIFORMS, damageArrays, FELL_LONG_AGO,
+  anchorCode, anchorPoint, COLLAPSE_VARIANTS, collapseCuts, collapseRoll, collapseSeconds, collapseVariant, fallImpact, fallTiming, DAMAGE_ATTRIBUTES, DAMAGE_LOS, DAMAGE_UNIFORMS, damageArrays, FELL_LONG_AGO,
   readDamage, ruinGeometry, ruinSeed, ruinShape, sceneHeading, setCollapseVariant, structureSeed, writeDamage, type DamageArrays,
 } from './ruin-damage';
 
@@ -407,13 +407,46 @@ describe('ruin damage: the collapse variants', () => {
   });
 
   it('switches the variant every ruin draws by one uniform, as the window does', () => {
-    expect(COLLAPSE_VARIANTS).toEqual(['tip', 'sag', 'chunks', 'tip-break']);
-    setCollapseVariant('chunks');
+    const s = ruinShape(structureSeed('v1'), frame);
+    expect(COLLAPSE_VARIANTS).toEqual(['tip', 'impact', 'buckle']);
+    setCollapseVariant('buckle');
     expect(DAMAGE_UNIFORMS.uCollapse.value).toBe(2);
-    expect(collapseVariant()).toBe('chunks');
-    expect(collapseSeconds(2)).toBeCloseTo(3.8);
+    expect(collapseVariant()).toBe('buckle');
+    expect(collapseSeconds(s)).toBe(fallTiming(s, 2).seconds);
     setCollapseVariant('tip');
-    expect(collapseSeconds(2)).toBe(2);
+    expect(collapseSeconds(s)).toBe(s.fallS);
+    expect(fallImpact(s)).toBeNull();
+  });
+
+  it('topples slowly then fast and hits the ground past level, a taller one later, a buckle after holding longer', () => {
+    for (let k = 0; k < 50; k++) {
+      const s = ruinShape(structureSeed(`t${k}`), frame);
+      const t = fallTiming(s, 1);
+      // Lies past level by as much as its stump lets it reach the ground: its top on the ground
+      const length = Math.max(s.topY - s.breakY, 2);
+      expect(t.lie).toBeGreaterThan(Math.PI / 2);
+      expect(length * Math.cos(t.lie)).toBeCloseTo(-Math.min(0.9 * length, s.breakY - s.seatY), 5);
+      // As the shader: 0.12 cosh(omega (t - hold)) reaches the angle it lies at at the impact
+      expect(0.12 * Math.cosh(t.omega * (t.impact - t.hold))).toBeCloseTo(t.lie, 6);
+      expect(t.impact).toBeGreaterThan(1);
+      expect(t.impact).toBeLessThan(4);
+      expect(fallTiming(s, 2).impact - t.impact).toBeCloseTo(0.45, 6);
+    }
+    const low = fallTiming(ruinShape(structureSeed('t'), { ...frame, height: 8 }), 1);
+    const high = fallTiming(ruinShape(structureSeed('t'), { ...frame, height: 30 }), 1);
+    expect(high.impact).toBeGreaterThan(low.impact);
+  });
+
+  it('says where and when it hits: the middle of where it lies on its seat, along its heading', () => {
+    const s = ruinShape(structureSeed('i1'), frame, 0);
+    const hit = fallImpact(s, 1)!;
+    const length = s.topY - s.breakY;
+    expect([hit.dx, hit.dz]).toEqual([1, 0]);
+    expect(hit.x).toBeCloseTo(s.cx + s.reach + length / 2);
+    expect(hit.z).toBeCloseTo(s.cz);
+    expect(hit.y).toBe(s.seatY);
+    expect(hit.length).toBeCloseTo(length);
+    expect(hit.delay).toBe(fallTiming(s, 1).impact);
   });
 
   it('gives a model ruin its triangles on corners of their own, each carrying its middle', () => {

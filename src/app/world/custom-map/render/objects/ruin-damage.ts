@@ -20,10 +20,11 @@ import { CRACK_TILE_M, crackTexture } from './crack-texture';
  *   stays, cut along the break line. How it falls is one of the collapse
  *   variants (COLLAPSE_VARIANTS, uCollapse, E259), all in the vertex shader
  *   from the instance's numbers and the clock: `tip` (as before) tips whole
- *   about the foot of the side it gives way to and sinks; `sag` comes down
- *   storey by storey into itself; `chunks` breaks into pieces that tip
- *   apart, the back wall last; `tip-break` tips and breaks in bands that
- *   part and land. A piece is chosen per triangle from its anchor (a
+ *   about the foot of the side it gives way to and sinks; `impact` gives
+ *   at the foot, tips under its weight slowly then fast, its upper storeys
+ *   lagging, hits the ground, rebounds, breaks where it hit into the bands
+ *   of collapseCuts and crumbles under the dust of the impact; `buckle`
+ *   first sags and shudders at the break line, then falls as `impact`. A piece is chosen per triangle from its anchor (a
  *   model's triangle middle packed into one float, ruinGeometry; an
  *   instance's middle for the raised walls, roofs and slabs, a constant of
  *   their material), so a triangle goes whole with one piece.
@@ -41,10 +42,11 @@ export const FELL_LONG_AGO = -1e6;
 
 /**
  * How a building falls (E259, for the user to choose; the window
- * Destruction switches them): `tip` as before, `sag` into itself storey by
- * storey, `chunks` in pieces, `tip-break` tipping in bands that part
+ * Destruction switches them): `tip` as before (sinks), `impact` tips under
+ * its weight and breaks on the ground, `buckle` gives way first, then as
+ * `impact`
  */
-export const COLLAPSE_VARIANTS = ['tip', 'sag', 'chunks', 'tip-break'] as const;
+export const COLLAPSE_VARIANTS = ['tip', 'impact', 'buckle'] as const;
 export type CollapseVariant = (typeof COLLAPSE_VARIANTS)[number];
 
 /** Shared by every view: the clock falls run on (s), the cracks, the collapse variant (its index) */
@@ -63,9 +65,57 @@ export function collapseVariant(): CollapseVariant {
   return COLLAPSE_VARIANTS[DAMAGE_UNIFORMS.uCollapse.value] ?? 'tip';
 }
 
-/** Seconds a fall of `fallS` takes in variant `v` (its index): sagging is a little slower, pieces land, settle and crumble */
-export function collapseSeconds(fallS: number, v: number = DAMAGE_UNIFORMS.uCollapse.value): number {
-  return fallS * (v < 0.5 ? 1 : v < 1.5 ? 1.25 : 1.9);
+/**
+ * How a ruin topples in `impact` and `buckle` (dmgTiming in the shader, the
+ * same numbers): it holds `hold` seconds while the foot gives, then tips
+ * under its weight, the angle `TILT0` times cosh(`omega` t), as a rod about
+ * its foot does (omega from its length, quickened), until it lies at `lie`
+ * (past level by as much as its stump lets it reach the ground) at
+ * `impact` seconds; it rebounds, breaks and crumbles until `seconds`
+ */
+export interface FallTiming {
+  hold: number;
+  omega: number;
+  lie: number;
+  impact: number;
+  seconds: number;
+}
+
+/** The angle a toppling ruin leaves its foot with, radians */
+const TILT0 = 0.12;
+/** After the impact: the rebound, the break and the crumbling under the dust, s */
+const AFTER_IMPACT = 2.4;
+
+export function fallTiming(s: RuinShape, v: number = DAMAGE_UNIFORMS.uCollapse.value): FallTiming {
+  const hold = v > 1.5 ? 0.75 : 0.3;
+  const length = Math.max(Math.fround(s.topY) - Math.fround(s.breakY), 2);
+  const stump = Math.max(0, s.breakY - s.seatY);
+  const omega = 1.4 * Math.sqrt(14.715 / length);
+  const lie = Math.PI / 2 + Math.asin(Math.min(0.9, stump / length));
+  const impact = hold + Math.acosh(lie / TILT0) / omega;
+  return { hold, omega, lie, impact, seconds: impact + AFTER_IMPACT };
+}
+
+/** Seconds a ruin's fall takes in variant `v` (its index): `tip` its fallS, the others until crumbled (fallTiming) */
+export function collapseSeconds(s: RuinShape, v: number = DAMAGE_UNIFORMS.uCollapse.value): number {
+  return v < 0.5 ? s.fallS : fallTiming(s, v).seconds;
+}
+
+/**
+ * Where and when a ruin falling in variant `v` hits the ground (group
+ * frame): the middle of where it lies, its length along the heading, the
+ * seconds after the fall's start; null for `tip`, which sinks
+ */
+export function fallImpact(
+  s: RuinShape, v: number = DAMAGE_UNIFORMS.uCollapse.value,
+): { x: number; y: number; z: number; dx: number; dz: number; length: number; delay: number } | null {
+  if (v < 0.5) return null;
+  const t = fallTiming(s, v);
+  const length = Math.max(s.topY - s.breakY, 2);
+  const along = s.reach + length * 0.5;
+  const dx = Math.cos(s.heading);
+  const dz = Math.sin(s.heading);
+  return { x: s.cx + dx * along, y: s.seatY, z: s.cz + dz * along, dx, dz, length, delay: t.impact };
 }
 
 /** A building's footing in the layer's group frame: its middle, two half axes of its ground rectangle, its seat and height */
@@ -348,10 +398,6 @@ varying vec4 vDmgC;
 /** What the vertex and fragment shaders both know of a collapse: its variant (uCollapse) and how long it takes */
 const COLLAPSE_PARS = /* glsl */ `
 uniform float uCollapse;
-// collapseSeconds
-float damageSeconds(float fallS) {
-  return fallS * (uCollapse < 0.5 ? 1.0 : uCollapse < 1.5 ? 1.25 : 1.9);
-}
 // What writeDamage packs: the roll past the stage, the stump over the bite's radius, the top in place of the seconds
 float dmgRollOf(vec4 a) {
   return fract(a.x) * 4.0;
@@ -365,6 +411,18 @@ float dmgSeat(vec4 a, vec4 b) {
 // fallSeconds
 float dmgFallS(vec4 a, vec4 b, vec4 c) {
   return clamp(1.2 + (c.w - dmgSeat(a, b)) * 0.06, 1.2, 2.5);
+}
+// fallTiming: (hold, omega, lie, impact)
+vec4 dmgTiming(vec4 a, vec4 b, vec4 c) {
+  float hold = uCollapse > 1.5 ? 0.75 : 0.3;
+  float len = max(c.w - a.w, 2.0);
+  float omega = 1.4 * sqrt(14.715 / len);
+  float lie = 1.5708 + asin(min(0.9, max(0.0, a.w - dmgSeat(a, b)) / len));
+  return vec4(hold, omega, lie, hold + acosh(lie / ${TILT0.toFixed(2)}) / omega);
+}
+// collapseSeconds
+float damageDuration(vec4 a, vec4 b, vec4 c) {
+  return uCollapse < 0.5 ? dmgFallS(a, b, c) : dmgTiming(a, b, c).w + ${AFTER_IMPACT.toFixed(2)};
 }
 `;
 
@@ -388,18 +446,8 @@ vec3 dmgAnchorLocal(float code) {
 float dmgRoll(float prime, float k) {
   return fract(dmgRollOf(aDamage) * prime + k * 0.618);
 }
-vec3 dmgHash3(vec3 p) {
-  p = fract(p * vec3(0.1031, 0.1030, 0.0973));
-  p += dot(p, p.yxz + 33.33);
-  return fract((p.xxy + p.yxx) * p.zyx);
-}
 vec3 dmgAt(vec2 xz, float y) {
   return vec3(xz.x, y, xz.y);
-}
-vec2 dmgTurn(vec2 d, float a) {
-  float c = cos(a);
-  float s = sin(a);
-  return vec2(c * d.x - s * d.y, s * d.x + c * d.y);
 }
 mat4 dmgShift(vec3 v) {
   return mat4(vec4(1.0, 0.0, 0.0, 0.0), vec4(0.0, 1.0, 0.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0), vec4(v, 1.0));
@@ -416,160 +464,68 @@ mat4 dmgTip(vec3 pivot, vec2 d, float th) {
     k.x * k.z * ic + k.y * s, k.y * k.z * ic - k.x * s, c + k.z * k.z * ic);
   return mat4(vec4(r[0], 0.0), vec4(r[1], 0.0), vec4(r[2], 0.0), vec4(pivot - r * pivot, 1.0));
 }
-// Turning by a about the upright through a point
-mat4 dmgYaw(vec2 at, float a) {
-  float c = cos(a);
-  float s = sin(a);
-  mat3 r = mat3(c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c);
-  vec3 p = vec3(at.x, 0.0, at.y);
-  return mat4(vec4(r[0], 0.0), vec4(r[1], 0.0), vec4(r[2], 0.0), vec4(p - r * p, 1.0));
-}
-// A piece toppling about its foot from s seconds on (acc rad/s^2 until it lies at maxTh), going down drop m onto
-// the ground as it comes to lie, a jolt where it lands: (angle, metres down)
-vec2 dmgTopple(float s, float acc, float maxTh, float drop) {
-  if (s <= 0.0) return vec2(0.0);
-  float th = min(maxTh, acc * s * s);
-  float after = s - sqrt(0.75 * maxTh / acc);
-  float down = 0.0;
-  if (after > 0.0) {
-    float fall = sqrt(2.0 * max(drop, 0.05) / 9.81) + 0.15;
-    float f = min(1.0, after / fall);
-    down = drop * f * f;
-    float k = (after - fall) / 0.45;
-    if (k > 0.0 && k < 1.0) {
-      float jolt = sin(k * 3.14159) * (1.0 - k);
-      th += 0.07 * jolt;
-      down -= min(0.4, 0.15 * drop) * jolt;
-    }
-  }
-  return vec2(th, down);
-}
 // tip: whole about the foot of the side it gives way to, sinking as it goes
 mat4 dmgFallTip(float t) {
   vec2 d = vec2(cos(aDamage.z), sin(aDamage.z));
   vec3 pivot = dmgAt(aDamageC.xy + d * aDamageC.z, aDamage.w);
   return dmgShift(vec3(0.0, -2.5 * t * t, 0.0)) * dmgTip(pivot, d, 1.4 * t * t);
 }
-// sag: down into itself storey by storey from the top, the side it leans to first; what is down is crushed,
-// bulges out and goes into the stump at the end. Each point on its own: the walls stay whole as they crumple
-vec3 dmgSag(vec3 p, float t) {
-  float base = aDamage.w;
-  float top = max(aDamageC.w, base + 1.0);
-  float hu = top - base;
-  vec2 c = aDamageC.xy;
-  vec2 lean = dmgTurn(vec2(cos(aDamage.z), sin(aDamage.z)), (dmgRoll(41.0, 4.0) - 0.5) * 2.0);
-  float storeys = max(1.0, floor(hu / 3.0 + 0.5));
-  // Each storey a quick drop and a short hold, faster as it goes
-  float run = pow(clamp(t / 0.8, 0.0, 1.0), 1.0 + 0.5 * dmgRoll(53.0, 5.0)) * storeys;
-  float k = min(floor(run), storeys);
-  float down = min(1.0, (k + smoothstep(0.0, 0.6, run - k)) / storeys);
-  float slant = -dot(p.xz - c, lean) * (0.08 + 0.12 * dmgRoll(67.0, 6.0)) * (1.0 - down);
-  float front = max(base, top - hu * down + slant);
-  if (p.y <= front) return p;
-  float end = smoothstep(0.8, 1.0, t);
-  float y = front + (p.y - front) * 0.14 * (1.0 - end) - end * 0.7;
-  float crushed = p.y - y;
-  vec2 out2 = p.xz - c;
-  vec2 xz = p.xz + (out2 / (length(out2) + 1e-3) * min(1.4, crushed * 0.06) + lean * min(1.8, crushed * 0.04)) * (1.0 - end);
-  vec3 h = dmgHash3(p) - 0.5;
-  xz += h.xy * min(0.8, crushed * 0.08);
-  y += h.z * min(0.5, crushed * 0.05);
-  return vec3(xz.x, y, xz.y);
-}
-// chunks: the upper part breaks into pieces (a cut across its heading, one along it, its top half over the
-// middle) that tip apart one after the other and land; the back wall stands a moment longer and falls into the hole
-vec3 dmgChunks(vec3 p, vec3 anchor, float s) {
+// impact and buckle: the foot gives (a buckle sags further, slides back and shudders), it tips under its weight,
+// slowly then fast, the upper storeys lagging (it bends, straight again once it lies), hits the ground past level,
+// rebounds; where it hit it breaks into the bands of collapseCuts, those beyond the first slide on and apart with
+// a hop, and it settles into the dust while the fragment crumbles it
+vec3 dmgImpact(vec3 p, vec3 anchor, float s) {
+  bool buckle = uCollapse > 1.5;
+  vec4 tm = dmgTiming(aDamage, aDamageB, aDamageC);
   vec2 d = vec2(cos(aDamage.z), sin(aDamage.z));
-  vec2 c = aDamageC.xy;
-  float reach = max(aDamageC.z, 1.0);
   float base = aDamage.w;
-  float seat = dmgSeat(aDamage, aDamageB);
-  float hu = max(aDamageC.w - base, 1.0);
-  vec2 q = anchor.xz - c;
-  float along = dot(q, d);
-  float across = dot(q, vec2(-d.y, d.x));
-  float backCut = -reach * (0.25 + 0.25 * dmgRoll(41.0, 4.0));
-  float sideCut = reach * (dmgRoll(53.0, 5.0) - 0.5) * 0.5;
-  float midCut = base + hu * (0.45 + 0.2 * dmgRoll(29.0, 3.0));
-  float acc = 1.5 * clamp(10.0 / hu, 0.5, 1.6);
-  bool firstLeft = dmgRoll(67.0, 6.0) < 0.5;
-  vec2 dir = d;
-  vec3 pivot;
-  float start = 0.0;
-  float twist = 0.0;
-  float maxTh = 1.5;
-  float drop = base - seat;
-  float rate = acc;
-  if (along < backCut && hu > 3.0) {
-    pivot = dmgAt(c + d * backCut, base);
-    start = 0.7 + 0.5 * dmgRoll(79.0, 7.0);
-    maxTh = 1.2;
-    drop *= 0.8;
-  } else {
-    bool left = across < sideCut;
-    float turn = (left ? 1.0 : -1.0) * (0.2 + 0.3 * dmgRoll(left ? 97.0 : 79.0, 8.0));
-    dir = dmgTurn(d, turn);
-    pivot = dmgAt(c + dir * reach, base);
-    bool first = left == firstLeft;
-    start = first ? 0.0 : 0.15 + 0.25 * dmgRoll(97.0, 2.0);
-    twist = turn * 0.5;
-    if (first && anchor.y > midCut) {
-      // Its top breaks off before it, turns more and goes further
-      pivot = dmgAt(c + dir * reach, midCut);
-      start = -0.15;
-      twist = turn * 1.6;
-      drop = midCut - seat;
-      rate = acc * 1.3;
+  float stump = max(0.0, base - dmgSeat(aDamage, aDamageB));
+  float len = max(aDamageC.w - base, 2.0);
+  float give = smoothstep(0.0, tm.x, s);
+  vec2 back = buckle ? -d * 0.35 * give : vec2(0.0);
+  vec3 shift = vec3(back.x, -(buckle ? min(1.2, 0.3 * stump) : min(0.4, 0.12 * stump)) * give, back.y);
+  float th = s < tm.x
+    ? ${TILT0.toFixed(2)} * (s / tm.x) * (s / tm.x) + (buckle ? 0.012 * sin(s * 31.0) * give : 0.0)
+    : min(tm.z, ${TILT0.toFixed(2)} * cosh(tm.y * (s - tm.x)));
+  float bend = (buckle ? 0.28 : 0.15) * clamp((p.y - base) / len, 0.0, 1.0) * sin(3.14159 * clamp(th / tm.z, 0.0, 1.0));
+  float k = s - tm.w;
+  if (k > 0.0) {
+    float j = min(k / 0.35, 1.0);
+    th = tm.z - 0.05 * sin(j * 3.14159) * (1.0 - j);
+    bend = 0.0;
+    // The bands past the cuts its anchor lies over (collapseCuts)
+    float hu = max(1.0, aDamageC.w - base);
+    float n = step(base + hu * (0.45 + 0.2 * dmgRoll(29.0, 3.0)), anchor.y);
+    if (hu > 4.0) n += step(base + hu * (0.38 + 0.14 * dmgRoll(7.0, 1.0)), anchor.y);
+    if (hu > 9.0) n += step(base + hu * (0.68 + 0.12 * dmgRoll(13.0, 2.0)), anchor.y);
+    float e = smoothstep(0.0, 0.3, k);
+    vec2 across = vec2(-d.y, d.x);
+    vec2 slide = (d * (0.8 + 0.8 * dmgRoll(53.0 + n, 5.0)) + across * (dmgRoll(41.0 + n, 4.0) - 0.5) * 1.2) * n * e;
+    shift += vec3(slide.x, 0.4 * n * sin(min(k / 0.4, 1.0) * 3.14159) - 0.6 * smoothstep(0.8, ${AFTER_IMPACT.toFixed(2)}, k), slide.y);
+    // Each band beyond the first rolls a little about the line it lies along, on the ground where it lies
+    if (n > 0.5) {
+      vec3 pivot = dmgAt(aDamageC.xy + d * aDamageC.z, base);
+      vec3 ground = dmgAt(aDamageC.xy + d * (aDamageC.z + len * (n + 0.5) / 4.0), dmgSeat(aDamage, aDamageB));
+      mat4 lying = dmgShift(shift) * dmgTip(pivot, d, th);
+      return (dmgTip(ground + vec3(slide.x, 0.0, slide.y), across, (dmgRoll(67.0 + n, 6.0) - 0.5) * 0.5 * e) * lying * vec4(p, 1.0)).xyz;
     }
   }
-  vec2 f = dmgTopple(s - start, rate, maxTh, drop);
-  mat4 m = dmgShift(vec3(0.0, -f.y, 0.0)) * dmgTip(pivot, dir, f.x) * dmgYaw(pivot.xz, twist * min(1.0, f.x / maxTh));
-  return (m * vec4(p, 1.0)).xyz;
-}
-// tip-break: tips about the foot of the side it gives way to and breaks in two or three bands (collapseCuts) that
-// lag behind (their joints open in front), lands flat, the bands slid apart, and settles
-vec3 dmgTipBreak(vec3 p, vec3 anchor, float s) {
-  vec2 d = vec2(cos(aDamage.z), sin(aDamage.z));
-  vec2 c = aDamageC.xy;
-  float reach = max(aDamageC.z, 1.0);
-  float base = aDamage.w;
-  float hu = max(aDamageC.w - base, 1.0);
-  float maxTh = 1.52;
-  vec2 f = dmgTopple(s, 1.2 * clamp(10.0 / hu, 0.5, 1.6), maxTh, base - dmgSeat(aDamage, aDamageB));
-  float lie = clamp(f.x / maxTh, 0.0, 1.0);
-  float kink = sin(3.14159 * lie);
-  vec2 back = c - d * reach;
-  mat4 bend = mat4(1.0);
-  vec2 slide = vec2(0.0);
-  float b1 = base + hu * (0.38 + 0.14 * dmgRoll(7.0, 1.0));
-  float b2 = base + hu * (0.68 + 0.12 * dmgRoll(13.0, 2.0));
-  if (hu > 4.0 && anchor.y > b1) {
-    bend = dmgTip(dmgAt(back, b1), d, -kink * (0.18 + 0.14 * dmgRoll(41.0, 4.0))) * dmgYaw(c, (dmgRoll(53.0, 5.0) - 0.5) * 0.5 * lie);
-    slide += d * (0.8 + 1.2 * dmgRoll(67.0, 6.0));
-  }
-  if (hu > 9.0 && anchor.y > b2) {
-    bend = bend * dmgTip(dmgAt(back, b2), d, -kink * (0.22 + 0.16 * dmgRoll(79.0, 7.0))) * dmgYaw(c, (dmgRoll(97.0, 8.0) - 0.5) * 0.6 * lie);
-    slide += d * (1.0 + 1.5 * dmgRoll(97.0, 3.0)) + vec2(-d.y, d.x) * (dmgRoll(41.0, 2.0) - 0.5) * 1.5;
-  }
-  slide *= smoothstep(0.6, 1.0, lie);
-  mat4 m = dmgShift(vec3(slide.x, -f.y, slide.y)) * dmgTip(dmgAt(c + d * reach, base), d, f.x) * bend;
-  return (m * vec4(p, 1.0)).xyz;
+  vec3 pivot = dmgAt(aDamageC.xy + d * aDamageC.z, base);
+  return (dmgShift(shift) * dmgTip(pivot, d, th * (1.0 - bend)) * vec4(p, 1.0)).xyz;
 }
 // Where a point of the ruin is drawn (group frame): at rest, or with its piece (that of its anchor) as it falls.
-// In chunks and tip-break a triangle across the break line goes whole with the side its anchor is on
+// In impact and buckle a triangle across the break line goes whole with the side its anchor is on
 vec3 damageMove(vec3 p, vec3 anchor) {
-  if (aDamage.x < 2.5 || (uCollapse > 1.5 ? anchor.y : p.y) < aDamage.w) return p;
+  if (aDamage.x < 2.5 || (uCollapse > 0.5 ? anchor.y : p.y) < aDamage.w) return p;
   float s = uDamageTime - aDamage.y;
-  float dur = damageSeconds(dmgFallS(aDamage, aDamageB, aDamageC));
+  float dur = damageDuration(aDamage, aDamageB, aDamageC);
   if (s <= 0.0 || s >= dur) return p;
   if (uCollapse < 0.5) return (dmgFallTip(s / dur) * vec4(p, 1.0)).xyz;
-  if (uCollapse < 1.5) return dmgSag(p, s / dur);
-  if (uCollapse < 2.5) return dmgChunks(p, anchor, s);
-  return dmgTipBreak(p, anchor, s);
+  return dmgImpact(p, anchor, s);
 }
 void damageVaryings(vec3 rest, vec3 anchor) {
   vDmgP = rest;
-  vDmgSide = step(aDamage.w, uCollapse > 1.5 ? anchor.y : rest.y);
+  vDmgSide = step(aDamage.w, uCollapse > 0.5 ? anchor.y : rest.y);
   vDmg = aDamage;
   vDmgB = aDamageB;
   vDmgC = aDamageC;
@@ -621,14 +577,15 @@ float damageBite(vec3 p) {
 float damageEdge() {
   float e = 1e3;
   if (vDmg.x > 1.5) e = damageBite(vDmgP);
-  if (vDmg.x > 2.5 && (uDamageTime - vDmg.y) >= damageSeconds(dmgFallS(vDmg, vDmgB, vDmgC))) e = min(e, damageCut(vDmgP) - vDmgP.y);
+  if (vDmg.x > 2.5 && (uDamageTime - vDmg.y) >= damageDuration(vDmg, vDmgB, vDmgC)) e = min(e, damageCut(vDmgP) - vDmgP.y);
   return e;
 }
-// How far a falling piece has crumbled into dust, 0 to 1 and past (chunks and tip-break, once it has landed)
+// How far a fallen piece has crumbled into dust, 0 to 1 and past (impact and buckle, from just after the impact)
 float damageCrumble() {
-  if (vDmg.x < 2.5 || uCollapse < 1.5 || vDmgSide < 0.5) return 0.0;
-  float t = (uDamageTime - vDmg.y) / damageSeconds(dmgFallS(vDmg, vDmgB, vDmgC));
-  return t < 1.0 ? smoothstep(0.62, 0.97, t) * 1.05 : 0.0;
+  if (vDmg.x < 2.5 || uCollapse < 0.5 || vDmgSide < 0.5) return 0.0;
+  float s = uDamageTime - vDmg.y;
+  if (s >= damageDuration(vDmg, vDmgB, vDmgC)) return 0.0;
+  return smoothstep(0.7, ${(AFTER_IMPACT - 0.05).toFixed(2)}, s - dmgTiming(vDmg, vDmgB, vDmgC).w) * 1.05;
 }
 // The grain it crumbles by, on the surface at rest
 float dmgGrain(vec3 p) {
@@ -641,11 +598,11 @@ void damageClip() {
   if (vDmg.x < 1.5) return;
   if (damageBite(vDmgP) < 0.0) discard;
   if (vDmg.x > 2.5) {
-    if ((uDamageTime - vDmg.y) < damageSeconds(dmgFallS(vDmg, vDmgB, vDmgC))) {
-      // tip: the triangles across the line go; sag moves each point on its own, they stay whole; in chunks and
-      // tip-break one goes whole with the side its anchor is on, what of one left standing reaches above goes
+    if ((uDamageTime - vDmg.y) < damageDuration(vDmg, vDmgB, vDmgC)) {
+      // tip: the triangles across the line go; in impact and buckle one goes whole with the side its anchor is on,
+      // what of one left standing reaches above goes
       if (uCollapse < 0.5 && vDmgSide > 0.002 && vDmgSide < 0.998) discard;
-      if (uCollapse > 1.5 && vDmgSide < 0.5 && vDmgP.y > vDmg.w) discard;
+      if (uCollapse > 0.5 && vDmgSide < 0.5 && vDmgP.y > vDmg.w) discard;
       float crumble = damageCrumble();
       if (crumble > 0.0 && dmgGrain(vDmgP) < crumble) discard;
     } else if (vDmgP.y > damageCut(vDmgP)) discard;

@@ -587,6 +587,11 @@ export class MassLayer {
     this.rebuildRuins(surfaces);
   }
 
+  /** A ruin's shape as drawn here (ruinOf), null for one not drawn as a ruin here */
+  ruinShapeOf(id: string): RuinShape | null {
+    return this.ruinShapes.get(id)?.shape ?? null;
+  }
+
   /** Where a ruin smoulders (emberPoint), null for one not drawn as a ruin here */
   emberOf<T extends { x: number; y: number; z: number }>(id: string, fallen: boolean, out: T): T | null {
     const r = this.ruinShapes.get(id);

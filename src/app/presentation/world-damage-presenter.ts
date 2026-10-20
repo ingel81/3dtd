@@ -2,7 +2,7 @@ import { isDevMode } from '@angular/core';
 import { Vector3 } from 'three';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { MainEventBus } from '../sim/client/view-events';
-import type { WorldDestruction, WorldGroundDamage } from '../world/world-provider';
+import type { FallImpactAt, WorldDestruction, WorldGroundDamage } from '../world/world-provider';
 import type { Tower } from '../entities/tower.entity';
 import type { TowerChange } from '../sim/client/mirror/sim-mirror';
 import { MAP_METERS_PER_DEGREE } from '../world/custom-map/map-document';
@@ -85,6 +85,8 @@ export class WorldDamagePresenter {
   /** The HP as the simulation said them last, in the run rules' order */
   private hp = new Int32Array(0);
   private readonly hpListeners = new Set<() => void>();
+  /** Falls on their way to the ground (fell): the timers of their impacts */
+  private readonly landing = new Set<ReturnType<typeof setTimeout>>();
   /** The craters as the simulation said them last, CRATER_STRIDE numbers each */
   private craters = new Int32Array(0);
   private field: StampField | null = null;
@@ -135,7 +137,9 @@ export class WorldDamagePresenter {
         if (s) bus.emit({ type: 'debug:set-structure-stage', index, stage, lat: s.lat, lon: s.lon });
       },
       hp: (index: number) => this.hpOf(index),
-      // How buildings fall from now on (E259): 'tip', 'sag', 'chunks', 'tip-break'
+      // Where and when structure index hits the ground as a ruin falling now would (collapse variants that break on it)
+      impact: (index: number) => destruction.impactOf?.(index) ?? null,
+      // How buildings fall from now on (E259): 'tip', 'impact', 'buckle'
       collapse: (v?: CollapseVariant) => {
         if (v) setCollapseVariant(v);
         return collapseVariant();
@@ -294,6 +298,44 @@ export class WorldDamagePresenter {
     const large = Math.max(height, radius) >= DESTRUCTION_SOUNDS.largeFrom;
     this.playAt((large ? sizes.large : sizes.small).id, lat, lon);
     this.playAt(DESTRUCTION_SOUNDS.rubble.id, lat, lon);
+    // Where it hits the ground a moment later (a collapse variant that breaks on it): the dust hides the break
+    const hit = this.destruction.impactOf?.(index);
+    if (hit) {
+      const timer = setTimeout(() => {
+        this.landing.delete(timer);
+        this.landed(index, hit, material);
+      }, hit.delay * 1000);
+      this.landing.add(timer);
+    }
+  }
+
+  /**
+   * A falling structure hit the ground (`hit`, fell): dust rolling out
+   * along where it lies, grit and pieces of what it was built of thrown up,
+   * the rubble's sound; the shader breaks and crumbles it under that dust
+   */
+  private landed(index: number, hit: FallImpactAt, material: RubbleMaterial): void {
+    const effects = this.engine.effects;
+    const half = hit.length / 2;
+    const size = Math.max(3, half * 0.8);
+    // A wall of dust as long as it lies, as high as the building was deep: it hides the break and the crumbling
+    for (const k of [-0.85, -0.45, 0, 0.45, 0.85]) {
+      const lat = (hit.y + hit.dy * half * k) / MAP_METERS_PER_DEGREE;
+      const lon = (hit.x + hit.dx * half * k) / MAP_METERS_PER_DEGREE;
+      const at = this.engine.sync.geoToLocalSimple(lat, lon, 0);
+      const ground = this.engine.getTerrainHeightAtGeo(lat, lon) ?? hit.height;
+      effects.spawnGroundDust(at.x, ground + 0.3, at.z, Math.round(14 + size * 4), size, 3 + size * 0.8);
+      // Billows over it: smoke puffs without a fireball
+      effects.spawnExplosion(at.x, ground + 1.5, at.z, 0, size, Math.round(3 + size * 0.8));
+    }
+    const lat = hit.y / MAP_METERS_PER_DEGREE;
+    const lon = hit.x / MAP_METERS_PER_DEGREE;
+    const ground = this.engine.getTerrainHeightAtGeo(lat, lon) ?? hit.height;
+    const { grit, dust } = RUBBLE_COLOURS[material];
+    const rgb = (c: readonly [number, number, number], k: number) => ({ r: c[0] * k, g: c[1] * k, b: c[2] * k });
+    effects.spawnBurstAtGeo(lat, lon, ground + 1, Math.round(10 + size * 3), [rgb(grit, 0.6), rgb(grit, 1.1), rgb(dust, 1.2)]);
+    this.drawn?.debris(hit.x, hit.y, size, 3, material, index * 7.31 + 2);
+    this.playAt(DESTRUCTION_SOUNDS.rubble.id, lat, lon);
   }
 
   private playAt(sound: string, lat: number, lon: number): void {
@@ -366,6 +408,8 @@ export class WorldDamagePresenter {
   }
 
   destroy(): void {
+    for (const timer of this.landing) clearTimeout(timer);
+    this.landing.clear();
     this.hpListeners.clear();
     this.engine.structureBars?.clear();
     this.unsubscribe?.();

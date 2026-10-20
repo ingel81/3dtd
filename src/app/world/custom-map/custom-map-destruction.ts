@@ -1,4 +1,4 @@
-import type { WorldDestruction, WorldGroundDamage, WorldStructure } from '../world-provider';
+import type { FallImpactAt, WorldDestruction, WorldGroundDamage, WorldStructure } from '../world-provider';
 import { RUN_STRUCTURE_ROUNDING, type RunStructure } from '../../sim/protocol/run-rules';
 import { presetHp, type StructureStage } from '../../configs/destruction.config';
 import { type CustomMapDocument, type MapObject, MAP_METERS_PER_DEGREE, STRUCTURE_HP_SCALE } from './map-document';
@@ -109,6 +109,8 @@ export class CustomMapDestruction implements WorldDestruction {
      * (a load, a new run, a restore, a seek: a fallen one lies as it fell)
      */
     private readonly damaged: (changes: readonly StageChange[], now: boolean) => void = () => undefined,
+    /** Where and when the object of id hits the ground as it falls now (the view's ruin), null where it does not */
+    private readonly impact: (id: string) => FallImpactAt | null = () => null,
   ) {}
 
   /** The catalogue's entries: from now on the map's buildings, walls and structures take damage */
@@ -168,6 +170,11 @@ export class CustomMapDestruction implements WorldDestruction {
     const changes: StageChange[] = [];
     this.change(index, stage, heading, changes);
     this.tell(changes, true);
+  }
+
+  impactOf(index: number): FallImpactAt | null {
+    const s = this.list[index];
+    return s ? this.impact(s.id) : null;
   }
 
   private change(i: number, stage: StructureStage, heading: number, changes: StageChange[]): void {

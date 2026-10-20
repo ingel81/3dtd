@@ -211,7 +211,7 @@ export class CustomMapWorld implements WorldProvider {
       : null;
     this.groundDamage = ground;
     this.destruction = damaged
-      ? new CustomMapDestruction(() => this.doc, (fallen) => this.fell(fallen), (risen) => this.rose(risen), destructible, ground, (changes, now) => this.damageChanged(changes, now))
+      ? new CustomMapDestruction(() => this.doc, (fallen) => this.fell(fallen), (risen) => this.rose(risen), destructible, ground, (changes, now) => this.damageChanged(changes, now), (id) => this.view?.impactOf(id) ?? null)
       : null;
     this.sync = new EllipsoidSync(origin.lat, origin.lon, origin.height);
     this.frame.setOrigin(origin.lat, origin.lon);

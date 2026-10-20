@@ -249,21 +249,32 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   eine Konstante ihres Materials. So bleibt ein Dreieck ganz, die Bruchlinien folgen dem Netz. Die Nachtfenster einer
   Ruine sind aus, ihr Material liest `nightGlow` nicht.
   - `tip` (bisher): starr um den Fuß, sinkt.
-  - `sag`: kommt Stockwerk um Stockwerk von oben in sich zusammen, jedes ein kurzer Ruck und ein Halt, schneller werdend,
-    die Seite, zu der es sich neigt, zuerst; was unten ist, wird gestaucht, beult nach außen und sinkt am Ende in den
-    Stumpf. Jeder Punkt für sich (stetig), so bleiben die Wände ganz und knicken; 1,25 mal die Falldauer.
-  - `chunks`: der Oberteil zerbricht an einem Schnitt quer zur Richtung und einem längs in Stücke, die nacheinander
-    kippen, eines dreht stärker, sein oberes Stück bricht vorher ab; die Rückwand steht einen Moment länger und fällt
-    ins Loch. Die Stücke landen (Fall auf den Boden, ein Stoß) und zerbröseln (Fragment nach Korn, verkohlt am Rand).
-    1,9 mal die Falldauer.
-  - `tip-break`: kippt wie `tip`, bricht aber in zwei oder drei Bänder (`collapseCuts`), die nachhängen (die Fuge öffnet
-    vorn), liegt flach, die Bänder auseinander gerutscht, setzt auf und zerbröselt. 1,9 mal die Falldauer.
-  - In `chunks` und `tip-break` geht ein Dreieck über der Bruchkante ganz mit der Seite seines Ankers, statt zu
+  - Runde 1 (sag, chunks, tip-break) hat der User verworfen: unglaubwürdig, `tip` war noch das Beste. Runde 2 baut auf
+    `tip` auf und nimmt, was Spiele mit kleinem Budget glaubwürdig macht: ein Moment, in dem es nachgibt, ehe es fällt;
+    Fallen unter dem eigenen Gewicht (langsam, dann schnell) statt gleichmäßig; Aufschlagen statt Einsinken, und der Bruch
+    beim Aufschlag in wenige große Stücke; Staub genau dort und dann, wo die Form wechselt, damit der Wechsel zum Schutt
+    unter ihm geschieht. Verworfen für jetzt: vorab zerlegte Netze (eigene Assets je Modell), Kameraruck (Spielgefühl,
+    nicht Bild).
+  - `impact`: der Fuß gibt nach (ein paar Dezimeter, 0,3 s), dann kippt es wie ein Stab um seinen Fuß, der Winkel
+    0,12·cosh(ω t) mit ω aus der Länge (beschleunigt), die oberen Stockwerke hängen nach (es biegt sich, gerade wieder,
+    wenn es liegt), bis es über die Waagrechte hinaus auf dem Boden liegt (soweit sein Stumpf es den Boden erreichen
+    lässt); es federt zurück, bricht an den Höhen von `collapseCuts` in Bänder, die weiter vorn ein Stück rutschen,
+    springen und sich um ihre Linie drehen, und zerbröselt binnen 2,4 s unter dem Staub, sinkt dabei 0,6 m ein.
+    `fallTiming` (CPU) und `dmgTiming` (Shader) rechnen dieselben Zahlen; Aufschlag nach 1,4 bis 3,5 s.
+  - `buckle`: wie `impact`, doch es hält 0,75 s: der Fuß sackt um bis zu 30 % des Stumpfs, rutscht zurück und zittert,
+    dann fällt es, stärker gebogen.
+  - Aufschlag (`fallImpact`, `WorldDestruction.impactOf`): der Presenter legt beim Fall einen Zeitgeber auf den Aufschlag
+    (`WorldDamagePresenter.landed`): eine Staubwand an fünf Punkten entlang der Länge, Rauchwolken ohne Feuerball, Splitter
+    und Brocken der Materialklasse, der Schutt-Ton. Kein Rechnen je Bild.
+  - Grundriss-Gebäude fallen ganz (alle Wände ein Stück bis zum Aufschlag, die Wände an den Schnitthöhen geteilt), kein
+    Kartenhaus.
+  - In `impact` und `buckle` geht ein Dreieck über der Bruchkante ganz mit der Seite seines Ankers, statt zu
     verschwinden (Stützen eines Gerippes fallen mit), was eines stehenden darüber reicht, geht.
-  - Umschalten: Fenster „Destruction“, Zeile „Collapse“ (Tip, Sag, Chunks, Tip+break), in der Adresse `?collapse=sag`,
-    in DevTools `__worldDamage.collapse('chunks')`. Vergleich: `e2e/perf/collapse-probe.ts` lässt dieselben Gebäude in
+  - Umschalten: Fenster „Destruction“, Zeile „Collapse“ (Tip, Impact, Buckle), in der Adresse `?collapse=impact`,
+    in DevTools `__worldDamage.collapse('buckle')`. Vergleich: `e2e/perf/collapse-probe.ts` lässt dieselben Gebäude in
     jeder Variante aus derselben Richtung fallen und nimmt je Fall einen Clip auf.
-  - Gemessen (Ruined City, Chrome, 60 Hz): kein Bild über 16,7 ms während eines Falls in jeder Variante, ohne Aufnahme;
+  - Gemessen (Ruined City und Testkarte mit Rundturm und Grundriss-Gebäude, Chrome, 60 Hz, in Runde 2 auch während der
+    Aufnahme): kein Bild über 16,7 ms während eines Falls in jeder Variante;
     keine neuen Programme, die Draw Calls je Asset und Stufe wie vorher (keine neuen Meshes). Kosten: größerer Vertex-Shader der Ruinen
     (nur Ruinen zeichnen ihn), eine Zahl je Ecke der Ruinen-Modelle, die ohne Index gezeichnet werden (bis dreimal so
     viele Ecken, nur in den Ruinen-Batches); kein Attributplatz mehr als vor E259.
