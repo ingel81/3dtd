@@ -736,6 +736,29 @@ describe('Worlds stage', () => {
     await vi.waitFor(() => expect(library.restoreMap).toHaveBeenCalledWith('bay~1'));
   });
 
+  it("OpenStreetMap offers the real places' place only after their game on this visit", async () => {
+    const f = await open({ key: true });
+    const stage = TestBed.inject(WorldsStageService);
+    stage.pick('real', { kind: 'place', hq: { lat: 49.14, lon: 9.22 }, spawns: [], name: 'Heilbronn' });
+    stage.openWorld('osm');
+    await settle(f);
+    // A place picked (on an earlier visit, say) but not played now: no row, nobody would know where it comes from
+    expect(button(f, /This place as an OSM map/)).toBeUndefined();
+
+    stage.start('real');
+    expect(opened).toHaveLength(1);
+    stage.openWorld('osm');
+    await settle(f);
+    expect(text(button(f, /This place as an OSM map/))).toBe('This place as an OSM map From your game in Real places: Heilbronn');
+
+    // A world loaded after it: the row goes again
+    stage.pick('maps', { kind: 'map', id: 'demo-valley', name: 'Demo Valley' });
+    stage.start('maps');
+    stage.openWorld('osm');
+    await settle(f);
+    expect(button(f, /This place as an OSM map/)).toBeUndefined();
+  });
+
   it('the trash folds: folded at first with its count, open by its head, kept over a visit, opened by a delete', async () => {
     trashed = [
       summary({ id: 'bay~1', name: 'Bay', origin: 'own', trash: { from: 'bay', at: new Date().toISOString(), created: '' } } as Partial<MapSummary> & { id: string; name: string }),

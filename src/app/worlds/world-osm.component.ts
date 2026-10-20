@@ -43,7 +43,7 @@ import { injectT } from '../i18n/i18n.service';
               <button type="button" class="td-row wm-row" (click)="frameAt(place.hq.lat, place.hq.lon, place.name, place.spawns)">
                 <span class="wm-row-name">
                   <span class="td-name">{{ w.useRealPlace }}</span>
-                  <small class="td-note">{{ place.name }}</small>
+                  <small class="td-note">{{ w.realPlaceFrom(place.name) }}</small>
                 </span>
               </button>
             </div>
@@ -126,7 +126,9 @@ export class WorldOsmComponent {
     if (!id || !pick) return null;
     return this.stage.maps().find((m) => m.id === id) ?? { id, name: pick.name, description: '', spawns: 0 };
   });
+  /** The real places' place, offered only when the last world loaded on this visit was theirs (back from its game) */
   readonly realPlace = computed(() => {
+    if (this.stage.openedLast() !== 'real') return null;
     const pick = this.stage.picks().real;
     return pick?.kind === 'place' ? pick : null;
   });

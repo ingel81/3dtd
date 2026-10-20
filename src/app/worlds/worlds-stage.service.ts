@@ -164,6 +164,8 @@ export class WorldsStageService {
   /** The dice rolls */
   readonly rolling = signal(false);
   readonly lastPlayed = signal<WorldId | null>(readLastWorld());
+  /** The world last loaded on this visit, not kept over a reload (OpenStreetMap offers the real places' place after their game) */
+  readonly openedLast = signal<WorldId | null>(null);
   /** A map picked before the list said whether it is of OpenStreetMap: placed in its world once it does */
   private pendingMap: Extract<WorldPick, { kind: 'map' }> | null = null;
 
@@ -873,6 +875,7 @@ export class WorldsStageService {
     this.notice.set(null);
     this.leavingHeld(() => {
       this.lastPlayed.set(world);
+      this.openedLast.set(world);
       writeJson(LAST_WORLD_KEY, world);
       this.session.open(order);
     });
