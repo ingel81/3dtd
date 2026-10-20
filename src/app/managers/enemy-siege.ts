@@ -24,6 +24,9 @@ export const SIEGE_FACE_SHARE = 0.7;
 
 const TAU = Math.PI * 2;
 
+/** Off the body's forward by more than this a structure lies to one side of the way (EnemyGun.side), rad */
+export const SIEGE_SIDE_FROM_RAD = 0.35;
+
 /** A turn into -π..π */
 function wrap(angle: number): number {
   return angle - TAU * Math.round(angle / TAU);
@@ -41,7 +44,10 @@ function toward(value: number, target: number, step: number): number {
  * enemy manager holds them.
  *
  * A gun with no structure looks for the nearest one in reach that a shell
- * can damage (StructureLedger.nearestTarget), every SIEGE_SEARCH_MS. Its
+ * can damage (StructureLedger.nearestTarget), every SIEGE_SEARCH_MS, on the
+ * side of its way it keeps to (EnemyGun.side, sideHoldMs): the other side's
+ * only when well nearer or with none left here, and the side turns over
+ * only after a while on it (the turret swings across meanwhile). Its
  * turret turns from the body's forward towards it at the type's turn rate,
  * the body turning under it as the enemy walks its route; the guns tilt to
  * a point SIEGE_AIM_SHARE up the structure. Loaded and on target within its
@@ -76,6 +82,7 @@ export class EnemySiege {
         if (gun.shellMs <= 0) this.land(enemy, gun, siege);
       }
       if (!enemy.alive) continue;
+      if (gun.side !== 0) gun.sideMs += stepMs;
       const m = enemy.movement;
       if (m.hasStatusEffects && (m.isStunned(now) || m.isFrozen(now))) continue;
       if (gun.cooldownMs > 0) gun.cooldownMs -= stepMs;
@@ -95,7 +102,7 @@ export class EnemySiege {
     if (gun.target < 0) {
       gun.searchMs -= stepMs;
       if (gun.searchMs <= 0) {
-        gun.target = structures.nearestTarget(ex, ey, siege.rangeM);
+        gun.target = this.pick(enemy, gun, siege, ex, ey);
         gun.searchMs = SIEGE_SEARCH_MS;
       }
     }
@@ -115,6 +122,28 @@ export class EnemySiege {
     gun.yaw = wrap(gun.yaw + Math.sign(wrap(yaw - gun.yaw)) * Math.min(Math.abs(wrap(yaw - gun.yaw)), turn));
     gun.pitch = toward(gun.pitch, pitch, (siege.pitchRate * stepMs) / 1000);
     return gun.target >= 0 && Math.abs(wrap(yaw - gun.yaw)) <= siege.alignTolerance;
+  }
+
+  /** The structure to take next, -1 for none; a new side from it */
+  private pick(enemy: Enemy, gun: EnemyGun, siege: EnemySiegeConfig, ex: number, ey: number): number {
+    const structures = this.world.structures;
+    const hold = siege.sideHoldMs;
+    const factor = siege.otherSideFactor ?? 1;
+    const target = hold === undefined || gun.side === 0 || factor === 1
+      ? structures.nearestTarget(ex, ey, siege.rangeM)
+      : structures.nearestTarget(ex, ey, siege.rangeM, (index, sq) => (this.sideOf(enemy, index) === -gun.side ? sq / (factor * factor) : sq));
+    const side = target >= 0 ? this.sideOf(enemy, target) : 0;
+    if (side !== 0 && side !== gun.side && (gun.side === 0 || gun.sideMs >= (hold ?? 0))) {
+      gun.side = side;
+      gun.sideMs = 0;
+    }
+    return target;
+  }
+
+  /** Which side of the enemy's way structure `index` lies on, as the sign of the turret's turn to it; 0 within SIEGE_SIDE_FROM_RAD ahead */
+  private sideOf(enemy: Enemy, index: number): number {
+    const yaw = wrap(-geoHeading(enemy.position, this.world.structures.list()[index]) - enemy.transform.rotation);
+    return yaw > SIEGE_SIDE_FROM_RAD ? 1 : yaw < -SIEGE_SIDE_FROM_RAD ? -1 : 0;
   }
 
   /** Structure `index` still takes damage and its ground is in the gun's reach */

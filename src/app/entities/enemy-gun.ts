@@ -33,6 +33,13 @@ export class EnemyGun {
   shellTarget = -1;
   /** Shots fired */
   shots = 0;
+  /**
+   * The side of its way it keeps to (EnemySiegeConfig.sideHoldMs), as the
+   * sign of the turret's turn to it (yaw), 0 none yet: a crab's front faces
+   * it. Game ms since it came to that side
+   */
+  side = 0;
+  sideMs = 0;
 
   constructor(firstShotMs: number) {
     this.cooldownMs = firstShotMs;
@@ -48,5 +55,7 @@ export class EnemyGun {
     sink.num(this.shellX);
     sink.num(this.shellY);
     sink.num(this.shots);
+    sink.num(this.side);
+    sink.num(this.sideMs);
   }
 }

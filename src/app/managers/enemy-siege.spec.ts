@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { EnemySiege, SIEGE_SEARCH_MS, aimHeight } from './enemy-siege';
+import { EnemySiege, SIEGE_SEARCH_MS, SIEGE_SIDE_FROM_RAD, aimHeight } from './enemy-siege';
 import { WorldDamage, type WorldDamageHost } from './game-state/world-damage';
 import { Enemy } from '../entities/enemy.entity';
 import { EnemyGun } from '../entities/enemy-gun';
@@ -97,6 +97,79 @@ describe('EnemySiege', () => {
     gun.searchMs = 0;
     run(STEP);
     expect(gun.target).toBe(1);
+  });
+
+  it('keeps to its side of the way: a house across only when well nearer, the side itself only after a while', () => {
+    const { gun, run, world } = setup([house('east', 30, 0), house('west', -20, 5), house('east-far', 60, 0)]);
+    // The west house is nearer, but not by enough: the gun keeps to its side, east (a negative turn)
+    gun.side = -1;
+    run(STEP);
+    expect(gun.target).toBe(0);
+    // East falls: across to the west house, much nearer than the next east one, the turret alone while the side is held
+    world.shell(30, 0, 5000, 1, 0);
+    gun.target = -1;
+    gun.searchMs = 0;
+    gun.sideMs = 0;
+    run(STEP);
+    expect(gun.target).toBe(1);
+    expect(gun.side).toBe(-1);
+    // Held long enough: the next pick across turns the side over
+    gun.target = -1;
+    gun.searchMs = 0;
+    gun.sideMs = SIEGE.sideHoldMs!;
+    run(STEP);
+    expect(gun.target).toBe(1);
+    expect([gun.side, gun.sideMs]).toEqual([1, 0]);
+  });
+
+  it('takes a side with its first structure', () => {
+    const { gun, run } = setup([house('west', -25, 0)]);
+    run(STEP);
+    expect(gun.target).toBe(0);
+    expect(gun.side).toBe(1);
+  });
+
+  it('turns its front over less often in a street with houses on both sides (side switches as the crab shows them)', () => {
+    // Houses every 15 m on both sides of a street running north, 14 m off its middle; one shell fells each
+    const street: RunStructure[] = [];
+    for (let y = 20; y <= 600; y += 15) street.push(house(`e${y}`, 14, y), house(`w${y}`, -14, y + 7));
+    const switches = (sides: boolean): { switches: number; shots: number } => {
+      const config = ENEMY_TYPES['jumper'].siege!;
+      const kept = { hold: config.sideHoldMs, factor: config.otherSideFactor };
+      if (!sides) {
+        config.sideHoldMs = undefined;
+        config.otherSideFactor = undefined;
+      }
+      try {
+        const { jumper, gun, siege, now } = setup(street);
+        let side = 0;
+        let count = 0;
+        let t = now();
+        // Three minutes along the street at 3 m/s
+        for (let step = 0; step < (180_000 / STEP); step++) {
+          t += STEP;
+          const y = (3 * t) / 1000;
+          jumper.transform.setPosition(geo(0, y).lat, geo(0, y).lon, 0);
+          siege.tick(STEP, t, [jumper]);
+          // A crab's front faces the gun's side (EnemyInstanceManager.setTurret); before these rules it followed
+          // the turret past SIEGE_SIDE_FROM_RAD
+          const next = sides ? gun.side || side : gun.yaw > SIEGE_SIDE_FROM_RAD ? 1 : gun.yaw < -SIEGE_SIDE_FROM_RAD ? -1 : side;
+          if (side !== 0 && next !== side) count++;
+          side = next;
+        }
+        return { switches: count, shots: gun.shots };
+      } finally {
+        config.sideHoldMs = kept.hold;
+        config.otherSideFactor = kept.factor;
+      }
+    };
+    const before = switches(false);
+    const after = switches(true);
+    // As many houses fall either way; nearest first turned the front over 9 times, keeping to a side never here
+    // (the houses across are never well nearer than the next on its own side)
+    expect(after.shots).toBe(before.shots);
+    expect(before.switches).toBeGreaterThanOrEqual(6);
+    expect(after.switches).toBeLessThanOrEqual(1);
   });
 
   it('turns the turret at its turn rate, east as a heading turns (negative), and tilts up to the aim', () => {

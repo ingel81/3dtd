@@ -376,8 +376,8 @@ export class InstancedEnemyRenderer {
   }
 
   /** Where the turret of `slot` points, see EnemyInstanceManager.setTurret */
-  setTurret(slot: EnemyInstanceState, yaw: number, pitch: number): void {
-    this.instanceManager.setTurret(slot, yaw, pitch);
+  setTurret(slot: EnemyInstanceState, yaw: number, pitch: number, side = 0): void {
+    this.instanceManager.setTurret(slot, yaw, pitch, side);
   }
 
   /** The guns of enemy `id` fire now, see EnemyInstanceManager.fireTurret */

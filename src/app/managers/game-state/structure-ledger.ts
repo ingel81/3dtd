@@ -271,19 +271,21 @@ export class StructureLedger {
   /**
    * The standing structure nearest map metres (`x`, `y`) whose ground comes
    * within `reach` m, that a hit can damage (no tower on its roof); -1 for
-   * none. Nearest by its middle; of two alike the first in the run rules'
-   * order, on every client the same.
+   * none. Nearest by its middle, or least by `cost` of the structure and its
+   * squared distance; of two alike the first in the run rules' order, on
+   * every client the same.
    */
-  nearestTarget(x: number, y: number, reach: number): number {
+  nearestTarget(x: number, y: number, reach: number, cost?: (index: number, sq: number) => number): number {
     let best = -1;
-    let bestSq = Infinity;
+    let bestCost = Infinity;
     for (const i of this.near(x, y, reach)) {
       const dx = this.x[i] - x;
       const dy = this.y[i] - y;
       const sq = dx * dx + dy * dy;
-      if (sq < bestSq && this.takesDamage(i)) {
+      const c = cost ? cost(i, sq) : sq;
+      if (c < bestCost && this.takesDamage(i)) {
         best = i;
-        bestSq = sq;
+        bestCost = c;
       }
     }
     return best;

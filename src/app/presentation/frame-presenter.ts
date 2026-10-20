@@ -31,6 +31,7 @@ import {
   ENEMY_STRIDE,
   G_ID,
   G_PITCH,
+  G_SIDE,
   G_YAW,
   GUN_STRIDE,
   P_DX,
@@ -348,7 +349,7 @@ export class FramePresenter {
       if (record === undefined || record.seen !== frame) continue;
       const yaw = d[o + G_YAW];
       const slot = record.slot;
-      if (slot !== null && !slot.released) this.engine.enemies.setTurret(slot, yaw, d[o + G_PITCH]);
+      if (slot !== null && !slot.released) this.engine.enemies.setTurret(slot, yaw, d[o + G_PITCH], d[o + G_SIDE]);
       let at: Vector3 | null = null;
       if (record.row >= 0 && e !== null) {
         at = this.engine.sync.geoToLocalSimpleInto(e[record.row + E_LAT], e[record.row + E_LON], 0, this.gunAt);

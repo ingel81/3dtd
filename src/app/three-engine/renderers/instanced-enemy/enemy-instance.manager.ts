@@ -32,8 +32,6 @@ const INITIAL_INSTANCES_PER_TYPE = 512;
 const UP = new Vector3(0, 1, 0);
 /** A crab's body stands across its way (EnemyTypeConfig.crabGait), its side clip plays from this turn on */
 const CRAB_ACROSS = Math.PI / 4;
-/** How far its guns aim to one side before a crab turns its front there, rad: no turning to and fro about ahead */
-const CRAB_SIDE_SWITCH = 0.35;
 
 /** Per-enemy animation and visual state */
 export interface EnemyInstanceState {
@@ -585,13 +583,13 @@ export class EnemyInstanceManager {
    * `yaw` from the body's forward and the guns tilted by `pitch`, rad, as the
    * simulation has it. The turn slides from where it is shown, on the clock
    * of the bodies' slide (beginState); a type without turret joints ignores it.
-   * A crab turns its front to the side the guns aim at, the turret the rest.
+   * A crab turns its front to the gun's `side` (EnemyGun.side, kept a while
+   * by the simulation), the turret the rest; with 0 it keeps the one it has.
    */
-  setTurret(state: EnemyInstanceState, yaw: number, pitch: number): void {
+  setTurret(state: EnemyInstanceState, yaw: number, pitch: number, side = 0): void {
     if (state.released) return;
     if (state.config.crabGait) {
-      if (yaw > CRAB_SIDE_SWITCH) state.crabSide = 1;
-      else if (yaw < -CRAB_SIDE_SWITCH) state.crabSide = -1;
+      if (side !== 0) state.crabSide = Math.sign(side);
       yaw = wrapAngle(yaw - state.bodyTurn);
     }
     const attr = state.pool.turretAttr;

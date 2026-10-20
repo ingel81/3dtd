@@ -90,18 +90,21 @@ describe('crab gait (EnemyTypeConfig.crabGait)', () => {
     }
   });
 
-  it('turns its front to the side its guns aim at, past the walk, the turret keeping its aim', () => {
+  it("turns its front to its gun's side, past the walk, the turret keeping its aim", () => {
     // Turret joints without a model: the attribute the shader would read
     pool.turretAttr = new InstancedBufferAttribute(new Float32Array(manager.capacityOf('jumper') * 4), 4);
     const state = manager.addEnemy('enemy-1', 'jumper', new Vector3(), 0)!;
     state.crabSide = -1;
     state.bodyTurn = -HALF;
-    // Aim a little left of ahead: not enough to turn
-    manager.setTurret(state, 0.2, 0);
+    // The guns aim across while the simulation keeps the side: the turret alone turns
+    manager.setTurret(state, 1, 0, -1);
     expect(state.crabSide).toBe(-1);
-    expect(state.turretYaw).toBeCloseTo(0.2 + HALF, 6);
+    expect(state.turretYaw).toBeCloseTo(1 + HALF, 6);
+    // No side yet: it keeps the one it has
+    manager.setTurret(state, 1, 0, 0);
+    expect(state.crabSide).toBe(-1);
 
-    manager.setTurret(state, 1, 0);
+    manager.setTurret(state, 1, 0, 1);
     expect(state.crabSide).toBe(1);
     const seen = new Set<string>();
     const dt = 0.05;
@@ -114,7 +117,7 @@ describe('crab gait (EnemyTypeConfig.crabGait)', () => {
     expect(state.bodyTurn).toBe(HALF);
     expect(state.crabReverse).toBe(true);
     // The guns aim where the simulation has them, whatever the body does
-    manager.setTurret(state, 1, 0);
+    manager.setTurret(state, 1, 0, 1);
     expect(state.turretYaw + state.bodyTurn).toBeCloseTo(1, 6);
   });
 

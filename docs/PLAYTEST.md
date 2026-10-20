@@ -486,10 +486,11 @@ erzeugt und nach Messwerten ausgewählt, nicht angehört: bei jedem Klang sagen,
   Atomschlag nehmen, bis er fällt. *Er sackt zusammen: Beine knicken nach außen, Bauch auf den Boden, Rohre sinken,
   er rollt etwas zur Seite; schwerer Explosionsklang, Beben; nichts versinkt im Boden. „Kill“ unter Cheats zeigt den
   Tod ohne Klang (kein Kill eines Towers).*
-- **M8 Krebsgang beim Zielen:** in M3 auf den Rumpf achten, wenn er auf ein Gebäude auf der anderen Seite der
-  Route zielt. *Er dreht den Rumpf in etwa 2,6 s über vorn (dabei kurz normaler Gang) auf die Seite des Ziels und
-  läuft dann in die andere Richtung seitwärts weiter; die Rohre bleiben dabei auf dem Ziel, die Schritte setzen ohne
-  Sprung fort. Zielt er nur knapp neben vorn, bleibt er auf seiner Seite.*
+- **M8 Krebsgang beim Zielen:** in M3 eine Straße mit Häusern auf beiden Seiten abwarten und auf den Rumpf achten.
+  *Er bleibt mehrere Schüsse auf einer Seite und nimmt die Häuser dort; schießt er doch auf die andere Seite (dort
+  viel näher oder auf seiner keines mehr), schwenkt nur der Turm hinüber. Den Rumpf dreht er höchstens alle 16 s,
+  ruhig in etwa 3,5 s über vorn (dabei kurz normaler Gang), und läuft dann in die andere Richtung seitwärts weiter;
+  die Rohre bleiben auf dem Ziel, die Schritte setzen ohne Sprung fort. In Ruined City etwa einmal je Minute.*
 - **M9 Vorschau:** Enemy Debug, Typ „Jumper“, und in der Wellenvorschau von W45. *Drehbild ganz im Rahmen, Beine
   laufen.*
 

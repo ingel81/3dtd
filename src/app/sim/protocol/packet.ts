@@ -142,7 +142,9 @@ export const G_ID = 0;
 export const G_YAW = 1;
 /** EnemyGun.pitch: the guns' tilt, rad, muzzle up positive */
 export const G_PITCH = 2;
-export const GUN_STRIDE = 3;
+/** EnemyGun.side: the side of its way it keeps to, as the sign of the turret's turn there, 0 none yet (a crab faces it) */
+export const G_SIDE = 3;
+export const GUN_STRIDE = 4;
 
 /** A table: rows of `stride` numbers, `count` of them valid. */
 export interface SimTable {

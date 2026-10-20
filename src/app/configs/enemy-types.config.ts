@@ -142,11 +142,22 @@ export interface EnemySiegeConfig {
   splashRadiusM: number;
   /** The crater it digs where the world takes craters, m */
   craterRadiusM: number;
+  /**
+   * It keeps to one side of its way (EnemyGun.side, a crab's front faces it):
+   * a structure on the other side only if nearer than `otherSideFactor` times
+   * the nearest here, or with none left here, the turret swinging over alone;
+   * the side itself turns over only after this long on it. A walker in a
+   * street with houses on both sides turns its front over now and then, not
+   * after every house. Game ms; missing: the nearest, the side follows it
+   */
+  sideHoldMs?: number;
+  otherSideFactor?: number;
 }
 
 /**
  * A crab's gait (the jumper): the body goes sideways along its route and
- * turns its front to the side its turret aims at, the side it keeps while
+ * turns its front to its gun's side (EnemyGun.side, which the simulation
+ * keeps a while, EnemySiegeConfig.sideHoldMs), the side it keeps while
  * nothing is in reach. Presentation only (EnemyInstanceManager): the
  * simulation moves the enemy along its route as any other, its heading the
  * way it goes. While the body stands across that way the side clip plays,
@@ -1601,12 +1612,15 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
       structureDamage: 1200,
       splashRadiusM: 5,
       craterRadiusM: 3.5,
+      // Three shots or so on one side of a street before the front turns to the other, and only for a house well nearer
+      sideHoldMs: 16_000,
+      otherSideFactor: 0.5,
     },
     crabGait: {
       // Scuttle: Walk's legs stepping across (tools/blender/jumper_boss.py); its pairs lift at 0 and 0.5
       sideAnimation: 'Scuttle',
-      // Half a turn, one side to the other, in about 2.6 s: in a street it turns to a target on each side in turn
-      turnRate: 1.2,
+      // Half a turn, one side to the other, in about 3.5 s: heavy, and it keeps a side a while (siege.sideHoldMs)
+      turnRate: 0.9,
       reverseFootstepPhases: [0, 0.5],
     },
     previewScale: 1.25,
