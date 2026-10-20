@@ -202,7 +202,7 @@ async function runTour(page: Page, size: string): Promise<Tour> {
   });
 
   await tour.step('start menu loaded', async () => {
-    const play = menu(page).getByRole('menuitem', { name: /^(Play|Continue)/ }).first();
+    const play = menu(page).locator('[data-entry="play"]');
     await expect(play).toBeEnabled({ timeout: 120_000 });
     await page.waitForTimeout(1500);
     await tour.shot('start-ready');
