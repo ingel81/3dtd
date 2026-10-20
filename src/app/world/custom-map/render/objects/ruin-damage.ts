@@ -59,11 +59,13 @@ export const DAMAGE_UNIFORMS: {
   uCrackMap: { value: Texture | null };
   uCollapse: { value: number };
   uRuinHoles: { value: Texture };
+  uHoleSlots: { value: number };
 } = {
   uDamageTime: { value: 0 },
   uCrackMap: { value: null },
   uCollapse: { value: 0 },
   uRuinHoles: { value: RUIN_HOLES.texture },
+  uHoleSlots: { value: HOLE_SLOTS },
 };
 RUIN_HOLES.onTexture((t) => (DAMAGE_UNIFORMS.uRuinHoles.value = t));
 
@@ -396,75 +398,69 @@ float dmgHoleRow(vec4 a) {
 float dmgHeading(vec4 a) {
   return a.z - 8.0 * floor((a.z + 4.0) / 8.0);
 }
-// Hole k of a row: centre and radius; the time it opened or grew, its rim's number
-vec4 dmgHole(float row, int k) {
-  return texelFetch(uRuinHoles, ivec2(k * 2, int(row)), 0);
-}
-vec4 dmgHoleTime(float row, int k) {
-  return texelFetch(uRuinHoles, ivec2(k * 2 + 1, int(row)), 0);
-}
-// Metres outside the ruin's holes at p (negative inside), a little wider than high, the rims ragged by angle and
-// height, each opening as it is hit; 1e3 for a ruin without
-float dmgHoles(vec3 p, vec4 a) {
+// A row's holes, HOLE_SLOTS at most (a uniform, so the loop over them stays a loop: unrolled, its body six times
+// over made each ruin program slow to translate, E274)
+uniform int uHoleSlots;
+// What one pass over a ruin's holes at a point found (dmgScanHoles)
+struct DmgHoleScan {
+  // Metres outside the holes (negative inside), a little wider than high, the rims ragged; 1e3 without (edges only)
+  float edge;
+  // The column over a large hole p lies in: when it starts to come down (-1 for none) and the floor it comes onto
+  float sagStart;
+  float sagFloor;
+  // How low the break line dips to the holes at p, and the holes punched (their highest order)
+  float dip;
+  float punched;
+};
+// One pass over the ruin's holes at p, in order up to the first empty slot (RuinHoles fills a row from the left).
+// Each opens as it is hit, its rim ragged by angle and height (edges). Over a large hole (2.2 m and more) a ragged
+// column (0.85 its radius at the hole, narrowing up, ragged round and up it), from 0.4 to 2 or 2.9 radii over its
+// middle, comes down onto the floor under it (sag)
+DmgHoleScan dmgScanHoles(vec3 p, vec4 a, bool edges, bool sag) {
+  DmgHoleScan s = DmgHoleScan(1e3, -1.0, 0.0, 1e3, 0.0);
   float row = dmgHoleRow(a);
-  float best = 1e3;
-  if (row < 0.0) return best;
-  for (int k = 0; k < ${HOLE_SLOTS}; k++) {
-    vec4 h = dmgHole(row, k);
-    if (h.w <= 0.0) continue;
-    vec4 t = dmgHoleTime(row, k);
-    vec3 q = p - h.xyz;
-    float ang = atan(q.z, q.x);
-    float jag = dmgNoise(vec2(ang * 2.6, q.y * 0.9) + t.y) * 0.55 + dmgNoise(vec2(ang * 9.0, q.y * 3.1) + t.y) * 0.25;
-    float open = smoothstep(0.0, 0.3, uDamageTime - t.x);
-    best = min(best, length(q * vec3(1.0, 1.25, 1.0)) - h.w * open * (0.7 + jag));
-  }
-  return best;
-}
-// Over a large hole (2.2 m and more) a ragged column (0.85 its radius at the hole, narrowing up, ragged round and up
-// it), from 0.4 to 2 or 2.9 radii over its middle, comes down onto the floor under it (floorY): when it starts to, or
-// -1 where p lies in no such column
-float dmgSagStart(vec3 p, vec4 a, out float floorY) {
-  floorY = 0.0;
-  float row = dmgHoleRow(a);
-  if (row < 0.0) return -1.0;
-  for (int k = 0; k < ${HOLE_SLOTS}; k++) {
-    vec4 h = dmgHole(row, k);
-    if (h.w < 2.2) continue;
-    vec4 t = dmgHoleTime(row, k);
-    vec2 q = p.xz - h.xz;
-    // Ragged round it and up it, narrowing to the top: no cylinder
-    float ang = atan(q.y, q.x);
-    float up = (p.y - h.y) / h.w;
-    float reach = h.w * (0.85 - 0.15 * up) * (0.65 + 0.45 * dmgNoise(vec2(ang * 1.7, p.y * 0.35 + t.y)) + 0.2 * dmgNoise(vec2(ang * 5.3, p.y * 1.3)));
-    float top = 2.0 + 0.9 * dmgNoise(p.xz * 0.45 + t.y);
-    if (length(q) < reach && up > 0.4 && up < top) {
-      floorY = h.y - h.w * 0.5;
-      return t.x + 0.25;
+  if (row < 0.0) return s;
+  int y = int(row);
+  for (int k = 0; k < uHoleSlots; k++) {
+    vec4 h = texelFetch(uRuinHoles, ivec2(k * 2, y), 0);
+    if (h.w <= 0.0) break;
+    vec4 t = texelFetch(uRuinHoles, ivec2(k * 2 + 1, y), 0);
+    s.dip = min(s.dip, h.y - 0.6 * h.w + 0.7 * length(p.xz - h.xz));
+    s.punched = max(s.punched, t.z);
+    if (edges) {
+      vec3 q = p - h.xyz;
+      float ang = atan(q.z, q.x);
+      float jag = dmgNoise(vec2(ang * 2.6, q.y * 0.9) + t.y) * 0.55 + dmgNoise(vec2(ang * 9.0, q.y * 3.1) + t.y) * 0.25;
+      float open = smoothstep(0.0, 0.3, uDamageTime - t.x);
+      s.edge = min(s.edge, length(q * vec3(1.0, 1.25, 1.0)) - h.w * open * (0.7 + jag));
+    }
+    if (sag && s.sagStart < 0.0 && h.w >= 2.2) {
+      vec2 q = p.xz - h.xz;
+      // Ragged round it and up it, narrowing to the top: no cylinder
+      float ang = atan(q.y, q.x);
+      float up = (p.y - h.y) / h.w;
+      float reach = h.w * (0.85 - 0.15 * up) * (0.65 + 0.45 * dmgNoise(vec2(ang * 1.7, p.y * 0.35 + t.y)) + 0.2 * dmgNoise(vec2(ang * 5.3, p.y * 1.3)));
+      float top = 2.0 + 0.9 * dmgNoise(p.xz * 0.45 + t.y);
+      if (length(q) < reach && up > 0.4 && up < top) {
+        s.sagFloor = h.y - h.w * 0.5;
+        s.sagStart = t.x + 0.25;
+      }
     }
   }
-  return -1.0;
+  return s;
 }
-// A break line worn by the holes: it dips to each (where it was hit it gives way first), and the more holes were
-// punched (their highest order), the lower all of it, down to the ground after WORN_OUT of them: a ruin under fire
+// A break line worn by the holes (a scan's dip and punched): it dips to each (where it was hit it gives way first),
+// and the more holes were punched, the lower all of it, down to the ground after WORN_OUT of them: a ruin under fire
 // wears away to its rubble
-float dmgWorn(vec3 p, float cut, vec4 a, vec4 b) {
-  float row = dmgHoleRow(a);
-  if (row < 0.0) return cut;
+float dmgWorn(float cut, DmgHoleScan s, vec4 a, vec4 b) {
   float seat = dmgSeat(a, b);
-  float punched = 0.0;
-  for (int k = 0; k < ${HOLE_SLOTS}; k++) {
-    vec4 h = dmgHole(row, k);
-    if (h.w <= 0.0) continue;
-    cut = min(cut, max(seat + 0.05, h.y - 0.6 * h.w + 0.7 * length(p.xz - h.xz)));
-    punched = max(punched, dmgHoleTime(row, k).z);
-  }
-  return seat + (cut - seat) * clamp(1.0 - (punched - 2.0) / ${WORN_OUT.toFixed(1)}, 0.0, 1.0);
+  cut = min(cut, max(seat + 0.05, s.dip));
+  return seat + (cut - seat) * clamp(1.0 - (s.punched - 2.0) / ${WORN_OUT.toFixed(1)}, 0.0, 1.0);
 }
 // cave-in: the break line, low ragged stumps inside rising steeply to the walls (6 m and a quarter of the height
 // over the seat at most), those on the side of the hit (against the heading) lower, dipping to the holes; its rim
 // ragged by angle only, so nothing stays standing as an island
-float dmgCaveCut(vec3 p, vec4 a, vec4 b, vec4 c) {
+float dmgCaveCut(vec3 p, vec4 a, vec4 b, vec4 c, DmgHoleScan holes) {
   float seat = dmgSeat(a, b);
   float roll = dmgRollOf(a) * 17.0;
   vec2 off = p.xz - c.xy;
@@ -478,7 +474,7 @@ float dmgCaveCut(vec3 p, vec4 a, vec4 b, vec4 c) {
   float away = 0.55 + 0.45 * dot(dir, vec2(cos(dmgHeading(a)), sin(dmgHeading(a))));
   float walls = min(c.w - seat, 6.0 + 0.25 * (c.w - seat));
   cut += outer * outer * walls * away;
-  return dmgWorn(p, cut, a, b);
+  return dmgWorn(cut, holes, a, b);
 }
 // cave-in: where a falling part comes to rest, the highest floor (a storey of 3 m) under the break line, through up
 // to two of them in patches of 4 m; else the ground
@@ -526,10 +522,8 @@ mat4 dmgFallTip(float t) {
 // cave-in: what stands above the break line falls as one (one motion: no triangle stretches): the foot gives a
 // quarter metre with a shudder, then it comes down heavily, straight and a little inwards, until it reaches where it
 // lands (dmgCaveLanding) and is gone (vDmgFall 0: the fragment draws it only while every corner falls)
-vec3 dmgCaveFall(vec3 p) {
-  float s = uDamageTime - aDamage.y;
-  if (s <= 0.0 || s >= ${CAVE_SECONDS.toFixed(2)}) return p;
-  float cut = dmgCaveCut(p, aDamage, aDamageB, aDamageC);
+vec3 dmgCaveFall(vec3 p, float s, DmgHoleScan holes) {
+  float cut = dmgCaveCut(p, aDamage, aDamageB, aDamageC, holes);
   if (p.y <= cut) return p;
   float give = smoothstep(0.0, ${CAVE_HOLD.toFixed(2)}, s);
   float f = max(0.0, s - ${CAVE_HOLD.toFixed(2)});
@@ -540,24 +534,27 @@ vec3 dmgCaveFall(vec3 p) {
   return p + vec3(inward.x, -drop, inward.y);
 }
 // Holed (stage 1 and 2): the column over a large hole comes down until it reaches the floor under the hole
-vec3 dmgSag(vec3 p) {
-  float floorY;
-  float start = dmgSagStart(p, aDamage, floorY);
-  if (start < 0.0) return p;
-  float f = uDamageTime - start;
+vec3 dmgSag(vec3 p, DmgHoleScan holes) {
+  if (holes.sagStart < 0.0) return p;
+  float f = uDamageTime - holes.sagStart;
   if (f <= 0.0 || f >= ${SAG_SECONDS.toFixed(1)}) return p;
   float drop = ${CAVE_FALL.toFixed(2)} * f * f;
-  if (p.y - drop < floorY + 0.3) return p;
+  if (p.y - drop < holes.sagFloor + 0.3) return p;
   vDmgFall = 1.0;
   return p - vec3(0.0, drop, 0.0);
 }
 // Where a point of the ruin is drawn (group frame): at rest, or as it falls
 vec3 damageMove(vec3 p) {
   if (aDamage.x < 0.5) return p;
-  if (aDamage.x < 2.5) return dmgSag(p);
-  if (!dmgTower(aDamageC)) return dmgCaveFall(p);
-  if (p.y < aDamage.w) return p;
   float s = uDamageTime - aDamage.y;
+  bool holed = aDamage.x < 2.5;
+  if (holed || !dmgTower(aDamageC)) {
+    // A cave-in moves only while it falls; one scan of the holes for both
+    if (!holed && (s <= 0.0 || s >= ${CAVE_SECONDS.toFixed(2)})) return p;
+    DmgHoleScan holes = dmgScanHoles(p, aDamage, false, holed);
+    return holed ? dmgSag(p, holes) : dmgCaveFall(p, s, holes);
+  }
+  if (p.y < aDamage.w) return p;
   float dur = damageDuration(aDamage, aDamageB, aDamageC);
   if (s <= 0.0 || s >= dur) return p;
   return (dmgFallTip(s / dur) * vec4(p, 1.0)).xyz;
@@ -592,10 +589,17 @@ const DAMAGE_FRAGMENT_PARS = /* glsl */ `
 uniform float uDamageTime;
 ${COLLAPSE_PARS}
 ${VARYINGS}
-// Height of the ragged break line at a point: broken masonry, not a saw cut (a cave-in's dmgCaveCut)
-float damageCut(vec3 p) {
-  if (!dmgTower(vDmgC)) return dmgCaveCut(p, vDmg, vDmgB, vDmgC);
-  return dmgWorn(p, vDmg.w + (dmgNoise(p.xz * 0.8 + dmgHeading(vDmg)) - 0.5) * 1.3 + (dmgNoise(p.xz * 3.3) - 0.5) * 0.45, vDmg, vDmgB);
+// Height of the ragged break line at a point: broken masonry, not a saw cut (a cave-in's dmgCaveCut), worn by the
+// holes found there
+float damageCut(vec3 p, DmgHoleScan holes) {
+  float cut = 0.0;
+  if (dmgTower(vDmgC)) {
+    cut = vDmg.w + (dmgNoise(p.xz * 0.8 + dmgHeading(vDmg)) - 0.5) * 1.3 + (dmgNoise(p.xz * 3.3) - 0.5) * 0.45;
+    cut = dmgWorn(cut, holes, vDmg, vDmgB);
+  } else {
+    cut = dmgCaveCut(p, vDmg, vDmgB, vDmgC, holes);
+  }
+  return cut;
 }
 // How far a point lies outside the bite, m (negative inside): its edge jagged by angle and height
 float damageBite(vec3 p) {
@@ -604,45 +608,49 @@ float damageBite(vec3 p) {
   float jag = dmgNoise(vec2(a * 2.6, q.y * 0.9) + dmgHeading(vDmg) * 3.0) * 0.55 + dmgNoise(vec2(a * 9.0, q.y * 3.1)) * 0.25;
   return length(q) - dmgBiteR(vDmgB) * (0.7 + jag);
 }
-// Metres to the nearest broken edge (holes, else the bite; the cut), large where there is none
+// Metres to the nearest broken edge (holes, else the bite; once fallen the cut), large where there is none: what
+// damageClip found, which runs first
+float dmgEdgeAt = 1e3;
 float damageEdge() {
-  float e = dmgHoles(vDmgP, vDmg);
-  if (e > 999.0 && vDmg.x > 1.5) e = damageBite(vDmgP);
-  if (vDmg.x > 2.5 && (uDamageTime - vDmg.y) >= damageDuration(vDmg, vDmgB, vDmgC)) e = min(e, damageCut(vDmgP) - vDmgP.y);
-  return e;
+  return dmgEdgeAt;
 }
 // Soot on the surface, which is matte (DAMAGE_COLOR_FRAGMENT sets it, the roughness reads it)
 float dmgSoot = 0.0;
 // Throws away what the damage took: the holes (a ruin without any its bite), the column over a large hole while it
 // does not fall whole and once it came down, a fall's parts as below
 void damageClip() {
+  dmgEdgeAt = 1e3;
   if (vDmg.x < 0.5) return;
-  float holes = dmgHoles(vDmgP, vDmg);
-  if (holes < 0.0) discard;
-  if (holes > 999.0 && vDmg.x > 1.5 && damageBite(vDmgP) < 0.0) discard;
-  if (vDmg.x < 2.5) {
-    float floorY;
-    float start = dmgSagStart(vDmgP, vDmg, floorY);
-    if (start >= 0.0) {
-      float f = uDamageTime - start;
+  bool holed = vDmg.x < 2.5;
+  DmgHoleScan holes = dmgScanHoles(vDmgP, vDmg, true, holed);
+  if (holes.edge < 0.0) discard;
+  dmgEdgeAt = holes.edge;
+  if (holes.edge > 999.0 && vDmg.x > 1.5) {
+    dmgEdgeAt = damageBite(vDmgP);
+    if (dmgEdgeAt < 0.0) discard;
+  }
+  if (holed) {
+    if (holes.sagStart >= 0.0) {
+      float f = uDamageTime - holes.sagStart;
       if (f >= 0.0 && !(f < ${SAG_SECONDS.toFixed(1)} && vDmgFall > 0.999)) discard;
     } else if (vDmgFall > 0.001) discard;
     return;
   }
-  if (vDmg.x > 2.5 && !dmgTower(vDmgC)) {
-    // cave-in: above the line only while all of it falls, below it nothing that falls along; afterwards above goes
-    bool above = vDmgP.y > damageCut(vDmgP);
-    if ((uDamageTime - vDmg.y) < ${CAVE_SECONDS.toFixed(2)}) {
-      if (above ? vDmgFall < 0.999 : vDmgFall > 0.001) discard;
-    } else if (above) discard;
+  bool tower = dmgTower(vDmgC);
+  bool fallen = (uDamageTime - vDmg.y) >= damageDuration(vDmg, vDmgB, vDmgC);
+  if (tower && !fallen) {
+    // A tower: the triangles across the line go while it falls
+    if (vDmgSide > 0.002 && vDmgSide < 0.998) discard;
     return;
   }
-  if (vDmg.x > 2.5) {
-    if ((uDamageTime - vDmg.y) < damageDuration(vDmg, vDmgB, vDmgC)) {
-      // A tower: the triangles across the line go while it falls
-      if (vDmgSide > 0.002 && vDmgSide < 0.998) discard;
-    } else if (vDmgP.y > damageCut(vDmgP)) discard;
-  }
+  float cut = damageCut(vDmgP, holes);
+  bool above = vDmgP.y > cut;
+  if (fallen) {
+    // Afterwards what was above the line is gone
+    if (above) discard;
+    dmgEdgeAt = min(dmgEdgeAt, cut - vDmgP.y);
+  } else if (above ? vDmgFall < 0.999 : vDmgFall > 0.001) discard;
+  // cave-in: above the line only while all of it falls, below it nothing that falls along
 }
 `;
 
