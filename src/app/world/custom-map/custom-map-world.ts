@@ -41,6 +41,7 @@ import { Soundscape } from './ambience/soundscape';
 import { sceneToMap } from './render/map-coords';
 import { emptyPose, introPoseAt } from './map-intro';
 import { massRadius } from './object-mass';
+import { NextFrameGate } from './next-frame-gate';
 import { CUSTOM_MAP_CAPABILITIES, keepOpenedMap, type LoadedCustomMap } from './custom-map-start';
 import { MapStoreError } from './map-file-kind';
 import { en, type Messages } from '../../i18n/messages/en';
@@ -153,6 +154,9 @@ export class CustomMapWorld implements WorldProvider {
   private readonly fallenNow = (id: string): boolean => this.stages.get(id)?.stage === 3;
   /** What the craters wiped out or gave back since the last frame, for the view: taken out in the next (update) */
   private readonly goneLater = new Map<string, boolean>();
+  /** What a strike wiped out and the tiles its craters changed: from the frame after the strike's (E271) */
+  private readonly goneGate = new NextFrameGate();
+  private readonly dugGate = new NextFrameGate();
   /** The structures' holes as the simulation has them, for a view to come */
   private readonly holes = new Map<string, Int32Array>();
   private eventHidden = new Set<string>();
@@ -377,6 +381,8 @@ export class CustomMapWorld implements WorldProvider {
     const now = performance.now();
     const dt = this.lastUpdate ? Math.min(0.25, (now - this.lastUpdate) / 1000) : 0;
     this.lastUpdate = now;
+    this.goneGate.tick();
+    this.dugGate.tick();
     if (!this.view) return;
     // The sun's shadow box around the ground the camera looks at
     camera.getWorldPosition(this.focus);
@@ -386,13 +392,15 @@ export class CustomMapWorld implements WorldProvider {
     if (!this.surface.groundAlong(this.focus, this.lookDirection, this.focus)) this.surface.groundAhead(this.focus, this.lookDirection, this.focus);
     // What the craters wiped out since the last frame leaves the picture, then the craters and the rubble of the
     // last frames, a few tiles at a time
-    if (this.goneLater.size) {
+    // The frame's packets are applied before this update: what a strike wiped out or dug waits for the next frame,
+    // so the strike's frame carries the blast and the falls only (E271: a nuclear strike's impact 37 ms)
+    if (this.goneLater.size && this.goneGate.open) {
       const gone = [...this.goneLater].filter(([, g]) => g).map(([id]) => id);
       const back = [...this.goneLater].filter(([, g]) => !g).map(([id]) => id);
       this.goneLater.clear();
       this.view.setGone(gone, back);
     }
-    this.groundDamage?.flush();
+    if (this.dugGate.open) this.groundDamage?.flush();
     this.view.update(dt, camera, this.focus);
     this.hear(dt, camera);
   }
@@ -758,6 +766,7 @@ export class CustomMapWorld implements WorldProvider {
 
   /** Craters came or went in `rect`: what stands there gone or back */
   private cratersChanged(rect: ObliterationRect): void {
+    this.dugGate.mark();
     this.goneChanged(this.obliteration.update(rect, this.craterCmAt, this.fallenNow));
   }
 
@@ -765,6 +774,7 @@ export class CustomMapWorld implements WorldProvider {
   private goneChanged(change: { gone: readonly string[]; back: readonly string[] }): void {
     if (!change.gone.length && !change.back.length) return;
     // The view takes them out in the next frame, not in the strike's: that one carries the blast and the falls
+    this.goneGate.mark();
     for (const id of change.gone) this.goneLater.set(id, true);
     for (const id of change.back) this.goneLater.set(id, false);
     if (change.back.length) this.surface.setObjectCatalog(this.catalogObjects, this.passingIds, this.outIds());

@@ -110,6 +110,8 @@ const STAGE_TONE = new Color();
 const NO_NEXT = -2;
 /** Milliseconds of batches built before setObjects gives the page a frame: a town's assets were built in one */
 const BUILD_SLICE_MS = 8;
+/** Milliseconds of ruin floors built a frame (buildSlabs): one building's took 3 to 5 */
+const SLABS_MS = 4;
 /** Strongest glow of an object surface (emissive colour times intensity, linear) */
 const MAX_EMISSIVE = 0.55;
 /** Instances an asset's lists have room for: half again of its objects, at least 16, so a brush adds without building anew */
@@ -236,6 +238,12 @@ export class MapObjectLayer {
   private ruinDepth: Material | null = null;
   /** The floors inside the ruins, raised buildings' too (with options.ruins) */
   private readonly slabs: RuinSlabs | null;
+  /**
+   * Ruin floors to build (RuinSlabs.set), by object: the ones that came this frame and the ones due from the next
+   * on, built SLABS_MS a frame (a building's floors took 3 to 5 ms; a nuclear strike's two in its impact frame, E271)
+   */
+  private slabsNow = new Map<string, Parameters<RuinSlabs['set']>>();
+  private slabsDue = new Map<string, Parameters<RuinSlabs['set']>>();
   private readonly materials = new Map<string, Material>();
   /** Shadow materials of rotor parts by seconds a turn (rotorShadow) */
   private readonly rotorShadows = new Map<number, Material>();
@@ -486,7 +494,7 @@ export class MapObjectLayer {
       // The latest damage last: the smouldering nests are the newest ruins' (embers)
       this.damaged.delete(c.id);
       if (c.stage > 0) this.damaged.set(c.id, { stage: c.stage, fallStart: c.fallStart, heading: c.heading ?? null });
-      else this.slabs?.delete(c.id);
+      else this.dropSlabs(c.id);
       if (this.masses.has(c.id)) {
         masses.push(c);
         continue;
@@ -634,7 +642,7 @@ export class MapObjectLayer {
     const masses = ids.filter((id) => this.masses.has(id));
     if (masses.length) void this.masses.remove(masses);
     for (const id of ids) {
-      this.slabs?.delete(id);
+      this.dropSlabs(id);
       // Not built yet: setObjects takes it out once its batch is in
       if (!this.dropOne(id)) this.dropLater?.add(id);
     }
@@ -713,6 +721,7 @@ export class MapObjectLayer {
 
   /** Detail level per object, shadows near `focus` (group space); the wind's clock runs in the environment */
   update(dt: number, camera: Camera, focus?: Vector3): void {
+    this.buildSlabs();
     camera.getWorldPosition(this.camPos);
     this.group.worldToLocal(this.camPos);
     this.focus.copy(focus ?? this.camPos);
@@ -1386,7 +1395,28 @@ export class MapObjectLayer {
         section: (y) => sectionOf(b.model, roof, y),
       }
       : null;
-    this.slabs.set(o.id, frame, shape, stage, fallStart, rubbleMaterialOf(o, b.entry.tags), footprint);
+    this.slabsDue.delete(o.id);
+    this.slabsNow.set(o.id, [o.id, frame, shape, stage, fallStart, rubbleMaterialOf(o, b.entry.tags), footprint]);
+  }
+
+  /** Ruin floors due, SLABS_MS of them; the ones that came this frame are due from the next */
+  private buildSlabs(): void {
+    if (!this.slabs) return;
+    const until = performance.now() + SLABS_MS;
+    for (const [id, args] of this.slabsDue) {
+      if (performance.now() >= until) break;
+      this.slabsDue.delete(id);
+      this.slabs.set(...args);
+    }
+    for (const [id, args] of this.slabsNow) this.slabsDue.set(id, args);
+    this.slabsNow.clear();
+  }
+
+  /** Object `id`'s ruin floors gone, built or waiting */
+  private dropSlabs(id: string): void {
+    this.slabsNow.delete(id);
+    this.slabsDue.delete(id);
+    this.slabs?.delete(id);
   }
 
   /** The shadow pass's material for an asset's rotor parts, shared by assets turning as fast */

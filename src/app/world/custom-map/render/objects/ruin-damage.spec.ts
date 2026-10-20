@@ -1,4 +1,4 @@
-import { BoxGeometry, CylinderGeometry, Group, InstancedMesh, Mesh, MeshStandardMaterial, PlaneGeometry, type Material } from 'three';
+import { BoxGeometry, CylinderGeometry, Group, InstancedMesh, Mesh, MeshStandardMaterial, PerspectiveCamera, PlaneGeometry, type Material } from 'three';
 import { describe, expect, it } from 'vitest';
 import { MASS_ASSET, type MapMass, type MapObject } from '../../map-document';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
@@ -346,7 +346,13 @@ describe('ruin damage: floors and inner walls', () => {
     await layer.setObjects([raised, { id: 'h1', asset: 'house', x: 60, y: 0, z: 0, rotation: 0, scale: 1 }]);
     layer.setDamage([{ id: 'm1', stage: 2, fallStart: FELL_LONG_AGO }, { id: 'h1', stage: 2, fallStart: FELL_LONG_AGO }]);
     const slabs = layer.group.children.find((c) => c.name === 'ruin-slabs') as InstancedMesh;
-    // The block (20 x 12 m, 12 m high): three floors, two inner walls; the house (6 x 4 m, 8 m high): two floors, one wall
+    // The block (20 x 12 m, 12 m high): three floors, two inner walls, at once (the mass layer's)
+    expect(slabs.count).toBe(5);
+    // The house (6 x 4 m, 8 m high): two floors, one wall, from the frame after the damage's (buildSlabs, E271)
+    const camera = new PerspectiveCamera(60);
+    layer.update(0.016, camera);
+    expect(slabs.count).toBe(5);
+    layer.update(0.016, camera);
     expect(slabs.count).toBe(5 + 3);
     layer.dispose();
   });
