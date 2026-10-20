@@ -439,6 +439,27 @@ export class MassLayer {
     await this.rebuild();
   }
 
+  /**
+   * Takes raised buildings away. Ruins only (what a crater wiped out,
+   * crater-obliteration.ts) leave with their ruins' batches built anew, not
+   * every building's; anything else as change does
+   */
+  remove(ids: readonly string[]): Promise<void> {
+    if (!ids.length) return Promise.resolve();
+    if (!this.surfaces || this.generation !== this.built || ids.some((id) => !this.damaged.has(id))) return this.change([], ids);
+    const gone = new Set(ids);
+    this.objects = this.objects.filter((o) => !gone.has(o.id));
+    for (const id of ids) {
+      this.ids.delete(id);
+      this.seats.delete(id);
+      this.damageOptions.slabs?.delete(id);
+    }
+    this.rebuildRuins(this.surfaces);
+    this.version++;
+    this.onChange();
+    return Promise.resolve();
+  }
+
   /** Whether an object with this id is drawn here */
   has(id: string): boolean {
     return this.ids.has(id);
@@ -462,12 +483,18 @@ export class MassLayer {
       this.seats.set(o.id, now);
     }
     if (!moved.size) return;
+    // A ruin's damage holds its heights: one that sank (a crater at its rim) takes its break line, bite and floors along
+    if (this.surfaces && this.generation === this.built && [...moved.keys()].some((o) => this.damaged.has(o.id))) {
+      for (const o of moved.keys()) moved.set(o, this.damaged.has(o.id) ? NaN : moved.get(o)!);
+      this.rebuildRuins(this.surfaces);
+    }
     for (const b of this.batches) {
       const m = b.mesh.instanceMatrix.array as Float32Array;
       let touched = false;
       for (let i = 0; i < b.owners.length; i++) {
         const dy = moved.get(b.owners[i]);
-        if (dy === undefined) continue;
+        // A ruin built anew above stands where it is
+        if (dy === undefined || dy !== dy) continue;
         m[i * 16 + 13] += dy;
         touched = true;
       }

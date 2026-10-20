@@ -271,6 +271,10 @@ export class CustomMapView {
   private readonly rubblePieces: RubblePieces | null = null;
   /** Which objects the view shows (an editor hides categories); null shows all */
   private visible: ((o: MapObject) => boolean) | null = null;
+  /** Objects a crater wiped out (setGone) */
+  private readonly gone = new Set<string>();
+  /** The ruins' smouldering nests as last set (refreshEmbers) */
+  private embersKey: string | null = null;
   /** The objects shown, by id, as they were last shown: a change finds what it replaces (objectsChanged) */
   private shown = new Map<string, MapObject>();
   /** The shown objects in the document's order while some are hidden; null until asked for after a change */
@@ -797,7 +801,8 @@ export class CustomMapView {
       fallStart: c.now && c.stage >= 3 ? this.damageTime : FELL_LONG_AGO,
       heading: sceneHeading(c.heading ?? -1),
     })));
-    this.effects.setRuinEmbers(this.objects.embers(), !!this.options.ruins);
+    this.embersKey = null;
+    this.refreshEmbers();
     // A fall just now comes down a moment later, on the clock it falls by (update hands it to onImpact)
     for (const c of changes) {
       if (!c.now || c.stage < 3) continue;
@@ -931,6 +936,8 @@ export class CustomMapView {
   updateHeights(rect?: MapRect): void {
     const apron = this.terrain.rebuild(rect ? this.gridRect(rect) : undefined);
     this.objects.refreshHeights(rect);
+    // Ruins that sank with a crater smoulder where they lie now
+    this.refreshEmbers();
     if (this.signs.count) void this.refreshSigns();
     // The openings sit where their objects sit
     if (this.cutObjects.length) this.refreshCuts();
@@ -1175,7 +1182,7 @@ export class CustomMapView {
     const was: MapObject[] = [];
     for (const id of wanted) {
       const o = now.get(id);
-      const show = !!o && (!this.visible || this.visible(o));
+      const show = !!o && this.shows(o);
       const had = this.shown.get(id);
       if (show && !had) {
         added.push(o!);
@@ -1200,8 +1207,37 @@ export class CustomMapView {
 
   /** The objects the view shows: the document's, less the hidden ones */
   private shownObjects(): MapObject[] {
-    if (!this.visible) return this.doc.objects;
-    return (this.shownList ??= this.doc.objects.filter(this.visible));
+    if (!this.visible && !this.gone.size) return this.doc.objects;
+    return (this.shownList ??= this.doc.objects.filter((o) => this.shows(o)));
+  }
+
+  /** Whether object `o` shows: the filter (setVisible) lets it and no crater wiped it out (setGone) */
+  private shows(o: MapObject): boolean {
+    return (!this.visible || this.visible(o)) && !this.gone.has(o.id);
+  }
+
+  /**
+   * Objects a crater wiped out (crater-obliteration.ts) leave the view, those
+   * it gives back come in again: no model, sight blocker, floor or embers of
+   * what is gone
+   */
+  setGone(gone: readonly string[], back: readonly string[]): void {
+    if (!gone.length && !back.length) return;
+    for (const id of gone) this.gone.add(id);
+    for (const id of back) this.gone.delete(id);
+    this.shownList = null;
+    void this.objectsChanged([...gone, ...back]);
+    this.refreshEmbers();
+  }
+
+  /** The ruins' smouldering nests where the ruins lie now, set anew only when one moved, came or went */
+  private refreshEmbers(): void {
+    if (!this.options.ruins) return;
+    const points = this.objects.embers();
+    const key = points.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)},${p.z.toFixed(2)}`).join(';');
+    if (key === this.embersKey) return;
+    this.embersKey = key;
+    this.effects.setRuinEmbers(points, true);
   }
 
   /** The objects to show from now, noted as shown */

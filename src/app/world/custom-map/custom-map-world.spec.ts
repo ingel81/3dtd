@@ -508,6 +508,38 @@ describe('CustomMapWorld', () => {
     expect(craters.runRules()!.destruction).toEqual({ craters: true, wear: false });
   });
 
+  it('wipes out what stands deep in a crater: a fallen building, a bench; a restore without the crater gives them back', () => {
+    const doc = testMap();
+    doc.objects = [
+      { id: 'barn', asset: 'barn', x: 20, y: 20, z: 0, rotation: 0, scale: 1 },
+      { id: 'bench', asset: 'bench', x: 26, y: 20, z: 0, rotation: 0, scale: 1 },
+      { id: 'far', asset: 'bench', x: 70, y: 20, z: 0, rotation: 0, scale: 1 },
+    ];
+    doc.gameplay = { destructible: true };
+    const catalog = [
+      { id: 'barn', category: 'building' as const, footprint: 5, height: 6, blocksBuild: true },
+      { id: 'bench', category: 'prop' as const, footprint: 1, height: 1, blocksBuild: true },
+    ];
+    const world = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
+    world.useCatalog(catalog);
+    const gone = (id: string) => (world as unknown as { obliteration: { isGone(id: string): boolean } }).obliteration.isGone(id);
+    const bench = mapToGeo({ x: 26, y: 20 });
+    expect(world.surface.buildBlocker(bench.lat, bench.lon, 0.5)).toBe(BUILD_BLOCKED_OBJECT);
+    // A nuclear strike's crater (25 m, 4 m) on the barn: the bench goes at once, the barn once it fell
+    world.destruction!.ground!.crater(200, 200, 250, 400, 1);
+    expect(gone('bench')).toBe(true);
+    expect(gone('far')).toBe(false);
+    expect(gone('barn')).toBe(false);
+    expect(world.surface.buildBlocker(bench.lat, bench.lon, 0.5)).toBeNull();
+    world.destruction!.setStage(0, 3);
+    expect(gone('barn')).toBe(true);
+    // A restore to before the strike: the ground as built, the barn standing, everything back and blocking
+    world.destruction!.ground!.clear();
+    world.destruction!.setStages(new Uint8Array([0]));
+    expect([gone('bench'), gone('barn')]).toEqual([false, false]);
+    expect(world.surface.buildBlocker(bench.lat, bench.lon, 0.5)).toBe(BUILD_BLOCKED_OBJECT);
+  });
+
   it('hands its wave events to the simulation with the objects placed, and shows sky and objects as far as it says (TODO E170)', () => {
     const doc = testMap();
     doc.objects = [

@@ -269,8 +269,20 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   tief im Biss, bei einem Gefallenen im Stumpf.
 - **Sichtlinie und Schatten:** was weg ist, sperrt die Sicht der Tower nicht (`LosVertexPatch` mit Fragment-Teil und
   beidseitig), der Fall selbst steht für die Sichtlinie still; der Sonnenschatten fällt und schneidet mit.
-- **Stehen:** Gebäude, Mauern und Bauwerke stehen auf den Höhen der Karte, nicht auf Kratern und Schutt des Laufs
-  (`CustomMapViewOptions.standingGround`); ein Stumpf bleibt, wo das Haus stand.
+- **Stehen:** Gebäude, Mauern und Bauwerke stehen auf den Höhen der Karte mit den Kratern, nicht auf dem Schutt des
+  Laufs (`CustomMapViewOptions.standingGround`, `CustomMapGroundDamage.standing`: Grundhöhe plus nur die
+  Kraterstempel). Ein Stumpf am Kraterrand sinkt mit dem Boden (auf seiner tiefsten Ecke, nichts schwebt), keiner hebt
+  sich auf seinen eigenen Haufen; eine Ruine, die sinkt, nimmt Bruchkante, Biss, Decken und Glutnest mit (E270).
+- **Krater löschen aus** (E270, `custom-map/crater-obliteration.ts`): was in einem Krater steht, wo die Krater unter
+  seiner Mitte oder einer Ecke seines Grunds 150 cm oder tiefer reichen (`OBLITERATE_CM`), ist weg: ein gefallenes
+  Bauwerk ganz (kein Stumpf, keine Decken, kein Glutnest; sein Schutt liegt auf dem Kratergrund), eine gefallene Hecke,
+  ein Zaun, eine Mauer, dazu Bäume, Laternen, Bänke und alles, was keinen Schaden nimmt. Ein Bauwerk, das noch steht
+  (ein Tower auf dem Dach hält es), und eines, das die Karte stehen lässt, ist nie weg; was nur am Rand steht, sinkt.
+  Weg heißt: aus dem Bild (`CustomMapView.setGone`, im Bild nach dem Einschlag, nicht in seinem), aus den Sichtblockern
+  und aus dem Bauverbot. Eine Funktion aus Kraterliste und Stufen der Simulation (ganze Zahlen), auf jedem Client,
+  im Replay und nach einem Restore gleich; ein Restore ohne den Krater gibt alles zurück. Die Simulation braucht
+  nichts davon: ein Gefallenes sperrt schon nicht mehr, Sichtlinien kommen von der Darstellung. Schächte aus vielen
+  Atomschlägen bleiben erlaubt (Krater stapeln wie bisher), in ihnen ist alles weg.
 - **Vorab übersetzt:** die Ruinen-Batches zerstörbarer Assets entstehen leer mit der Karte, die Grundriss-Gebäude bekommen
   verborgene Ruinen je Fassade und Dachdeckung, die Decken und Glutnester je einen verborgenen Platzhalter; das
   Warm-up zeigt sie und baut ihre Programme, auch die des Schattens: es zeigt dazu auch die Sichtblocker, die `attach`

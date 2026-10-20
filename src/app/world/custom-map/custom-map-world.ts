@@ -27,9 +27,10 @@ import { createWaveSource, initialWaveSourceId } from '../../director/wave-sourc
 import { type BuildCatalogEntry, CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
 import { MapGroundPick } from './custom-map-ground-pick';
-import { type CustomMapDocument, type MapEnvironment, type MapObject, difficultyFactor, geoToMap, mapToGeo } from './map-document';
+import { type CustomMapDocument, type MapEnvironment, type MapObject, difficultyFactor, geoToMap, MAP_METERS_PER_DEGREE, mapToGeo } from './map-document';
 import { environmentAt, hiddenObjectsAt, messagesOf } from './wave-events';
-import { CustomMapDestruction, FALLEN_SCALE, passingObjectIds, type StructureEntry } from './custom-map-destruction';
+import { CustomMapDestruction, DESTRUCTIBLE_CATEGORIES, FALLEN_SCALE, passingObjectIds, type StructureEntry } from './custom-map-destruction';
+import { boxTarget, CraterObliteration, roundTarget, type ObliterationRect, type ObliterationTarget } from './crater-obliteration';
 import { CustomMapGroundDamage } from './custom-map-ground-damage';
 import { renderMinimapPicture } from './custom-map-minimap';
 import { MapStore } from './map-store';
@@ -146,6 +147,12 @@ export class CustomMapWorld implements WorldProvider {
   private readonly fallenIds = new Set<string>();
   /** Each damaged structure's stage, for a view that comes later */
   private readonly stages = new Map<string, { stage: number; heading: number }>();
+  /** What the craters wiped out (crater-obliteration.ts): out of the picture, the sight and the build blocking */
+  private readonly obliteration = new CraterObliteration();
+  private readonly craterCmAt = (x: number, y: number): number => this.groundDamage?.craterCmAt(x, y) ?? 0;
+  private readonly fallenNow = (id: string): boolean => this.stages.get(id)?.stage === 3;
+  /** What the craters wiped out or gave back since the last frame, for the view: taken out in the next (update) */
+  private readonly goneLater = new Map<string, boolean>();
   private eventHidden = new Set<string>();
   /** The scale an object out of the picture had, to stand it up again */
   private readonly outScale = new Map<string, number>();
@@ -207,6 +214,7 @@ export class CustomMapWorld implements WorldProvider {
         (id) => this.destruction?.materialOf(id) ?? 'plaster',
         (bare) => this.view?.setGroundBare(bare),
         (x, y, radius, height, colour, count, seed) => this.view?.throwDebris(x, y, radius, height, colour, count, seed),
+        (rect) => this.cratersChanged(rect),
       )
       : null;
     this.groundDamage = ground;
@@ -245,13 +253,14 @@ export class CustomMapWorld implements WorldProvider {
       lights: ctx.lights,
       // Craters and rubble, their program built with the map's
       impactMarks: this.groundDamage !== null,
-      // Ruins likewise, standing on the map's own heights (the run's copy takes the craters and rubble)
-      ...(this.structuresFall ? { ruins: true, standingGround: this.map.doc.terrain.grid } : {}),
+      // Ruins likewise, standing on the map's own heights with the craters (a stump sinks at a rim), not on the rubble
+      ...(this.structuresFall ? { ruins: true, standingGround: this.groundDamage?.standing ?? this.map.doc.terrain.grid } : {}),
     });
     this.view = view;
     view.onImpact = (id, hit) => this.destruction?.impacted(id, hit);
     // Stages that came before the view: the ruins as they lie
     if (this.stages.size) view.setObjectDamage([...this.stages].map(([id, s]) => ({ id, stage: s.stage, heading: s.heading, now: false })));
+    view.setGone(this.obliteration.goneIds(), []);
     if (this.quality) view.applyQuality(this.quality);
     this.placeView();
     const before = new Set(ctx.scene.children);
@@ -368,7 +377,14 @@ export class CustomMapWorld implements WorldProvider {
     // A ray past a ridge into the sky (or from beyond the map) hits nothing: the box goes on the ground ahead,
     // not around the camera in the air, where no tree cast and every shadow went at once
     if (!this.surface.groundAlong(this.focus, this.lookDirection, this.focus)) this.surface.groundAhead(this.focus, this.lookDirection, this.focus);
-    // The craters and the rubble of the last frames, a few tiles at a time
+    // What the craters wiped out since the last frame leaves the picture, then the craters and the rubble of the
+    // last frames, a few tiles at a time
+    if (this.goneLater.size) {
+      const gone = [...this.goneLater].filter(([, g]) => g).map(([id]) => id);
+      const back = [...this.goneLater].filter(([, g]) => !g).map(([id]) => id);
+      this.goneLater.clear();
+      this.view.setGone(gone, back);
+    }
     this.groundDamage?.flush();
     this.view.update(dt, camera, this.focus);
     this.hear(dt, camera);
@@ -699,10 +715,61 @@ export class CustomMapWorld implements WorldProvider {
   useCatalog(objects: readonly (StructureEntry & BuildCatalogEntry)[]): void {
     this.catalogObjects = objects;
     this.passingIds = passingObjectIds(this.doc);
-    this.surface.setObjectCatalog(objects, this.passingIds, this.fallenIds);
+    this.surface.setObjectCatalog(objects, this.passingIds, this.outIds());
     if (!this.destruction) return;
     this.destruction.setCatalog(objects);
     if (isDevMode()) console.log(`[CustomMap] ${this.destruction.structures().length} structures can fall`);
+    this.obliterationTargets(objects);
+  }
+
+  /**
+   * What a crater may wipe out: the structures that fall (by their ground
+   * rectangle) and every object that does not take damage (a tree, a lamp, a
+   * bench), not those the map keeps standing nor those of wave events
+   */
+  private obliterationTargets(entries: readonly (StructureEntry & BuildCatalogEntry)[]): void {
+    const byAsset = new Map(entries.map((e) => [e.id, e]));
+    const targets: ObliterationTarget[] = [];
+    const structures = new Set<string>();
+    for (const s of this.destruction?.asRunStructures() ?? []) {
+      structures.add(s.id);
+      targets.push(s.box ? boxTarget(s.id, true, s.box) : roundTarget(s.id, true, s.lon * MAP_METERS_PER_DEGREE, s.lat * MAP_METERS_PER_DEGREE, s.radius * 2));
+    }
+    for (const o of this.doc.objects) {
+      if (structures.has(o.id) || this.passingIds.has(o.id)) continue;
+      const entry = byAsset.get(o.asset);
+      if (!entry || DESTRUCTIBLE_CATEGORIES.has(entry.category)) continue;
+      targets.push(roundTarget(o.id, false, o.x, o.y, entry.footprint * (o.scale || 1)));
+    }
+    this.goneChanged({ gone: [], back: this.obliteration.setTargets(targets) });
+    this.goneChanged(this.obliteration.update(null, this.craterCmAt, this.fallenNow));
+  }
+
+  /** Craters came or went in `rect`: what stands there gone or back */
+  private cratersChanged(rect: ObliterationRect): void {
+    this.goneChanged(this.obliteration.update(rect, this.craterCmAt, this.fallenNow));
+  }
+
+  /** Objects a crater wiped out leave the picture, the sight and the build blocking; those it gave back return */
+  private goneChanged(change: { gone: readonly string[]; back: readonly string[] }): void {
+    if (!change.gone.length && !change.back.length) return;
+    // The view takes them out in the next frame, not in the strike's: that one carries the blast and the falls
+    for (const id of change.gone) this.goneLater.set(id, true);
+    for (const id of change.back) this.goneLater.set(id, false);
+    if (change.back.length) this.surface.setObjectCatalog(this.catalogObjects, this.passingIds, this.outIds());
+    else {
+      const gone = new Set(change.gone);
+      this.surface.dropObjects(this.doc.objects.filter((o) => gone.has(o.id)));
+    }
+  }
+
+  /** What blocks no building now: the fallen, what a wave event keeps out and what a crater wiped out */
+  private outIds(): ReadonlySet<string> {
+    const gone = this.obliteration.goneIds();
+    if (!gone.length) return this.fallenIds;
+    const out = new Set(this.fallenIds);
+    for (const id of gone) out.add(id);
+    return out;
   }
 
   /** Fallen structures lie in ruins (damageChanged) and stop blocking the build */
@@ -715,7 +782,7 @@ export class CustomMapWorld implements WorldProvider {
   /** A reset stands them up again */
   private rose(objects: readonly MapObject[]): void {
     for (const o of objects) this.fallenIds.delete(o.id);
-    this.surface.setObjectCatalog(this.catalogObjects, this.passingIds, this.fallenIds);
+    this.surface.setObjectCatalog(this.catalogObjects, this.passingIds, this.outIds());
   }
 
   /** The structures' stages to the view's buildings (docs/DESTRUCTION_PLAN.md, Z2): `now` falls as it happens */
@@ -725,6 +792,8 @@ export class CustomMapWorld implements WorldProvider {
       else this.stages.delete(c.object.id);
     }
     this.view?.setObjectDamage(changes.map((c) => ({ id: c.object.id, stage: c.stage, heading: c.heading, now })));
+    // A structure that fell in a crater is gone, one standing again is back
+    for (const c of changes) this.goneChanged(this.obliteration.updateOne(c.object.id, this.craterCmAt, this.fallenNow));
   }
 
   /**
@@ -745,7 +814,7 @@ export class CustomMapWorld implements WorldProvider {
       }
     }
     void this.view?.objectsChanged(objects.map((o) => o.id));
-    this.surface.setObjectCatalog(this.catalogObjects, this.passingIds, this.fallenIds);
+    this.surface.setObjectCatalog(this.catalogObjects, this.passingIds, this.outIds());
   }
 
   /** The highest ground sample */

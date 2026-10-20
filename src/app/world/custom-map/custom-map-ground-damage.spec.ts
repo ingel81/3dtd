@@ -52,6 +52,32 @@ describe('CustomMapGroundDamage (docs/DESTRUCTION_PLAN.md, Z4)', () => {
     expect(r.maxY).toBeLessThan(-118 + 4);
   });
 
+  it('keeps the ground structures stand on: the craters, not the rubble, and the craters alone per point', () => {
+    const { ground, drain } = setup();
+    const rects: GroundRect[] = [];
+    const told = new CustomMapGroundDamage(ground.standing, 256, 256, () => undefined, undefined, undefined, undefined, undefined, (r) => rects.push(r));
+    const standingAt = (x: number, y: number) => ground.standing.heights[((y + 128) / 2) * 129 + (x + 128) / 2];
+    // A nuke's crater (25 m, 4 m) over the barn's rubble
+    ground.rubble(BARN, 1);
+    ground.crater(-200, 400, 250, 400, 1);
+    expect(ground.craterCmAt(-20, 40)).toBeCloseTo(-400, 5);
+    expect(ground.craterCmAt(-19, 41)).toBeLessThan(-390);
+    drain();
+    // The standing ground sinks with the crater and does not rise on the rubble; the ground itself takes both
+    expect(standingAt(-20, 40)).toBeCloseTo(1, 5);
+    expect(standingAt(-60, 40)).toBe(5);
+    // Out again: as built
+    ground.crater(-200, 400, 250, 400, -1);
+    drain();
+    expect(standingAt(-20, 40)).toBe(5);
+    expect(ground.craterCmAt(-20, 40)).toBe(0);
+    // A crater tells its rectangle at once (what stands in it may be gone), a clear the whole map
+    told.crater(0, 0, 100, 140, 1);
+    expect(rects).toEqual([{ minX: -13.5, minY: -13.5, maxX: 13.5, maxY: 13.5 }]);
+    told.clear();
+    expect(rects[1]).toEqual({ minX: -128, minY: -128, maxX: 128, maxY: 128 });
+  });
+
   it('heaps the rubble of a fallen structure as the stamp field does', () => {
     const { ground, at, drain } = setup();
     ground.rubble(BARN, 1);

@@ -58,6 +58,11 @@ export interface GroundRect {
  * a crater beside a tower leaves it on its footing, a tower built in a
  * crater does not see the floor rise under it.
  *
+ * Beside the ground it keeps `standing`, the heights the map's buildings,
+ * walls and structures stand on: the map's own with the craters but not the
+ * rubble (a stump at a crater's rim sinks with the ground, none rises on its
+ * own heap), and the craters' centimetres alone per sample (craterCmAt).
+ *
  * Changed samples are written per tile of GROUND_TILE samples, a few tiles a
  * frame (`flush`, GROUND_TILES_PER_FRAME), the samples changed in each frame's
  * tiles as one rectangle to the view (`apply`, CustomMapView.updateHeights): a rocket's
@@ -75,6 +80,14 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
   private base: Float32Array | null = null;
   /** Every stamp's centimetres, per sample */
   private sum: Int32Array | null = null;
+  /** The craters' centimetres alone (their walls too, not the rubble), per sample */
+  private craterSum: Int32Array | null = null;
+  /**
+   * The heights buildings, walls and structures stand on: the map's own and
+   * the craters, not the rubble (CustomMapViewOptions.standingGround). Its
+   * heights are written with the ground's (flush)
+   */
+  readonly standing: MapHeightGrid;
   /** Towers holding a sample, and the centimetres it shows while held */
   private held: Uint8Array | null = null;
   private frozen: Int32Array | null = null;
@@ -109,7 +122,10 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     private readonly showBare: (bare: Uint8Array) => void = () => undefined,
     /** Pieces thrown out of a falling structure (CustomMapView.throwDebris) */
     private readonly throwDebris: (x: number, y: number, radius: number, height: number, colour: readonly [number, number, number], count: number, seed: number) => void = () => undefined,
+    /** A crater came, deepened or went in this rectangle (map metres): what stands in it may be gone (crater-obliteration.ts) */
+    private readonly cratersChanged: (rect: GroundRect) => void = () => undefined,
   ) {
+    this.standing = { ...grid, heights: grid.heights.slice() };
     this.columns = grid.columns;
     this.rows = grid.rows;
     this.cell = grid.cellSize;
@@ -133,7 +149,8 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
       const dx = sx - x;
       const dy = sy - y;
       return craterCm(dx * dx + dy * dy, r, depthCm) * sign;
-    });
+    }, true);
+    this.cratersChanged({ minX: x - reach, minY: y - reach, maxX: x + reach, maxY: y + reach });
     const key = `c${xDm},${yDm}`;
     if (sign < 0) this.marks.delete(key);
     else {
@@ -170,15 +187,34 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     const sum = this.sum;
     if (!sum) return;
     for (let k = 0; k < sum.length; k++) {
-      if (sum[k] === 0 && this.held![k] === 0) continue;
+      if (sum[k] === 0 && this.craterSum![k] === 0 && this.held![k] === 0) continue;
       this.markSample(k);
     }
     sum.fill(0);
+    this.craterSum!.fill(0);
     this.held!.fill(0);
     this.frozen!.fill(0);
     this.towers.clear();
     this.marks.clear();
     this.marksChanged = true;
+    this.cratersChanged({ minX: this.originX, minY: this.originY, maxX: this.originX + (this.columns - 1) * this.cell, maxY: this.originY + (this.rows - 1) * this.cell });
+  }
+
+  /**
+   * The craters' centimetres at map metres (`x`, `y`), between the samples
+   * (negative in a pit, the walls a little positive); 0 before the first
+   */
+  craterCmAt(x: number, y: number): number {
+    const c = this.craterSum;
+    if (!c) return 0;
+    const fx = Math.max(0, Math.min(this.columns - 1, (x - this.originX) / this.cell));
+    const fy = Math.max(0, Math.min(this.rows - 1, (y - this.originY) / this.cell));
+    const i = Math.min(this.columns - 2, Math.floor(fx));
+    const j = Math.min(this.rows - 2, Math.floor(fy));
+    const u = fx - i;
+    const v = fy - j;
+    const k = j * this.columns + i;
+    return (c[k] * (1 - u) + c[k + 1] * u) * (1 - v) + (c[k + this.columns] * (1 - u) + c[k + this.columns + 1] * u) * v;
   }
 
   /** Tower `id` stands at map metres (`x`, `y`): the ground round it keeps its height from now on */
@@ -219,7 +255,9 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     const held = this.held!;
     const frozen = this.frozen!;
     const bare = this.bare!;
+    const craters = this.craterSum!;
     const heights = this.grid.heights;
+    const standing = this.standing.heights;
     let i0 = Infinity, j0 = Infinity, i1 = -Infinity, j1 = -Infinity;
     let done = 0;
     for (const tile of this.dirty) {
@@ -235,6 +273,7 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
           const k = j * this.columns + i;
           const cm = held[k] > 0 ? frozen[k] : sum[k];
           heights[k] = base[k] + cm / 100;
+          standing[k] = base[k] + craters[k] / 100;
           bare[k] = cm >= BARE_FROM_CM || cm <= -BARE_FROM_CM ? 1 : 0;
         }
       }
@@ -258,6 +297,7 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     const n = this.columns * this.rows;
     this.base = this.grid.heights.slice();
     this.sum = new Int32Array(n);
+    this.craterSum = new Int32Array(n);
     this.held = new Uint8Array(n);
     this.frozen = new Int32Array(n);
     this.bare = new Uint8Array(n);
@@ -265,9 +305,10 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     for (const [, at] of this.towers) this.disc(at.x, at.y, (k) => this.held![k]++);
   }
 
-  private stamp(x: number, y: number, reachX: number, reachY: number, cm: (sx: number, sy: number) => number): void {
+  private stamp(x: number, y: number, reachX: number, reachY: number, cm: (sx: number, sy: number) => number, crater = false): void {
     this.ensure();
     const sum = this.sum!;
+    const craters = this.craterSum!;
     const i0 = Math.max(0, Math.ceil((x - reachX - this.originX) / this.cell));
     const i1 = Math.min(this.columns - 1, Math.floor((x + reachX - this.originX) / this.cell));
     const j0 = Math.max(0, Math.ceil((y - reachY - this.originY) / this.cell));
@@ -279,7 +320,9 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
         if (v === 0) continue;
         const k = j * this.columns + i;
         sum[k] += v;
-        if (this.held![k] === 0) this.markSample(k);
+        if (crater) craters[k] += v;
+        // The standing ground follows a crater under a held sample too
+        if (this.held![k] === 0 || crater) this.markSample(k);
       }
     }
   }

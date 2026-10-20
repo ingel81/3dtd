@@ -510,8 +510,10 @@ export class MapObjectLayer {
 
   embers(max = RUIN_EMBERS): Vector3[] {
     const out: Vector3[] = [];
-    const ids = [...this.damaged].filter(([, d]) => d.stage >= 2).slice(-max);
-    for (const [id, d] of ids) {
+    // The newest first, of those drawn: one a crater wiped out has none
+    const ids = [...this.damaged].filter(([, d]) => d.stage >= 2);
+    for (let k = ids.length - 1; k >= 0 && out.length < max; k--) {
+      const [id, d] = ids[k];
       const fallen = d.stage >= 3;
       const p = this.masses.emberOf(id, fallen, new Vector3());
       if (p) {
@@ -556,8 +558,9 @@ export class MapObjectLayer {
   /** Removes objects by id: each leaves the lists it is in, the asset's last object fills its place */
   removeObjects(ids: string[]): void {
     const masses = ids.filter((id) => this.masses.has(id));
-    if (masses.length) void this.masses.change([], masses);
+    if (masses.length) void this.masses.remove(masses);
     for (const id of ids) {
+      this.slabs?.delete(id);
       // Not built yet: setObjects takes it out once its batch is in
       if (!this.dropOne(id)) this.dropLater?.add(id);
     }
@@ -1183,6 +1186,8 @@ export class MapObjectLayer {
     if (lift === 0) return false;
     b.source.matrices[at] = y;
     b.spheres[i * 4 + 1] += lift;
+    // A ruin's damage holds its heights (break line, bite, top, floors): one that sank takes them along
+    if (b.damage) this.writeDamageOf(b, i);
     return true;
   }
 
