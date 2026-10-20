@@ -443,8 +443,8 @@ export class CustomMapWorld implements WorldProvider {
     this.view?.environment.invalidateShadows();
   }
 
-  warmLater(): ReturnType<CustomMapView['warmLater']> {
-    return this.view?.warmLater() ?? null;
+  warmLater(...args: Parameters<CustomMapView['warmLater']>): ReturnType<CustomMapView['warmLater']> {
+    return this.view?.warmLater(...args) ?? null;
   }
 
   /** The terrain's height texture and where the map stands in the scene (the units' blob shadows lie on it) */

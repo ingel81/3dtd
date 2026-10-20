@@ -14,7 +14,7 @@
 //
 //   A baseline (perf-run.ts): --user-data <dir> (one profile over the runs; no --profile then), --vsync / --no-vsync
 //   (default: the display's rate), --idle <ms>: the frames that long after ready, --json <file>: the runs' marks, the
-//   first frame the game drew and the idle frames
+//   first frame the game drew and the idle frames (each over 33 ms with when it ended)
 //
 // Headed Chromium: the terrain and the models compile their shaders on the GPU the player has, not in SwiftShader.
 import { chromium, type Page } from '@playwright/test';
@@ -212,7 +212,15 @@ for (let run = 0; run < RUNS; run++) {
     await startFrames(page);
     await page.waitForTimeout(IDLE_MS);
     const idle = await stopFrames(page);
-    report.add(frameWindow(`idle run ${run + 1}`, idle.gaps, idle.heap));
+    // Each frame over 33 ms and when it ended, ms into the idle time
+    const long: [number, number][] = [];
+    let t = 0;
+    for (const gap of idle.gaps) {
+      t += gap;
+      if (gap > 33) long.push([Math.round(t), Math.round(gap * 10) / 10]);
+    }
+    report.add(frameWindow(`idle run ${run + 1}`, idle.gaps, idle.heap, { long }));
+    console.log(`  idle: ${idle.gaps.length} frames, over 33 ms (ending at, ms): ${long.map(([at, gap]) => `${gap} at ${at}`).join(', ') || 'none'}`);
   }
   if (tracing) {
     const trace = await browser.stopTracing();

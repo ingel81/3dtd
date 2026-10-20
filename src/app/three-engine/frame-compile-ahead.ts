@@ -1,5 +1,5 @@
 import { Object3D, Scene, Vector4, type Camera, type Material, type WebGLRenderer, type WebGLRenderTarget } from 'three';
-import { firstUsePrograms, programsReady } from './programs-ready';
+import { firstUsePrograms, programsOf, programsReady } from './programs-ready';
 
 /** One draw of a recorded frame: what it drew, with which camera, into which target (null: the screen) */
 export interface RecordedDraw {
@@ -83,6 +83,12 @@ export interface FrameAheadOptions {
   compileOnly?: boolean;
   /** What each compile task and each program's first use waits for: the next frame (default), or a quiet moment */
   pace?: () => Promise<void>;
+  /**
+   * Waits for and first-uses the programs of `objects` alone, not every
+   * program the renderer holds: work that must not wait for the
+   * background's beside it (a hit's ruins, ThreeTilesEngine.compileNow)
+   */
+  own?: boolean;
 }
 
 /**
@@ -291,9 +297,10 @@ export class FrameAhead {
     }
     await Promise.all(jobs);
     // Frames drawn meanwhile let compileAsync settle before every program is built
-    await programsReady(renderer);
+    const waitFor = options.own ? programsOf(renderer, this.objects.flat()) : renderer;
+    await programsReady(waitFor);
     if (this.gone()) return false;
-    await firstUsePrograms(renderer, () => this.gone(), this.options.pace ?? afterNextFrame);
+    await firstUsePrograms(waitFor, () => this.gone(), this.options.pace ?? afterNextFrame);
     return !this.gone();
   }
 

@@ -801,7 +801,7 @@ export class CustomMapView {
    * (STRUCTURE_HEADING_STEPS in map space, -1 none: its id rolls one)
    */
   setObjectDamage(changes: readonly { id: string; stage: number; heading?: number; now: boolean }[]): void {
-    this.whenRuinsReady(changes.some((c) => c.stage > 0), () => this.applyDamage(changes));
+    this.whenRuinsReady(changes.filter((c) => c.stage > 0).map((c) => c.id), () => this.applyDamage(changes));
   }
 
   private applyDamage(changes: readonly { id: string; stage: number; heading?: number; now: boolean }[]): void {
@@ -828,7 +828,7 @@ export class CustomMapView {
    */
   setObjectHoles(id: string, holes: Int32Array, now: boolean): void {
     const copy = holes.slice();
-    this.whenRuinsReady(false, () => this.applyHoles(id, copy, now));
+    this.whenRuinsReady([], () => this.applyHoles(id, copy, now));
   }
 
   private applyHoles(id: string, holes: Int32Array, now: boolean): void {
@@ -874,39 +874,40 @@ export class CustomMapView {
     }
   }
 
-  /** The ruins' stand-ins back where they hung; what waits for them goes on */
+  /** The ruins' stand-ins back where they hung */
   private unparkRuins(): void {
     const parked = this.parked;
     if (!parked) return;
     this.parked = null;
+    this.ruinsAhead.clear();
     for (const { mesh, parent } of parked) if (!mesh.parent) parent.add(mesh);
-    this.ruinsBack.resolve();
   }
 
-  /** Resolved once the ruins' stand-ins are back (unparkRuins) */
-  private readonly ruinsBack = settles();
-  /** Resolved when a building is hit before that: the engine builds the ruins' programs by frames from then on */
-  private readonly ruinsHurry = settles();
+  /** Builds programs now (the engine's, warmLater): a hit building's ruins, with their shadow pass's (`shadows`) */
+  private compileNow: ((objects: Object3D[], shadows: () => Promise<unknown>) => Promise<void>) | null = null;
   /** Whether the engine took the ruins' programs over (warmLater) */
   private ruinsClaimed = false;
 
   /**
    * The ruins' programs, left out of the first warm-up, for the engine to
    * build once the game stands (WorldProvider.warmLater): the stand-ins
-   * (compiled in quiet moments, by frames once `hurry` resolves), their
-   * shadow twins, and putting them back when done. Null when nothing waits
+   * (compiled in quiet moments), their shadow twins, and putting them back
+   * when done. `compileNow` builds what a hit building needs before that
+   * (whenRuinsReady). Null when nothing waits
    */
-  warmLater(): { objects: Object3D[]; shadows: () => Promise<unknown>; done: () => void; hurry: Promise<void> } | null {
+  warmLater(
+    compileNow: (objects: Object3D[], shadows: () => Promise<unknown>) => Promise<void>,
+  ): { objects: Object3D[]; shadows: () => Promise<unknown>; done: () => void } | null {
     const parked = this.parked;
     const at = this.warmContext;
     if (!parked?.length || !at || this.ruinsClaimed) return null;
     this.ruinsClaimed = true;
+    this.compileNow = compileNow;
     const meshes = parked.map((p) => p.mesh);
     return {
       objects: meshes,
       shadows: () => this.ruinShadows(meshes),
       done: () => this.unparkRuins(),
-      hurry: this.ruinsHurry.promise,
     };
   }
 
@@ -917,39 +918,64 @@ export class CustomMapView {
     return this.compileShadowTwins(at.renderer, at.scene, at.camera, meshes.filter((m): m is Mesh => m instanceof Mesh));
   }
 
-  /** Damage and holes that wait for the ruins' programs, in order; null while nothing waits */
-  private damageWaits: (() => void)[] | null = null;
+  /** The last damage or holes waiting (whenRuinsReady): what comes after waits for it, null while nothing waits */
+  private ruinsWait: Promise<void> | null = null;
+  /** The stand-ins built ahead of the rest for a hit (readyRuins): when each hangs again */
+  private readonly ruinsAhead = new Map<Object3D, Promise<void>>();
 
   /**
-   * `apply` now, or after what waits for the ruins' programs. With `ruin`
-   * (a building hit) before those are built, the engine hurries them
-   * (warmLater) and the damage waits for them, under a second: a ruin
-   * drawn with programs compiled for it outside the frame's state, or still
-   * linking, held its frame for a third of a second and more. Without the
-   * engine (nothing took them) the stand-ins go back at once
+   * `apply` now, or once the programs of the ruins `ids` (buildings hit)
+   * draw with are built and after what waited before, in order. Before
+   * the engine has built them all, only these are built now (readyRuins),
+   * the rest stays for quiet moments: a ruin drawn with programs compiled
+   * for it outside the frame's state, or still linking, held its frame for
+   * a third of a second and more, and building all of them at the first
+   * hit held 34 to 61 frames over 33 ms. Without the engine (nothing took
+   * them) the stand-ins go back at once
    */
-  private whenRuinsReady(ruin: boolean, apply: () => void): void {
-    if (this.damageWaits) {
-      this.damageWaits.push(apply);
-      return;
-    }
-    if (!ruin || !this.parked) {
+  private whenRuinsReady(ids: readonly string[], apply: () => void): void {
+    if (ids.length && this.parked && !this.ruinsClaimed) this.unparkRuins();
+    const ready = ids.length && this.parked ? this.readyRuins(this.objects.ruinStandInsFor(ids)) : null;
+    if (!ready && !this.ruinsWait) {
       apply();
       return;
     }
-    if (!this.ruinsClaimed) {
-      this.unparkRuins();
-      apply();
-      return;
-    }
-    this.damageWaits = [apply];
-    this.ruinsHurry.resolve();
-    void this.ruinsBack.promise.then(() => {
-      const waits = this.damageWaits ?? [];
-      this.damageWaits = null;
-      if (this.disposed) return;
-      for (const run of waits) run();
+    const wait = Promise.all([this.ruinsWait, ready]).then(() => {
+      if (!this.disposed) apply();
     });
+    this.ruinsWait = wait;
+    void wait.finally(() => {
+      if (this.ruinsWait === wait) this.ruinsWait = null;
+    });
+  }
+
+  /**
+   * Of `meshes`, the stand-ins still out of the scene built now
+   * (compileNow, with their shadow twins) and hung back; null when none
+   * waits. Each is built once: a second hit waits for the first's
+   */
+  private readyRuins(meshes: readonly Object3D[]): Promise<unknown> | null {
+    const parked = this.parked;
+    if (!parked || !this.compileNow) return null;
+    const waits: Promise<void>[] = [];
+    const now: { mesh: Object3D; parent: Object3D }[] = [];
+    for (const mesh of new Set(meshes)) {
+      const ahead = this.ruinsAhead.get(mesh);
+      if (ahead) waits.push(ahead);
+      else if (!mesh.parent) {
+        const at = parked.find((p) => p.mesh === mesh);
+        if (at) now.push(at);
+      }
+    }
+    if (now.length) {
+      const list = now.map((p) => p.mesh);
+      const built = this.compileNow(list, () => this.ruinShadows(list)).then(() => {
+        for (const { mesh, parent } of now) if (!mesh.parent && !this.disposed) parent.add(mesh);
+      });
+      for (const mesh of list) this.ruinsAhead.set(mesh, built);
+      waits.push(built);
+    }
+    return waits.length ? Promise.all(waits) : null;
   }
 
   /** Main-thread cost of update(), smoothed, for measurements (sim-load --world, the preview) */
@@ -2163,11 +2189,4 @@ function asShadowPass(depth: MeshDepthMaterial, material: Material, type: Shadow
   depth.displacementScale = m.displacementScale ?? 1;
   depth.displacementBias = m.displacementBias ?? 0;
   return depth;
-}
-
-/** A promise and what resolves it */
-function settles(): { promise: Promise<void>; resolve: () => void } {
-  let resolve = (): void => undefined;
-  const promise = new Promise<void>((r) => (resolve = r));
-  return { promise, resolve };
 }

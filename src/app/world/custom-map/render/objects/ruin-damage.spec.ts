@@ -217,6 +217,24 @@ describe('ruin damage: the object layer', () => {
 describe('ruin damage: raised buildings', () => {
   const raised = (id: string, x: number): MapObject => ({ id, asset: MASS_ASSET, x, y: 0, z: 0, rotation: 0, scale: 1, mass: block });
 
+  it("hands a hit's ruins to build ahead: the asset's ruin batch or the raised ones' parts, the floors for a building (E280)", async () => {
+    const los = new Group();
+    const layer = new MapObjectLayer(field(), library(), los, { ruins: true });
+    const house = { id: 'h1', asset: 'house', x: 0, y: 0, z: 0, rotation: 0, scale: 1 };
+    await layer.setObjects([house, { ...house, id: 'r1', asset: 'rock', x: 30 }, raised('m1', 60)]);
+    const all = layer.ruinStandIns();
+    const names = (list: readonly { name: string }[]) => list.map((m) => m.name);
+    const forHouse = layer.ruinStandInsFor(['h1']);
+    expect(names(forHouse)).toEqual(['house-damaged', 'ruin-slabs']);
+    const forRaised = layer.ruinStandInsFor(['m1']);
+    expect(forRaised).toContain(all.find((m) => m.name === 'ruin-slabs'));
+    expect(forRaised.filter((m) => m.name !== 'ruin-slabs').length).toBe(massMeshes(los, true).length);
+    expect(forRaised.every((m) => all.includes(m))).toBe(true);
+    expect(names(forRaised)).not.toContain('house-damaged');
+    expect(layer.ruinStandInsFor(['r1'])).toEqual([]);
+    layer.dispose();
+  });
+
   it('takes a damaged building out of the intact batches into the ruins, its walls split once it falls', async () => {
     const los = new Group();
     const layer = new MapObjectLayer(field(), library(), los, { ruins: true });

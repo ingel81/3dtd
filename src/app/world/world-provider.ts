@@ -394,11 +394,14 @@ export interface WorldProvider {
    * What the world left out of its first warm-up for the background, once
    * the game stands (a destructible map's ruins, needed at the first hit):
    * stand-ins whose programs the engine compiles in quiet moments, the
-   * shadow pass's twins of them, and `done` once both are built; `hurry`
-   * resolves when they are needed now (a building hit first): by frames
-   * from then on. Null for nothing
+   * shadow pass's twins of them, and `done` once both are built. What
+   * the world needs before that (a building hit first) it builds with
+   * `compileNow`: those objects' programs by frames, with their shadow
+   * twins (`shadows`), ready to draw when it resolves. Null for nothing
    */
-  warmLater?(): { objects: Object3D[]; shadows: () => Promise<unknown>; done: () => void; hurry: Promise<void> } | null;
+  warmLater?(
+    compileNow: (objects: Object3D[], shadows: () => Promise<unknown>) => Promise<void>,
+  ): { objects: Object3D[]; shadows: () => Promise<unknown>; done: () => void } | null;
   /** The scene frame to ECEF, null without `capabilities.ecef` */
   sceneToEcef(target: Matrix4): Matrix4 | null;
   /**

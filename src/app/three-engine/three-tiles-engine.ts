@@ -69,7 +69,7 @@ import type { TilesLodDebug } from './tiles-lod-debug';
 import { perfTrace } from '../utils/perf-trace';
 import { warmUpScene, type SceneWarmupResult } from './scene-warmup';
 import { TowerLosLayerBuilder } from '../utils/tower-los-layer-builder';
-import { firstUsePrograms, programsReady } from './programs-ready';
+import { firstUsePrograms, programsOf, programsReady } from './programs-ready';
 import { ProgramPins } from './program-pins';
 import { lineStandIns } from './line-stand-ins';
 import { FrameAhead, recordDraws, type RecordedDraw } from './frame-compile-ahead';
@@ -1528,30 +1528,45 @@ export class ThreeTilesEngine {
    * What the world left out of its warm-up (WorldProvider.warmLater: a
    * destructible map's ruins), built once the game stands, in quiet
    * moments as warmRest builds the towers': the stand-ins' programs
-   * (compileAhead), their shadow twins, then the world puts them back. A
-   * building hit before that (later.hurry) needs them now: from then on by
-   * frames, as warmNow's urgent types
+   * (compileAhead), their shadow twins, then the world puts them back.
+   * What a building hit before that needs (a few of them) the world builds
+   * with compileNow, by frames, as warmNow's urgent types: all of them at
+   * the first hit held 34 to 61 frames over 33 ms (E280)
    */
   private async warmWorldLater(): Promise<void> {
-    const later = this.world.warmLater?.();
-    if (!later) return;
     const gone = () => this.disposed;
+    const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
+    const compileNow = async (objects: Object3D[], shadows: () => Promise<unknown>): Promise<void> => {
+      // The background waits meanwhile: the GPU process builds these first
+      this.urgentCompiles++;
+      try {
+        await this.compileAhead(objects, gone, true);
+        if (gone()) return;
+        await shadows();
+        // Their own programs only: the background's beside them held a hit's ruins for seconds
+        const own = programsOf(this.renderer, objects);
+        await programsReady(own);
+        if (gone()) return;
+        await firstUsePrograms(own, gone, nextFrame);
+        this.pins.pinPrograms(this.renderer);
+      } finally {
+        this.urgentCompiles--;
+      }
+    };
+    const later = this.world.warmLater?.(compileNow);
+    if (!later) return;
     const t0 = performance.now();
     const programs0 = this.renderer.info.programs?.length ?? 0;
-    let hurried = false;
-    void later.hurry.then(() => (hurried = true));
-    const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
-    const pace = () => (hurried ? nextFrame() : Promise.race([this.quietMoment(gone), later.hurry]));
-    await pace();
+    await this.quietMoment(gone);
     if (gone()) return;
-    await this.compileAhead(later.objects, gone, false, pace);
+    await this.compileAhead(later.objects, gone, false);
     if (gone()) return;
-    await pace();
+    await this.quietMoment(gone);
     await later.shadows();
     await programsReady(this.renderer);
     if (gone()) return;
-    await pace();
-    await firstUsePrograms(this.renderer, gone, hurried ? nextFrame : undefined);
+    await this.quietMoment(gone);
+    await firstUsePrograms(this.renderer, gone);
     this.pins.pinPrograms(this.renderer);
     later.done();
     console.log(
@@ -1650,7 +1665,7 @@ export class ThreeTilesEngine {
    * The programs of `objects` (stand-ins out of the scene's draw, or pool
    * meshes standing in it) compiled with the scene's lights off the frame,
    * then used once (FrameAhead, compileOnly); `urgent` paces by frames
-   * instead of quiet moments (or `pace`)
+   * instead of quiet moments (or `pace`) and waits for these programs only
    */
   private async compileAhead(
     objects: Object3D[], gone: () => boolean, urgent: boolean, pace: () => Promise<void> = () => this.quietMoment(gone),
@@ -1670,7 +1685,8 @@ export class ThreeTilesEngine {
       gone,
       compileOnly: true,
       budgetMs: BACKGROUND_COMPILE_MS,
-      ...(urgent ? {} : { pace }),
+      // Urgent work waits for its own programs, not for the background's beside it
+      ...(urgent ? { own: true } : { pace }),
     });
     if (await frame.compiled) this.pins.pinPrograms(this.renderer);
     // compileOnly draws nothing: the textures the meshes bind (an enemy's VAT, a large float texture) went up in
@@ -1687,6 +1703,8 @@ export class ThreeTilesEngine {
 
   /** Since when the game has been calm: no enemy, no switch being made ready (quietMoment) */
   private calmSince = 0;
+  /** A world's urgent compiles under way (warmWorldLater's compileNow): the background waits, the GPU process is theirs */
+  private urgentCompiles = 0;
 
   /**
    * Resolves in a quiet moment for the background's work (prepareSwitchStates):
@@ -1724,7 +1742,7 @@ export class ThreeTilesEngine {
           return resolve();
         }
         const now = performance.now();
-        if (!this.drewFrame || this.ahead.size || this.enemies.count > 0) {
+        if (!this.drewFrame || this.ahead.size || this.urgentCompiles > 0 || this.enemies.count > 0) {
           this.calmSince = now;
           return void again();
         }

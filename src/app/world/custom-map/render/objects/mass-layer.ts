@@ -308,6 +308,13 @@ function toPoints(ring: readonly number[]): Vector2[] {
 interface Batch {
   mesh: InstancedMesh;
   owners: MapObject[];
+  /** What it draws: a facade's walls, a covering's roofs or the caps (partsOf) */
+  part: string;
+}
+
+/** The parts a building is drawn with, as Batch.part */
+function partsOf(o: MapObject): string[] {
+  return [`walls:${o.mass!.facade}`, `roof:${massShape(o.mass!, seedOf(o.id)).covering}`, 'caps'];
 }
 
 /** What the mass layer does with damage (ObjectLayerOptions): ruins built with the map, the ground buildings stand on */
@@ -629,6 +636,13 @@ export class MassLayer {
     return this.warmBatches.filter((b) => this.batches.includes(b)).map((b) => b.mesh);
   }
 
+  /** Of those, the meshes buildings `ids` draw with as ruins: their facades' walls, their coverings' roofs, the caps */
+  warmStandInsFor(ids: readonly string[]): Object3D[] {
+    const parts = new Set<string>();
+    for (const o of this.objects) if (ids.includes(o.id)) for (const part of partsOf(o)) parts.add(part);
+    return this.warmBatches.filter((b) => parts.has(b.part) && this.batches.includes(b)).map((b) => b.mesh);
+  }
+
   private warmBatches: Batch[] = [];
 
   /** Where a ruin smoulders (emberPoint), null for one not drawn as a ruin here */
@@ -730,7 +744,7 @@ export class MassLayer {
       geometry.userData['owned'] = true;
       const mesh = new InstancedMesh(geometry, this.wallMaterial(facade, surface, surfaces.get('mass-plinth'), ruin), count);
       mesh.customDepthMaterial = ruin ? (this.ruinWallDepth ??= damageDepthMaterial('mass-wall', 'attribute vec4 aWallB;', GABLE_GLSL)) : this.depthMaterial;
-      walls.set(facade, { batch: { mesh, owners: [] }, a, b, damage: damageOf(mesh, count), n: 0 });
+      walls.set(facade, { batch: { mesh, owners: [], part: `walls:${facade}` }, a, b, damage: damageOf(mesh, count), n: 0 });
     }
     const roofs = new Map<Covering, { batch: Batch; uv: Float32Array; damage: DamageArrays | null; n: number }>();
     for (const [covering, count] of roofCount) {
@@ -741,7 +755,7 @@ export class MassLayer {
       const mesh = new InstancedMesh(geometry, this.roofMaterial(covering, surface, ruin), count);
       if (ruin) mesh.customDepthMaterial = this.ruinDepth ??= damageDepthMaterial('mass');
       const uv = new Float32Array(count * 6);
-      roofs.set(covering, { batch: { mesh, owners: [] }, uv, damage: damageOf(mesh, count), n: 0 });
+      roofs.set(covering, { batch: { mesh, owners: [], part: `roof:${covering}` }, uv, damage: damageOf(mesh, count), n: 0 });
     }
     const plinth = surfaces.get('mass-plinth');
     let caps: { batch: Batch; damage: DamageArrays | null; n: number } | null = null;
@@ -751,7 +765,7 @@ export class MassLayer {
       if (ruin) geometry.userData['owned'] = true;
       const mesh = new InstancedMesh(geometry, this.capMaterial(plinth, ruin), capCount);
       if (ruin) mesh.customDepthMaterial = this.ruinDepth ??= damageDepthMaterial('mass');
-      caps = { batch: { mesh, owners: [] }, damage: damageOf(mesh, capCount), n: 0 };
+      caps = { batch: { mesh, owners: [], part: 'caps' }, damage: damageOf(mesh, capCount), n: 0 };
     }
     const color = new Color();
     const tint = new Color();

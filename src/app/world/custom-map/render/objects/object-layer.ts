@@ -582,6 +582,31 @@ export class MapObjectLayer {
     return out;
   }
 
+  /**
+   * Of those, what objects `ids` draw with as ruins: their assets' ruin
+   * batches, the raised buildings' (MassLayer.warmStandInsFor) and the
+   * floors where a building is among them. A building's first hit builds
+   * these before the rest (CustomMapView.whenRuinsReady)
+   */
+  ruinStandInsFor(ids: readonly string[]): Object3D[] {
+    const out: Object3D[] = [];
+    let floors = false;
+    for (const id of ids) {
+      if (this.masses.has(id)) {
+        floors = true;
+        continue;
+      }
+      const from = this.byId.get(id)?.batch;
+      const b = from && this.batches.find((x) => x.ruin && x.model.id === from.model.id && x.blocksLos === from.blocksLos);
+      if (!b) continue;
+      for (const d of b.draws) out.push(...d.meshes);
+      if (b.entry.category === 'building') floors = true;
+    }
+    out.push(...this.masses.warmStandInsFor(ids));
+    if (floors && this.slabs) out.push(this.slabs.mesh);
+    return out;
+  }
+
   /** Where and when ruin `id` comes down as it falls now (fallImpact, group frame), null for one not drawn as a ruin */
   impactOf(id: string): ReturnType<typeof fallImpact> | null {
     const raised = this.masses.ruinShapeOf(id);

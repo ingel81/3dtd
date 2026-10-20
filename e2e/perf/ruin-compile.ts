@@ -8,11 +8,15 @@
 //   --mode hit: --after ms after ready a building is struck (a debug hit of half its HP, so it shows as a ruin with
 //     holes at once): the frames of the next 4 s, the longest, those over 33 ms and when; the ruin programs built
 //     after the hit (none once the background built them) and each program whose first use took over 8 ms, with
-//     the parameters it differs in from its kind's; --cpu: the heaviest call chains of the longest frame
+//     the parameters it differs in from its kind's; when the damage reached the view and when the frame that first
+//     shows it ended (the view applies it once its ruins' programs are built); --cpu: the heaviest call chains of
+//     the longest frame
 //
 //   npx ng serve --port <port>
 //   node e2e/perf/ruin-compile.ts --url http://localhost:<port> [--map ruined-city] [--mode compile|hit] [--after 500]
-//        [--id o4] [--settle 15000] [--cpu]
+//        [--id o4] [--settle 15000] [--cpu] [--dry] [--watch 4000] [--loads 1]
+//   --dry: no hit, the same frames without it; --watch: how long the frames are taken; --loads 2: the map loaded twice
+//   in one browser, the hit in the second (the GPU's program cache warm, as for a player from the second start on)
 //   An own map (an OSM world): --seed <dir>/<id>.3dtdmap --map <id> (perf-run.ts); a map without structure --id
 //   strikes its first structure
 import { chromium } from '@playwright/test';
@@ -30,7 +34,11 @@ const AFTER = Number(argument('after', '500'));
 const ID = argument('id', 'o4');
 const SETTLE = Number(argument('settle', '15000'));
 const CPU = process.argv.includes('--cpu');
+const DRY = process.argv.includes('--dry');
+const WATCH = Number(argument('watch', '4000'));
 const SEED = argument('seed', '');
+/** Loads in the same browser, the hit in the last: from the second on the GPU's program cache is warm (E273) */
+const LOADS = Number(argument('loads', '1'));
 
 const browser = await chromium.launch({ headless: false, args: ['--enable-gpu', '--ignore-gpu-blocklist', '--window-size=1280,800'] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
@@ -48,9 +56,14 @@ if (SEED) {
   await page.goto(`${URL_BASE}/build-info.json`);
   await seedMap(page, SEED);
 }
-const t0 = Date.now();
-await page.goto(`${URL_BASE}/?world=map:${MAP}&menu=skip`);
-await page.waitForFunction(() => performance.getEntriesByName('load:ready').length > 0, null, { timeout: 300_000 });
+let t0 = Date.now();
+for (let load = 1; load <= LOADS; load++) {
+  t0 = Date.now();
+  await page.goto(`${URL_BASE}/?world=map:${MAP}&menu=skip`);
+  await page.waitForFunction(() => performance.getEntriesByName('load:ready').length > 0, null, { timeout: 300_000 });
+  // Before the next load, the background's programs built (into the cache)
+  if (load < LOADS) await page.waitForTimeout(SETTLE);
+}
 const ready = await page.evaluate(() => performance.getEntriesByName('load:ready')[0].startTime);
 console.log(`ready at ${ready.toFixed(0)} ms (${((Date.now() - t0) / 1000).toFixed(1)} s from the link)`);
 
@@ -62,12 +75,34 @@ if (MODE === 'hit') {
     await cdp.send('Profiler.setSamplingInterval', { interval: 200 });
     await cdp.send('Profiler.start');
   }
-  const result = await page.evaluate(async ([id]) => {
+  const result = await page.evaluate(async ([id, dry, watch]) => {
     const g = globalThis as unknown as {
       __worldDamage: { structures(): { id: string; lat: number; lon: number }[]; hit(lat: number, lon: number, reach: number, amount: number): void; hp(i: number): { max: number } | null };
-      ng: { getComponent(e: Element): { engine: { getRenderer(): { info: { programs: { name: string; cacheKey: string; usedTimes: number }[] | null } } } } };
+      ng: { getComponent(e: Element): {
+        engine: { getRenderer(): { info: { programs: { name: string; cacheKey: string; usedTimes: number }[] | null } } };
+        presentation: { host: { engine: Record<string, unknown> } };
+      } };
     };
-    const renderer = g.ng.getComponent(document.querySelector('app-tower-defense')!).engine.getRenderer();
+    const component = g.ng.getComponent(document.querySelector('app-tower-defense')!);
+    const renderer = component.engine.getRenderer();
+    // When the damage reaches the view, and when the view draws it (its layer's setDamage)
+    interface Damaging { setDamage(changes: unknown): void }
+    const view = (component.presentation.host.engine['world'] as Record<string, unknown>)['view'] as
+      { setObjectDamage(changes: unknown): void; objects: Damaging } | null;
+    let reached = -1;
+    let applied = -1;
+    if (view) {
+      const setObjectDamage = view.setObjectDamage;
+      view.setObjectDamage = function (this: unknown, changes: unknown) {
+        if (reached < 0) reached = performance.now() - t0;
+        return setObjectDamage.call(this, changes);
+      };
+      const setDamage = view.objects.setDamage;
+      view.objects.setDamage = function (this: unknown, changes: unknown) {
+        if (applied < 0) applied = performance.now() - t0;
+        return setDamage.call(this, changes);
+      };
+    }
     const known = new Set(renderer.info.programs ?? []);
     // Each program's first use that took long, with the time after the hit
     const slow: string[] = [];
@@ -121,15 +156,19 @@ if (MODE === 'hit') {
       if (on) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
-    g.__worldDamage.hit(s.lat, s.lon, 2, Math.round((g.__worldDamage.hp(index)?.max ?? 1000) / 2));
-    await new Promise((r) => setTimeout(r, 4000));
+    if (!dry) g.__worldDamage.hit(s.lat, s.lon, 2, Math.round((g.__worldDamage.hp(index)?.max ?? 1000) / 2));
+    await new Promise((r) => setTimeout(r, watch));
     on = false;
     const fresh = (renderer.info.programs ?? []).filter((p) => !known.has(p) && p.cacheKey.endsWith('-damage')).map((p) => p.name);
-    return { frames, at, fresh, slow };
-  }, [ID] as const);
+    // The frame that drew it ends at the first frame time after it was applied
+    const shown = applied < 0 ? -1 : (at.find((t) => t > applied) ?? -1);
+    return { frames, at, fresh, slow, reached, applied, shown };
+  }, [ID, DRY, WATCH] as const);
   const long = result.frames.map((f, i) => [f, result.at[i]]).filter(([f]) => f > 33);
   console.log(`first hit ${AFTER} ms after ready: ${result.frames.length} frames, longest ${Math.max(...result.frames).toFixed(1)} ms, over 33 ms: ${long.length} [${long.map(([f, t]) => `${f.toFixed(0)} ending ${t.toFixed(0)} ms after the hit`).join(', ')}]`);
   console.log(`ruin programs built after the hit: ${result.fresh.length} ${result.fresh.join(', ')}`);
+  const ms = (t: number) => (t < 0 ? 'never' : `${t.toFixed(0)} ms`);
+  console.log(`damage reached the view after ${ms(result.reached)}, applied after ${ms(result.applied)}, shown in the frame ending ${ms(result.shown)} after the hit`);
   for (const f of result.slow) console.log(`  slow first use at ${f}`);
   if (cdp) {
     const { profile } = (await cdp.send('Profiler.stop')) as { profile: { nodes: { id: number; callFrame: { functionName: string; url: string; lineNumber: number } }[]; samples: number[]; timeDeltas: number[]; startTime: number } };

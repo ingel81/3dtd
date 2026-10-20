@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { firstUsePrograms, programsReady } from './programs-ready';
+import { Group, Mesh, MeshBasicMaterial, MeshDepthMaterial } from 'three';
+import { firstUsePrograms, programsOf, programsReady } from './programs-ready';
 
 describe('programsReady', () => {
   beforeEach(() => vi.useFakeTimers());
@@ -40,5 +41,22 @@ describe('firstUsePrograms', () => {
     asked.length = 0;
     await firstUsePrograms(renderer, () => true);
     expect(asked).toEqual([]);
+  });
+});
+
+describe('programsOf (E280)', () => {
+  it("holds the programs of these objects' materials and own depth materials, no other", () => {
+    const group = new Group();
+    const a = new Mesh(undefined, new MeshBasicMaterial());
+    a.customDepthMaterial = new MeshDepthMaterial();
+    const b = new Mesh(undefined, new MeshBasicMaterial());
+    group.add(a);
+    const programs = new Map<object, Map<string, object>>([
+      [a.material, new Map([['screen', { id: 1 }], ['target', { id: 2 }]])],
+      [a.customDepthMaterial, new Map([['depth', { id: 3 }]])],
+      [b.material, new Map([['other', { id: 4 }]])],
+    ]);
+    const renderer = { properties: { get: (o: object) => ({ programs: programs.get(o) }) } };
+    expect(programsOf(renderer, [group]).info.programs.map((p) => (p as { id: number }).id)).toEqual([1, 2, 3]);
   });
 });

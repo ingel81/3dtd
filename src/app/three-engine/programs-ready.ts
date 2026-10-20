@@ -69,3 +69,29 @@ export async function firstUseOf(
     await new Promise((resolve) => setTimeout(resolve));
   }
 }
+
+/**
+ * The programs `objects` compiled with (each mesh's material and its own
+ * depth material, every program three keeps for them), as a renderer for
+ * programsReady and firstUsePrograms: waiting for these alone, a hit's ruins
+ * built beside the background's work waited for all of it (5 s, E280)
+ */
+export function programsOf(
+  renderer: { properties: { get(object: object): unknown } },
+  objects: readonly object[],
+): { info: { programs: object[] } } {
+  const programs = new Set<object>();
+  for (const root of objects) {
+    (root as { traverse(run: (o: object) => void): void }).traverse((o) => {
+      const mesh = o as { isMesh?: boolean; material?: object | object[]; customDepthMaterial?: object };
+      if (!mesh.isMesh) return;
+      const materials = [...(Array.isArray(mesh.material) ? mesh.material : [mesh.material]), mesh.customDepthMaterial];
+      for (const material of materials) {
+        if (!material) continue;
+        const kept = (renderer.properties.get(material) as { programs?: Map<unknown, object> }).programs;
+        for (const program of kept?.values() ?? []) programs.add(program);
+      }
+    });
+  }
+  return { info: { programs: [...programs] } };
+}
