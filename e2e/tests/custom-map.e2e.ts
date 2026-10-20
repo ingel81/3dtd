@@ -177,9 +177,10 @@ test('a building of a destructible map falls to a hit and stands again after a r
     (globalThis as unknown as { __worldDamage: WorldDamageHook }).__worldDamage.structures().find((s) => s.id === x)!.stage, i);
   await expect.poll(() => stageOf(id), { timeout: 30_000 }).toBe(3);
 
-  // Restart here: a new run stands every structure up again
+  // Restart here, under the Saves page: a new run stands every structure up again
   await openGameMenu(page);
-  await page.locator('app-main-menu [data-entry="restart"]').click();
+  await gameMenu(page).getByRole('menuitem', { name: 'Saves' }).click();
+  await gameMenu(page).locator('[data-test="restart"]').click();
   await confirmIfAsked(page, 'Restart');
   await expect.poll(() => stageOf(id), { timeout: 60_000 }).toBe(0);
   expect(errors).toEqual([]);
