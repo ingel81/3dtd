@@ -48,7 +48,8 @@
 }
 <!-- Before wave 1 on a map with optional lanes: which are open (TODO E130) -->
 <app-lane-choice />
-<!-- Running, the button waits (is-busy, pressed) and keeps the focus: aria-disabled, not disabled -->
+<!-- Running, the button waits (is-busy, pressed) and keeps the focus: aria-disabled, not disabled.
+     Running and counting down, ten notches beside the number: brass for the enemies left, or the seconds -->
 <button class="td-btn-primary td-wave-btn" [class.td-wave-running]="waveActive()"
         [class.is-busy]="waveActive()" [class.is-on]="waveButton().pressed || waveActive()"
         (click)="!waveActive() && !isGameOver() && startWave.emit()"
@@ -56,14 +57,22 @@
         [attr.aria-pressed]="coopReady() ? waveButton().pressed : null"
         aria-keyshortcuts="Space"
         [attr.aria-disabled]="waveActive() || isGameOver() ? true : null">
+  @let lit = waveButton().notches;
   @if (waveActive()) {
-    <span class="td-inline wp-btn-main">
-      <td-icon name="wave" [size]="16"></td-icon>
-      <span>{{ waveButton().label }}</span>
-    </span>
-    @if (waveButton().left; as left) {
-      <span class="td-note td-num">{{ left }}</span>
-      <span class="td-progress is-edge is-teal"><span [style.width.%]="waveButton().barPercent"></span></span>
+    @if (lit !== null) {
+      <span class="td-inline wp-btn-main">
+        <td-icon name="wave" [size]="16"></td-icon>
+        <span class="wp-wave-no td-num">{{ displayedWaveNumber() }}</span>
+      </span>
+      <span class="td-notches wp-notches" aria-hidden="true">
+        @for (n of notchSlots; track n) { <i [class.is-on]="n < lit"></i> }
+      </span>
+      <span class="td-note td-num">{{ waveButton().left }}</span>
+    } @else {
+      <span class="td-inline wp-btn-main">
+        <td-icon name="wave" [size]="16"></td-icon>
+        <span>{{ waveButton().label }}</span>
+      </span>
     }
   } @else {
     <span class="td-inline wp-btn-main">
@@ -74,8 +83,10 @@
       <span class="td-num wp-countdown">{{ ready }}</span>
       <span class="td-progress is-edge is-tick"><span [style.width.%]="waveButton().barPercent"></span></span>
     } @else if (waveButton().countdown; as countdown) {
+      <span class="td-notches wp-notches" aria-hidden="true">
+        @for (n of notchSlots; track n) { <i [class.is-on]="n < (lit ?? 0)"></i> }
+      </span>
       <span class="td-num wp-countdown">{{ countdown }}</span>
-      <span class="td-progress is-edge is-tick"><span [style.width.%]="waveButton().barPercent"></span></span>
     } @else if (!isGameOver()) {
       <kbd class="td-kbd" aria-hidden="true">{{ t().hud.wave.space }}</kbd>
     }

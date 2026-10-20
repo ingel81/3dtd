@@ -3524,6 +3524,7 @@ export const en = {
       startsBySelf: (start: string, s: number) => `${start} now, starts by itself in ${s}s`,
       seconds: (s: number) => `${s}s`,
       left: (n: number) => `${f.int(n)} left`,
+      running: (n: number, left: number, total: number) => `Wave ${n}, ${f.int(left)} of ${f.int(total)} enemies left`,
       perLane: ' per lane',
       maxHqDamage: 'Max HQ damage',
       maxHqDamageTip: 'HP the HQ loses if every enemy of this wave gets through, split children included',

@@ -292,6 +292,29 @@
   }
 }
 
+// Notches cut beside a figure (the wave button): the children side by side,
+// .is-on inlaid with brass like a rivet, the others dark holes
+@mixin notches {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 4px;
+  pointer-events: none;
+
+  > i {
+    height: 12px;
+    border-radius: 1px;
+    background: var(--td-rivet-hole);
+    box-shadow: var(--td-rivet-hole-shadow);
+    transition: background var(--td-dur-mid) linear, box-shadow var(--td-dur-mid) linear;
+  }
+
+  > i.is-on {
+    background: var(--td-brass);
+    box-shadow: var(--td-rivet);
+  }
+}
+
 // A thin progress bar in a well; its one child is the fill, width in %
 @mixin progress($height: 6px) {
   display: block;

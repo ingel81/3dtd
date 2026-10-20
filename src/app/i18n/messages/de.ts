@@ -3284,6 +3284,7 @@ export const de: Messages = {
       startsBySelf: (start, s) => `${start}, startet sonst von selbst in ${s} s`,
       seconds: (s) => `${s} s`,
       left: (n) => `noch ${f.int(n)}`,
+      running: (n, left, total) => `Welle ${n}, noch ${f.int(left)} von ${f.int(total)} Gegnern`,
       perLane: ' je Weg',
       maxHqDamage: 'HQ-Schaden max.',
       maxHqDamageTip: 'So viele HP verliert das HQ, wenn jeder Gegner dieser Welle durchkommt, Ableger mitgezählt',

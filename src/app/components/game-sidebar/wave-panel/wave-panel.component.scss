@@ -7,8 +7,10 @@
 }
 
 /* The wave button: the main action of the sidebar, full width. Running, it
-   stands pressed in teal with the share of enemies left as a bar; counting
-   down, the bar drains with the seconds. */
+   stands pressed: the wave icon in teal, the wave number, ten notches in
+   brass for the share of enemies left, the count; counting down, the
+   notches go out with the seconds. In coop between waves a bar at the
+   bottom fills with the players ready. */
 .td-wave-btn {
   position: relative;
   justify-content: space-between;
@@ -22,6 +24,18 @@
 
 .wp-btn-main {
   gap: var(--td-sp-2);
+}
+
+/* The running wave's number, engraved like the button text */
+.wp-wave-no {
+  font-size: var(--td-fs-lead);
+  font-weight: 700;
+  color: var(--td-text-title);
+}
+
+.wp-notches {
+  flex: 1 1 auto;
+  margin: 0 var(--td-sp-3);
 }
 
 .wp-countdown {

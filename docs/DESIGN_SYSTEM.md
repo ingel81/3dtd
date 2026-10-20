@@ -232,9 +232,10 @@ Bei `prefers-reduced-motion` springen alle Übergänge (globale Regel); Animatio
 | `td-menu`, `td-menu-item`, `td-menu-rule` | Hauptmenü: Einträge 48 px, 22 px/600, Symbol in Messing; Fokus und offene Seite (`aria-current`) als erhabene Steinplatte mit Messingtext; steht der Fokus woanders in der Liste, liegt die Platte der offenen Seite flach; Abstand 5 px |
 | `td-topbar`, `td-stat`, `td-sunk`, `td-loc-label`, `td-loc-name`, `td-meter` | Kopfleiste in Basalt 48 px mit Plattenkante; Wert mit tiefer eingeritztem Trenner davor (2 px `--td-sep-dark`, Licht `--td-sep-light`, 4 px Rand oben und unten); vertieftes Ortsfeld mit eingeritzter Kante (als Knopf hellt Hover den Ort); „Defend“ dunkler in Versalien mit Trenner; Ort halbfett; Segmentbalken |
 | `td-crumb` | Schritt des Pfads in einer Kopfleiste (Worlds › Welt › Wahl): eingravierter Text wie die Werkzeuge, gedämpft, 32 px hoch, Hover Messing; der Schritt, auf dem man steht (`aria-current`), in vollem Text und ohne Knopf-Cursor |
+| `td-notches` | Kerben neben einer Zahl (Wellen-Knopf): Kinder nebeneinander, `is-on` in Messing eingelegt wie eine Niete, die übrigen dunkle Löcher; Farbwechsel mit `--td-dur-mid` |
 | `td-rivets` | Messingnieten im Steinrand, eine je Ladung (Fähigkeitenknöpfe): `is-on` voll, sonst ein dunkles Loch, in das `--rivet-fill` (0 bis 1) Messing dunkel von links einläuft |
 | `td-wall` (`is-sm`) | Ladebalken als Mauer im Läuferverband, gesetzt von `app-brick-wall` (`components/brick-wall/`): drei Reihen in einem Mörtelbett (`--td-brick-mortar`, `--td-well-shadow`), die mittlere um einen halben Stein versetzt mit Halbsteinen an den Rändern, alle Fugen gleich (3 px). 31 Steine in drei Tönen (`--td-brick`, `-dark`, `-light`, Relief `--td-brick-relief`), gesetzt von unten links nach oben rechts, ein Stein je Stück Fortschritt; ein neuer Stein fällt 6 px in seine Lage (`--td-dur-mid`), der zuletzt gesetzte leuchtet kurz in Messing (`--td-dur-tick`). Reduced motion: kein Fall, der letzte Stein bleibt Messing. `role="progressbar"` mit `aria-valuenow` in Prozent; `is-sm` die niedrige Mauer unter einer Zeile (5 px je Reihe). Steht auf der Ladeplatte, beim Start einer Welt im Menü, beim Erzeugen einer OSM-Karte und beim Empfang der Karte im Coop-Beitritt |
-| `td-progress` (`is-edge`, `is-tick`, `is-teal`) | Fortschrittsbalken in einer Mulde, sein Kind ist die Füllung; `is-edge` 2 px an der Unterkante eines Knopfs oder einer Leiste; `is-tick` folgt einem Sekundenzähler; `is-teal` für eine laufende Welle |
+| `td-progress` (`is-edge`, `is-tick`, `is-teal`) | Fortschrittsbalken in einer Mulde, sein Kind ist die Füllung; `is-edge` 2 px an der Unterkante eines Knopfs oder einer Leiste; `is-tick` folgt einem Sekundenzähler; `is-teal` für Laufendes (Welle in der Kopfleiste, Kacheln beim Laden) |
 | `td-globe-mark`, `td-globe-readout` | Weltkugel hinter dem Menü: Punkt und Name eines Ortes (Rekord und Favorit Messing, der ladende Ort Teal mit Ring, zuletzt gespielt matt), die Anzeige oben rechts in Versalien (Ziel Messing, Status Teal); beide mit dem Schatten `--td-over-image` über dem Bild |
 | `td-marker`, `td-marker-btn` | Pfeil am Kartenrand: runde Platte, Ring und Symbol in `--td-mark` (Text `--td-mark-text`), `is-sm` 24 px; der Knopf darum gibt Hover an die Platte |
 | `td-side`, `td-side-section` (`is-fill`), `td-side-head`, `td-side-name`, `td-side-body` | Sidebar wie die Dialoge, an der Kante zur Karte eine eingeritzte Rille (`--td-edge-dark`, `--td-edge-light`); Sektionen durch eingeritzte Linien getrennt, die letzte füllt und scrollt; Kopf mit Haarlinie; Name mit Ellipse (`is-armed` rot); scrollender Körper |
@@ -480,14 +481,14 @@ verkauft (`SellConfirmService`).
 |---------|----------|-------------|
 | Bereit | keine Welle | Hauptknopf |
 | Gesperrt | Game Over | gesperrt, ohne Tastenkappe |
-| Countdown | Auto-Start an, Welle vorbei | rechts „{n}s“, unten ein 2 px-Balken in Messing, der mit der Wartezeit schrumpft; ein Klick startet sofort |
-| Coop bereit | dieser Spieler sagte bereit | `.is-on`, Haken, `aria-pressed` |
-| Welle läuft | `waveActive()` | `is-busy` und gedrückt (`aria-disabled`, behält den Fokus), Text Teal, rechts „{n} left“, unten ein Teal-Balken mit dem Anteil der Gegner, die noch kommen |
+| Countdown | Auto-Start an, Welle vorbei | zehn Kerben (`td-notches`) zwischen „Wave N“ und „{n}s“, je Kerbe ein Zehntel der Wartezeit (bei 10 s eine Sekunde) in Messing, sie gehen mit der Zeit aus; ein Klick startet sofort |
+| Coop bereit | dieser Spieler sagte bereit | `.is-on`, Haken, `aria-pressed`; unten ein 2 px-Balken in Messing mit dem Anteil der Spieler, die bereit sind |
+| Welle läuft | `waveActive()` | `is-busy` und gedrückt (`aria-disabled`, behält den Fokus): Wellensymbol in Teal, die Wellenzahl eingraviert (`--td-fs-lead`, `--td-text-title`), zehn Kerben (`td-notches`), je Kerbe ein angefangenes Zehntel der Gegner, die noch leben oder kommen, in Messing, rechts „{n} left“. Der Name sagt es in Worten („Wave 4, 52 of 80 enemies left“; Kinder eines Knopfs liest kein Screenreader als eigene Rolle). Eine Debug-Welle ohne bekannte Größe zeigt nur „Wave N“ |
 
 Darunter links der Schalter „Auto start in 10 s“ (`td-check` mit `td-switch`, ein Knopf mit `aria-pressed`; im Coop nicht
 da, die Spieler sagen bereit), rechts zwischen den Wellen „Replay wave N“ als `td-link` (eine Replay-Datei lädt das Menü unter Extras). Der Countdown
 läuft in Spielzeit, beginnt nach `wave:completed`, jeder Wellenstart, Game Over und ein Neustart beenden ihn; Zahl und
-Balken liefert `waveButtonView()` aus `GameStore.autoWaveSecondsLeft`. Ein Start aus dem Build-Mode lässt den Build-Mode
+Kerben liefert `waveButtonView()` aus `GameStore.autoWaveSecondsLeft` (`notchesLit`, `WAVE_NOTCHES`). Ein Start aus dem Build-Mode lässt den Build-Mode
 an.
 
 ### Wellenwarnung

@@ -3,12 +3,13 @@ import { coopReadyState, waveButtonView, type CoopRoomView } from './wave-button
 import { en } from '../../../i18n/messages/en';
 
 describe('waveButtonView', () => {
-  it('idle: "Wave N" with the upcoming wave, named as the action, no count, no bar', () => {
+  it('idle: "Wave N" with the upcoming wave, named as the action, no count, no notches', () => {
     expect(waveButtonView(en, 7, false, 0, 0)).toMatchObject({
       label: 'Wave 7',
       ariaLabel: 'Start wave 7',
       left: null,
       barPercent: 0,
+      notches: null,
       countdown: null,
     });
   });
@@ -17,19 +18,21 @@ describe('waveButtonView', () => {
     expect(waveButtonView(en, 3, false, 20, 5).left).toBeNull();
   });
 
-  it('running: "Wave N", enemies left and the bar at their share', () => {
+  it('running: "Wave N", enemies left, a notch per started tenth of them, the name in words', () => {
     expect(waveButtonView(en, 7, true, 40, 18)).toMatchObject({
       label: 'Wave 7',
-      ariaLabel: null,
+      ariaLabel: 'Wave 7, 18 of 40 enemies left',
       left: '18 left',
       barPercent: 45,
+      notches: 5,
       countdown: null,
     });
   });
 
-  it('a fresh wave fills the bar, a finished one empties it', () => {
-    expect(waveButtonView(en, 2, true, 12, 12).barPercent).toBe(100);
-    expect(waveButtonView(en, 2, true, 12, 0)).toMatchObject({ left: '0 left', barPercent: 0 });
+  it('a fresh wave lights every notch, the last goes out only at 0', () => {
+    expect(waveButtonView(en, 2, true, 12, 12)).toMatchObject({ barPercent: 100, notches: 10 });
+    expect(waveButtonView(en, 2, true, 100, 1).notches).toBe(1);
+    expect(waveButtonView(en, 2, true, 12, 0)).toMatchObject({ left: '0 left', barPercent: 0, notches: 0 });
   });
 
   it('clamps left into 0..total', () => {
@@ -37,19 +40,20 @@ describe('waveButtonView', () => {
     expect(waveButtonView(en, 1, true, 10, -2)).toMatchObject({ left: '0 left', barPercent: 0 });
   });
 
-  it('a manual debug wave without a known size shows no count and no bar', () => {
+  it('a manual debug wave without a known size shows no count and no notches', () => {
     expect(waveButtonView(en, 5, true, 0, 0)).toMatchObject({
-      label: 'Wave 5', ariaLabel: null, left: null, barPercent: 0, countdown: null,
+      label: 'Wave 5', ariaLabel: null, left: null, barPercent: 0, notches: null, countdown: null,
     });
   });
 
   describe('auto-start countdown', () => {
-    it('idle: the seconds left and the bar at the share of time left', () => {
+    it('idle: the seconds left, a notch per second of a 10 s countdown', () => {
       expect(waveButtonView(en, 6, false, 0, 0, 7, 10)).toMatchObject({
         label: 'Wave 6',
         ariaLabel: 'Start wave 6 now, starts by itself in 7s',
         left: null,
         barPercent: 70,
+        notches: 7,
         countdown: '7s',
       });
     });
@@ -91,6 +95,7 @@ describe('waveButtonView', () => {
         ariaLabel: 'Ready for wave 3, 1/2 ready',
         left: null,
         barPercent: 50,
+        notches: null,
         countdown: null,
         coopReady: '1/2 ready',
         pressed: false,

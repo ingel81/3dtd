@@ -42,7 +42,7 @@ import {
   type WaveAlertKind,
 } from './wave-alert';
 import { NEXT_WAVE_MARKS, peekUpcomingWaves } from './upcoming-waves';
-import { coopReadyState, waveButtonView } from './wave-button';
+import { WAVE_NOTCHES, coopReadyState, waveButtonView } from './wave-button';
 import { WaveTimelineComponent } from './wave-timeline.component';
 import { ReplayService } from '../../../services/replay.service';
 import { COOP } from '../../../services/coop.token';
@@ -163,7 +163,10 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   /** Coop readiness for the button; null outside a coop game and after game over */
   readonly coopReady = computed(() => coopReadyState(this.coop, this.isGameOver()));
 
-  /** Label, accessible name, "N left", countdown and bar width of the wave button. */
+  /** The notches' places, built once */
+  protected readonly notchSlots = Array.from({ length: WAVE_NOTCHES }, (_, i) => i);
+
+  /** Label, accessible name, "N left", countdown, notches and bar width of the wave button. */
   readonly waveButton = computed(() =>
     waveButtonView(
       this.t(),
