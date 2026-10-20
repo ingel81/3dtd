@@ -10,12 +10,15 @@
 //
 // --shots saves one picture per view as it starts measuring (<dir>/<world>-<quality>-<n>.png), to see what was measured.
 // --timeout: how long one run may take, s; 420 by default, 1800 with SwiftShader (a few frames a second).
+// --seed <dir>/<id>.3dtdmap: an own map (an OSM world, with <id>.summary.json beside it) into each run's map store,
+// measured as --worlds map:<id>. --vsync: frames at the display's rate (perf-run.ts; default as fast as they go).
 //
 // A world is `map:<id>`, `tiles:<lat>,<lon>` or `devworld`. Tiles over a production build need the key: it is
 // read from src/environments/environment.ts into the page's storage (the key dialog comes before any world), never printed. Keep tiles runs few (one map
 // session each). A quality level goes into the page as `&quality=<level>` (docs/BENCHMARKS.md).
 import { chromium, type Page } from '@playwright/test';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { seedMap, vsyncArgs } from './perf-run.ts';
 
 function argument(name: string, fallback: string): string {
   const at = process.argv.indexOf(`--${name}`);
@@ -32,6 +35,7 @@ const WIDTH = Number(argument('width', '1600'));
 const HEIGHT = Number(argument('height', '900'));
 const JSON_OUT = argument('json', '');
 const SHOTS = argument('shots', '');
+const SEED = argument('seed', '');
 /** More of the page's query, e.g. a measurement switch: `--query depth=reversed` */
 const QUERY = argument('query', '');
 /** `--angle swiftshader`: a software GPU where every pixel costs, the resolution's effect without a weak machine */
@@ -87,7 +91,7 @@ async function shoot(page: Page, prefix: string, done: Promise<unknown>): Promis
 
 const browser = await chromium.launch({
   headless: false,
-  args: [`--window-size=${WIDTH},${HEIGHT + 100}`, '--disable-gpu-vsync', '--disable-frame-rate-limit', ...GPU_ARGS],
+  args: [`--window-size=${WIDTH},${HEIGHT + 100}`, ...vsyncArgs(false), ...GPU_ARGS],
 });
 const credentials = tileCredentials();
 const all: { env: Env; rows: Row[] }[] = [];
@@ -103,6 +107,11 @@ for (const world of WORLDS) {
       localStorage.setItem('td_globe_quality_v1', '"off"');
       if (tiles && !localStorage.getItem('3dtd-tile-credentials')) localStorage.setItem('3dtd-tile-credentials', JSON.stringify(tiles));
     }, credentials);
+    if (SEED) {
+      // On the game's origin first: the map store needs it
+      await page.goto(`${URL_BASE}/build-info.json`);
+      await seedMap(page, SEED);
+    }
     const q = quality ? `&quality=${quality}` : '';
     const started = Date.now();
     await page.goto(`${URL_BASE}/?${worldQuery(world)}&menu=skip&benchmark=render${q}${QUERY ? `&${QUERY}` : ''}`);

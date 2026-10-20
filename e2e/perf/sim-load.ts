@@ -24,6 +24,7 @@ import { startProfiles, summarize } from './cdp-profile.ts';
 import {
   frameStats, placeTowers, routeSlices, settle, spawnUpTo, startLoadWave, stepEvenness, type LoadDriver,
 } from '../../src/app/benchmark/load-scene.ts';
+import { FrameReport, USER_DATA, frameWindow, startFrames, stopFrames, vsyncOn } from './perf-run.ts';
 
 function argument(name: string, fallback: string): string {
   const at = process.argv.indexOf(`--${name}`);
@@ -36,7 +37,8 @@ const SPEED = Number(argument('speed', '4'));
 const TOWERS = Number(argument('towers', '40'));
 const SECONDS = Number(argument('seconds', '10'));
 /** Frames without the display's cap (Chromium): the real headroom instead of a flat 60 */
-const UNCAPPED = process.argv.includes('--uncapped');
+// --no-vsync (perf-run.ts) says the same
+const UNCAPPED = process.argv.includes('--uncapped') || !vsyncOn(true);
 /** A screenshot at the start of the measurement, to see the scene measured */
 const SHOT = argument('shot', '');
 /** A real place over real tiles instead of the DevWorld: the dev server with a tile key, a visible window (the tiles need the GPU), one map session */
@@ -215,7 +217,7 @@ const FOREGROUND_PREFS = {
   'dom.timeout.enable_budget_timer_throttling': false,
   'dom.min_background_timeout_value': 4,
 };
-const browser = await engine.launch({
+const LAUNCH = {
   headless: !HEADED && !MAP,
   ...(BROWSER === 'firefox' ? { firefoxUserPrefs: FOREGROUND_PREFS } : {}),
   args: BROWSER === 'firefox' ? [] : [
@@ -224,9 +226,14 @@ const browser = await engine.launch({
     ...(UNCAPPED ? ['--disable-frame-rate-limit', '--disable-gpu-vsync'] : []),
     ...(PROFILE ? [`--remote-debugging-port=${CDP_PORT}`] : []),
   ],
-});
-const context = await browser.newContext({ viewport: { width: 1600, height: 900 }, ...(DPR ? { deviceScaleFactor: Number(DPR) } : {}) });
-const page = await context.newPage();
+};
+const VIEW = { viewport: { width: 1600, height: 900 }, ...(DPR ? { deviceScaleFactor: Number(DPR) } : {}) };
+// --user-data <dir> (perf-run.ts, Chromium): a profile kept between runs
+const persistent = USER_DATA && BROWSER === 'chromium' ? await chromium.launchPersistentContext(USER_DATA, { ...LAUNCH, ...VIEW }) : null;
+const browser = persistent ? null : await engine.launch(LAUNCH);
+const context = persistent ?? (await browser!.newContext(VIEW));
+const page = persistent?.pages()[0] ?? (await context.newPage());
+const closeBrowser = () => (persistent ?? browser!).close();
 // A custom map hands its view to `__mapProbe` (CustomMapView.attach): its update cost and a draw without it
 if (WORLD) await page.addInitScript(() => ((globalThis as { __mapProbe?: unknown }).__mapProbe = true));
 page.on('pageerror', (e) => console.log('pageerror', e.message));
@@ -246,7 +253,7 @@ const machine = {
   threads: os.cpus().length,
   memoryGb: Math.round(os.totalmem() / 2 ** 30),
   os: `${os.type()} ${os.release()}`,
-  browser: `${BROWSER} ${browser.version()}`,
+  browser: `${BROWSER} ${persistent?.browser()?.version() ?? browser!.version()}`,
   ...(await page.evaluate(() => {
     const gl = document.createElement('canvas').getContext('webgl2');
     const info = gl?.getExtension('WEBGL_debug_renderer_info');
@@ -345,7 +352,7 @@ if (STEPS.length > 0) {
     }
   }
   console.log('CURVE ' + JSON.stringify(rows));
-  await browser.close();
+  await closeBrowser();
   process.exit(0);
 }
 
@@ -353,7 +360,14 @@ await spawnTo(ENEMIES);
 await setSpeed(SPEED);
 await settle(driver);
 if (SHOT) await page.screenshot({ path: SHOT });
+// --json (perf-run.ts): the measured stretch's frames as a window beside the result
+const report = new FrameReport();
+if (report.enabled) await startFrames(page);
 const result = await measure(page, SECONDS);
+if (report.enabled) {
+  const frames = await stopFrames(page);
+  report.add(frameWindow(`${ENEMIES} enemies x${SPEED}`, frames.gaps, frames.heap, { fps: result.fps, speed: result.speed, enemies: result.enemies }));
+}
 if (SHOT && ZOOM) {
   const [x, y, steps] = ZOOM.split(',').map(Number);
   // Home: the camera's quick jump to the HQ, where the route ends
@@ -438,4 +452,5 @@ if (WORLD) {
   console.log(`MAP update ${updateMs.toFixed(3)} ms per frame, ${result.fps.toFixed(1)} fps with the map, ${without.fps.toFixed(1)} without`);
 }
 console.log(JSON.stringify({ build, machine, browser: BROWSER, url: URL_BASE, uncapped: UNCAPPED, speedAsked: SPEED, towers: placed.towers, world: WORLD || null, map, ...result }));
-await browser.close();
+await report.write('sim-load', URL_BASE, !UNCAPPED, { result });
+await closeBrowser();

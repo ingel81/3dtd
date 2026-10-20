@@ -12,9 +12,14 @@
 //   The editor's templates (biomes) on the demo valley's roads: `npx vitest run tools/w3x/templates-dump.spec.ts --mode w3x`,
 //   then --map tpl-<template> --seed tmp/w3x-out/tpl-<template>.3dtdmap
 //
+//   A baseline (perf-run.ts): --user-data <dir> (one profile over the runs; no --profile then), --vsync / --no-vsync
+//   (default: the display's rate), --idle <ms>: the frames that long after ready, --json <file>: the runs' marks, the
+//   first frame the game drew and the idle frames
+//
 // Headed Chromium: the terrain and the models compile their shaders on the GPU the player has, not in SwiftShader.
 import { chromium, type Page } from '@playwright/test';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { FrameReport, USER_DATA, frameWindow, seedMap, startFrames, stopFrames, vsyncArgs, vsyncOn } from './perf-run.ts';
 
 function argument(name: string, fallback: string): string {
   const at = process.argv.indexOf(`--${name}`);
@@ -34,6 +39,8 @@ const MENU = process.argv.includes('--menu');
 const SHOT = argument('shot', '');
 /** Bloom on (the VFX setting), so frames draw through the post-processing target */
 const BLOOM = process.argv.includes('--bloom');
+/** The frames this long after ready, in the game standing idle (0: none) */
+const IDLE_MS = Number(argument('idle', '0'));
 
 interface Mark {
   name: string;
@@ -54,33 +61,6 @@ interface TraceEvent {
   ts: number;
   dur?: number;
   args?: { data?: { cpuProfile?: { nodes?: ProfileNode[]; samples?: number[] }; timeDeltas?: number[]; url?: string } };
-}
-
-/** The own map into the page's map store (IndexedDB `3dtd-maps`, as IndexedDbMapBackend keeps it) */
-async function seed(page: Page, file: string): Promise<void> {
-  const bytes = [...readFileSync(file)];
-  const summary = JSON.parse(readFileSync(file.replace(/\.3dtdmap$/, '.summary.json'), 'utf8')) as { id: string };
-  await page.evaluate(async ({ bytes, summary }) => {
-    await new Promise((resolve, reject) => {
-      const req = indexedDB.open('3dtd-maps', 1);
-      req.onupgradeneeded = () => {
-        for (const store of ['files', 'summaries']) {
-          if (!req.result.objectStoreNames.contains(store)) req.result.createObjectStore(store, { keyPath: 'id' });
-        }
-      };
-      req.onsuccess = () => {
-        const tx = req.result.transaction(['files', 'summaries'], 'readwrite');
-        tx.objectStore('files').put({ id: summary.id, file: new Uint8Array(bytes), preview: null });
-        tx.objectStore('summaries').put(summary);
-        tx.oncomplete = () => {
-          req.result.close();
-          resolve(null);
-        };
-        tx.onerror = () => reject(tx.error);
-      };
-      req.onerror = () => reject(req.error);
-    });
-  }, { bytes, summary });
 }
 
 async function marks(page: Page): Promise<Mark[]> {
@@ -140,10 +120,15 @@ if (ANALYZE) {
   process.exit(0);
 }
 
-const browser = await chromium.launch({ headless: false, args: ['--window-size=1600,900'] });
+const LAUNCH = { headless: false, args: ['--window-size=1600,900', ...vsyncArgs(true)] };
+// With a kept profile every run is a page of the profile's one context; without, a fresh context each
+const persistent = USER_DATA ? await chromium.launchPersistentContext(USER_DATA, { ...LAUNCH, viewport: { width: 1600, height: 900 } }) : null;
+const browser = persistent ? null! : await chromium.launch(LAUNCH);
+const report = new FrameReport();
+const runs: { ready: number | null; firstFrame: number | null; marks: Record<string, number> }[] = [];
 const totals: number[] = [];
 for (let run = 0; run < RUNS; run++) {
-  const context = await browser.newContext({ viewport: { width: 1600, height: 900 } });
+  const context = persistent ?? (await browser.newContext({ viewport: { width: 1600, height: 900 } }));
   const page = await context.newPage();
   const problems: string[] = [];
   page.on('pageerror', (e) => problems.push(e.message));
@@ -152,6 +137,12 @@ for (let run = 0; run < RUNS; run++) {
     localStorage.setItem('td_seen_version', '9999.0.0');
     localStorage.setItem('td_onboarding_v2', JSON.stringify({ done: true, completed: [] }));
     localStorage.setItem('td_globe_quality_v1', '"off"');
+    // The first frame the game's engine drew: the first animation frame after its load step `engine` was done
+    const first = (now: number) => {
+      if (performance.getEntriesByName('load:engine:done').length) (window as unknown as { __firstFrame: number }).__firstFrame = Math.round(now);
+      else requestAnimationFrame(first);
+    };
+    requestAnimationFrame(first);
     // Shader programs linked, and the main thread's wait on their results (a cold driver cache links them here)
     const gl = WebGL2RenderingContext.prototype;
     const stats = { links: 0, waitMs: 0 };
@@ -173,7 +164,7 @@ for (let run = 0; run < RUNS; run++) {
   });
   // On the game's origin first: the map store needs it
   await page.goto(`${URL_BASE}/build-info.json`);
-  if (SEED) await seed(page, SEED);
+  if (SEED) await seedMap(page, SEED);
   const tracing = PROFILE && run === 0;
   if (tracing) {
     await browser.startTracing(page, {
@@ -215,16 +206,26 @@ for (let run = 0; run < RUNS; run++) {
     await page.screenshot({ path: SHOT });
   }
   if (ready !== undefined) totals.push(ready);
+  const firstFrame = await page.evaluate(() => (window as unknown as { __firstFrame?: number }).__firstFrame ?? null);
+  runs.push({ ready: ready ?? null, firstFrame, marks: Object.fromEntries(found.map((m) => [m.name, m.at])) });
+  if (IDLE_MS > 0 && ready !== undefined) {
+    await startFrames(page);
+    await page.waitForTimeout(IDLE_MS);
+    const idle = await stopFrames(page);
+    report.add(frameWindow(`idle run ${run + 1}`, idle.gaps, idle.heap));
+  }
   if (tracing) {
     const trace = await browser.stopTracing();
     if (TRACE_FILE) writeFileSync(TRACE_FILE, trace);
     const parsed = JSON.parse(trace.toString('utf8')) as { traceEvents: TraceEvent[] };
     console.log(`\n${profileReport(parsed.traceEvents)}`);
   }
-  await context.close();
+  if (persistent) await page.close();
+  else await context.close();
 }
 if (totals.length > 1) {
   const sorted = [...totals].sort((a, b) => a - b);
   console.log(`\nready: ${totals.join(', ')} ms, median ${sorted[Math.floor(sorted.length / 2)]} ms`);
 }
-await browser.close();
+await report.write('map-load', URL_BASE, vsyncOn(true), { map: MAP, runs });
+await (persistent ?? browser).close();

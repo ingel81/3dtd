@@ -10,8 +10,12 @@
 //   npx ng serve --port <port>
 //   node e2e/perf/siege-probe.ts --url http://localhost:<port> [--map ruined-city] [--enemy jumper] [--window 40000]
 //        [--long 33] [--start wave|spawn] [--close] [--trace view.updateHeights,...] [--profile [--total]] [--headed]
+//   A baseline (perf-run.ts): --vsync (default: frames as fast as they go), --user-data <dir>, --idle <ms>: the game
+//   standing that long before the wave, --json <file>: the idle frames, the wave's first --wave-start ms (5000) and
+//   the whole window
 import { chromium } from '@playwright/test';
 import { FrameProfiler } from './frame-profile.ts';
+import { FrameReport, frameWindow, startFrames, stopFrames, vsyncArgs, vsyncOn } from './perf-run.ts';
 
 function argument(name: string, fallback: string): string {
   const at = process.argv.indexOf(`--${name}`);
@@ -44,7 +48,12 @@ const CHROME_TRACE = argument('chrome-trace', '');
 // --trace view.updateHeights,...: every call of these, with its arguments, time and length
 const TRACE = argument('trace', '') ? argument('trace', '').split(',') : [];
 
-const LAUNCH_ARGS = ['--window-size=1600,1000', '--enable-gpu', '--ignore-gpu-blocklist', '--disable-gpu-vsync', '--disable-frame-rate-limit'];
+const LAUNCH_ARGS = ['--window-size=1600,1000', '--enable-gpu', '--ignore-gpu-blocklist', ...vsyncArgs(false)];
+/** The game standing idle this long before the wave, its frames in --json (0: none) */
+const IDLE_MS = Number(argument('idle', '0'));
+/** The wave's start in --json: its first this many ms */
+const WAVE_START_MS = Number(argument('wave-start', '5000'));
+const report = new FrameReport();
 // --user-data <dir>: a browser profile kept between runs, as a player's: its shader caches (GrShaderCache, the
 // GPU program cache) hold what earlier runs compiled. A fresh profile compiles every Skia and WebGL program anew
 // each run. No --chrome-trace with it (a persistent context has no browser to trace)
@@ -106,6 +115,13 @@ if (process.argv.includes('--overflow')) {
 }
 // --css "<rules>": a style sheet over the game's, to try a change of the UI's look on the frames
 if (argument('css', '')) await page.addStyleTag({ content: argument('css', '') });
+
+if (IDLE_MS > 0) {
+  await startFrames(page);
+  await page.waitForTimeout(IDLE_MS);
+  const idle = await stopFrames(page);
+  report.add(frameWindow('idle', idle.gaps, idle.heap));
+}
 
 if (START === 'wave') {
   await page.evaluate((enemy) => {
@@ -407,6 +423,10 @@ const result = await page.evaluate(
     const traced = calls.filter(([n, , d]) => trace.includes(n.split('(')[0]) && d > 0.05).map(([n, s, d]) => `${n}@${r((s - start) / 1000)}=${r(d)}`);
     const sorted = [...gaps].sort((a, b) => a - b);
     return {
+      // For --json: each frame's start in the window, its interval and the heap
+      ats: frames.map((f) => f.at),
+      gaps,
+      heaps: frames.map((f) => f.heap),
       frames: frames.length,
       medianMs: r(sorted[Math.floor(sorted.length / 2)] ?? 0),
       maxGapMs: r(Math.max(0, ...gaps)),
@@ -525,7 +545,11 @@ if (layerCdp) {
     console.log(`LAYER ${node} ${l ? `${Math.round(l.width)}x${Math.round(l.height)}` : ''} paints early ${e.early} late ${e.late}, area ${Math.round(e.area / 1000)}k px [${reasons}] clips ${top}`);
   }
 }
-const { long, moments, traced, sides, newKeys, depthBefore, ...summary } = result;
+const { long, moments, traced, sides, newKeys, depthBefore, ats, gaps, heaps, ...summary } = result;
+const early = (i: number) => ats[i] < WAVE_START_MS;
+report.add(frameWindow('wave start', gaps.filter((_, i) => early(i)), heaps.filter((_, i) => early(i))));
+report.add(frameWindow(START === 'wave' ? 'wave' : 'siege', gaps, heaps, { enemies: summary.enemies, maxGpuMs: summary.maxGpuMs, medianGpuMs: summary.medianGpuMs, long }));
+await report.write('siege-probe', URL_BASE, vsyncOn(false), { map: MAP, enemy: ENEMY });
 if (process.argv.includes('--depth-keys')) for (const key of depthBefore) console.log('DEPTHKEY ' + key);
 for (const key of newKeys) console.log('NEWKEY ' + key);
 console.log('SIDES ' + JSON.stringify(sides));

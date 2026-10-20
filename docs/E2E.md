@@ -76,6 +76,21 @@ Jeder Coop-Test mit Spiel prüft am Ende das Relay-Log auf `DESYNC`. Die Nummern
 Gefühl und Ton (Egoperspektive, Sound), ob etwas gut aussieht (die Screenshots im Bericht sind dafür da), Firefox,
 ein echter zweiter Rechner, Hardware. Und alles, wofür beide Kameras dieselbe Stelle zeigen müssten (T51).
 
+## Baseline über die Messläufe (`e2e/perf/perf-run.ts`)
+
+Damit spätere Perf-Fixes gegen feste Zahlen laufen, verstehen `map-load`, `siege-probe`, `build-preview-probe`,
+`collapse-probe`, `sim-load` und `render-bench` dieselben Schalter. Ohne sie läuft und druckt jeder Lauf wie vorher.
+
+- `--vsync` / `--no-vsync`: Bilder im Takt der Anzeige oder so schnell sie können; jeder Lauf behält seinen Standard
+  (siege, build-preview und render-bench ohne, map-load, collapse und sim-load mit; `--uncapped` bleibt in sim-load).
+- `--user-data <dir>`: ein Browser-Profil über die Läufe, dessen Shader-Caches warm bleiben (render-bench nicht).
+- `--json <file>`: je Fenster Median, p95 und längster Bildabstand, Bilder über 33 und 50 ms und der JS-Heap, dazu
+  Build (`build-info.json`), Argumente und die eigenen Zahlen des Laufs. Die Fenster: map-load `idle run <n>` (mit
+  `--idle <ms>` nach „ready“), dazu je Lauf die Lademarken und `firstFrame` (erstes Bild nach dem Ladeschritt
+  `engine`); siege `idle` (mit `--idle <ms>` vor der Welle), `wave start` (die ersten `--wave-start` ms, 5000) und das
+  ganze Fenster; build-preview `pass <n> pick` und `move`; collapse je Fall; sim-load die Messstrecke. render-bench
+  schreibt sein eigenes `--json` und nimmt mit `--seed` eine eigene Karte (OSM-Welt) auf.
+
 ## Lastmessung (`e2e/perf/sim-load.ts`)
 
 Kein Test, ein Messlauf: eine DevWorld-Szene mit Towern und vielen Gegnern im Produktions-Build, gemessen werden

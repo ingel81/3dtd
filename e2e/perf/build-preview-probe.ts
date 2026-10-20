@@ -13,9 +13,9 @@
 //   --user-data <dir>: a kept browser profile (run once to warm it, measure the second); --vsync: frames at the
 //   display's rate, as a player has them (without: as fast as they go); --settle 30000: after the background warm-up
 //   Finding a long frame: --frame-gpu, --gl-slow <ms>, --sync-draws <ms>, --without los|cube, --time <paths>, --read
-import { chromium, type Page } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { chromium } from '@playwright/test';
 import { FrameProfiler } from './frame-profile.ts';
+import { FrameReport, frameWindow, seedMap, vsyncArgs, vsyncOn } from './perf-run.ts';
 
 function argument(name: string, fallback: string): string {
   const at = process.argv.indexOf(`--${name}`);
@@ -65,8 +65,9 @@ const SYNC_DRAWS_MS = Number(argument('sync-draws', '0'));
 
 // --vsync: frames at the display's rate, as a player has them. Without it they run as fast as they can: the GPU
 // process then falls behind now and then, and a WebGL call waits on it (long frames that are the uncapped rate's)
-const VSYNC = process.argv.includes('--vsync');
-const LAUNCH_ARGS = ['--window-size=1600,1000', '--enable-gpu', '--ignore-gpu-blocklist', ...(VSYNC ? [] : ['--disable-gpu-vsync', '--disable-frame-rate-limit'])];
+const LAUNCH_ARGS = ['--window-size=1600,1000', '--enable-gpu', '--ignore-gpu-blocklist', ...vsyncArgs(false)];
+// --json <file> (perf-run.ts): each pass's pick and move as frame windows
+const report = new FrameReport();
 // --user-data <dir>: a browser profile kept between runs, as a player's (siege-probe.ts): a fresh one compiles Skia's
 // and the GPU program cache's programs anew, a first run's hitches that are not the game's
 const USER_DATA = argument('user-data', '');
@@ -152,36 +153,9 @@ await page.addInitScript(([quality, frameGpu, glSlowMs]) => {
   }
 }, [QUALITY, FRAME_GPU, GL_SLOW_MS] as const);
 
-async function seed(target: Page, file: string): Promise<void> {
-  const bytes = [...readFileSync(file)];
-  const summary = JSON.parse(readFileSync(file.replace(/\.3dtdmap$/, '.summary.json'), 'utf8')) as { id: string };
-  await target.evaluate(async ({ bytes, summary }) => {
-    await new Promise((resolve, reject) => {
-      // No version: a kept profile's store is at the app's (MapStore's), a fresh one starts at 1 and the app upgrades it
-      const req = indexedDB.open('3dtd-maps');
-      req.onupgradeneeded = () => {
-        for (const store of ['files', 'summaries']) {
-          if (!req.result.objectStoreNames.contains(store)) req.result.createObjectStore(store, { keyPath: 'id' });
-        }
-      };
-      req.onsuccess = () => {
-        const tx = req.result.transaction(['files', 'summaries'], 'readwrite');
-        tx.objectStore('files').put({ id: summary.id, file: new Uint8Array(bytes), preview: null });
-        tx.objectStore('summaries').put(summary);
-        tx.oncomplete = () => {
-          req.result.close();
-          resolve(null);
-        };
-        tx.onerror = () => reject(tx.error);
-      };
-      req.onerror = () => reject(req.error);
-    });
-  }, { bytes, summary });
-}
-
 if (SEED) {
   await page.goto(`${URL_BASE}/build-info.json`);
-  await seed(page, SEED);
+  await seedMap(page, SEED);
 }
 const t0 = Date.now();
 await page.goto(`${URL_BASE}/?world=map:${MAP}&menu=skip`);
@@ -528,6 +502,8 @@ for (let pass = IDLE ? 0 : 1; pass <= PASSES; pass++) {
   const parts = Object.fromEntries(
     Object.entries(after.parts as Record<string, { calls: number; ms: number; max: number }>).map(([k, v]) => [k, `${v.calls}x sum ${v.ms.toFixed(0)} max ${v.max.toFixed(1)} ms`]),
   );
+  report.add(frameWindow(`pass ${pass} pick`, rec.pick.gaps, [], { programsLinked: rec.pick.links, slowestReadMs: Math.max(0, ...rec.pick.reads) }));
+  report.add(frameWindow(`pass ${pass} move`, rec.move.gaps, [], { programsLinked: rec.move.links }));
   console.log(`PASS ${pass} (${moveMs} ms of moves)`);
   console.log(`  pick: ${line(rec.pick)}`);
   console.log(`  move: ${line(rec.move)}`);
@@ -561,4 +537,5 @@ for (let pass = IDLE ? 0 : 1; pass <= PASSES; pass++) {
   if (profiler) console.log(await profiler.stop(Number(argument('lines', '16'))));
   await page.waitForTimeout(500);
 }
+await report.write('build-preview-probe', URL_BASE, vsyncOn(false), { map: MAP, tower: TOWER });
 await close();

@@ -12,10 +12,13 @@
 //        [--shots <dir>: a still of each building at stage 2 and fallen, for the floors inside] [--scan <dir>]
 //        [--cpu: a CPU profile of each fall's first second] [--list-damage: the ruins' shadow programs and meshes]
 //        [--attribs: the programs' attribute slots against the GPU's limit]
+//   A baseline (perf-run.ts): --no-vsync (default: the display's rate), --user-data <dir>, --json <file>: each fall's
+//   frames (with --no-video: the screencast costs frames)
 import { chromium } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { FrameReport, USER_DATA, frameWindow, vsyncArgs, vsyncOn } from './perf-run.ts';
 
 function argument(name: string, fallback: string): string {
   const at = process.argv.indexOf(`--${name}`);
@@ -38,9 +41,12 @@ const HEADED = process.argv.includes('--headed');
 const SIZE = { width: 1280, height: 720 };
 
 mkdirSync(OUT, { recursive: true });
-const browser = await chromium.launch({ headless: !HEADED, args: ['--enable-gpu', '--ignore-gpu-blocklist', `--window-size=${SIZE.width},${SIZE.height + 80}`] });
-const context = await browser.newContext({ viewport: SIZE, deviceScaleFactor: 1 });
-const page = await context.newPage();
+const LAUNCH = { headless: !HEADED, args: ['--enable-gpu', '--ignore-gpu-blocklist', `--window-size=${SIZE.width},${SIZE.height + 80}`, ...vsyncArgs(true)] };
+const persistent = USER_DATA ? await chromium.launchPersistentContext(USER_DATA, { ...LAUNCH, viewport: SIZE, deviceScaleFactor: 1 }) : null;
+const browser = persistent ? null : await chromium.launch(LAUNCH);
+const context = persistent ?? (await browser!.newContext({ viewport: SIZE, deviceScaleFactor: 1 }));
+const page = persistent?.pages()[0] ?? (await context.newPage());
+const report = new FrameReport();
 const cdp = await context.newCDPSession(page);
 /** The frames of the clip being recorded: file and the time it was painted (s) */
 let frames: { file: string; at: number }[] | null = null;
@@ -260,6 +266,7 @@ for (const spec of IDS) {
     await page.waitForTimeout(profiling ? FALL_MS - 1000 : FALL_MS);
     const frames = await call('frames', mark);
     const long = frames.filter((f) => f > LONG_MS);
+    report.add(frameWindow(`${id} ${v}`, frames));
     console.log(`${id} ${v}: ${frames.length} frames, longest ${Math.max(...frames).toFixed(1)} ms, over ${LONG_MS} ms: ${long.length} [${long.map((f) => f.toFixed(0)).join(' ')}]`);
     await stop();
     await call('stage', id, 0);
@@ -299,6 +306,7 @@ if (process.argv.includes('--list-damage')) {
   }
 }
 console.log(`programs: ${programsBefore.length} before the first fall, ${programsAfter.length} after the last; new: ${added.map((p) => p.slice(-110)).join(' | ')}`);
+await report.write('collapse-probe', URL_BASE, vsyncOn(true), { map: MAP });
 await context.close();
-await browser.close();
+await browser?.close();
 
