@@ -382,6 +382,23 @@ describe('Worlds stage', () => {
     expect(text(el(f).querySelector('.ws-menu'))).not.toContain('Continue');
   });
 
+  it('the first focus goes up to a Continue that comes in after the first frame, unless the player moved it', async () => {
+    let f = await open({ key: true });
+    const active = () => (document.activeElement as HTMLElement).dataset['entry'];
+    expect(active()).toBe('coop');
+    await store.write({ ...heilbronn() }, 'save');
+    await settle(f);
+    expect(active()).toBe('continue-real');
+
+    f.destroy();
+    TestBed.resetTestingModule();
+    f = await open({ key: true });
+    el(f).querySelector<HTMLElement>('[data-entry="load"]')!.focus();
+    await store.write({ ...heilbronn() }, 'save');
+    await settle(f);
+    expect(active()).toBe('load');
+  });
+
   it('an autosave written while the globes stand shows at once: Continue, chip and the line under its globe', async () => {
     const f = await open({ key: true });
     expect(text(el(f).querySelector('.ws-menu'))).not.toContain('Continue');

@@ -182,6 +182,8 @@ export class WorldsStageComponent {
   readonly markName = computed(() => (this.view() === 'world' ? this.pickName() : null));
 
   private globes: StageGlobes | null = null;
+  /** The entry focusFirst gave the focus to last: a Continue that comes in later may take it over */
+  private autoFocused: HTMLElement | null = null;
 
   constructor() {
     const zone = inject(NgZone);
@@ -231,6 +233,14 @@ export class WorldsStageComponent {
       const back = before?.view === 'world' && now.view === 'globes' ? before.world : null;
       before = now;
       untracked(() => afterNextRender(() => this.focusFirst(back), { injector: this.injector }));
+    });
+    // The saves are read after the first frame: their Continue comes in above the entry that took the focus,
+    // which then goes up to it, unless the player moved it meanwhile
+    effect(() => {
+      if (this.stage.continues().length === 0) return;
+      untracked(() => afterNextRender(() => {
+        if (this.view() === 'globes' && this.autoFocused && document.activeElement === this.autoFocused) this.focusFirst();
+      }, { injector: this.injector }));
     });
   }
 
@@ -351,6 +361,8 @@ export class WorldsStageComponent {
     const first = this.view() === 'globes'
       ? this.host.querySelector<HTMLElement>(card ? `.ws-card[data-world="${card}"]` : '.ws-menu [role="menuitem"]')
       : this.host.querySelector<HTMLElement>('.ws-panel .wm-body button:not([tabindex="-1"]):not([disabled]), .ws-panel .wm-body input:not([disabled]), .ws-panel .wm-body [tabindex="0"]');
-    if (first) focusQuietly(first, () => first.focus({ preventScroll: true }));
+    if (!first) return;
+    this.autoFocused = first;
+    focusQuietly(first, () => first.focus({ preventScroll: true }));
   }
 }
