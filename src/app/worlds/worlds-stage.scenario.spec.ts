@@ -13,7 +13,7 @@ import { WorldPathComponent } from '../components/world-path/world-path.componen
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { Component, Input, computed, input, output, signal } from '@angular/core';
+import { Component, Input, Output, computed, input, output, signal } from '@angular/core';
 import { getTestBed, TestBed, type ComponentFixture } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { MatDialog } from '@angular/material/dialog';
@@ -42,6 +42,8 @@ import { TdIconComponent } from '../components/icon/icon.component';
 import { RovingGroupDirective } from '../components/roving-group.directive';
 import { AddressAutocompleteComponent } from '../components/address-autocomplete.component';
 import { StageCoopComponent } from './stage-coop.component';
+import { PickRowsDirective } from './pick-rows.directive';
+import { NgTemplateOutlet } from '@angular/common';
 import { GlobePictureComponent } from './globe-picture.component';
 import { WorldMapsComponent } from './world-maps.component';
 import { WorldOsmComponent } from './world-osm.component';
@@ -94,6 +96,8 @@ for (const name of ['world', 'worldHere', 'mode', 'modes', 'playLabel', 'editLab
 
 Input({ alias: 'world', isSignal: true } as Input)(StageContinueComponent.prototype, 'world');
 for (const name of ['world', 'src', 'label']) Input({ alias: name, isSignal: true } as Input)(GlobePictureComponent.prototype, name);
+// The rows' Enter (an output() the JIT compiler does not see on its own)
+Output('pickRowsPlay')(PickRowsDirective.prototype, 'pickRowsPlay');
 
 const summary = (s: Partial<MapSummary> & { id: string; name: string }): MapSummary => ({
   author: '', description: '', width: 0, depth: 0, updatedAt: '', origin: 'shipped', contentHash: '', objects: 0, spawns: 2, ...s,
@@ -198,12 +202,12 @@ describe('Worlds stage', () => {
     for (const world of [WorldRealComponent, WorldOsmComponent, WorldMapsComponent]) {
       TestBed.overrideComponent(world, { set: { styleUrl: undefined, styles: [] } });
     }
-    TestBed.overrideComponent(WorldRealComponent, { set: { imports: [IconStub, SearchStub, RovingGroupDirective, StageContinueComponent] } });
+    TestBed.overrideComponent(WorldRealComponent, { set: { imports: [NgTemplateOutlet, IconStub, SearchStub, RovingGroupDirective, StageContinueComponent, PickRowsDirective] } });
     TestBed.overrideComponent(WorldRealComponent, { remove: { imports: [AddressAutocompleteComponent, TdIconComponent] } });
-    TestBed.overrideComponent(WorldMapsComponent, { set: { imports: [IconStub, StageContinueComponent] } });
+    TestBed.overrideComponent(WorldMapsComponent, { set: { imports: [NgTemplateOutlet, IconStub, StageContinueComponent, PickRowsDirective] } });
     // The coop page (CoopWaysComponent, a templateUrl) has its own spec; the stage only holds it
     TestBed.overrideComponent(StageCoopComponent, { set: { imports: [], template: '' } });
-    TestBed.overrideComponent(WorldOsmComponent, { set: { imports: [IconStub, SearchStub, FrameStub, StageContinueComponent] } });
+    TestBed.overrideComponent(WorldOsmComponent, { set: { imports: [NgTemplateOutlet, IconStub, SearchStub, FrameStub, StageContinueComponent, PickRowsDirective] } });
     TestBed.overrideComponent(StageContinueComponent, { set: { imports: [IconStub] } });
     const fixture = TestBed.createComponent(WorldsStageComponent);
     await settle(fixture);
@@ -264,11 +268,14 @@ describe('Worlds stage', () => {
     expect(text(el(f).querySelector('.ws-path'))).toBe('Worlds › Real places › New York Start Make map');
     const start = el(f).querySelector<HTMLElement>('[data-stage-start]')!;
     expect(start.getAttribute('aria-disabled')).toBe('true');
-    expect(text(el(f).querySelector('.wm-detail .td-note.is-warn'))).toBe('Needs a map key (Cesium Ion or Google). Enter map key');
+    // Start opens under the row picked, with why it is locked
+    expect(row.getAttribute('aria-expanded')).toBe('true');
+    expect(row.closest('.wm-item')!.querySelector('.wm-open [data-stage-start]')).toBe(start);
+    expect(text(el(f).querySelector('.wm-open .td-note.is-warn'))).toBe('Needs a map key (Cesium Ion or Google). Enter map key');
     start.click();
     await settle(f);
     expect(opened).toEqual([]);
-    el(f).querySelector<HTMLElement>('.wm-detail .td-link')!.click();
+    el(f).querySelector<HTMLElement>('.wm-open .td-link')!.click();
     await settle(f);
     expect(config.setupRequested()).toBe(true);
 
@@ -291,7 +298,7 @@ describe('Worlds stage', () => {
     await settle(f);
     button(f, /^Demo Valley/).click();
     await settle(f);
-    expect(text(el(f).querySelector('.wm-detail'))).toContain('River valley with a village');
+    expect(text(el(f).querySelector('.wm-open'))).toContain('River valley with a village');
     el(f).querySelector<HTMLElement>('[data-stage-start]')!.click();
     expect(opened).toHaveLength(1);
     expect(opened[0]).toMatchObject({ world: { kind: 'custom-map', mapId: 'demo-valley' }, play: true, label: 'Demo Valley', resume: null });
@@ -772,6 +779,72 @@ describe('Worlds stage', () => {
     stage.openWorld('osm');
     await settle(f);
     expect(button(f, /This place as an OSM map/)).toBeUndefined();
+  });
+
+  it('a picked row opens with its Start under it; the arrows move the pick, Enter plays, the focus stays on the row', async () => {
+    own = [
+      { summary: summary({ id: 'bay', name: 'Bay', origin: 'own', updatedAt: '2026-10-16T08:00:00Z' }), picture: null },
+      { summary: summary({ id: 'cove', name: 'Cove', origin: 'own', updatedAt: '2026-10-15T08:00:00Z' }), picture: null },
+    ];
+    const f = await open({ key: true });
+    const stage = TestBed.inject(WorldsStageService);
+    card(f, 'maps').click();
+    await settle(f);
+    const row = (id: string) => el(f).querySelector<HTMLElement>(`[data-map="${id}"]`)!;
+    // Nothing picked: no row open, no Start anywhere
+    expect(el(f).querySelectorAll('[data-pick-row][aria-expanded="true"]')).toHaveLength(0);
+    expect(el(f).querySelector('[data-stage-start]')).toBeNull();
+
+    row('bay').click();
+    await settle(f);
+    expect(row('bay').getAttribute('aria-expanded')).toBe('true');
+    expect(row('bay').getAttribute('aria-controls')).toBe('wm-maps-open');
+    expect(row('bay').closest('.wm-item')!.querySelector('#wm-maps-open [data-stage-start]')).not.toBeNull();
+    expect(el(f).querySelectorAll('.wm-open')).toHaveLength(1);
+
+    // Down: the next row is picked and opens, the focus goes with it
+    row('bay').focus();
+    row('bay').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+    await settle(f);
+    expect(stage.picks().maps).toMatchObject({ id: 'cove' });
+    expect(document.activeElement).toBe(row('cove'));
+    expect(row('bay').getAttribute('aria-expanded')).toBe('false');
+    expect(row('cove').closest('.wm-item')!.querySelector('.wm-open')).not.toBeNull();
+    // Up comes back; at the first row it stays
+    row('cove').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }));
+    await settle(f);
+    expect(stage.picks().maps).toMatchObject({ id: 'bay' });
+    const up = new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true });
+    row('bay').dispatchEvent(up);
+    expect(up.defaultPrevented).toBe(true);
+
+    // Enter on a row not picked picks it and plays
+    expect(opened).toEqual([]);
+    row('cove').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    expect(opened).toHaveLength(1);
+    expect(opened[0]).toMatchObject({ world: { kind: 'custom-map', mapId: 'cove' }, play: true });
+  });
+
+  it('a pick the list on show does not hold opens on its own: under the search, above another list', async () => {
+    const f = await open({ key: true });
+    const stage = TestBed.inject(WorldsStageService);
+    card(f, 'real').click();
+    await settle(f);
+    stage.realList.set('search');
+    stage.pick('real', { kind: 'place', hq: { lat: 49.14, lon: 9.22 }, spawns: [], name: 'Heilbronn' });
+    await settle(f);
+    const opens = () => el(f).querySelectorAll('.wm-open');
+    expect(opens()).toHaveLength(1);
+    const loose = opens()[0].closest('.wm-item')!;
+    expect(text(loose.querySelector('.td-row'))).toBe('Heilbronn');
+    expect(loose.querySelector('[data-stage-start]')).not.toBeNull();
+    // Below the search field
+    expect(el(f).querySelector('.wm-search')!.compareDocumentPosition(loose) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // On the showcase, which does not list it: above the list, once
+    stage.realList.set('showcase');
+    await settle(f);
+    expect(opens()).toHaveLength(1);
+    expect(el(f).querySelectorAll('[data-pick-row][aria-expanded="true"]')).toHaveLength(0);
   });
 
   it('the trash folds: folded at first with its count, open by its head, kept over a visit, opened by a delete', async () => {

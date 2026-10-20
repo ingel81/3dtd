@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { AddressAutocompleteComponent } from '../components/address-autocomplete.component';
+import { NgTemplateOutlet } from '@angular/common';
 import { TdIconComponent } from '../components/icon/icon.component';
+import { PickRowsDirective } from './pick-rows.directive';
 import { StageContinueComponent } from './stage-continue.component';
 import { RovingGroupDirective } from '../components/roving-group.directive';
 import { SHOWCASE_LOCATIONS } from '../configs/showcase-locations.config';
@@ -19,19 +21,20 @@ const LISTS: readonly RealList[] = ['recent', 'favorites', 'showcase', 'search',
  * The real places' menu (docs/WORLDS_NAVIGATION_PLAN.md, 3.1): the lists of
  * the place picker (recent, favorites, the showcase, a search with the dice,
  * the places defended with their best wave, own tilesets). A row picks, the
- * globe turns there; Start under the list loads it, as a double click on the
- * row does. Without a map key the lists stay, Start is locked with the way
- * to the key beside it.
+ * globe turns there, and opens with Start under it (PickRowsDirective: the
+ * arrows move the pick, Enter or a double click plays); a pick the list on
+ * show does not hold (a search) opens on its own. Without a map key the
+ * lists stay, Start is locked with the way to the key beside it.
  */
 @Component({
   selector: 'app-world-real',
   standalone: true,
-  imports: [AddressAutocompleteComponent, TdIconComponent, RovingGroupDirective, StageContinueComponent],
+  imports: [NgTemplateOutlet, AddressAutocompleteComponent, TdIconComponent, RovingGroupDirective, StageContinueComponent, PickRowsDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './world-menu.scss',
   template: `
     @let w = t().worlds;
-    <div class="wm-body">
+    <div class="wm-body" appPickRows (pickRowsPlay)="stage.start('real')">
       @if (noKey()) {
         <div class="td-banner is-warn td-stack">
           <p>{{ w.noKeyBanner }}</p>
@@ -43,6 +46,13 @@ const LISTS: readonly RealList[] = ['recent', 'favorites', 'showcase', 'search',
         </div>
       }
       <app-stage-continue world="real" />
+      @if (!pick()) {
+        @if (stage.notice(); as notice) {
+          <p class="td-note" role="status">{{ notice }}</p>
+        } @else {
+          <p class="td-note">{{ w.pickPlace }}</p>
+        }
+      }
 
       <div class="td-seg is-sm wm-tabs" role="tablist" [attr.aria-label]="w.places" tdRovingGroup>
         @for (list of lists; track list) {
@@ -50,21 +60,31 @@ const LISTS: readonly RealList[] = ['recent', 'favorites', 'showcase', 'search',
         }
       </div>
 
+      @if (pick() && !pickListed() && stage.realList() !== 'search') {
+        <ng-container [ngTemplateOutlet]="loose" />
+      }
       @switch (stage.realList()) {
         @case ('recent') {
           @if (locations.recents().length) {
             <div class="td-rows" role="group" [attr.aria-label]="w.recentPlaces">
               @for (recent of locations.recents(); track recent.visitedAt) {
-                <div class="wm-line">
-                  <button type="button" class="td-row wm-row" (dblclick)="stage.start('real')" [class.is-selected]="isPicked(recent.hq)"
-                          (click)="pickPlace(recent.hq, recent.spawns.slice(0, 1), recent.name)">
-                    <span class="td-name">{{ recent.name }}</span>
-                    <span class="td-note td-num wm-meta">{{ age(recent.visitedAt) }}</span>
-                  </button>
-                  <button type="button" class="td-tool" data-recent-remove [attr.aria-label]="w.removeRecent(recent.name)"
-                          [attr.title]="w.removeFromRecent" (click)="locations.forgetRecent(recent.hq)">
-                    <td-icon name="close" [size]="12" />
-                  </button>
+                @let opened = isPicked(recent.hq);
+                <div class="wm-item">
+                  <div class="wm-line">
+                    <button type="button" class="td-row wm-row" data-pick-row (dblclick)="stage.start('real')" [class.is-selected]="opened"
+                            [attr.aria-expanded]="opened" [attr.aria-controls]="opened ? 'wm-real-open' : null"
+                            (click)="pickPlace(recent.hq, recent.spawns.slice(0, 1), recent.name)">
+                      <span class="td-name">{{ recent.name }}</span>
+                      <span class="td-note td-num wm-meta">{{ age(recent.visitedAt) }}</span>
+                    </button>
+                    <button type="button" class="td-tool" data-recent-remove [attr.aria-label]="w.removeRecent(recent.name)"
+                            [attr.title]="w.removeFromRecent" (click)="locations.forgetRecent(recent.hq)">
+                      <td-icon name="close" [size]="12" />
+                    </button>
+                  </div>
+                  @if (opened) {
+                    <ng-container [ngTemplateOutlet]="open" />
+                  }
                 </div>
               }
             </div>
@@ -76,11 +96,18 @@ const LISTS: readonly RealList[] = ['recent', 'favorites', 'showcase', 'search',
           @if (locations.favorites().length) {
             <div class="td-rows" role="group" [attr.aria-label]="w.realLists.favorites">
               @for (fav of locations.favorites(); track fav.id) {
-                <button type="button" class="td-row wm-row" (dblclick)="stage.start('real')" [class.is-selected]="isPicked(fav.hq)"
-                        (click)="pickPlace(fav.hq, fav.spawns, fav.name ?? coordinates(fav.hq))">
-                  <span class="td-name">{{ fav.name ?? coordinates(fav.hq) }}</span>
-                  <span class="td-note td-num wm-meta">{{ w.spawns(fav.spawns.length) }}</span>
-                </button>
+                @let opened = isPicked(fav.hq);
+                <div class="wm-item">
+                  <button type="button" class="td-row wm-row" data-pick-row (dblclick)="stage.start('real')" [class.is-selected]="opened"
+                          [attr.aria-expanded]="opened" [attr.aria-controls]="opened ? 'wm-real-open' : null"
+                          (click)="pickPlace(fav.hq, fav.spawns, fav.name ?? coordinates(fav.hq))">
+                    <span class="td-name">{{ fav.name ?? coordinates(fav.hq) }}</span>
+                    <span class="td-note td-num wm-meta">{{ w.spawns(fav.spawns.length) }}</span>
+                  </button>
+                  @if (opened) {
+                    <ng-container [ngTemplateOutlet]="open" />
+                  }
+                </div>
               }
             </div>
           } @else {
@@ -90,13 +117,20 @@ const LISTS: readonly RealList[] = ['recent', 'favorites', 'showcase', 'search',
         @case ('showcase') {
           <div class="td-rows" role="group" [attr.aria-label]="w.realLists.showcase">
             @for (place of showcase; track place.id) {
-              <button type="button" class="td-row wm-row" (dblclick)="stage.start('real')" [class.is-selected]="isPicked(place)"
-                      (click)="pickPlace(place, place.spawn ? [place.spawn] : [], place.name)">
-                <span class="wm-row-name">
-                  <span class="td-name">{{ place.name }}</span>
-                  <small class="td-note">{{ t().showcase[place.id].hint }}</small>
-                </span>
-              </button>
+              @let opened = isPicked(place);
+              <div class="wm-item">
+                <button type="button" class="td-row wm-row" data-pick-row (dblclick)="stage.start('real')" [class.is-selected]="opened"
+                        [attr.aria-expanded]="opened" [attr.aria-controls]="opened ? 'wm-real-open' : null"
+                        (click)="pickPlace(place, place.spawn ? [place.spawn] : [], place.name)">
+                  <span class="wm-row-name">
+                    <span class="td-name">{{ place.name }}</span>
+                    <small class="td-note">{{ t().showcase[place.id].hint }}</small>
+                  </span>
+                </button>
+                @if (opened) {
+                  <ng-container [ngTemplateOutlet]="open" />
+                }
+              </div>
             }
           </div>
         }
@@ -110,16 +144,26 @@ const LISTS: readonly RealList[] = ['recent', 'favorites', 'showcase', 'search',
             </button>
           </div>
           <p class="td-note">{{ w.diceNote }}</p>
+          @if (pick() && !pickListed()) {
+            <ng-container [ngTemplateOutlet]="loose" />
+          }
         }
         @case ('records') {
           @if (records().length) {
             <div class="td-rows" role="group" [attr.aria-label]="w.defendedPlaces">
               @for (record of records(); track record) {
-                <button type="button" class="td-row wm-row" (dblclick)="stage.start('real')" [class.is-selected]="isPicked(record.hq)"
-                        (click)="pickPlace(record.hq, record.spawns.slice(0, 1), record.detail)">
-                  <span class="td-name">{{ record.name }}</span>
-                  <span class="td-note td-num wm-meta">{{ w.wave(record.bestWave) }}</span>
-                </button>
+                @let opened = isPicked(record.hq);
+                <div class="wm-item">
+                  <button type="button" class="td-row wm-row" data-pick-row (dblclick)="stage.start('real')" [class.is-selected]="opened"
+                          [attr.aria-expanded]="opened" [attr.aria-controls]="opened ? 'wm-real-open' : null"
+                          (click)="pickPlace(record.hq, record.spawns.slice(0, 1), record.detail)">
+                    <span class="td-name">{{ record.name }}</span>
+                    <span class="td-note td-num wm-meta">{{ w.wave(record.bestWave) }}</span>
+                  </button>
+                  @if (opened) {
+                    <ng-container [ngTemplateOutlet]="open" />
+                  }
+                </div>
               }
             </div>
           } @else {
@@ -130,10 +174,17 @@ const LISTS: readonly RealList[] = ['recent', 'favorites', 'showcase', 'search',
           @if (worlds.tilesets().length) {
             <div class="td-rows" role="group" [attr.aria-label]="w.ownTilesets">
               @for (set of worlds.tilesets(); track set.id) {
-                <button type="button" class="td-row wm-row" (dblclick)="stage.start('real')" [class.is-selected]="pick()?.kind === 'tileset' && pick()?.name === set.name"
-                        (click)="stage.pick('real', { kind: 'tileset', id: set.id, name: set.name })">
-                  <span class="td-name">{{ set.name }}</span>
-                </button>
+                @let opened = isTileset(set);
+                <div class="wm-item">
+                  <button type="button" class="td-row wm-row" data-pick-row (dblclick)="stage.start('real')" [class.is-selected]="opened"
+                          [attr.aria-expanded]="opened" [attr.aria-controls]="opened ? 'wm-real-open' : null"
+                          (click)="stage.pick('real', { kind: 'tileset', id: set.id, name: set.name })">
+                    <span class="td-name">{{ set.name }}</span>
+                  </button>
+                  @if (opened) {
+                    <ng-container [ngTemplateOutlet]="open" />
+                  }
+                </div>
               }
             </div>
           } @else {
@@ -143,32 +194,40 @@ const LISTS: readonly RealList[] = ['recent', 'favorites', 'showcase', 'search',
       }
     </div>
 
-    <div class="wm-detail td-line-top">
+    <!-- The pick's part, open under its row: its spawns, Start, a map of the place -->
+    <ng-template #open>
       @if (pick(); as pick) {
-        <span class="wm-name td-trunc">{{ pick.name }}</span>
-        <p class="td-note">{{ spawnLine() }}</p>
-        <div class="td-actions is-start wm-actions">
-          <button type="button" class="td-btn-primary" data-stage-start [attr.aria-disabled]="playWhy() ? true : null" (click)="stage.start('real')">
-            <td-icon name="play" [size]="14" /><span>{{ playWord() }}</span>
-          </button>
-          @if (pick.kind === 'place') {
-            <button type="button" class="td-btn-secondary" [attr.aria-disabled]="stage.whyNot('edit', 'osm') ? true : null"
-                    [attr.title]="stage.whyNot('edit', 'osm')" (click)="stage.edit('real')">{{ w.mapOfPlace }}</button>
+        <div class="wm-open" id="wm-real-open">
+          <p class="td-note">{{ spawnLine() }}</p>
+          <div class="td-actions is-start wm-actions">
+            <button type="button" class="td-btn-primary td-btn-sm" data-stage-start [attr.aria-disabled]="playWhy() ? true : null" (click)="stage.start('real')">
+              <td-icon name="play" [size]="12" /><span>{{ playWord() }}</span>
+            </button>
+            @if (pick.kind === 'place') {
+              <button type="button" class="td-btn-secondary td-btn-sm" [attr.aria-disabled]="stage.whyNot('edit', 'osm') ? true : null"
+                      [attr.title]="stage.whyNot('edit', 'osm')" (click)="stage.edit('real')">{{ w.mapOfPlace }}</button>
+            }
+          </div>
+          @if (playWhy(); as why) {
+            <p class="td-note is-warn">{{ why }}.
+              @if (noKey()) {
+                <button type="button" class="td-link" (click)="stage.openOverlay('key')">{{ w.enterKey }}</button>
+              }
+            </p>
+          } @else if (stage.notice(); as notice) {
+            <p class="td-note is-warn" role="status">{{ notice }}</p>
           }
         </div>
-        @if (playWhy(); as why) {
-          <p class="td-note is-warn">{{ why }}.
-            @if (noKey()) {
-              <button type="button" class="td-link" (click)="stage.openOverlay('key')">{{ w.enterKey }}</button>
-            }
-          </p>
-        } @else if (stage.notice(); as notice) {
-          <p class="td-note is-warn" role="status">{{ notice }}</p>
-        }
-      } @else {
-        <p class="td-note">{{ w.pickPlace }}</p>
       }
-    </div>
+    </ng-template>
+
+    <!-- A pick the list on show does not hold (a search, the dice, another list): it opens on its own -->
+    <ng-template #loose>
+      <div class="wm-item">
+        <div class="td-row wm-row is-selected"><span class="td-name">{{ pick()!.name }}</span></div>
+        <ng-container [ngTemplateOutlet]="open" />
+      </div>
+    </ng-template>
   `,
 })
 export class WorldRealComponent {
@@ -209,6 +268,24 @@ export class WorldRealComponent {
       name,
     };
     this.stage.pick('real', pick);
+  }
+
+  /** The pick is a row of the list on show, which opens it under that row */
+  readonly pickListed = computed(() => {
+    if (!this.pick()) return false;
+    switch (this.stage.realList()) {
+      case 'recent': return this.locations.recents().some((r) => this.isPicked(r.hq));
+      case 'favorites': return this.locations.favorites().some((f) => this.isPicked(f.hq));
+      case 'showcase': return this.showcase.some((p) => this.isPicked(p));
+      case 'records': return this.records().some((r) => this.isPicked(r.hq));
+      case 'tilesets': return this.worlds.tilesets().some((set) => this.isTileset(set));
+      default: return false;
+    }
+  });
+
+  isTileset(set: { name: string }): boolean {
+    const pick = this.pick();
+    return pick?.kind === 'tileset' && pick.name === set.name;
   }
 
   isPicked(hq: { lat: number; lon: number }): boolean {

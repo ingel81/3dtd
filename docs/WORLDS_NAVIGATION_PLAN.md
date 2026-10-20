@@ -119,6 +119,11 @@ Aus dem Dummy (`S.view`, `NODES`):
 | Trial run | Probespiel der Editor-Karte, ab Welle N | ja |
 | Overlays | Settings, Extras, Coop, Load game, Save game, Map key: von überall | |
 
+Im Weltmenü klappt die gewählte Zeile auf: Beschreibung oder Spawns, Start/Play und die übrigen Wege stehen direkt
+unter ihr, kein Feld am Ende der Liste (`PickRowsDirective`: Pfeile wechseln Zeile und Wahl, Enter und Doppelklick
+spielen, die aufgeklappte Zeile wird ganz ins Bild gescrollt). Eine Wahl, die die Liste gerade nicht zeigt (Suche,
+Würfel, anderer Reiter), klappt für sich oben bzw. unter der Suche auf.
+
 Übergänge (Dummy `EDGES`): Globes → World menu (Globus anklicken); World menu → Loading → Game (Start/Play);
 Real places → OSM frame („Make a map of this place“, Rahmen vorbelegt); OSM frame → Loading (Play) oder Editor (Edit);
 Maps → Editor (Edit); Game → Pause (Esc) → Editor, OSM frame, Globes; Game → Game over → Game (Restart) oder Editor;

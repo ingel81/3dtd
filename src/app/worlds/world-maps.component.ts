@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { TdIconComponent } from '../components/icon/icon.component';
+import { PickRowsDirective } from './pick-rows.directive';
 import { StageContinueComponent } from './stage-continue.component';
 import type { StageMap } from './worlds-stage.service';
 import { TRASH_DAYS, type MapSummary } from '../world/custom-map/map-store';
@@ -24,16 +26,29 @@ const TRASH_OPEN_KEY = 'td_maps_trash_open_v1';
 @Component({
   selector: 'app-world-maps',
   standalone: true,
-  imports: [TdIconComponent, StageContinueComponent],
+  imports: [NgTemplateOutlet, TdIconComponent, StageContinueComponent, PickRowsDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './world-menu.scss',
   template: `
     @let w = t().worlds;
-    <div class="wm-body">
+    <div class="wm-body" appPickRows (pickRowsPlay)="stage.start('maps')">
       @if (lock()) {
         <p class="td-banner is-warn">{{ w.mapsSoon }}</p>
       }
       <app-stage-continue world="maps" />
+      @if (!picked()) {
+        @if (stage.notice(); as notice) {
+          <p class="td-note" role="status">{{ notice }}</p>
+        } @else {
+          <p class="td-note">{{ w.pickMap }}</p>
+        }
+      } @else if (!openGroup()) {
+        <!-- A pick no group lists (a map made under OpenStreetMap): it opens on its own -->
+        <div class="wm-item">
+          <div class="td-row wm-row is-selected"><span class="td-name">{{ picked()!.name }}</span></div>
+          <div class="wm-open"><ng-container [ngTemplateOutlet]="open" /></div>
+        </div>
+      }
       @for (group of groups(); track group.title) {
         @if (group.maps.length || group.empty) {
         <section class="td-group" [attr.aria-labelledby]="'wm-maps-' + $index">
@@ -61,9 +76,12 @@ const TRASH_OPEN_KEY = 'td_maps_trash_open_v1';
           @if (group.maps.length) {
             <div class="td-rows">
               @for (map of group.maps; track map.id) {
+                @let opened = pickedId() === map.id && openGroup() === group.title;
+                <div class="wm-item">
                 <div class="wm-line">
-                  <button type="button" class="td-row wm-row" (dblclick)="stage.start('maps')" [class.is-selected]="pickedId() === map.id" [attr.data-map]="map.id"
-                          (click)="stage.pick('maps', { kind: 'map', id: map.id, name: map.name })">
+                  <button type="button" class="td-row wm-row" data-pick-row (dblclick)="stage.start('maps')" [class.is-selected]="pickedId() === map.id" [attr.data-map]="map.id"
+                          [attr.aria-expanded]="opened" [attr.aria-controls]="opened ? 'wm-maps-open' : null"
+                          (click)="pickMap(map, group.title)">
                     <span class="wm-map">
                       @if (map.picture) {
                         <img class="wm-thumb td-well" [src]="map.picture" alt="" />
@@ -85,6 +103,10 @@ const TRASH_OPEN_KEY = 'td_maps_trash_open_v1';
                       <td-icon name="close" [size]="12" />
                     </button>
                   }
+                </div>
+                @if (opened) {
+                  <div class="wm-open" id="wm-maps-open"><ng-container [ngTemplateOutlet]="open" /></div>
+                }
                 </div>
               }
             </div>
@@ -128,24 +150,22 @@ const TRASH_OPEN_KEY = 'td_maps_trash_open_v1';
       }
     </div>
 
-    <div class="wm-detail td-line-top">
+    <!-- The picked map's part, open under its row: what it is, Play, Edit, the file's ways -->
+    <ng-template #open>
       @if (picked(); as map) {
-        <span class="wm-name td-trunc">{{ map.name }}</span>
         @if (mapDescription(map); as description) {
           <p class="td-note">{{ description }}</p>
         }
         <div class="td-actions is-start wm-actions">
-          <button type="button" class="td-btn-primary" data-stage-start [attr.aria-disabled]="playWhy() ? true : null" (click)="stage.start('maps')">
-            <td-icon name="play" [size]="14" /><span>{{ playWord() }}</span>
+          <button type="button" class="td-btn-primary td-btn-sm" data-stage-start [attr.aria-disabled]="playWhy() ? true : null" (click)="stage.start('maps')">
+            <td-icon name="play" [size]="12" /><span>{{ playWord() }}</span>
           </button>
-          <span>
-            <button type="button" class="td-btn-secondary" data-test="open-map" [attr.aria-disabled]="editWhy() ? true : null"
-                    [attr.title]="editWhy()" (click)="stage.edit('maps')">{{ w.editInEditor }}</button>
-            @if (map.origin === 'shipped' || map.origin === 'shared') {
-              <small class="td-note wm-sub">{{ w.copyComesLater }}</small>
-            }
-          </span>
+          <button type="button" class="td-btn-secondary td-btn-sm" data-test="open-map" [attr.aria-disabled]="editWhy() ? true : null"
+                  [attr.title]="editWhy()" (click)="stage.edit('maps')">{{ w.editInEditor }}</button>
         </div>
+        @if (map.origin === 'shipped' || map.origin === 'shared') {
+          <small class="td-note">{{ w.copyComesLater }}</small>
+        }
         @if (listed(); as m) {
           <div class="td-actions is-start">
             <button type="button" class="td-btn-ghost td-btn-sm" (click)="stage.downloadMap(m)">{{ w.download }}</button>
@@ -162,12 +182,8 @@ const TRASH_OPEN_KEY = 'td_maps_trash_open_v1';
         } @else if (stage.notice(); as notice) {
           <p class="td-note is-warn" role="status">{{ notice }}</p>
         }
-      } @else if (stage.notice(); as notice) {
-        <p class="td-note" role="status">{{ notice }}</p>
-      } @else {
-        <p class="td-note">{{ w.pickMap }}</p>
       }
-    </div>
+    </ng-template>
   `,
 })
 export class WorldMapsComponent {
@@ -224,6 +240,16 @@ export class WorldMapsComponent {
     return id ? (this.stage.maps().find((m) => m.id === id) ?? null) : null;
   });
   readonly trashDays = TRASH_DAYS;
+  /** The group whose row was clicked last: a map listed twice (Recent and its own group) opens there */
+  private readonly clickedIn = signal<string | null>(null);
+  /** The group the picked map opens in: where it was clicked, else the first that lists it; null when none does */
+  readonly openGroup = computed(() => {
+    const id = this.pickedId();
+    if (!id) return null;
+    const holding = this.groups().filter((g) => g.maps.some((m) => m.id === id)).map((g) => g.title);
+    const clicked = this.clickedIn();
+    return clicked && holding.includes(clicked) ? clicked : (holding[0] ?? null);
+  });
   /** The trash folded or open (folded at first); a map just deleted opens it, so Undo's line shows where it went */
   readonly trashOpen = signal(readJson(TRASH_OPEN_KEY) === true);
 
@@ -240,6 +266,11 @@ export class WorldMapsComponent {
   private setTrashOpen(open: boolean): void {
     this.trashOpen.set(open);
     writeJson(TRASH_OPEN_KEY, open);
+  }
+
+  pickMap(map: { id: string; name: string }, group: string): void {
+    this.clickedIn.set(group);
+    this.stage.pick('maps', { kind: 'map', id: map.id, name: map.name });
   }
 
   /** The editor on a new map's form, in this window: one click, not its list and then New map again */

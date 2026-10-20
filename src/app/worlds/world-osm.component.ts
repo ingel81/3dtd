@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { AddressAutocompleteComponent } from '../components/address-autocomplete.component';
+import { NgTemplateOutlet } from '@angular/common';
 import { TdIconComponent } from '../components/icon/icon.component';
+import { PickRowsDirective } from './pick-rows.directive';
 import { StageContinueComponent } from './stage-continue.component';
 import { OsmFrameComponent } from '../components/osm-frame/osm-frame.component';
 import { WorldsStageService } from './worlds-stage.service';
@@ -20,12 +22,12 @@ import { injectT } from '../i18n/i18n.service';
 @Component({
   selector: 'app-world-osm',
   standalone: true,
-  imports: [AddressAutocompleteComponent, TdIconComponent, OsmFrameComponent, StageContinueComponent],
+  imports: [NgTemplateOutlet, AddressAutocompleteComponent, TdIconComponent, OsmFrameComponent, StageContinueComponent, PickRowsDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './world-menu.scss',
   template: `
     @let w = t().worlds;
-    <div class="wm-body">
+    <div class="wm-body" appPickRows (pickRowsPlay)="stage.start('osm')">
       @if (stage.frame(); as frame) {
         <app-osm-frame [place]="frame.place" [spawnsAt]="frame.spawnsAt" [backLink]="false" (back)="stage.frameBack()"
                        (done)="stage.frameDone($event.summary, $event.then)" />
@@ -34,6 +36,19 @@ import { injectT } from '../i18n/i18n.service';
           <p class="td-banner is-warn">{{ w.osmSoon }}</p>
         }
         <app-stage-continue world="osm" />
+        @if (!picked()) {
+          @if (stage.notice(); as notice) {
+            <p class="td-note" role="status">{{ notice }}</p>
+          } @else {
+            <p class="td-note">{{ w.osmPick }}</p>
+          }
+        } @else if (!pickListed()) {
+          <!-- A pick the Recent worlds do not list: it opens on its own -->
+          <div class="wm-item">
+            <div class="td-row wm-row is-selected"><span class="td-name">{{ picked()!.name }}</span></div>
+            <div class="wm-open"><ng-container [ngTemplateOutlet]="open" /></div>
+          </div>
+        }
         <section class="td-group" aria-labelledby="wm-osm-place">
           <h3 class="td-section" id="wm-osm-place">{{ w.osmPlace }}</h3>
           <app-td-address-autocomplete [placeholder]="w.townPlaceholder" [currentValue]="null"
@@ -54,8 +69,11 @@ import { injectT } from '../i18n/i18n.service';
           @if (mine().length) {
             <div class="td-rows">
               @for (map of mine(); track map.id) {
+                @let opened = pickedId() === map.id;
+                <div class="wm-item">
                 <div class="wm-line">
-                  <button type="button" class="td-row wm-row" (dblclick)="stage.start('osm')" [class.is-selected]="pickedId() === map.id" [attr.data-map]="map.id"
+                  <button type="button" class="td-row wm-row" data-pick-row (dblclick)="stage.start('osm')" [class.is-selected]="opened" [attr.data-map]="map.id"
+                          [attr.aria-expanded]="opened" [attr.aria-controls]="opened ? 'wm-osm-open' : null"
                           (click)="stage.pick('osm', { kind: 'map', id: map.id, name: map.name })">
                     <span class="wm-map">
                       @if (map.picture) {
@@ -72,6 +90,10 @@ import { injectT } from '../i18n/i18n.service';
                     <td-icon name="close" [size]="12" />
                   </button>
                 </div>
+                @if (opened) {
+                  <div class="wm-open" id="wm-osm-open"><ng-container [ngTemplateOutlet]="open" /></div>
+                }
+                </div>
               }
             </div>
             <p class="td-note">{{ w.recentWorldsNote(max) }}</p>
@@ -82,30 +104,26 @@ import { injectT } from '../i18n/i18n.service';
       }
     </div>
 
-    @if (!stage.frame()) {
-      <div class="wm-detail td-line-top">
-        @if (picked(); as map) {
-          <span class="wm-name td-trunc">{{ map.name }}</span>
-          @if (map.description) {
-            <p class="td-note">{{ map.description }}</p>
-          }
-          <div class="td-actions is-start wm-actions">
-            <button type="button" class="td-btn-primary" data-stage-start [attr.aria-disabled]="playWhy() ? true : null" (click)="stage.start('osm')">
-              <td-icon name="play" [size]="14" /><span>{{ playWord() }}</span>
-            </button>
-            <button type="button" class="td-btn-secondary" [attr.aria-disabled]="stage.whyNot('edit', 'osm') ? true : null"
-                    [attr.title]="stage.whyNot('edit', 'osm')" (click)="stage.edit('osm')">{{ w.editInEditor }}</button>
-          </div>
-          @if (playWhy(); as why) {
-            <p class="td-note is-warn">{{ why }}.</p>
-          } @else if (stage.notice(); as notice) {
-            <p class="td-note is-warn" role="status">{{ notice }}</p>
-          }
-        } @else {
-          <p class="td-note">{{ w.osmPick }}</p>
+    <!-- The picked map's part, open under its row: what it is, Play, Edit -->
+    <ng-template #open>
+      @if (picked(); as map) {
+        @if (map.description) {
+          <p class="td-note">{{ map.description }}</p>
         }
-      </div>
-    }
+        <div class="td-actions is-start wm-actions">
+          <button type="button" class="td-btn-primary td-btn-sm" data-stage-start [attr.aria-disabled]="playWhy() ? true : null" (click)="stage.start('osm')">
+            <td-icon name="play" [size]="12" /><span>{{ playWord() }}</span>
+          </button>
+          <button type="button" class="td-btn-secondary td-btn-sm" [attr.aria-disabled]="stage.whyNot('edit', 'osm') ? true : null"
+                  [attr.title]="stage.whyNot('edit', 'osm')" (click)="stage.edit('osm')">{{ w.editInEditor }}</button>
+        </div>
+        @if (playWhy(); as why) {
+          <p class="td-note is-warn">{{ why }}.</p>
+        } @else if (stage.notice(); as notice) {
+          <p class="td-note is-warn" role="status">{{ notice }}</p>
+        }
+      }
+    </ng-template>
   `,
 })
 export class WorldOsmComponent {
@@ -126,6 +144,8 @@ export class WorldOsmComponent {
     if (!id || !pick) return null;
     return this.stage.maps().find((m) => m.id === id) ?? { id, name: pick.name, description: '', spawns: 0 };
   });
+  /** The pick is one of the Recent worlds, which open it under its row */
+  readonly pickListed = computed(() => this.mine().some((m) => m.id === this.pickedId()));
   /** The real places' place, offered only when the last world loaded on this visit was theirs (back from its game) */
   readonly realPlace = computed(() => {
     if (this.stage.openedLast() !== 'real') return null;
