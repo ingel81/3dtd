@@ -5,7 +5,7 @@ import type { StageMap } from './worlds-stage.service';
 import { TRASH_DAYS, type MapSummary } from '../world/custom-map/map-store';
 import { WorldsStageService } from './worlds-stage.service';
 import { injectT } from '../i18n/i18n.service';
-import { shippedMap, shippedMapName } from '../i18n/shipped-maps';
+import { shippedMapDescription } from '../i18n/shipped-maps';
 
 /**
  * The maps' menu (docs/WORLDS_NAVIGATION_PLAN.md, 3.1), the one list of
@@ -67,7 +67,7 @@ import { shippedMap, shippedMapName } from '../i18n/shipped-maps';
                         <span class="wm-thumb td-well" aria-hidden="true"></span>
                       }
                       <span class="wm-row-name">
-                        <span class="td-name">{{ mapName(map) }}</span>
+                        <span class="td-name">{{ map.name }}</span>
                         @if (badge(map); as b) {
                           <small class="td-tag wm-badge">{{ b }}</small>
                         }
@@ -76,7 +76,7 @@ import { shippedMap, shippedMapName } from '../i18n/shipped-maps';
                     <span class="td-note td-num wm-meta">{{ w.spawns(map.spawns) }}</span>
                   </button>
                   @if (group.recent) {
-                    <button type="button" class="td-tool" data-recent-remove [attr.aria-label]="w.removeRecent(mapName(map))"
+                    <button type="button" class="td-tool" data-recent-remove [attr.aria-label]="w.removeRecent(map.name)"
                             [attr.title]="w.removeFromRecent" (click)="stage.forgetMap(map.id)">
                       <td-icon name="close" [size]="12" />
                     </button>
@@ -118,7 +118,7 @@ import { shippedMap, shippedMapName } from '../i18n/shipped-maps';
 
     <div class="wm-detail td-line-top">
       @if (picked(); as map) {
-        <span class="wm-name td-trunc">{{ mapName(map) }}</span>
+        <span class="wm-name td-trunc">{{ map.name }}</span>
         @if (mapDescription(map); as description) {
           <p class="td-note">{{ description }}</p>
         }
@@ -184,16 +184,11 @@ export class WorldMapsComponent {
   /** Where an own map comes from: made from OpenStreetMap, or a copy of a shipped or a host's map */
   badge(map: StageMap): string | null {
     if (map.osm) return this.t().worlds.fromOsm;
-    return map.copyOf ? this.t().worlds.copyOf(shippedMapName(this.t(), map.copyOf)) : null;
-  }
-
-  /** A map's name as the list shows it: a shipped one in the player's language, any other as its author wrote it */
-  mapName(map: { id: string; name: string; origin?: StageMap['origin'] }): string {
-    return map.origin === 'shipped' ? shippedMap(this.t(), map.id)?.name ?? map.name : map.name;
+    return map.copyOf ? this.t().worlds.copyOf(map.copyOf) : null;
   }
 
   mapDescription(map: { id: string; description: string; origin?: StageMap['origin'] }): string {
-    return map.origin === 'shipped' ? shippedMap(this.t(), map.id)?.description ?? map.description : map.description;
+    return map.origin === 'shipped' ? shippedMapDescription(this.t(), map.id) ?? map.description : map.description;
   }
   readonly pickedId = computed(() => {
     const pick = this.stage.picks().maps;

@@ -93,7 +93,7 @@ const LISTS: readonly RealList[] = ['recent', 'favorites', 'showcase', 'search',
               <button type="button" class="td-row wm-row" (dblclick)="stage.start('real')" [class.is-selected]="isPicked(place)"
                       (click)="pickPlace(place, place.spawn ? [place.spawn] : [], place.name)">
                 <span class="wm-row-name">
-                  <span class="td-name">{{ t().showcase[place.id].name }}</span>
+                  <span class="td-name">{{ place.name }}</span>
                   <small class="td-note">{{ t().showcase[place.id].hint }}</small>
                 </span>
               </button>

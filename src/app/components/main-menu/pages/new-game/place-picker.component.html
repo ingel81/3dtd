@@ -139,7 +139,7 @@
           @for (place of showcase; track place.id) {
             <li>
               <button type="button" class="td-row mp-row" (click)="loadShowcase(place)">
-                <span class="td-name mp-name">{{ t().showcase[place.id].name }}</span>
+                <span class="td-name mp-name">{{ place.name }}</span>
                 <span class="td-note td-num mp-meta">{{ t().showcase[place.id].hint }}</span>
               </button>
             </li>

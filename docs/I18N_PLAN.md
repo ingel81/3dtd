@@ -179,7 +179,8 @@ Coop-Dienst sagt). Dazu:
 
 - Lang stehende Texte als Codes: `whyNot` (`WhyNot`), `worldLock` (`WorldLock`), Ladeschritte (Titel beim Start
   einer Ladung), Prüfung des Kartenschlüssels (`CredentialCheck`), Ablehnungen und Weltpaket des Relays.
-- Mitgelieferte Karten und Bekannte Orte nach Id im Wörterbuch (`maps`, `showcase`, `i18n/shipped-maps.ts`);
+- Kartennamen werden nie übersetzt: mitgelieferte Karten und Bekannte Orte zeigen in jeder Sprache ihren
+  Originalnamen, nur Beschreibung und Hinweis stehen nach Id im Wörterbuch (`maps`, `showcase`, `i18n/shipped-maps.ts`);
   `index.json`, die Showcase-Config und die Namen, unter denen ein Ort lädt, bleiben englisch (Saves, zuletzt
   gespielte Orte und Weltpaket halten in jeder Sprache dieselben Wörter). Ein Spec hält `en.maps` gleich `index.json`.
 - Raum-Optionen gehen nur als Werte über den Relay; ihre Wörter liegen clientseitig (`coop/room-option-words.ts`),

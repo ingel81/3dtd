@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { en } from './messages/en';
 import { de } from './messages/de';
-import { shippedMap, shippedMapName } from './shipped-maps';
+import { shippedMapDescription } from './shipped-maps';
 import { bold, splitBold } from './format';
 
 /** The shipped maps' words (docs/I18N_PLAN.md 4.7): index.json stays English, the dictionary says the same */
@@ -12,18 +12,17 @@ describe('shipped maps in the dictionary (TODO E245)', () => {
     maps: { id: string; name: string; description?: string }[];
   };
 
-  it('every map of the index has its name and description in English as the index has them, and in German', () => {
+  it('every map of the index has its description in English as the index has it, and in German', () => {
     expect(Object.keys(en.maps).sort()).toEqual(index.maps.map((m) => m.id).sort());
     for (const map of index.maps) {
-      expect(shippedMap(en, map.id), map.id).toEqual({ name: map.name, description: map.description ?? '' });
-      expect(shippedMap(de, map.id)?.name.trim(), map.id).not.toBe('');
+      expect(shippedMapDescription(en, map.id), map.id).toBe(map.description ?? '');
+      expect(shippedMapDescription(de, map.id)?.trim(), map.id).not.toBe('');
     }
+    expect(shippedMapDescription(de, 'my-own')).toBeNull();
   });
 
-  it('names a shipped map by its English name in the player language, any other name as it is', () => {
-    expect(shippedMapName(de, 'Demo Valley')).toBe(de.maps['demo-valley'].name);
-    expect(shippedMapName(de, 'My own map')).toBe('My own map');
-    expect(shippedMap(de, 'my-own')).toBeNull();
+  it('never translates a map name: the dictionary holds none', () => {
+    for (const t of [en, de]) for (const words of Object.values(t.maps)) expect(Object.keys(words)).toEqual(['description']);
   });
 });
 

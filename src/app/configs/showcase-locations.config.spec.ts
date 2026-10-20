@@ -22,17 +22,16 @@ describe('SHOWCASE_LOCATIONS', () => {
     }
   });
 
-  it('gives every place a name and a one-line hint in every language (showcase), the English name its own', () => {
+  it('gives every place a one-line hint in every language (showcase), never its name: names are not translated', () => {
     for (const t of [en, de]) {
       for (const p of SHOWCASE_LOCATIONS) {
         const words = t.showcase[p.id];
-        expect(words.name.length, p.id).toBeGreaterThan(0);
+        expect(Object.keys(words), p.id).toEqual(['hint']);
         expect(words.hint.length, p.id).toBeGreaterThan(0);
         expect(words.hint.length, p.id).toBeLessThanOrEqual(48);
         expect(words.hint.includes('\n'), p.id).toBe(false);
       }
     }
-    for (const p of SHOWCASE_LOCATIONS) expect(en.showcase[p.id].name, p.id).toBe(p.name);
     expect(Object.keys(en.showcase).sort()).toEqual(SHOWCASE_LOCATIONS.map((p) => p.id).sort());
   });
 
