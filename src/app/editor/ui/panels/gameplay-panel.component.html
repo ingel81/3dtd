@@ -49,16 +49,16 @@
   </label>
   <label class="td-check">
     <input class="td-switch" type="checkbox" [checked]="craters()" (change)="setCraters($any($event.target).checked)" data-test="craters" />
-    <span>Impacts dig craters the enemies walk through</span>
+    <span>{{ t().editor.rules.craters }}</span>
   </label>
   @if (gp().destructible === true) {
     <label class="td-check">
       <input class="td-switch" type="checkbox" [checked]="gp().wear === true" (change)="setWear($any($event.target).checked)" data-test="wear" />
-      <span>Enemies passing by wear the buildings down</span>
+      <span>{{ t().editor.rules.wear }}</span>
     </label>
-    <app-editor-range label="Structure HP" unit="%" [min]="structureHpRange.min" [max]="structureHpRange.max" [step]="10"
+    <app-editor-range [label]="t().editor.rules.structureHp" unit="%" [min]="structureHpRange.min" [max]="structureHpRange.max" [step]="10"
                       [value]="structureHp()" (changed)="setStructureHp($event)" data-test="structure-hp"
-                      matTooltip="Scales the HP of every building, wall and structure (100 % is the game's)" />
+                      [matTooltip]="t().editor.rules.structureHpTip" />
   }
 </div>
 

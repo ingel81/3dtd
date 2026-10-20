@@ -19,8 +19,8 @@ import type { EditorTool, ToolContext, ToolPointer } from './tool';
 export class MarkerTool implements EditorTool {
   readonly id = 'markers' as const;
   readonly fixedKeys = [
-    { key: 'q', what: 'spawn mode' },
-    { key: 'h', what: 'HQ mode' },
+    { key: 'q', what: 'spawnMode' },
+    { key: 'h', what: 'hqMode' },
   ] as const;
   private drag: { kind: 'spawn' | 'hq'; id?: string; group?: { ids: string[]; from: MapPoint; start: MapPoint[] }; before: Partial<DocParts>; moved: boolean } | null = null;
 
@@ -69,7 +69,7 @@ export class MarkerTool implements EditorTool {
         .map((img) => img.point(point))
         .filter((q, k, all) => all.findIndex((o) => Math.hypot(o.x - q.x, o.y - q.y) < 1) === k);
       if (editor.doc.spawns.length + points.length > MAX_SPAWN_PORTALS) {
-        ctx.status(`A map holds at most ${MAX_SPAWN_PORTALS} spawns; the game would leave the rest unused.`);
+        ctx.status(ctx.t().editor.markers.tooMany(MAX_SPAWN_PORTALS));
         return true;
       }
       const command = markerCommands.addSpawn(editor, points);
@@ -111,7 +111,7 @@ export class MarkerTool implements EditorTool {
     if (!d?.moved) return;
     const doc = ctx.editor.doc;
     ctx.editor.push(
-      new SnapshotCommand(d.kind === 'hq' ? 'Move HQ' : d.group ? 'Move spawns' : 'Move spawn', d.before, { spawns: structuredClone(doc.spawns), hq: { ...doc.hq } }),
+      new SnapshotCommand(d.kind === 'hq' ? ctx.t().editor.markers.moveHq : ctx.t().editor.markers.moveSpawns(d.group ? 2 : 1), d.before, { spawns: structuredClone(doc.spawns), hq: { ...doc.hq } }),
       { markers: true },
     );
   }
@@ -149,8 +149,8 @@ export class MarkerTool implements EditorTool {
 
   hint(ctx: ToolContext): string {
     return ctx.settings.markers().mode === 'hq'
-      ? 'Click to move the HQ | drag spawns and HQ | Q spawn mode | snaps onto roads, Alt places freely'
-      : 'Click to add a spawn | drag spawns and HQ, Shift+click selects several | Del removes | H HQ mode | snaps onto roads, Alt places freely';
+      ? ctx.t().editor.markers.hintHq
+      : ctx.t().editor.markers.hintSpawn;
   }
 
   private snap(p: ToolPointer, ctx: ToolContext): MapPoint {

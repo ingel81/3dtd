@@ -16,7 +16,7 @@
         <h1 class="td-dlg-title" id="mb-title">{{ title() }}</h1>
         <button class="td-btn-secondary td-btn-sm" type="button" [disabled]="busy() && !session.library.importState()" (click)="done.emit()" data-test="back-to-maps">
           <td-icon name="caretL" [size]="12" />
-          <span>Built Worlds</span>
+          <span>{{ t().worlds.names.maps }}</span>
           <kbd class="td-kbd">Esc</kbd>
         </button>
       </header>

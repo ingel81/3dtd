@@ -10,9 +10,9 @@ import type { GroundMaterialEntry } from '../../../map-ops/asset-catalog';
 import { BrushPanelComponent } from './brush-panel.component';
 import { RangeRowComponent } from './range-row.component';
 import { patch } from '../../tools/tool';
+import { injectT } from '../../../i18n/i18n.service';
 
 /** What a layer edit says when it has to wait */
-const GROUND = 'Changing the ground paint';
 
 /**
  * Ground layers (up to twelve materials, painted in list order), the layer
@@ -29,6 +29,7 @@ const GROUND = 'Changing the ground paint';
 })
 export class PaintPanelComponent {
   readonly session = inject(EditorSession);
+  protected readonly t = injectT();
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('terrain');
   readonly max = MAX_LAYERS;
@@ -45,9 +46,9 @@ export class PaintPanelComponent {
   readonly materialGroups = computed(() => {
     const index = this.session.catalog();
     const all = index.catalog.materials;
-    const groups = index.biomes().map((b) => ({ name: tagName(b), materials: all.filter((m) => m.tags?.includes(b)) }));
+    const groups = index.biomes().map((b) => ({ name: tagName(this.t(), b), materials: all.filter((m) => m.tags?.includes(b)) }));
     const untagged = all.filter((m) => !m.tags?.length);
-    return [...groups.filter((g) => g.materials.length), ...(untagged.length ? [{ name: 'Other', materials: untagged }] : [])];
+    return [...groups.filter((g) => g.materials.length), ...(untagged.length ? [{ name: this.t().editor.ground.other, materials: untagged }] : [])];
   });
   /** The palette for a new layer is open */
   readonly adding = signal(false);
@@ -76,15 +77,15 @@ export class PaintPanelComponent {
   add(material: string): void {
     const layers = this.session.doc?.terrain.layers;
     if (!layers || layers.length >= MAX_LAYERS) return;
-    if (this.session.edit(GROUND, (e) => paintCommands.addLayer(e, material))) this.pick(this.session.doc!.terrain.layers.length - 1);
+    if (this.session.edit(this.t().editor.ground.changing, (e) => paintCommands.addLayer(e, material))) this.pick(this.session.doc!.terrain.layers.length - 1);
   }
 
   setMaterial(index: number, material: string): void {
-    this.session.edit(GROUND, (e) => paintCommands.setMaterial(e, index, material));
+    this.session.edit(this.t().editor.ground.changing, (e) => paintCommands.setMaterial(e, index, material));
   }
 
   remove(index: number): void {
-    if (this.session.edit(GROUND, (e) => paintCommands.removeLayer(e, index))) {
+    if (this.session.edit(this.t().editor.ground.changing, (e) => paintCommands.removeLayer(e, index))) {
       this.pick(Math.max(0, Math.min(this.settings().layer, this.session.doc!.terrain.layers.length - 1)));
     }
   }
@@ -93,15 +94,15 @@ export class PaintPanelComponent {
     const to = index + dir;
     const count = this.session.doc?.terrain.layers.length ?? 0;
     if (to < 0 || to >= count) return;
-    if (this.session.edit(GROUND, (e) => paintCommands.moveLayer(e, index, to)) && this.settings().layer === index) this.pick(to);
+    if (this.session.edit(this.t().editor.ground.changing, (e) => paintCommands.moveLayer(e, index, to)) && this.settings().layer === index) this.pick(to);
   }
 
   autoPaint(): void {
-    if (this.session.edit(GROUND, (e) => paintCommands.autoPaint(e))) this.session.notices.flash('Painted by slope and height; undo brings back the old paint');
+    if (this.session.edit(this.t().editor.ground.changing, (e) => paintCommands.autoPaint(e))) this.session.notices.flash(this.t().editor.ground.autoPainted);
   }
 
   setCliff(material: string, angle: number): void {
-    this.session.edit(GROUND, (e) => paintCommands.setCliff(e, material, angle));
+    this.session.edit(this.t().editor.ground.changing, (e) => paintCommands.setCliff(e, material, angle));
   }
 
   readonly selectValue = (e: Event) => (e.target as HTMLSelectElement).value;

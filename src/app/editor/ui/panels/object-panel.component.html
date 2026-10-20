@@ -73,12 +73,12 @@
     </div>
     @if (signs()) {
       <div class="td-field">
-        <span class="td-label" matTooltip="What the sign writes on its panel: a word in the game's font and a pictogram">Sign</span>
+        <span class="td-label" [matTooltip]="t().editor.objects.signTip">{{ t().editor.objects.sign }}</span>
         <div class="td-inline">
           <input class="td-input" type="text" [maxLength]="maxSignText" [value]="sign().text ?? ''" (change)="setSign({ text: value($event).trim() })"
-                 placeholder="Word" aria-label="Sign text" data-test="object-sign-text" />
-          <select class="td-select" [value]="sign().icon ?? ''" (change)="setSign({ icon: value($event) })" aria-label="Sign pictogram" data-test="object-sign-icon">
-            <option value="">No pictogram</option>
+                 [placeholder]="t().editor.objects.signWord" [attr.aria-label]="t().editor.objects.signText" data-test="object-sign-text" />
+          <select class="td-select" [value]="sign().icon ?? ''" (change)="setSign({ icon: value($event) })" [attr.aria-label]="t().editor.objects.signIcon" data-test="object-sign-icon">
+            <option value="">{{ t().editor.objects.noIcon }}</option>
             @for (id of signIcons; track id) {
               <option [value]="id">{{ id }}</option>
             }
@@ -216,18 +216,18 @@
     <select class="td-select is-sm is-auto" [value]="biome()" (change)="biome.set(value($event))" [attr.aria-label]="t().editor.objects.biome" data-test="asset-biome">
       <option value="">{{ t().editor.objects.allBiomes }}</option>
       @for (b of biomes(); track b) {
-        <option [value]="b">{{ tagName(b) }}</option>
+        <option [value]="b">{{ tagName(t(), b) }}</option>
       }
     </select>
   </div>
   <div class="op-cats td-inline" role="radiogroup" [attr.aria-label]="t().editor.objects.category">
     @for (c of categories(); track c) {
-      <button class="td-tag is-caps op-cat" type="button" role="radio" [attr.aria-checked]="category() === c" [class.is-brass]="category() === c" (click)="category.set(c)">{{ c === 'All' ? t().editor.objects.all : c }}</button>
+      <button class="td-tag is-caps op-cat" type="button" role="radio" [attr.aria-checked]="category() === c" [class.is-brass]="category() === c" (click)="category.set(c)">{{ c ? categoryWord(t(), c) : t().editor.objects.all }}</button>
     }
   </div>
   <div class="op-palette">
     @for (a of shownAssets(); track a.id) {
-      <button class="td-card op-asset" type="button" [attr.aria-pressed]="isChosen(a)" (click)="chooseAsset(a)" [matTooltip]="a.name + ' | ' + a.category"
+      <button class="td-card op-asset" type="button" [attr.aria-pressed]="isChosen(a)" (click)="chooseAsset(a)" [matTooltip]="a.name + ' | ' + categoryWord(t(), a.category)"
               [attr.data-asset]="a.id">
         <!-- Pictures only for the cards in view: a big catalogue renders its thumbnails as the list scrolls -->
         @defer (on viewport) {

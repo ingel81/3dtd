@@ -18,6 +18,7 @@ import type { EditorDocument } from '../model/editor-document';
 import { patch, type EditorSettings } from '../tools/tool';
 import type { EditorCore } from './editor-core';
 import type { ViewHost } from './view-host';
+import type { Messages } from '../../i18n/messages/en';
 
 /** The build areas are judged again this long after the last change (a large map takes a worker a few hundred ms) */
 export const BUILD_AREA_DELAY_MS = 600;
@@ -36,6 +37,8 @@ export interface CheckHost {
   isOpen(id: string): boolean;
   blocked(what: string): boolean;
   save(manual: boolean): Promise<boolean>;
+  /** The words of the player's language */
+  t(): Messages;
 }
 
 export class CheckService {
@@ -128,7 +131,7 @@ export class CheckService {
    * shows in the check once the editor is back
    */
   botCheck(waves = BOT_CHECK_WAVES): Promise<void> {
-    return this.trial('The bot check', waves);
+    return this.trial(this.host.t().editor.session.botCheck, waves);
   }
 
   /**
@@ -138,7 +141,7 @@ export class CheckService {
    * comes back to them. The test is never saved.
    */
   testPlay(): Promise<void> {
-    return this.trial('The test', null);
+    return this.trial(this.host.t().editor.session.test, null);
   }
 
   dispose(): void {

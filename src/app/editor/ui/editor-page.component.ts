@@ -138,10 +138,10 @@ export class EditorPageComponent implements OnInit {
   private async letGo(): Promise<boolean> {
     const session = this.session;
     if (!session.editor || session.maps.readOnly()) return true;
-    if (session.blocked('Leaving the editor')) return false;
+    if (session.blocked(session.t().editor.session.leavingEditor)) return false;
     if (session.saves.dirty() || session.saves.saving()) {
       if (!(await session.saves.save(true)) || session.saves.dirty()) {
-        session.notices.flash('The map could not be saved; the editor stays open');
+        session.notices.flash(session.t().editor.session.leaveUnsaved);
         return false;
       }
     }

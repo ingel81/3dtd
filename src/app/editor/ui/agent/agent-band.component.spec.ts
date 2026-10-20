@@ -13,6 +13,7 @@ import { EditorSession } from '../editor-session.service';
 import { AgentBandComponent } from './agent-band.component';
 import { AgentControlComponent } from './agent-control.component';
 import { AGENT_CONNECTED_MS, agentLine, agentState, ago, bandShown } from './agent-state';
+import { en } from '../../../i18n/messages/en';
 
 const NOW = 1_000_000_000;
 const on = (patch: Partial<AgentStatus> = {}): AgentStatus => ({ enabled: true, url: 'http://127.0.0.1:47171/mcp', held: false, client: null, current: null, last: null, ...patch });
@@ -30,10 +31,10 @@ describe('agent state', () => {
 
   it('says what runs and what ran, and shows the band only while it matters', () => {
     const client = { name: 'claude-code', lastSeen: NOW - 5000 };
-    expect(agentLine(on({ client, current: { tool: 'run_script', what: 'runs the script "hill"', at: NOW - 4000 } }), NOW)).toBe('runs the script "hill" | 4 s');
-    expect(agentLine(on({ client, last: { tool: 'check_map', what: 'checks the map', at: NOW - 12_000, ok: true } }), NOW)).toBe('Waiting | last: checks the map, 12 s ago');
-    expect(agentLine(on(), NOW)).toBe('No agent has connected yet');
-    expect(ago(NOW - 3 * 60_000, NOW)).toBe('3 min ago');
+    expect(agentLine(en, on({ client, current: { tool: 'run_script', what: 'runs the script "hill"', at: NOW - 4000 } }), NOW)).toBe('runs the script "hill" | 4 s');
+    expect(agentLine(en, on({ client, last: { tool: 'check_map', what: 'checks the map', at: NOW - 12_000, ok: true } }), NOW)).toBe('Waiting | last: checks the map, 12 s ago');
+    expect(agentLine(en, on(), NOW)).toBe('No agent has connected yet');
+    expect(ago(en, NOW - 3 * 60_000, NOW)).toBe('3 min ago');
     expect(bandShown(on(), NOW)).toBe(false);
     expect(bandShown(on({ client }), NOW)).toBe(true);
     expect(bandShown(on({ held: true }), NOW)).toBe(true);

@@ -21,9 +21,9 @@ import type { EditorTool, ToolContext, ToolPointer } from './tool';
 export class PathTool implements EditorTool {
   readonly id = 'paths' as const;
   readonly fixedKeys = [
-    { key: 's', what: 'smooth the road' },
-    { key: 'x', what: 'straighten the road' },
-    { key: 'j', what: 'join roads' },
+    { key: 's', what: 'smoothRoad' },
+    { key: 'x', what: 'straightenRoad' },
+    { key: 'j', what: 'joinRoads' },
   ] as const;
   /** The node the line goes on from while drawing */
   private last: string | null = null;

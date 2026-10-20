@@ -6,6 +6,7 @@ import { patch } from '../../tools/tool';
 import type { ToolId } from '../../tools/tool-defs';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
+import { injectT } from '../../../i18n/i18n.service';
 
 /** Look: what the click picked, and the tool that edits it */
 @Component({
@@ -14,40 +15,42 @@ import { panelRev } from './panel-shown';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-stack is-loose' },
   template: `
+    @let w = t().editor.look;
     <div class="td-group">
-      <h3 class="td-section">Look</h3>
-      <p class="td-note">Nothing here changes the map. Click a thing in the view to see what it is; pick a tool on the left to edit. <kbd class="td-kbd">Esc</kbd> comes back here.</p>
+      <h3 class="td-section">{{ t().editor.tools.look.label }}</h3>
+      <p class="td-note">{{ w.aboutBefore }} <kbd class="td-kbd">Esc</kbd> {{ w.aboutAfter }}</p>
     </div>
     <div class="td-group" data-test="look-selected">
-      <h3 class="td-section">Selected</h3>
+      <h3 class="td-section">{{ w.selected }}</h3>
       @if (picked(); as p) {
-        <div class="td-kv"><span>What</span><span class="td-trunc">{{ p.what }}</span></div>
+        <div class="td-kv"><span>{{ w.what }}</span><span class="td-trunc">{{ p.what }}</span></div>
         @if (p.count > 1) {
-          <div class="td-kv"><span>How many</span><span class="td-num">{{ p.count }}</span></div>
+          <div class="td-kv"><span>{{ w.howMany }}</span><span class="td-num">{{ p.count }}</span></div>
         }
         @if (p.at) {
-          <div class="td-kv"><span>Where</span><span class="td-num">{{ p.at }}</span></div>
+          <div class="td-kv"><span>{{ w.where }}</span><span class="td-num">{{ p.at }}</span></div>
         }
         <div class="td-actions is-start">
-          <button class="td-btn-secondary td-btn-sm" type="button" (click)="edit(p.tool)" data-test="look-edit">Edit with {{ p.toolLabel }}</button>
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="edit(p.tool)" data-test="look-edit">{{ w.editWith(t().editor.tools[p.tool].label) }}</button>
         </div>
       } @else if (ground(); as g) {
-        <div class="td-kv"><span>Ground</span><span class="td-trunc">{{ g.what }}</span></div>
-        <div class="td-kv"><span>Height</span><span class="td-num">{{ g.height }}</span></div>
-        <div class="td-kv"><span>Slope</span><span class="td-num">{{ g.slope }}</span></div>
-        <div class="td-kv"><span>Water</span><span>{{ g.water }}</span></div>
-        <div class="td-kv"><span>Where</span><span class="td-num">{{ g.at }}</span></div>
+        <div class="td-kv"><span>{{ w.ground }}</span><span class="td-trunc">{{ g.what }}</span></div>
+        <div class="td-kv"><span>{{ w.height }}</span><span class="td-num">{{ g.height }}</span></div>
+        <div class="td-kv"><span>{{ w.slope }}</span><span class="td-num">{{ g.slope }}</span></div>
+        <div class="td-kv"><span>{{ w.water }}</span><span>{{ g.water }}</span></div>
+        <div class="td-kv"><span>{{ w.where }}</span><span class="td-num">{{ g.at }}</span></div>
         <div class="td-actions is-start">
-          <button class="td-btn-secondary td-btn-sm" type="button" (click)="edit('paint')" data-test="look-edit">Edit with Paint</button>
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="edit('paint')" data-test="look-edit">{{ w.editWith(t().editor.tools.paint.label) }}</button>
         </div>
       } @else {
-        <p class="td-note">Nothing yet: click a thing, or the ground for its paint, height and slope.</p>
+        <p class="td-note">{{ w.nothingYet }}</p>
       }
     </div>
   `,
 })
 export class LookPanelComponent {
   private readonly session = inject(EditorSession);
+  protected readonly t = injectT();
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('objects', 'markers', 'paths', 'terrain', 'water');
 
@@ -57,37 +60,36 @@ export class LookPanelComponent {
     const editor = this.session.editor;
     if (!sel || !editor) return null;
     const doc = editor.doc;
-    const at = (q: { x: number; y: number } | undefined) => (q ? `${Math.round(q.x)} m E, ${Math.round(q.y)} m N` : '');
+    const at = (q: { x: number; y: number } | undefined) => (q ? this.t().editor.look.at(Math.round(q.x), Math.round(q.y)) : '');
     let first: PickResult;
     let count = 1;
     let tool: ToolId;
-    let toolLabel: string;
     let where: string;
     if (sel.kind === 'objects') {
       if (!sel.ids.length) return null;
       first = { kind: 'object', id: sel.ids[0] };
       count = sel.ids.length;
-      [tool, toolLabel] = ['objects', 'Objects'];
+      tool = 'objects';
       where = at(doc.objects.find((o) => o.id === sel.ids[0]));
     } else if (sel.kind === 'hq') {
       first = { kind: 'hq' };
-      [tool, toolLabel] = ['markers', 'Spawns and HQ'];
+      tool = 'markers';
       where = at(doc.hq);
     } else if (sel.kind === 'spawn' || sel.kind === 'spawns') {
       const ids = selectedSpawns(sel);
       first = { kind: 'spawn', id: ids[0] };
       count = ids.length;
-      [tool, toolLabel] = ['markers', 'Spawns and HQ'];
+      tool = 'markers';
       where = at(doc.spawns.find((s) => s.id === ids[0]));
     } else {
       const nodes = selectedNodes(sel);
       const edges = selectedEdges(sel);
       first = edges.length ? { kind: 'edge', id: edges[0] } : { kind: 'node', id: nodes[0] };
       count = nodes.length + edges.length;
-      [tool, toolLabel] = ['paths', 'Roads'];
+      tool = 'paths';
       where = at(doc.paths.nodes.find((n) => n.id === nodes[0]));
     }
-    return { what: describePick(first, doc, this.session.catalog()), count, at: where, tool, toolLabel };
+    return { what: describePick(first, doc, this.session.catalog(), this.t()), count, at: where, tool };
   });
 
   /** The ground point a click found nothing on (LookTool), described */
@@ -96,7 +98,7 @@ export class LookPanelComponent {
     const at = this.session.tools.settings.look().at;
     const editor = this.session.editor;
     if (!at || !editor || this.session.state.selection()) return null;
-    return { ...describeGround(editor.doc.terrain, at.x, at.y, this.session.catalog()), at: `${Math.round(at.x)} m E, ${Math.round(at.y)} m N` };
+    return { ...describeGround(editor.doc.terrain, at.x, at.y, this.session.catalog(), this.t()), at: this.t().editor.look.at(Math.round(at.x), Math.round(at.y)) };
   });
 
   /** Hands the selection to the tool that edits it, in the mode that moves it */

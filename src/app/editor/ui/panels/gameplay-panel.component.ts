@@ -127,7 +127,7 @@ export class GameplayPanelComponent {
   setStructureHp(percent: number): void {
     const v = Math.min(STRUCTURE_HP_SCALE.max, Math.max(STRUCTURE_HP_SCALE.min, Math.round(percent)));
     if (v === this.structureHp()) return;
-    this.edit('Structure HP', (g) => (g.structureHp = v === STRUCTURE_HP_SCALE.normal ? undefined : v));
+    this.edit(this.t().editor.rules.structureHp, (g) => (g.structureHp = v === STRUCTURE_HP_SCALE.normal ? undefined : v));
   }
 
   setVacant(vacant: VacantLanes): void {

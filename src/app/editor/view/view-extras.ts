@@ -14,7 +14,7 @@ import type { EditorDocument } from '../model/editor-document';
 import type { CameraController, OrbitState } from './camera-controller';
 import { mapToScene } from './map-view';
 import { TRIAL_TYPES, TrialRunners } from './trial-runners';
-import { en } from '../../i18n/messages/en';
+import type { Messages } from '../../i18n/messages/en';
 import { enemyName } from '../../i18n/lookups';
 
 /** The editor's level of the map's ambient sound (it has no volume setting of its own) */
@@ -44,6 +44,8 @@ export interface ExtrasHost {
   /** The view's lightning, whose strikes the map's sound answers with thunder */
   lightning(): Lightning;
   status(message: string): void;
+  /** The words of the player's language */
+  words(): Messages;
 }
 
 /**
@@ -74,9 +76,10 @@ export class TrialWave {
   /** Starts it on the spawns' routes (EditorRoutes, found in the editor's worker), or stops it */
   toggle(found: ReadonlyMap<string, Route | null>): void {
     const { editor, status } = this.host;
+    const w = this.host.words().editor.view;
     if (this.runners.active) {
       this.runners.stop();
-      status('Trial wave stopped');
+      status(w.trialStopped);
       return;
     }
     const doc = editor.doc;
@@ -86,17 +89,14 @@ export class TrialWave {
       return r ? [{ ...r, color: '#' + new Color(SPAWN_COLORS[k % SPAWN_COLORS.length]).getHexString() }] : [];
     });
     if (!routes.length) {
-      status('No spawn reaches the HQ: draw a road first');
+      status(w.noRoute);
       return;
     }
     const waves = doc.gameplay?.waves;
     const first = waves?.kind === 'table' ? waves.table.waves[0] : undefined;
     const types = this.runners.start(routes, first ? Object.keys(first.enemies) : TRIAL_TYPES);
     const t = TrialRunners.timing(routes, types);
-    status(
-      `Trial wave: ${types.map((x) => enemyName(en, x.id)).join(', ')} on ${routes.length} ${routes.length === 1 ? 'route' : 'routes'}; ` +
-        `the HQ in ${Math.round(t.fastest)} to ${Math.round(t.slowest)} s (P stops, + and - change the speed)`,
-    );
+    status(w.trial(types.map((x) => enemyName(this.host.words(), x.id)).join(', '), routes.length, Math.round(t.fastest), Math.round(t.slowest)));
   }
 }
 
@@ -226,7 +226,7 @@ export class GameView {
       c.setGoal(this.before);
       this.before = null;
       this.setFov(EDITOR_FOV);
-      status('Editor view');
+      status(this.host.words().editor.view.editorView);
       return;
     }
     this.before = c.saveGoal();
@@ -238,7 +238,7 @@ export class GameView {
       pitch: Math.atan2(GAME_VIEW.height, GAME_VIEW.back),
     });
     this.setFov(GAME_VIEW.fov);
-    status('Game view: where the game starts (C goes back)');
+    status(this.host.words().editor.view.gameView);
   }
 
   private setFov(fov: number): void {

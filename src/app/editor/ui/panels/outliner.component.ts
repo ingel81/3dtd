@@ -5,6 +5,7 @@ import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
 import { patch } from '../../tools/tool';
 import { injectT } from '../../../i18n/i18n.service';
+import { categoryWord } from '../../ops/describe';
 
 /**
  * What the map holds: markers, roads, objects by category and asset (a
@@ -42,9 +43,9 @@ import { injectT } from '../../../i18n/i18n.service';
         <h3 class="td-head">{{ t().editor.outline.objects }} <span class="td-note">{{ d.objects }}</span></h3>
         @for (c of d.categories; track c.name) {
           <div class="ol-cat">
-            <span class="td-trunc ol-cat-name" [class.is-off]="c.hidden">{{ c.name }}</span>
+            <span class="td-trunc ol-cat-name" [class.is-off]="c.hidden">{{ categoryWord(t(), c.name) }}</span>
             <span class="td-muted td-num">{{ c.count }}</span>
-            <button class="td-tool is-sm" type="button" [attr.aria-pressed]="!c.hidden" [attr.aria-label]="c.hidden ? t().editor.outline.show(c.name) : t().editor.outline.hide(c.name)"
+            <button class="td-tool is-sm" type="button" [attr.aria-pressed]="!c.hidden" [attr.aria-label]="c.hidden ? t().editor.outline.show(categoryWord(t(), c.name)) : t().editor.outline.hide(categoryWord(t(), c.name))"
                     [matTooltip]="c.hidden ? t().editor.outline.hiddenTip : t().editor.outline.hideTip" (click)="toggleCategory(c.name)"
                     [attr.data-hide]="c.name">
               <td-icon [name]="c.hidden ? 'eyeOff' : 'eye'" [size]="14" />
@@ -102,6 +103,7 @@ import { injectT } from '../../../i18n/i18n.service';
 })
 export class OutlinerComponent {
   protected readonly t = injectT();
+  protected readonly categoryWord = categoryWord;
   private readonly session = inject(EditorSession);
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('objects', 'paths', 'markers');

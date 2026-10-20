@@ -6,6 +6,7 @@
  */
 import type { MapPrefab } from '../../world/custom-map/map-document';
 import type { Stamp } from '../ops/stamp';
+import { en } from '../../i18n/messages/en';
 
 /** A stamp of the library: the same as a prefab a map keeps */
 export type SavedStamp = MapPrefab;
@@ -84,7 +85,8 @@ export type StampKeep = 'library' | 'map';
 export function stampEntry(name: string, stamp: Stamp, preview: string | null, now = new Date()): SavedStamp {
   return {
     id: `st-${now.getTime().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
-    name: name.trim() || (stamp.prefab ? 'Prefab' : 'Stamp'),
+    // A piece without a name (an agent's, a script's) is called so in English; the editor names it in the player's words
+    name: name.trim() || (stamp.prefab ? en.editor.stamps.defaultPrefab : en.editor.stamps.defaultStamp),
     createdAt: now.toISOString(),
     preview,
     stamp,

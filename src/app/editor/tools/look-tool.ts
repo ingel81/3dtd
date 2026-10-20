@@ -30,7 +30,7 @@ export class LookTool implements EditorTool {
     ctx.settings.look.set({ at: !picked && p.hit ? { x: p.hit.x, y: p.hit.y } : null });
     if (!picked) {
       editor.select(null);
-      if (p.hit) ctx.status(describeGround(editor.doc.terrain, p.hit.x, p.hit.y, ctx.catalog).what);
+      if (p.hit) ctx.status(describeGround(editor.doc.terrain, p.hit.x, p.hit.y, ctx.catalog, ctx.t()).what);
       return false;
     }
     switch (picked.kind) {
@@ -50,7 +50,7 @@ export class LookTool implements EditorTool {
         editor.select({ kind: 'edge', id: picked.id });
         break;
     }
-    ctx.status(describePick(picked, ctx.editor.doc, ctx.catalog));
+    ctx.status(describePick(picked, ctx.editor.doc, ctx.catalog, ctx.t()));
     return false;
   }
 
@@ -69,7 +69,7 @@ export class LookTool implements EditorTool {
     else ctx.overlay.hover.set(o, objectRadius(o, ctx.catalog) * o.scale * 1.15);
   }
 
-  hint(): string {
-    return 'Look around: click a thing to see what it is | nothing changes the map here | pick a tool to edit';
+  hint(ctx: ToolContext): string {
+    return ctx.t().editor.look.hint;
   }
 }

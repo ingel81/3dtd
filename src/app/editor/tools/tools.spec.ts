@@ -443,8 +443,8 @@ describe('editor tools', () => {
     expect(ed.selection).toBeNull();
     // Bare ground: the panel and the status line describe the spot
     expect(ctx.settings.look().at).toEqual({ x: 10, y: 10 });
-    expect(describeGround(ed.doc.terrain, 10, 10, ctx.catalog)).toMatchObject({ height: '0.0 m', slope: '0 deg', water: 'dry' });
-    expect(ctx.messages.at(-1)).toBe(describeGround(ed.doc.terrain, 10, 10, ctx.catalog).what);
+    expect(describeGround(ed.doc.terrain, 10, 10, ctx.catalog, en)).toMatchObject({ height: '0.0 m', slope: '0 deg', water: 'dry' });
+    expect(ctx.messages.at(-1)).toBe(describeGround(ed.doc.terrain, 10, 10, ctx.catalog, en).what);
     ctx.pick = () => ({ kind: 'hq' });
     tool.pointerDown(at(ed.doc.hq.x, ed.doc.hq.y), ctx);
     expect(ctx.settings.look().at).toBeNull();

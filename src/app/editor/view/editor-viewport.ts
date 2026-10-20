@@ -179,6 +179,7 @@ export class EditorViewport {
       darkness: () => this.view.view.environment.darkness,
       lightning: () => this.view.view.environment.lightning,
       status: (m) => callbacks.status(m),
+      words: () => callbacks.t(),
     });
     this.scene.add(this.extras.trial.runners.group);
     this.picker = new ViewPicker(canvas, this.camera, this.controller, editor, catalog, this.overlay.tool.gizmo.handles, () => this.view, heightAt);

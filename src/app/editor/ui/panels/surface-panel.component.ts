@@ -7,6 +7,7 @@ import { refitMarking, surfacesCommand } from '../../ops/surfaces';
 import { patch, type SurfaceMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
 import { panelRev } from './panel-shown';
+import { injectT } from '../../../i18n/i18n.service';
 
 /** Materials a surface takes first (those the catalogue has): pavings, sport and play grounds, sand and gravel */
 const SUGGESTED = [
@@ -44,51 +45,52 @@ const SUGGESTED = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'td-stack is-loose' },
   template: `
-    <div class="td-seg is-sm" role="radiogroup" aria-label="Click draws">
-      @for (m of modes; track m.id) {
-        <button type="button" role="radio" [attr.aria-checked]="settings().mode === m.id" (click)="setMode(m.id)" [attr.data-mode]="m.id">{{ m.label }}</button>
+    @let w = t().editor.surfaces;
+    <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="w.clickDraws">
+      @for (m of modes; track m) {
+        <button type="button" role="radio" [attr.aria-checked]="settings().mode === m" (click)="setMode(m)" [attr.data-mode]="m">{{ w.modes[m] }}</button>
       }
     </div>
     @if (chosen(); as s) {
       <div class="td-group" data-test="surface-chosen">
         <h3 class="td-section">{{ titleOf(s) }} <span class="td-note">{{ sizeOf(s) }}</span></h3>
         <label class="td-setting">
-          <span>Material</span>
-          <select class="td-select is-auto" [value]="s.material" (change)="setMaterial(s, $any($event.target).value)" aria-label="Material" data-test="surface-material">
+          <span>{{ w.material }}</span>
+          <select class="td-select is-auto" [value]="s.material" (change)="setMaterial(s, $any($event.target).value)" [attr.aria-label]="w.material" data-test="surface-material">
             @for (m of materials(); track m.id) {
               <option [value]="m.id">{{ m.name }}</option>
             }
           </select>
         </label>
         <label class="td-setting">
-          <span>Lines</span>
-          <select class="td-select is-auto" [value]="s.marking?.kind ?? 'none'" (change)="setMarking(s, $any($event.target).value)" aria-label="Lines" data-test="surface-marking">
-            <option value="none">None</option>
+          <span>{{ w.lines }}</span>
+          <select class="td-select is-auto" [value]="s.marking?.kind ?? 'none'" (change)="setMarking(s, $any($event.target).value)" [attr.aria-label]="w.lines" data-test="surface-marking">
+            <option value="none">{{ w.none }}</option>
             @for (k of markings; track k) {
-              <option [value]="k">{{ session.t().editor.surfaceMarkings[k] }}</option>
+              <option [value]="k">{{ t().editor.surfaceMarkings[k] }}</option>
             }
           </select>
         </label>
         @if (s.marking) {
           <div class="td-setting">
-            <span>The lines' rectangle</span>
+            <span>{{ w.rectangle }}</span>
             <span class="td-inline">
-              <button class="td-btn-secondary td-btn-sm" type="button" (click)="fit(s)">Fit to outline</button>
-              <button class="td-btn-secondary td-btn-sm" type="button" (click)="turn(s)">Turn</button>
+              <button class="td-btn-secondary td-btn-sm" type="button" (click)="fit(s)">{{ w.fit }}</button>
+              <button class="td-btn-secondary td-btn-sm" type="button" (click)="turn(s)">{{ w.turn }}</button>
             </span>
           </div>
-          <p class="td-note">Drag the corners of the gold rectangle to place the lines; the court keeps its real size inside it.</p>
+          <p class="td-note">{{ w.rectangleNote }}</p>
         }
         <div class="td-setting">
-          <button class="td-btn-secondary td-btn-sm" type="button" (click)="show(s)">Show</button>
-          <button class="td-btn-secondary td-btn-sm" type="button" (click)="remove(s)" data-test="surface-remove">Remove</button>
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="show(s)">{{ w.show }}</button>
+          <button class="td-btn-secondary td-btn-sm" type="button" (click)="remove(s)" data-test="surface-remove">{{ w.remove }}</button>
         </div>
       </div>
     } @else {
       <div class="td-group">
         <label class="td-setting">
-          <span>Material</span>
-          <select class="td-select is-auto" [value]="settings().material" (change)="setNext({ material: $any($event.target).value })" aria-label="Material of the next surface">
+          <span>{{ w.material }}</span>
+          <select class="td-select is-auto" [value]="settings().material" (change)="setNext({ material: $any($event.target).value })" [attr.aria-label]="w.nextMaterial">
             @for (m of materials(); track m.id) {
               <option [value]="m.id">{{ m.name }}</option>
             }
@@ -106,32 +108,32 @@ const SUGGESTED = [
           }
         </div>
         <label class="td-setting">
-          <span>Lines</span>
-          <select class="td-select is-auto" [value]="settings().marking" (change)="setNext({ marking: $any($event.target).value })" aria-label="Lines of the next surface">
-            <option value="none">None</option>
+          <span>{{ w.lines }}</span>
+          <select class="td-select is-auto" [value]="settings().marking" (change)="setNext({ marking: $any($event.target).value })" [attr.aria-label]="w.nextLines">
+            <option value="none">{{ w.none }}</option>
             @for (k of markings; track k) {
-              <option [value]="k">{{ session.t().editor.surfaceMarkings[k] }}</option>
+              <option [value]="k">{{ t().editor.surfaceMarkings[k] }}</option>
             }
           </select>
         </label>
-        <p class="td-note">Surfaces are drawn only: enemies, roads and building do not see them. A map draws up to {{ maxMaterials }} materials on its surfaces.</p>
+        <p class="td-note">{{ w.drawnOnly(maxMaterials) }}</p>
       </div>
     }
     <div class="td-group">
-      <h3 class="td-section">On this map <span class="td-note">{{ list().length }}</span></h3>
-      <div class="td-rows" role="listbox" aria-label="Surfaces">
+      <h3 class="td-section">{{ w.onThisMap }} <span class="td-note">{{ list().length }}</span></h3>
+      <div class="td-rows" role="listbox" [attr.aria-label]="w.title">
         @for (s of shown(); track s.id) {
           <div class="td-row sp-row" role="option" tabindex="0" [attr.aria-selected]="settings().chosen === s.id" (click)="choose(s)" (keydown.enter)="choose(s)" [attr.data-surface]="s.id">
             <span class="td-swatch" [style.--td-mark]="colorOf(s.material)"></span>
             <span class="td-trunc">{{ titleOf(s) }}</span>
             <span class="td-num td-muted">{{ sizeOf(s) }}</span>
-            <button class="td-tool is-sm" type="button" aria-label="Remove" (click)="$event.stopPropagation(); remove(s)"><td-icon name="trash" [size]="14" /></button>
+            <button class="td-tool is-sm" type="button" [attr.aria-label]="w.remove" (click)="$event.stopPropagation(); remove(s)"><td-icon name="trash" [size]="14" /></button>
           </div>
         } @empty {
-          <p class="td-note">None yet. Pick a material and lines, then click an outline on the map or hold and paint it.</p>
+          <p class="td-note">{{ w.noneYet }}</p>
         }
         @if (list().length > shown().length) {
-          <p class="td-note">and {{ list().length - shown().length }} more; click one on the map to choose it.</p>
+          <p class="td-note">{{ w.more(list().length - shown().length) }}</p>
         }
       </div>
     </div>
@@ -147,14 +149,12 @@ const SUGGESTED = [
 })
 export class SurfacePanelComponent {
   readonly session = inject(EditorSession);
+  protected readonly t = injectT();
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('surfaces');
   readonly markings = MAP_SURFACE_MARKINGS;
   readonly maxMaterials = MAX_SURFACE_MATERIALS;
-  readonly modes: { id: SurfaceMode; label: string }[] = [
-    { id: 'draw', label: 'Outline' },
-    { id: 'edit', label: 'Edit' },
-  ];
+  readonly modes: readonly SurfaceMode[] = ['draw', 'edit'];
   readonly settings = this.session.tools.settings.surfaces;
   readonly list = computed(() => (this.rev(), this.session.doc?.surfaces ?? []));
   /** The first hundred: an OSM city has some nine hundred */
@@ -171,11 +171,11 @@ export class SurfacePanelComponent {
 
   titleOf(s: MapSurface): string {
     const material = this.session.catalog().material(s.material).name;
-    return s.marking ? `${this.session.t().editor.surfaceMarkings[s.marking.kind]}, ${material}` : material;
+    return s.marking ? `${this.t().editor.surfaceMarkings[s.marking.kind]}, ${material}` : material;
   }
 
   sizeOf(s: MapSurface): string {
-    return `${Math.round(surfaceArea(s)).toLocaleString('en')} m²`;
+    return this.t().editor.surfaces.area(Math.round(surfaceArea(s)));
   }
 
   colorOf(material: string): string {
@@ -203,9 +203,9 @@ export class SurfacePanelComponent {
   setMaterial(s: MapSurface, material: string): void {
     const used = surfaceMaterials(this.list());
     if (!used.includes(material) && used.length >= MAX_SURFACE_MATERIALS) {
-      this.session.notices.flash(`Surfaces draw ${MAX_SURFACE_MATERIALS} materials at most: this one shows its mean colour`);
+      this.session.notices.flash(this.t().editor.surfaces.tooManyMaterials(MAX_SURFACE_MATERIALS));
     }
-    this.change(s.id, (f) => (f.material = material), 'Surface material');
+    this.change(s.id, (f) => (f.material = material), this.t().editor.surfaces.materialStep);
   }
 
   setMarking(s: MapSurface, kind: MapSurfaceMarkingKind | 'none'): void {
@@ -219,12 +219,12 @@ export class SurfacePanelComponent {
           if (m) f.marking = m;
         }
       },
-      'Surface lines',
+      this.t().editor.surfaces.linesStep,
     );
   }
 
   fit(s: MapSurface): void {
-    this.change(s.id, refitMarking, 'Fit lines');
+    this.change(s.id, refitMarking, this.t().editor.surfaces.fitStep);
   }
 
   turn(s: MapSurface): void {
@@ -233,17 +233,17 @@ export class SurfacePanelComponent {
       (f) => {
         if (f.marking) f.marking = { ...f.marking, angle: Math.round((f.marking.angle + Math.PI / 2) * 1e4) / 1e4, length: f.marking.width, width: f.marking.length };
       },
-      'Turn lines',
+      this.t().editor.surfaces.turnStep,
     );
   }
 
   remove(s: MapSurface): void {
-    this.session.edit('Changing the surfaces', (e) => e.execute(surfacesCommand(e.doc, (list) => list.splice(list.findIndex((x) => x.id === s.id), 1), 'Remove surface')));
+    this.session.edit(this.t().editor.surfaces.changing, (e) => e.execute(surfacesCommand(e.doc, (list) => list.splice(list.findIndex((x) => x.id === s.id), 1), this.t().editor.surfaces.removeSurface)));
     if (this.settings().chosen === s.id) patch(this.settings, { chosen: null, point: -1 });
   }
 
   private change(id: string, edit: (s: MapSurface) => void, label: string): void {
-    this.session.edit('Changing the surfaces', (e) =>
+    this.session.edit(this.t().editor.surfaces.changing, (e) =>
       e.execute(
         surfacesCommand(
           e.doc,

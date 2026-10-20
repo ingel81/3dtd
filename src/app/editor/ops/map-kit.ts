@@ -353,7 +353,7 @@ export class MapKit {
 
   /** Cliff edge along a line: the ground left of the drawing direction rises by `height` */
   cliff(line: readonly MapPoint[], height: number, reach: number): void {
-    this.stroke('Cliff edge', (s) => {
+    this.stroke(this.editor.words().editor.mapSteps.cliffEdge, (s) => {
       s.symmetry = 'none';
       for (const l of this.images(line)) {
         const rect = cliffAlong(s, l, height, reach);
@@ -382,7 +382,7 @@ export class MapKit {
     const rocks = o.rocks === undefined ? ['cliff-coast'] : (o.rocks ?? []);
     const surf = o.surf === undefined ? ['rock-large', 'rock-granite', 'boulder'] : (o.surf ?? []);
     for (const a of [...rocks, ...surf]) if (!this.catalog.objects.has(a)) throw new Error(`${this.name}: ${this.catalog.unknown('asset', a)}`);
-    this.stroke('Rocky coast', (s) => {
+    this.stroke(this.editor.words().editor.mapSteps.rockyCoast, (s) => {
       s.symmetry = 'none';
       for (const l of this.images(drawn)) {
         const rect = coastAlong(s, l, { top: o.top, bed: o.bed ?? -3, shelf: o.shelf ?? 6, grade: o.grade ?? 0.35, reach: 40 });
@@ -474,7 +474,7 @@ export class MapKit {
   /** Glow cracks held `hold` seconds per dab */
   cracks(where: Where, brush: Brush, hold = 1): void {
     const b = brushOf(brush);
-    this.stroke('Glow cracks', (s) => {
+    this.stroke(this.editor.words().editor.mapSteps.glowCracks, (s) => {
       for (const c of dabs(where, b.radius / 3)) {
         for (let t = 0; t < hold; t += 0.1) {
           const r = cracksDab(s, c, b, 0.1);
@@ -493,7 +493,7 @@ export class MapKit {
     const models = cliffModelsFor(this.doc.environment.biome, model, this.catalog);
     if (!models.length) throw new Error(`${this.name}: ${model === 'auto' ? 'the catalogue has no cliff models' : this.catalog.unknown('asset', model)}`);
     const b = brushOf(brush);
-    const ids = this.stroke('Cliff rocks', (s) => {
+    const ids = this.stroke(this.editor.words().editor.mapSteps.cliffRocks, (s) => {
       const out: string[] = [];
       for (const c of dabs(where, b.radius / 3)) {
         const got = cliffRocksDab(s, c, b, models, this.catalog);

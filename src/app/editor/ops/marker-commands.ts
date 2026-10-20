@@ -22,12 +22,12 @@ export function spawnName(doc: { terrain: { width: number; depth: number } }, p:
 
 export const markerCommands = {
   moveHq(editor: EditorDocument, p: MapPoint): EditCommand {
-    return SnapshotCommand.record(editor.doc, 'Move HQ', ['hq'], (d) => (d.hq = { x: p.x, y: p.y }));
+    return SnapshotCommand.record(editor.doc, editor.words().editor.markers.moveHq, ['hq'], (d) => (d.hq = { x: p.x, y: p.y }));
   },
   /** Spawns at the points (the first is the one clicked, the rest its symmetric images); returns the first id */
   addSpawn(editor: EditorDocument, points: readonly MapPoint[]): { command: EditCommand; id: string } {
     let first = '';
-    const command = SnapshotCommand.record(editor.doc, points.length > 1 ? 'Add spawns' : 'Add spawn', ['spawns'], (d) => {
+    const command = SnapshotCommand.record(editor.doc, editor.words().editor.markers.addSpawns(points.length), ['spawns'], (d) => {
       for (const p of points) {
         const id = newId('s', d.spawns);
         first ||= id;
@@ -41,11 +41,11 @@ export const markerCommands = {
   },
   removeSpawns(editor: EditorDocument, ids: readonly string[]): EditCommand {
     const gone = new Set(ids);
-    return SnapshotCommand.record(editor.doc, ids.length > 1 ? 'Delete spawns' : 'Delete spawn', ['spawns'], (d) => (d.spawns = d.spawns.filter((s) => !gone.has(s.id))));
+    return SnapshotCommand.record(editor.doc, editor.words().editor.markers.deleteSpawns(ids.length), ['spawns'], (d) => (d.spawns = d.spawns.filter((s) => !gone.has(s.id))));
   },
   /** The player may close the lane before wave 1, or it is always open (TODO E130) */
   setSpawnOptional(editor: EditorDocument, id: string, optional: boolean): EditCommand {
-    return SnapshotCommand.record(editor.doc, optional ? 'Lane optional' : 'Lane always open', ['spawns'], (d) => {
+    return SnapshotCommand.record(editor.doc, optional ? editor.words().editor.markers.laneOptional : editor.words().editor.markers.laneOpen, ['spawns'], (d) => {
       d.spawns = d.spawns.map((s) => {
         if (s.id !== id) return s;
         const { optional: _, ...rest } = s;
@@ -54,7 +54,7 @@ export const markerCommands = {
     });
   },
   renameSpawn(editor: EditorDocument, id: string, name: string): EditCommand {
-    return SnapshotCommand.record(editor.doc, 'Rename spawn', ['spawns'], (d) => {
+    return SnapshotCommand.record(editor.doc, editor.words().editor.markers.renameSpawn, ['spawns'], (d) => {
       d.spawns = d.spawns.map((s) => (s.id === id ? { ...s, name } : s));
     });
   },

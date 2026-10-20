@@ -30,7 +30,7 @@ export class PaintTool implements EditorTool {
   pointerDown(p: ToolPointer, ctx: ToolContext): boolean {
     if (p.button !== 0 || !p.hit) return false;
     this.erase = ctx.settings.paint().erase !== p.shift;
-    this.stroke = ctx.editor.begin(this.erase ? 'Erase paint' : 'Paint');
+    this.stroke = ctx.editor.begin(this.erase ? ctx.t().editor.ground.erasePaint : ctx.t().editor.ground.paint);
     for (const target of splatTargets(ctx.editor.doc)) this.stroke.record(target);
     this.symmetry = ctx.settings.symmetry();
     return true;
@@ -59,7 +59,7 @@ export class PaintTool implements EditorTool {
     const t = ctx.editor.doc.terrain;
     const layer = t.layers[Math.min(ctx.settings.paint().layer, t.layers.length - 1)];
     const name = layer ? ctx.catalog.material(layer.material).name : '';
-    return `Paint ${name}: hold to paint, Shift erases | [ ] size`;
+    return ctx.t().editor.ground.hint(name);
   }
 
   private end(): void {

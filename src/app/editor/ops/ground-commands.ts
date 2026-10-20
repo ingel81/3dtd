@@ -18,16 +18,16 @@ function groundEdit(editor: EditorDocument, label: string, edit: (t: MapTerrain)
 /** Layer list, auto paint and cliff as undoable steps; the terrain stays the same object */
 export const paintCommands = {
   addLayer(editor: EditorDocument, material: string): EditCommand | null {
-    return groundEdit(editor, 'Add layer', (t) => {
+    return groundEdit(editor, editor.words().editor.ground.addLayer, (t) => {
       t.layers.push({ material });
       fitSplatMaps(t);
     });
   },
   setMaterial(editor: EditorDocument, index: number, material: string): EditCommand | null {
-    return groundEdit(editor, 'Change material', (t) => (t.layers[index] = { ...t.layers[index], material }));
+    return groundEdit(editor, editor.words().editor.ground.changeMaterial, (t) => (t.layers[index] = { ...t.layers[index], material }));
   },
   setScale(editor: EditorDocument, index: number, scale: number | undefined): EditCommand | null {
-    return groundEdit(editor, 'Texture size', (t) => {
+    return groundEdit(editor, editor.words().editor.ground.textureSize, (t) => {
       const layer = { ...t.layers[index] };
       if (scale && scale > 0) layer.scale = scale;
       else delete layer.scale;
@@ -35,16 +35,16 @@ export const paintCommands = {
     });
   },
   removeLayer(editor: EditorDocument, index: number): EditCommand | null {
-    return groundEdit(editor, 'Remove layer', (t) => removeLayer(t, index));
+    return groundEdit(editor, editor.words().editor.ground.removeLayer, (t) => removeLayer(t, index));
   },
   moveLayer(editor: EditorDocument, from: number, to: number): EditCommand | null {
-    return groundEdit(editor, 'Move layer', (t) => moveLayer(t, from, to));
+    return groundEdit(editor, editor.words().editor.ground.moveLayer, (t) => moveLayer(t, from, to));
   },
   autoPaint(editor: EditorDocument, rules?: AutoPaintRule[]): EditCommand | null {
-    return groundEdit(editor, 'Auto paint', (t) => autoPaint(t, rules ?? defaultAutoRules(t)));
+    return groundEdit(editor, editor.words().editor.ground.autoPaint, (t) => autoPaint(t, rules ?? defaultAutoRules(t)));
   },
   setCliff(editor: EditorDocument, material: string, angle: number): EditCommand | null {
-    return groundEdit(editor, 'Cliff material', (t) => {
+    return groundEdit(editor, editor.words().editor.ground.cliffMaterial, (t) => {
       t.cliffMaterial = material;
       t.cliffAngle = angle;
     });

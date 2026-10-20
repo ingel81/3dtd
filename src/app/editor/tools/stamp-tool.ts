@@ -14,7 +14,7 @@ const STEP = Math.PI / 12;
 
 export class StampTool implements EditorTool {
   readonly id = 'stamp' as const;
-  readonly fixedKeys = [{ key: 'r', what: 'turn the copy by 90 degrees' }] as const;
+  readonly fixedKeys = [{ key: 'r', what: 'turnCopy' }] as const;
   private dragFrom: MapPoint | null = null;
 
   brushVisible(): boolean {
@@ -124,7 +124,7 @@ export class StampTool implements EditorTool {
       return false;
     }
     const current = captureStamp(ctx.editor.doc, s.region);
-    patch(ctx.settings.stamp, { current, currentName: 'the copy', rotation: 0, mode: 'paste' });
+    patch(ctx.settings.stamp, { current, currentName: '', rotation: 0, mode: 'paste' });
     ctx.status(ctx.t().editor.stamps.copied(Math.round(current.width), Math.round(current.depth)));
     return true;
   }

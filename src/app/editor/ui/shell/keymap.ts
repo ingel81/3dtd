@@ -38,7 +38,7 @@ export function toolKeys(t: Messages, tools: Iterable<EditorTool>): ReadonlyMap<
   const out = new Map<string, string[]>();
   for (const tool of tools) {
     const label = t.editor.tools[tool.id as ToolId]?.label ?? tool.id;
-    for (const { key, what } of tool.fixedKeys ?? []) out.set(key, [...(out.get(key) ?? []), `${what} (${label})`]);
+    for (const { key, what } of tool.fixedKeys ?? []) out.set(key, [...(out.get(key) ?? []), t.editor.fixedKey(t.editor.fixedKeys[what], label)]);
   }
   return new Map([...out].map(([key, list]) => [key, list.join(', ')]));
 }

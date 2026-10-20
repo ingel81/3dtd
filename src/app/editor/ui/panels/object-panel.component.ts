@@ -14,6 +14,7 @@ import { BrushPanelComponent } from './brush-panel.component';
 import { PrefabPanelComponent } from './prefab-panel.component';
 import { RangeRowComponent } from './range-row.component';
 import { injectT } from '../../../i18n/i18n.service';
+import { categoryWord } from '../../ops/describe';
 
 const MODES: { id: ObjectMode; key: string }[] = [
   { id: 'select', key: 'W E R' },
@@ -52,7 +53,8 @@ export class ObjectPanelComponent {
   readonly turnSteps = TURN_STEPS;
   readonly thumb = (a: ObjectAssetEntry) => this.session.pictures.objectPicture(a);
   readonly search = signal('');
-  readonly category = signal<string>('All');
+  /** The category the palette shows; '' for all of them */
+  readonly category = signal<string>('');
   /** Biome tag the palette shows, '' for all */
   readonly biome = signal('');
   readonly biomes = computed(() => this.session.catalog().biomes());
@@ -61,7 +63,8 @@ export class ObjectPanelComponent {
   readonly s = this.session.tools.settings.objects;
   /** The wall kit the chosen asset belongs to: Line mode fits the kit's pieces instead of spacing one asset */
   readonly kit = computed(() => wallKitOf(this.s().asset));
-  readonly categories = computed(() => ['All', ...this.session.catalog().categories()]);
+  readonly categories = computed(() => ['', ...this.session.catalog().categories()]);
+  readonly categoryWord = categoryWord;
   readonly assets = computed(() => {
     const q = this.search().trim().toLowerCase();
     const cat = this.category();
@@ -71,7 +74,7 @@ export class ObjectPanelComponent {
       .catalog.objects.filter(
         (o) =>
           !o.internal &&
-          (cat === 'All' || o.category === cat) &&
+          (!cat || o.category === cat) &&
           (!biome || !!o.tags?.includes(biome)) &&
           (!q || o.name.toLowerCase().includes(q) || o.id.includes(q) || !!o.tags?.some((t) => t.startsWith(q))),
       );

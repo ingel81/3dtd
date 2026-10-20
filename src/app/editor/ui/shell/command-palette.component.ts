@@ -27,7 +27,7 @@ import { I18n } from '../../../i18n/i18n.service';
             }
           </li>
         } @empty {
-          <li class="td-note cp-none">Nothing matches.</li>
+          <li class="td-note cp-none">{{ t().editor.shell.nothingMatches }}</li>
         }
       </ul>
     </section>

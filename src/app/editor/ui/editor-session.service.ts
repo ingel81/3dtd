@@ -163,6 +163,7 @@ export class EditorSession implements OnDestroy {
         isOpen: (id) => this.maps.isOpen(id),
         blocked,
         save: (manual) => this.saves.save(manual),
+        t: () => this.t(),
       },
       settings,
       this.viewHost,
@@ -322,7 +323,7 @@ export class EditorSession implements OnDestroy {
   // ---------------------------------------------------------------- edits of the map's parts
 
   editMeta(patch: Partial<Pick<MapMeta, 'name' | 'author' | 'description'>>): void {
-    this.edit(this.t().editor.session.mapDetails, (e) => e.execute(metaCommand(e.doc, patch)));
+    this.edit(this.t().editor.session.mapDetails, (e) => e.execute(metaCommand(e.doc, patch, this.t().editor.mapSteps.details)));
   }
 
   /** The map's life with `change` made to a copy, one step */
@@ -342,7 +343,7 @@ export class EditorSession implements OnDestroy {
   resize(width: number, depth: number): void {
     let dropped = { droppedObjects: 0, droppedNodes: 0 };
     const done = this.edit(this.t().editor.session.resizing, (e) => {
-      const step = resizeCommand(e.doc, width, depth);
+      const step = resizeCommand(e.doc, width, depth, this.t().editor.mapSteps.resize);
       dropped = step.dropped;
       e.execute(step.command);
     });
@@ -356,7 +357,7 @@ export class EditorSession implements OnDestroy {
   increaseDetail(): void {
     let target: DetailTarget | null = null;
     this.edit(this.t().editor.session.detail, (e) => {
-      const step = detailCommand(e.doc);
+      const step = detailCommand(e.doc, this.t().editor.mapSteps.detail);
       if (!step) return;
       e.execute(step.command);
       target = step.target;
@@ -378,7 +379,7 @@ export class EditorSession implements OnDestroy {
     }
     let mirrored: MirrorResult | null = null;
     this.edit(this.t().editor.session.mirroring, (e) => {
-      const step = mirrorCommand(e.doc, mode, this.viewHost.viewCenter() ?? e.doc.hq);
+      const step = mirrorCommand(e.doc, mode, this.viewHost.viewCenter() ?? e.doc.hq, this.t().editor.mapSteps.mirror);
       e.execute(step.command);
       mirrored = step.result;
     });
@@ -425,7 +426,7 @@ export class EditorSession implements OnDestroy {
       this.notices.error.set(`${file.name}: ${(e as Error).message}`);
       return false;
     }
-    if (!this.edit(this.t().editor.session.heightmap, (e) => importHeights(e, this.catalog(), image, low, high))) return false;
+    if (!this.edit(this.t().editor.session.heightmap, (e) => importHeights(e, this.catalog(), image, low, high, this.t().editor.mapSteps.heightmap))) return false;
     const g = this.doc!.terrain.grid;
     this.notices.flash(this.t().editor.session.heightmapDone(image.width, image.height, g.columns, g.rows, low, high));
     return true;
@@ -451,7 +452,8 @@ export class EditorSession implements OnDestroy {
    * is still on this map): into the library for every map, or into the open
    * map's file as one undo step. Null when the map keeps no more
    */
-  async saveStamp(name: string, stamp: Stamp, region: StampRect | null, keep: StampKeep = 'library'): Promise<SavedStamp | null> {
+  async saveStamp(given: string, stamp: Stamp, region: StampRect | null, keep: StampKeep = 'library'): Promise<SavedStamp | null> {
+    const name = given.trim() || (stamp.prefab ? this.t().editor.stamps.defaultPrefab : this.t().editor.stamps.defaultStamp);
     const preview = region ? await this.pictures.stampPicture(region) : null;
     if (keep === 'library') {
       const saved = await this.library.stamps.save(name, stamp, preview);

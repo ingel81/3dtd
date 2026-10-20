@@ -10,6 +10,7 @@ import { MapAssetLibrary } from '../world/custom-map/render/map-asset-library';
 import type { CostEntry } from '../world/custom-map/render/objects/scene-cost';
 import { MASS_ASSET, type MapObject } from '../world/custom-map/map-document';
 import { massOf, massRadius } from '../world/custom-map/object-mass';
+import type { Messages } from '../i18n/messages/en';
 
 export interface GroundMaterialEntry {
   id: string;
@@ -83,9 +84,11 @@ export const BIOME_TAGS = [
   'arena',
 ] as const;
 
+export type BiomeTag = (typeof BIOME_TAGS)[number];
+
 /** A tag as the palettes show it */
-export function tagName(tag: string): string {
-  return tag.charAt(0).toUpperCase() + tag.slice(1);
+export function tagName(t: Messages, tag: string): string {
+  return (t.editor.biomeTags as Record<string, string>)[tag] ?? tag.charAt(0).toUpperCase() + tag.slice(1);
 }
 
 /** Catalogue objects the renderer places itself: bridge decks, the surfaces of the buildings raised from their footprint (object-mass.ts) */

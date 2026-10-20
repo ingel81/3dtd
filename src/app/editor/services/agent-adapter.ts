@@ -87,7 +87,7 @@ export class AgentAdapter implements AgentHost {
     this.agent.stop();
     const status = await this.bridge?.stop?.();
     if (status) this.status.set(status);
-    this.s.notices.flash('The agent is stopped; its calls are refused until you let it go on');
+    this.s.notices.flash(this.s.notices.t().editor.agent.heldFlash);
   }
 
   async resume(): Promise<void> {

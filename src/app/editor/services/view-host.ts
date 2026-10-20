@@ -271,13 +271,13 @@ export class ViewHost implements EditorViewPort {
     } catch {
       // Without storage the bookmark lives until the page closes
     }
-    this.deps.notices.flash(`View ${slot + 1} kept`);
+    this.deps.notices.flash(this.deps.notices.t().editor.view.kept(slot + 1));
   }
 
   showBookmark(slot: number): void {
     const v = this.bookmarks()[slot];
     if (v) this.viewport?.showView(v);
-    else this.deps.notices.flash(`No view ${slot + 1} yet: Alt+${slot + 1} keeps the current one`);
+    else this.deps.notices.flash(this.deps.notices.t().editor.view.noView(slot + 1));
   }
 
   private loadBookmarks(id: string): void {

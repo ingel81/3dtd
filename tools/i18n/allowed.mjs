@@ -110,4 +110,13 @@ export const ALLOWED = {
   'world/w3x/routes/maze-routes.ts': { End: MAP_CONTENT },
   'world/w3x/routes/route-graph.ts': { 'Point {} {}': MAP_CONTENT },
   'world/w3x/routes/terrain-routes.ts': { 'Spawn {}': MAP_CONTENT, 'Waypoint {}': MAP_CONTENT },
+  // Editor
+  'editor/model/doc-mirror.ts': { 'the heights': DIAG, 'splat map {}': DIAG, 'the water mask': DIAG, 'the mask of body {}': DIAG },
+  'editor/services/editor-core.ts': { 'The terrain job was stopped': DIAG },
+  'editor/services/job-runner.ts': { 'The job was stopped': DIAG },
+  'editor/ui/make/map-make.component.html': { Esc: KEY },
+  'editor/ui/panels/look-panel.component.ts': { Esc: KEY },
+  'editor/ui/panels/measure-panel.component.ts': { Esc: KEY },
+  'editor/ui/panels/object-panel.component.html': { Del: KEY },
+  'editor/ui/panels/path-panel.component.ts': { Del: KEY },
 };

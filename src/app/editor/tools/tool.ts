@@ -314,10 +314,10 @@ export interface EditorTool {
   hint(ctx: ToolContext): string;
 }
 
-/** A single key inside a tool and what it does there, for the keymap and its help */
+/** A single key inside a tool and what it does there (its words: editor.fixedKeys), for the keymap and its help */
 export interface FixedKey {
   key: string;
-  what: string;
+  what: keyof Messages['editor']['fixedKeys'];
 }
 
 /** A tool that does nothing on the map (Environment, Map settings, Rules) */

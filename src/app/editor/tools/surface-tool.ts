@@ -124,7 +124,7 @@ export class SurfaceTool implements EditorTool {
     const point = ctx.settings.surfaces().point;
     // A corner of the outline moved: the marking fits itself again; a corner of the marking keeps where it was put
     if (surface && point < surface.outer.length) refitMarking(surface);
-    editor.push(new SnapshotCommand(point < (surface?.outer.length ?? 0) ? 'Move surface corner' : 'Pull marking', { surfaces: d.before }, { surfaces: structuredClone(editor.doc.surfaces) }), { surfaces: true });
+    editor.push(new SnapshotCommand(point < (surface?.outer.length ?? 0) ? ctx.t().editor.surfaces.moveCorner : ctx.t().editor.surfaces.pullMarking, { surfaces: d.before }, { surfaces: structuredClone(editor.doc.surfaces) }), { surfaces: true });
     this.shown = null;
   }
 
@@ -152,7 +152,7 @@ export class SurfaceTool implements EditorTool {
       const id = surface.id;
       if (s.point >= 0 && s.point < surface.outer.length && surface.outer.length > 3) {
         const at = s.point;
-        this.change(ctx, 'Remove surface corner', (list) => {
+        this.change(ctx, ctx.t().editor.surfaces.removeCorner, (list) => {
           const f = list.find((x) => x.id === id);
           if (!f) return;
           f.outer.splice(at, 1);
@@ -160,7 +160,7 @@ export class SurfaceTool implements EditorTool {
         });
         patch(ctx.settings.surfaces, { point: -1 });
       } else {
-        this.change(ctx, 'Remove surface', (list) => list.splice(list.findIndex((x) => x.id === id), 1));
+        this.change(ctx, ctx.t().editor.surfaces.removeSurface, (list) => list.splice(list.findIndex((x) => x.id === id), 1));
         patch(ctx.settings.surfaces, { chosen: null, point: -1 });
       }
       return true;
@@ -184,11 +184,11 @@ export class SurfaceTool implements EditorTool {
   hint(ctx: ToolContext): string {
     const s = ctx.settings.surfaces();
     if (s.mode === 'draw') {
-      return this.draft.length ? 'Click the next corner; Enter, a double click or a right click closes the outline' : 'Click the corners of an outline, or hold and paint it freehand';
+      return this.draft.length ? ctx.t().editor.surfaces.hintNext : ctx.t().editor.surfaces.hintDraw;
     }
     return s.chosen
-      ? 'Drag a corner of the outline or of the marking; Shift+click on the edge adds a corner; Delete removes the corner or the surface'
-      : 'Click inside a surface to change it';
+      ? ctx.t().editor.surfaces.hintEdit
+      : ctx.t().editor.surfaces.hintChoose;
   }
 
   /** Ends the outline being drawn: a new surface, the chosen one */
@@ -199,12 +199,12 @@ export class SurfaceTool implements EditorTool {
     this.holding = null;
     ctx.overlay.draft.clear();
     if (points.length < 3 || outlineArea(points) < 4) {
-      ctx.status('An outline needs three corners around some ground');
+      ctx.status(ctx.t().editor.surfaces.threeCorners);
       return;
     }
     const list = ctx.editor.doc.surfaces ?? [];
     if (list.length >= MAX_SURFACES) {
-      ctx.status(`A map holds at most ${MAX_SURFACES} surfaces`);
+      ctx.status(ctx.t().editor.surfaces.tooMany(MAX_SURFACES));
       return;
     }
     const surface = newSurface(list, s.material, points, s.marking === 'none' ? null : s.marking);
@@ -216,9 +216,9 @@ export class SurfaceTool implements EditorTool {
       taken.push({ ...surface, id });
       return id;
     }, t.width / 2, t.depth / 2).slice(0, MAX_SURFACES - list.length - 1);
-    this.change(ctx, 'Add surface', (l) => l.push(surface, ...images));
+    this.change(ctx, ctx.t().editor.surfaces.addSurface, (l) => l.push(surface, ...images));
     patch(ctx.settings.surfaces, { chosen: surface.id, point: -1 });
-    ctx.status(surface.marking || s.marking === 'none' ? 'Surface added: its settings are in the panel' : 'Surface added; the outline is too thin for the lines');
+    ctx.status(surface.marking || s.marking === 'none' ? ctx.t().editor.surfaces.added : ctx.t().editor.surfaces.addedThin);
   }
 
   private editDown(p: ToolPointer, ctx: ToolContext): boolean {
@@ -238,7 +238,7 @@ export class SurfaceTool implements EditorTool {
         const at = nearestEdge(chosen.outer, hit, reach);
         if (at >= 0 && chosen.outer.length < MAX_SURFACE_POINTS) {
           const id = chosen.id;
-          this.change(ctx, 'Add surface corner', (list) => {
+          this.change(ctx, ctx.t().editor.surfaces.addCorner, (list) => {
             const f = list.find((x) => x.id === id);
             if (!f) return;
             f.outer.splice(at + 1, 0, round({ x: hit.x, y: hit.y }));
@@ -251,7 +251,7 @@ export class SurfaceTool implements EditorTool {
     }
     const picked = pickSurface(ctx.editor.doc.surfaces ?? [], hit);
     patch(ctx.settings.surfaces, { chosen: picked?.id ?? null, point: -1 });
-    if (picked) ctx.status('Surface chosen');
+    if (picked) ctx.status(ctx.t().editor.surfaces.chosen);
     return true;
   }
 

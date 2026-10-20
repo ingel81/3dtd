@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, signal } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { EditorSession } from '../editor-session.service';
-import { AGENT_STATE_LABEL, agentLine, agentName, agentState } from './agent-state';
+import { agentLine, agentName, agentState } from './agent-state';
+import { injectT } from '../../../i18n/i18n.service';
 
 /**
  * The editor's Agent button (desktop app only, docs/AGENT_MCP.md): its tag
@@ -18,21 +19,21 @@ import { AGENT_STATE_LABEL, agentLine, agentName, agentState } from './agent-sta
   template: `
     @if (view(); as v) {
       <button class="td-btn-ghost td-btn-sm" type="button" [attr.aria-expanded]="open()" (click)="open.set(!open())"
-              matTooltip="AI agents that build and change maps (MCP)" [matTooltipDisabled]="open()" data-test="agent-button">
-        Agent
+              [matTooltip]="t().editor.agent.buttonTip" [matTooltipDisabled]="open()" data-test="agent-button">
+        {{ t().editor.agent.button }}
         <span class="td-tag" [class.is-ok]="v.state === 'connected'" [class.is-brass]="v.state === 'working'" [class.is-warn]="v.state === 'stopped'"
               [class.is-error]="v.state === 'error'" data-test="agent-state">{{ v.label }}</span>
       </button>
       @if (open()) {
-        <div class="ac-panel td-popup td-stack" role="dialog" aria-label="AI agents" data-test="agent-panel">
+        <div class="ac-panel td-popup td-stack" role="dialog" [attr.aria-label]="t().editor.agent.agents" data-test="agent-panel">
           <label class="td-setting">
-            <span>Allow AI agents to edit maps</span>
+            <span>{{ t().editor.agent.allow }}</span>
             <input class="td-switch" type="checkbox" [checked]="v.enabled" (change)="session.agent.setEnabled($any($event.target).checked)" data-test="agent-switch" />
           </label>
           @if (v.url; as url) {
             <div class="td-setting">
               <span class="ac-url td-trunc" data-test="agent-url">{{ url }}</span>
-              <button class="td-btn-secondary td-btn-sm" type="button" (click)="copy(url)">{{ copied() ? 'Copied' : 'Copy address' }}</button>
+              <button class="td-btn-secondary td-btn-sm" type="button" (click)="copy(url)">{{ copied() ? t().editor.agent.copied : t().editor.agent.copy }}</button>
             </div>
           }
           <p class="td-note" [class.is-error]="v.state === 'error'" [class.is-ok]="v.state === 'connected' || v.state === 'working'" data-test="agent-panel-line">
@@ -41,7 +42,7 @@ import { AGENT_STATE_LABEL, agentLine, agentName, agentState } from './agent-sta
             }
             {{ v.line }}
           </p>
-          <p class="td-note">An MCP client on this computer, such as Claude Code, builds and changes the open map while you watch; each change is one undo step. Any program on this computer can connect while this is on.</p>
+          <p class="td-note">{{ t().editor.agent.about }}</p>
         </div>
       }
     }
@@ -56,6 +57,7 @@ import { AGENT_STATE_LABEL, agentLine, agentName, agentState } from './agent-sta
 })
 export class AgentControlComponent {
   readonly session = inject(EditorSession);
+  protected readonly t = injectT();
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly open = signal(false);
   readonly copied = signal(false);
@@ -66,7 +68,8 @@ export class AgentControlComponent {
     if (!status) return null;
     const now = this.now();
     const state = agentState(status, now);
-    return { state, label: AGENT_STATE_LABEL[state], enabled: status.enabled, url: status.url, name: agentName(status), client: !!status.client, line: agentLine(status, now) };
+    const t = this.t();
+    return { state, label: t.editor.agent.states[state], enabled: status.enabled, url: status.url, name: agentName(t, status), client: !!status.client, line: agentLine(t, status, now) };
   });
 
   constructor() {
