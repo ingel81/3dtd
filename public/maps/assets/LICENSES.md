@@ -620,7 +620,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | rail-track-short | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete |
 | rail-track-wood | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/dark_planks |
 | rail-track-wood-short | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/dark_planks |
-| rail-crossing | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete |
+| rail-crossing | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete |
 | rail-street | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/asphalt_02; https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete |
 | crossing-saltire | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
 | crossing-signal | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |

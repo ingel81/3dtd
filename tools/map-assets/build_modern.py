@@ -1428,34 +1428,45 @@ PANEL_TOP = 0.08
 
 
 def level_crossing(name, length=2.5):
-    """A 2.5 m module of a level crossing along X: concrete panels between and beside the rails, flush with
-    the rail heads 8 cm over the road, their outer edges chamfered down to it, steel angles along the
-    flangeways, a dark joint between modules; sleepers under them. The road runs across (Y)"""
+    """A 2.5 m module of a level crossing along X in the track's format: the track's ballast bed, sleepers and
+    rails (origin on the formation, so bed and crossing pieces join rail to rail and bed to bed), concrete panels
+    over them between and beside the rails, flush with the rail heads, their outer edges chamfered down to the road
+    PANEL_TOP under them; steel angles along the flangeways, a dark joint between modules. The panels reach down to
+    the ballast (no slot under them at a piece's end). convert/rails.ts lays the formation CROSSING_SINK under the
+    road there, so the road meets the chamfers and hides the ballast; past the road the bed shows as on the track.
+    Baked like the track (one material). The road runs across (Y)"""
     clear_scene()
+    ballast, sleepers, steel = track_parts(length, False, BALLAST_TOP)
     panel = Part(pbr_material('crossing-panel', 'concrete_slab_wall', (0.78, 0.78, 0.76)), uv_metres=2.5, bevel=0.01)
     edge = Part(flat_material('crossing-angle', (0.18, 0.18, 0.17), 0.55, 0.7))
-    sleepers = Part(sleeper_material(), uv_metres=1.0, bevel=0.01)
-    steel = Part(steel_material())
-    top = PANEL_TOP
-    rails(steel, sleepers, -length / 2, length / 2, z=top - 0.35)
+    h = BALLAST_TOP
+    top = h - 0.08 + 0.35
+    road = top - PANEL_TOP
+    x0 = -length / 2
+    prism(ballast, [Vector((x0, -2.68, -0.3)), Vector((x0, 2.68, -0.3)), Vector((x0, 1.82, h - 0.03)), Vector((x0, 1.7, h)),
+                    Vector((x0, -1.7, h)), Vector((x0, -1.82, h - 0.03))], Vector((length, 0, 0)))
     gap = 0.02
-    x0, x1 = -length / 2 + gap / 2, length / 2 - gap / 2
+    px0, px1 = x0 + gap / 2, length / 2 - gap / 2
     inner = GAUGE / 2 - 0.04
-    box(panel, 0, 0, top - 0.2, x1 - x0, inner * 2, 0.2)
+    box(panel, 0, 0, h, px1 - px0, inner * 2, top - h)
+    # The ballast's shoulder under the panels' outer edge: 1.82 m out at h - 0.03, falling to -0.3 at 2.68 m
+    y2 = 2.35
+    foot = -0.3 + (2.68 - y2) * (h - 0.03 + 0.3) / (2.68 - 1.82)
     for s in (-1, 1):
         y0 = s * (GAUGE / 2 + 0.11)
-        y1 = s * 2.0
-        y2 = s * 2.35
+        y1 = s * 1.82
         lo, hi = (y0, y1) if s > 0 else (y1, y0)
-        box(panel, 0, (lo + hi) / 2, top - 0.2, x1 - x0, abs(hi - lo), 0.2)
-        # The chamfer down to the road
-        prism(panel, [Vector((x0, y1, top - 0.2)), Vector((x0, y2, top - 0.2)), Vector((x0, y2, 0.0)), Vector((x0, y1, top))],
-              Vector((x1 - x0, 0, 0)))
+        box(panel, 0, (lo + hi) / 2, h - 0.03, px1 - px0, abs(hi - lo), top - h + 0.03)
+        # The chamfer down to the road, the panel's underside on the shoulder
+        prism(panel, [Vector((px0, y1, h - 0.03)), Vector((px0, s * y2, foot)), Vector((px0, s * y2, road)), Vector((px0, s * 2.0, top)),
+                      Vector((px0, y1, top))], Vector((px1 - px0, 0, 0)))
         # Steel angles along the flangeways
         for y in (s * (inner + 0.012), y0 - s * 0.012):
-            box(edge, 0, y, top - 0.025, x1 - x0, 0.024, 0.025)
-    export(name, [panel.to_object(name), edge.to_object(name + '-angles'), sleepers.to_object(name + '-sleepers'),
-                  steel.to_object(name + '-rails')], lod=40)
+            box(edge, 0, y, top - 0.025, px1 - px0, 0.024, 0.025)
+    objects = without_undersides([ballast.to_object(name), sleepers.to_object(name + '-sleepers'), steel.to_object(name + '-rails'),
+                                  panel.to_object(name + '-panels'), edge.to_object(name + '-angles')])
+    obj = bake_surface(name, objects, size=512, samples=24, ao_distance=0.4)
+    export_lod(name, obj, ratio=min(1.0, 40 / max(1, len(obj.data.polygons))), textured=True)
 
 
 def street_track(name, length=2.5):

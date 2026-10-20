@@ -31,8 +31,9 @@
  * bridges. Where something passes under a bridge too low, the bridge and a
  * ramp on both sides rise (an embankment the heights did not know); where
  * a road bridge spans the track too low, the track sinks into a cutting
- * the same way; at a level crossing the track takes the road's height over
- * CROSSING_RAMP metres. The bed is levelled to the profile, its shoulders
+ * the same way; at a level crossing the track comes over CROSSING_RAMP
+ * metres to CROSSING_SINK under the road's height (its rail heads flush with
+ * the panels), following the road across it. The bed is levelled to the profile, its shoulders
  * falling about 1:1.5 into the ground; road bands, water and the ground
  * under the bridges stay as they are. Nowhere else does a bed stand over
  * the ground: the old pieces stood on the ground under their middles as
@@ -42,8 +43,11 @@
  * stretches of bed, crossing and bridge, every stretch's ends snapped
  * outward to it, and each stretch is tiled exactly with its kit's 10 and
  * 2.5 m pieces (crossing panels in 2.5 m), each tilted to the profile
- * between its ends (`roll`). Bridges get an abutment at each end, under
- * longer spans piers; so do the road bridges over the track.
+ * between its ends (`roll`). A crossing piece is a track piece with the
+ * panels over it (the same ballast, sleepers and rails), so bed and crossing
+ * join end to end; crossing and bridge pieces stand on the profile. Bridges
+ * get an abutment at each end, under longer spans piers; so do the road
+ * bridges over the track.
  */
 import { heightAt } from '../../../map-ops/grid';
 import { EdgeIndex } from '../../../map-ops/path-graph';
@@ -96,6 +100,15 @@ const SMOOTHING = 30;
 const SMOOTHING_BUILT = 60;
 /** Metres over which the track comes to a level crossing's height */
 export const CROSSING_RAMP = 25;
+/** Metres from the formation (a track piece's origin) to its rail heads, and from the road to a crossing panel's top (tools/map-assets/build_modern.py) */
+export const RAIL_HEAD = 0.62;
+export const PANEL_TOP = 0.08;
+/**
+ * Metres the formation lies under the road at a level crossing: the rail
+ * heads flush with the panels, these a little over the road, the ballast
+ * and sleepers under it, so bed and crossing pieces meet rail to rail
+ */
+export const CROSSING_SINK = RAIL_HEAD - PANEL_TOP;
 /** Grade of the ramp up to a raised bridge or down into a cutting, and its shortest and longest run, metres */
 const RAMP_GRADE = 0.025;
 const RAMP_MIN = 20;
@@ -398,6 +411,13 @@ function spanHalf(c: RailChain, along: number, roadDir: MapPoint, reach: number)
   return reach / sin + (BED_HALF * cos) / sin;
 }
 
+/** Half the length of a line's middle inside a crossing's road */
+function roadReach(c: RailChain, x: RailCrossing): number {
+  const t = directionAt(c, x.along);
+  const sin = Math.max(MIN_SIN, Math.abs(t.x * x.roadDir.y - t.y * x.roadDir.x));
+  return x.roadWidth / 2 / sin;
+}
+
 /** A track's own bridge over an underpass, merged into the bridges it overlaps */
 function addUnderpass(plan: RailPlan, chain: number, from: number, to: number, under: RailUnder): void {
   const over = plan.bridges.filter((b) => b.chain === chain && b.from <= to && b.to >= from);
@@ -642,12 +662,18 @@ export function levelRails(terrain: MapTerrain, plan: RailPlan, paths: MapPaths,
         report.loweredM = Math.max(report.loweredM, -d);
       }
     }
-    // Last: the road's height at each level crossing
+    // Last: CROSSING_SINK under the road at each level crossing, the road's height read on its middle (it is level
+    // across) where the line crosses it, held from its edges on: a graded road climbs across a slanted crossing
     for (const x of plan.crossings.filter((x) => x.chain === ci)) {
-      const h = heightAt(terrain, x.at.x, x.at.y);
+      const reach = roadReach(c, x);
       for (let k = 0; k < n; k++) {
-        const off = Math.max(0, Math.abs(sAt(k) - x.along) - x.half);
-        if (off < CROSSING_RAMP) out[k] = h + (out[k] - h) * smooth(off / CROSSING_RAMP);
+        const s = sAt(k);
+        const off = Math.max(0, Math.abs(s - x.along) - x.half);
+        if (off >= CROSSING_RAMP) continue;
+        const p = pointOn(c, Math.max(x.along - reach, Math.min(x.along + reach, s)));
+        const d = (p.x - x.at.x) * x.roadDir.x + (p.y - x.at.y) * x.roadDir.y;
+        const h = heightAt(terrain, x.at.x + x.roadDir.x * d, x.at.y + x.roadDir.y * d) - CROSSING_SINK;
+        out[k] = h + (out[k] - h) * smooth(off / CROSSING_RAMP);
       }
     }
     c.profile = out;
@@ -708,8 +734,11 @@ const SHOULDER_SLOPE = 1.5;
 /**
  * Levels the ground under the beds to the lines' profiles: the nearest
  * line's, flat over BED_HALF, the shoulder fading over 1.5 times the step
- * it makes; the bridges' ground and what `keep` names untouched (by
- * default the road bands). Returns the samples changed.
+ * it makes; under a level crossing's panels past the road CROSSING_SINK
+ * higher, at the road's level (the panels lie in the ground as on the road,
+ * the bed's ground falls to the formation where they end); the bridges'
+ * ground and what `keep` names untouched (by default the road bands).
+ * Returns the samples changed.
  */
 function levelBeds(terrain: MapTerrain, plan: RailPlan, paths: MapPaths, keep?: (k: number) => boolean): number {
   const g = terrain.grid;
@@ -724,6 +753,7 @@ function levelBeds(terrain: MapTerrain, plan: RailPlan, paths: MapPaths, keep?: 
   plan.chains.forEach((c, ci) => {
     if (!c.profile) return;
     const bridges = plan.bridges.filter((b) => b.chain === ci);
+    const panels = plan.crossings.filter((x) => x.chain === ci).map(crossingSpan);
     for (let k = 0; k + 1 < c.line.length; k++) {
       const a = c.line[k];
       const b = c.line[k + 1];
@@ -746,7 +776,9 @@ function levelBeds(terrain: MapTerrain, plan: RailPlan, paths: MapPaths, keep?: 
           if (dist[key] === Infinity) touched.push(key);
           dist[key] = d;
           const along = c.at[k] + t;
-          target[key] = bridges.some((br) => along > br.from - 0.5 && along < br.to + 0.5) ? NaN : profileAt(c, along, terrain);
+          target[key] = bridges.some((br) => along > br.from - 0.5 && along < br.to + 0.5)
+            ? NaN
+            : profileAt(c, along, terrain) + (panels.some(([from, to]) => along > from && along < to) ? CROSSING_SINK : 0);
         }
       }
     }
@@ -861,7 +893,8 @@ export function railPieces(plan: RailPlan, terrain: MapTerrain, paths: MapPaths)
         const rotation = wrap(Math.atan2(-(b.x - a.x), b.y - a.y) + Math.PI / 2);
         // Model +X points back to `a`: tilted so it rises with the profile from b to a
         const roll = Math.atan2(profileAt(c, from, terrain) - profileAt(c, from + len, terrain), len);
-        const z = st.kind === 'bridge' ? profileAt(c, from + len / 2, terrain) - ground(mid) : 0;
+        // Bridges and crossings stand on the profile (a crossing's formation under the road, its ballast hidden by it), the bed on the ground levelled to it
+        const z = st.kind === 'bridge' || st.kind === 'crossing' ? profileAt(c, from + len / 2, terrain) - ground(mid) : 0;
         const o: Omit<MapObject, 'id'> = { asset: len >= LONG ? kit[0] : kit[1], x: round2(mid.x), y: round2(mid.y), z: round2(z), rotation: round3(rotation), scale: 1 };
         if (Math.abs(roll) > 1e-4) o.roll = round3(roll);
         out.push({ o, source, group, onRoad: st.kind !== 'bed', overWater: st.kind === 'bridge' });
@@ -909,7 +942,12 @@ function stretchesOf(c: RailChain, ci: number, plan: RailPlan, roads: EdgeIndex)
     const hit = roads.nearest(pointOn(c, s + LATTICE / 2), 20);
     if (hit && hit.dist < hit.edge.width / 2 + STREET_RUNNING) inRoad.push([s, s + LATTICE]);
   }
-  const crossings = merged(plan.crossings.filter((x) => x.chain === ci).map((x) => [snapDown(x.along - x.half), snapUp(x.along + x.half)])).flatMap((s) => outside(s, bridges));
+  const crossings = merged(
+    plan.crossings.filter((x) => x.chain === ci).map((x) => {
+      const [from, to] = crossingSpan(x);
+      return [Math.max(0, from), Math.min(end, to)];
+    }),
+  ).flatMap((s) => outside(s, bridges));
   const street = merged(inRoad).flatMap((s) => outside(s, merged([...bridges, ...crossings])));
   const spans: Stretch[] = [
     ...bridges.map(([from, to]) => ({ from, to, kind: 'bridge' as const })),
@@ -925,6 +963,11 @@ function stretchesOf(c: RailChain, ci: number, plan: RailPlan, roads: EdgeIndex)
   }
   if (at < end) out.push({ from: at, to: end, kind: 'bed' });
   return out;
+}
+
+/** The stretch of line a crossing's panels cover: their half length either side, snapped outward to the lattice */
+function crossingSpan(x: RailCrossing): [number, number] {
+  return [Math.floor((x.along - x.half) / LATTICE) * LATTICE, Math.ceil((x.along + x.half) / LATTICE) * LATTICE];
 }
 
 /** Spans [from, to] with the overlapping ones joined, in order */

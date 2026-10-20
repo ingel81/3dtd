@@ -1130,8 +1130,10 @@ Höhen- und Darstellungsfehler. Neu (`convert/rails.ts`, Abfrage um `railway=lev
   Übergangsknoten bekommen das Kreuz (Straße) bzw. nichts (Fußweg).
 - **Gelände** (`levelRails`, nach dem Einebnen der Straßen): jede Linie bekommt ein Höhenprofil, der Boden entlang der
   Linie über 30 m gemittelt (60 m auf Wegen mit `embankment` oder `cutting`), zu den Enden hin gleichmäßig über weniger
-  (eine Linie endet auf dem Boden, Linien an einer Weiche passen zusammen), über Brücken gerade durch. Am Übergang nimmt
-  das Gleis über 25 m die Höhe der Straße an. Hat eine Bahnbrücke über einer Straße (4,7 m), einem Weg (2,7 m) oder
+  (eine Linie endet auf dem Boden, Linien an einer Weiche passen zusammen), über Brücken gerade durch. Am Übergang kommt
+  das Gleis über 25 m auf 0,54 m unter die Straße (`CROSSING_SINK`: Schienenkopf 0,62 m über dem Planum, bündig mit
+  den Platten 8 cm über der Straße) und folgt dabei deren Steigung quer über sie (Höhe auf ihrer Mitte gelesen, sie
+  ist quer eben). Hat eine Bahnbrücke über einer Straße (4,7 m), einem Weg (2,7 m) oder
   Wasser (1,5 m) zu wenig Luft, heben sich Brücke und beide Rampen (2,5 %, 20 bis 200 m): ein Damm, den die Höhendaten
   nicht kannten. Liegt eine Straßenbrücke zu tief über dem Gleis (4,9 m, mit Oberleitung 5,7 m, Deck 1,25 m dick),
   senkt sich das Gleis ebenso in einen Einschnitt. Das Bett wird über 2,6 m je Seite flach auf das Profil gebracht, die
@@ -1142,7 +1144,14 @@ Höhen- und Darstellungsfehler. Neu (`convert/rails.ts`, Abfrage um `railway=lev
   `rail-track`/`rail-track-short`, Brücke `rail-bridge`/`rail-bridge-short`, Übergang `rail-crossing` je 2,5 m), ohne
   Überlappung, jedes nach dem Profil zwischen seinen Enden geneigt (`roll`); Schwellen haben in beiden Längen dieselbe
   Teilung. Die Übergangsplatten (Beton, Stahlwinkel an den Spurrillen, 8 cm über der Straße, außen abgeschrägt) reichen
-  0,75 m über den Straßenrand und bei schrägem Übergang um die Ecken des Betts (Winkel ab 20 Grad gerechnet). Brücken
+  0,75 m über den Straßenrand und bei schrägem Übergang um die Ecken des Betts (Winkel ab 20 Grad gerechnet).
+  Ein Übergangsstück ist ein Gleisstück mit Platten darüber (dasselbe Schotterbett, dieselben Schwellen und Schienen,
+  Ursprung auf dem Planum, gebacken wie das Gleis, ein Material) und steht wie die Brückenstücke auf dem Profil: Bett
+  und Übergang stoßen Schiene an Schiene und Schotter an Schotter, die Platten reichen bis auf den Schotter (kein
+  Schlitz). Auf der Straße verdeckt sie Schotter und Schwellen; neben ihr liegt der Boden unter den Platten auf
+  Straßenhöhe (die Platten liegen im Boden wie auf der Straße), dahinter fällt er auf das Planum, wo der Schotter
+  vor der Plattenkante hervorkommt (E264; vorher stand das Bett 0,54 m über den Platten, sein Schotter endete
+  mit roher Stirnseite). Brücken
   (Betontrog mit Schotter, Gesims, Geländer) liegen in der Höhe des Profils, an jedem Ende ein Widerlager
   (`bridge-abutment`, Fuß im Boden, Flügelmauern in den Damm) 2,5 m in der Spannweite, damit es vor dem Abfall des
   Geländes steht; über 30 m Pfeiler (`bridge-pier`) etwa alle 25 m, keiner auf einer Straße oder einem Gleisbett.

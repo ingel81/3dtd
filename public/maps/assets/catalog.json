@@ -24392,12 +24392,12 @@
     },
     {
       "id": "rail-crossing",
-      "name": "Level crossing panels (2.5 m along X, road across)",
+      "name": "Level crossing: track with panels (2.5 m along X, road across, formation at 0)",
       "category": "structure",
       "file": "models/rail-crossing.glb",
-      "triangles": 516,
-      "footprint": 2.1,
-      "height": 0.1,
+      "triangles": 452,
+      "footprint": 2.4,
+      "height": 0.6,
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -24413,22 +24413,23 @@
         "temperate"
       ],
       "textures": [
-        "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
-        "textures/brushed_concrete_diff_1k-x1.10-1.10-1.05-47eb9bb1e7c51957.ktx2",
-        "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
-        "textures/concrete_slab_wall_arm_1k-04aa40681112b4c4.ktx2",
-        "textures/concrete_slab_wall_diff_1k-5fb5eccf812b2193.ktx2",
-        "textures/concrete_slab_wall_nor_gl_1k-d4a9dff8a5d1f8a3.ktx2",
-        "textures/rail-crossing-ao-6669ee46c27b28e1.ktx2"
+        "textures/rail-crossing-colour-a9971a8a84f9fd86.ktx2",
+        "textures/rail-crossing-normal-38937d136a7eb8e0.ktx2",
+        "textures/rail-crossing-orm-ff93ed208fc51aae.ktx2"
       ],
       "lod": [
         {
           "file": "models/rail-crossing-lod1.glb",
-          "screen": 0.0104,
-          "triangles": 50
+          "screen": 0.0119,
+          "textures": [
+            "textures/rail-crossing-colour-ec0fd2ee4d2a2fae.ktx2",
+            "textures/rail-crossing-normal-38937d136a7eb8e0.ktx2",
+            "textures/rail-crossing-orm-839e9ebbf59eafa8.ktx2"
+          ],
+          "triangles": 70
         }
       ],
-      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete"
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete"
     },
     {
       "id": "rail-street",

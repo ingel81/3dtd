@@ -16,16 +16,19 @@ import { sampleGrid } from './raster';
 import {
   BED_HALF,
   CROSSING_RAMP,
+  CROSSING_SINK,
   equipment,
   LATTICE,
   levelRails,
   OVER_CLEARANCE,
+  PANEL_TOP,
   planRails,
   profileAt,
   RAIL_ASSETS,
   RAIL_DECK_DEPTH,
   paintRails,
   RAIL_GROUND,
+  RAIL_HEAD,
   railPieces,
   timberSleepers,
   UNDER_CLEARANCE,
@@ -134,7 +137,7 @@ describe('OSM railway', () => {
     expect(issues.map((i) => i.code)).not.toContain('object-on-path');
   });
 
-  it('brings the track to the road\'s height at a level crossing and leaves the road as it was levelled', () => {
+  it('brings the track\'s rail heads to the panels a little over the road at a level crossing and leaves the road as it was levelled', () => {
     // The road runs along a ridge 1.5 m over the land
     const ridge = (x: number) => 3 + 1.5 * Math.exp(-(x * x) / 200);
     const { doc, plan } = world(crossingElements({ railway: 'level_crossing' }), (x) => ridge(x));
@@ -147,15 +150,50 @@ describe('OSM railway', () => {
     expect([-6, -4, -2, 0, 2, 4, 6].map((y) => [-4, -2, 0, 2, 4].map((x) => heightAt(t, x, y)))).toEqual(before);
     const c = plan.chains[0];
     const x = plan.crossings[0];
-    expect(profileAt(c, x.along, t)).toBeCloseTo(road(0), 2);
-    // The bed beside the road at its height, ramping back to the land's average past CROSSING_RAMP
-    expect(heightAt(t, x.half + 1, 0)).toBeCloseTo(road(0), 1);
-    expect(heightAt(t, x.half + 2, 0)).toBeGreaterThan(heightAt(t, x.half + CROSSING_RAMP + 10, 0));
+    // The formation CROSSING_SINK under the road: the rail heads flush with the panels, PANEL_TOP over the road
+    expect(profileAt(c, x.along, t)).toBeCloseTo(road(0) - CROSSING_SINK, 2);
+    expect(profileAt(c, x.along, t) + RAIL_HEAD - road(0)).toBeCloseTo(PANEL_TOP, 2);
+    // Under the panels past the road the ground at the road's level (they lie in it as on the road, 6.25 m
+    // to 7.5 m from the road's middle); past them the bed's ground at the formation, ramping back to the land's
+    // average past CROSSING_RAMP
+    expect(heightAt(t, 6, 0)).toBeCloseTo(road(0), 1);
+    expect(heightAt(t, 10, 0)).toBeLessThan(road(0) - CROSSING_SINK + 0.15);
+    expect(heightAt(t, 10, 0)).toBeGreaterThan(heightAt(t, x.half + CROSSING_RAMP + 10, 0));
     // Flat across the bed
     expect(heightAt(t, 40, BED_HALF - 0.5)).toBeCloseTo(heightAt(t, 40, 0), 2);
     // No step for anything walking the road over the crossing
     for (let y = -20; y < 20; y++) expect(Math.abs(road(y + 1) - road(y))).toBeLessThan(0.2);
     expect(routeBetween(doc.paths, { x: 0, y: -180 }, { x: 0, y: 180 })).not.toBeNull();
+  });
+
+  it('joins bed and crossing pieces rail to rail, the panels following a graded road across a slanted crossing', () => {
+    // A road climbing 6 % to the north-east, the track east to west across it at 45 degrees
+    const grade = (x: number, y: number) => 10 + 0.06 * ((x + y) / Math.SQRT2);
+    const elements = [
+      way(1, { highway: 'residential' }, [[-130, -130, 1], [0, 0, 2], [130, 130, 3]]),
+      way(10, { railway: 'rail' }, [[-190, 0, 11], [0, 0, 2], [190, 0, 12]]),
+      node(2, { railway: 'level_crossing' }, 0, 0),
+    ];
+    const { doc, plan } = world(elements, grade);
+    const t = doc.terrain;
+    levelRails(t, plan, doc.paths);
+    const c = plan.chains[0];
+    const pieces = railPieces(plan, t, doc.paths).filter((p) => p.source === 'track' || p.source === 'crossing');
+    const panels = pieces.filter((p) => p.source === 'crossing').map((p) => p.o);
+    expect(panels.length).toBeGreaterThan(4);
+    // Each piece near the crossing has its formation on the profile, tilted to it: bed and crossing meet rail to rail
+    for (const { o } of pieces) {
+      if (Math.abs(o.x) > 30) continue;
+      const along = Math.abs(o.x - c.line[0].x);
+      const len = o.asset === RAIL_ASSETS.track ? 10 : LATTICE;
+      expect(heightAt(t, o.x, o.y) + o.z).toBeCloseTo(profileAt(c, along, t), 1);
+      expect(Math.abs((o.roll ?? 0) - Math.atan2(profileAt(c, along - len / 2, t) - profileAt(c, along + len / 2, t), len))).toBeLessThan(1e-3);
+    }
+    // The panels over the road PANEL_TOP over it, however it climbs across the crossing
+    const road = (x: number) => heightAt(t, x, 0);
+    const onRoad = panels.filter((o) => Math.abs(o.x) < 4);
+    expect(onRoad.length).toBeGreaterThan(1);
+    for (const o of onRoad) expect(heightAt(t, o.x, o.y) + o.z + RAIL_HEAD - road(o.x)).toBeCloseTo(PANEL_TOP, 1);
   });
 
   it('tiles a line exactly on its lattice, each piece tilted to the profile between its ends', () => {
