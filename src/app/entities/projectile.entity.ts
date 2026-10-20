@@ -67,10 +67,11 @@ export class Projectile extends GameObject {
   // a few frames is imperceptible and saves the trig/sqrt cost.
   private _directionRecalcMs = 0;
 
-  // Target lost tracking - projectile continues to last known position
+  // Target lost tracking - projectile continues to last known position and
+  // ends at the height it would have hit there (see updateTowardsTarget)
   private _targetLost = false;
   private _lastTargetPosition: GeoPosition | null = null;
-  private _lastTargetTerrainHeight = 0;
+  private _lastTargetHeight = 0;
 
   /**
    * A fixed point the shot flies to instead of the target's position, with
@@ -241,7 +242,8 @@ export class Projectile extends GameObject {
 
   /**
    * Check if target was lost (enemy died mid-flight)
-   * Projectile continues to last known position and explodes on ground
+   * Projectile continues to last known position and bursts there: on the
+   * ground below a ground enemy, in the air where an air enemy was
    */
   get targetLost(): boolean {
     return this._targetLost;
@@ -255,14 +257,19 @@ export class Projectile extends GameObject {
     // Check if target just died - capture last position (a shot at a fixed
     // aim point keeps flying there). A free shot has none to lose.
     if (this.targetEnemy && !this.targetEnemy.alive && !this._targetLost) {
-      this._targetLost = true;
+      const enemy = this.targetEnemy;
       if (this.aimPoint) {
         this._lastTargetPosition = { lat: this.aimPoint.lat, lon: this.aimPoint.lon };
-        this._lastTargetTerrainHeight = (this.aimPoint.height ?? 0) - 1;
+        this._lastTargetHeight = this.aimPoint.height ?? 0;
       } else {
-        this._lastTargetPosition = { ...this.targetEnemy.position };
-        this._lastTargetTerrainHeight = this.targetEnemy.transform.terrainHeight;
+        this._lastTargetPosition = { ...enemy.position };
+        // An air enemy's shot bursts where it flew (read before _targetLost
+        // freezes getTargetHeight); a ground enemy's comes down on the ground
+        this._lastTargetHeight = enemy.typeConfig.isAirUnit
+          ? this.getTargetHeight()
+          : enemy.transform.terrainHeight + 1;
       }
+      this._targetLost = true;
     }
 
     // Determine target position (live enemy or last known position)
@@ -275,12 +282,9 @@ export class Projectile extends GameObject {
     this._distanceThisFrame = moveDistance;
 
     if (distSq <= moveDistance * moveDistance) {
-      // Hit target (or ground if target was lost)
+      // Hit target (or its last place if target was lost)
       this.transform.setPosition(targetPos.lat, targetPos.lon);
-      // If target lost, hit ground level; otherwise hit enemy height
-      this._flightHeight = this._targetLost
-        ? this._lastTargetTerrainHeight + 1 // Ground impact
-        : this.getTargetHeight();
+      this._flightHeight = this.getTargetHeight();
       return true;
     }
 
@@ -405,7 +409,8 @@ export class Projectile extends GameObject {
   }
 
   /**
-   * Get target height (enemy position + model offset + visual centre).
+   * Get target height (enemy position + model offset + visual centre); once
+   * the target is lost, the height its shot ends at (_lastTargetHeight).
    *
    * The aim offset is the model's measured vertical centre (see
    * enemy-aim.util), so the shot converges on the body for tiny flyers
@@ -413,6 +418,7 @@ export class Projectile extends GameObject {
    * that overshoots small models and undershoots large ones.
    */
   private getTargetHeight(): number {
+    if (this._targetLost) return this._lastTargetHeight;
     const enemy = this.targetEnemy;
     if (this.aimPoint || !enemy) return this.aimPoint?.height ?? 0;
     const enemyTerrainHeight = enemy.transform.terrainHeight ?? 0;

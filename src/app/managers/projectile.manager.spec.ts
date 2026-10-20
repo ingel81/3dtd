@@ -15,6 +15,7 @@ import { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
 import { createSinkSpy, type SinkSpy } from '../integration/test-helpers';
 import type { SimSink } from '../sim/core/sim-sink';
+import { getEnemyAimOffsetY } from '../utils/enemy-aim.util';
 
 describe('ProjectileManager', () => {
   let eventBus: GameEventBus;
@@ -186,5 +187,65 @@ describe('ProjectileManager', () => {
     expect(manager.getById(projectile.id)).toBeNull();
     expect(sink.projectiles.finish).toHaveBeenCalledWith(projectile.id, projectile.position.lat, projectile.position.lon, projectile.flightHeight);
     expect(sink.projectiles.remove).not.toHaveBeenCalled();
+  });
+
+  describe('a splash shot at an enemy in the air', () => {
+    const AIR = ['bat', 'hornet', 'dragon'] as const;
+    const SPLASH = ['cannonball', 'rocket', 'flak-shell', 'ice-shard', 'poison-glob'] as const;
+    const origin: GeoPosition = { lat: 0, lon: 0, height: 0 };
+    const path: GeoPosition[] = [
+      { lat: 0.0004, lon: 0, height: 0 },
+      { lat: 0.0005, lon: 0, height: 0 },
+    ];
+
+    /** Fly the shot to its end; what it reported to the world and the show */
+    const land = (enemyType: (typeof AIR)[number], shot: (typeof SPLASH)[number], killFirst: boolean) => {
+      const impacts: boolean[] = [];
+      manager = new ProjectileManager(eventBus, sink as unknown as SimSink, (_p, air) => impacts.push(air));
+      const shown: { height: number; targetLost: boolean }[] = [];
+      eventBus.onShow('vfx:projectile-impact', ({ height, targetLost }) => shown.push({ height, targetLost }));
+      const enemy = new Enemy(enemyType, path);
+      // Where the shot aims on its body, high above the ground
+      const airHeight = enemy.transform.terrainHeight + enemy.heightOffset + getEnemyAimOffsetY(enemy);
+      const projectile = manager.spawnShot(origin, 2, enemy, shot, 10, 'physical', 'tower-1');
+      manager.update(16);
+      if (killFirst) enemy.health.takeDamage(enemy.health.hp);
+      for (let i = 0; i < 1000 && manager.getById(projectile.id); i++) manager.update(16);
+      eventBus.processQueue();
+      return { projectile, airHeight, impacts, shown };
+    };
+
+    for (const enemyType of AIR) {
+      for (const shot of SPLASH) {
+        it(`${shot} at a ${enemyType} that died on the way bursts in the air, not on the ground`, () => {
+          const { projectile, airHeight, impacts, shown } = land(enemyType, shot, true);
+          expect(projectile.targetLost).toBe(true);
+          expect(projectile.flightHeight).toBeCloseTo(airHeight, 9);
+          expect(impacts).toEqual([true]);
+          expect(shown).toHaveLength(1);
+          expect(shown[0].height).toBe(projectile.flightHeight);
+          expect(sink.projectiles.finish).toHaveBeenCalledWith(
+            projectile.id, projectile.position.lat, projectile.position.lon, projectile.flightHeight,
+          );
+        });
+      }
+
+      it(`a rocket hitting a living ${enemyType} bursts at the hit's height`, () => {
+        const { projectile, airHeight, impacts, shown } = land(enemyType, 'rocket', false);
+        expect(projectile.targetLost).toBe(false);
+        expect(projectile.flightHeight).toBeCloseTo(airHeight, 9);
+        expect(impacts).toEqual([true]);
+        expect(shown[0].height).toBe(projectile.flightHeight);
+      });
+    }
+
+    it('a cannonball whose ground target died on the way still comes down on the ground', () => {
+      const enemy = new Enemy('zombie', path);
+      const projectile = manager.spawnShot(origin, 2, enemy, 'cannonball', 10, 'physical', 'tower-1');
+      manager.update(16);
+      enemy.health.takeDamage(enemy.health.hp);
+      for (let i = 0; i < 1000 && manager.getById(projectile.id); i++) manager.update(16);
+      expect(projectile.flightHeight).toBe(enemy.transform.terrainHeight + 1);
+    });
   });
 });

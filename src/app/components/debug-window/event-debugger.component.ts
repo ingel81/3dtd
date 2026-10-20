@@ -180,7 +180,7 @@ export class EventDebuggerComponent implements OnDestroy {
       case 'projectile:hit':
         return `${event.damage} damage`;
       case 'vfx:projectile-impact':
-        return event.targetLost ? 'ground' : 'enemy';
+        return event.targetLost ? 'lost' : 'enemy';
       case 'audio:play':
         return event.sound;
       default:

@@ -31,7 +31,7 @@ export type EffectEvent =
       lon: number;
       height: number;
       projectileType: string;
-      targetLost: boolean; // true = ground impact, false = enemy hit
+      targetLost: boolean; // true = target died on the way (bursts at its last place), false = enemy hit
     }
   | {
       type: 'vfx:muzzle-flash';
