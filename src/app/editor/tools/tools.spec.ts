@@ -55,7 +55,7 @@ const at = (x: number, y: number, extra: Partial<ToolPointer> = {}): ToolPointer
 });
 
 function fresh(): EditorDocument {
-  return new EditorDocument(createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400, cellSize: 4 }));
+  return new EditorDocument(createMapDocument({ id: 'm', name: 'M', width: 400, depth: 400, cellSize: 4 }), undefined, () => en);
 }
 
 describe('editor tools', () => {

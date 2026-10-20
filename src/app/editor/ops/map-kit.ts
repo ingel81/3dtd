@@ -219,7 +219,7 @@ export class MapKit {
     this.name = options.name;
     this.seed = options.seed;
     this.maxLayers = options.maxLayers ?? MAX_LAYERS;
-    this.editor = new EditorDocument(doc, { steps: 4, bytes: 32 * 1024 * 1024 });
+    this.editor = new EditorDocument(doc, { steps: 4, bytes: 32 * 1024 * 1024 }, () => en);
     this.noise = new LandscapeNoise(options.seed);
   }
 

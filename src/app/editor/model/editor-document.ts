@@ -19,7 +19,7 @@ import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { mergeChanges, type DocChange, type EditCommand } from './doc-change';
 import { EditTransaction, type TxPart } from './edit-transaction';
 import { objectIdNumber, type ObjectIdSource } from '../../map-ops/object-ops';
-import { en } from '../../i18n/messages/en';
+import { NO_WORDS } from '../../i18n/no-words';
 import type { Messages } from '../../i18n/messages/en';
 
 export type Selection =
@@ -110,7 +110,7 @@ export class EditorHeldError extends Error {
   constructor(
     readonly label: string,
     readonly reason: string,
-    words: Messages = en,
+    words: Messages,
   ) {
     super(words.editor.session.waits(label, reason));
     this.name = 'EditorHeldError';
@@ -137,13 +137,13 @@ export class EditorDocument {
 
   /**
    * `words`: the player's language, for the names of the steps the ops make
-   * and the refusal line; English for a document no player sees (an agent's
-   * dry run, a template)
+   * and the refusal line; none for a document no player sees (an agent's
+   * dry run, a template), so off the page no dictionary comes along
    */
   constructor(
     private current: CustomMapDocument,
     private readonly limits: HistoryLimits = DEFAULT_HISTORY_LIMITS,
-    readonly words: () => Messages = () => en,
+    readonly words: () => Messages = () => NO_WORDS,
   ) {}
 
   get doc(): CustomMapDocument {

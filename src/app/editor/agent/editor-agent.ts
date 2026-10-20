@@ -811,7 +811,8 @@ class DryHost implements AgentHost {
     private readonly real: AgentHost,
     doc: CustomMapDocument,
   ) {
-    this.editor = new EditorDocument(structuredClone(doc));
+    // The agents read the steps in English
+    this.editor = new EditorDocument(structuredClone(doc), undefined, () => en);
   }
 
   get store(): MapStore {

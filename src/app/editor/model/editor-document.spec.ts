@@ -1,3 +1,4 @@
+import { en } from '../../i18n/messages/en';
 import { createMapDocument } from '../../world/custom-map/map-create';
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { raiseDab } from '../../map-ops/terrain-ops';
@@ -144,7 +145,7 @@ describe('EditorDocument', () => {
   });
 
   it('refuses every step while held and leaves the map and the history as they were', () => {
-    const ed = new EditorDocument(map());
+    const ed = new EditorDocument(map(), undefined, () => en);
     stroke(ed, -20, 20);
     const heights = ed.doc.terrain.grid.heights.slice();
     const steps = ed.historySteps;
