@@ -29,7 +29,7 @@
     <div class="mh-start" role="status">
       <h3 class="mh-start-title">{{ loadingNow() ? t().menu.loadingName(startName()) : startName() }}</h3>
       @if (loadingNow()) {
-        <span class="mh-bar td-progress" aria-hidden="true"><span [style.width.%]="plate().percent"></span></span>
+        <app-brick-wall size="sm" [value]="plate().percent" [label]="t().menu.loadingPlace" />
       }
       <p class="td-note">{{ menu.problem() ? t().menu.didNotLoad : menu.starting() ? t().menu.startsWhenStands : loadingNow() ? t().menu.playStarts : t().menu.ready }}</p>
       <div class="td-actions is-start">

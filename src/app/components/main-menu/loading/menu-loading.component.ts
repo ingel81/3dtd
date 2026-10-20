@@ -13,11 +13,12 @@ import { onMapDataProgress, type MapDataProgress } from '../../../world/custom-m
 import { overpassRetryText } from '../../../world/osm/overpass-client';
 import { injectT } from '../../../i18n/i18n.service';
 import { placeName } from '../../../i18n/place-names';
+import { BrickWallComponent } from '../../brick-wall/brick-wall.component';
 
 /**
  * The loading plate of the start menu, bottom right (docs/MAIN_MENU_UI_PLAN.md,
- * Menü 6): the place, a brass bar of the boot steps done, the step under
- * way with its detail, the map tiles while they stream in (a thin bar with
+ * Menü 6): the place, a wall built up with the boot steps done, the step
+ * under way with its detail, the map tiles while they stream in (a thin bar with
  * the share and the count), a line while the street servers are asked
  * again (overpass-client.ts) and the steps as a list to open. A load that went
  * wrong shows here as a banner with the ways on: Retry, Other place (Other
@@ -30,6 +31,7 @@ const TILES_POLL_MS = 500;
   selector: 'app-menu-loading',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [BrickWallComponent],
   templateUrl: './menu-loading.component.html',
   styleUrl: './menu-loading.component.scss',
 })
@@ -45,11 +47,6 @@ export class MenuLoadingComponent {
 
   readonly steps = this.engineInit.loadingSteps;
   readonly view = computed(() => loadingPlateView(this.steps()));
-  /** The bar in ten segments, filled to the steps done */
-  readonly segments = computed(() => {
-    const filled = Math.round(this.view().percent / 10);
-    return Array.from({ length: 10 }, (_, i) => i < filled);
-  });
   readonly placeName = computed(() => {
     // A world of its own (a custom map, DevWorld) is named by its ref, not by an address
     const t = this.t();

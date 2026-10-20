@@ -47,12 +47,6 @@
   min-width: 0;
 }
 
-.mh-bar {
-  width: 200px;
-  height: 4px;
-  margin-top: 6px;
-}
-
 .mh-confirm,
 .mh-status {
   margin-top: var(--td-sp-2);
@@ -79,8 +73,4 @@
   font-size: var(--td-fs-title);
   font-weight: 700;
   color: var(--td-text-title);
-}
-
-.mh-start .mh-bar {
-  width: 100%;
 }

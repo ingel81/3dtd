@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, InjectionToken, OnDestroy, OnInit, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { TdIconComponent } from '../icon/icon.component';
+import { BrickWallComponent } from '../brick-wall/brick-wall.component';
 import type { MapSummary } from '../../world/custom-map/map-store';
 import { sketchMapPicture } from '../../world/custom-map/map-sketch';
 import { MAP_STORE } from '../../world/world-choice.service';
@@ -49,7 +50,7 @@ const RETRY_NOW_S = 15;
 @Component({
   selector: 'app-osm-frame',
   standalone: true,
-  imports: [TdIconComponent],
+  imports: [TdIconComponent, BrickWallComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './osm-frame.component.html',
   styleUrl: './osm-frame.component.scss',

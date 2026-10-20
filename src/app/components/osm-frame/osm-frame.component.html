@@ -121,9 +121,7 @@
           <span class="td-text td-trunc" aria-live="polite">{{ m.current ? w.steps[m.current.step] : w.starting }}@if (m.current?.detail; as detail) {<span class="td-note">, {{ this.detail(detail) }}</span>}</span>
           <span class="td-figure">{{ percent() }}%</span>
         </div>
-        <div class="td-progress" role="progressbar" [attr.aria-label]="w.making" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="percent()">
-          <div [style.width.%]="percent()"></div>
-        </div>
+        <app-brick-wall [value]="percent()" [label]="w.making" />
         <ol class="of-stages td-note" [attr.aria-label]="w.stages">
           @for (stage of m.stages; track stage.id) {
             <li class="of-step" [class.is-done]="stage.status === 'done'" [class.is-active]="stage.status === 'active'" [class.is-failed]="stage.status === 'failed'">

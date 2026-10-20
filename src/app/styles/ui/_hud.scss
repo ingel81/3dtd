@@ -144,7 +144,7 @@
   @include base.engraved-separator;
 }
 
-// A segmented bar in a well (loading, HQ): the children are the segments,
+// A segmented bar in a well (HQ, coop readiness, research): the children are the segments,
 // .is-on lit in brass
 @mixin meter($height: 8px) {
   display: flex;
@@ -163,6 +163,93 @@
 
   > .is-on {
     background: var(--td-brass);
+  }
+}
+
+// A loading bar as a wall in running bond (app-brick-wall): three courses
+// in a mortar bed, built from the bottom up, the middle course shifted by
+// half a brick with half bricks at the ends, all joints alike. A brick per
+// piece of progress, dropped into place; the one laid last glows briefly
+// in brass. Reduced motion: no drop, the last brick stays brass.
+@mixin wall-courses($course, $gap) {
+  gap: $gap;
+  padding: $gap;
+
+  .td-wall-course {
+    gap: $gap;
+    height: $course;
+  }
+
+  // Half a brick less half a joint: the joints sit over the middle of the bricks below
+  .td-wall-course:nth-child(2) {
+    grid-template-columns: calc((100% - #{19 * $gap}) / 20) repeat(9, minmax(0, 1fr)) calc((100% - #{19 * $gap}) / 20);
+  }
+}
+
+@mixin wall {
+  display: flex;
+  flex-direction: column-reverse;
+  box-sizing: border-box;
+  border-radius: var(--td-radius);
+  background: var(--td-brick-mortar);
+  box-shadow: var(--td-well-shadow);
+  @include wall-courses(12px, 3px);
+
+  .td-wall-course {
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+  }
+
+  i {
+    border-radius: 1px;
+    background-color: var(--td-brick);
+    box-shadow: var(--td-brick-relief);
+    opacity: 0;
+  }
+
+  i.is-light {
+    background-color: var(--td-brick-light);
+  }
+
+  i.is-dark {
+    background-color: var(--td-brick-dark);
+  }
+
+  i.is-on {
+    opacity: 1;
+    animation: td-brick-lay var(--td-dur-mid) var(--td-ease-out) both;
+  }
+
+  i.is-last {
+    animation:
+      td-brick-lay var(--td-dur-mid) var(--td-ease-out) both,
+      td-brick-set var(--td-dur-tick) ease-out;
+  }
+
+  // The low wall under a line of text
+  &.is-sm {
+    @include wall-courses(5px, 2px);
+  }
+
+  @include base.reduced-motion {
+    i.is-on {
+      animation: none;
+    }
+
+    i.is-last {
+      background-color: var(--td-brass);
+    }
+  }
+}
+
+@mixin wall-keyframes {
+  @keyframes td-brick-lay {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  @keyframes td-brick-set {
+    0%, 35% { background-color: var(--td-brass); }
   }
 }
 

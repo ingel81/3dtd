@@ -23,6 +23,7 @@ import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-
 import { MainMenuComponent } from './main-menu.component';
 import { MainMenuService, startMenuSkipped } from './main-menu.service';
 import { MenuHomeComponent } from './pages/home/menu-home.component';
+import { BrickWallComponent } from '../brick-wall/brick-wall.component';
 import { MenuLoadingComponent } from './loading/menu-loading.component';
 import { en } from '../../i18n/messages/en';
 
@@ -74,6 +75,9 @@ Input({ alias: 'name', isSignal: true } as Input)(IconStub.prototype, 'name');
 Input({ alias: 'size', isSignal: true } as Input)(IconStub.prototype, 'size');
 
 // The @Input annotation the JIT transform adds for input() (see world-map.scenario.spec.ts)
+for (const name of ['value', 'label', 'size']) {
+  Input({ alias: name, required: name !== 'size', isSignal: true } as Input)(BrickWallComponent.prototype, name);
+}
 Input({ alias: 'layer', isSignal: true, required: true } as Input)(MenuHomeComponent.prototype, 'layer');
 
 const HEILBRONN = { lat: 49.14227, lon: 9.21878 };
@@ -203,11 +207,11 @@ describe('The main menu', () => {
     TestBed.overrideComponent(MenuHomeComponent, {
       set: {
         template: read('pages/home/menu-home.component.html'), templateUrl: undefined, styleUrl: undefined, styles: [],
-        imports: [RovingGroupDirective, IconStub],
+        imports: [RovingGroupDirective, IconStub, BrickWallComponent],
       },
     });
     TestBed.overrideComponent(MenuLoadingComponent, {
-      set: { template: read('loading/menu-loading.component.html'), templateUrl: undefined, styleUrl: undefined, styles: [] },
+      set: { template: read('loading/menu-loading.component.html'), templateUrl: undefined, styleUrl: undefined, styles: [], imports: [BrickWallComponent] },
     });
     if (order) TestBed.inject(WorldStartService).set(order);
     menu = TestBed.inject(MainMenuService);
@@ -382,7 +386,7 @@ describe('The main menu', () => {
       locationMgmt.hq.set(HEILBRONN);
       await setup();
       expect(text()).toContain('Loading Heilbronn');
-      expect(el().querySelector('.mh-bar')).not.toBeNull();
+      expect(el().querySelector('.mh-start app-brick-wall[role="progressbar"]')).not.toBeNull();
 
       await click(entry('play'));
       expect(menu.isOpen()).toBe(true);

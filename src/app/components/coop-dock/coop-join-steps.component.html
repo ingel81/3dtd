@@ -13,7 +13,7 @@
         <small class="td-note td-num">{{ step.meta }}</small>
       </li>
       @if (step.state === 'now' && step.kind === 'map') {
-        <li class="td-progress bar" aria-hidden="true"><i [style.width.%]="barPercent()"></i></li>
+        <li class="bar"><app-brick-wall size="sm" [value]="barPercent()" [label]="step.label" /></li>
       }
     }
   </ol>

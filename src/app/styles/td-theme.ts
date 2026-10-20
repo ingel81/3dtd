@@ -26,6 +26,11 @@ export const TD_THEME = {
   stonePlate: '#494E4B', // chosen menu entry
   well: '#111312', // sunken field on a panel
   topbar: '#282D29', // the basalt top bar
+  // The loading wall (td-wall): mortar, bricks in three tones
+  brickMortar: '#2A2620',
+  brick: '#6F6656',
+  brickDark: '#665E50',
+  brickLight: '#7A705F',
   knob: '#BDB39A', // the handle of a slider
   knobLight: '#EFE6CB',
   knobDark: '#5A5240',
@@ -169,6 +174,8 @@ export const TD_RELIEF = {
   // A stone standing alone on the map (the ability buttons): raised, with a soft shadow on the map
   raisedOverMap: 'inset 0 1px 0 rgba(255,255,255,.16), inset 0 -2px 0 rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.55)',
   pressed: 'inset 0 3px 6px rgba(0,0,0,.75)',
+  // A brick of the loading wall: lit top edge, shaded foot
+  brick: 'inset 0 1px 0 rgba(255,255,255,.2), inset 0 -2px 0 rgba(0,0,0,.45)',
 
   // Sunken: fields, segments, switches, cards
   well: 'rgba(0,0,0,.4)',
@@ -340,6 +347,11 @@ export const TD_CSS_VARS = `
   --td-knob-dark: ${TD_THEME.knobDark};
   --td-switch-off: ${TD_THEME.switchOff};
 
+  --td-brick-mortar: ${TD_THEME.brickMortar};
+  --td-brick: ${TD_THEME.brick};
+  --td-brick-dark: ${TD_THEME.brickDark};
+  --td-brick-light: ${TD_THEME.brickLight};
+
   --td-frame-mid: ${TD_THEME.frameMid};
   --td-frame-light: ${TD_THEME.frameLight};
 
@@ -452,6 +464,7 @@ export const TD_CSS_VARS = `
   --td-raised-plate: ${R.raisedPlate};
   --td-raised-over-map: ${R.raisedOverMap};
   --td-pressed: ${R.pressed};
+  --td-brick-relief: ${R.brick};
   --td-well: ${R.well};
   --td-well-shadow: ${R.wellShadow};
   --td-well-soft: ${R.wellSoft};

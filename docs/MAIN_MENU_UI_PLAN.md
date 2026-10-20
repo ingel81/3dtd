@@ -43,7 +43,7 @@ und wo es vom Vorschlag abweicht; die Einzelheiten stehen in der Fach-Doku (Tabe
    wartet der Start auf die Wahl im Menü (`LocationChangeCoordinatorService.choosePlace`); als Vorschlag lädt dahinter
    der Ort des Autosaves, sonst der zuletzt gespielte (`startPlaceGuess`), bei einem Einladungslink keiner. Mit `?l=`
    steht Play vor Continue.
-6. **Ladeanzeige.** Gebaut: Ladeplatte unten rechts mit Ortsname, Prozent, zehn Segmenten, laufendem Schritt und
+6. **Ladeanzeige.** Gebaut: Ladeplatte unten rechts mit Ortsname, Prozent, Mauer (`app-brick-wall`), laufendem Schritt und
    „Show steps“; Play und Continue tragen den Balken und merken sich einen Klick („Starts when loaded“). Feldtipps
    wechseln alle 8 s, der Versions-Chip nennt Version und Tile-Anbieter. Seit 2026-10-12: solange Tiles streamen, ein
    türkiser Balken „Tiles N | M to come | P%“ unter dem Schritt (alle 500 ms aus `getTileStats`, `tilesProgress`);

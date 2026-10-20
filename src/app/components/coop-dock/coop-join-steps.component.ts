@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { TdIconComponent } from '../icon/icon.component';
+import { BrickWallComponent } from '../brick-wall/brick-wall.component';
 import { CoopService } from '../../services/coop.service';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
@@ -16,7 +17,7 @@ import { placeName } from '../../i18n/place-names';
 @Component({
   selector: 'app-coop-join-steps',
   standalone: true,
-  imports: [TdIconComponent],
+  imports: [TdIconComponent, BrickWallComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './coop-join-steps.component.html',
   styleUrl: './coop-join-steps.component.scss',

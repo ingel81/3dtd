@@ -20,6 +20,7 @@ import { MemoryFrameBackend, OsmFrameStore } from '../../world/osm/osm-frame-sto
 import { OsmFrameSession } from '../../world/osm/osm-frame-session';
 import { OSM_PROBE_SIDE, osmProbe } from '../../../../tools/osm/osm-probe';
 import { OSM_FRAME_SESSION, OsmFrameComponent } from './osm-frame.component';
+import { BrickWallComponent } from '../brick-wall/brick-wall.component';
 import { overpassFailure } from '../../world/osm/import-osm';
 
 const template = readFileSync(resolve('src/app/components/osm-frame/osm-frame.component.html'), 'utf8');
@@ -33,6 +34,9 @@ Input({ alias: 'name', isSignal: true } as Input)(IconStub.prototype, 'name');
 Input({ alias: 'size', isSignal: true } as Input)(IconStub.prototype, 'size');
 
 // The annotations the JIT transform adds for input() and output(); plain vitest runs without them
+for (const name of ['value', 'label', 'size']) {
+  Input({ alias: name, required: name !== 'size', isSignal: true } as Input)(BrickWallComponent.prototype, name);
+}
 Input({ alias: 'place', required: true, isSignal: true } as Input)(OsmFrameComponent.prototype, 'place');
 Input({ alias: 'spawnsAt', isSignal: true } as Input)(OsmFrameComponent.prototype, 'spawnsAt');
 Input({ alias: 'context', isSignal: true } as Input)(OsmFrameComponent.prototype, 'context');
@@ -70,7 +74,7 @@ describe('OSM world frame', () => {
         { provide: OSM_FRAME_SESSION, useValue: () => new OsmFrameSession({ createWorker: () => null, core: new OsmFrameCore({ store: frames, sideM: OSM_PROBE_SIDE }) }) },
       ],
     });
-    TestBed.overrideComponent(OsmFrameComponent, { set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [IconStub] } });
+    TestBed.overrideComponent(OsmFrameComponent, { set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [IconStub, BrickWallComponent] } });
     const fixture = TestBed.createComponent(OsmFrameComponent);
     fixture.componentRef.setInput('place', { lat: input.lat, lon: input.lon, name: 'Miltenberg', address: 'Miltenberg, Bayern' });
     const done: { summary: MapSummary; then: string }[] = [];
@@ -198,7 +202,7 @@ describe('OSM world frame', () => {
         { provide: OSM_FRAME_SESSION, useValue: () => session },
       ],
     });
-    TestBed.overrideComponent(OsmFrameComponent, { set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [IconStub] } });
+    TestBed.overrideComponent(OsmFrameComponent, { set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [IconStub, BrickWallComponent] } });
     const fixture = TestBed.createComponent(OsmFrameComponent);
     fixture.componentRef.setInput('place', { lat: 49.7, lon: 9.26, name: 'Miltenberg' });
     fixture.detectChanges();
@@ -280,7 +284,7 @@ describe('OSM world frame', () => {
         { provide: OSM_FRAME_SESSION, useValue: () => session },
       ],
     });
-    TestBed.overrideComponent(OsmFrameComponent, { set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [IconStub] } });
+    TestBed.overrideComponent(OsmFrameComponent, { set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [IconStub, BrickWallComponent] } });
     const fixture = TestBed.createComponent(OsmFrameComponent);
     fixture.componentRef.setInput('place', { lat: 49.7, lon: 9.26, name: 'Miltenberg' });
     fixture.detectChanges();

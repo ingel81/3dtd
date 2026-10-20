@@ -18,12 +18,7 @@
       </div>
     </div>
   } @else {
-    <div class="ml-bar td-meter" role="progressbar" [attr.aria-label]="t().menu.loadingPlace"
-         aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="view().percent">
-      @for (filled of segments(); track $index) {
-        <span [class.is-on]="filled"></span>
-      }
-    </div>
+    <app-brick-wall [value]="view().percent" [label]="t().menu.loadingPlace" />
     @if (menu.descent() !== null) {
       <!-- The place stands, the dive's tiles load: one line for it instead of "Ready" -->
       <div class="ml-tiles td-note" role="status">

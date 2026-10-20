@@ -242,6 +242,8 @@
   .td-crumb { @include hud.crumb; }
   .td-meter { @include hud.meter; }
   .td-progress { @include hud.progress; }
+  .td-wall { @include hud.wall; }
+  @include hud.wall-keyframes;
   .td-marker { @include hud.marker; }
   .td-marker-btn { @include hud.marker-btn; }
   .td-loc-label { @include hud.loc-label; }

@@ -55,6 +55,7 @@ zahlen, Tower-Abzeichen, LOS-Zellen), liest `TD_THEME` und `TD_FONTS` direkt.
 | `--td-surface-topbar` | Kopfleiste: Tönung über Basalt |
 | `--td-stone-dark`, `--td-stone-darker` | Hauptknopf (Putz −22 %), Nebenknopf, Gefahrknopf, Schließen, Icon-Knöpfe (−36 %) |
 | `--td-stone-lit`, `--td-stone-plate` | gewählte Tabellenzeile (Putz +10 %), gewählter Menüeintrag (+7 % nach +2 %) |
+| `--td-brick-mortar`, `--td-brick`, `--td-brick-dark`, `--td-brick-light`, `--td-brick-relief` | Ladebalken als Mauer (`td-wall`): Mörtel `#2A2620`, Steine `#6F6656`, `#665E50`, `#7A705F`, Kante oben hell, Fuß dunkel |
 
 Für Kontrast und als Grundfarbe stehen die Flächen auch als Farbe in `TD_THEME`: `panelMain` `#1C201E`, `stoneDark`
 `#2E3330`, `stoneDarker` `#262A27`, `stoneLit` `#4F5450`, `stonePlate` `#494E4B`, `well` `#111312`, `topbar` `#282D29`.
@@ -231,6 +232,7 @@ Bei `prefers-reduced-motion` springen alle Übergänge (globale Regel); Animatio
 | `td-menu`, `td-menu-item`, `td-menu-rule` | Hauptmenü: Einträge 48 px, 22 px/600, Symbol in Messing; Fokus und offene Seite (`aria-current`) als erhabene Steinplatte mit Messingtext; steht der Fokus woanders in der Liste, liegt die Platte der offenen Seite flach; Abstand 5 px |
 | `td-topbar`, `td-stat`, `td-sunk`, `td-loc-label`, `td-loc-name`, `td-meter` | Kopfleiste in Basalt 48 px mit Plattenkante; Wert mit tiefer eingeritztem Trenner davor (2 px `--td-sep-dark`, Licht `--td-sep-light`, 4 px Rand oben und unten); vertieftes Ortsfeld mit eingeritzter Kante (als Knopf hellt Hover den Ort); „Defend“ dunkler in Versalien mit Trenner; Ort halbfett; Segmentbalken |
 | `td-crumb` | Schritt des Pfads in einer Kopfleiste (Worlds › Welt › Wahl): eingravierter Text wie die Werkzeuge, gedämpft, 32 px hoch, Hover Messing; der Schritt, auf dem man steht (`aria-current`), in vollem Text und ohne Knopf-Cursor |
+| `td-wall` (`is-sm`) | Ladebalken als Mauer im Läuferverband, gesetzt von `app-brick-wall` (`components/brick-wall/`): drei Reihen in einem Mörtelbett (`--td-brick-mortar`, `--td-well-shadow`), die mittlere um einen halben Stein versetzt mit Halbsteinen an den Rändern, alle Fugen gleich (3 px). 31 Steine in drei Tönen (`--td-brick`, `-dark`, `-light`, Relief `--td-brick-relief`), gesetzt von unten links nach oben rechts, ein Stein je Stück Fortschritt; ein neuer Stein fällt 6 px in seine Lage (`--td-dur-mid`), der zuletzt gesetzte leuchtet kurz in Messing (`--td-dur-tick`). Reduced motion: kein Fall, der letzte Stein bleibt Messing. `role="progressbar"` mit `aria-valuenow` in Prozent; `is-sm` die niedrige Mauer unter einer Zeile (5 px je Reihe). Steht auf der Ladeplatte, beim Start einer Welt im Menü, beim Erzeugen einer OSM-Karte und beim Empfang der Karte im Coop-Beitritt |
 | `td-progress` (`is-edge`, `is-tick`, `is-teal`) | Fortschrittsbalken in einer Mulde, sein Kind ist die Füllung; `is-edge` 2 px an der Unterkante eines Knopfs oder einer Leiste; `is-tick` folgt einem Sekundenzähler; `is-teal` für eine laufende Welle |
 | `td-globe-mark`, `td-globe-readout` | Weltkugel hinter dem Menü: Punkt und Name eines Ortes (Rekord und Favorit Messing, der ladende Ort Teal mit Ring, zuletzt gespielt matt), die Anzeige oben rechts in Versalien (Ziel Messing, Status Teal); beide mit dem Schatten `--td-over-image` über dem Bild |
 | `td-marker`, `td-marker-btn` | Pfeil am Kartenrand: runde Platte, Ring und Symbol in `--td-mark` (Text `--td-mark-text`), `is-sm` 24 px; der Knopf darum gibt Hover an die Platte |
@@ -644,8 +646,8 @@ als Overlay über dem ganzen Fenster, Rolle `dialog` mit dem Namen der Seite, Fo
 
 Die Liste (`pages/home`) ist ein `role="menu"` aus `td-menu-item` mit Symbol je Eintrag (`HOME_ENTRY_ICON`), ein
 Tab-Halt, Pfeile wandern ohne zu wählen (`tdRovingGroup`), der Zeiger nimmt den Fokus mit. Der Eintrag mit dem Fokus und
-der der offenen Seite stehen als Steinplatte. Continue und Play tragen darunter, was sie spielen, und während der Ort
-lädt einen dünnen Messingbalken. Rückfragen (Autosave an anderem Ort, Restart, Quit) stehen als `td-banner is-warn`
+der der offenen Seite stehen als Steinplatte. Continue und Play tragen darunter, was sie spielen; während eine Welt
+startet, steht über Play und Cancel ihr Name mit einer niedrigen Mauer (`app-brick-wall`, `size="sm"`). Rückfragen (Autosave an anderem Ort, Restart, Quit) stehen als `td-banner is-warn`
 in der Platte unter den Einträgen. Unter einer eingeritzten Linie in der Pause New game, Coop, Restart here, Quit.
 
 Eine Seite öffnet als `td-dlg` rechts neben der Liste, mit Titel und Schließen-Kreuz („Back (Esc)“). Esc geht eine Seite
@@ -655,7 +657,7 @@ Weltkugel (`components/globe-backdrop`, [GLOBE_PLAN.md](GLOBE_PLAN.md)): hinter 
 17 % der Breite rechts der Mitte, unter `td-backdrop`; Ortsmarken `td-globe-mark`, oben rechts `td-globe-readout`
 („Target | Ort“, Koordinaten, „Alt … km | Status“). Reine Kulisse, keine Eingabe.
 
-Ladeplatte (`loading/menu-loading`): `td-panel` mit Ort als Titel, Prozent, `td-meter` mit zehn Segmenten, laufender
+Ladeplatte (`loading/menu-loading`): `td-panel` mit Ort als Titel, Prozent, Mauer (`app-brick-wall`), laufender
 Schritt mit „4 of 10“, „Show steps“. Ein Fehler steht statt des Balkens als `td-banner is-warn` mit Retry, Other place
 und (bei Engine-Fehler) Map key.
 
