@@ -37,7 +37,7 @@ import { clothGeometry, isCloth } from './cloth';
 import { DEFAULT_SPIN, SPIN_GLSL } from './spin';
 import { addRotorTurn, DEFAULT_ROTOR, isRotor, rotorDepthMaterial, rotorGeometry, rotorHub } from './rotor';
 import { addNightWindows, isWindowGlass } from './night-windows';
-import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, REST_S, SETTLE_S, settleBlend, type LodBlend } from './lod-fade';
+import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, holdBlend, REST_S, SETTLE_S, settleBlend, type LodBlend } from './lod-fade';
 import { InstanceList, type InstanceSource } from './instance-list';
 import { MassLayer } from './mass-layer';
 import { FAR_BLOCKING, FAR_OPEN, FarBoxes } from './far-boxes';
@@ -171,6 +171,13 @@ interface AssetBatch {
   fadeOf: Float32Array;
   /** The level each object casts its shadow with, -1 none */
   shadowOf: Int8Array;
+  /**
+   * Where each object settled in a band (lod-fade.ts holdBlend): the band (its next level, NO_NEXT for none),
+   * its t then and the level it settled on (0 near, 1 far)
+   */
+  holdNext: Int8Array;
+  holdAt: Float32Array;
+  holdEnd: Int8Array;
   /** The camera travel (MapObjectLayer.travel) at which each object is looked at again */
   dueAt: Float64Array;
 }
@@ -252,6 +259,8 @@ export class MapObjectLayer {
   private readonly lastFocus = new Vector3(Infinity, 0, 0);
   private lastShadowRadius = 0;
   private restFor = 0;
+  /** The levels were taken from a camera once (update): before, an object's level is no level to hold */
+  private viewed = false;
   /**
    * How far camera and focus have moved since the layer began, the larger
    * of the two each frame, m: an object due at `dueAt` is looked at again
@@ -635,6 +644,9 @@ export class MapObjectLayer {
       b.nextOf[i] = b.nextOf[last];
       b.fadeOf[i] = b.fadeOf[last];
       b.shadowOf[i] = b.shadowOf[last];
+      b.holdNext[i] = b.holdNext[last];
+      b.holdAt[i] = b.holdAt[last];
+      b.holdEnd[i] = b.holdEnd[last];
       b.dueAt[i] = b.dueAt[last];
       for (const d of b.draws) if (d.slots[last] >= 0) d.list.rename(d.slots, last, i);
       this.byId.set(b.objects[i].id, { batch: b, index: i });
@@ -642,6 +654,7 @@ export class MapObjectLayer {
       b.levelOf[last] = -1;
       b.nextOf[last] = NO_NEXT;
       b.shadowOf[last] = -1;
+      b.holdNext[last] = NO_NEXT;
     }
     b.objects.length = last;
     b.boundsStale = true;
@@ -689,19 +702,22 @@ export class MapObjectLayer {
     const reframed = Math.abs(viewScale - this.viewScale) > 1e-6 || this.shadowRadius !== this.lastShadowRadius;
     this.viewScale = viewScale;
     this.lastShadowRadius = this.shadowRadius;
-    // At rest the bands settle, moving they open again (settleBlend)
+    // At rest the bands settle (settleBlend); moving, a settled object keeps its level until it goes on through its band (holdBlend)
     const step = this.lastCamPos.x === Infinity ? 0 : Math.max(this.camPos.distanceTo(this.lastCamPos), this.focus.distanceTo(this.lastFocus));
     const moved = this.camPos.distanceToSquared(this.lastCamPos) > 1e-6;
     this.lastCamPos.copy(this.camPos);
     this.lastFocus.copy(this.focus);
     this.travel += step;
     this.restFor = moved ? 0 : this.restFor + dt;
-    const settle = Math.min(1, Math.max(0, this.settle + (this.restFor >= REST_S ? dt : -dt) / SETTLE_S));
+    // The bands open only in frames the camera moves: a zoom by a notch moves it in one frame, and the band opened on
+    // over the rest's first REST_S, so a building showed its other level for a moment and went back (E268)
+    const settle = Math.min(1, Math.max(0, this.settle + (moved ? -dt : this.restFor >= REST_S ? dt : 0) / SETTLE_S));
     const settling = settle !== this.settle;
     this.settle = settle;
     // A camera and focus at rest with settled bands change nothing
     if (reframed) this.applyLevels(true);
     else if (step > 1e-3 || settling) this.applyLevels(false);
+    this.viewed = true;
   }
 
   /**
@@ -940,6 +956,9 @@ export class MapObjectLayer {
       nextOf: new Int8Array(capacity).fill(NO_NEXT),
       fadeOf: new Float32Array(capacity),
       shadowOf: new Int8Array(capacity).fill(-1),
+      holdNext: new Int8Array(capacity).fill(NO_NEXT),
+      holdAt: new Float32Array(capacity),
+      holdEnd: new Int8Array(capacity),
       dueAt: new Float64Array(capacity).fill(-Infinity),
     };
     for (let i = 0; i < n; i++) this.writeInstance(b, i);
@@ -1070,6 +1089,9 @@ export class MapObjectLayer {
     b.nextOf = keep(b.nextOf, 1, NO_NEXT).fill(NO_NEXT, 0, n);
     b.fadeOf = keep(b.fadeOf, 1, 0);
     b.shadowOf = keep(b.shadowOf, 1, -1).fill(-1, 0, n);
+    b.holdNext = keep(b.holdNext, 1, NO_NEXT);
+    b.holdAt = keep(b.holdAt, 1, 0);
+    b.holdEnd = keep(b.holdEnd, 1, 0);
     b.dueAt = keep(b.dueAt, 1, -Infinity).fill(-Infinity, 0, n);
     b.capacity = capacity;
     this.disposeBatch(b);
@@ -1113,7 +1135,24 @@ export class MapObjectLayer {
         const r = sp[s + 3];
         const d = Math.max(0, distance(sp, s, this.camPos) - r);
         blendAt(b.levels, d, r * this.viewScale, draw, lodBias, impostorFrom, blend);
+        // Held on the level it showed alone when it came into this band, or last settled on in it (holdBlend): a
+        // zoom by a notch lands objects inside a band, which then showed the other level till the band settled back
+        const band = blend.next ?? NO_NEXT;
+        const at = blend.t;
+        const was = b.levelOf[i];
+        if (this.viewed && band !== NO_NEXT && b.holdNext[i] !== band && b.nextOf[i] === NO_NEXT && b.dueAt[i] !== -Infinity && (was === blend.level || was === band)) {
+          b.holdNext[i] = band;
+          b.holdAt[i] = at;
+          b.holdEnd[i] = was === band ? 1 : 0;
+        }
+        if (band !== NO_NEXT && b.holdNext[i] === band) holdBlend(blend, b.holdAt[i], b.holdEnd[i]);
         settleBlend(blend, this.settle, blend);
+        if (band === NO_NEXT) b.holdNext[i] = NO_NEXT;
+        else if (this.settle >= 1) {
+          b.holdNext[i] = band;
+          b.holdAt[i] = at;
+          b.holdEnd[i] = blend.level === band ? 1 : 0;
+        }
         // In a band the level that covers more of the pixels casts, and only near the focus
         const toFocus = distance(sp, s, this.focus) - r;
         const next = blend.next ?? NO_NEXT;
@@ -1280,6 +1319,8 @@ export class MapObjectLayer {
       colors[i * 3 + 2] = (c?.b ?? 1) * look.b;
     }
     if (b.damage) this.writeDamageOf(b, i);
+    // Moved or new: no level held from where it stood
+    b.holdNext[i] = NO_NEXT;
     b.dueAt[i] = -Infinity;
   }
 

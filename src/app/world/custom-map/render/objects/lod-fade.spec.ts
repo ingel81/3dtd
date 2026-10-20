@@ -1,5 +1,5 @@
 import { BoxGeometry, InstancedBufferAttribute, MeshStandardMaterial } from 'three';
-import { LOD_BAND, addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, levelAt, settleBlend } from './lod-fade';
+import { LOD_BAND, addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, holdBlend, levelAt, settleBlend } from './lod-fade';
 
 describe('lod-fade (soft detail switches)', () => {
   // Starts per metre of the object's radius: an object of 10 m switches at 100 m, its impostor from 300 m
@@ -40,6 +40,21 @@ describe('lod-fade (soft detail switches)', () => {
     expect(settleBlend({ level: 1, next: -1, t: 0.6, slack: 0 }, 1)).toEqual({ level: -1, next: null, t: 0, slack: 0 });
     // Outside a band nothing changes
     expect(settleBlend({ level: 1, next: null, t: 0, slack: 4 }, 1)).toEqual({ level: 1, next: null, t: 0, slack: 4 });
+  });
+
+  it('holds a settled blend on its level, and reaches the other one at the band\'s far edge as before', () => {
+    const at = (t: number, from: number, end: number) => holdBlend({ level: 0, next: 1, t, slack: 0 }, from, end).t;
+    // Settled near at 0.25: up to there the near level alone, beyond it a third, at the far edge the far one
+    expect(at(0.1, 0.25, 0)).toBe(0);
+    expect(at(0.25, 0.25, 0)).toBe(0);
+    expect(at(0.5, 0.25, 0)).toBeCloseTo(1 / 3);
+    expect(at(1, 0.25, 0)).toBe(1);
+    // Settled far at 0.6: the far level alone down to there, half of it at 0.3, the near one at the near edge
+    expect(at(0.8, 0.6, 1)).toBe(1);
+    expect(at(0.3, 0.6, 1)).toBeCloseTo(0.5);
+    expect(at(0, 0.6, 1)).toBe(0);
+    // Outside a band nothing to hold
+    expect(holdBlend({ level: 1, next: null, t: 0, slack: 3 }, 0.25, 0)).toEqual({ level: 1, next: null, t: 0, slack: 3 });
   });
 
   it('shares the model\'s buffers and frees only its own', () => {

@@ -618,9 +618,14 @@ Bildschirm-Dither auf, die andere erscheint im ergänzenden Muster: jedes Pixel 
 Jedes Objekt blendet nach seinem eigenen Abstand. Der Wert liegt je Instanz im Attribut `lodFade` einer leichten
 Geometrie je Mesh, die Puffer des Modells teilt (`fadeGeometry`). Schatten dithern nicht: es wirft die Stufe mit dem
 größeren Anteil, und nur nahe der Mitte der Schattenbox (`shadowRadius`). Steht die Kamera 0,15 s still, läuft das Band aus (`settleBlend`): jedes Objekt geht binnen 0,3 s
-ganz auf die Stufe, die seinem Abstand näher liegt, und öffnet das Band ebenso wieder, sobald die Kamera sich
-bewegt. Das feste Muster steht so nie als Punktfeld auf einem ruhenden Bild (Hafenstadt, Spielansicht: vorher 44
-gepackte Objekte im Band, danach keins).
+ganz auf die Stufe, die mehr von ihm zeigt. Das feste Muster steht so nie als Punktfeld auf einem ruhenden Bild
+(Hafenstadt, Spielansicht: vorher 44 gepackte Objekte im Band, danach keins). Das Band öffnet sich nur in Frames, in
+denen die Kamera sich bewegt, und ein Objekt behält die Stufe, auf der es stand (`holdBlend`, E268): kommt es ins
+Band oder hat es sich darin gesetzt, löst es sich erst auf, wenn die Kamera weiter durchs Band fährt, und erreicht am
+anderen Rand die andere Stufe wie zuvor. Vorher setzte ein Zoom um eine Raste (die Kamera springt in einem Frame)
+Gebäude mitten ins Band; sie zeigten 0,3 s die andere Stufe und kehrten zurück, mit allen Farbunterschieden der
+Stufen (Hafenstadt, je Raste 6 bis 42 Objekte, die nach dem Halt der Kamera die Stufe wechselten; danach keins). Die Schwelle
+hat damit eine Hysterese von einer Bandbreite.
 Kosten: Demo-Tal 151 → 160 Calls in der Spielansicht, beim Schwenk 155 → 171 bis 180; die GPU-Zeit bleibt im
 Rauschen des geteilten Messrechners (Spielansicht 1,01 bis 1,06 ms).
 

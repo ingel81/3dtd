@@ -85,13 +85,18 @@ describe('MapObjectLayer levels of detail', () => {
     expect(shown(los, 'post')).toBe(5);
     expect(shown(los, 'post') + shown(los, 'post-lod1')).toBe(20);
     expect(layer.version).toBeGreaterThan(version);
-    // In the band around 100 m (94 to 106 m) a post shows both levels: the one at map x 300 is 97 m away, a quarter in
+    // In the band around 100 m (94 to 106 m) a post shows both levels: the one at map x 300 is 97 m away, a quarter in.
+    // Jumped into the band (a zoom by a notch) it keeps the level it showed (holdBlend); walked in, it dissolves from
+    // where it came in (401: a twelfth), (0.25 - 1/12) / (11/12) of the way
     look(403);
+    expect(fades(los, 'post').filter((f) => f !== 0)).toEqual([]);
+    look(395);
+    for (const x of [399, 401, 402, 403]) look(x);
     expect(shown(los, 'post')).toBe(5);
     expect(shown(los, 'post-lod1')).toBe(16);
     const dissolving = fades(los, 'post').filter((f) => f !== 0);
-    expect(dissolving).toEqual([expect.closeTo(0.25, 5)]);
-    expect(fades(los, 'post-lod1').filter((f) => f !== 0)).toEqual([expect.closeTo(-0.75, 5)]);
+    expect(dissolving).toEqual([expect.closeTo((0.25 - 1 / 12) / (11 / 12), 4)]);
+    expect(fades(los, 'post-lod1').filter((f) => f !== 0)).toEqual([expect.closeTo(dissolving[0] - 1, 4)]);
     // The editor still picks a far post: it tests the full model of every object its ray crosses
     look(395);
     const hit = layer.raycast(new Ray(new Vector3(-380, 1, -10), new Vector3(0, 0, 1)));
@@ -151,11 +156,49 @@ describe('MapObjectLayer levels of detail', () => {
     expect(dithered('post-lod1')).toEqual([]);
     expect(mesh('post').count).toBe(5);
     expect(mesh('post-lod1').count).toBe(15);
-    // Moving again the band opens over a few frames, no jump
+    // Moving again it keeps the level it settled on: back towards it nothing dissolves (a zoom by a notch showed
+    // the building dissolve into its far model and return, E268)
     at(402.9, 1, 0.05);
     at(402.8, 1, 0.05);
     at(402.7, 1, 0.05);
-    expect(dithered('post')).toHaveLength(1);
+    expect(dithered('post')).toEqual([]);
+    expect(mesh('post').count).toBe(5);
+    layer.dispose();
+  });
+
+  it('holds a settled object on its level and dissolves it only as the camera goes on through the band', async () => {
+    const los = new Group();
+    const layer = new MapObjectLayer(field(), library(), los);
+    await layer.setObjects(row());
+    const at = viewer(layer);
+    const mesh = (name: string) => meshes(los, name)[0];
+    const dithered = (name: string) => fades(los, name).filter((f) => f !== 0);
+    // Settled near at a quarter of the band (map x 300 from 403: 97 m)
+    at(403, 13, 0.05);
+    expect(mesh('post').count).toBe(5);
+    // 4 m on, moving long enough for the band to open: its blend is past the middle (101 m, 0.58), the hold dissolves
+    // it from where it settled, (0.58 - 0.25) / 0.75 of the way
+    for (const x of [406.4, 406.5, 406.6, 406.7, 406.8, 406.9, 407]) at(x, 1, 0.05);
+    expect(dithered('post')).toEqual([expect.closeTo((4 / 12 + 0.25 - 0.25) / 0.75, 2)]);
+    // At rest it settles back on the level that shows more, the near one: no switch for a small move
+    at(407, 13, 0.05);
+    expect(dithered('post')).toEqual([]);
+    expect(mesh('post').count).toBe(5);
+    // A jump of the camera in one frame (a zoom by a notch) opens the band by that frame only, not on over the rest
+    at(409, 1, 0.05);
+    const opened = dithered('post')[0];
+    expect(opened).toBeGreaterThan(0);
+    expect(opened).toBeLessThan(0.15);
+    at(409, 2, 0.05);
+    expect(dithered('post')).toEqual([opened]);
+    at(409, 13, 0.05);
+    expect(dithered('post')).toEqual([]);
+    expect(mesh('post').count).toBe(5);
+    // On through the band, at its far edge the far model alone
+    at(410, 1, 0.05);
+    at(413, 1, 0.05);
+    expect(mesh('post').count).toBe(4);
+    expect(dithered('post-lod1')).toEqual([]);
     layer.dispose();
   });
 

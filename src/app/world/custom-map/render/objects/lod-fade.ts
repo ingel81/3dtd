@@ -14,8 +14,9 @@ import { BufferGeometry, InstancedBufferAttribute, type Material } from 'three';
  * The dither is a fixed screen pattern: on a camera at rest an object in a
  * band would stand there as a field of dots. Once the camera stood still a
  * moment the band settles (`settleBlend`): each object goes over to the
- * level nearer its distance within SETTLE_S, and comes back the same way
- * when the camera moves again. Nothing pops, at rest nothing dithers.
+ * level nearer its distance within SETTLE_S. A settled object keeps its
+ * level when the camera moves again (`holdBlend`) and dissolves only as it
+ * goes on through the band. Nothing pops, at rest nothing dithers.
  */
 
 /** The band's width as a share of the switch distance */
@@ -120,8 +121,9 @@ export const REST_S = 0.15;
 
 /**
  * A band's blend `settle` of the way (0 moving .. 1 at rest) towards the
- * level nearer the object's distance: past the middle the next level, else
- * its own. Fully settled it shows that one level alone. Written into `out`,
+ * level that shows more of it: past the middle the next level, else its
+ * own (without a hold, the level nearer the object's distance). Fully
+ * settled it shows that one level alone. Written into `out`,
  * which may be `blend` itself
  */
 export function settleBlend(blend: LodBlend, settle: number, out: LodBlend = { level: 0, next: null, t: 0, slack: 0 }): LodBlend {
@@ -139,6 +141,23 @@ export function settleBlend(blend: LodBlend, settle: number, out: LodBlend = { l
   out.next = t <= 0 || t >= 1 ? null : next;
   out.t = t <= 0 || t >= 1 ? 0 : t;
   return out;
+}
+
+/**
+ * A band's blend held on the level an object settled on (E268): settled at
+ * `at` (the band's t then) on its near level (`end` 0) or its far one (1),
+ * the object keeps that level while the camera stays on that side of `at`
+ * and dissolves towards the other only as it goes on to the band's other
+ * edge, where it shows that one alone, as without the hold. Without it a
+ * settled object opened to the band's blend at the first move of the
+ * camera and settled back at rest: a zoom by a notch showed a building
+ * dissolve into its other level and return. Written into `blend` (its t),
+ * which settleBlend then settles towards the level that shows more
+ */
+export function holdBlend(blend: LodBlend, at: number, end: number): LodBlend {
+  if (blend.next === null) return blend;
+  blend.t = end === 0 ? (blend.t <= at ? 0 : (blend.t - at) / (1 - at)) : blend.t >= at ? 1 : blend.t / at;
+  return blend;
 }
 
 /**
