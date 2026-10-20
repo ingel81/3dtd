@@ -121,13 +121,18 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
 
 - **Stufen aus HP, kein neuer Zustand:** Stufe 0 intakt (über 75 %), 1 angeschlagen (bis 40 %), 2 schwer (unter
   40 %), 3 gefallen (0), `structureStage` mit ganzen Zahlen. Snapshot und Hash tragen nur die HP.
-- **Löcher** (E259, `StructureLedger.punch`): ein Treffer, der mindestens 3 % der HP nimmt, hinterlässt ein Loch, wo er
+- **Löcher** (E259, `StructureLedger.punch`): ein Treffer mit mindestens 25 Gebäudeschaden (`HOLE_LEAST_DAMAGE`:
+  Heldengranate 25, Kanone 30, Rakete 45, Belagerungsgranate; nicht Kugeln, Flak, Magie) hinterlässt ein Loch, wo er
   einschlug: je Bauwerk die letzten sechs, je fünf ganze Zahlen (Versatz zur Mitte in dm, auf der Seite des Treffers
   und höchstens 90 % des Radius weit; Höhe über dem Grund in dm, aus Bauwerk und Lochzähler gewürfelt, 25 bis 80 % der
-  Höhe; Radius in dm, 1 bis 5 m nach der Wurzel des HP-Anteils; die Nummer des Lochs). Ein Treffer innerhalb 1,5 m plus
-  Radius eines Lochs vergrößert es um 0,6 m (höchstens 6 m), sonst nimmt er einen freien Platz oder den des ältesten.
+  Höhe; Radius in dm; die Nummer des Lochs). Der Radius folgt dem Schaden, nicht dem HP-Anteil: 1 m plus ein Viertel
+  der Wurzel des Schadens (Kanone 2,4 m, Rakete 2,7 m), mal 6 m durch den Bauwerksradius in 0,6 bis 1,4 (`holeRadiusDm`;
+  ein Häuschen von 4 m bekommt von der Rakete 3,7 m, ein Block von 12 m 1,6 m), 0,8 bis 5 m. Ein Treffer innerhalb 1,5 m
+  plus Radius eines Lochs vergrößert es um 0,6 m (höchstens 6 m), sonst nimmt er einen freien Platz oder den des ältesten.
   Auch ein Gefallener nimmt weiter Löcher, tief in seinem Stumpf (0,3 bis 2 m über dem Grund); HP und Stufe bleiben,
-  es gibt keinen Stufen-Op (`hit` sieht dafür auch gefallene Bauwerke, `near(…, fallen)`).
+  es gibt keinen Stufen-Op (`hit` sieht dafür auch gefallene Bauwerke, `near(…, fallen)`). Erreicht der Lochzähler
+  einer Ruine dabei 2, 6, 10 … (`WEAR_SIGHT_EVERY`), gilt eine Wand als weg: die Tower in Reichweite rechnen ihre
+  Sichtlinie neu (`StructureEvents.worn`, `seeAround`); ein einzelnes Loch tut das nicht.
   Sie gehen einmal je Paket als `structures.holes` an den Hauptthread und ganz mit den Stufen (`setStages`); Snapshot
   und Hash tragen sie, sobald es eines gibt (`structureHoles`, wie die Richtungen: ein Spielstand von davor lädt ohne
   Löcher, ohne neue Formatversion). Instandsetzen nimmt sie. Spec: gleiche Löcher und Prüfsumme auf zwei Clients, im
@@ -275,13 +280,17 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
     (Kamera seitlich zum Fall mit `auto`/`autor`, `--continue` lädt einen Spielstand mit Ruinen).
   - Gemessen (Ruined City, Chrome, 60 Hz, ein Browser, während der Aufnahme): kein Bild über 16,7 ms in einem Fall;
     keine neuen Programme, Draw Calls wie vorher.
-- **Löcher im Bild** (E259, `ruin-holes.ts`): eine Float-Textur mit einer Zeile je beschädigtem Bauwerk und zwei Texeln
+- **Löcher im Bild** (E259, `ruin-holes.ts`): ein stehendes Bauwerk mit Löchern zeigt die Ansicht als angeschlagen
+  (Stufe 1, `CustomMapWorld.shownStage`; die Simulation behält Stufe 0), denn Löcher zeichnen nur die Ruinen-Batches. eine Float-Textur mit einer Zeile je beschädigtem Bauwerk und zwei Texeln
   je Loch (Mitte im Rahmen der Gruppe und Radius; wann es aufging oder wuchs, eine Zahl für den Rand). Die Zeile reist im
   Richtungswert von `aDamage` (Richtung plus 8 mal Zeile plus eins): kein Attribut mehr. Ab Stufe 1 schneidet das
   Fragment die Löcher aus, ein wenig breiter als hoch, der Rand gezackt nach Winkel und Höhe, verkohlt und glühend wie
   der Biss (den zeigt nur noch eine Ruine ohne Löcher, etwa aus einem alten Spielstand); ein neues Loch geht in 0,3 s
-  auf, ein gewachsenes behält seine Zeit. Über einem großen Loch (ab 2,2 m) sackt eine gezackte Säule (0,8 seines
-  Radius, von 0,4 bis 2,6 Radien über ihm) auf die Decke darunter und ist weg (dieselben Regeln wie beim Einsturz).
+  auf, ein gewachsenes behält seine Zeit. Innen kein schwarzer Fleck: die Rückseiten tragen staubigen Putz über ihrer
+  Farbe und ein wenig eigenes Licht (sie sehen durch das Loch den Himmel), die Decken und Innenwände sind heller und
+  nehmen mehr Umgebungslicht, der Ruß an den Rändern ist schmaler. Über einem großen Loch (ab 2,2 m) sackt eine Säule
+  auf die Decke darunter und ist weg (dieselben Regeln wie beim Einsturz); sie ist rundum und nach oben gezackt und
+  wird nach oben schmaler (0,85 bis 0,55 des Radius, von 0,4 bis 2 oder 2,9 Radien über dem Loch), kein Zylinder.
   Beim Fall senkt sich die Bruchkante zu den Löchern: der Einsturz beginnt, wo getroffen wurde (`dmgWorn`). Je mehr
   Löcher ein Bauwerk bekam (die höchste Nummer), desto niedriger die ganze Kante, zwölf nach den ersten zwei auf dem
   Boden: eine Ruine unter weiterem Beschuss verschwindet bis auf ihren Schutt. Türme stehen auf den Höhen der Karte

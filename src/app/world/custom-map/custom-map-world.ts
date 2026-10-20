@@ -264,7 +264,10 @@ export class CustomMapWorld implements WorldProvider {
     // Stages that came before the view: the ruins as they lie
     if (this.stages.size) view.setObjectDamage([...this.stages].map(([id, s]) => ({ id, stage: s.stage, heading: s.heading, now: false })));
     view.setGone(this.obliteration.goneIds(), []);
-    for (const [id, holes] of this.holes) view.setObjectHoles(id, holes, false);
+    for (const [id, holes] of this.holes) {
+      if (!this.stages.has(id)) view.setObjectDamage([{ id, stage: 1, heading: -1, now: false }]);
+      view.setObjectHoles(id, holes, false);
+    }
     if (this.quality) view.applyQuality(this.quality);
     this.placeView();
     const before = new Set(ctx.scene.children);
@@ -792,8 +795,19 @@ export class CustomMapWorld implements WorldProvider {
   /** The structures' stages to the view's buildings (docs/DESTRUCTION_PLAN.md, Z2): `now` falls as it happens */
   /** A structure's holes changed (CustomMapDestruction): kept, and on the view */
   private holed(id: string, holes: Int32Array, now: boolean): void {
-    this.holes.set(id, holes);
+    const before = this.shownStage(id, 0);
+    if (holes.some((v) => v !== 0)) this.holes.set(id, holes);
+    else this.holes.delete(id);
+    // A standing structure with holes shows as battered (the view draws holes on ruins only); without, whole again
+    if (!this.stages.has(id) && this.shownStage(id, 0) !== before) {
+      this.view?.setObjectDamage([{ id, stage: this.shownStage(id, 0), heading: -1, now: false }]);
+    }
     this.view?.setObjectHoles(id, holes, now);
+  }
+
+  /** The stage the view shows for a structure at `stage`: a standing one with holes as battered */
+  private shownStage(id: string, stage: number): number {
+    return stage > 0 ? stage : this.holes.has(id) ? 1 : 0;
   }
 
   private damageChanged(changes: readonly { object: MapObject; stage: number; heading: number }[], now: boolean): void {
@@ -801,7 +815,7 @@ export class CustomMapWorld implements WorldProvider {
       if (c.stage > 0) this.stages.set(c.object.id, { stage: c.stage, heading: c.heading });
       else this.stages.delete(c.object.id);
     }
-    this.view?.setObjectDamage(changes.map((c) => ({ id: c.object.id, stage: c.stage, heading: c.heading, now })));
+    this.view?.setObjectDamage(changes.map((c) => ({ id: c.object.id, stage: this.shownStage(c.object.id, c.stage), heading: c.heading, now })));
     // A structure that fell in a crater is gone, one standing again is back
     for (const c of changes) this.goneChanged(this.obliteration.updateOne(c.object.id, this.craterCmAt, this.fallenNow));
   }

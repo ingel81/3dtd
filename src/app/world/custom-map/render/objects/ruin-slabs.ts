@@ -28,8 +28,8 @@ const BITE = 0.82;
 /** Inner walls: their thickness, and the shortest side of the rectangle (half of it, m) that gets one across */
 const WALL = 0.18;
 const ROOM_HALF = 2.5;
-/** Inner walls in plaster, lighter than the floors (linear) */
-const WALL_COLOUR: readonly [number, number, number] = [0.24, 0.22, 0.2];
+/** Inner walls in plaster, lighter than the floors (linear): seen through a hole, not black */
+const WALL_COLOUR: readonly [number, number, number] = [0.36, 0.33, 0.29];
 /** Inner walls reach this share of the building's height: below the eaves of a pitched roof, never through it */
 const WALL_TOP = 0.62;
 /** Over a floor the building stands at least this much higher (m), and over an inner wall's line this high, to have them */
@@ -43,12 +43,12 @@ const LEAST_SIDE = 0.3;
 
 /** Slab colours by what the building is of (linear): concrete floors, timber in wood */
 const SLAB_COLOURS: Record<RubbleMaterial, readonly [number, number, number]> = {
-  plaster: [0.2, 0.18, 0.16],
-  concrete: [0.21, 0.2, 0.19],
-  metal: [0.17, 0.17, 0.17],
-  brick: [0.2, 0.17, 0.15],
-  stone: [0.21, 0.19, 0.17],
-  wood: [0.16, 0.1, 0.06],
+  plaster: [0.3, 0.27, 0.24],
+  concrete: [0.31, 0.3, 0.28],
+  metal: [0.25, 0.25, 0.25],
+  brick: [0.3, 0.25, 0.22],
+  stone: [0.31, 0.28, 0.25],
+  wood: [0.24, 0.16, 0.1],
 };
 
 /**
@@ -184,8 +184,8 @@ export class RuinSlabs {
   private capacity = 0;
 
   constructor() {
-    // Inside, out of the sky's light: little of the environment
-    const material = new MeshStandardMaterial({ roughness: 0.95, metalness: 0, side: DoubleSide, envMapIntensity: 0.3 });
+    // Inside, out of the sky's light: some of the environment, so floors seen through a hole are not black
+    const material = new MeshStandardMaterial({ roughness: 0.95, metalness: 0, side: DoubleSide, envMapIntensity: 0.6 });
     addDamage(material);
     this.mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), material, 1);
     this.mesh.name = 'ruin-slabs';

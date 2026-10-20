@@ -421,8 +421,9 @@ float dmgHoles(vec3 p, vec4 a) {
   }
   return best;
 }
-// Over a large hole (2.2 m and more) a ragged column of 0.8 its radius, from 0.4 to 2.6 radii over its middle,
-// comes down onto the floor under it (floorY): when it starts to, or -1 where p lies in no such column
+// Over a large hole (2.2 m and more) a ragged column (0.85 its radius at the hole, narrowing up, ragged round and up
+// it), from 0.4 to 2 or 2.9 radii over its middle, comes down onto the floor under it (floorY): when it starts to, or
+// -1 where p lies in no such column
 float dmgSagStart(vec3 p, vec4 a, out float floorY) {
   floorY = 0.0;
   float row = dmgHoleRow(a);
@@ -432,8 +433,12 @@ float dmgSagStart(vec3 p, vec4 a, out float floorY) {
     if (h.w < 2.2) continue;
     vec4 t = dmgHoleTime(row, k);
     vec2 q = p.xz - h.xz;
-    float reach = h.w * 0.8 * (0.8 + 0.4 * dmgNoise(vec2(atan(q.y, q.x) * 1.7, t.y)));
-    if (length(q) < reach && p.y > h.y + h.w * 0.4 && p.y < h.y + h.w * 2.6) {
+    // Ragged round it and up it, narrowing to the top: no cylinder
+    float ang = atan(q.y, q.x);
+    float up = (p.y - h.y) / h.w;
+    float reach = h.w * (0.85 - 0.15 * up) * (0.65 + 0.45 * dmgNoise(vec2(ang * 1.7, p.y * 0.35 + t.y)) + 0.2 * dmgNoise(vec2(ang * 5.3, p.y * 1.3)));
+    float top = 2.0 + 0.9 * dmgNoise(p.xz * 0.45 + t.y);
+    if (length(q) < reach && up > 0.4 && up < top) {
       floorY = h.y - h.w * 0.5;
       return t.x + 0.25;
     }
@@ -658,12 +663,12 @@ if (vDmg.x > 0.5) {
   // Soot in patches on that side, and round the broken edges
   float edge = damageEdge();
   float soot = smoothstep(0.6, 0.9, dmgNoise(vDmgP.xz * 0.35 + vDmgP.y * 0.25 + dmgHeading(vDmg))) * strength * 0.5;
-  soot = max(soot, (1.0 - smoothstep(0.0, 1.3, edge)) * 0.85);
+  soot = max(soot, (1.0 - smoothstep(0.0, 0.9, edge)) * 0.55);
   dmgSoot = soot;
   diffuseColor.rgb *= (1.0 - 0.75 * lines * strength) * (1.0 - 0.7 * soot);
 
-  // The inside: the same wall, out of the light
-  if (!gl_FrontFacing) diffuseColor.rgb *= 0.6;
+  // The inside: the same wall, dusty plaster over it, never black (a hole is not a black spot)
+  if (!gl_FrontFacing) diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.42, 0.38, 0.33), 0.4);
 }
 `;
 
@@ -671,6 +676,8 @@ if (vDmg.x > 0.5) {
 const DAMAGE_EMISSIVE_FRAGMENT = /* glsl */ `
 if (vDmg.x > 0.5) {
   totalEmissiveRadiance *= 0.0;
+  // The inside sees the sky through the holes: a little light of its own where the sun's shadow keeps it dark
+  if (!gl_FrontFacing) totalEmissiveRadiance += diffuseColor.rgb * 0.22;
   if (vDmg.x > 1.5) {
     // Glowing in a few places along the broken edges, less once it has fallen
     float e = damageEdge();
