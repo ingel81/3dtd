@@ -425,7 +425,7 @@ describe('TowerPlacementService', () => {
 
       expect(overlay.children).toHaveLength(1);
       expect(assets.cloneModel).toHaveBeenCalledTimes(1);
-      expect(assets.cloneModel).toHaveBeenCalledWith(TOWER_TYPES.cannon.modelUrl);
+      expect(assets.cloneModel).toHaveBeenCalledWith(TOWER_TYPES.cannon.modelUrl, { atRest: true });
       expect(preview()!.visible).toBe(true);
     });
   });

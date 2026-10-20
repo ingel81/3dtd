@@ -44,13 +44,13 @@ describe('tower preview model', () => {
     expect((basic as unknown as { emissive?: unknown }).emissive).toBeUndefined();
   });
 
-  it('builds the preview from a clone at the type scale and base rotation, see-through', () => {
+  it('builds the preview from a clone at rest, at the type scale and base rotation, see-through', () => {
     const { root, single } = model();
     const assets = { cloneModel: vi.fn(() => root) };
 
     const preview = buildPreviewModel(assets, { modelUrl: 'tower.glb', scale: 2.5, rotationY: 0.3 });
 
-    expect(assets.cloneModel).toHaveBeenCalledWith('tower.glb');
+    expect(assets.cloneModel).toHaveBeenCalledWith('tower.glb', { atRest: true });
     expect(preview).toBe(root);
     expect(root.scale.x).toBe(2.5);
     expect(root.rotation.y).toBeCloseTo(0.3);

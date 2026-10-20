@@ -488,6 +488,14 @@ für die Bilder kompiliert und einmal winzig gezeichnet, der Sichtlinien-Würfel
 Einsatz die Programme im Bild (vorher Bogenschütze 250 ms, Tentakel 470 ms beim ersten Bau, die Bauvorschau 250 bis
 550 ms bei der ersten Wahl, E258).
 
+Die Bauvorschau zeichnet ihr Modell in Ruhe (`cloneModel(url, { atRest: true })`): ohne Morph-Targets, auf einem
+Zwilling jeder Geometrie mit denselben Puffern, den der `AssetManagerService` je Modell einmal baut und mit ihm
+freigibt. Nichts bewegt die Vorschau; mit Morphs bei Gewicht 0 hielt die durchscheinende Flagge des Bogenschützen den
+GPU-Prozess bei jeder Wahl 55 bis 170 ms auf (ohne V-Sync, E258). Platzierte Tower behalten sie: die Flagge weht über
+ihren Clip, die Sehne der Ballista über ihren Morph. `configs/model-morphs.spec.ts` prüft, dass jedes Morph-Target
+eines ausgelieferten Modells so bewegt wird; eines, das nichts bewegt, gehört aus dem Modell (in Blender als
+Formschlüssel).
+
 ---
 
 ## Model-Teile ein- und ausblenden

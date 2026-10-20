@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
-import { Object3D, AnimationClip, Mesh, Material, MeshStandardMaterial, type Texture } from 'three';
+import { Object3D, AnimationClip, Mesh, Material, MeshStandardMaterial, type BufferGeometry, type Texture } from 'three';
 import { createModelLoader } from '../../three-engine/models/model-loader';
+import { hasMorphTargets, restGeometry } from '../../three-engine/models/rest-geometry';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { shareGpu, unshareGpu } from '../../three-engine/shared-gpu';
 
@@ -16,6 +17,8 @@ export interface CachedModel {
   refCount: number;
   /** Model URL for debugging */
   url: string;
+  /** Its geometries without morph targets, by geometry, made by the first clone at rest (CloneOptions.atRest) */
+  restGeometries?: Map<BufferGeometry, BufferGeometry>;
 }
 
 /**
@@ -30,6 +33,14 @@ export const MODEL_RETRY_DELAYS_MS: readonly number[] = [1000, 3000];
 export interface CloneOptions {
   /** Use SkeletonUtils.clone for animated models (preserves skeleton bindings) */
   preserveSkeleton?: boolean;
+  /**
+   * Meshes draw without morph targets, as with every weight at 0: for a
+   * clone nothing animates (the build preview). Drawn with them at weight 0,
+   * the archer's see-through flag held the GPU process 55 to 170 ms on the
+   * first draw after each pick (E258). Shared buffers, one twin per geometry,
+   * kept and freed with the model.
+   */
+  atRest?: boolean;
 }
 
 /**
@@ -150,8 +161,27 @@ export class AssetManagerService {
     // Deep-clone materials to prevent shared state issues
     // (e.g., build preview tinting affecting placed towers)
     this.cloneMaterials(clone);
+    if (options.atRest) this.putAtRest(clone, cached);
 
     return clone;
+  }
+
+  /** The clone's meshes on their geometries without morph targets (CloneOptions.atRest) */
+  private putAtRest(clone: Object3D, cached: CachedModel): void {
+    clone.traverse((node) => {
+      const mesh = node as Mesh;
+      if (!mesh.isMesh || !hasMorphTargets(mesh.geometry)) return;
+      cached.restGeometries ??= new Map();
+      let rest = cached.restGeometries.get(mesh.geometry);
+      if (!rest) {
+        // The page's like the model's own geometry: a lease's end leaves it (and the buffers it shares) uploaded
+        rest = shareGpu(restGeometry(mesh.geometry));
+        cached.restGeometries.set(mesh.geometry, rest);
+      }
+      mesh.geometry = rest;
+      mesh.morphTargetInfluences = undefined;
+      mesh.morphTargetDictionary = undefined;
+    });
   }
 
   /**
@@ -232,6 +262,10 @@ export class AssetManagerService {
   private disposeModel(cached: CachedModel): void {
     this.share(cached.scene, unshareGpu);
     this.disposeObject(cached.scene);
+    for (const rest of cached.restGeometries?.values() ?? []) {
+      unshareGpu(rest);
+      rest.dispose();
+    }
   }
 
   /** Marks (shareGpu) or unmarks every geometry, material and texture of `obj` as the page's */

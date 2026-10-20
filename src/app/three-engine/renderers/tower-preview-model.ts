@@ -39,7 +39,8 @@ export function makeModelTransparent(model: Object3D, opacity: number): void {
 /**
  * The build preview's tower (TowerPlacementService): the model with its shot
  * light like a placed tower's (ThreeTowerRenderer), at its scale and base
- * rotation, see-through. The load-time warm-up builds one per tower the same
+ * rotation, see-through, at rest (without morph targets: nothing animates it,
+ * CloneOptions.atRest). The load-time warm-up builds one per tower the same
  * way (ThreeTowerRenderer.warmUpObjects): the first pick linked its programs
  * in its frame (the archer's 250 to 550 ms on autumn keep and an OSM world,
  * E258). Null while the model is not loaded.
@@ -48,7 +49,7 @@ export function buildPreviewModel(
   assets: Pick<AssetManagerService, 'cloneModel'>,
   config: Pick<TowerTypeConfig, 'modelUrl' | 'scale' | 'rotationY'>,
 ): Object3D | null {
-  const model = assets.cloneModel(config.modelUrl);
+  const model = assets.cloneModel(config.modelUrl, { atRest: true });
   if (!model) return null;
   addShotLightTo(model);
   model.scale.setScalar(config.scale);
