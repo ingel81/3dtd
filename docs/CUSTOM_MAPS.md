@@ -194,7 +194,9 @@ Nebel der Szene wieder her.
   Lava-Nähe vorher 60 ms, jetzt 2,6 ms (nur Kanal A); ein Vollaufbau (Generieren, Größe) vorher rund 2 s im Bild,
   jetzt 7 ms; der Fernschatten (114 ms in Scheiben) und die Höhenlinien des Editors (2 m: 112 ms je halbe Sekunde im
   Strich) ganz im Worker. Krümmung, Abfluss und Lava-Nähe liegen dafür schon als Bytes vor. An Hangfüßen unter Steilem rieselt Geröll in der Farbe der Klippe
-  heraus. Über jedem Lavapunkt steigen Glut (zusammen höchstens etwa 2000 Teilchen) und etwas Rauch auf. Objekte
+  heraus. Über jedem Lavapunkt steigen Glut (zusammen höchstens etwa 2000 Teilchen) und etwas Rauch auf; nach einem
+  Pinsel oder Krater folgen Lichter, Glut und Funken der Lava erst, wenn die Änderungen eine Viertelsekunde ruhen, wie
+  die Lava-Nähe (je Schritt eines Lavapinsels neu gebaut kostete das auf 257² 2 bis 5 ms). Objekte
   nahe Lava (Häuser, Felsen, Bäume) glühen von unten mit: jedes Kartenmaterial mit Emissive-Anteil liest über den
   Höhennebel-Patch dieselbe Lavanähe an seiner Stelle (ein Lookup, nur auf Karten mit Lava; quadratisch über die 12 m),
   am stärksten auf Flächen nach unten und zur Seite, ohne Lichter

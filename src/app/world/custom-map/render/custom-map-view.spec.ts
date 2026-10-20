@@ -574,6 +574,35 @@ describe('CustomMapView heights near water', () => {
     view.dispose();
   });
 
+  it('lights a lava pool under a brush once the strokes pause, not at every step', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const doc = createDemoMap();
+    const g = doc.terrain.grid;
+    const mask = new Uint8Array(g.columns * g.rows);
+    doc.terrain.waterBodies = [{ level: 50, mask, color: '', kind: 'lava' }];
+    const view = new CustomMapView(doc, offlineLibrary());
+    await view.ready;
+    const lights = vi.spyOn((view as unknown as { effects: { setLavaLights: (p: unknown[]) => void } }).effects, 'setLavaLights');
+    vi.useFakeTimers();
+    try {
+      const x0 = -doc.terrain.width / 2;
+      const y0 = -doc.terrain.depth / 2;
+      for (let step = 0; step < 5; step++) {
+        const i = 4 + step * 2;
+        for (let j = 4; j < 8; j++) for (let k = i; k < i + 2; k++) mask[j * g.columns + k] = 255;
+        view.updateWater({ minX: x0 + i * g.cellSize, minY: y0 + 4 * g.cellSize, maxX: x0 + (i + 2) * g.cellSize, maxY: y0 + 8 * g.cellSize }, 1);
+        vi.advanceTimersByTime(100);
+      }
+      expect(lights).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(250);
+      expect(lights).toHaveBeenCalledTimes(1);
+      expect((lights.mock.calls[0][0] as unknown[]).length).toBeGreaterThan(0);
+    } finally {
+      vi.useRealTimers();
+      view.dispose();
+    }
+  });
+
   it("hands its ground baker only rows inside the grid when heights change at the border (the worker's copy took them)", async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const doc = createDemoMap();

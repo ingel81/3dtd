@@ -255,6 +255,8 @@ export class CustomMapView {
   private readonly mirrorChoice = new MirrorChoice<WaterSurface>();
   private readonly mirrorLevel = new Vector3();
   private lavaDue: ReturnType<typeof setTimeout> | null = null;
+  /** The lava's lights and embers after an edit, once edits pause (refreshLava) */
+  private lavaLightsDue: ReturnType<typeof setTimeout> | null = null;
   /** Leaves, trodden soil and puddles from the map's rules (ground-decals.ts) */
   private readonly decals: GroundDecals;
   /** Craters and rubble of the fight (impact-marks.ts), with options.impactMarks */
@@ -948,7 +950,7 @@ export class CustomMapView {
       lava ||= body.kind === 'lava';
       this.markCover(g);
     });
-    if (lava) this.refreshLava();
+    if (lava) this.refreshLava(true);
   }
 
   private bridgeNear(rect: MapRect): boolean {
@@ -1065,7 +1067,7 @@ export class CustomMapView {
     surface.set(water, border ? this.terrain.apronProfile : null, g);
     this.markCover();
     if (border) this.edgeTreesLater(this.shownObjects());
-    if (wasLava || water.kind === 'lava') this.effects.setLavaLights(this.lavaLightPoints());
+    if (wasLava || water.kind === 'lava') this.refreshLavaLights(true);
     this.objects.refreshHeights(rect, true);
     if (this.bridgeNear(rect)) void this.refreshBridges();
   }
@@ -1080,7 +1082,7 @@ export class CustomMapView {
     const wasLava = surface.kind === 'lava';
     surface.set(water, null, rect ? this.gridRect(rect) : undefined);
     this.markCover();
-    if (wasLava || water.kind === 'lava') this.refreshLava();
+    if (wasLava || water.kind === 'lava') this.refreshLava(rect !== undefined);
     this.objects.refreshHeights(rect, true);
     if (!rect || this.bridgeNear(rect)) void this.refreshBridges();
     this.lightWater();
@@ -1293,7 +1295,7 @@ export class CustomMapView {
   setLife(): void {
     this.effects.setLife(this.doc.life);
     void this.refreshEffects();
-    this.effects.setLavaLights(this.lavaLightPoints());
+    this.refreshLavaLights();
     void this.refreshMovers();
     this.waveBanners();
     this.refreshHaze();
@@ -1332,14 +1334,32 @@ export class CustomMapView {
    * (effects), and the baked closeness the ground turns to cooled rock and
    * glows orange from below by (ground-occlusion.ts, channel A)
    */
-  private refreshLava(): void {
-    this.effects.setLavaLights(this.lavaLightPoints());
+  /** The lava changed (`edit`: a brush or a crater in a rectangle, whose lights follow once edits pause) */
+  private refreshLava(edit = false): void {
+    this.refreshLavaLights(edit);
     this.refreshAmbientSoon();
     // The ground's closeness to lava: right away the first time, edits once they pause for a quarter second
     if (this.lavaDue) clearTimeout(this.lavaDue);
     this.lavaDue = null;
     if (this.lavaBaked) this.lavaDue = setTimeout(() => this.bakeLava(), 250);
     else this.bakeLava();
+  }
+
+  /**
+   * The lava's lights, embers, smoke and sparks (effects.setLavaLights) from
+   * where it lies now; after an edit once edits pause for a quarter second, as
+   * the ground's closeness to it: rebuilt for every step of a pool brush they
+   * took 2 to 5 ms of each (257² map, perf spec)
+   */
+  private refreshLavaLights(edit = false): void {
+    if (this.lavaLightsDue) clearTimeout(this.lavaLightsDue);
+    this.lavaLightsDue = null;
+    const lights = (): void => {
+      this.lavaLightsDue = null;
+      if (!this.disposed) this.effects.setLavaLights(this.lavaLightPoints());
+    };
+    if (edit) this.lavaLightsDue = setTimeout(lights, 250);
+    else lights();
   }
 
   private bakeLava(): void {
@@ -1653,7 +1673,7 @@ export class CustomMapView {
     this.lifeShare = q.life;
     if (this.effects.setQuality({ particles: q.particles, pointLights: q.pointLights, life: q.life })) {
       void this.refreshEffects();
-      this.effects.setLavaLights(this.lavaLightPoints());
+      this.refreshLavaLights();
     }
     if (lifeChanged) {
       void this.refreshMovers();
@@ -1826,6 +1846,7 @@ export class CustomMapView {
     this.sceneCopy.dispose();
     this.reflection.dispose();
     if (this.lavaDue) clearTimeout(this.lavaDue);
+    if (this.lavaLightsDue) clearTimeout(this.lavaLightsDue);
     this.ownBaker?.dispose();
     this.ownBaker = null;
     if (this.ambientDue) clearTimeout(this.ambientDue);
