@@ -18,6 +18,7 @@
  */
 
 import type { JassExpr, JassFunction, JassProgram, JassStmt, JassVar } from './jass-parser';
+import type { ImportNote } from '../../import-notes';
 
 export interface RectValue {
   kind: 'rect';
@@ -139,7 +140,7 @@ export class JassEvaluator {
   readonly globalTypes = new Map<string, string>();
   readonly triggers: TriggerValue[] = [];
   readonly orders: PointOrder[] = [];
-  readonly warnings: string[] = [];
+  readonly warnings: ImportNote[] = [];
   /** Locations where actions create units */
   readonly creations: { at: LocValue; trigger: TriggerValue }[] = [];
 
@@ -205,7 +206,7 @@ export class JassEvaluator {
     this.steps = 0;
     for (const t of [...this.triggers]) {
       if (this.steps >= this.maxSteps) {
-        this.warnings.push('script: step budget used up before every trigger ran');
+        this.warnings.push({ key: 'budgetAll' });
         break;
       }
       // One heavy trigger cannot take the others' steps
@@ -222,7 +223,7 @@ export class JassEvaluator {
     try {
       fn();
     } catch (e) {
-      if (e instanceof BudgetExceeded) this.warnings.push(`script: step budget used up in ${what}`);
+      if (e instanceof BudgetExceeded) this.warnings.push({ key: 'budgetIn', v: { what } });
       else throw e;
     }
   }
@@ -328,7 +329,7 @@ export class JassEvaluator {
       case 'loop': {
         for (let i = 0; ; i++) {
           if (i >= this.maxLoop) {
-            if (!this.loopWarned) this.warnings.push('script: a loop ran into the iteration limit');
+            if (!this.loopWarned) this.warnings.push({ key: 'loopLimit' });
             this.loopWarned = true;
             return 0;
           }

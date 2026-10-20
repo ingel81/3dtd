@@ -14,6 +14,7 @@ import type { LaneMask } from './lane-mask';
 import { END_WORDS, type RawRoutes, SPAWN_WORDS, emptyRaw } from './route-graph';
 import { type TerrainRoutes, addWays, shortestTree, snap } from './terrain-routes';
 import type { W3Region } from '../formats/w3r';
+import type { ImportNote } from '../../import-notes';
 
 export interface MazePoint {
   id: string;
@@ -84,7 +85,7 @@ export function routesFromMaze(input: MazeInput): TerrainRoutes | null {
   const m = input.mask;
   const w = m.width;
   const h = m.height;
-  const warnings: string[] = [];
+  const warnings: ImportNote[] = [];
   const raw: RawRoutes = emptyRaw();
   const snapPx = Math.ceil(1536 / m.cell);
   const pixelOf = (p: { x: number; y: number }): number => snap(m.data, m, p.x, p.y, snapPx);
@@ -108,7 +109,7 @@ export function routesFromMaze(input: MazeInput): TerrainRoutes | null {
     }
   }
   if (!end) return null;
-  if (end.id === 'maze_end') warnings.push('routes: the map names no end; the HQ stands in the middle of the map');
+  if (end.id === 'maze_end') warnings.push({ key: 'noEnd' });
   const tree = shortestTree(m.data, w, h, endPx, cost);
 
   const spawnPoints = input.spawns.length
@@ -135,10 +136,10 @@ export function routesFromMaze(input: MazeInput): TerrainRoutes | null {
       raw.nodes.delete(st.id);
       raw.spawnHints.delete(st.id);
     }
-    warnings.push(`routes: ${near.length} spawn(s) right beside the end left out`);
+    warnings.push({ key: 'nearEnd', v: { count: near.length } });
   }
   const lost = spawnPoints.length - starts.length - near.length;
-  if (lost > 0) warnings.push(`routes: ${lost} spawn(s) have no walkable way to the end`);
+  if (lost > 0) warnings.push({ key: 'noWay', v: { count: lost } });
 
   raw.nodes.set(end.id, { id: end.id, name: end.name, x: end.x, y: end.y, region: input.regions.find((r) => r.variable === end!.id) });
   raw.endHints.add(end.id);

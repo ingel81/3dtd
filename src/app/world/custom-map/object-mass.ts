@@ -15,6 +15,7 @@ import {
 import type { GroundBox } from './object-ground';
 import type { CatalogRoof } from './object-roof';
 import type { ObjectFooting } from './render/objects/object-seat';
+import type { MapText } from './map-text';
 
 /** Points a raised building may have over all its rings */
 export const MASS_MAX_POINTS = 2048;
@@ -26,26 +27,26 @@ const MASS_ROOF_CELLS = 160;
 
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
-/** Why `m` is no raised building, in words; null when it is one */
-export function massProblem(m: unknown): string | null {
-  if (typeof m !== 'object' || m === null) return 'its building is not an object';
+/** Why `m` is no raised building; null when it is one */
+export function massProblem(m: unknown): MapText | null {
+  if (typeof m !== 'object' || m === null) return { key: 'notObject', v: { what: { kind: 'building' } } };
   const r = m as Record<string, unknown>;
   const rings = r['rings'];
-  if (!Array.isArray(rings) || rings.length === 0) return 'its building has no outline';
+  if (!Array.isArray(rings) || rings.length === 0) return { key: 'massOutline' };
   let points = 0;
   for (const ring of rings) {
-    if (!Array.isArray(ring) || ring.length < 6 || ring.length % 2 !== 0 || !ring.every(finite)) return 'its building has a broken ring';
+    if (!Array.isArray(ring) || ring.length < 6 || ring.length % 2 !== 0 || !ring.every(finite)) return { key: 'massRing' };
     points += ring.length / 2;
   }
-  if (points > MASS_MAX_POINTS) return `its building has more than ${MASS_MAX_POINTS} points`;
-  if (!finite(r['height']) || (r['height'] as number) < 1 || (r['height'] as number) > 400) return 'its building has a bad height';
-  if (!finite(r['floors']) || (r['floors'] as number) < 1 || (r['floors'] as number) > 120) return 'its building has bad storeys';
-  if (!MAP_MASS_ROOFS.includes(r['roof'] as never)) return 'its building has an unknown roof';
-  if (r['ridge'] !== undefined && (!finite(r['ridge']) || (r['ridge'] as number) < 0 || (r['ridge'] as number) > 60)) return 'its building has a bad ridge';
-  if (!MAP_MASS_FACADES.includes(r['facade'] as never)) return 'its building has an unknown facade';
+  if (points > MASS_MAX_POINTS) return { key: 'massPoints', v: { max: MASS_MAX_POINTS } };
+  if (!finite(r['height']) || (r['height'] as number) < 1 || (r['height'] as number) > 400) return { key: 'massHeight' };
+  if (!finite(r['floors']) || (r['floors'] as number) < 1 || (r['floors'] as number) > 120) return { key: 'massStoreys' };
+  if (!MAP_MASS_ROOFS.includes(r['roof'] as never)) return { key: 'massRoof' };
+  if (r['ridge'] !== undefined && (!finite(r['ridge']) || (r['ridge'] as number) < 0 || (r['ridge'] as number) > 60)) return { key: 'massRidge' };
+  if (!MAP_MASS_FACADES.includes(r['facade'] as never)) return { key: 'massFacade' };
   const shop = r['shop'];
   if (shop !== undefined && (!Array.isArray(shop) || !shop.every((k) => Number.isInteger(k) && k >= 0 && k < (rings[0] as unknown[]).length / 2))) {
-    return 'its building has bad shop walls';
+    return { key: 'massShop' };
   }
   return null;
 }

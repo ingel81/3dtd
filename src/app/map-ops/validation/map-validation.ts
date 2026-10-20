@@ -82,9 +82,9 @@ export interface MapIssue {
  * error with the thing or the tool to fix it
  */
 export function fileIssues(doc: CustomMapDocument, problems: readonly MapProblem[] = mapProblems(doc)): MapIssue[] {
-  const hard = problems.map((q) => ({ q, severity: 'error' as const, code: 'map-file' as const, text: { key: 'mapFile', v: { problem: q.text } } as CheckText }));
+  const hard = problems.map((q) => ({ q, severity: 'error' as const, code: 'map-file' as const, text: { key: 'mapFile', v: { problem: q } } as CheckText }));
   // Soft values (map-repair.ts): saved as they are, set right when the map is read next
-  const soft = mapRepairs(doc).map((q) => ({ q, severity: 'warning' as const, code: 'map-values' as const, text: { key: 'mapValues', v: { problem: q.text } } as CheckText }));
+  const soft = mapRepairs(doc).map((q) => ({ q, severity: 'warning' as const, code: 'map-values' as const, text: { key: 'mapValues', v: { problem: q } } as CheckText }));
   return [...hard, ...soft].map(({ q, severity, code, text }) => {
     const issue: MapIssue = { severity, code, text, part: q.part };
     if (q.at) {

@@ -7,6 +7,7 @@
  * are merged. docs/OSM_WORLD_PLAN.md
  */
 import { boxAround, type GeoBox } from '../../services/location/street-box';
+import { OsmError } from './osm-error';
 import {
   fetchOverpass,
   type OverpassElement,
@@ -237,7 +238,7 @@ export async function downloadOsm(
   // One quarter after the other: the servers give an IP few slots
   for (const [k, quarter] of quarters(box).entries()) {
     const part = await ask(quarter, `world quarter ${k + 1}`);
-    if (answerCutShort(part.remark)) throw new Error(`The OSM server could not answer for this place (${part.remark})`);
+    if (answerCutShort(part.remark)) throw new OsmError({ key: 'cutShort', v: { remark: part.remark ?? '' } });
     parts.push(part);
   }
   return { data: mergeAnswers(parts), chars, requests: 5, ms: performance.now() - start };

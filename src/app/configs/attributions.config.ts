@@ -208,7 +208,7 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
     ],
   },
   {
-    // What the credit line of a custom map points to (CUSTOM_MAP_ASSET_CREDIT); every file in
+    // What the credit line of a custom map points to (hud.world.assetCredit); every file in
     // public/maps/assets/LICENSES.md, per material and model
     id: 'mapAssets',
     icon: 'terrain',

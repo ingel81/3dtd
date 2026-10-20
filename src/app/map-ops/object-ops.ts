@@ -632,8 +632,11 @@ export function objectsAlong(line: readonly MapPoint[], asset: string, options: 
  * the straight pieces never need cutting: a leg takes whole pieces of 8, 4
  * and 2 m, and what is left over hides in the blocks.
  */
+/** The kits of wall the editor draws along a line; their names are the dictionary's (editor.wallKits) */
+export type WallKitId = 'castle';
+
 export interface WallKit {
-  name: string;
+  id: WallKitId;
   /** Straight pieces, longest first; lengths in metres, multiples of the shortest */
   pieces: readonly { asset: string; length: number }[];
   corner: string;
@@ -646,7 +649,7 @@ export interface WallKit {
 
 export const WALL_KITS: readonly WallKit[] = [
   {
-    name: 'Castle wall',
+    id: 'castle',
     pieces: [
       { asset: 'castle-wall', length: 8 },
       { asset: 'castle-wall-half', length: 4 },

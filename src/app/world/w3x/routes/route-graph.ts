@@ -9,6 +9,7 @@
  */
 
 import type { W3Region } from '../formats/w3r';
+import type { ImportNote } from '../../import-notes';
 
 export type RouteStrategy = 'script-pattern' | 'script-eval' | 'terrain' | 'maze';
 
@@ -32,7 +33,7 @@ export interface RouteGraph {
   edges: RouteEdge[];
   spawns: string[];
   end: string;
-  warnings: string[];
+  warnings: ImportNote[];
 }
 
 /** Raw output of a strategy before the end and the spawns are chosen */
@@ -85,7 +86,7 @@ export function buildRouteGraph(raw: RawRoutes, strategy: RouteStrategy): RouteG
   const ids = [...new Set(edges.flatMap((e) => [e.from, e.to]))];
   const sources = ids.filter((n) => !into.has(n));
   const sinks = ids.filter((n) => !out.has(n));
-  const warnings: string[] = [];
+  const warnings: ImportNote[] = [];
 
   // End: a node the most starts reach; hints (lives lost, end-like names) and sinks first
   const starts = sources.length > 0 ? sources : ids.filter((n) => raw.spawnHints.has(n));
@@ -102,7 +103,7 @@ export function buildRouteGraph(raw: RawRoutes, strategy: RouteStrategy): RouteG
   const end = endCandidates[0];
   if (endCandidates.length > 1) {
     const others = endCandidates.slice(1).filter((n) => sinks.includes(n));
-    if (others.length) warnings.push(`routes: other dead ends ignored: ${others.map((n) => raw.nodes.get(n)!.name).join(', ')}`);
+    if (others.length) warnings.push({ key: 'deadEnds', v: { names: others.map((n) => raw.nodes.get(n)!.name).join(', ') } });
   }
 
   // Walking ends at the end node: its own outgoing edges are dropped
@@ -122,7 +123,7 @@ export function buildRouteGraph(raw: RawRoutes, strategy: RouteStrategy): RouteG
   spawns.sort((a, b) => order(a) - order(b) || raw.nodes.get(a)!.name.localeCompare(raw.nodes.get(b)!.name, undefined, { numeric: true }));
   if (spawns.length === 0) return null;
   const lost = starts.filter((s) => !toEnd.has(s));
-  if (lost.length) warnings.push(`routes: ${lost.length} start(s) never reach the end and were dropped`);
+  if (lost.length) warnings.push({ key: 'neverReach', v: { count: lost.length } });
 
   const fromSpawns = reach(spawns, forward);
   const kept = edges.filter((e) => e.from !== end && fromSpawns.has(e.from) && toEnd.has(e.to));

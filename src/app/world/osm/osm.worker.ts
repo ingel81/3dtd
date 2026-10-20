@@ -15,6 +15,8 @@ import { thinProgress } from './osm-progress';
 import { OsmFrameStore } from './osm-frame-store';
 import type { OsmWorkerRequest, OsmWorkerResponse } from './osm-worker.types';
 import type { OverpassRetry } from './overpass-client';
+import { OsmError } from './osm-error';
+import { MapFileError } from '../custom-map/map-file-kind';
 
 const core = new OsmFrameCore({ store: new OsmFrameStore(), decode: browserDecoder });
 
@@ -47,7 +49,10 @@ addEventListener('message', (event: MessageEvent<OsmWorkerRequest>) => {
         }
       }
     } catch (e) {
-      send({ id, kind: 'error', error: (e as Error).message ?? String(e) });
+      const error = (e as Error)?.message ?? String(e);
+      if (e instanceof OsmError) send({ id, kind: 'error', error, said: e.said });
+      else if (e instanceof MapFileError) send({ id, kind: 'error', error, fault: e.fault, problems: [...e.problems] });
+      else send({ id, kind: 'error', error });
     }
   })();
 });

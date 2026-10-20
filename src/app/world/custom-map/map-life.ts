@@ -9,6 +9,7 @@
  * listener's distance to it; the game's rules never read them.
  */
 import type { MapBirdSpecies, MapLife, MapLifeArea, MapLifeKind, MapPoint } from './map-document';
+import type { MapText, MapThing } from './map-text';
 
 export const LIFE_KINDS: readonly MapLifeKind[] = ['birds', 'fireflies', 'fog', 'leaves', 'embers', 'sparks', 'snow', 'dust', 'surf', 'haze', 'boats', 'movers', 'sound'];
 export const BIRD_SPECIES: readonly MapBirdSpecies[] = ['songbirds', 'gulls', 'crows', 'raptors', 'bats'];
@@ -71,59 +72,59 @@ export function areaShown(area: MapLifeArea, share: number): boolean {
 }
 
 /** Problems of a document's `life`, as the map file names them (empty when fine) */
-export function lifeProblems(life: unknown): string[] {
+export function lifeProblems(life: unknown): MapText[] {
   if (life === undefined) return [];
-  const p: string[] = [];
+  const p: MapText[] = [];
   const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
-  if (!life || typeof life !== 'object') return ['life is not an object'];
+  if (!life || typeof life !== 'object') return [{ key: 'notObject', v: { what: 'life' } }];
   const l = life as MapLife;
   if (l.auto !== undefined && (!l.auto || typeof l.auto !== 'object' || Object.values(l.auto).some((v) => typeof v !== 'boolean'))) {
-    p.push('life.auto must hold true or false switches');
+    p.push({ key: 'switches', v: { what: 'life.auto' } });
   }
   if (l.density !== undefined && (!finite(l.density) || l.density < LIFE_DENSITY.min || l.density > LIFE_DENSITY.max)) {
-    p.push(`life.density must be ${LIFE_DENSITY.min} to ${LIFE_DENSITY.max}`);
+    p.push({ key: 'range', v: { what: 'life.density', min: LIFE_DENSITY.min, max: LIFE_DENSITY.max } });
   }
-  if (l.flags !== undefined && typeof l.flags !== 'boolean') p.push('life.flags must be true or false');
+  if (l.flags !== undefined && typeof l.flags !== 'boolean') p.push({ key: 'bool', v: { what: 'life.flags' } });
   const amb = l.ambience;
   if (amb !== undefined && (!amb || typeof amb.sound !== 'string' || !finite(amb.volume) || amb.volume < 0 || amb.volume > 1)) {
-    p.push('life.ambience needs a sound and a volume 0 to 1');
+    p.push({ key: 'soundVolume', v: { what: 'life.ambience' } });
   }
   const ws = l.waveSound;
   if (ws !== undefined && (!ws || typeof ws.sound !== 'string' || !finite(ws.volume) || ws.volume < 0 || ws.volume > 1 || (ws.area !== undefined && typeof ws.area !== 'string'))) {
-    p.push('life.waveSound needs a sound, a volume 0 to 1 and, if it names one, the id of a life area');
+    p.push({ key: 'waveSound', v: { what: 'life.waveSound' } });
   }
   if (l.areas === undefined) return p;
-  if (!Array.isArray(l.areas) || l.areas.length > MAX_LIFE_AREAS) return [...p, `life.areas must be a list of at most ${MAX_LIFE_AREAS}`];
+  if (!Array.isArray(l.areas) || l.areas.length > MAX_LIFE_AREAS) return [...p, { key: 'listAtMost', v: { what: 'life.areas', max: MAX_LIFE_AREAS } }];
   const ids = new Set<string>();
   for (const a of l.areas) {
     if (!a || typeof a !== 'object') {
-      p.push('a life area is not an object');
+      p.push({ key: 'notObject', v: { what: { kind: 'lifeArea' } } });
       continue;
     }
-    const name = `life area ${a.id}`;
-    if (!a.id || typeof a.id !== 'string' || ids.has(a.id)) p.push(`life area id "${a.id}" is missing or twice`);
+    const of: MapThing = { kind: 'lifeArea', id: String(a.id) };
+    if (!a.id || typeof a.id !== 'string' || ids.has(a.id)) p.push({ key: 'idTwice', v: { kind: 'lifeArea', id: String(a.id) } });
     ids.add(a.id);
-    if (!LIFE_KINDS.includes(a.kind)) p.push(`${name}: kind ${String(a.kind)} is unknown`);
-    if (a.shape !== 'area' && a.shape !== 'route') p.push(`${name}: shape must be area or route`);
+    if (!LIFE_KINDS.includes(a.kind)) p.push({ key: 'unknown', v: { what: 'kind', value: String(a.kind) }, of });
+    if (a.shape !== 'area' && a.shape !== 'route') p.push({ key: 'oneOf', v: { what: 'shape', values: ['area', 'route'] }, of });
     const least = a.shape === 'area' ? 3 : 2;
     if (!Array.isArray(a.points) || a.points.length < least || a.points.length > MAX_LIFE_POINTS) {
-      p.push(`${name} needs ${least} to ${MAX_LIFE_POINTS} points`);
-    } else if (a.points.some((q) => !finite(q?.x) || !finite(q?.y))) p.push(`${name} has a bad point`);
+      p.push({ key: 'points', v: { what: of, min: least, max: MAX_LIFE_POINTS } });
+    } else if (a.points.some((q) => !finite(q?.x) || !finite(q?.y))) p.push({ key: 'badPoint', v: { what: of } });
     if (a.density !== undefined && (!finite(a.density) || a.density < LIFE_AREA_DENSITY.min || a.density > LIFE_AREA_DENSITY.max)) {
-      p.push(`${name}: density must be ${LIFE_AREA_DENSITY.min} to ${LIFE_AREA_DENSITY.max}`);
+      p.push({ key: 'range', v: { what: 'density', min: LIFE_AREA_DENSITY.min, max: LIFE_AREA_DENSITY.max }, of });
     }
-    if (a.height !== undefined && !finite(a.height)) p.push(`${name}: height is not a number`);
-    if (a.volume !== undefined && (!finite(a.volume) || a.volume < 0 || a.volume > 1)) p.push(`${name}: volume must be 0 to 1`);
+    if (a.height !== undefined && !finite(a.height)) p.push({ key: 'notNumber', v: { what: 'height' }, of });
+    if (a.volume !== undefined && (!finite(a.volume) || a.volume < 0 || a.volume > 1)) p.push({ key: 'range', v: { what: 'volume', min: 0, max: 1 }, of });
     if (a.reach !== undefined && (!finite(a.reach) || a.reach < LIFE_SOUND_REACH.min || a.reach > LIFE_SOUND_REACH.max)) {
-      p.push(`${name}: reach must be ${LIFE_SOUND_REACH.min} to ${LIFE_SOUND_REACH.max} metres`);
+      p.push({ key: 'range', v: { what: 'reach', min: LIFE_SOUND_REACH.min, max: LIFE_SOUND_REACH.max, unit: 'm' }, of });
     }
-    if (a.color !== undefined && !/^#[0-9a-f]{6}$/i.test(a.color)) p.push(`${name}: color must be #rrggbb`);
+    if (a.color !== undefined && !/^#[0-9a-f]{6}$/i.test(a.color)) p.push({ key: 'color', v: { what: 'color' }, of });
     for (const key of ['sound', 'asset'] as const) {
-      if (a[key] !== undefined && typeof a[key] !== 'string') p.push(`${name}: ${key} must be an id`);
+      if (a[key] !== undefined && typeof a[key] !== 'string') p.push({ key: 'id', v: { what: key }, of });
     }
-    if (a.quality !== undefined && a.quality !== 'medium' && a.quality !== 'high') p.push(`${name}: quality must be medium or high`);
-    if (a.species !== undefined && !BIRD_SPECIES.includes(a.species)) p.push(`${name}: species must be ${BIRD_SPECIES.join(', ')}`);
-    if (a.speed !== undefined && (!finite(a.speed) || a.speed <= 0 || a.speed > 30)) p.push(`${name}: speed must be above 0 and at most 30`);
+    if (a.quality !== undefined && a.quality !== 'medium' && a.quality !== 'high') p.push({ key: 'oneOf', v: { what: 'quality', values: ['medium', 'high'] }, of });
+    if (a.species !== undefined && !BIRD_SPECIES.includes(a.species)) p.push({ key: 'oneOf', v: { what: 'species', values: BIRD_SPECIES }, of });
+    if (a.speed !== undefined && (!finite(a.speed) || a.speed <= 0 || a.speed > 30)) p.push({ key: 'aboveZeroAtMost', v: { what: 'speed', max: 30 }, of });
   }
   return p;
 }

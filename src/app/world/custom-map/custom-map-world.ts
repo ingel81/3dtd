@@ -42,6 +42,8 @@ import { sceneToMap } from './render/map-coords';
 import { emptyPose, introPoseAt } from './map-intro';
 import { massRadius } from './object-mass';
 import { CUSTOM_MAP_CAPABILITIES, keepOpenedMap, type LoadedCustomMap } from './custom-map-start';
+import { MapStoreError } from './map-file-kind';
+import type { Messages } from '../../i18n/messages/en';
 
 /**
  * Roads the map draws itself into its ground: the debug street overlay and
@@ -57,9 +59,6 @@ export const CUSTOM_MAP_STREET_STYLE: StreetStyle = {
   carryOffStreet: false,
 };
 
-/** The credit line's note on the assets a custom map is drawn with (public/maps/assets/LICENSES.md) */
-export const CUSTOM_MAP_ASSET_CREDIT = 'Assets: CC0, see licences';
-
 /** Metres the map's own intro flight keeps above the ground under the camera */
 const INTRO_GROUND_CLEARANCE = 3;
 
@@ -72,7 +71,7 @@ const INTRO_GROUND_CLEARANCE = 3;
 export async function openCustomMap(ref: WorldRef & { kind: 'custom-map' }, store: MapStore = new MapStore()): Promise<LoadedCustomMap> {
   const { doc, summary, repaired } = await store.load(ref.mapId);
   if (ref.contentHash && summary.contentHash && ref.contentHash !== summary.contentHash) {
-    throw new Error(`the map "${doc.meta.name}" here is not the one this run was played on`);
+    throw new MapStoreError({ key: 'notThisRun', v: { name: doc.meta.name } });
   }
   const loaded = { doc, contentHash: summary.contentHash, ...(repaired?.length ? { repaired } : {}) };
   keepOpenedMap(ref.mapId, loaded);
@@ -453,10 +452,10 @@ export class CustomMapWorld implements WorldProvider {
   }
 
   /** The map with its author, the data it was made of (an OSM world's: OpenStreetMap, the heights), and the licence of the assets it is drawn with */
-  attribution(): string[] {
+  attribution(t: Messages): string[] {
     const { name, author, source } = this.doc.meta;
     const data = source?.kind === 'osm' ? source.attribution : [];
-    return [author ? `${name} by ${author}` : name, ...data, CUSTOM_MAP_ASSET_CREDIT];
+    return [author ? t.hud.world.mapBy(name, author) : name, ...data, t.hud.world.assetCredit];
   }
 
   onFirstGround(callback: () => void): void {

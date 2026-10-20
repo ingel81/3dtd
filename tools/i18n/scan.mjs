@@ -16,7 +16,7 @@ import { parseTemplate } from '@angular/compiler';
 
 /** Areas in the order their rules are tried; the first match wins */
 export const AREAS = [
-  { id: 'dev', label: 'Entwickler (Debug, Benchmark, Bots, Showreel)', test: (p) => /^(benchmark|bots|showreel|devworld\/(?!.*menu))|services\/debug|components\/(debug-window|engine-test|info-overlay)|^tools\//.test(p) },
+  { id: 'dev', label: 'Entwickler (Debug, Benchmark, Bots, Showreel)', test: (p) => /^(benchmark|bots|showreel|devworld\/(?!.*menu))|services\/debug|components\/(debug-window|engine-test|info-overlay)|^tools\/|^world\/custom-map\/(preview\/|demo-map|perf-map)/.test(p) },
   { id: 'agent', label: 'Agenten-API (Werkzeugbeschreibungen für KI-Agenten)', test: (p) => /^editor\/agent\/|agent-mcp/.test(p) },
   { id: 'onboarding', label: 'Tutorial und Onboarding', test: (p) => /services\/onboarding|components\/(context-hint|intro-skip)|editor\/ui\/shell\/(tour|level-guide)|upgrade-hint|camo-hint/.test(p) },
   { id: 'editor', label: 'Editor', test: (p) => /^editor\//.test(p) },
@@ -47,7 +47,9 @@ export function isProse(raw, single) {
   if (text.length < 2 || !/[A-Za-z]{2,}/.test(text)) return false;
   if (/^(https?:|data:|blob:|\.{0,2}\/|#[0-9a-f]{3,8}$|[\w./-]+\.(ts|js|mjs|json|glb|gltf|png|jpe?g|webp|ktx2|svg|mp3|ogg|wav|html|css|scss|md|3dtdmap|bin|f32|zip)$)/i.test(text)) return false;
   if (/^\s*<|<\/?[a-z][a-z0-9-]*[ >]/i.test(text)) return false;
-  if (/(gl_|vec[234]\b|uniform |varying |#include|#define|void main)/.test(text)) return false;
+  if (/(gl_|vec[234]\b|mat[234]\b|uniform |varying |#include|#define|#ifdef|void main|\bfloat\s+\w+\s*[=(;]|diffuseColor)/.test(text)) return false;
+  // A canvas font: "700 48px 'Barlow Semi Condensed'"
+  if (/^(\d{3}|bold|normal|italic)\s+\d+px\s/.test(text)) return false;
   // An Overpass query
   if (/\[out:json\]/.test(text)) return false;
   if (/(^|[;{]\s*)[a-z-]+\s*:\s*[^ ]+;|var\(--|rgba?\(|\b\d+(px|rem|em|vh|vw|ms|deg)\b.*\b\d+(px|rem|em|vh|vw|ms|deg)\b/.test(text)) return false;
@@ -264,7 +266,7 @@ const UNGUARDED = new Set(['dev', 'agent']);
  * text the scan finds there fails the guard unless tools/i18n/allowed.mjs
  * names it with why. An area joins once its texts are in the dictionary.
  */
-export const CLOSED_AREAS = new Set(['menus', 'dialogs', 'coop']);
+export const CLOSED_AREAS = new Set(['menus', 'dialogs', 'coop', 'mapops']);
 
 /** Texts by file, sorted and unique, of the areas `keep` lets through */
 function textsBy(root, keep) {

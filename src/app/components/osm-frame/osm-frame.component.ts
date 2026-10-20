@@ -9,13 +9,16 @@ import { buildingCatalog } from '../../world/osm/convert/buildings';
 import { assetCosts } from '../../world/osm/convert/vegetation';
 import { OSM_SPAWNS, OSM_WORLD_SIDE, osmMapNames, type OsmImportReport } from '../../world/osm/import-osm';
 import type { FrameLandmark, FrameSpawn, GeoPoint, OsmFrameInfo, OsmOpenRequest } from '../../world/osm/osm-frame-core';
-import { loadingRows, makingView, reduceProgress, type OsmLoadRow, type OsmProgress, type OsmProgressState, type OsmStepStatus } from '../../world/osm/osm-progress';
+import { loadingRows, makingView, reduceProgress, type OsmDetail, type OsmLoadRow, type OsmProgress, type OsmProgressState, type OsmStepStatus } from '../../world/osm/osm-progress';
 import { fitArea, OSM_HQ_EDGE_M, OSM_MIN_SIDE, sameArea, type OsmArea } from '../../world/osm/osm-area';
 import { OSM_CANCELLED, OsmFrameSession } from '../../world/osm/osm-frame-session';
 import { overpassRetryText, type OverpassRetry } from '../../world/osm/overpass-client';
 import { OsmFrameMap } from './osm-frame-map';
 import type { OsmFramePlace } from './osm-frame-request';
 import { injectT } from '../../i18n/i18n.service';
+import { say } from '../../i18n/said';
+import { osmErrorMessage } from '../../world/osm/osm-error';
+import type { ImportNote } from '../../world/import-notes';
 
 /** Makes the frame's line to the OSM worker; a spec hands in one on the calling thread */
 export const OSM_FRAME_SESSION = new InjectionToken<() => OsmFrameSession>('OSM_FRAME_SESSION', {
@@ -215,11 +218,11 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       if (before) {
         // The square goes back: the worker keeps what was laid out before (OsmFrameSession.open)
         this.phase.set('ready');
-        this.error.set(message === OSM_CANCELLED ? null : this.t().osm.squareFailed(message));
+        this.error.set(message === OSM_CANCELLED ? null : this.t().osm.squareFailed(osmErrorMessage(this.t(), e)));
         this.redraw();
       } else {
         this.phase.set('failed');
-        this.error.set(message === OSM_CANCELLED ? this.t().osm.cancelled : message);
+        this.error.set(message === OSM_CANCELLED ? this.t().osm.cancelled : osmErrorMessage(this.t(), e));
       }
     } finally {
       if (gen === this.loadGen) {
@@ -267,7 +270,17 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   /** What a row of the load says beside its words; the OpenStreetMap row counts the wait while no byte came */
   rowDetail(row: OsmLoadRow): string {
     if (row.step === 'overpass' && row.status === 'active' && !row.detail) return this.retry() ? this.t().osm.busyAsking : this.t().osm.asking(this.waited());
-    return row.detail ?? (row.status === 'done' ? this.t().osm.rowDone : '');
+    return row.detail ? this.detail(row.detail) : row.status === 'done' ? this.t().osm.rowDone : '';
+  }
+
+  /** What the making says it could not take over, in the player's language */
+  noteText(note: ImportNote): string {
+    return say(this.t().importNotes, note);
+  }
+
+  /** What a step says beside its words, in the player's language */
+  detail(detail: OsmDetail): string {
+    return say(this.t().osm.detail, detail);
   }
 
   /** The flat map, MapLibre loaded on first use */
@@ -291,7 +304,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       this.map = map;
       this.redraw();
     } catch (e) {
-      this.mapProblem.set(this.t().osm.mapFailed((e as Error).message));
+      this.mapProblem.set(this.t().osm.mapFailed(osmErrorMessage(this.t(), e)));
     }
   }
 
@@ -350,14 +363,14 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     try {
       const dropped = await this.session.drop(at);
       if ('reason' in dropped) {
-        this.dropNote.set(this.t().osm.dropped(dropped.reason));
+        this.dropNote.set(this.t().osm.dropped(this.t().osm.dropReasons[dropped.reason]));
       } else {
         this.dropNote.set(null);
         this.spawns.update((list) => list.map((s, k) => (k === index ? dropped : s)));
         this.selected.set(index);
       }
     } catch (e) {
-      this.dropNote.set((e as Error).message);
+      this.dropNote.set(osmErrorMessage(this.t(), e));
     } finally {
       this.busy.set(false);
       this.redraw();
@@ -399,7 +412,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       this.spawns.set(await work());
       this.selected.set(null);
     } catch (e) {
-      this.dropNote.set((e as Error).message);
+      this.dropNote.set(osmErrorMessage(this.t(), e));
     } finally {
       this.busy.set(false);
       this.redraw();
@@ -445,7 +458,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       if (this.destroyed) return;
       this.phase.set('ready');
       const message = (e as Error).message;
-      this.error.set(message === OSM_CANCELLED ? null : this.t().osm.notMade(message));
+      this.error.set(message === OSM_CANCELLED ? null : this.t().osm.notMade(osmErrorMessage(this.t(), e)));
     } finally {
       this.making = null;
       this.stopTicker();

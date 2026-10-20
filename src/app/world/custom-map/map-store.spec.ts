@@ -2,6 +2,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { createMapDocument } from './map-create';
 import { contentHash, mapFileMeta, packMapFile } from './map-file';
 import { MapStore, MapStoreError, MemoryMapBackend, TRASH_DAYS, type ShippedMapIndex } from './map-store';
+import { rejectionWords } from './testing/map-words';
 
 function shippedFetch(index: ShippedMapIndex, files: Record<string, Uint8Array>) {
   const calls: string[] = [];
@@ -136,7 +137,7 @@ describe('MapStore', () => {
     expect(mapFileMeta(back.file)?.id).toBe('valley-2');
     expect(back.summary).toMatchObject({ id: 'valley-2', origin: 'own', contentHash: '' });
     expect(back.summary.trash).toBeUndefined();
-    await expect(store.load('valley-2')).rejects.toThrow(/HQ has no position/);
+    expect(await rejectionWords(store.load('valley-2'))).toMatch(/HQ has no position/);
   });
 
   it('replaces a map that no longer opens with a read file, keeping its creation time', async () => {

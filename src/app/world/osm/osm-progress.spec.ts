@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadingRows, makingView, reduceProgress, thinProgress, PROGRESS_EVERY_MS, OSM_MAKE_STEPS, OSM_STEPS, type OsmProgress, type OsmProgressState } from './osm-progress';
+import { say } from '../../i18n/said';
+import { en } from '../../i18n/messages/en';
 
 /** The events of the making and the load as the worker sends them, added up and drawn (E218) */
 describe('OSM world progress', () => {
@@ -25,7 +27,7 @@ describe('OSM world progress', () => {
     expect(view.stages.map((s) => `${s.id} ${s.status}`)).toEqual([
       'data done', 'terrain done', 'streets done', 'water done', 'ground active', 'layout waiting', 'buildings waiting', 'trees waiting', 'bake waiting',
     ]);
-    expect(view.current).toEqual({ text: 'Levelling the ground under the streets', detail: null });
+    expect(view.current).toEqual({ step: 'level', detail: null });
     expect(view.index).toBe(5);
     expect(view.share).toBeGreaterThan(0.1);
     expect(view.share).toBeLessThan(0.5);
@@ -37,14 +39,14 @@ describe('OSM world progress', () => {
   it('the downloads side by side end each on its own and say what came', () => {
     const state = add([
       { step: 'stored' },
-      { step: 'stored', state: 'done', detail: 'nothing kept yet' },
+      { step: 'stored', state: 'done', detail: { key: 'nothingKept' } },
       { step: 'overpass' },
       { step: 'heights' },
-      { step: 'heights', share: 0.5, detail: '3 of 6 tiles' },
-      { step: 'overpass', detail: '2.1 MB received' },
-      { step: 'heights', state: 'failed', detail: 'none came, the ground will be flat' },
+      { step: 'heights', share: 0.5, detail: { key: 'tiles', v: { done: 3, of: 6 } } },
+      { step: 'overpass', detail: { key: 'received', v: { chars: 2.1e6 } } },
+      { step: 'heights', state: 'failed', detail: { key: 'noHeights' } },
     ]);
-    expect(loadingRows(state).map((r) => `${r.step} ${r.status} ${r.detail}`)).toEqual([
+    expect(loadingRows(state).map((r) => `${r.step} ${r.status} ${r.detail ? say(en.osm.detail, r.detail) : ''}`)).toEqual([
       'stored done nothing kept yet',
       'overpass active 2.1 MB received',
       'heights failed none came, the ground will be flat',
@@ -56,13 +58,13 @@ describe('OSM world progress', () => {
     const sent: OsmProgress[] = [];
     const send = thinProgress((e) => sent.push(e), () => t);
     send({ step: 'overpass' });
-    send({ step: 'overpass', detail: '1 MB' });
+    send({ step: 'overpass', detail: { key: 'size', v: { chars: 1e6 } } });
     t += PROGRESS_EVERY_MS - 1;
-    send({ step: 'overpass', detail: '2 MB' });
+    send({ step: 'overpass', detail: { key: 'size', v: { chars: 2e6 } } });
     send({ step: 'heights' });
     t += 1;
-    send({ step: 'overpass', detail: '3 MB' });
-    send({ step: 'overpass', state: 'done', detail: '3.2 MB' });
-    expect(sent.map((e) => `${e.step} ${e.state ?? ''} ${e.detail ?? ''}`.trim())).toEqual(['overpass', 'heights', 'overpass  3 MB', 'overpass done 3.2 MB']);
+    send({ step: 'overpass', detail: { key: 'size', v: { chars: 3e6 } } });
+    send({ step: 'overpass', state: 'done', detail: { key: 'size', v: { chars: 3.2e6 } } });
+    expect(sent.map((e) => `${e.step} ${e.state ?? ''} ${e.detail ? say(en.osm.detail, e.detail) : ''}`.trim())).toEqual(['overpass', 'heights', 'overpass  3.0 MB', 'overpass done 3.2 MB']);
   });
 });

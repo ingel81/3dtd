@@ -777,7 +777,7 @@ export class GameLoopFacadeService {
           fps: engine.renderLoop.getFPS(),
           tileStats: engine.getTileStats(),
           soundCounts: engine.spatialAudio.getSoundCounts(),
-          attribution: engine.getAttributions(),
+          attribution: engine.getAttributions(this.t()),
           cameraHeading: this.cameraControl.getCameraHeading(),
           cameraDebugInfo: this.cameraControl.getCameraDebugInfo(),
         });

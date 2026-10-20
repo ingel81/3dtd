@@ -13,6 +13,7 @@ import { type PathingMap, parseWpm } from './formats/wpm';
 import { type W3UnitType, parseW3u } from './formats/w3u';
 import { type WtsTable, parseWts } from './formats/wts';
 import { MpqArchive } from './mpq';
+import type { ImportNote } from '../import-notes';
 
 export interface MapScript {
   language: 'jass' | 'lua';
@@ -31,7 +32,7 @@ export interface W3xMapFiles {
   /** The map's changed and custom unit types (war3map.w3u), empty without */
   unitTypes: Map<string, W3UnitType>;
   script: MapScript | null;
-  warnings: string[];
+  warnings: ImportNote[];
 }
 
 const SCRIPT_FILES: [string, MapScript['language']][] = [
@@ -43,12 +44,12 @@ const SCRIPT_FILES: [string, MapScript['language']][] = [
 
 export function readW3xFiles(bytes: Uint8Array): W3xMapFiles {
   const mpq = new MpqArchive(bytes);
-  const warnings = mpq.notes.map((n) => `archive: ${n}`);
+  const warnings = mpq.notes.map((detail): ImportNote => ({ key: 'archive', v: { detail } }));
   const read = (name: string): Uint8Array | null => {
     try {
       return mpq.read(name);
     } catch (e) {
-      warnings.push(`${name}: ${(e as Error).message}`);
+      warnings.push({ key: 'file', v: { name, detail: (e as Error).message } });
       return null;
     }
   };
@@ -58,7 +59,7 @@ export function readW3xFiles(bytes: Uint8Array): W3xMapFiles {
     try {
       return fn(b);
     } catch (e) {
-      warnings.push(`${name}: ${(e as Error).message}`);
+      warnings.push({ key: 'file', v: { name, detail: (e as Error).message } });
       return null;
     }
   };
@@ -68,7 +69,7 @@ export function readW3xFiles(bytes: Uint8Array): W3xMapFiles {
   const terrain = parseW3e(terrainBytes);
   const strings = parse('war3map.wts', parseWts);
   const info = parse('war3map.w3i', (b) => parseW3i(b, strings));
-  if (!info) warnings.push('war3map.w3i missing: no playable area, name or fog');
+  if (!info) warnings.push({ key: 'noInfo' });
   const reforged = isReforged(info);
   const doodads = parse('war3map.doo', (b) => parseDoo(b, reforged));
   const units = parse('war3mapUnits.doo', (b) => parseUnits(b, reforged)) ?? [];
@@ -86,7 +87,7 @@ export function readW3xFiles(bytes: Uint8Array): W3xMapFiles {
       break;
     }
   }
-  if (!script) warnings.push('no map script found: routes come from the terrain only');
+  if (!script) warnings.push({ key: 'noScript' });
 
   return { info, strings, terrain, doodads, units, regions, pathing, unitTypes, script, warnings };
 }

@@ -15,7 +15,7 @@
       @for (row of loadRows(); track row.step) {
         <li class="of-step" [class.is-done]="row.status === 'done'" [class.is-active]="row.status === 'active'" [class.is-failed]="row.status === 'failed'">
           <span class="of-mark" aria-hidden="true">{{ mark(row.status) }}</span>
-          <span class="td-trunc">{{ row.text }}</span>
+          <span class="td-trunc">{{ w.steps[row.step] }}</span>
           <span class="td-num of-detail">{{ rowDetail(row) }}</span>
           <span class="td-sr-only">{{ w.rowState[row.status === 'done' || row.status === 'active' || row.status === 'failed' ? row.status : 'waiting'] }}</span>
         </li>
@@ -118,7 +118,7 @@
     <div class="td-stack" role="status" data-test="osm-making">
       @if (makingNow(); as m) {
         <div class="of-making-head">
-          <span class="td-text td-trunc" aria-live="polite">{{ m.current?.text ?? w.starting }}@if (m.current?.detail; as detail) {<span class="td-note">, {{ detail }}</span>}</span>
+          <span class="td-text td-trunc" aria-live="polite">{{ m.current ? w.steps[m.current.step] : w.starting }}@if (m.current?.detail; as detail) {<span class="td-note">, {{ this.detail(detail) }}</span>}</span>
           <span class="td-figure">{{ percent() }}%</span>
         </div>
         <div class="td-progress" role="progressbar" [attr.aria-label]="w.making" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="percent()">
@@ -128,7 +128,7 @@
           @for (stage of m.stages; track stage.id) {
             <li class="of-step" [class.is-done]="stage.status === 'done'" [class.is-active]="stage.status === 'active'" [class.is-failed]="stage.status === 'failed'">
               <span class="of-mark" aria-hidden="true">{{ mark(stage.status) }}</span>
-              <span>{{ stage.label }}</span>
+              <span>{{ w.stageNames[stage.id] }}</span>
             </li>
           }
         </ol>
@@ -146,8 +146,8 @@
         <p class="td-text"><b>{{ m.summary.name }}</b>{{ context() === 'menu' ? w.madeMenu(reportLine(m.report)) : w.madeEditor(reportLine(m.report)) }}</p>
         @if (m.report.warnings.length) {
           <ul class="td-stack of-warnings">
-            @for (w of m.report.warnings; track w) {
-              <li class="td-note is-warn">{{ w }}</li>
+            @for (note of m.report.warnings; track $index) {
+              <li class="td-note is-warn">{{ noteText(note) }}</li>
             }
           </ul>
         }

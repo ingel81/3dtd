@@ -20,6 +20,7 @@ import { mapRepairs } from '../custom-map/map-repair';
 import { massTriangles } from '../custom-map/object-mass';
 import { en } from '../../i18n/messages/en';
 import { checkText } from '../../map-ops/validation/check-text';
+import { noteWords } from '../testing/note-words';
 
 const catalog = JSON.parse(readFileSync(join(__dirname, '../../../../public/maps/assets/catalog.json'), 'utf8'));
 
@@ -43,7 +44,7 @@ describe('OSM world (frozen probe Miltenberg)', () => {
     expect(errors.map((e) => checkText(en, e.text))).toEqual([]);
     expect(doc.meta.source).toMatchObject({ kind: 'osm', address: 'Miltenberg', sideM: 1200, dem: 'mapterhorn', zeroM: report.terrain.zeroM });
     expect(doc.meta.id).toBe('osm-miltenberg');
-    expect(report.warnings.filter((w) => w.startsWith('heights'))).toEqual([]);
+    expect(noteWords(report.warnings).filter((w) => w.startsWith('heights'))).toEqual([]);
   });
 
   it('lays the real streets as one network over node ids, with the bridges over the Main and the ground at its heights', () => {
@@ -111,7 +112,7 @@ describe('OSM world (frozen probe Miltenberg)', () => {
     const input = probe();
     const { report } = convertOsm({ ...input, overpass: { elements: input.overpass.elements.filter((e) => !e.tags?.['building']) } }, options);
     expect(report.buildings.objects).toBe(0);
-    expect(report.warnings.some((w) => w.startsWith('buildings: no asset catalogue'))).toBe(true);
+    expect(noteWords(report.warnings).some((w) => w.startsWith('buildings: no asset catalogue'))).toBe(true);
   });
 
   it('keeps the plants off the footprints, within their own share of the scene budget', () => {

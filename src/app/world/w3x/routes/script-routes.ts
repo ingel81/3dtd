@@ -16,6 +16,7 @@ import type { W3Region } from '../formats/w3r';
 import { JassEvaluator, type LocValue, type RectValue } from '../jass/jass-evaluator';
 import { parseScript } from '../jass/script-program';
 import type { MapScript } from '../map-files';
+import type { ImportNote } from '../../import-notes';
 import {
   LEAK_ACTION,
   type RawRoutes,
@@ -102,7 +103,7 @@ export function routesFromPatterns(script: MapScript, regions: W3Region[]): RawR
 
 export interface EvaluationResult {
   raw: RawRoutes;
-  warnings: string[];
+  warnings: ImportNote[];
   orders: number;
 }
 
@@ -113,8 +114,8 @@ export function routesFromEvaluation(script: MapScript, mapRegions: W3Region[]):
   const ev = new JassEvaluator(program);
   ev.runInit();
   ev.collectOrders();
-  const warnings = [...program.warnings.slice(0, 5), ...ev.warnings];
-  if (program.warnings.length > 5) warnings.push(`script: ${program.warnings.length - 5} more parse warnings`);
+  const warnings: ImportNote[] = [...program.warnings.slice(0, 5).map((detail): ImportNote => ({ key: 'parse', v: { detail } })), ...ev.warnings];
+  if (program.warnings.length > 5) warnings.push({ key: 'moreParse', v: { count: program.warnings.length - 5 } });
   const bodies = functionBodies(script.text);
 
   const byVar = new Map(regions.map((r) => [r.variable, r]));

@@ -6,6 +6,8 @@ import { OsmFrameCore, type FrameSpawn } from './osm-frame-core';
 import { frameKey, MemoryFrameBackend, OSM_FRAMES_KEPT, OsmFrameStore } from './osm-frame-store';
 import { OsmFrameSession } from './osm-frame-session';
 import { OsmFrame } from './osm-parse';
+import { osmErrorMessage } from './osm-error';
+import { en } from '../../i18n/messages/en';
 
 const NOTHING_FETCHED: OsmDownloadStats = { stored: true, osmMs: 0, osmChars: 0, osmRequests: 0, demMs: 0, demTiles: 0, demBytes: 0 };
 
@@ -45,7 +47,7 @@ describe('OSM world frame (frozen probe Miltenberg)', () => {
     const dropped = core.drop(off) as FrameSpawn;
     expect('reason' in dropped).toBe(false);
     expect(dropped.routeM).toBeGreaterThan(0);
-    expect(core.drop(frame.hq!)).toEqual({ reason: 'Too close to the HQ' });
+    expect(core.drop(frame.hq!)).toEqual({ reason: 'near-hq' });
     expect(core.drop(geo.geo({ x: 595, y: 0 }))).toMatchObject({ reason: expect.stringMatching(/edge|street/) });
   });
 
@@ -147,7 +149,7 @@ describe('OSM frame store', () => {
   });
 
   it('says in a sentence why no map came when the OSM servers do not answer', () => {
-    expect(overpassFailure('overpass-api.de: HTTP 429; overpass.private.coffee: HTTP 429; 4 tries')).toMatch(/too many requests/);
-    expect(overpassFailure('overpass-api.de: HTTP 502; 4 tries')).toMatch(/did not answer \(overpass-api.de: HTTP 502; 4 tries\).*try again/);
+    expect(osmErrorMessage(en, overpassFailure('overpass-api.de: HTTP 429; overpass.private.coffee: HTTP 429; 4 tries'))).toMatch(/too many requests/);
+    expect(osmErrorMessage(en, overpassFailure('overpass-api.de: HTTP 502; 4 tries'))).toMatch(/did not answer \(overpass-api.de: HTTP 502; 4 tries\).*try again/);
   });
 });

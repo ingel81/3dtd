@@ -28,6 +28,8 @@ import type { OsmProgress } from './osm-progress';
 import type { LaidSpawn } from './convert/layout';
 import { areaWithin, OSM_HQ_EDGE_M, type OsmArea } from './osm-area';
 import type { LandmarkKind } from './convert/anchors';
+import { OsmError } from './osm-error';
+import type { SpawnDropReason } from './convert/layout';
 
 /** A point on the earth */
 export interface GeoPoint {
@@ -140,7 +142,7 @@ export class OsmFrameCore {
     }
     onProgress?.({ step: 'streets' });
     const info = this.lay(place, area, request.count, request.spawnsAt ?? [], request.topUp ?? false, request.searched);
-    onProgress?.({ step: 'streets', state: 'done', detail: `${info.roads.roadKm} km of road, ${info.spawns.length} ${info.spawns.length === 1 ? 'spawn' : 'spawns'}` });
+    onProgress?.({ step: 'streets', state: 'done', detail: { key: 'streets', v: { roadKm: info.roads.roadKm, spawns: info.spawns.length } } });
     return info;
   }
 
@@ -203,7 +205,7 @@ export class OsmFrameCore {
   }
 
   /** A spawn dropped at `p`, on its street, or why it may not stand there */
-  drop(p: GeoPoint): FrameSpawn | { reason: string } {
+  drop(p: GeoPoint): FrameSpawn | { reason: SpawnDropReason } {
     const { layout, frame } = this.opened();
     const laid = layout.at(frame.point(p));
     return 'reason' in laid ? laid : this.geo(laid);
@@ -212,7 +214,7 @@ export class OsmFrameCore {
   /** The map with the spawns at `spawnsAt`, packed, with its content hash and sketch (the page only stores them) */
   async make(spawnsAt: readonly GeoPoint[], options: OsmImportOptions, onProgress?: (progress: OsmProgress) => void): Promise<OsmMade> {
     const input = this.input;
-    if (!input) throw new Error('The place is not loaded');
+    if (!input) throw new OsmError({ key: 'notLoaded' });
     const start = performance.now();
     onProgress?.({ step: 'parse' });
     const result = convertOsm(input, { ...options, sideM: this.area?.sideM ?? options.sideM, spawnsAt: [...spawnsAt] }, (step) => onProgress?.({ step }), (step, share) => onProgress?.({ step, share }));
@@ -220,13 +222,13 @@ export class OsmFrameCore {
     // The store gives a map its identity at the first save; the file packed here carries it already
     result.doc.meta.uid = newMapUid();
     const file = packMapFile(result.doc);
-    onProgress?.({ step: 'pack', share: 0.8, detail: 'its picture and fingerprint' });
+    onProgress?.({ step: 'pack', share: 0.8, detail: { key: 'picture' } });
     const [hash, preview] = await Promise.all([contentHash(result.doc), sketchMapPicture(result.doc).catch(() => null)]);
     return { ...result, file, hash, preview, convertMs: Math.round(performance.now() - start) };
   }
 
   private opened(): OsmStreets {
-    if (!this.streets) throw new Error('The place is not loaded');
+    if (!this.streets) throw new OsmError({ key: 'notLoaded' });
     return this.streets;
   }
 

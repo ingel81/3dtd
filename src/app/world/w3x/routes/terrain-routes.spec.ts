@@ -8,6 +8,7 @@ import { playableBounds, readW3xFiles } from '../map-files';
 import { extractRoutes } from './extract-routes';
 import { buildRouteGraph, routeLengths } from './route-graph';
 import { routesFromTerrain, thin } from './terrain-routes';
+import { noteWords } from '../../testing/note-words';
 
 const TEST_MAP = findTestMap(existsSync);
 
@@ -75,7 +76,7 @@ describe('terrain routes', () => {
     const result = routesFromTerrain({ mask: laneGrid(), regions })!;
     const g = buildRouteGraph(result.raw, 'terrain')!;
     expect(g.spawns.length).toBe(2);
-    expect(result.warnings.join()).toMatch(/lane ends/);
+    expect(noteWords(result.warnings).join()).toMatch(/lane ends/);
   });
 
   it('gives up without an end region', () => {

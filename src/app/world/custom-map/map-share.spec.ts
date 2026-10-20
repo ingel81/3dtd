@@ -1,7 +1,14 @@
 import { createMapDocument } from './map-create';
 import { contentHash, packMapFile } from './map-file';
 import { MapStore, MemoryMapBackend } from './map-store';
-import { hasMapHere, storeSharedMap } from './map-share';
+import { hasMapHere, sharedMapText, storeSharedMap } from './map-share';
+import { en } from '../../i18n/messages/en';
+
+/** What storeSharedMap says, in English; null when it kept the map */
+async function saidOf(...args: Parameters<typeof storeSharedMap>): Promise<string | null> {
+  const refusal = await storeSharedMap(...args);
+  return refusal ? sharedMapText(en, refusal) : null;
+}
 
 describe('storeSharedMap (coop with a custom map)', () => {
   const doc = (name = 'Valley') => createMapDocument({ id: 'valley', name, width: 32, depth: 32, now: new Date(0) });
@@ -17,10 +24,10 @@ describe('storeSharedMap (coop with a custom map)', () => {
     const store = emptyStore();
     const map = doc();
     const hash = await contentHash(map);
-    expect(await storeSharedMap(packMapFile(map), { mapId: 'valley', hash }, store)).toBeNull();
+    expect(await saidOf(packMapFile(map), { mapId: 'valley', hash }, store)).toBeNull();
     expect((await store.load('valley')).summary).toMatchObject({ origin: 'shared', contentHash: hash });
     // Here already: nothing to do
-    expect(await storeSharedMap(packMapFile(map), { mapId: 'valley', hash }, store)).toBeNull();
+    expect(await saidOf(packMapFile(map), { mapId: 'valley', hash }, store)).toBeNull();
   });
 
   it('knows a map is here when the same content is stored, not for another version of it', async () => {
@@ -37,30 +44,30 @@ describe('storeSharedMap (coop with a custom map)', () => {
     const store = emptyStore();
     const map = doc();
     const hash = await contentHash(map);
-    expect(await storeSharedMap(new Uint8Array([1, 2, 3]), { mapId: 'valley', hash }, store)).toContain('did not arrive whole');
-    expect(await storeSharedMap(packMapFile(map), { mapId: 'valley', hash: 'other' }, store)).toContain('as the host has it');
+    expect(await saidOf(new Uint8Array([1, 2, 3]), { mapId: 'valley', hash }, store)).toContain('did not arrive whole');
+    expect(await saidOf(packMapFile(map), { mapId: 'valley', hash: 'other' }, store)).toContain('as the host has it');
 
     const mine = doc('Mine');
     mine.terrain.grid.heights[0] = 5;
     await store.save(mine);
-    expect(await storeSharedMap(packMapFile(map), { mapId: 'valley', hash }, store)).toContain('map of your own called "Mine"');
+    expect(await saidOf(packMapFile(map), { mapId: 'valley', hash }, store)).toContain('map of your own called "Mine"');
     expect((await store.load('valley')).doc.meta.name).toBe('Mine');
   });
 
   it("takes the host's next version of a map it shared, but never hides a shipped map", async () => {
     const store = emptyStore();
     const first = doc();
-    expect(await storeSharedMap(packMapFile(first), { mapId: 'valley', hash: await contentHash(first) }, store)).toBeNull();
+    expect(await saidOf(packMapFile(first), { mapId: 'valley', hash: await contentHash(first) }, store)).toBeNull();
     // The host changed the map and opened it again
     const second = doc('Valley v2');
     second.terrain.grid.heights[0] = 3;
     const hash = await contentHash(second);
-    expect(await storeSharedMap(packMapFile(second), { mapId: 'valley', hash }, store)).toBeNull();
+    expect(await saidOf(packMapFile(second), { mapId: 'valley', hash }, store)).toBeNull();
     expect((await store.load('valley')).summary).toMatchObject({ origin: 'shared', contentHash: hash, name: 'Valley v2' });
 
     // A changed copy under a shipped id would hide the shipped map for good
     const shipped = emptyStore(new MemoryMapBackend(), ['valley']);
-    const said = await storeSharedMap(packMapFile(second), { mapId: 'valley', hash }, shipped);
+    const said = await saidOf(packMapFile(second), { mapId: 'valley', hash }, shipped);
     expect(said).toContain('changed copy of the shipped map');
     expect(await shipped.listOwn()).toEqual([]);
   });
@@ -69,7 +76,7 @@ describe('storeSharedMap (coop with a custom map)', () => {
     const backend = new MemoryMapBackend();
     backend.put = () => Promise.reject(new Error('QuotaExceededError'));
     const map = doc();
-    const said = await storeSharedMap(packMapFile(map), { mapId: 'valley', hash: await contentHash(map) }, emptyStore(backend));
+    const said = await saidOf(packMapFile(map), { mapId: 'valley', hash: await contentHash(map) }, emptyStore(backend));
     expect(said).toContain('could not be kept here (QuotaExceededError)');
   });
 });

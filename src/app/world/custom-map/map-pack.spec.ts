@@ -2,6 +2,7 @@ import { createMapDocument } from './map-create';
 import { contentHash, packMapFile, unpackMapFile } from './map-file';
 import { MapFileError } from './map-file-kind';
 import { fingerprint, packErrorReply, packForSave, packOffThread, packReplyError } from './map-pack';
+import { rejectionWords, words } from './testing/map-words';
 
 describe('packOffThread', () => {
   it('packs the map as packMapFile does and fingerprints the bytes (inline without workers)', async () => {
@@ -17,7 +18,7 @@ describe('packOffThread', () => {
   it('rejects a map that could not be saved, as packMapFile throws', async () => {
     const doc = createMapDocument({ id: 'm', name: 'M', width: 256, depth: 256, cellSize: 2, starter: true, now: new Date(0) });
     doc.terrain.grid.heights = new Float32Array(3);
-    await expect(packOffThread(doc)).rejects.toThrow(/not valid/);
+    expect(await rejectionWords(packOffThread(doc))).toMatch(/not valid/);
   });
 
   it('keeps the problems of an invalid map across the edge of the worker', async () => {
@@ -27,7 +28,7 @@ describe('packOffThread', () => {
     // What the worker posts goes through a structured clone
     const error = packReplyError(structuredClone(packErrorReply(thrown)));
     expect(error).toBeInstanceOf(MapFileError);
-    expect((error as MapFileError).problems).toEqual(['the HQ has no position']);
+    expect(words((error as MapFileError).problems)).toEqual(['the HQ has no position']);
     expect(packReplyError(packErrorReply(new Error('boom')))).not.toBeInstanceOf(MapFileError);
   });
 });

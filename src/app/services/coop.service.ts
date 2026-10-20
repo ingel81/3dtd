@@ -53,7 +53,7 @@ import { WorldContext } from '../world/world-context.service';
 import { WORLD_URL_PARAM, worldUrlValue, worldsMatch, type WorldRef } from '../world/world-ref';
 import { packageWorldRef } from '../coop/world-package';
 import { MapAssembler, PacedMapSend, splitMapFile, type MapPart } from '../coop/map-transfer';
-import { hasMapHere, packMapOffThread, storeSharedMap } from '../world/custom-map/map-share';
+import { hasMapHere, packMapOffThread, sharedMapText, storeSharedMap } from '../world/custom-map/map-share';
 import { openedCustomMap } from '../world/custom-map/custom-map-start';
 import type { Messages } from '../i18n/messages/en';
 
@@ -85,6 +85,7 @@ import { PLAIN_START, WorldStartService, type WorldStart } from '../world/world-
 import { WorldSession } from '../world/world-session.service';
 import { CoopRoomCarry, type CarriedRoom } from '../coop/coop-room-carry';
 import { pageSwitches } from '../core/page-switches';
+import { mapErrorMessage } from '../world/custom-map/map-text';
 
 /** A mark on the map one player set for all (review R13) */
 export interface CoopPing {
@@ -1354,7 +1355,7 @@ export class CoopService {
         // Not sent: the next share tries again, packing anew
         if (this.sentMapKey === key) this.sentMapKey = null;
         if (this.packedMap === packing) this.packedMap = null;
-        this.notify(this.w().mapNotPacked((e as Error).message), 'warn');
+        this.notify(this.w().mapNotPacked(mapErrorMessage(this.i18n.t(), e)), 'warn');
         return null;
       },
     );
@@ -1425,7 +1426,8 @@ export class CoopService {
     const generation = this.generation;
     // Whatever goes wrong is said: the guest would wait on 'loading-world' for good
     const problem = await storeSharedMap(bytes, { mapId: piece.mapId, hash: piece.hash })
-      .catch((error: unknown) => this.w().mapNotKept(error instanceof Error ? error.message : String(error)));
+      .then((refusal) => (refusal ? sharedMapText(this.i18n.t(), refusal) : null))
+      .catch((error: unknown) => this.w().mapNotKept(mapErrorMessage(this.i18n.t(), error)));
     if (generation !== this.generation) return;
     if (problem) {
       this.ngZone.run(() => this.error.set(problem));

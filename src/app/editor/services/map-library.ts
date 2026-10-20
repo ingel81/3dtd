@@ -10,12 +10,14 @@ import { MAP_FILE_EXTENSION } from '../../world/custom-map/map-file-kind';
 import { unpackOffThread } from '../../world/custom-map/map-unpack';
 import { slugMapId } from '../../world/custom-map/map-create';
 import { repairedMapText } from '../../world/custom-map/map-repair';
+import type { MapProblem } from '../../world/custom-map/map-text';
 import { MapStore, type LoadedMap, type MapSummary } from '../../world/custom-map/map-store';
 import { whileMapFree } from '../model/map-lock';
 import { StampLibrary, type SavedStamp } from '../model/stamp-store';
 import { VersionHistory } from '../model/version-store';
 import { DEFAULT_W3X_OPTIONS, loadW3xImporter, type W3xImportOptions, type W3xImportReport } from '../import/w3x-seam';
 import type { EditorNotices } from './editor-notices';
+import { mapErrorMessage } from '../../world/custom-map/map-text';
 
 export interface ImportState {
   file: string;
@@ -125,7 +127,7 @@ export class MapLibrary {
         }
         return (await this.store.importDocument(loaded)).doc.meta.id;
       } catch (e) {
-        this.notices.error.set(`${name}: ${(e as Error).message}`);
+        this.notices.error.set(`${name}: ${mapErrorMessage(this.notices.t(), e)}`);
         return null;
       }
     }
@@ -171,7 +173,7 @@ export class MapLibrary {
       match.done?.(id);
       return id;
     } catch (e) {
-      this.notices.error.set(`${match.file}: ${(e as Error).message}`);
+      this.notices.error.set(`${match.file}: ${mapErrorMessage(this.notices.t(), e)}`);
       return null;
     }
   }
@@ -200,7 +202,7 @@ export class MapLibrary {
     };
     this.importState.set(state);
     try {
-      const importer = await loadW3xImporter();
+      const importer = await loadW3xImporter(() => this.notices.t());
       const { doc, report } = await importer(await file.arrayBuffer(), state.options, abort.signal);
       if (abort.signal.aborted) return null;
       doc.meta.id = await this.store.freeId(slugMapId(doc.meta.name || file.name.replace(/\.w3[xm]$/i, '')));
@@ -216,7 +218,7 @@ export class MapLibrary {
       done(doc.meta.id);
       return doc.meta.id;
     } catch (e) {
-      if (!abort.signal.aborted) this.importState.set({ ...state, error: (e as Error).message });
+      if (!abort.signal.aborted) this.importState.set({ ...state, error: mapErrorMessage(this.notices.t(), e) });
       return null;
     } finally {
       if (this.importAbort === abort) this.importAbort = null;
@@ -224,7 +226,7 @@ export class MapLibrary {
   }
 
   /** What the file carried that the game does not take was set right or left out as it opened: the banner says which (map-repair.ts) */
-  sayRepaired(name: string, repaired: readonly string[] | undefined): void {
+  sayRepaired(name: string, repaired: readonly MapProblem[] | undefined): void {
     if (!repaired?.length) return;
     this.notices.error.set(this.notices.t().editor.session.repairedKept(repairedMapText(this.notices.t(), name, repaired)));
   }

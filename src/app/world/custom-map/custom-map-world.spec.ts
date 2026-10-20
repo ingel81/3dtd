@@ -6,7 +6,8 @@ import { CustomMapFrame, CustomMapSurface } from './custom-map-surface';
 import { CustomMapStreets } from './custom-map-streets';
 import { MapGroundPick } from './custom-map-ground-pick';
 import { GroundPickRoot } from '../../three-engine/ground-pick-root';
-import { CUSTOM_MAP_ASSET_CREDIT, CustomMapWorld, openCustomMap } from './custom-map-world';
+import { CustomMapWorld, openCustomMap } from './custom-map-world';
+import { en } from '../../i18n/messages/en';
 import { customMapSpawnLimit, customMapStartWave, openedCustomMap } from './custom-map-start';
 import { runStartAt } from '../../sim/protocol/run-start';
 import { RUN_PLAN_RULES } from '../../director/sources/budget/run-plan';
@@ -16,6 +17,7 @@ import { FALLEN_SCALE } from './custom-map-destruction';
 import { type CustomMapDocument, mapToGeo } from './map-document';
 import { MapStore, MemoryMapBackend } from './map-store';
 import { BUILD_BLOCKED_OBJECT, BUILD_BLOCKED_WATER } from '../world-provider';
+import { rejectionWords, words } from './testing/map-words';
 
 /**
  * 200 x 100 m, 2 m cells, ground rising 0.1 m per metre to the east, a
@@ -319,7 +321,7 @@ describe('CustomMapWorld', () => {
     expect(layout.spawns.map((s) => s.name)).toEqual(['Spawn 1', 'Spawn 2', 'Spawn 3']);
     expect(world.ref).toEqual({ kind: 'custom-map', mapId: 'test-map', contentHash: 'abc', name: 'Test Map' });
     // The credit line: the map (with its author where it has one) and the assets' licence, no Google, no OSM
-    expect(world.attribution()).toEqual([expect.stringContaining('Test Map'), CUSTOM_MAP_ASSET_CREDIT]);
+    expect(world.attribution(en)).toEqual([expect.stringContaining('Test Map'), en.hud.world.assetCredit]);
     expect(world.capabilities).toMatchObject({ realPlace: false, credentials: false, ecef: false, streaming: false, destructible: false });
   });
 
@@ -328,7 +330,7 @@ describe('CustomMapWorld', () => {
     const attribution = ['Map data © OpenStreetMap contributors', 'Heights: Mapterhorn (mapterhorn.com) and its sources'];
     doc.meta.source = { kind: 'osm', lat: 49.7, lon: 9.26, address: 'Miltenberg', sideM: 2400, fetchedAt: '2026-10-15T00:00:00Z', dem: 'mapterhorn', zeroM: 120, attribution };
     const world = new CustomMapWorld({ doc, contentHash: 'abc' }, hqOrigin(doc), 3);
-    expect(world.attribution()).toEqual([expect.stringContaining('Test Map'), ...attribution, CUSTOM_MAP_ASSET_CREDIT]);
+    expect(world.attribution(en)).toEqual([expect.stringContaining('Test Map'), ...attribution, en.hud.world.assetCredit]);
   });
 
   it('opens the lanes the player picks before wave 1: the start layout has them, each in its colour slot (TODO E130)', () => {
@@ -630,8 +632,8 @@ describe('CustomMapWorld', () => {
     const loaded = await openCustomMap(ref, store);
     expect(loaded.contentHash).toBe(summary.contentHash);
     expect(openedCustomMap(ref)?.doc.meta.name).toBe('Test Map');
-    await expect(openCustomMap({ ...ref, mapId: 'nope' }, store)).rejects.toThrow(/no map "nope"/);
-    await expect(openCustomMap({ ...ref, contentHash: 'other' }, store)).rejects.toThrow(/not the one this run was played on/);
+    expect(await rejectionWords(openCustomMap({ ...ref, mapId: 'nope' }, store))).toMatch(/no map "nope"/);
+    expect(await rejectionWords(openCustomMap({ ...ref, contentHash: 'other' }, store))).toMatch(/not the one this run was played on/);
 
     // Only the last map opened is kept: a page plays one
     const other = testMap();
@@ -647,7 +649,7 @@ describe('CustomMapWorld', () => {
     odd.environment.biome = 'ocean' as never;
     await store.save(odd);
     const read = await openCustomMap({ kind: 'custom-map', mapId: 'odd-map', contentHash: '' }, store);
-    expect(read.repaired).toEqual(['environment biome ocean is unknown; the map looks temperate']);
+    expect(words(read.repaired ?? [])).toEqual(['environment biome ocean is unknown; the map looks temperate']);
     expect(read.doc.environment.biome).toBeUndefined();
   });
 });

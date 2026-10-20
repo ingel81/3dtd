@@ -11,6 +11,7 @@
 import type { W3Region } from '../formats/w3r';
 import type { LaneMask } from './lane-mask';
 import { END_WORDS, type RawRoutes, SPAWN_WORDS, emptyRaw, regionNode } from './route-graph';
+import type { ImportNote } from '../../import-notes';
 
 /** Thins a binary raster in place to a one-pixel wide skeleton */
 export function thin(data: Uint8Array, w: number, h: number): void {
@@ -193,7 +194,7 @@ export interface TerrainRouteInput {
 
 export interface TerrainRoutes {
   raw: RawRoutes;
-  warnings: string[];
+  warnings: ImportNote[];
 }
 
 const DIRECTION_WORDS = /left|right|down|\bup\b|walk|wlk|\bto\b/i;
@@ -204,7 +205,7 @@ export function routesFromTerrain(input: TerrainRouteInput): TerrainRoutes | nul
   const h = m.height;
   const sk = m.data.slice();
   thin(sk, w, h);
-  const warnings: string[] = [];
+  const warnings: ImportNote[] = [];
   const raw = emptyRaw();
   const snapPx = Math.ceil(1024 / m.cell);
 
@@ -256,7 +257,7 @@ export function routesFromTerrain(input: TerrainRouteInput): TerrainRoutes | nul
       raw.spawnHints.add(id);
       starts.push({ px, id });
     });
-    if (chosen.length) warnings.push(`routes: no spawn regions, ${chosen.length} spawns placed at lane ends`);
+    if (chosen.length) warnings.push({ key: 'laneEnds', v: { count: chosen.length } });
   }
   if (starts.length === 0) return null;
 

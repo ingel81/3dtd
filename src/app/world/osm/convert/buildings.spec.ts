@@ -9,6 +9,7 @@ import { seatHeight } from '../../custom-map/render/objects/object-seat';
 import { buildingKind, BUILDING_MODELS } from '../building-tags';
 import { OsmFrame, type OsmArea, type OsmFeatures } from '../osm-parse';
 import { fitModels, minAreaRect, placeBuildings, splitFootprint, type BuildingCatalogEntry } from './buildings';
+import { noteWords } from '../../testing/note-words';
 
 /** A nursing home's outline and courtyard as OSM maps such buildings (mirrored), metres east and north of its middle */
 const HOME_OUTER = [
@@ -261,7 +262,7 @@ describe('OSM buildings: placing', () => {
     const { report, warnings } = placeBuildings(world(areas).doc, features, { catalog, budget: one * 0.6 });
     expect(report.dropped.budget).toBeGreaterThan(0);
     expect(report.cost).toBeLessThanOrEqual(one * 0.6);
-    expect(warnings.some((w) => w.includes('scene cost'))).toBe(true);
+    expect(noteWords(warnings).some((w) => w.includes('scene cost'))).toBe(true);
     expect(placeBuildings(world(areas).doc, features, { catalog }).report.dropped.budget).toBe(0);
   });
 });

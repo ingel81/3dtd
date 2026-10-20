@@ -2,6 +2,8 @@ import { packOffThread } from './map-pack';
 import type { CustomMapDocument } from './map-document';
 import { MapStore } from './map-store';
 import { unpackOffThread, type UnpackedFile } from './map-unpack';
+import { mapErrorMessage } from './map-text';
+import type { Messages } from '../../i18n/messages/en';
 
 /**
  * A custom map handed from one player to another (coop: the host sends the
@@ -35,37 +37,53 @@ export async function hasMapHere(expected: { mapId: string; hash: string }, stor
  * as it is, an earlier shared version is replaced (the host changed the
  * map), an own map of that id with other content is never overwritten, nor
  * is a shipped one hidden. Returns why it was not kept (a storage that
- * fails included), null when the map is here now.
+ * fails included), null when the map is here now; `sharedMapText` words it.
  */
 export async function storeSharedMap(
   bytes: Uint8Array,
   expected: { mapId: string; hash: string },
   store: MapStore = new MapStore(),
-): Promise<string | null> {
+): Promise<SharedMapRefusal | null> {
   let unpacked: UnpackedFile;
   try {
     unpacked = await unpackOffThread(bytes, { hash: true });
   } catch (error) {
-    return `The host's map did not arrive whole (${error instanceof Error ? error.message : String(error)}).`;
+    return { kind: 'not-whole', error };
   }
   const { doc, preview, contentHash: hash } = unpacked;
   try {
     if (doc.meta.id !== expected.mapId || hash !== expected.hash) {
-      return 'The host\'s map did not arrive as the host has it.';
+      return { kind: 'differs' };
     }
     const here = await store.load(expected.mapId).catch(() => null);
     if (here?.summary.contentHash === expected.hash) return null;
     if (here?.summary.origin === 'own') {
-      return `You have a map of your own called "${here.doc.meta.name}" under the same id (${expected.mapId}). `
-        + 'Rename or remove it in the editor to join this room.';
+      return { kind: 'own-same-id', name: here.doc.meta.name, id: expected.mapId };
     }
     if (here?.summary.origin === 'shipped' || (await store.isShipped(expected.mapId))) {
-      return `The host plays a changed copy of the shipped map "${doc.meta.name}" under its id (${expected.mapId}). `
-        + 'The host can save it under another name in the editor and open the room again.';
+      return { kind: 'shipped-changed', name: doc.meta.name, id: expected.mapId };
     }
     await store.saveShared(doc, preview, bytes, hash);
     return null;
   } catch (error) {
-    return `The host's map could not be kept here (${error instanceof Error ? error.message : String(error)}).`;
+    return { kind: 'not-kept', error };
+  }
+}
+
+/** Why a map another player sent was not kept (storeSharedMap) */
+export type SharedMapRefusal =
+  | { kind: 'not-whole' | 'not-kept'; error: unknown }
+  | { kind: 'differs' }
+  | { kind: 'own-same-id' | 'shipped-changed'; name: string; id: string };
+
+/** The refusal in the language of `t` */
+export function sharedMapText(t: Messages, refusal: SharedMapRefusal): string {
+  const w = t.coop.notes;
+  switch (refusal.kind) {
+    case 'not-whole': return w.mapNotWhole(mapErrorMessage(t, refusal.error));
+    case 'not-kept': return w.mapNotKept(mapErrorMessage(t, refusal.error));
+    case 'differs': return w.mapDiffers;
+    case 'own-same-id': return w.mapOwnSameId(refusal.name, refusal.id);
+    case 'shipped-changed': return w.mapShippedChanged(refusal.name, refusal.id);
   }
 }

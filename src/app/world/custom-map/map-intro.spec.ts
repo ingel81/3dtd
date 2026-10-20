@@ -3,6 +3,7 @@ import { createMapDocument } from './map-create';
 import type { MapIntro, MapIntroView } from './map-document';
 import { contentHash, packMapFile, unpackMapFile, validateMapDocument } from './map-file';
 import { emptyPose, introPoseAt, introProblems } from './map-intro';
+import { words } from './testing/map-words';
 
 const view = (x: number, y: number, h: number): MapIntroView => ({ x, y, h, lookX: 0, lookY: 0, lookH: 0 });
 const hq = { x: 10, y: -20, h: 5 };
@@ -42,12 +43,12 @@ describe('map intro flight', () => {
   });
 
   it('names what is wrong', () => {
-    expect(introProblems(undefined)).toEqual([]);
-    expect(introProblems({ kind: 'orbit', seconds: 10, radius: 100, height: 30, angle: 1 })).toEqual([]);
-    expect(introProblems({ kind: 'spin', seconds: 10 })).toEqual(['intro.kind must be path or orbit']);
-    expect(introProblems({ kind: 'path', seconds: 1, views: [] })).toHaveLength(2);
-    expect(introProblems({ kind: 'path', seconds: 10, views: [{ x: 1 }] })).toEqual(['every intro view needs x, y, h, lookX, lookY and lookH']);
-    expect(introProblems({ kind: 'orbit', seconds: 10, radius: 1, height: 30, angle: 0, sweep: 5 })).toHaveLength(2);
+    expect(words(introProblems(undefined))).toEqual([]);
+    expect(words(introProblems({ kind: 'orbit', seconds: 10, radius: 100, height: 30, angle: 1 }))).toEqual([]);
+    expect(words(introProblems({ kind: 'spin', seconds: 10 }))).toEqual(['intro.kind must be path or orbit']);
+    expect(words(introProblems({ kind: 'path', seconds: 1, views: [] }))).toHaveLength(2);
+    expect(words(introProblems({ kind: 'path', seconds: 10, views: [{ x: 1 }] }))).toEqual(['every entry of intro.views needs x, y, h, lookX, lookY and lookH']);
+    expect(words(introProblems({ kind: 'orbit', seconds: 10, radius: 1, height: 30, angle: 0, sweep: 5 }))).toHaveLength(2);
   });
 
   it('travels in the map file; a map without it keeps its file and hash', async () => {
@@ -58,16 +59,16 @@ describe('map intro flight', () => {
     expect(await contentHash(plain)).toBe(before);
 
     doc.intro = { kind: 'orbit', seconds: 12, radius: 200, height: 60, angle: 0.5 };
-    expect(validateMapDocument(doc)).toEqual([]);
+    expect(words(validateMapDocument(doc))).toEqual([]);
     const back = unpackMapFile(packMapFile(doc)).doc;
     expect(back.intro).toEqual(doc.intro);
     expect(await contentHash(back)).not.toBe(before);
 
     // A broken flight is left out as the file is read: the game flies its own
     doc.intro = { kind: 'orbit', seconds: 0, radius: 200, height: 60, angle: 0.5 };
-    expect(validateMapDocument(doc)).toEqual([]);
+    expect(words(validateMapDocument(doc))).toEqual([]);
     const read = unpackMapFile(packMapFile(doc));
-    expect(read.repaired).toEqual(["intro.seconds must be 3 to 60; the map's intro flight is left out, the game flies its own"]);
+    expect(words(read.repaired)).toEqual(["intro.seconds must be 3 to 60; the map's intro flight is left out, the game flies its own"]);
     expect('intro' in read.doc).toBe(false);
   });
 });

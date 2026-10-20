@@ -18,6 +18,7 @@ import {
   objectShape,
 } from './object-mass';
 import { PlacedRoof, roofHeights } from './object-roof';
+import { wordsOf } from './testing/map-words';
 
 /** A block of 40 x 30 m round a courtyard of 20 x 10 m, flat roof */
 const court: MapMass = {
@@ -89,19 +90,19 @@ describe('raised buildings: what the rules read of one', () => {
   });
 
   it('finds what is wrong with a building in a map file', () => {
-    expect(massProblem(court)).toBeNull();
-    expect(massProblem(null)).toMatch(/not an object/);
-    expect(massProblem({ ...court, rings: [] })).toMatch(/no outline/);
-    expect(massProblem({ ...court, rings: [[0, 0, 1, 1]] })).toMatch(/broken ring/);
-    expect(massProblem({ ...court, rings: [[0, 0, 1, 0, Number.NaN, 1]] })).toMatch(/broken ring/);
-    expect(massProblem({ ...court, height: 0 })).toMatch(/height/);
-    expect(massProblem({ ...court, floors: 0 })).toMatch(/storeys/);
-    expect(massProblem({ ...court, roof: 'dome' })).toMatch(/roof/);
-    expect(massProblem({ ...court, facade: 'glass' })).toMatch(/facade/);
-    expect(massProblem({ ...court, ridge: -1 })).toMatch(/ridge/);
-    expect(massProblem({ ...court, shop: [0, 3] })).toBeNull();
-    expect(massProblem({ ...court, shop: [4] })).toMatch(/shop/);
-    expect(massProblem({ ...court, shop: 'all' })).toMatch(/shop/);
+    expect(wordsOf(massProblem(court))).toBeNull();
+    expect(wordsOf(massProblem(null))).toMatch(/not an object/);
+    expect(wordsOf(massProblem({ ...court, rings: [] }))).toMatch(/no outline/);
+    expect(wordsOf(massProblem({ ...court, rings: [[0, 0, 1, 1]] }))).toMatch(/broken ring/);
+    expect(wordsOf(massProblem({ ...court, rings: [[0, 0, 1, 0, Number.NaN, 1]] }))).toMatch(/broken ring/);
+    expect(wordsOf(massProblem({ ...court, height: 0 }))).toMatch(/height/);
+    expect(wordsOf(massProblem({ ...court, floors: 0 }))).toMatch(/storeys/);
+    expect(wordsOf(massProblem({ ...court, roof: 'dome' }))).toMatch(/roof/);
+    expect(wordsOf(massProblem({ ...court, facade: 'glass' }))).toMatch(/facade/);
+    expect(wordsOf(massProblem({ ...court, ridge: -1 }))).toMatch(/ridge/);
+    expect(wordsOf(massProblem({ ...court, shop: [0, 3] }))).toBeNull();
+    expect(wordsOf(massProblem({ ...court, shop: [4] }))).toMatch(/shop/);
+    expect(wordsOf(massProblem({ ...court, shop: 'all' }))).toMatch(/shop/);
   });
 });
 

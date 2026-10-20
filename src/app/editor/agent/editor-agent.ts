@@ -29,6 +29,8 @@ import { TERRAIN_PRESETS, type TerrainPreset } from '../../map-ops/generate';
 import { ALL_PARTS, capturePrefab, captureStamp, pasteStamp, type Stamp, type StampParts, type StampRect } from '../ops/stamp';
 import type { MapIssue } from '../../map-ops/validation/map-validation';
 import { strictMapProblems } from '../../world/custom-map/map-file';
+import { mapProblemText } from '../../world/custom-map/map-text';
+import { en } from '../../i18n/messages/en';
 import type { MapStore } from '../../world/custom-map/map-store';
 import { MAX_MAP_PREFABS, type CustomMapDocument, type MapObject } from '../../world/custom-map/map-document';
 import { catalogAsData, contentFingerprint, heightsIn, issuesAsData, mapDiff, mapSummary, objectsIn, type MapRect } from './agent-reads';
@@ -500,7 +502,7 @@ export class EditorAgent {
     const problems = strictMapProblems(editor.doc);
     if (problems.length) {
       this.host.undo();
-      throw new AgentError(`Not done, the map would not save: ${problems.slice(0, 3).join('; ')}`);
+      throw new AgentError(`Not done, the map would not save: ${problems.slice(0, 3).map((q) => mapProblemText(en, q)).join('; ')}`);
     }
   }
 

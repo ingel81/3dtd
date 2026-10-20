@@ -13,14 +13,15 @@ import { type MazePoint, routesFromMaze } from './maze-routes';
 import { type RawRoutes, type RouteGraph, type RouteStrategy, buildRouteGraph } from './route-graph';
 import { routesFromEvaluation, routesFromPatterns, scriptRegions } from './script-routes';
 import { routesFromTerrain } from './terrain-routes';
+import type { ImportNote } from '../../import-notes';
 
 export interface RouteExtraction {
   graph: RouteGraph | null;
   /** Every strategy tried, in order, with its outcome */
-  attempts: { strategy: RouteStrategy; result: string }[];
+  attempts: { strategy: RouteStrategy; result: ImportNote }[];
   /** Regions of the map plus those only the script defines */
   regions: W3Region[];
-  warnings: string[];
+  warnings: ImportNote[];
 }
 
 export interface RouteOptions {
@@ -30,7 +31,7 @@ export interface RouteOptions {
 
 export function extractRoutes(map: W3xMapFiles, bounds: Bounds, options: RouteOptions = {}): RouteExtraction {
   const attempts: RouteExtraction['attempts'] = [];
-  const warnings: string[] = [];
+  const warnings: ImportNote[] = [];
   const regions = [...map.regions];
   const known = new Set(regions.map((r) => r.variable));
   if (map.script) for (const r of scriptRegions(map.script.text)) if (!known.has(r.variable)) regions.push(r);
@@ -45,7 +46,7 @@ export function extractRoutes(map: W3xMapFiles, bounds: Bounds, options: RouteOp
     scriptRaws.push(raw);
     raw.endHints.forEach((h) => endHints.add(h));
     const g = buildRouteGraph(raw, 'script-pattern');
-    attempts.push({ strategy: 'script-pattern', result: g ? `${g.spawns.length} spawns` : `${raw.edges.length} orders, no route` });
+    attempts.push({ strategy: 'script-pattern', result: g ? { key: 'routeSpawns', v: { spawns: g.spawns.length } } : { key: 'routeNone', v: { orders: raw.edges.length } } });
     if (g) return done(g);
   }
   if (map.script && want('script-eval')) {
@@ -56,20 +57,20 @@ export function extractRoutes(map: W3xMapFiles, bounds: Bounds, options: RouteOp
       ev.raw.endHints.forEach((h) => endHints.add(h));
       for (const n of ev.raw.nodes.values()) if (n.region && !regions.includes(n.region)) regions.push(n.region);
       const g = buildRouteGraph(ev.raw, 'script-eval');
-      attempts.push({ strategy: 'script-eval', result: g ? `${g.spawns.length} spawns from ${ev.orders} orders` : `${ev.orders} orders, no route` });
+      attempts.push({ strategy: 'script-eval', result: g ? { key: 'routeOrders', v: { spawns: g.spawns.length, orders: ev.orders } } : { key: 'routeNone', v: { orders: ev.orders } } });
       if (g) return done(g);
     } catch (e) {
-      attempts.push({ strategy: 'script-eval', result: `failed: ${(e as Error).message}` });
+      attempts.push({ strategy: 'script-eval', result: { key: 'routeFailed', v: { detail: (e as Error).message } } });
     }
   }
   if (want('terrain')) {
     const mask = buildLaneMask(map.pathing, map.terrain, bounds);
     if (!mask) {
-      attempts.push({ strategy: 'terrain', result: 'no lane mask (no pathing map or no lane-like ground)' });
+      attempts.push({ strategy: 'terrain', result: { key: 'routeNoMask' } });
     } else {
       const t = routesFromTerrain({ mask, regions, endHints });
       const g = t ? buildRouteGraph(t.raw, 'terrain') : null;
-      attempts.push({ strategy: 'terrain', result: g ? `${g.spawns.length} spawns on ${mask.source} lanes` : `no route on ${mask.source} lanes` });
+      attempts.push({ strategy: 'terrain', result: g ? { key: 'routeLanes', v: { spawns: g.spawns.length, source: mask.source } } : { key: 'routeNoLane', v: { source: mask.source } } });
       if (g) {
         warnings.push(...t!.warnings);
         return done(g);
@@ -79,10 +80,10 @@ export function extractRoutes(map: W3xMapFiles, bounds: Bounds, options: RouteOp
   if (want('maze')) {
     const mask = buildWalkMask(map.pathing, map.terrain, bounds);
     if (!mask) {
-      attempts.push({ strategy: 'maze', result: 'no walkable ground (no pathing map)' });
+      attempts.push({ strategy: 'maze', result: { key: 'routeNoGround' } });
     } else {
       const { spawns, ends, circling } = scriptPoints(scriptRaws);
-      if (circling) warnings.push('routes: the script sends creeps round in circles (a circuit TD), no way of it ends');
+      if (circling) warnings.push({ key: 'circuit' });
       const t = routesFromMaze({
         mask,
         regions,
@@ -91,9 +92,9 @@ export function extractRoutes(map: W3xMapFiles, bounds: Bounds, options: RouteOp
         center: { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 },
       });
       const g = t ? buildRouteGraph(t.raw, 'maze') : null;
-      attempts.push({ strategy: 'maze', result: g ? `${g.spawns.length} spawns over open ground` : 'no walkable way from a spawn to an end' });
+      attempts.push({ strategy: 'maze', result: g ? { key: 'routeOpen', v: { spawns: g.spawns.length } } : { key: 'routeNoWay' } });
       if (g) {
-        warnings.push('routes: no fixed lanes; the ways are the shortest over walkable ground (maze), check them in the editor');
+        warnings.push({ key: 'maze' });
         warnings.push(...t!.warnings);
         return done(g);
       }

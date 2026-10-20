@@ -17,6 +17,7 @@ const mapFile = () => import('./map-file');
 import { unpackOffThread } from './map-unpack';
 import { newMapUid, slugMapId } from './map-create';
 import { summarize } from './map-summary';
+import type { MapProblem } from './map-text';
 
 /**
  * Where a map came from: made or imported here ('own'), shipped with the
@@ -71,7 +72,7 @@ export interface LoadedMap {
   summary: MapSummary;
   preview: Uint8Array | null;
   /** What reading set right (UnpackedMap.repaired); the summary's hash is the corrected map's */
-  repaired?: string[];
+  repaired?: MapProblem[];
 }
 
 /** The storage the store needs; IndexedDB in the browser, a Map in tests */
@@ -119,9 +120,9 @@ export interface ShippedMapIndex {
   maps: ShippedMapEntry[];
 }
 
-export class MapStoreError extends Error {
-  override name = 'MapStoreError';
-}
+import { MapStoreError } from './map-file-kind';
+
+export { MapStoreError };
 
 export interface MapStoreOptions {
   backend?: MapStorageBackend;
@@ -180,10 +181,10 @@ export class MapStore {
    */
   async trash(id: string, now = new Date()): Promise<string> {
     const stored = await this.backend.get(id);
-    if (!stored || stored.summary.origin !== 'own') throw new MapStoreError(`There is no own map "${id}" to delete.`);
+    if (!stored || stored.summary.origin !== 'own') throw new MapStoreError({ key: 'noOwnToDelete', v: { id } });
     // Only the date the map was made, read without the full check: a map that no longer opens can still go
     const created = (await mapFile()).mapFileMeta(stored.file)?.createdAt;
-    if (typeof created !== 'string') throw new MapStoreError(`The map "${id}" is not readable; it cannot go to the trash.`);
+    if (typeof created !== 'string') throw new MapStoreError({ key: 'unreadableTrash', v: { id } });
     const key = `${TRASH_PREFIX}${now.getTime()}-${id}`;
     const summary: MapSummary = { ...stored.summary, id: key, origin: 'trashed', trash: { from: id, at: now.toISOString(), created } };
     await this.backend.put({ summary, file: stored.file, preview: stored.preview });
@@ -194,12 +195,12 @@ export class MapStore {
   /** Puts a map from the trash back among the own maps, under its id or a free one when that is taken; returns the id */
   async restoreFromTrash(key: string): Promise<string> {
     const stored = await this.backend.get(key);
-    if (!stored?.summary.trash) throw new MapStoreError('That map is no longer in the trash.');
+    if (!stored?.summary.trash) throw new MapStoreError({ key: 'notInTrash' });
     const { trash, ...summary } = stored.summary;
     const id = await this.freeId(trash.from, key);
     // The file comes back as it went, not read through the full check: a map that no longer opens comes back too
     const file = id === trash.from ? stored.file : (await mapFile()).withMapFileMeta(stored.file, { id });
-    if (!file) throw new MapStoreError(`The map "${summary.name}" is not readable; it cannot come back.`);
+    if (!file) throw new MapStoreError({ key: 'unreadableBack', v: { name: summary.name } });
     // Under another id the content hash is another (it covers the id): loading works it out
     await this.backend.put({ summary: { ...summary, id, origin: 'own', ...(id === trash.from ? {} : { contentHash: '' }) }, file, preview: stored.preview });
     await this.backend.delete(key);
@@ -246,14 +247,14 @@ export class MapStore {
         const summary = hash ? { ...own.summary, contentHash: hash } : own.summary;
         return { doc, summary, preview: own.preview ?? preview, ...(repaired.length ? { repaired } : {}) };
       }
-      if (origin === 'own') throw new MapStoreError(`There is no own map "${id}" in this browser; it may have been deleted.`);
+      if (origin === 'own') throw new MapStoreError({ key: 'ownGone', v: { id } });
     }
     const entry = (await this.readIndex()).find((e) => e.id === id);
-    if (!entry) throw new MapStoreError(`There is no map "${id}" in this browser; it may have been deleted.`);
+    if (!entry) throw new MapStoreError({ key: 'gone', v: { id } });
     // Named with its content: the cache keeps each version of the map apart
     const version = entry.contentHash ? `?v=${encodeURIComponent(entry.contentHash)}` : '';
     const response = await this.fetcher(this.url(`maps/${entry.file}${version}`));
-    if (!response.ok) throw new MapStoreError(`The map "${entry.name}" did not load (${response.status}).`);
+    if (!response.ok) throw new MapStoreError({ key: 'didNotLoad', v: { name: entry.name, status: response.status } });
     const { doc, preview, contentHash: hash } = await unpackOffThread(new Uint8Array(await response.arrayBuffer()), { hash: true, transfer: true });
     return { doc, summary: { ...summarize(doc, 'shipped', hash) }, preview };
   }
@@ -338,7 +339,7 @@ export class MapStore {
    */
   async replaceWith(id: string, { doc, preview }: Pick<LoadedMap, 'doc' | 'preview'>): Promise<{ before: Uint8Array; created: string }> {
     const stored = await this.backend.get(id);
-    if (!stored || stored.summary.origin !== 'own') throw new MapStoreError(`There is no own map "${id}" to replace.`);
+    if (!stored || stored.summary.origin !== 'own') throw new MapStoreError({ key: 'noOwnToReplace', v: { id } });
     // Identity and creation time read without the full check: a map that no longer opens can still be replaced
     const old = (await mapFile()).mapFileMeta(stored.file);
     const created = typeof old?.createdAt === 'string' ? old.createdAt : doc.meta.createdAt;
@@ -537,7 +538,7 @@ export class IndexedDbMapBackend implements MapStorageBackend {
   private open(): Promise<IDBDatabase> {
     this.db ??= new Promise((resolve, reject) => {
       if (typeof indexedDB === 'undefined') {
-        reject(new MapStoreError('This browser keeps no maps (IndexedDB is off).'));
+        reject(new MapStoreError({ key: 'noStorage' }));
         return;
       }
       const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -548,7 +549,7 @@ export class IndexedDbMapBackend implements MapStorageBackend {
         if (!db.objectStoreNames.contains(PREVIEWS)) db.createObjectStore(PREVIEWS, { keyPath: 'id' });
       };
       req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error ?? new MapStoreError('The map storage did not open.'));
+      req.onerror = () => reject(req.error ?? new MapStoreError({ key: 'notOpened' }));
     });
     return this.db;
   }
@@ -565,6 +566,6 @@ function done(tx: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error ?? new MapStoreError('The map was not saved.'));
+    tx.onabort = () => reject(tx.error ?? new MapStoreError({ key: 'notSaved' }));
   });
 }

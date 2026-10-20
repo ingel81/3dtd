@@ -456,7 +456,7 @@ export class ObjectTool implements EditorTool {
         return says.hintErase;
       case 'line': {
         const kit = wallKitOf(s.asset);
-        if (kit) return s.line.follow === 'roads' ? says.hintKitRoads(kit.name) : says.hintKitLine(kit.name);
+        if (kit) return s.line.follow === 'roads' ? says.hintKitRoads(ctx.t().editor.wallKits[kit.id]) : says.hintKitLine(ctx.t().editor.wallKits[kit.id]);
         return s.line.follow === 'roads' ? says.hintLineRoads : says.hintLine;
       }
       case 'select':
@@ -507,7 +507,7 @@ export class ObjectTool implements EditorTool {
     }
     const images = objectImages(own, symmetryImages(ctx.settings.symmetry(), t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
     const entry = ctx.catalog.object(s.asset!);
-    const label = ctx.t().editor.objectTool.alongLine(kit ? kit.name : ctx.catalog.object(s.asset!).name);
+    const label = ctx.t().editor.objectTool.alongLine(kit ? ctx.t().editor.wallKits[kit.id] : ctx.catalog.object(s.asset!).name);
     const ground = levelForBuildings(doc, label, [...own, ...images], entry);
     const placed = [...own, ...images].map((o) => setDown(t, o, rockShape(entry), s.alignToSlope && !entry.float, entry.radius));
     ctx.editor.execute(withGround(label, ground, ObjectsCommand.add(label, doc, placed)));

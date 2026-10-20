@@ -42,9 +42,17 @@ import type { WorldPackageRefusal } from '../../coop/world-package';
 import type { GlobePhase } from '../../services/world/globe-director.service';
 import { gold, teal, tip, type FieldTip } from '../../components/main-menu/loading/field-tips';
 import type { WhyNot } from '../../world/why-not';
+import type { MapFilePart, MapRef, MapThing, MapThingKind, MapUnit } from '../../world/custom-map/map-text';
 import { bold as b, formatters } from '../format';
+import type { OsmStage, OsmStep } from '../../world/osm/osm-progress';
+import type { SpawnDropReason } from '../../world/osm/convert/layout';
+import type { MapSurfaceMarkingKind } from '../../world/custom-map/map-document';
+import type { WallKitId } from '../../map-ops/object-ops';
 
 const f = formatters('en');
+
+/** A size of data: "4.8 MB", "640 kB" */
+const sizeWords = (chars: number) => (chars >= 1e6 ? `${f.fixed(chars / 1e6, 1)} MB` : `${f.int(Math.max(1, Math.round(chars / 1e3)))} kB`);
 
 /** Dates as the menus show them, made once per language: a save slot's time ("5 Oct, 14:32"), a day ("5 Oct 2026") */
 export const DATES = {
@@ -340,6 +348,277 @@ function en_thing(ref: CheckThing): string {
   return en.check.thing(ref);
 }
 
+/** A thing of a map file in English (mapFile.thing) */
+const MAP_THING: Record<MapThingKind, { one: string; a: string }> = {
+  node: { one: 'path node', a: 'a path node' },
+  edge: { one: 'path edge', a: 'a path edge' },
+  spawn: { one: 'spawn', a: 'a spawn' },
+  hq: { one: 'the HQ', a: 'the HQ' },
+  water: { one: 'the water', a: 'the water' },
+  waterBody: { one: 'water body', a: 'a water body' },
+  river: { one: 'river', a: 'a river' },
+  object: { one: 'object', a: 'an object entry' },
+  groundLayer: { one: 'ground layer', a: 'a ground layer' },
+  lifeArea: { one: 'life area', a: 'a life area' },
+  surface: { one: 'surface', a: 'a surface' },
+  prefab: { one: 'prefab', a: 'a prefab' },
+  waveEvent: { one: 'wave event', a: 'a wave event' },
+  building: { one: 'its building', a: 'its building' },
+  marking: { one: 'the marking', a: 'the marking' },
+};
+
+/** Things that are one of their kind in a map: named without a number */
+const SOLE_THING: ReadonlySet<MapThingKind> = new Set(['hq', 'water', 'building', 'marking']);
+
+/** A kind of thing, its own id where this build has no words for it (a newer file) */
+const thingWords = (kind: MapThingKind) => MAP_THING[kind] ?? { one: String(kind), a: String(kind) };
+const mapThing = (r: MapThing): string => (r.id === undefined || SOLE_THING.has(r.kind) ? thingWords(r.kind).a : `${thingWords(r.kind).one} ${r.id}`);
+const mapRef = (r: MapRef): string => (typeof r === 'string' ? r : mapThing(r));
+const orList = (values: readonly string[]): string => (values.length < 2 ? values.join('') : `${values.slice(0, -1).join(', ')} or ${values[values.length - 1]}`);
+const andList = (values: readonly string[]): string => (values.length < 2 ? values.join('') : `${values.slice(0, -1).join(', ')} and ${values[values.length - 1]}`);
+const MAP_UNIT: Record<MapUnit, string> = { none: '', m: ' m', percent: ' (percent)', degrees: ' degrees' };
+
+const MAP_FILE_PARTS: Record<MapFilePart, (n: number) => string> = {
+  heights: () => 'the terrain heights',
+  splat: (n) => `splat map ${n}`,
+  water: () => 'the water mask',
+  waterBody: (n) => `the mask of water body ${n}`,
+  prefabHeights: (n) => `the heights of prefab ${n}`,
+  prefabPaint: (n) => `the paint of prefab ${n}`,
+  prefabWater: (n) => `the water of prefab ${n}`,
+};
+
+/** What the checks of a map file say (world/custom-map/map-text.ts); field names and the file's values stay as written */
+const mapFile = {
+  thing: mapThing,
+  /** One thing's problem */
+  of: (thing: string, text: string) => `${thing}: ${text}`,
+  /** What reading did about a problem */
+  then: {
+    leftOut: (text: string) => `${text}; it is left out`,
+    defaultHolds: (text: string) => `${text}; the default holds`,
+    noLines: (text: string) => `${text}; it is drawn without lines`,
+    ownIntro: (text: string) => `${text}; the map's intro flight is left out, the game flies its own`,
+  },
+  says: {
+    isNot: (v: { what: MapRef; value: string | number }) => `${mapRef(v.what)} is not ${v.value}`,
+    idPattern: (v: { what: MapRef }) => `${mapRef(v.what)} must be lowercase letters, digits and dashes`,
+    empty: (v: { what: MapRef }) => `${mapRef(v.what)} is empty`,
+    text: (v: { what: MapRef }) => `${mapRef(v.what)} must be text`,
+    idAndHash: (v: { what: MapRef }) => `${mapRef(v.what)} must name an id and a hash`,
+    bool: (v: { what: MapRef }) => `${mapRef(v.what)} must be true or false`,
+    date: (v: { what: MapRef }) => `${mapRef(v.what)} must be a date`,
+    missing: (v: { what: MapRef }) => `${mapRef(v.what)} is missing`,
+    notNumber: (v: { what: MapRef }) => `${mapRef(v.what)} is not a number`,
+    radians: (v: { what: MapRef }) => `${mapRef(v.what)} must be a number (radians)`,
+    aboveZero: (v: { what: MapRef }) => `${mapRef(v.what)} must be above 0`,
+    zeroOrMore: (v: { what: MapRef }) => `${mapRef(v.what)} must be 0 or more`,
+    wholeFromOne: (v: { what: MapRef }) => `${mapRef(v.what)} must be a whole number from 1`,
+    wholeUpTo: (v: { what: MapRef; max: number }) => `${mapRef(v.what)} must be a whole number from 1 to ${f.int(v.max)}`,
+    above: (v: { what: MapRef; max: number }) => `${mapRef(v.what)} is above ${f.num(v.max)}`,
+    range: (v: { what: MapRef; min: number; max: number; unit?: MapUnit }) =>
+      `${mapRef(v.what)} must be ${f.num(v.min, 4)} to ${f.num(v.max, 4)}${MAP_UNIT[v.unit ?? 'none'] ?? ''}`,
+    aboveZeroAtMost: (v: { what: MapRef; max: number }) => `${mapRef(v.what)} must be above 0 and at most ${f.num(v.max)}`,
+    oneOf: (v: { what: MapRef; values: readonly string[] }) => `${mapRef(v.what)} must be ${orList(v.values)}`,
+    id: (v: { what: MapRef }) => `${mapRef(v.what)} must be an id`,
+    ids: (v: { what: MapRef }) => `${mapRef(v.what)} must be a list of ids`,
+    towerIds: (v: { what: MapRef }) => `${mapRef(v.what)} must be a list of tower ids`,
+    color: (v: { what: MapRef }) => `${mapRef(v.what)} must be #rrggbb`,
+    notGrid: (v: { what: MapRef }) => `${mapRef(v.what)} does not match the grid`,
+    notItsGrid: (v: { what: MapRef }) => `${mapRef(v.what)} does not match its grid`,
+    notObject: (v: { what: MapRef }) => `${mapRef(v.what)} is not an object`,
+    list: (v: { what: MapRef }) => `${mapRef(v.what)} must be a list`,
+    listAtMost: (v: { what: MapRef; max: number }) => `${mapRef(v.what)} must be a list of at most ${f.int(v.max)}`,
+    listOf: (v: { what: MapRef; min: number; max: number }) => `${mapRef(v.what)} must be a list of ${f.int(v.min)} to ${f.int(v.max)} entries`,
+    fields: (v: { what: MapRef; fields: readonly string[] }) => `every entry of ${mapRef(v.what)} needs ${andList(v.fields)}`,
+    switches: (v: { what: MapRef }) => `${mapRef(v.what)} must hold true or false switches`,
+    soundVolume: (v: { what: MapRef }) => `${mapRef(v.what)} needs a sound and a volume 0 to 1`,
+    waveSound: (v: { what: MapRef }) => `${mapRef(v.what)} needs a sound, a volume 0 to 1 and, if it names one, the id of a life area`,
+    nodesAndEdges: (v: { what: MapRef }) => `${mapRef(v.what)} must have lists of nodes and edges`,
+    idTwice: (v: { kind: MapThingKind; id: string }) => `${thingWords(v.kind).one} id "${v.id}" is missing or twice`,
+    idDouble: (v: { kind: MapThingKind; id: string }) => `${thingWords(v.kind).one} id "${v.id}" is twice`,
+    noId: (v: { what: MapRef }) => `${mapRef(v.what)} has no id`,
+    noPosition: (v: { what: MapRef }) => `${mapRef(v.what)} has no position`,
+    noNode: (v: { what: MapRef }) => `${mapRef(v.what)} names a node that does not exist`,
+    loop: (v: { what: MapRef }) => `${mapRef(v.what)} starts and ends at one node`,
+    noWidth: (v: { what: MapRef }) => `${mapRef(v.what)} has no width`,
+    badCurve: (v: { what: MapRef }) => `${mapRef(v.what)} has a bad curve point`,
+    badTunnel: (v: { what: MapRef }) => `${mapRef(v.what)} has a bad tunnel flag`,
+    badStreet: (v: { what: MapRef }) => `${mapRef(v.what)} has a bad street type or surface`,
+    badSidewalk: (v: { what: MapRef }) => `${mapRef(v.what)} has a bad sidewalk width`,
+    badPoint: (v: { what: MapRef }) => `${mapRef(v.what)} has a bad point`,
+    points: (v: { what: MapRef; min: number; max: number }) => `${mapRef(v.what)} needs ${f.int(v.min)} to ${f.int(v.max)} points`,
+    twoPoints: (v: { what: MapRef }) => `${mapRef(v.what)} needs two points`,
+    outline: (v: { what: MapRef; max: number }) => `${mapRef(v.what)} needs an outline of 3 to ${f.int(v.max)} points`,
+    holes: (v: { what: MapRef; max: number; points: number }) => `${mapRef(v.what)} must be at most ${f.int(v.max)} outlines of 3 to ${f.int(v.points)} points`,
+    unknown: (v: { what: MapRef; value: string }) => `${mapRef(v.what)} ${v.value} is unknown`,
+    noMaterial: (v: { what: MapRef }) => `${mapRef(v.what)} has no material`,
+    noAsset: (v: { what: MapRef }) => `${mapRef(v.what)} has no asset`,
+    badPlacement: (v: { what: MapRef }) => `${mapRef(v.what)} has a bad placement`,
+    badGroup: (v: { what: MapRef }) => `${mapRef(v.what)} has a bad group`,
+    badTilt: (v: { what: MapRef }) => `${mapRef(v.what)} has a bad tilt`,
+    noSize: (v: { what: MapRef }) => `${mapRef(v.what)} has no size`,
+    badObject: (v: { what: MapRef }) => `${mapRef(v.what)} has a bad object`,
+    pieces: (v: { what: MapRef }) => `${mapRef(v.what)} needs an id, a name and its piece`,
+    lifeAreas: (v: { what: MapRef }) => `${mapRef(v.what)} must be a list of areas with points`,
+    gridTooSmall: () => 'terrain grid needs at least 2 x 2 samples',
+    gridTooLarge: (v: { max: number }) => `terrain grid has more than ${f.int(v.max)} samples on a side`,
+    heightCount: (v: { have: number; need: number }) => `terrain heights hold ${f.int(v.have)} values, the grid needs ${f.int(v.need)}`,
+    groundLayers: (v: { max: number }) => `terrain needs 1 to ${f.int(v.max)} ground layers`,
+    layerMaterial: () => 'a ground layer has no material',
+    splatMaps: (v: { count: number; size: number }) => `splat needs ${v.count === 3 ? 'three' : 'two'} maps of ${v.size} x ${v.size} RGBA`,
+    lanesMinMax: () => 'gameplay.lanes.min is above max',
+    waveListEmpty: () => 'the wave list is empty',
+    waveRow: (v: { row: number; wave: number }) => `wave list row ${v.row} is numbered ${v.wave}`,
+    waveNoEnemies: (v: { wave: number }) => `wave ${v.wave} has no enemies`,
+    waveNoHp: (v: { wave: number }) => `wave ${v.wave} has no HP factor`,
+    waveNoDelay: (v: { wave: number }) => `wave ${v.wave} has no spawn delay`,
+    waveRepeat: () => 'the wave list has no valid repeat rule',
+    message: (v: { max: number }) => `a message of 1 to ${f.int(v.max)} characters`,
+    noSpawn: (v: { what: MapRef }) => `${mapRef(v.what)} names no spawn`,
+    objectCount: (v: { what: MapRef; max: number }) => `${mapRef(v.what)} names 1 to ${f.int(v.max)} objects`,
+    massOutline: () => 'its building has no outline',
+    massRing: () => 'its building has a broken ring',
+    massPoints: (v: { max: number }) => `its building has more than ${f.int(v.max)} points`,
+    massHeight: () => 'its building has a bad height',
+    massStoreys: () => 'its building has bad storeys',
+    massRoof: () => 'its building has an unknown roof',
+    massRidge: () => 'its building has a bad ridge',
+    massFacade: () => 'its building has an unknown facade',
+    massShop: () => 'its building has bad shop walls',
+    markingMiddle: () => 'the marking needs a middle and an angle',
+    markingSize: () => 'the marking needs a length and a width of above 0 to 1000 m',
+    // What reading sets right, and how
+    cut: (v: { what: MapRef; max: number }) => `${mapRef(v.what)} is longer than ${f.int(v.max)} characters; it is cut there`,
+    unknownNow: (v: { what: MapRef; value: string; now: string }) => `${mapRef(v.what)} ${v.value} is unknown; it is ${v.now} now`,
+    unknownDefault: (v: { what: MapRef; value: string }) => `${mapRef(v.what)} ${v.value} is unknown; the default holds`,
+    unknownTemperate: (v: { value: string }) => `environment biome ${v.value} is unknown; the map looks temperate`,
+    unknownClear: (v: { value: string }) => `environment weather ${v.value} is unknown; the map is clear now`,
+    unknownBirds: (v: { value: string }) => `species ${v.value} is unknown; the default birds fly`,
+    unknownWaves: (v: { value: string }) => `gameplay.waves.kind ${v.value} is unknown; the game's waves play`,
+    manyRoads: (v: { nodes: number; edges: number; max: number }) =>
+      `the roads have ${f.int(v.nodes)} nodes and ${f.int(v.edges)} edges, more than ${f.int(v.max)}; the map may load slowly`,
+    spawnId: (v: { n: number; id: string; twice: boolean; now: string }) => `spawn ${v.n}: id ${v.id} is ${v.twice ? 'twice' : 'missing'}; it is ${v.now} now`,
+    spawnName: (v: { n: number }) => `spawn ${v.n}: the name is no text; it is Spawn ${v.n} now`,
+    spawnOptional: (v: { n: number; value: string }) => `spawn ${v.n}: optional ${v.value} is not true or false; the lane is always open`,
+    noEnvironment: () => 'the environment is missing; the default day holds',
+    skyImage: () => 'environment skyImage is no sky id; the procedural sky shows',
+    planet: () => "environment planet needs azimuth, elevation and a size of 0 or more; the look's own shows",
+    wind: () => "environment wind needs strength, direction and gusts; the look's own blows",
+    rangeNow: (v: { what: MapRef; value: string; min: number; max: number; now: number }) =>
+      `${mapRef(v.what)} ${v.value} is not ${f.num(v.min, 4)} to ${f.num(v.max, 4)}; it is ${f.num(v.now, 4)} now`,
+    tintWhite: (v: { what: MapRef; value: string }) => `${mapRef(v.what)} ${v.value} is no #rrggbb colour; it is white now`,
+    tintNone: (v: { value: string }) => `tint ${v.value} is no #rrggbb colour; it shows untinted`,
+    unitRange: (v: { what: MapRef; value: string; cut: boolean }) => `${mapRef(v.what)} ${v.value} is not 0 to 1; ${v.cut ? 'it is cut to that' : 'the default holds'}`,
+    layerScale: (v: { value: string }) => `scale ${v.value} is no size; the material's own holds`,
+    cliffMaterial: () => 'the cliff material is no material id; cliffs show the default',
+    boolCatalogue: (v: { what: MapRef; value: string }) => `${mapRef(v.what)} ${v.value} is not true or false; the catalogue's holds`,
+    boolKind: (v: { value: string }) => `destructible ${v.value} is not true or false; it takes damage as its kind does`,
+    boolDefault: (v: { what: MapRef; value: string }) => `${mapRef(v.what)} ${v.value} is not true or false; the default holds`,
+    damage: (v: { value: string }) => `damage ${v.value} is not 1, 2 or 3; it starts standing`,
+    damageSeed: (v: { value: string }) => `damageSeed ${v.value} is no whole number; its id rolls the look`,
+    sign: (v: { max: number }) => `its sign is not a text of at most ${f.int(v.max)} characters and a pictogram name; it shows none`,
+    manyObjects: (v: { count: number; max: number }) => `the map has ${f.int(v.count)} objects, more than ${f.int(v.max)}; the rest past that is dropped`,
+    structureHp: (v: { value: string; min: number; max: number }) =>
+      `gameplay.structureHp ${v.value} is not ${f.int(v.min)} to ${f.int(v.max)} (percent); the structures keep their HP`,
+    noEvents: () => 'gameplay.events is not a list; the map has no wave events',
+    manyEvents: (v: { count: number; max: number }) => `the map has ${f.int(v.count)} wave events, more than ${f.int(v.max)}; the rest is left out`,
+    noPrefabs: () => 'prefabs is not a list; the map keeps none',
+    manyPrefabs: (v: { count: number; max: number }) => `the map keeps ${f.int(v.count)} prefabs, more than ${f.int(v.max)}; the rest is left out`,
+    noLife: () => "life is not an object; the map's own life is left out",
+    noLifeAreas: () => 'life.areas is not a list; the map has no life areas',
+    manyLifeAreas: (v: { count: number; max: number }) => `the map has ${f.int(v.count)} life areas, more than ${f.int(v.max)}; the rest is left out`,
+    noSurfaces: () => 'surfaces is not a list; the map has no surfaces',
+    manySurfaces: (v: { count: number; max: number }) => `the map has ${f.int(v.count)} surfaces, more than ${f.int(v.max)}; the rest is left out`,
+  },
+  /** A map that cannot be written, by its first problem (a sentence of `says`, worded) */
+  invalid: (problem: string) => `The map is not valid: ${problem}`,
+  /** A map file that reads but holds no whole map */
+  broken: (problem: string) => `The map is broken: ${problem}`,
+  /** Why a file is no map this game reads (MapFileError) */
+  errors: {
+    notZip: () => 'This is not a map file (no zip archive).',
+    tooLarge: (v: { size: string }) => `The map file is too large to read (${v.size}).`,
+    noMapJson: () => 'This is not a map file (map.json is missing).',
+    badJson: (v: { detail: string }) => `map.json is not valid JSON: ${v.detail}`,
+    notMap: () => 'This is not a 3DTD map (format is missing or wrong).',
+    noVersion: () => 'The map has no valid version.',
+    newer: (v: { version: number; max: number }) =>
+      `This map was made with a newer version of the game (map version ${v.version}, this game reads up to ${v.max}). Update the game to open it.`,
+    noMigration: (v: { version: number }) => `No way to read map version ${v.version}.`,
+    noTerrain: () => 'The map has no terrain.',
+    misses: (v: { part: MapFilePart; n: number; entry: string | null }) => `The map file misses ${(MAP_FILE_PARTS[v.part] ?? String)(v.n)}${v.entry ? ` (${v.entry})` : ''}.`,
+    heightsCut: (v: { prefab: number | null }) => (v.prefab ? `The heights of prefab ${v.prefab} are cut off.` : 'The terrain heights are cut off.'),
+    splatCount: () => 'The map needs two or three splat maps.',
+    waterBody: (v: { n: number }) => `Water body ${v.n} is not an object.`,
+    prefab: (v: { n: number }) => `Prefab ${v.n} is not an object.`,
+  },
+  /** What the map store says (MapStoreError) */
+  store: {
+    noOwnToDelete: (v: { id: string }) => `There is no own map "${v.id}" to delete.`,
+    unreadableTrash: (v: { id: string }) => `The map "${v.id}" is not readable; it cannot go to the trash.`,
+    notInTrash: () => 'That map is no longer in the trash.',
+    unreadableBack: (v: { name: string }) => `The map "${v.name}" is not readable; it cannot come back.`,
+    ownGone: (v: { id: string }) => `There is no own map "${v.id}" in this browser; it may have been deleted.`,
+    gone: (v: { id: string }) => `There is no map "${v.id}" in this browser; it may have been deleted.`,
+    didNotLoad: (v: { name: string; status: number }) => `The map "${v.name}" did not load (${v.status}).`,
+    noOwnToReplace: (v: { id: string }) => `There is no own map "${v.id}" to replace.`,
+    noStorage: () => 'This browser keeps no maps (IndexedDB is off).',
+    notOpened: () => 'The map storage did not open.',
+    notSaved: () => 'The map was not saved.',
+    notThisRun: (v: { name: string }) => `The map "${v.name}" here is not the one this run was played on.`,
+  },
+};
+
+/** What an import says it could not take over, or only roughly (world/import-notes.ts) */
+const importNotes = {
+  noHeights: () => 'heights: no elevation tiles came, the ground is flat',
+  noRoads: () => 'roads: no roads in this place; the map has nowhere for enemies to walk',
+  spawnsLeftOut: (v: { missing: number; wanted: number }) => `spawns: ${f.int(v.missing)} of ${f.int(v.wanted)} chosen have no street with a route to the HQ and were left out`,
+  spawnsFound: (v: { found: number; wanted: number }) => `spawns: ${f.int(v.found)} of ${f.int(v.wanted)} found on streets 500 to 1000 m from the HQ with a route to it`,
+  noCatalogue: () => 'buildings: no asset catalogue, the scene cost was not held to the budget',
+  buildingsLeftOut: (v: { count: number; percent: number }) => `buildings: ${f.int(v.count)} small buildings far from the HQ left out to keep the scene cost (${f.int(v.percent)} % of the budget)`,
+  noSea: () => 'water: the coastline did not close into a sea that matches the heights; no sea',
+  noRoutes: () => 'routes: no way from a spawn to an end found; the map has no roads, add them in the editor',
+  noRoadsFound: () => 'No roads found: draw them with the path tool, then place spawns and the HQ.',
+  portals: (v: { spawns: number; max: number }) => `routes: ${f.int(v.spawns)} spawns; the game shows portals for the first ${f.int(v.max)}`,
+  thinned: (v: { count: number; max: number }) => `objects: ${f.int(v.count)} thinned out to stay under ${f.int(v.max)}`,
+  noAsset: (v: { count: number }) => `objects: ${f.int(v.count)} without a matching catalogue asset`,
+  scriptUnread: (v: { detail: string }) => `waves: the script could not be read (${v.detail}); the map plays the budget waves of the game`,
+  noWaveArrays: () => 'waves: no wave arrays found in the script; the map plays the budget waves of the game',
+  noHp: () => 'waves: the map has no hit points of its units; HP follow the wave curve of the game',
+  noCount: (v: { count: number }) => `waves: the script does not say how many units a wave has; ${f.int(v.count)} per lane`,
+  circuit: () => 'routes: the script sends creeps round in circles (a circuit TD), no way of it ends',
+  maze: () => 'routes: no fixed lanes; the ways are the shortest over walkable ground (maze), check them in the editor',
+  noEnd: () => 'routes: the map names no end; the HQ stands in the middle of the map',
+  nearEnd: (v: { count: number }) => `routes: ${f.int(v.count)} ${f.plural(v.count, 'spawn', 'spawns')} right beside the end left out`,
+  noWay: (v: { count: number }) => `routes: ${f.int(v.count)} ${f.plural(v.count, 'spawn has', 'spawns have')} no walkable way to the end`,
+  deadEnds: (v: { names: string }) => `routes: other dead ends ignored: ${v.names}`,
+  neverReach: (v: { count: number }) => `routes: ${f.int(v.count)} ${f.plural(v.count, 'start never reaches', 'starts never reach')} the end and ${f.plural(v.count, 'was', 'were')} dropped`,
+  laneEnds: (v: { count: number }) => `routes: no spawn regions, ${f.int(v.count)} spawns placed at lane ends`,
+  moreParse: (v: { count: number }) => `script: ${f.int(v.count)} more parse warnings`,
+  parse: (v: { detail: string }) => `script: ${v.detail}`,
+  budgetAll: () => 'script: step budget used up before every trigger ran',
+  budgetIn: (v: { what: string }) => `script: step budget used up in ${v.what}`,
+  loopLimit: () => 'script: a loop ran into the iteration limit',
+  materials: (v: { count: number; merged: number }) => `terrain: ${f.int(v.count)} ground materials, the ${f.int(v.merged)} least used merged`,
+  archive: (v: { detail: string }) => `archive: ${v.detail}`,
+  file: (v: { name: string; detail: string }) => `${v.name}: ${v.detail}`,
+  noInfo: () => 'war3map.w3i missing: no playable area, name or fog',
+  noScript: () => 'no map script found: routes come from the terrain only',
+  // What a way of finding the routes came to
+  routeSpawns: (v: { spawns: number }) => `${f.int(v.spawns)} spawns`,
+  routeNone: (v: { orders: number }) => `${f.int(v.orders)} orders, no route`,
+  routeOrders: (v: { spawns: number; orders: number }) => `${f.int(v.spawns)} spawns from ${f.int(v.orders)} orders`,
+  routeFailed: (v: { detail: string }) => `failed: ${v.detail}`,
+  routeNoMask: () => 'no lane mask (no pathing map or no lane-like ground)',
+  routeLanes: (v: { spawns: number; source: string }) => `${f.int(v.spawns)} spawns on ${v.source} lanes`,
+  routeNoLane: (v: { source: string }) => `no route on ${v.source} lanes`,
+  routeNoGround: () => 'no walkable ground (no pathing map)',
+  routeOpen: (v: { spawns: number }) => `${f.int(v.spawns)} spawns over open ground`,
+  routeNoWay: () => 'no walkable way from a spawn to an end',
+};
+
 const runLogRefusals: Record<RunLogRefusal, string> = {
   'not-collected': 'this coop server collects no run logs',
   'too-many': 'too many sent from this game',
@@ -371,6 +650,8 @@ export const en = {
   damageTypes,
   armorTypes,
   veteranRanks,
+  mapFile,
+  importNotes,
   common: {
     ok: 'OK',
     cancel: 'Cancel',
@@ -978,6 +1259,66 @@ export const en = {
   },
   /** Loading from OpenStreetMap: the map server's retries, the frame of an OpenStreetMap map */
   osm: {
+    /** The steps of loading a place and making its map (osm-progress.ts) */
+    steps: {
+      stored: 'Opening the data kept on this device',
+      overpass: 'Streets, water and buildings from OpenStreetMap',
+      heights: 'Heights of the ground',
+      streets: 'Streets, HQ and spawns',
+      parse: 'Reading the OpenStreetMap data',
+      terrain: 'Ground from the heights',
+      roads: 'Streets, bridges and tunnels',
+      water: 'Rivers, lakes and the coast',
+      level: 'Levelling the ground under the streets',
+      ground: 'Painting the land',
+      shores: 'Painting the shores',
+      paint: 'Painting the road surfaces',
+      layout: 'HQ and spawns',
+      areas: 'Squares, pitches, playgrounds and car parks',
+      buildings: 'Buildings',
+      furniture: 'Fences, walls, tracks and lamps',
+      pois: 'Shops, inns and their signs',
+      plants: 'Forests and trees',
+      life: 'Boats, birds, bells and the intro flight',
+      pack: 'Packing the map file',
+      save: 'Saving',
+    } satisfies Record<OsmStep, string> as Record<OsmStep, string>,
+    stageNames: {
+      data: 'Data', terrain: 'Terrain', streets: 'Streets', water: 'Water', ground: 'Ground', layout: 'HQ and spawns',
+      buildings: 'Buildings', trees: 'Trees and details', bake: 'Bake',
+    } satisfies Record<OsmStage, string> as Record<OsmStage, string>,
+    /** Why a spawn cannot stand where it was dropped (layout.ts) */
+    dropReasons: {
+      'no-streets': 'This place has no streets',
+      'no-street-near': 'No street near here',
+      edge: 'Too close to the edge of the map',
+      'near-hq': 'Too close to the HQ',
+      'far-hq': 'Too far from the HQ',
+      tunnel: 'Inside a tunnel',
+      'no-route': 'No route to the HQ from here',
+    } satisfies Record<SpawnDropReason, string> as Record<SpawnDropReason, string>,
+    /** Why loading or making failed (osm-error.ts) */
+    errors: {
+      notLoaded: () => 'The place is not loaded',
+      noAnswer: (v: { seconds: number }) => `No answer within ${f.int(v.seconds)} s; the work was stopped`,
+      workerFailed: () => 'The OSM worker failed',
+      busy: () => 'The OpenStreetMap servers are busy with too many requests from your address. Wait a minute and try again.',
+      down: (v: { reason: string }) => `The OpenStreetMap servers did not answer (${v.reason}). They are sometimes down for a while; try again in a few minutes.`,
+      cutShort: (v: { remark: string }) => `The OSM server could not answer for this place (${v.remark})`,
+    },
+    /** What a step says beside its words */
+    detail: {
+      found: () => 'found',
+      nothingKept: () => 'nothing kept yet',
+      tiles: (v: { done: number; of: number }) => `${f.int(v.done)} of ${f.int(v.of)} tiles`,
+      tileCount: (v: { n: number }) => `${f.int(v.n)} ${f.plural(v.n, 'tile', 'tiles')}`,
+      noHeights: () => 'none came, the ground will be flat',
+      size: (v: { chars: number }) => sizeWords(v.chars),
+      received: (v: { chars: number }) => `${sizeWords(v.chars)} received`,
+      asking: (v: { host: string }) => `asking ${v.host}`,
+      streets: (v: { roadKm: number; spawns: number }) => `${f.int(v.roadKm)} km of road, ${f.int(v.spawns)} ${f.plural(v.spawns, 'spawn', 'spawns')}`,
+      picture: () => 'its picture and fingerprint',
+    },
     retryReason: {
       busy: 'The map server is busy',
       network: 'The map server cannot be reached',
@@ -1385,6 +1726,29 @@ export const en = {
     },
   },
   editor: {
+    /** The lines a surface can carry (map-surfaces.ts) */
+    surfaceMarkings: {
+      soccer: 'Football pitch', handball: 'Handball court', basketball: 'Basketball court', tennis: 'Tennis court', volleyball: 'Volleyball court',
+      multi: 'Multi-sport court', track: 'Running track', parking: 'Car park stalls', platform: 'Platform edge',
+    } satisfies Record<MapSurfaceMarkingKind, string> as Record<MapSurfaceMarkingKind, string>,
+    /** The kits of wall drawn along a line (object-ops.ts) */
+    wallKits: { castle: 'Castle wall' } satisfies Record<WallKitId, string> as Record<WallKitId, string>,
+    /** The report of a Warcraft map import (w3x-seam.ts) */
+    w3x: {
+      strategies: { 'script-pattern': 'the map script (trigger patterns)', 'script-eval': 'the map script (evaluated)', terrain: 'the terrain (pathing)', maze: 'open ground (maze)' },
+      mapTileset: (name: string, tileset: string) => `${name} | tileset ${tileset}`,
+      size: (w: number, h: number, mw: number, md: number) => `${f.int(w)} x ${f.int(h)} tiles to ${f.int(mw)} x ${f.int(md)} m`,
+      layers: (kinds: number, layers: number, list: string) => `${f.int(kinds)} ground tile kinds to ${f.int(layers)} layers: ${list}`,
+      water: (n: number) => `Water on ${f.int(n)} height points`,
+      roads: (from: string, edges: number, nodes: number, spawns: number) => `Roads from ${from}: ${f.int(edges)} roads, ${f.int(nodes)} nodes, ${f.int(spawns)} spawns`,
+      lanes: (min: number, max: number) => `Lanes ${f.int(min)} to ${f.int(max)} m long`,
+      objects: (placed: number, of: number) => `${f.int(placed)} of ${f.int(of)} doodads placed as objects`,
+      waves: (n: number, bosses: number) => `${f.int(n)} waves taken over as the map's own list${bosses ? `, ${f.int(bosses)} with a boss` : ''}`,
+      wave: (wave: number, count: number, name: string, hp: number, as: string, boss: { name: string; as: string } | null) =>
+        `Wave ${wave}: ${f.int(count)} ${name} (${f.int(hp)} HP) as ${as}${boss ? ` + boss ${boss.name} as ${boss.as}` : ''}`,
+      moreWaves: (n: number) => `… and ${f.int(n)} more waves (Gameplay tool, G)`,
+      tried: (how: string, result: string) => `Tried ${how}: ${result}`,
+    },
     tools: {
       look: { label: 'Look', short: 'Look', about: 'Look around and click things to see what they are; changes nothing' },
       landscape: { label: 'Landscape', short: 'Landscape', about: 'Biomes, mountains, rivers and roads: ground, paint and plants at once' },
@@ -3344,6 +3708,9 @@ export const en = {
       noGoogleKey: 'No Google Maps API key configured.',
       noIonToken: 'No Cesium Ion token configured.',
       loadError: 'Error loading 3D map',
+      /** The credit line of a custom map: its name and author, the licence of its assets */
+      mapBy: (name: string, author: string) => `${name} by ${author}`,
+      assetCredit: 'Assets: CC0, see licences',
       hqStreetsFailed: 'The streets there did not load: the map server is busy or out of reach. The HQ stays where it is; try again in a minute.',
       movingHq: 'Moving HQ',
       movingSpawn: 'Moving spawn',
@@ -3688,6 +4055,11 @@ export const en = {
       mapNotPacked: (why: string) => `The map could not be packed for the room (${why}): only players who have it can join`,
       mapNotArrived: 'The map did not arrive: the host left before it was through. The new host sends theirs.',
       mapNotKept: (why: string) => `The host's map could not be kept here (${why}).`,
+      mapNotWhole: (why: string) => `The host's map did not arrive whole (${why}).`,
+      mapDiffers: "The host's map did not arrive as the host has it.",
+      mapOwnSameId: (name: string, id: string) => `You have a map of your own called "${name}" under the same id (${id}). Rename or remove it in the editor to join this room.`,
+      mapShippedChanged: (name: string, id: string) =>
+        `The host plays a changed copy of the shipped map "${name}" under its id (${id}). The host can save it under another name in the editor and open the room again.`,
       lobbyAnswers: 'This lobby answers.',
       lanUnreachable: (tried: string) => `Can't reach that LAN game (tried ${tried}). The host's firewall may block it, or the room just closed.`,
       theLobby: 'The lobby',

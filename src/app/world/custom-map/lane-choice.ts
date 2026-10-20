@@ -65,14 +65,16 @@ export function defaultOpenLanes(choice: LaneChoice): string[] {
   return choice.lanes.filter((l) => open.has(l.id)).map((l) => l.id);
 }
 
+/** Why a choice of lanes is not one the map allows: a lane it does not have, one always open left closed, too few, too many */
+export type LaneChoiceProblem = 'unknown-lane' | 'always-open' | 'too-few' | 'too-many';
+
 /** Why `open` is not a choice the map allows, null when it is */
-export function laneChoiceProblem(choice: LaneChoice, open: Iterable<string>): string | null {
+export function laneChoiceProblem(choice: LaneChoice, open: Iterable<string>): LaneChoiceProblem | null {
   const ids = new Set(open);
-  for (const id of ids) if (!choice.lanes.some((l) => l.id === id)) return `no lane ${id} on this map`;
-  const closed = choice.lanes.find((l) => !l.optional && !ids.has(l.id));
-  if (closed) return `${closed.name} is always open`;
-  if (ids.size < choice.min) return choice.min === 1 ? 'one lane stays open' : `at least ${choice.min} lanes stay open`;
-  if (ids.size > choice.max) return `at most ${choice.max} lanes are open on this map`;
+  for (const id of ids) if (!choice.lanes.some((l) => l.id === id)) return 'unknown-lane';
+  if (choice.lanes.some((l) => !l.optional && !ids.has(l.id))) return 'always-open';
+  if (ids.size < choice.min) return 'too-few';
+  if (ids.size > choice.max) return 'too-many';
   return null;
 }
 

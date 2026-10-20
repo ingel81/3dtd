@@ -7,6 +7,7 @@
  * Map space: metres, x east, y north, `h` the height above the map's zero.
  */
 import type { MapIntro, MapIntroView } from './map-document';
+import type { MapText } from './map-text';
 
 /** Seconds a map's intro may take, views a path may hold */
 export const INTRO_SECONDS = { min: 3, max: 60, default: 16 } as const;
@@ -81,28 +82,28 @@ function catmullRom(a: number, b: number, c: number, d: number, f: number): numb
   return 0.5 * (2 * b + (c - a) * f + (2 * a - 5 * b + 4 * c - d) * f2 + (3 * b - a - 3 * c + d) * f3);
 }
 
-/** What is wrong with a map's intro, in words; none when it has none */
-export function introProblems(intro: unknown): string[] {
+/** What is wrong with a map's intro; none when it has none */
+export function introProblems(intro: unknown): MapText[] {
   if (intro === undefined) return [];
-  if (!intro || typeof intro !== 'object') return ['intro is not an object'];
+  if (!intro || typeof intro !== 'object') return [{ key: 'notObject', v: { what: 'intro' } }];
   const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
   const i = intro as MapIntro;
-  const p: string[] = [];
+  const p: MapText[] = [];
   if (!finite(i.seconds) || i.seconds < INTRO_SECONDS.min || i.seconds > INTRO_SECONDS.max) {
-    p.push(`intro.seconds must be ${INTRO_SECONDS.min} to ${INTRO_SECONDS.max}`);
+    p.push({ key: 'range', v: { what: 'intro.seconds', min: INTRO_SECONDS.min, max: INTRO_SECONDS.max } });
   }
   if (i.kind === 'orbit') {
     const { radius, height, sweep } = INTRO_ORBIT;
-    if (!finite(i.radius) || i.radius < radius.min || i.radius > radius.max) p.push(`intro.radius must be ${radius.min} to ${radius.max} m`);
-    if (!finite(i.height) || i.height < height.min || i.height > height.max) p.push(`intro.height must be ${height.min} to ${height.max} m`);
-    if (!finite(i.angle)) p.push('intro.angle must be a number (radians)');
-    if (i.sweep !== undefined && (!finite(i.sweep) || i.sweep < sweep.min || i.sweep > sweep.max)) p.push(`intro.sweep must be ${sweep.min} to ${sweep.max} degrees`);
+    if (!finite(i.radius) || i.radius < radius.min || i.radius > radius.max) p.push({ key: 'range', v: { what: 'intro.radius', min: radius.min, max: radius.max, unit: 'm' } });
+    if (!finite(i.height) || i.height < height.min || i.height > height.max) p.push({ key: 'range', v: { what: 'intro.height', min: height.min, max: height.max, unit: 'm' } });
+    if (!finite(i.angle)) p.push({ key: 'radians', v: { what: 'intro.angle' } });
+    if (i.sweep !== undefined && (!finite(i.sweep) || i.sweep < sweep.min || i.sweep > sweep.max)) p.push({ key: 'range', v: { what: 'intro.sweep', min: sweep.min, max: sweep.max, unit: 'degrees' } });
   } else if (i.kind === 'path') {
     const views = i.views;
-    if (!Array.isArray(views) || views.length < 1 || views.length > MAX_INTRO_VIEWS) p.push(`intro.views must be a list of 1 to ${MAX_INTRO_VIEWS} views`);
+    if (!Array.isArray(views) || views.length < 1 || views.length > MAX_INTRO_VIEWS) p.push({ key: 'listOf', v: { what: 'intro.views', min: 1, max: MAX_INTRO_VIEWS } });
     else if (views.some((v) => !v || !(['x', 'y', 'h', 'lookX', 'lookY', 'lookH'] as const).every((k) => finite(v[k])))) {
-      p.push('every intro view needs x, y, h, lookX, lookY and lookH');
+      p.push({ key: 'fields', v: { what: 'intro.views', fields: ['x', 'y', 'h', 'lookX', 'lookY', 'lookH'] } });
     }
-  } else p.push('intro.kind must be path or orbit');
+  } else p.push({ key: 'oneOf', v: { what: 'intro.kind', values: ['path', 'orbit'] } });
   return p;
 }

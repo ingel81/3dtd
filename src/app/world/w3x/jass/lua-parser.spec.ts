@@ -6,6 +6,7 @@ import { wavesFromScript } from '../waves/wave-script';
 import { JassEvaluator } from './jass-evaluator';
 import { MAX_JASS_NESTING } from './jass-parser';
 import { parseLua } from './lua-parser';
+import { noteWords } from '../../testing/note-words';
 
 function region(name: string, x: number, y: number, size = 128): W3Region {
   const h = size / 2;
@@ -214,7 +215,7 @@ end
     const ev = new JassEvaluator(p, { maxLoop: 100 });
     ev.runInit();
     expect([ev.globals.get('a'), ev.globals.get('b'), ev.globals.get('c')]).toEqual([3, 6, 4]);
-    expect(ev.warnings.join()).toMatch(/iteration limit/);
+    expect(noteWords(ev.warnings).join()).toMatch(/iteration limit/);
   });
 
   it('drops a function that does not parse and keeps the rest', () => {

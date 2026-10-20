@@ -5,6 +5,7 @@ import { findTestMap } from '../../../test/w3x-fixtures';
 import { buildSyntheticMap } from '../../../test/w3x-synthetic-map';
 import { importW3x } from './import-w3x';
 import { mapRepairs } from '../custom-map/map-repair';
+import { noteWords } from '../testing/note-words';
 
 const TEST_MAP = findTestMap(existsSync);
 const GREEN_TD = findTestMap(existsSync, 'Green TD.w3x');
@@ -117,7 +118,7 @@ describe('importW3x', () => {
     expect(doc.spawns.length).toBe(1);
     expect(Math.abs(doc.spawns[0].y)).toBeLessThan(2);
     expect(spawnsReachHq(doc)).toBe(true);
-    expect(report.warnings.join()).toMatch(/no map script/);
+    expect(noteWords(report.warnings).join()).toMatch(/no map script/);
   });
 
   it('follows the options: scale, density, no crop, catalogue', async () => {
@@ -155,7 +156,7 @@ describe('importW3x', () => {
     expect(doc.meta.name).toBe('Mafa TD Queen v14.6');
     expect(report.strategy).toBe('script-eval');
     expect(doc.spawns.length).toBe(10);
-    expect(report.warnings.join()).not.toMatch(/spawns; the game shows portals/);
+    expect(noteWords(report.warnings).join()).not.toMatch(/spawns; the game shows portals/);
     // The Throne's centre (-16, -1280) around the playable area's centre (64, -448), 4 m a tile
     const s = 4 / 128;
     expect(doc.hq.x).toBeCloseTo((-16 - 64) * s, 1);
@@ -190,10 +191,10 @@ describe('importW3x', () => {
     expect(validateMapDocument(doc)).toEqual([]);
     expect(mapRepairs(doc)).toEqual([]);
     expect(report.strategy).toBe('maze');
-    expect(report.warnings.join(' ')).toMatch(/round in circles/);
+    expect(noteWords(report.warnings).join(' ')).toMatch(/round in circles/);
     // The four corners; the four fields beside the middle would leak at once
     expect(doc.spawns.length).toBe(4);
-    expect(report.warnings.join(' ')).toMatch(/4 spawn\(s\) right beside the end/);
+    expect(noteWords(report.warnings).join(' ')).toMatch(/4 spawns right beside the end/);
     expect(spawnsReachHq(doc)).toBe(true);
     // The HQ in the middle of the map
     expect(Math.hypot(doc.hq.x, doc.hq.y)).toBeLessThan(10);

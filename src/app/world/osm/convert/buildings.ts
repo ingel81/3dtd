@@ -44,6 +44,7 @@ import { massBox, massDistance, massRadius, massTriangles } from '../../custom-m
 import { toModel } from '../../custom-map/object-ground';
 import { clipOffRoads, raiseMass } from './building-mass';
 import { findOldTown } from './old-town';
+import type { ImportNote } from '../../import-notes';
 
 /** A catalogue entry as far as the buildings read it */
 export type BuildingCatalogEntry = CostEntry & { id: string; footprint: number; box?: GroundBox };
@@ -109,7 +110,7 @@ export interface BuildingReport {
 export interface BuildingResult {
   objects: MapObject[];
   report: BuildingReport;
-  warnings: string[];
+  warnings: ImportNote[];
 }
 
 /**
@@ -240,9 +241,9 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     costShare: 0,
     missing: [],
   };
-  const warnings: string[] = [];
+  const warnings: ImportNote[] = [];
   const catalog = options.catalog ? new Map(options.catalog.map((e) => [e.id, e])) : null;
-  if (!catalog) warnings.push('buildings: no asset catalogue, the scene cost was not held to the budget');
+  if (!catalog) warnings.push({ key: 'noCatalogue' });
   const known = (asset: string) => !catalog || catalog.has(asset);
   const roads = new SegmentIndex(doc);
   // The editor's check of objects on roads, with the catalogue's ground of each model (the model's walls without one)
@@ -376,7 +377,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       cost -= f.cost;
     }
     report.dropped.budget = gone.size;
-    if (gone.size) warnings.push(`buildings: ${gone.size} small buildings far from the HQ left out to keep the scene cost (${Math.round((budget / SCENE_BUDGET) * 100)} % of the budget)`);
+    if (gone.size) warnings.push({ key: 'buildingsLeftOut', v: { count: gone.size, percent: Math.round((budget / SCENE_BUDGET) * 100) } });
     footprints.splice(0, footprints.length, ...footprints.filter((f) => !gone.has(f)));
   }
 

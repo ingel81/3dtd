@@ -142,7 +142,7 @@
         <button type="button" role="radio" [attr.aria-checked]="(s().line.front ?? 'left') === 'left'" (click)="setLine({ front: 'left' })">{{ t().editor.objects.battlementsLeft }}</button>
         <button type="button" role="radio" [attr.aria-checked]="s().line.front === 'right'" (click)="setLine({ front: 'right' })">{{ t().editor.objects.battlementsRight }}</button>
       </div>
-      <p class="td-note">{{ t().editor.objects.wallKit(k.name) }}</p>
+      <p class="td-note">{{ t().editor.objects.wallKit(t().editor.wallKits[k.id]) }}</p>
     } @else {
       <app-editor-range [label]="t().editor.objects.spacing" unit="m" [min]="0.5" [max]="40" [step]="0.5" [value]="s().line.spacing" (changing)="setLine({ spacing: $event })" />
       <app-editor-range [label]="t().editor.objects.offset" unit="m" [min]="-40" [max]="40" [step]="0.5" [value]="s().line.offset" (changing)="setLine({ offset: $event })" />

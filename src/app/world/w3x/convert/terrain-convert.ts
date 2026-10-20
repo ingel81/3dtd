@@ -22,6 +22,7 @@ import { splatResolutionFor } from '../../custom-map/map-create';
 import { W3E_FLAG, W3_TILE, type W3eTerrain, cornerGroundZ, cornerWaterZ } from '../formats/w3e';
 import type { Bounds } from '../routes/lane-mask';
 import { type CatalogEntryRef, CLIFF_MATERIAL, groundRule, resolveMaterial } from './ground-materials';
+import type { ImportNote } from '../../import-notes';
 
 /** World units to map metres around the imported area's centre */
 export class ImportFrame {
@@ -101,11 +102,11 @@ export interface TerrainConvertResult {
   /** Ground tile id -> material id */
   materials: Map<string, string>;
   waterSamples: number;
-  warnings: string[];
+  warnings: ImportNote[];
 }
 
 export function convertTerrain(t: W3eTerrain, frame: ImportFrame, options: TerrainConvertOptions): TerrainConvertResult {
-  const warnings: string[] = [];
+  const warnings: ImportNote[] = [];
   const b = frame.bounds;
   const n = options.samplesPerTile;
   const step = W3_TILE / n;
@@ -154,7 +155,7 @@ export function convertTerrain(t: W3eTerrain, frame: ImportFrame, options: Terra
   const ordered = [...materialUse].sort((x, y) => y[1] - x[1]).map(([m]) => m);
   const kept = ordered.slice(0, MAX_GROUND_LAYERS);
   if (ordered.length > MAX_GROUND_LAYERS) {
-    warnings.push(`terrain: ${ordered.length} ground materials, the ${ordered.length - MAX_GROUND_LAYERS} least used merged`);
+    warnings.push({ key: 'materials', v: { count: ordered.length, merged: ordered.length - MAX_GROUND_LAYERS } });
   }
   const layerOfMaterial = (m: string): number => {
     const k = kept.indexOf(m);

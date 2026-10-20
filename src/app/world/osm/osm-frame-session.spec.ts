@@ -1,6 +1,8 @@
 import { OsmFrameSession } from './osm-frame-session';
 import type { OsmWorkerRequest, OsmWorkerResponse } from './osm-worker.types';
 import type { OverpassRetry } from './overpass-client';
+import { osmErrorMessage } from './osm-error';
+import { en } from '../../i18n/messages/en';
 
 /**
  * The frame's line to the OSM worker, on a fake worker: the retries of the
@@ -32,13 +34,13 @@ describe('OsmFrameSession', () => {
     const session = new OsmFrameSession({ timeoutMs: 1000, createWorker: () => worker as unknown as Worker });
     const retries: OverpassRetry[] = [];
     const opening = session.open({ place: { lat: 49.7, lon: 9.26 }, count: 4 }, undefined, undefined, (r) => retries.push(r));
-    const ended = expect(opening).rejects.toThrow('No answer within 1 s');
+    const ended = expect(opening.catch((e: unknown) => Promise.reject(new Error(osmErrorMessage(en, e))))).rejects.toThrow('No answer within 1 s');
     const id = worker.sent[0].id;
 
     vi.advanceTimersByTime(800);
     worker.say({ id, kind: 'retry', retry: { attempt: 2, of: 4, waitMs: 3000, kind: 'busy' } });
     vi.advanceTimersByTime(800);
-    worker.say({ id, kind: 'progress', progress: { step: 'overpass', detail: '1.2 MB received' } });
+    worker.say({ id, kind: 'progress', progress: { step: 'overpass', detail: { key: 'received', v: { chars: 1.2e6 } } } });
     vi.advanceTimersByTime(999);
     expect(worker.terminated).toBe(false);
     expect(retries).toEqual([{ attempt: 2, of: 4, waitMs: 3000, kind: 'busy' }]);

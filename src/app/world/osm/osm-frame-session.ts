@@ -13,6 +13,9 @@ import { OsmFrameCore, type FrameSpawn, type GeoPoint, type OsmFrameInfo, type O
 import type { OsmProgress } from './osm-progress';
 import type { OsmWorkerRequest, OsmWorkerResponse } from './osm-worker.types';
 import type { OverpassRetry } from './overpass-client';
+import { OsmError } from './osm-error';
+import type { SpawnDropReason } from './convert/layout';
+import { MapFileError } from '../custom-map/map-file-kind';
 
 /**
  * A call that sends nothing for this long is ended (the Overpass limits are 105 s to the headers and 60 s for the
@@ -83,7 +86,7 @@ export class OsmFrameSession {
     return (r as Extract<OsmWorkerResponse, { kind: 'spawns' }>).spawns;
   }
 
-  async drop(at: GeoPoint): Promise<FrameSpawn | { reason: string }> {
+  async drop(at: GeoPoint): Promise<FrameSpawn | { reason: SpawnDropReason }> {
     const r = await this.callLoaded({ kind: 'drop', at });
     return (r as Extract<OsmWorkerResponse, { kind: 'dropped' }>).spawn;
   }
@@ -101,7 +104,7 @@ export class OsmFrameSession {
   /** A call that needs the place: a new worker opens it first */
   private async callLoaded(call: Call, onProgress?: (progress: OsmProgress) => void, signal?: AbortSignal): Promise<OsmWorkerResponse> {
     if (!this.loaded) {
-      if (!this.opening) throw new Error('The place is not loaded');
+      if (!this.opening) throw new OsmError({ key: 'notLoaded' });
       await this.call(this.opening, onProgress, signal);
       this.loaded = true;
     }
@@ -119,7 +122,7 @@ export class OsmFrameSession {
     const worker = this.worker!;
     const id = this.nextId++;
     return new Promise<OsmWorkerResponse>((resolve, reject) => {
-      const expire = () => this.stop(new Error(`No answer within ${Math.round(this.timeoutMs / 1000)} s; the work was stopped`));
+      const expire = () => this.stop(new OsmError({ key: 'noAnswer', v: { seconds: Math.round(this.timeoutMs / 1000) } }));
       let timer = setTimeout(expire, this.timeoutMs);
       const onAbort = () => this.stop(new Error(OSM_CANCELLED));
       signal?.addEventListener('abort', onAbort, { once: true });
@@ -159,10 +162,10 @@ export class OsmFrameSession {
       } else if (r.kind === 'retry') {
         waiting.alive();
         waiting.onRetry?.(r.retry);
-      } else if (r.kind === 'error') waiting.reject(new Error(r.error));
+      } else if (r.kind === 'error') waiting.reject(r.said ? new OsmError(r.said) : r.fault ? new MapFileError(r.fault, r.problems) : new Error(r.error));
       else waiting.resolve(r);
     };
-    worker.onerror = (event) => this.stop(new Error(event.message || 'The OSM worker failed'));
+    worker.onerror = (event) => this.stop(event.message ? new Error(event.message) : new OsmError({ key: 'workerFailed' }));
   }
 
   /** Ends the worker and rejects every call waiting on it */

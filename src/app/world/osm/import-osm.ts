@@ -18,7 +18,7 @@ import { OsmFrame, parseOsm, type OsmParseStats } from './osm-parse';
 import type { OsmFrameStore } from './osm-frame-store';
 import { downloadOsm, osmQueryBox } from './osm-query';
 import type { OverpassResponse, OverpassRetry } from './overpass-client';
-import { sizeText, type OsmProgress } from './osm-progress';
+import type { OsmProgress } from './osm-progress';
 import { buildRoads, levelRoads, paintRoads, roadPaintMaterials, type RoadStats } from './convert/roads';
 import { buildTunnels, seatPortals, type TunnelReport } from './convert/tunnels';
 import { layPavements, type PavementStats } from './convert/pavements';
@@ -37,6 +37,8 @@ import { placePois, type PoiReport } from './convert/pois';
 import { placeBuildings, type BuildingCatalogEntry, type BuildingReport } from './convert/buildings';
 import { layAreas, type AreaReport } from './convert/areas';
 import { spawnRoutes } from '../../map-ops/path-graph';
+import { OsmError } from './osm-error';
+import type { ImportNote } from '../import-notes';
 
 /**
  * Side of an OSM world, metres: 2.4 km by default and at most (decision 2 of the plan, the size the format and the
@@ -122,7 +124,7 @@ export interface OsmImportReport {
   life: LifeReport;
   /** Milliseconds per step */
   ms: Record<string, number>;
-  warnings: string[];
+  warnings: ImportNote[];
 }
 
 export interface OsmImportResult {
@@ -148,7 +150,7 @@ export function convertOsm(
     const next = order[order.indexOf(name as OsmConvertStep) + 1];
     if (next) onStep?.(next);
   };
-  const warnings: string[] = [];
+  const warnings: ImportNote[] = [];
   const side = options.sideM ?? OSM_WORLD_SIDE;
   const { address, id, name } = osmMapNames({ ...input, ...input.place });
   const doc = createMapDocument({
@@ -171,14 +173,14 @@ export function convertOsm(
   step('parse');
 
   const terrain = fillOsmTerrain(t0.grid, frame, input.dem);
-  if (!input.dem) warnings.push('heights: no elevation tiles came, the ground is flat');
+  if (!input.dem) warnings.push({ key: 'noHeights' });
   step('terrain');
 
   const roads = buildRoads(features);
   doc.paths = roads.paths;
   // The streets' pavements, narrowed where buildings stand close
   const pavements = layPavements(doc.paths, roads.pavements, features);
-  if (!roads.paths.edges.length) warnings.push('roads: no roads in this place; the map has nowhere for enemies to walk');
+  if (!roads.paths.edges.length) warnings.push({ key: 'noRoads' });
   const rails = planRails(features, doc.paths);
   // Before the water: a river over a tunnel still cuts its bed through the raised ground. The railway's tunnels get portals too
   const tunnels = buildTunnels(t0, [...roads.tunnels, ...rails.tunnels], [...roads.mouths, ...rails.mouths.map((m) => ({ ...m, tunnel: m.tunnel + roads.tunnels.length }))]);
@@ -213,8 +215,8 @@ export function convertOsm(
   const layout = layOut(doc, roads.names, { spawns: options.spawns ?? OSM_SPAWNS, at, place: input.place && frame.point(input.place), anchors: spawnAnchors(features) });
   if (layout.spawns.length < layout.wanted) {
     warnings.push(at
-      ? `spawns: ${layout.wanted - layout.spawns.length} of ${layout.wanted} chosen have no street with a route to the HQ and were left out`
-      : `spawns: ${layout.spawns.length} of ${layout.wanted} found on streets 500 to 1000 m from the HQ with a route to it`);
+      ? { key: 'spawnsLeftOut', v: { missing: layout.wanted - layout.spawns.length, wanted: layout.wanted } }
+      : { key: 'spawnsFound', v: { found: layout.spawns.length, wanted: layout.wanted } });
   }
   // The routes from the spawns, once for the areas and the plants (devices and plants grow fuller near them)
   const routes = [...spawnRoutes(doc).values()].filter((r) => !!r).map((r) => r!.points);
@@ -379,17 +381,17 @@ export async function loadOsmInput(
   const report = options.onProgress ?? (() => undefined);
   report({ step: 'stored' });
   const stored = await options.store?.load(lat, lon, side);
-  report({ step: 'stored', state: 'done', detail: stored ? 'found' : 'nothing kept yet' });
+  report({ step: 'stored', state: 'done', detail: { key: stored ? 'found' : 'nothingKept' } });
   const askDem = () => {
     report({ step: 'heights' });
-    return downloadDem(box, { decode: options.decode, signal: options.signal, onTile: (done, of) => report({ step: 'heights', share: done / of, detail: `${done} of ${of} tiles` }) }).then(
+    return downloadDem(box, { decode: options.decode, signal: options.signal, onTile: (done, of) => report({ step: 'heights', share: done / of, detail: { key: 'tiles', v: { done, of } } }) }).then(
       (got) => {
-        report({ step: 'heights', state: 'done', detail: `${got.tiles} tiles` });
+        report({ step: 'heights', state: 'done', detail: { key: 'tileCount', v: { n: got.tiles } } });
         return got;
       },
       (e: Error) => {
         if (options.signal?.aborted) throw e;
-        report({ step: 'heights', state: 'failed', detail: 'none came, the ground will be flat' });
+        report({ step: 'heights', state: 'failed', detail: { key: 'noHeights' } });
         return { error: e.message };
       },
     );
@@ -400,18 +402,18 @@ export async function loadOsmInput(
       box,
       options.signal,
       options.onRetry,
-      (bytes) => report({ step: 'overpass', detail: `${sizeText(bytes)} received` }),
+      (bytes) => report({ step: 'overpass', detail: { key: 'received', v: { chars: bytes } } }),
       // A sign of life for the session's watch while a round waits on slow servers, one after the other
-      (host) => report({ step: 'overpass', detail: `asking ${host}` }),
+      (host) => report({ step: 'overpass', detail: { key: 'asking', v: { host } } }),
     ).then(
       (got) => {
-        report({ step: 'overpass', state: 'done', detail: sizeText(got.chars) });
+        report({ step: 'overpass', state: 'done', detail: { key: 'size', v: { chars: got.chars } } });
         return got;
       },
       (e: Error) => {
         if (options.signal?.aborted) throw e;
         report({ step: 'overpass', state: 'failed' });
-        throw new Error(overpassFailure(e.message));
+        throw overpassFailure(e.message);
       },
     );
   };
@@ -437,7 +439,6 @@ export async function loadOsmInput(
 }
 
 /** What the player reads when no OSM server gave the place's data */
-export function overpassFailure(reason: string): string {
-  if (/\b429\b/.test(reason)) return 'The OpenStreetMap servers are busy with too many requests from your address. Wait a minute and try again.';
-  return `The OpenStreetMap servers did not answer (${reason}). They are sometimes down for a while; try again in a few minutes.`;
+export function overpassFailure(reason: string): OsmError {
+  return new OsmError(/\b429\b/.test(reason) ? { key: 'busy' } : { key: 'down', v: { reason } });
 }

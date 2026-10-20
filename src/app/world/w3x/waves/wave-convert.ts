@@ -24,6 +24,7 @@ import type { MapWaveRow, MapWaveTable } from '../../custom-map/map-document';
 import type { W3UnitType } from '../formats/w3u';
 import { plainText } from '../formats/wts';
 import type { ScriptWaves } from './wave-script';
+import type { ImportNote } from '../../import-notes';
 
 /** Warcraft's default ground speed and hit points where a unit leaves them unchanged */
 const DEFAULT_SPEED = 270;
@@ -71,7 +72,7 @@ export interface WaveConversion {
   /** The HP curve's exponent; null where the map has no unit data and the game's own curve stands in */
   k: number | null;
   /** What the conversion had to guess */
-  warnings: string[];
+  warnings: ImportNote[];
 }
 
 function unitInfo(unit: string, types: Map<string, W3UnitType>): WaveUnitInfo {
@@ -136,13 +137,13 @@ function tableGrowth(n: number): number {
 }
 
 export function convertWaves(script: ScriptWaves, types: Map<string, W3UnitType>, lanes = 1): WaveConversion {
-  const warnings: string[] = [];
+  const warnings: ImportNote[] = [];
   const laneShare = 1 / Math.sqrt(Math.max(1, lanes));
   const infos = script.waves.map((w) => unitInfo(w.unit, types));
   const statsKnown = script.waves.some((w) => typeof types.get(w.unit)?.fields.get('uhpm') === 'number');
-  if (!statsKnown) warnings.push('waves: the map has no hit points of its units; HP follow the wave curve of the game');
+  if (!statsKnown) warnings.push({ key: 'noHp' });
   if (script.waves.some((w) => w.count === null)) {
-    warnings.push(`waves: the script does not say how many units a wave has; ${DEFAULT_COUNT} per lane`);
+    warnings.push({ key: 'noCount', v: { count: DEFAULT_COUNT } });
   }
   const rawCount = (i: number): number => Math.min(MAX_COUNT, script.waves[i].count ?? DEFAULT_COUNT);
   // The game's first wave count over the map's, so the first waves are alike in number

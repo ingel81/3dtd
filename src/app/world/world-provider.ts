@@ -25,6 +25,7 @@ import type { WorldCoverage } from './world-coverage';
 import type { WaveSourceId } from '../director/wave-source';
 import type { QualityKnobs } from '../three-engine/render-quality';
 import type { WaveTable } from '../director/sources/table/wave-table';
+import type { Messages } from '../i18n/messages/en';
 
 /**
  * What a world can do, read by the services and the UI instead of asking
@@ -395,9 +396,10 @@ export interface WorldProvider {
    * The credits the map on screen asks for, in order, each one line part:
    * the map line under the map and the photos show them and nothing else
    * (tiles: Google's data and the OSM routes; a custom map: its name and
-   * author and the assets' licence; DevWorld none)
+   * author and the assets' licence; DevWorld none); `t` words what is the
+   * game's own (a custom map's line), the licensors' lines stay as they write them
    */
-  attribution(): string[];
+  attribution(t: Messages): string[];
   /** `callback` once the first ground stands, right away when it does already */
   onFirstGround(callback: () => void): void;
   /**

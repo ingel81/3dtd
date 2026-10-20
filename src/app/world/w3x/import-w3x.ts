@@ -41,6 +41,7 @@ import { type W3xMapFiles, playableBounds, readW3xFiles } from './map-files';
 import { type Bounds, type LaneMask, buildLaneMask, laneWidth } from './routes/lane-mask';
 import { type RouteGraph, type RouteStrategy, routeLengths } from './routes/route-graph';
 import { extractRoutes } from './routes/extract-routes';
+import type { ImportNote } from '../import-notes';
 
 export interface W3xImportOptions {
   /** File name for meta.source and the fallback map name */
@@ -136,8 +137,8 @@ export interface W3xImportReport {
   waves?: W3xWaveReport;
   /** The route strategy that produced the paths, or null when none did */
   strategy: RouteStrategy | null;
-  attempts: { strategy: RouteStrategy; result: string }[];
-  warnings: string[];
+  attempts: { strategy: RouteStrategy; result: ImportNote }[];
+  warnings: ImportNote[];
   stats: W3xImportStats;
 }
 
@@ -192,15 +193,15 @@ export function convertW3x(map: W3xMapFiles, options: W3xImportOptions = {}): W3
   const mask = buildLaneMask(map.pathing, t, bounds);
   const graph = routes.graph;
   const { paths, spawns, hq, widths } = convertRoutes(graph, frame, mask);
-  if (!graph) warnings.push('routes: no way from a spawn to an end found; the map has no roads, add them in the editor');
+  if (!graph) warnings.push({ key: 'noRoutes' });
   if (spawns.length > MAX_SPAWN_PORTALS) {
-    warnings.push(`routes: ${spawns.length} spawns; the game shows portals for the first ${MAX_SPAWN_PORTALS}`);
+    warnings.push({ key: 'portals', v: { spawns: spawns.length, max: MAX_SPAWN_PORTALS } });
   }
 
   const picker = new AssetPicker(tileset, options.catalog?.objects);
   const objects = convertDoodads(map, frame, picker, paths, options.maxObjects ?? 6000);
-  if (objects.stats.thinned > 0) warnings.push(`objects: ${objects.stats.thinned} thinned out to stay under ${options.maxObjects ?? 6000}`);
-  if (objects.stats.noAsset > 0) warnings.push(`objects: ${objects.stats.noAsset} without a matching catalogue asset`);
+  if (objects.stats.thinned > 0) warnings.push({ key: 'thinned', v: { count: objects.stats.thinned, max: options.maxObjects ?? 6000 } });
+  if (objects.stats.noAsset > 0) warnings.push({ key: 'noAsset', v: { count: objects.stats.noAsset } });
 
   const style = options.style ?? 'enhanced';
   let objectList = objects.list;
@@ -247,7 +248,7 @@ export function convertW3x(map: W3xMapFiles, options: W3xImportOptions = {}): W3
     try {
       ({ gameplay, waveReport } = importWaves(map, spawns.length, warnings));
     } catch (e) {
-      warnings.push(`waves: the script could not be read (${(e as Error).message}); the map plays the budget waves of the game`);
+      warnings.push({ key: 'scriptUnread', v: { detail: (e as Error).message } });
     }
   }
 
@@ -449,11 +450,11 @@ function segmentDistance(px: number, py: number, ax: number, ay: number, bx: num
 function importWaves(
   map: W3xMapFiles,
   spawnCount: number,
-  warnings: string[],
+  warnings: ImportNote[],
 ): { gameplay: CustomMapDocument['gameplay']; waveReport: W3xWaveReport | undefined } {
   const found = map.script ? wavesFromScript(parseScript(map.script)) : null;
   if (!found) {
-    warnings.push('waves: no wave arrays found in the script; the map plays the budget waves of the game');
+    warnings.push({ key: 'noWaveArrays' });
     return { gameplay: undefined, waveReport: undefined };
   }
   const lanes = Math.min(spawnCount, MAX_SPAWN_PORTALS) || 1;

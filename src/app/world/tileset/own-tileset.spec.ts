@@ -4,6 +4,7 @@ import { OsmStreetService } from '../../services/location/osm-street.service';
 import { OWN_TILESET_CAPABILITIES } from '../tiles/tiles-world';
 import { WorldProviderRegistry, WorldUnavailableError } from '../world-provider-registry';
 import { parseOwnTilesets } from './own-tileset';
+import { en } from '../../i18n/messages/en';
 
 const KALASATAMA = {
   id: 'kalasatama',
@@ -80,7 +81,7 @@ describe('the own tileset world', () => {
     const world = registry.create(ref, { lat: center.lat, lon: center.lon, height: 0 });
     expect(world.ref).toEqual(ref);
     expect(world.capabilities).toBe(OWN_TILESET_CAPABILITIES);
-    expect(world.attribution()[0]).toBe(KALASATAMA.attribution);
+    expect(world.attribution(en)[0]).toBe(KALASATAMA.attribution);
     // No Google or Cesium logo
     expect(registry.logos(ref)).toEqual([]);
     expect(registry.coverage(ref)).toEqual({ center, radiusM });

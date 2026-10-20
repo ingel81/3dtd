@@ -9,6 +9,7 @@ import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { newMapUid } from '../../world/custom-map/map-create';
 import type { PackOptions } from '../../world/custom-map/map-file';
 import { MAP_FILE_EXTENSION, MapFileError } from '../../world/custom-map/map-file-kind';
+import { mapFaultText, mapProblemText } from '../../world/custom-map/map-text';
 import { unpackOffThread } from '../../world/custom-map/map-unpack';
 import type { PackedMap } from '../../world/custom-map/map-pack';
 import { FolderWriteError } from '../../world/custom-map/folder-map-backend';
@@ -291,7 +292,7 @@ export class SaveService {
 export function saveErrorText(t: Messages, e: unknown, what: 'saved' | 'downloaded' = 'saved'): string {
   const says = t.editor.session;
   // Saving and the download write the same file: neither helps until the problem is fixed
-  if (e instanceof MapFileError) return says.notWritten(what, e.problems[0], e.problems.length - 1);
+  if (e instanceof MapFileError) return says.notWritten(what, e.problems.length ? mapProblemText(t, e.problems[0]) : mapFaultText(t, e.fault, []), Math.max(0, e.problems.length - 1));
   const err = e as { name?: string; message?: string } | null;
   if (err?.name === 'QuotaExceededError' || /quota|storage full/i.test(err?.message ?? '')) return says.noRoom;
   return says.notSaved(err?.message ?? says.unknownError);

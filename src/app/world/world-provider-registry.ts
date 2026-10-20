@@ -45,8 +45,9 @@ export interface WorldFactory {
 
 /** A world the registry cannot make here: no factory for its kind, or a map that is missing */
 export class WorldUnavailableError extends Error {
-  constructor(readonly ref: WorldRef, reason: string) {
-    super(`The world "${worldLabel(ref)}" is not available: ${reason}`);
+  /** `cause`: what made it so, for the player to read (a map that is missing or changed) */
+  constructor(readonly ref: WorldRef, reason: string, cause?: unknown) {
+    super(`The world "${worldLabel(ref)}" is not available: ${reason}`, cause === undefined ? undefined : { cause });
   }
 }
 
@@ -149,7 +150,7 @@ const CUSTOM_MAP_FACTORY: WorldFactory = {
       prefetchCustomMapAssets(doc);
       return mapToGeo(doc.hq);
     } catch (err) {
-      throw new WorldUnavailableError(ref, err instanceof Error ? err.message : String(err));
+      throw new WorldUnavailableError(ref, err instanceof Error ? err.message : String(err), err);
     }
   },
 };

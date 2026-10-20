@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import { MAP_SURFACE_MARKINGS, type MapSurface, type MapSurfaceMarkingKind } from '../../../world/custom-map/map-document';
 import { centroid } from '../../../world/custom-map/map-life';
-import { fitMarking, MARKING_INFO, MAX_SURFACE_MATERIALS, surfaceArea, surfaceMaterials } from '../../../world/custom-map/map-surfaces';
+import { fitMarking, MAX_SURFACE_MATERIALS, surfaceArea, surfaceMaterials } from '../../../world/custom-map/map-surfaces';
 import { refitMarking, surfacesCommand } from '../../ops/surfaces';
 import { patch, type SurfaceMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
@@ -65,7 +65,7 @@ const SUGGESTED = [
           <select class="td-select is-auto" [value]="s.marking?.kind ?? 'none'" (change)="setMarking(s, $any($event.target).value)" aria-label="Lines" data-test="surface-marking">
             <option value="none">None</option>
             @for (k of markings; track k) {
-              <option [value]="k">{{ info[k].label }}</option>
+              <option [value]="k">{{ session.t().editor.surfaceMarkings[k] }}</option>
             }
           </select>
         </label>
@@ -110,7 +110,7 @@ const SUGGESTED = [
           <select class="td-select is-auto" [value]="settings().marking" (change)="setNext({ marking: $any($event.target).value })" aria-label="Lines of the next surface">
             <option value="none">None</option>
             @for (k of markings; track k) {
-              <option [value]="k">{{ info[k].label }}</option>
+              <option [value]="k">{{ session.t().editor.surfaceMarkings[k] }}</option>
             }
           </select>
         </label>
@@ -149,7 +149,6 @@ export class SurfacePanelComponent {
   readonly session = inject(EditorSession);
   /** The revision of the map's parts this panel shows, while it is in sight (PanelShown) */
   private readonly rev = panelRev('surfaces');
-  readonly info = MARKING_INFO;
   readonly markings = MAP_SURFACE_MARKINGS;
   readonly maxMaterials = MAX_SURFACE_MATERIALS;
   readonly modes: { id: SurfaceMode; label: string }[] = [
@@ -172,7 +171,7 @@ export class SurfacePanelComponent {
 
   titleOf(s: MapSurface): string {
     const material = this.session.catalog().material(s.material).name;
-    return s.marking ? `${MARKING_INFO[s.marking.kind].label}, ${material}` : material;
+    return s.marking ? `${this.session.t().editor.surfaceMarkings[s.marking.kind]}, ${material}` : material;
   }
 
   sizeOf(s: MapSurface): string {

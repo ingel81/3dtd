@@ -20,6 +20,9 @@ import { CustomMapStreets, type StreetMap } from '../../custom-map/custom-map-st
 import { geoToMap, mapToGeo, type CustomMapDocument, type MapPoint, type MapSpawn } from '../../custom-map/map-document';
 import type { SpawnAnchor } from './anchors';
 
+/** Why a spawn cannot stand where the player dropped it; the frame words it (osm.dropReasons) */
+export type SpawnDropReason = 'no-streets' | 'no-street-near' | 'edge' | 'near-hq' | 'far-hq' | 'tunnel' | 'no-route';
+
 export interface LayoutOptions {
   /** Spawns wanted when none are given */
   spawns: number;
@@ -229,22 +232,22 @@ export class OsmLayout {
    * dropped on a real place lands, with its route; or why it may not stand
    * there
    */
-  at(p: MapPoint): LaidSpawn | { reason: string } {
+  at(p: MapPoint): LaidSpawn | { reason: SpawnDropReason } {
     const hqPoint = this.hq;
-    if (!hqPoint) return { reason: 'This place has no streets' };
+    if (!hqPoint) return { reason: 'no-streets' };
     const geo = mapToGeo(p);
     const nearest = this.streets.findNearestStreetPoint(this.network, geo.lat, geo.lon);
-    if (!nearest || nearest.distance > DROP_STREET_REACH) return { reason: 'No street near here' };
+    if (!nearest || nearest.distance > DROP_STREET_REACH) return { reason: 'no-street-near' };
     const a = geoToMap(nearest.street.nodes[nearest.nodeIndex].lat, nearest.street.nodes[nearest.nodeIndex].lon);
     const b = geoToMap(nearest.street.nodes[nearest.nodeIndex + 1].lat, nearest.street.nodes[nearest.nodeIndex + 1].lon);
     const foot = closest(a, b, p);
     const lim = this.half - EDGE_ROOM;
-    if (Math.abs(foot.x) > lim || Math.abs(foot.y) > lim) return { reason: 'Too close to the edge of the map' };
+    if (Math.abs(foot.x) > lim || Math.abs(foot.y) > lim) return { reason: 'edge' };
     const distance = Math.hypot(foot.x - hqPoint.x, foot.y - hqPoint.y);
-    if (distance < MIN_MANUAL_SPAWN_DISTANCE) return { reason: 'Too close to the HQ' };
-    if (distance > MAX_MANUAL_SPAWN_DISTANCE) return { reason: 'Too far from the HQ' };
-    if (this.inTunnel(foot)) return { reason: 'Inside a tunnel' };
-    return this.laid({ x: round2(foot.x), y: round2(foot.y) }, distance) ?? { reason: 'No route to the HQ from here' };
+    if (distance < MIN_MANUAL_SPAWN_DISTANCE) return { reason: 'near-hq' };
+    if (distance > MAX_MANUAL_SPAWN_DISTANCE) return { reason: 'far-hq' };
+    if (this.inTunnel(foot)) return { reason: 'tunnel' };
+    return this.laid({ x: round2(foot.x), y: round2(foot.y) }, distance) ?? { reason: 'no-route' };
   }
 
   /**

@@ -6,6 +6,7 @@
  * stands on the goal line the shader paints.
  */
 import { MAP_SURFACE_MARKINGS, type MapPoint, type MapSurface, type MapSurfaceMarking, type MapSurfaceMarkingKind } from './map-document';
+import type { MapText, MapThing } from './map-text';
 
 /** Most surfaces a map keeps (an OSM city has some 900) */
 export const MAX_SURFACES = 4096;
@@ -20,19 +21,6 @@ export const MAX_SURFACE_HOLES = 64;
 export const MAX_SURFACE_MATERIALS = 15;
 /** How much of its rectangle an outline must fill for a marking to fit (a car park in an L takes its paving only) */
 export const MARKING_FILL = 0.85;
-
-/** What each marking is called in the editor */
-export const MARKING_INFO: Readonly<Record<MapSurfaceMarkingKind, { label: string }>> = {
-  soccer: { label: 'Football pitch' },
-  handball: { label: 'Handball court' },
-  basketball: { label: 'Basketball court' },
-  tennis: { label: 'Tennis court' },
-  volleyball: { label: 'Volleyball court' },
-  multi: { label: 'Multi-sport court' },
-  track: { label: 'Running track' },
-  parking: { label: 'Car park stalls' },
-  platform: { label: 'Platform edge' },
-};
 
 /**
  * The court a marking draws, in metres: real measures, fitted into the
@@ -250,31 +238,31 @@ export function surfaceMaterials(surfaces: readonly MapSurface[]): string[] {
  * a problem is left out on reading (map-repair.ts), an unknown marking only
  * loses its lines
  */
-export function surfaceProblems(s: unknown): string[] {
-  if (!s || typeof s !== 'object' || Array.isArray(s)) return ['a surface is not an object'];
+export function surfaceProblems(s: unknown): MapText[] {
+  if (!s || typeof s !== 'object' || Array.isArray(s)) return [{ key: 'notObject', v: { what: { kind: 'surface' } } }];
   const f = s as MapSurface;
-  const name = `surface ${String(f.id)}`;
-  const p: string[] = [];
-  if (typeof f.id !== 'string' || !f.id) p.push('a surface has no id');
-  if (typeof f.material !== 'string' || !f.material) p.push(`${name} has no material`);
-  if (!ringOk(f.outer)) p.push(`${name} needs an outline of 3 to ${MAX_SURFACE_POINTS} points`);
+  const of: MapThing = { kind: 'surface', id: String(f.id) };
+  const p: MapText[] = [];
+  if (typeof f.id !== 'string' || !f.id) p.push({ key: 'noId', v: { what: { kind: 'surface' } } });
+  if (typeof f.material !== 'string' || !f.material) p.push({ key: 'noMaterial', v: { what: of } });
+  if (!ringOk(f.outer)) p.push({ key: 'outline', v: { what: of, max: MAX_SURFACE_POINTS } });
   if (f.holes !== undefined && (!Array.isArray(f.holes) || f.holes.length > MAX_SURFACE_HOLES || !f.holes.every(ringOk))) {
-    p.push(`${name}: holes must be at most ${MAX_SURFACE_HOLES} outlines of 3 to ${MAX_SURFACE_POINTS} points`);
+    p.push({ key: 'holes', v: { what: 'holes', max: MAX_SURFACE_HOLES, points: MAX_SURFACE_POINTS }, of });
   }
-  if (f.group !== undefined && typeof f.group !== 'string') p.push(`${name}: group must be an id`);
-  if (f.marking !== undefined) p.push(...markingProblems(f.marking).map((t) => `${name}: ${t}`));
+  if (f.group !== undefined && typeof f.group !== 'string') p.push({ key: 'id', v: { what: 'group' }, of });
+  if (f.marking !== undefined) p.push(...markingProblems(f.marking).map((t) => ({ ...t, of })));
   return p;
 }
 
 /** What is wrong with a marking (empty when fine) */
-export function markingProblems(m: unknown): string[] {
-  if (!m || typeof m !== 'object') return ['the marking is not an object'];
+export function markingProblems(m: unknown): MapText[] {
+  if (!m || typeof m !== 'object') return [{ key: 'notObject', v: { what: { kind: 'marking' } } }];
   const k = m as MapSurfaceMarking;
   const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
-  if (!MAP_SURFACE_MARKINGS.includes(k.kind)) return [`marking ${String(k.kind)} is unknown`];
-  if (![k.x, k.y, k.angle].every(finite)) return ['the marking needs a middle and an angle'];
+  if (!MAP_SURFACE_MARKINGS.includes(k.kind)) return [{ key: 'unknown', v: { what: 'marking', value: String(k.kind) } }];
+  if (![k.x, k.y, k.angle].every(finite)) return [{ key: 'markingMiddle' }];
   if (!finite(k.length) || !finite(k.width) || k.length <= 0 || k.width <= 0 || k.length > 1000 || k.width > 1000) {
-    return ['the marking needs a length and a width of above 0 to 1000 m'];
+    return [{ key: 'markingSize' }];
   }
   return [];
 }

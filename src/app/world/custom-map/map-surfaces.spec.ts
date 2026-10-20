@@ -3,6 +3,7 @@ import { contentHash, packMapFile, unpackMapFile } from './map-file';
 import { mapRepairs } from './map-repair';
 import type { MapPoint, MapSurface, MapSurfaceMarkingKind } from './map-document';
 import { courtOf, fitMarking, markingFrame, markingPoint, parkingBands, parkingRows, STALL, surfaceArea, surfaceProblems } from './map-surfaces';
+import { words } from './testing/map-words';
 
 const rect = (cx: number, cy: number, a: number, b: number, turn = 0): MapPoint[] => {
   const m = { kind: 'parking' as const, x: cx, y: cy, angle: turn, length: a, width: b };
@@ -64,10 +65,10 @@ describe('map surfaces', () => {
   });
 
   it('names what is wrong with a surface', () => {
-    expect(surfaceProblems({ id: 'a', material: 'paving', outer: rect(0, 0, 4, 4) })).toEqual([]);
-    expect(surfaceProblems({ id: 'a', material: 'paving', outer: [{ x: 0, y: 0 }] })[0]).toContain('outline');
-    expect(surfaceProblems({ id: '', material: 'paving', outer: rect(0, 0, 4, 4) })[0]).toContain('no id');
-    expect(surfaceProblems({ id: 'a', material: 'paving', outer: rect(0, 0, 4, 4), marking: { kind: 'curling', x: 0, y: 0, angle: 0, length: 4, width: 4 } })[0]).toContain('unknown');
+    expect(words(surfaceProblems({ id: 'a', material: 'paving', outer: rect(0, 0, 4, 4) }))).toEqual([]);
+    expect(words(surfaceProblems({ id: 'a', material: 'paving', outer: [{ x: 0, y: 0 }] }))[0]).toContain('outline');
+    expect(words(surfaceProblems({ id: '', material: 'paving', outer: rect(0, 0, 4, 4) }))[0]).toContain('no id');
+    expect(words(surfaceProblems({ id: 'a', material: 'paving', outer: rect(0, 0, 4, 4), marking: { kind: 'curling', x: 0, y: 0, angle: 0, length: 4, width: 4 } }))[0]).toContain('unknown');
     expect(surfaceArea({ outer: rect(0, 0, 10, 4), holes: [rect(0, 0, 2, 2)] })).toBeCloseTo(36, 6);
   });
 });
@@ -98,9 +99,9 @@ describe('surfaces in the map file', () => {
     (odd.marking as unknown as Record<string, unknown>)['kind'] = 'quidditch';
     doc.surfaces = [surface('a'), odd, { id: 'c', material: 'sand', outer: [{ x: 0, y: 0 }] }, surface('a')];
     const { doc: back, repaired } = unpackMapFile(packMapFile(doc));
-    expect(repaired).toEqual([
+    expect(words(repaired)).toEqual([
       'surface b: marking quidditch is unknown; it is drawn without lines',
-      'surface c needs an outline of 3 to 2048 points; it is left out',
+      'surface c needs an outline of 3 to 2,048 points; it is left out',
       'surface id "a" is twice; it is left out',
     ]);
     expect(back.surfaces!.map((s) => s.id)).toEqual(['a', 'b']);
@@ -112,7 +113,7 @@ describe('surfaces in the map file', () => {
     const doc = createMapDocument({ id: 'm', name: 'M', width: 64, depth: 64, starter: true, now: new Date(0) });
     (doc as unknown as Record<string, unknown>)['surfaces'] = 'many';
     const { doc: back, repaired } = unpackMapFile(packMapFile(doc));
-    expect(repaired).toEqual(['surfaces is not a list; the map has no surfaces']);
+    expect(words(repaired)).toEqual(['surfaces is not a list; the map has no surfaces']);
     expect(back.surfaces).toBeUndefined();
   });
 });

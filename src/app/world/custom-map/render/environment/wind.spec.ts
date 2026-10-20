@@ -4,6 +4,8 @@ import { packMapFile, unpackMapFile, validateMapDocument } from '../../map-file'
 import { mapToScene } from '../map-coords';
 import { setPlantSway, setWind, WIND_GLSL, windOf, windSceneDirection, windSwayAtTop, WIND_UNIFORMS } from './wind';
 import { CustomMapEnvironment } from './map-environment';
+import { mapProblemText } from '../../map-text';
+import { en } from '../../../../i18n/messages/en';
 
 function sample() {
   return createMapDocument({ id: 'wind', name: 'Wind', width: 32, depth: 32, ground: 'flat', seed: 1, now: new Date('2026-10-14T00:00:00Z') });
@@ -87,7 +89,7 @@ describe('wind', () => {
     expect(unpackMapFile(packMapFile(doc)).doc.environment.wind).toEqual(doc.environment.wind);
     doc.environment.wind = { strength: Number.NaN, direction: 200, gusts: 0.7 };
     const read = unpackMapFile(packMapFile(doc));
-    expect(read.repaired.some((m) => m.includes('wind'))).toBe(true);
+    expect(read.repaired.some((m) => mapProblemText(en, m).includes('wind'))).toBe(true);
     expect(read.doc.environment.wind).toBeUndefined();
   });
 });

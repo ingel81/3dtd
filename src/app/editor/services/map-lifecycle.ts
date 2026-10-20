@@ -31,6 +31,7 @@ import type { MapLibrary } from './map-library';
 import type { SaveService } from './save-service';
 import type { ToolHost } from './tool-host';
 import type { ViewHost } from './view-host';
+import { mapErrorMessage } from '../../world/custom-map/map-text';
 
 export interface LifecycleParts {
   zone: NgZone;
@@ -290,7 +291,7 @@ export class MapLifecycle {
       if (this.lock !== lock) return;
       this.show(loaded.doc, false);
     } catch (e) {
-      p.notices.error.set(p.notices.t().editor.session.unreadableAgain((e as Error).message));
+      p.notices.error.set(p.notices.t().editor.session.unreadableAgain(mapErrorMessage(p.notices.t(), e)));
       return;
     }
     this.setReadOnly(false);

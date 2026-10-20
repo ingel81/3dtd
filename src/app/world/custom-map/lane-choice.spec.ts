@@ -36,10 +36,10 @@ describe('lane choice (TODO E130)', () => {
   it('says why a set of open lanes is not allowed', () => {
     const choice = laneChoiceOf([spawn('a'), spawn('b', true), spawn('c', true)], { lanes: { min: 2, max: 2 } });
     expect(laneChoiceProblem(choice, ['a', 'b'])).toBeNull();
-    expect(laneChoiceProblem(choice, ['b', 'c'])).toBe('A is always open');
-    expect(laneChoiceProblem(choice, ['a'])).toBe('at least 2 lanes stay open');
-    expect(laneChoiceProblem(choice, ['a', 'b', 'c'])).toBe('at most 2 lanes are open on this map');
-    expect(laneChoiceProblem(choice, ['a', 'x'])).toBe('no lane x on this map');
+    expect(laneChoiceProblem(choice, ['b', 'c'])).toBe('always-open');
+    expect(laneChoiceProblem(choice, ['a'])).toBe('too-few');
+    expect(laneChoiceProblem(choice, ['a', 'b', 'c'])).toBe('too-many');
+    expect(laneChoiceProblem(choice, ['a', 'x'])).toBe('unknown-lane');
   });
 
   it('switches a lane in the map order, or refuses', () => {

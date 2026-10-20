@@ -27,6 +27,8 @@ import type { MapLibrary } from './map-library';
 import type { MapLifecycle } from './map-lifecycle';
 import type { SaveService } from './save-service';
 import type { ViewHost } from './view-host';
+import { mapErrorMessage } from '../../world/custom-map/map-text';
+import { en } from '../../i18n/messages/en';
 
 /** What the adapter needs of the session besides its services */
 export interface AgentSessionParts {
@@ -173,7 +175,7 @@ export class AgentAdapter implements AgentHost {
     try {
       return await this.s.maps.switchTo(id);
     } catch (e) {
-      throw new Error(`The map did not open: ${(e as Error).message}`, { cause: e });
+      throw new Error(`The map did not open: ${mapErrorMessage(en, e)}`, { cause: e });
     }
   }
 

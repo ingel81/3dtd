@@ -3,6 +3,7 @@ import { MAX_START_WAVE } from '../../sim/protocol/run-start';
 import type { WorldCapabilities } from '../world-provider';
 import type { WorldRef } from '../world-ref';
 import type { CustomMapDocument } from './map-document';
+import type { MapProblem } from './map-text';
 
 /**
  * What the start of a custom map needs before its world is made, kept apart
@@ -30,7 +31,7 @@ export interface LoadedCustomMap {
   doc: CustomMapDocument;
   contentHash: string;
   /** What reading the file set right or left out (map-repair.ts), in words: the game says it as the world opens */
-  repaired?: readonly string[];
+  repaired?: readonly MapProblem[];
 }
 
 /**

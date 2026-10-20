@@ -68,6 +68,8 @@ import { objectsOnMoverWays, validateMap, type MapIssue } from '../../map-ops/va
 import { assetCosts } from '../../map-ops/validation/map-budget';
 import { lifeProblems, newLifeId } from '../../world/custom-map/map-life';
 import { introProblems } from '../../world/custom-map/map-intro';
+import { mapText } from '../../world/custom-map/map-text';
+import { en } from '../../i18n/messages/en';
 import {
   fitSplatMaps,
   MAX_MAP_PREFABS,
@@ -1235,7 +1237,7 @@ export class MapKit {
       return;
     }
     const problems = introProblems(spec);
-    if (problems.length) throw new Error(`${this.name}: ${problems[0]}`);
+    if (problems.length) throw new Error(`${this.name}: ${mapText(en, problems[0])}`);
     this.doc.intro = structuredClone(spec);
   }
 
@@ -1256,7 +1258,7 @@ export class MapKit {
     const life: MapLife = { ...this.doc.life, ...patch, auto: patch.auto ? { ...this.doc.life?.auto, ...patch.auto } : this.doc.life?.auto };
     if (!life.auto) delete life.auto;
     const problems = lifeProblems(life);
-    if (problems.length) throw new Error(`${this.name}: ${problems[0]}`);
+    if (problems.length) throw new Error(`${this.name}: ${mapText(en, problems[0])}`);
     this.doc.life = life;
   }
 
@@ -1283,7 +1285,7 @@ export class MapKit {
     }, t.width / 2, t.depth / 2);
     const life: MapLife = { ...this.doc.life, areas: [...areas, area, ...images] };
     const problems = lifeProblems(life);
-    if (problems.length) throw new Error(`${this.name}: ${problems[0]}`);
+    if (problems.length) throw new Error(`${this.name}: ${mapText(en, problems[0])}`);
     this.doc.life = life;
     // A route of movers clears its way of rocks, trees and plants strewn there; what else stands in it the check reports
     const strewn = new Set(objectsOnMoverWays({ ...this.doc, life: { areas: [area, ...images] } }, (a) => this.catalog.object(a).footing, CLEARED_FOR_MOVERS));
@@ -1319,11 +1321,11 @@ export class MapKit {
       s.marking = fitted;
     } else if (m) {
       const problem = markingProblems(m)[0];
-      if (problem) throw new Error(`${this.name}: ${problem}`);
+      if (problem) throw new Error(`${this.name}: ${mapText(en, problem)}`);
       s.marking = { kind: m.kind, x: m.x, y: m.y, angle: m.angle, length: m.length, width: m.width };
     }
     const problem = surfaceProblems(s)[0];
-    if (problem) throw new Error(`${this.name}: ${problem}`);
+    if (problem) throw new Error(`${this.name}: ${mapText(en, problem)}`);
     // With symmetry on, its images too (as the Surfaces tool draws them)
     const t = this.doc.terrain;
     const taken = [...list, s];

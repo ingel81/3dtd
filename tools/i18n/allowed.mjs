@@ -12,6 +12,14 @@ const KEY = 'a key cap';
 const CREDIT = "the licensor's credit line, as they write it";
 const DATA = 'data, not words: kept in saves or the location, or sent to the other players, so the same in every language';
 const DIAG = 'a diagnostic no player reads (log, performance mark, internal error cause)';
+const AGENT = 'for the agents and map scripts, which read English (the agent API)';
+const DETAIL = "a parser's or a server's own detail, shown in English inside a translated line (docs/I18N_PLAN.md 4.8)";
+const MAP_CONTENT = "content a map is made with (a name, a description), the map's own words like any its author writes";
+const GROUP = 'the name of a group of objects in a made map, data of the map file';
+const STREET = "a street's name in the street network, data like the names OpenStreetMap gives";
+const KIND = 'a kind of landmark as an id; the frame words it (osm.landmarks)';
+const SIGN = 'the words on a shop sign in the world, as the place itself would write them';
+const NOTE = 'a note for the map makers in the code; no player reads it';
 
 export const ALLOWED = {
   'components/main-menu/autosave-place.ts': { 'last run': 'a code (AutosavePlace.source)', 'last played': 'a code (AutosavePlace.source)' },
@@ -51,4 +59,55 @@ export const ALLOWED = {
     'no input': DIAG, 'input {} ms (max {}, n {})': DIAG, '{} frames, blocked {}%, steps 0:{} 1:{} 2:{} 3+:{}, ': DIAG,
   },
   'services/coop-lobby-list.ts': { 'This machine': "the name of the developer's own relay, in a development build only" },
+  // Maps and imports (map-ops, world/custom-map, world/osm, world/w3x)
+  'map-ops/asset-catalog.ts': {
+    'no {} {}: the asset catalogue did not load, so no material or object can be used': AGENT,
+    'the catalog tool lists them': AGENT,
+  },
+  'world/custom-map/custom-map-streets.ts': { Bridge: STREET, Path: STREET, Road: STREET },
+  'world/custom-map/folder-map-backend.ts': { '{} could not be written to the map folder': DIAG },
+  'world/custom-map/map-create.ts': { West: MAP_CONTENT },
+  'world/custom-map/render/asset-catalog.ts': {
+    'red toadstools read as enemy markers or blood from the game camera': NOTE,
+    'red poppies read as enemy markers or blood from the game camera': NOTE,
+  },
+  'world/osm/convert/anchors.ts': { 'car park': KIND, 'city gate': KIND, 'place of worship': KIND, 'town hall': KIND },
+  'world/osm/convert/areas.ts': {
+    'tennis fence': GROUP, 'table tennis': GROUP, 'riding fence': GROUP, 'boules benches': GROUP, 'ball fence': GROUP, 'skate ramps': GROUP,
+    'playground benches': GROUP, 'market stalls': GROUP, 'outdoor seating': GROUP, 'cemetery hedge': GROUP, 'allotment fences': GROUP,
+    'allotment beds': GROUP, 'allotment sheds': GROUP,
+  },
+  'world/osm/convert/furniture.ts': { 'city wall': GROUP, 'lit roads': GROUP },
+  'world/osm/convert/life.ts': { 'bell at {}': MAP_CONTENT, 'ship horn on the river': MAP_CONTENT },
+  'world/osm/convert/rails.ts': { 'rail bridge': GROUP, 'crossing signal': GROUP },
+  'world/osm/convert/vegetation.ts': { 'tree rows': GROUP },
+  'world/osm/dem-tiles.ts': {
+    'Heights: Mapterhorn (mapterhorn.com) and its sources': CREDIT,
+    'Heights: Terrain Tiles (Mapzen, AWS Open Data) and its sources': CREDIT,
+  },
+  'world/osm/import-osm.ts': { 'Made from OpenStreetMap at {}.': MAP_CONTENT },
+  'world/osm/osm-query.ts': { 'world quarter {}': DIAG },
+  'world/osm/overpass-client.ts': { 'No Overpass server answered': DETAIL, ' (try {} of {})': DETAIL },
+  'world/osm/overpass-servers.ts': { 'overpass.atownsend.org.uk (Great Britain and Ireland)': BRAND },
+  'world/osm/poi-tags.ts': {
+    'Cake shop': SIGN, 'Beer garden': SIGN, 'Wine bar': SIGN, 'Snack bar': SIGN, 'Ice cream': SIGN, 'Frutta e verdura': SIGN, 'Post office': SIGN,
+    "Chambres d'hôtes": SIGN, 'Guest house': SIGN, 'Petrol station': SIGN,
+  },
+  'world/w3x/formats/w3i.ts': { 'random unit table': DETAIL, 'random item table': DETAIL, 'item set': DETAIL },
+  'world/w3x/import-w3x.ts': { 'Warcraft map': MAP_CONTENT },
+  'world/w3x/jass/jass-parser.ts': {
+    'nested deeper than {} levels': DETAIL, 'expected end of line': DETAIL, 'expected an expression': DETAIL, 'script not readable: {}': DETAIL,
+    'missing endglobals': DETAIL, 'global skipped: {}': DETAIL, 'function skipped: {}': DETAIL,
+  },
+  'world/w3x/jass/lua-parser.ts': {
+    'expected a name': DETAIL, 'nested deeper than {} levels': DETAIL, 'expected an assignment': DETAIL, 'a statement must be a call or an assignment': DETAIL,
+    'expected an expression': DETAIL, 'script not readable: {}': DETAIL,
+  },
+  'world/w3x/mpq.ts': {
+    'unknown header version {}, read as v0': DETAIL, 'hash table clamped from {} entries': DETAIL, 'block table clamped from {} entries': DETAIL,
+    '(hash table)': DETAIL, '(block table)': DETAIL,
+  },
+  'world/w3x/routes/maze-routes.ts': { End: MAP_CONTENT },
+  'world/w3x/routes/route-graph.ts': { 'Point {} {}': MAP_CONTENT },
+  'world/w3x/routes/terrain-routes.ts': { 'Spawn {}': MAP_CONTENT, 'Waypoint {}': MAP_CONTENT },
 };

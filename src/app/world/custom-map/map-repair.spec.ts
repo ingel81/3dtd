@@ -6,6 +6,8 @@ import { MapStore, MemoryMapBackend } from './map-store';
 import { validateMap } from '../../map-ops/validation/map-validation';
 import { en } from '../../i18n/messages/en';
 import { checkText } from '../../map-ops/validation/check-text';
+import { mapProblemText } from './map-text';
+import { words } from './testing/map-words';
 
 /** A map with values a file from outside may carry: none of them refused the map before the soft checks */
 function untidy() {
@@ -27,15 +29,15 @@ describe('soft map values (warn and set right)', () => {
     const doc = untidy();
     expect(doc.paths.edges.length).toBeGreaterThan(0);
     const { doc: read, repaired } = unpackMapFile(packMapFile(doc));
-    expect(repaired).toEqual([
-      `meta.description is longer than ${MAX_MAP_TEXT.description} characters; it is cut there`,
-      'environment fogDensity null is not 0 to 0.05; it is 0.0004 now',
-      'environment tint red is no #rrggbb colour; it is white now',
+    expect(words(repaired)).toEqual([
+      'meta.description is longer than 2,000 characters; it is cut there',
+      'environment.fogDensity null is not 0 to 0.05; it is 0.0004 now',
+      'environment.tint red is no #rrggbb colour; it is white now',
       'environment weather hail is unknown; the map is clear now',
-      'environment snowCover 3 is not 0 to 1; it is cut to that',
+      'environment.snowCover 3 is not 0 to 1; it is cut to that',
       'object o1: blocksBuild "false" is not true or false; the catalogue\'s holds',
       'object o1: tint green is no #rrggbb colour; it shows untinted',
-      `path edge ${doc.paths.edges[0].id}: kind lane is unknown; it is a road now`,
+      `path edge ${doc.paths.edges[0].id}: kind lane is unknown; it is road now`,
       'spawn 2: id "s1" is twice; it is spawn-2 now',
       'spawn 2: the name is no text; it is Spawn 2 now',
     ]);
@@ -72,7 +74,7 @@ describe('soft map values (warn and set right)', () => {
     doc.gameplay = { destructible: true, craters: false, wear: true, structureHp: 150 };
     doc.objects.push({ id: 'kept', asset: 'barn', x: 0, y: 0, z: 0, rotation: 0, scale: 1, destructible: false, damage: 2, damageSeed: 7 });
     const good = unpackMapFile(packMapFile(doc));
-    expect(good.repaired ?? []).toEqual([]);
+    expect(words(good.repaired) ?? []).toEqual([]);
     expect(good.doc.gameplay).toEqual(doc.gameplay);
     expect(good.doc.objects[0]).toMatchObject({ destructible: false, damage: 2, damageSeed: 7 });
 
@@ -92,7 +94,7 @@ describe('soft map values (warn and set right)', () => {
     doc.objects.push({ id: 'b', asset: 'sign-facade', x: 2, y: 0, z: 3, rotation: 0, scale: 1, sign: { text: 7 } as never });
     doc.objects.push({ id: 'c', asset: 'sign-facade', x: 4, y: 0, z: 3, rotation: 0, scale: 1, sign: { text: 'x'.repeat(40) } });
     const { doc: read, repaired } = unpackMapFile(packMapFile(doc));
-    expect(repaired?.filter((r) => r.includes('sign'))).toHaveLength(2);
+    expect(repaired?.filter((r) => mapProblemText(en, r).includes('sign'))).toHaveLength(2);
     expect(read.objects.map((o) => o.sign)).toEqual([{ text: 'Bäckerei', icon: 'pretzel' }, undefined, undefined]);
   });
 

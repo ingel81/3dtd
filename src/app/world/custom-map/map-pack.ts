@@ -9,6 +9,7 @@
 import type { CustomMapDocument } from './map-document';
 import type { PackOptions } from './map-file';
 import { MapFileError } from './map-file-kind';
+import type { MapFault, MapProblem } from './map-text';
 import type { MapSummary } from './map-store';
 import { summarize } from './map-summary';
 
@@ -31,22 +32,23 @@ export interface PackRequest {
   hash?: boolean;
 }
 
-/** A failed pack as data: an invalid map keeps its kind and its list of problems across the worker's edge */
+/** A failed pack as data: an invalid map keeps why and its list of problems across the worker's edge */
 export interface PackError {
   error: string;
-  problems?: string[];
+  fault?: MapFault;
+  problems?: MapProblem[];
 }
 
 export type PackReply = PackedMap | PackError;
 
 export function packErrorReply(err: unknown): PackError {
   const message = (err as Error)?.message ?? String(err);
-  return err instanceof MapFileError ? { error: message, problems: err.problems } : { error: message };
+  return err instanceof MapFileError ? { error: message, fault: err.fault, problems: [...err.problems] } : { error: message };
 }
 
 /** The error a reply stands for: a MapFileError again for an invalid map, so the editor can say what to fix */
 export function packReplyError(reply: PackError): Error {
-  return reply.problems ? new MapFileError(reply.error, reply.problems) : new Error(reply.error);
+  return reply.fault ? new MapFileError(reply.fault, reply.problems) : new Error(reply.error);
 }
 
 /** FNV-1a over the bytes: the packed file's fingerprint (PackedMap.sum, the version history's MapVersion.sum) */

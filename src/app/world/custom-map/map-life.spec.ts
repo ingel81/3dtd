@@ -3,6 +3,7 @@ import type { MapLifeArea } from './map-document';
 import { areaShown, insideOutline, lifeProblems, lifeSpots, lifeSwitches, loopInside, nearestOnShape, outlineArea, resampleShape, shapeLength } from './map-life';
 import { createMapDocument } from './map-create';
 import { packMapFile, unpackMapFile } from './map-file';
+import { words } from './testing/map-words';
 
 const square = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }];
 // An L: the square's upper right quarter cut away
@@ -67,9 +68,9 @@ describe('map life', () => {
   });
 
   it('names what is wrong with a life entry', () => {
-    expect(lifeProblems(undefined)).toEqual([]);
-    expect(lifeProblems({ areas: [{ id: 'a', kind: 'birds', shape: 'area', points: square }] })).toEqual([]);
-    const bad = lifeProblems({
+    expect(words(lifeProblems(undefined))).toEqual([]);
+    expect(words(lifeProblems({ areas: [{ id: 'a', kind: 'birds', shape: 'area', points: square }] }))).toEqual([]);
+    const bad = words(lifeProblems({
       density: 3,
       ambience: { sound: 'wind' },
       waveSound: { sound: 'bell', volume: 1.5 },
@@ -78,7 +79,7 @@ describe('map life', () => {
         { id: 'a', kind: 'birds', shape: 'area', points: square.slice(0, 2) },
         { id: 'b', kind: 'sound', shape: 'route', points: square, volume: 2, color: 'red', reach: 500 },
       ],
-    });
+    }));
     expect(bad).toEqual([
       'life.density must be 0 to 2',
       'life.ambience needs a sound and a volume 0 to 1',
@@ -87,7 +88,7 @@ describe('map life', () => {
       'life area id "a" is missing or twice',
       'life area a needs 3 to 256 points',
       'life area b: volume must be 0 to 1',
-      'life area b: reach must be 10 to 300 metres',
+      'life area b: reach must be 10 to 300 m',
       'life area b: color must be #rrggbb',
     ]);
   });
@@ -101,7 +102,7 @@ describe('map life', () => {
     // A broken area is left out as the file is read, the rest of the life stays
     doc.life = { density: 1.5, areas: [{ id: 's', kind: 'sound', shape: 'route', points: [{ x: 0, y: 0 }] }, { id: 't', kind: 'birds', shape: 'route', points: [{ x: 0, y: 0 }, { x: 9, y: 9 }] }] };
     const read = unpackMapFile(packMapFile(doc));
-    expect(read.repaired).toEqual(['life area s needs 2 to 256 points; it is left out']);
+    expect(words(read.repaired)).toEqual(['life area s needs 2 to 256 points; it is left out']);
     expect(read.doc.life).toEqual({ density: 1.5, areas: [doc.life.areas![1]] });
   });
 });

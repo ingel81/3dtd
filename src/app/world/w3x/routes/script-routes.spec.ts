@@ -8,6 +8,7 @@ import { parseScript } from '../jass/script-program';
 import { readW3xFiles } from '../map-files';
 import { buildRouteGraph, routeLengths } from './route-graph';
 import { routesFromEvaluation, routesFromPatterns, scriptRegions } from './script-routes';
+import { noteWords } from '../../testing/note-words';
 
 const TEST_MAP = findTestMap(existsSync);
 
@@ -233,7 +234,7 @@ endfunction
     const ev = new JassEvaluator(p, { maxLoop: 100 });
     ev.runInit();
     expect(ev.globals.get('n')).toBe(100);
-    expect(ev.warnings.join()).toMatch(/iteration limit/);
+    expect(noteWords(ev.warnings).join()).toMatch(/iteration limit/);
   });
 });
 
@@ -311,9 +312,9 @@ endfunction
 `);
     const ev = new JassEvaluator(p, { maxSteps: 20000, maxTriggerSteps: 5000, maxLoop: 1_000_000 });
     ev.runInit();
-    expect(ev.warnings.join()).toMatch(/budget used up in main/);
+    expect(noteWords(ev.warnings).join()).toMatch(/budget used up in main/);
     ev.collectOrders();
-    const used = ev.warnings.filter((w) => w.includes('budget used up in trigger'));
+    const used = noteWords(ev.warnings).filter((w) => w.includes('budget used up in trigger'));
     expect(used).toEqual(['script: step budget used up in trigger t1']);
   });
 });

@@ -39,6 +39,7 @@ import { landClassOf, waterClassOf, waterwayOf, type WaterClass } from '../land-
 import { runs, type OsmArea, type OsmFeatures } from '../osm-parse';
 import { clipLine, cornersBetween, perimeter, ringArea } from '../square-clip';
 import { distanceField, fillRings, sampleGrid, stampLine, type RasterGrid } from './raster';
+import type { ImportNote } from '../../import-notes';
 
 /** Water areas smaller than this are left out, m² */
 export const MIN_WATER_AREA = 50;
@@ -104,7 +105,7 @@ export interface WaterResult {
   roads: Uint8Array;
   /** Per height sample: the bed of a river's channel, NaN outside one (cut again once the roads are levelled) */
   channel: Float32Array;
-  warnings: string[];
+  warnings: ImportNote[];
 }
 
 interface Body {
@@ -134,7 +135,7 @@ export function carveWater(terrain: MapTerrain, features: OsmFeatures, paths: Ma
   const h = g.heights;
   const cellArea = g.cellSize * g.cellSize;
   const report: WaterReport = { coast: false, main: null, riverSections: 0, lakes: 0, pools: 0, wetlands: 0, dropped: 0, tooSmall: 0, rivers: 0, riverKm: 0, zeroShift: 0 };
-  const warnings: string[] = [];
+  const warnings: ImportNote[] = [];
   const paint: Record<WaterPaintRole, Float32Array> = { bed: new Float32Array(n * n), bank: new Float32Array(n * n), beach: new Float32Array(n * n) };
   const wet = new Uint8Array(n * n);
   const sea = new Uint8Array(n * n);
@@ -162,7 +163,7 @@ export function carveWater(terrain: MapTerrain, features: OsmFeatures, paths: Ma
     if (cells.length && high / cells.length < 0.5) {
       seaBody = { kind: 'sea', cls: 'sea', level: 0, cells: Int32Array.from(cells), area: cells.length * cellArea, depth: 8 };
       for (const k of cells) sea[k] = 1;
-    } else if (cells.length) warnings.push('water: the coastline did not close into a sea that matches the heights; no sea');
+    } else if (cells.length) warnings.push({ key: 'noSea' });
   }
 
   // Areas: rivers into one mask, lakes and pools each, wetlands each

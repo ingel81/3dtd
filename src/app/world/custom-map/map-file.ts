@@ -34,6 +34,9 @@ import {
 import { MAP_ID_PATTERN } from './map-create';
 import { mapRepairs, prefabProblems } from './map-repair';
 import { MapFileError } from './map-file-kind';
+import type { MapFilePart, MapProblem, MapProblemPart, MapText } from './map-text';
+
+export type { MapProblem, MapProblemPart } from './map-text';
 
 export const MAP_JSON_ENTRY = 'map.json';
 export const MAP_PREVIEW_ENTRY = 'preview.png';
@@ -115,14 +118,14 @@ export interface PackOptions {
 export interface UnpackedMap {
   doc: CustomMapDocument;
   preview: Uint8Array | null;
-  /** What reading set right or left out (map-repair.ts), in words: for the player to see */
-  repaired: string[];
+  /** What reading set right or left out (map-repair.ts), for the player to see */
+  repaired: MapProblem[];
 }
 
 /** The document as a `.3dtdmap` file */
 export function packMapFile(doc: CustomMapDocument, options: PackOptions = {}): Uint8Array {
   const problems = validateMapDocument(doc);
-  if (problems.length) throw new MapFileError(`The map is not valid: ${problems[0]}`, problems);
+  if (problems.length) throw new MapFileError({ key: 'invalid' }, problems);
   const { json, binaries, editorBinaries } = splitDocument(doc);
   const files: Zippable = { [MAP_JSON_ENTRY]: strToU8(JSON.stringify(json)) };
   for (const [name, bytes] of [...binaries, ...editorBinaries]) files[name] = bytes;
@@ -153,26 +156,26 @@ export function unpackMapFile(bytes: Uint8Array | ArrayBuffer): UnpackedMap {
       },
     });
   } catch {
-    throw new MapFileError('This is not a map file (no zip archive).');
+    throw new MapFileError({ key: 'notZip' });
   }
-  if (tooBig) throw new MapFileError(`The map file is too large to read (${tooBig}).`);
+  if (tooBig) throw new MapFileError({ key: 'tooLarge', v: { size: tooBig } });
   const jsonBytes = entries[MAP_JSON_ENTRY];
-  if (!jsonBytes) throw new MapFileError('This is not a map file (map.json is missing).');
+  if (!jsonBytes) throw new MapFileError({ key: 'noMapJson' });
   let parsed: unknown;
   try {
     parsed = JSON.parse(strFromU8(jsonBytes));
   } catch (e) {
-    throw new MapFileError(`map.json is not valid JSON: ${(e as Error).message}`);
+    throw new MapFileError({ key: 'badJson', v: { detail: (e as Error).message } });
   }
   if (!isRecord(parsed) || parsed['format'] !== MAP_FORMAT) {
-    throw new MapFileError('This is not a 3DTD map (format is missing or wrong).');
+    throw new MapFileError({ key: 'notMap' });
   }
   const json = migrateMapJson(parsed);
   const doc = joinDocument(json, entries);
   // The content first, softly (set right, left out, said): a file that opened before a check was added still opens
-  const repaired = mapRepairs(doc, true).map((q) => q.text);
+  const repaired = mapRepairs(doc, true);
   const problems = validateMapDocument(doc);
-  if (problems.length) throw new MapFileError(`The map is broken: ${problems[0]}`, problems);
+  if (problems.length) throw new MapFileError({ key: 'broken' }, problems);
   return { doc, preview: entries[MAP_PREVIEW_ENTRY] ?? null, repaired };
 }
 
@@ -221,15 +224,15 @@ export function migrateMapJson(
 ): Record<string, unknown> {
   let version = json['version'];
   if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
-    throw new MapFileError('The map has no valid version.');
+    throw new MapFileError({ key: 'noVersion' });
   }
   if (version > target) {
-    throw new MapFileError(`This map was made with a newer version of the game (map version ${version}, this game reads up to ${target}). Update the game to open it.`);
+    throw new MapFileError({ key: 'newer', v: { version, max: target } });
   }
   let out = json;
   while (version < target) {
     const step = migrations[version];
-    if (!step) throw new MapFileError(`No way to read map version ${version}.`);
+    if (!step) throw new MapFileError({ key: 'noMigration', v: { version } });
     out = { ...step(out), version: version + 1 };
     version += 1;
   }
@@ -274,23 +277,13 @@ export function canonicalJson(value: unknown): string {
   return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(record[k])}`).join(',')}}`;
 }
 
-/** The part of the document a problem lies in: where the editor sends the player to fix it */
-export type MapProblemPart = Exclude<keyof CustomMapDocument, 'format' | 'version'>;
-
-/** One problem of a document: in words, the part it lies in and, where it is one thing, that thing */
-export interface MapProblem {
-  text: string;
-  part: MapProblemPart;
-  at?: { kind: 'object' | 'node' | 'edge' | 'spawn' | 'hq'; id?: string };
-}
-
 /**
- * Every problem of the document's structure, in words; empty when it is
- * fine. Such a map is neither written nor read; what is only content is
- * set right on reading (map-repair.ts)
+ * Every problem of the document's structure; empty when it is fine. Such a
+ * map is neither written nor read; what is only content is set right on
+ * reading (map-repair.ts)
  */
-export function validateMapDocument(doc: CustomMapDocument): string[] {
-  return mapProblems(doc).map((q) => q.text);
+export function validateMapDocument(doc: CustomMapDocument): MapProblem[] {
+  return mapProblems(doc);
 }
 
 /**
@@ -298,8 +291,8 @@ export function validateMapDocument(doc: CustomMapDocument): string[] {
  * problems of its structure and what reading it back would set right or
  * leave out (map-repair.ts). A map read from a file has none of the latter
  */
-export function strictMapProblems(doc: CustomMapDocument): string[] {
-  return [...validateMapDocument(doc), ...mapRepairs(doc).map((q) => q.text)];
+export function strictMapProblems(doc: CustomMapDocument): MapProblem[] {
+  return [...validateMapDocument(doc), ...mapRepairs(doc)];
 }
 
 /** Collects the problems with the part and the thing being checked when they were found */
@@ -308,12 +301,12 @@ class ProblemList {
   part: MapProblemPart = 'meta';
   at: MapProblem['at'] = undefined;
 
-  push(...texts: string[]): void {
-    for (const text of texts) this.list.push(this.at ? { text, part: this.part, at: this.at } : { text, part: this.part });
+  push(text: MapText): void {
+    this.list.push(this.at ? { text, part: this.part, at: this.at } : { text, part: this.part });
   }
 }
 
-/** Every problem of the document with where it lies (validateMapDocument has them in words) */
+/** Every problem of the document with where it lies */
 export function mapProblems(doc: CustomMapDocument): MapProblem[] {
   const p = new ProblemList();
   checkDocument(doc, p);
@@ -322,105 +315,100 @@ export function mapProblems(doc: CustomMapDocument): MapProblem[] {
 
 function checkDocument(doc: CustomMapDocument, p: ProblemList): void {
   const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
-  if (doc.format !== MAP_FORMAT) p.push('format is not 3dtd-map');
-  if (doc.version !== MAP_VERSION) p.push(`version ${doc.version} is not ${MAP_VERSION}`);
+  if (doc.format !== MAP_FORMAT) p.push({ key: 'isNot', v: { what: 'format', value: MAP_FORMAT } });
+  if (doc.version !== MAP_VERSION) p.push({ key: 'isNot', v: { what: `version ${doc.version}`, value: MAP_VERSION } });
   const meta = doc.meta;
-  if (!meta || typeof meta.id !== 'string' || !MAP_ID_PATTERN.test(meta.id)) {
-    p.push('meta.id must be lowercase letters, digits and dashes');
-  }
-  if (!meta || typeof meta.name !== 'string' || !meta.name.trim()) p.push('meta.name is empty');
+  if (!meta || typeof meta.id !== 'string' || !MAP_ID_PATTERN.test(meta.id)) p.push({ key: 'idPattern', v: { what: 'meta.id' } });
+  if (!meta || typeof meta.name !== 'string' || !meta.name.trim()) p.push({ key: 'empty', v: { what: 'meta.name' } });
   if (meta) {
     for (const key of ['author', 'description', 'uid'] as const) {
-      if (meta[key] !== undefined && typeof meta[key] !== 'string') p.push(`meta.${key} must be text`);
+      if (meta[key] !== undefined && typeof meta[key] !== 'string') p.push({ key: 'text', v: { what: `meta.${key}` } });
     }
-    if (meta.copyOf !== undefined && (typeof meta.copyOf?.id !== 'string' || typeof meta.copyOf?.hash !== 'string')) p.push('meta.copyOf must name an id and a hash');
-    if (meta.generated !== undefined && typeof meta.generated !== 'boolean') p.push('meta.generated must be true or false');
+    if (meta.copyOf !== undefined && (typeof meta.copyOf?.id !== 'string' || typeof meta.copyOf?.hash !== 'string')) p.push({ key: 'idAndHash', v: { what: 'meta.copyOf' } });
+    if (meta.generated !== undefined && typeof meta.generated !== 'boolean') p.push({ key: 'bool', v: { what: 'meta.generated' } });
     for (const key of ['createdAt', 'updatedAt'] as const) {
-      if (typeof meta[key] !== 'string' || !Number.isFinite(Date.parse(meta[key]))) p.push(`meta.${key} must be a date`);
+      if (typeof meta[key] !== 'string' || !Number.isFinite(Date.parse(meta[key]))) p.push({ key: 'date', v: { what: `meta.${key}` } });
     }
   }
 
   p.part = 'terrain';
   const t = doc.terrain;
   if (!t || !t.grid) {
-    p.push('terrain is missing');
+    p.push({ key: 'missing', v: { what: 'terrain' } });
     return;
   }
   const g = t.grid;
   if (!Number.isInteger(g.columns) || !Number.isInteger(g.rows) || g.columns < 2 || g.rows < 2) {
-    p.push('terrain grid needs at least 2 x 2 samples');
+    p.push({ key: 'gridTooSmall' });
   } else if (g.columns > MAX_GRID_SIDE || g.rows > MAX_GRID_SIDE) {
-    p.push(`terrain grid has more than ${MAX_GRID_SIDE} samples on a side`);
+    p.push({ key: 'gridTooLarge', v: { max: MAX_GRID_SIDE } });
     return;
   } else if (!isTyped(g.heights, 'Float32Array') || g.heights.length !== g.columns * g.rows) {
-    p.push(`terrain heights hold ${g.heights?.length ?? 0} values, the grid needs ${g.columns * g.rows}`);
+    p.push({ key: 'heightCount', v: { have: g.heights?.length ?? 0, need: g.columns * g.rows } });
   } else {
     for (let k = 0; k < g.heights.length; k++) {
       if (!Number.isFinite(g.heights[k])) {
-        p.push(`terrain height ${k} is not a number`);
+        p.push({ key: 'notNumber', v: { what: `terrain.grid.heights[${k}]` } });
         break;
       }
     }
   }
-  if (!finite(g.cellSize) || g.cellSize <= 0) p.push('terrain cellSize must be above 0');
+  if (!finite(g.cellSize) || g.cellSize <= 0) p.push({ key: 'aboveZero', v: { what: 'terrain.grid.cellSize' } });
   else {
-    if (Math.abs(t.width - (g.columns - 1) * g.cellSize) > 1e-3) p.push('terrain width does not match the grid');
-    if (Math.abs(t.depth - (g.rows - 1) * g.cellSize) > 1e-3) p.push('terrain depth does not match the grid');
+    if (Math.abs(t.width - (g.columns - 1) * g.cellSize) > 1e-3) p.push({ key: 'notGrid', v: { what: 'terrain.width' } });
+    if (Math.abs(t.depth - (g.rows - 1) * g.cellSize) > 1e-3) p.push({ key: 'notGrid', v: { what: 'terrain.depth' } });
   }
   if (!Array.isArray(t.layers) || t.layers.length < 1 || t.layers.length > MAX_GROUND_LAYERS) {
-    p.push(`terrain needs 1 to ${MAX_GROUND_LAYERS} ground layers`);
+    p.push({ key: 'groundLayers', v: { max: MAX_GROUND_LAYERS } });
   } else if (t.layers.some((l) => typeof l.material !== 'string' || !l.material)) {
-    p.push('a ground layer has no material');
+    p.push({ key: 'layerMaterial' });
   }
   const s = t.splat;
   const texels = (s?.resolution ?? 0) ** 2 * 4;
-  if (!s || !Number.isInteger(s.resolution) || s.resolution < 1) p.push('splat resolution is missing');
-  else if (s.resolution > MAX_SPLAT_RESOLUTION) p.push(`splat resolution is above ${MAX_SPLAT_RESOLUTION}`);
+  if (!s || !Number.isInteger(s.resolution) || s.resolution < 1) p.push({ key: 'missing', v: { what: 'terrain.splat.resolution' } });
+  else if (s.resolution > MAX_SPLAT_RESOLUTION) p.push({ key: 'above', v: { what: 'terrain.splat.resolution', max: MAX_SPLAT_RESOLUTION } });
   else {
     const count = splatMapCount(t.layers?.length ?? 0);
     if (!Array.isArray(s.maps) || s.maps.length !== count || s.maps.some((m) => !isTyped(m, 'Uint8Array') || m.length !== texels)) {
-      p.push(`splat needs ${count === 3 ? 'three' : 'two'} maps of ${s.resolution} x ${s.resolution} RGBA`);
+      p.push({ key: 'splatMaps', v: { count, size: s.resolution } });
     }
   }
   if (t.water) {
-    if (!finite(t.water.level)) p.push('water level is not a number');
-    if (!isTyped(t.water.mask, 'Uint8Array') || t.water.mask.length !== g.columns * g.rows) {
-      p.push('water mask does not match the grid');
-    }
+    if (!finite(t.water.level)) p.push({ key: 'notNumber', v: { what: 'terrain.water.level' } });
+    if (!isTyped(t.water.mask, 'Uint8Array') || t.water.mask.length !== g.columns * g.rows) p.push({ key: 'notGrid', v: { what: 'terrain.water.mask' } });
   }
   if (t.waterBodies !== undefined && (!Array.isArray(t.waterBodies) || t.waterBodies.length > MAX_WATER_BODIES)) {
-    p.push(`waterBodies must be a list of at most ${MAX_WATER_BODIES}`);
+    p.push({ key: 'listAtMost', v: { what: 'terrain.waterBodies', max: MAX_WATER_BODIES } });
     return;
   }
   if (t.rivers !== undefined && !Array.isArray(t.rivers)) {
-    p.push('rivers must be a list');
+    p.push({ key: 'list', v: { what: 'terrain.rivers' } });
     return;
   }
   for (const [k, body] of (t.waterBodies ?? []).entries()) {
+    const what = { kind: 'waterBody' as const, id: k + 1 };
     if (!body || typeof body !== 'object') {
-      p.push(`water body ${k + 1} is not an object`);
+      p.push({ key: 'notObject', v: { what } });
       continue;
     }
-    if (!finite(body.level)) p.push(`water body ${k + 1}: level is not a number`);
-    if (!isTyped(body.mask, 'Uint8Array') || body.mask.length !== g.columns * g.rows) {
-      p.push(`water body ${k + 1}: mask does not match the grid`);
-    }
+    if (!finite(body.level)) p.push({ key: 'notNumber', v: { what: 'level' }, of: what });
+    if (!isTyped(body.mask, 'Uint8Array') || body.mask.length !== g.columns * g.rows) p.push({ key: 'notGrid', v: { what: 'mask' }, of: what });
   }
-  if (!finite(t.cliffAngle)) p.push('cliffAngle is not a number');
+  if (!finite(t.cliffAngle)) p.push({ key: 'notNumber', v: { what: 'terrain.cliffAngle' } });
 
   p.part = 'objects';
   if (!Array.isArray(doc.objects)) {
-    p.push('objects must be a list');
+    p.push({ key: 'list', v: { what: 'objects' } });
     return;
   }
   p.part = 'paths';
   if (!doc.paths || !Array.isArray(doc.paths.nodes) || !Array.isArray(doc.paths.edges)) {
-    p.push('paths must have lists of nodes and edges');
+    p.push({ key: 'nodesAndEdges', v: { what: 'paths' } });
     return;
   }
   p.part = 'spawns';
   if (!Array.isArray(doc.spawns)) {
-    p.push('spawns must be a list');
+    p.push({ key: 'list', v: { what: 'spawns' } });
     return;
   }
   p.part = 'paths';
@@ -428,79 +416,80 @@ function checkDocument(doc: CustomMapDocument, p: ProblemList): void {
   for (const n of doc.paths.nodes) {
     p.at = undefined;
     if (!n || typeof n !== 'object') {
-      p.push('a path node is not an object');
+      p.push({ key: 'notObject', v: { what: { kind: 'node' } } });
       continue;
     }
     if (n.id) p.at = { kind: 'node', id: n.id };
-    if (!n.id || nodes.has(n.id)) p.push(`path node id "${n.id}" is missing or twice`);
+    if (!n.id || nodes.has(n.id)) p.push({ key: 'idTwice', v: { kind: 'node', id: String(n.id) } });
     nodes.add(n.id);
-    if (!finite(n.x) || !finite(n.y)) p.push(`path node ${n.id} has no position`);
+    if (!finite(n.x) || !finite(n.y)) p.push({ key: 'noPosition', v: { what: { kind: 'node', id: n.id } } });
   }
   const edges = new Set<string>();
   for (const e of doc.paths.edges) {
     p.at = undefined;
     if (!e || typeof e !== 'object') {
-      p.push('a path edge is not an object');
+      p.push({ key: 'notObject', v: { what: { kind: 'edge' } } });
       continue;
     }
     if (e.id) p.at = { kind: 'edge', id: e.id };
-    if (!e.id || edges.has(e.id)) p.push(`path edge id "${e.id}" is missing or twice`);
+    const what = { kind: 'edge' as const, id: e.id };
+    if (!e.id || edges.has(e.id)) p.push({ key: 'idTwice', v: { kind: 'edge', id: String(e.id) } });
     edges.add(e.id);
-    if (!nodes.has(e.a) || !nodes.has(e.b)) p.push(`path edge ${e.id} names a node that does not exist`);
-    if (e.a === e.b) p.push(`path edge ${e.id} starts and ends at one node`);
-    if (!finite(e.width) || e.width <= 0) p.push(`path edge ${e.id} has no width`);
-    if (e.via !== undefined && (!Array.isArray(e.via) || e.via.some((v) => !finite(v?.x) || !finite(v?.y)))) p.push(`path edge ${e.id} has a bad curve point`);
-    if (e.tunnel !== undefined && typeof e.tunnel !== 'boolean') p.push(`path edge ${e.id} has a bad tunnel flag`);
-    if ((e.street !== undefined && typeof e.street !== 'string') || (e.surface !== undefined && typeof e.surface !== 'string')) p.push(`path edge ${e.id} has a bad street type or surface`);
-    if (e.sidewalk !== undefined && !(typeof e.sidewalk === 'number' && e.sidewalk >= 0 && e.sidewalk <= 8)) p.push(`path edge ${e.id} has a bad sidewalk width`);
+    if (!nodes.has(e.a) || !nodes.has(e.b)) p.push({ key: 'noNode', v: { what } });
+    if (e.a === e.b) p.push({ key: 'loop', v: { what } });
+    if (!finite(e.width) || e.width <= 0) p.push({ key: 'noWidth', v: { what } });
+    if (e.via !== undefined && (!Array.isArray(e.via) || e.via.some((v) => !finite(v?.x) || !finite(v?.y)))) p.push({ key: 'badCurve', v: { what } });
+    if (e.tunnel !== undefined && typeof e.tunnel !== 'boolean') p.push({ key: 'badTunnel', v: { what } });
+    if ((e.street !== undefined && typeof e.street !== 'string') || (e.surface !== undefined && typeof e.surface !== 'string')) p.push({ key: 'badStreet', v: { what } });
+    if (e.sidewalk !== undefined && !(typeof e.sidewalk === 'number' && e.sidewalk >= 0 && e.sidewalk <= 8)) p.push({ key: 'badSidewalk', v: { what } });
   }
   p.part = 'spawns';
   for (const sp of doc.spawns) {
     p.at = sp?.id ? { kind: 'spawn', id: sp.id } : undefined;
-    if (!sp || !finite(sp.x) || !finite(sp.y)) p.push(`spawn ${sp.id} has no position`);
+    if (!sp || !finite(sp.x) || !finite(sp.y)) p.push({ key: 'noPosition', v: { what: { kind: 'spawn', id: sp?.id } } });
   }
   p.part = 'hq';
   p.at = { kind: 'hq' };
-  if (!doc.hq || !finite(doc.hq.x) || !finite(doc.hq.y)) p.push('the HQ has no position');
+  if (!doc.hq || !finite(doc.hq.x) || !finite(doc.hq.y)) p.push({ key: 'noPosition', v: { what: { kind: 'hq' } } });
   p.at = undefined;
   p.part = 'gameplay';
   const gp = doc.gameplay;
   if (gp !== undefined) {
-    if (gp === null || typeof gp !== 'object') p.push('gameplay is not an object');
+    if (gp === null || typeof gp !== 'object') p.push({ key: 'notObject', v: { what: 'gameplay' } });
     else {
-      if (gp.startCredits !== undefined && (!finite(gp.startCredits) || gp.startCredits < 0)) p.push('gameplay.startCredits must be 0 or more');
-      if (gp.hqHealth !== undefined && (!finite(gp.hqHealth) || gp.hqHealth <= 0)) p.push('gameplay.hqHealth must be above 0');
+      if (gp.startCredits !== undefined && (!finite(gp.startCredits) || gp.startCredits < 0)) p.push({ key: 'zeroOrMore', v: { what: 'gameplay.startCredits' } });
+      if (gp.hqHealth !== undefined && (!finite(gp.hqHealth) || gp.hqHealth <= 0)) p.push({ key: 'aboveZero', v: { what: 'gameplay.hqHealth' } });
       if (gp.towers !== undefined && (!Array.isArray(gp.towers) || gp.towers.some((t) => typeof t !== 'string'))) {
-        p.push('gameplay.towers must be a list of tower ids');
+        p.push({ key: 'towerIds', v: { what: 'gameplay.towers' } });
       }
-      if (gp.destructible !== undefined && typeof gp.destructible !== 'boolean') p.push('gameplay.destructible must be true or false');
+      if (gp.destructible !== undefined && typeof gp.destructible !== 'boolean') p.push({ key: 'bool', v: { what: 'gameplay.destructible' } });
       if (gp.difficulty !== undefined && (!finite(gp.difficulty) || gp.difficulty < MAP_DIFFICULTY.min || gp.difficulty > MAP_DIFFICULTY.max)) {
-        p.push(`gameplay.difficulty must be ${MAP_DIFFICULTY.min} to ${MAP_DIFFICULTY.max} (percent)`);
+        p.push({ key: 'range', v: { what: 'gameplay.difficulty', min: MAP_DIFFICULTY.min, max: MAP_DIFFICULTY.max, unit: 'percent' } });
       }
       const lanes = gp.lanes;
       if (lanes !== undefined) {
         const count = (v: unknown) => v === undefined || (Number.isInteger(v) && (v as number) >= 1);
-        if (lanes === null || typeof lanes !== 'object') p.push('gameplay.lanes is not an object');
+        if (lanes === null || typeof lanes !== 'object') p.push({ key: 'notObject', v: { what: 'gameplay.lanes' } });
         else {
-          if (!count(lanes.min)) p.push('gameplay.lanes.min must be a whole number from 1');
-          if (!count(lanes.max)) p.push('gameplay.lanes.max must be a whole number from 1');
-          if (lanes.min !== undefined && lanes.max !== undefined && lanes.min > lanes.max) p.push('gameplay.lanes.min is above max');
+          if (!count(lanes.min)) p.push({ key: 'wholeFromOne', v: { what: 'gameplay.lanes.min' } });
+          if (!count(lanes.max)) p.push({ key: 'wholeFromOne', v: { what: 'gameplay.lanes.max' } });
+          if (lanes.min !== undefined && lanes.max !== undefined && lanes.min > lanes.max) p.push({ key: 'lanesMinMax' });
         }
       }
       const w = gp.waves;
       if (w?.kind === 'table') {
         const table = w.table;
-        if (!table || !Array.isArray(table.waves) || !table.waves.length) p.push('the wave list is empty');
+        if (!table || !Array.isArray(table.waves) || !table.waves.length) p.push({ key: 'waveListEmpty' });
         else {
           table.waves.forEach((row, k) => {
-            if (row.wave !== k + 1) p.push(`wave list row ${k + 1} is numbered ${row.wave}`);
-            if (!row.enemies || !Object.keys(row.enemies).length) p.push(`wave ${row.wave} has no enemies`);
-            if (!finite(row.hpMult) || row.hpMult <= 0) p.push(`wave ${row.wave} has no HP factor`);
-            if (!finite(row.spawnDelay) || row.spawnDelay < 0) p.push(`wave ${row.wave} has no spawn delay`);
+            if (row.wave !== k + 1) p.push({ key: 'waveRow', v: { row: k + 1, wave: row.wave } });
+            if (!row.enemies || !Object.keys(row.enemies).length) p.push({ key: 'waveNoEnemies', v: { wave: row.wave } });
+            if (!finite(row.hpMult) || row.hpMult <= 0) p.push({ key: 'waveNoHp', v: { wave: row.wave } });
+            if (!finite(row.spawnDelay) || row.spawnDelay < 0) p.push({ key: 'waveNoDelay', v: { wave: row.wave } });
           });
         }
         if (!table?.cycle || !finite(table.cycle.fromWave) || !finite(table.cycle.hpGrowth) || table.cycle.hpGrowth <= 0) {
-          p.push('the wave list has no valid repeat rule');
+          p.push({ key: 'waveRepeat' });
         }
       }
     }
@@ -554,29 +543,29 @@ function splitDocument(doc: CustomMapDocument): { json: Record<string, unknown>;
 function joinDocument(json: Record<string, unknown>, entries: Record<string, Uint8Array>): CustomMapDocument {
   const doc = json as unknown as CustomMapDocument;
   const t = doc.terrain as unknown as Record<string, unknown> | undefined;
-  if (!isRecord(t) || !isRecord(t['grid']) || !isRecord(t['splat'])) throw new MapFileError('The map has no terrain.');
+  if (!isRecord(t) || !isRecord(t['grid']) || !isRecord(t['splat'])) throw new MapFileError({ key: 'noTerrain' });
   const grid = t['grid'] as Record<string, unknown>;
   const splat = t['splat'] as Record<string, unknown>;
-  const bin = (value: unknown, what: string): Uint8Array => {
+  const bin = (value: unknown, part: MapFilePart, n = 0): Uint8Array => {
     const name = isRecord(value) && typeof value['$bin'] === 'string' ? value['$bin'] : null;
     const bytes = name ? entries[name] : undefined;
-    if (!bytes) throw new MapFileError(`The map file misses ${what}${name ? ` (${name})` : ''}.`);
+    if (!bytes) throw new MapFileError({ key: 'misses', v: { part, n, entry: name } });
     return bytes;
   };
-  const heights = bin(grid['heights'], 'the terrain heights');
-  if (heights.length % 4) throw new MapFileError('The terrain heights are cut off.');
+  const heights = bin(grid['heights'], 'heights');
+  if (heights.length % 4) throw new MapFileError({ key: 'heightsCut', v: { prefab: null } });
   grid['heights'] = bytesToFloat(heights);
   const maps = splat['maps'];
-  if (!Array.isArray(maps) || maps.length < 2 || maps.length > 3) throw new MapFileError('The map needs two or three splat maps.');
-  splat['maps'] = maps.map((m, k) => bin(m, `splat map ${k + 1}`));
+  if (!Array.isArray(maps) || maps.length < 2 || maps.length > 3) throw new MapFileError({ key: 'splatCount' });
+  splat['maps'] = maps.map((m, k) => bin(m, 'splat', k + 1));
   const water = t['water'];
-  if (isRecord(water)) water['mask'] = bin(water['mask'], 'the water mask');
+  if (isRecord(water)) water['mask'] = bin(water['mask'], 'water');
   else t['water'] = null;
   const bodies = t['waterBodies'];
   if (Array.isArray(bodies)) {
     bodies.forEach((body, k) => {
-      if (!isRecord(body)) throw new MapFileError(`Water body ${k + 1} is not an object.`);
-      body['mask'] = bin(body['mask'], `the mask of water body ${k + 1}`);
+      if (!isRecord(body)) throw new MapFileError({ key: 'waterBody', v: { n: k + 1 } });
+      body['mask'] = bin(body['mask'], 'waterBody', k + 1);
     });
   } else {
     delete t['waterBodies'];
@@ -587,13 +576,13 @@ function joinDocument(json: Record<string, unknown>, entries: Record<string, Uin
     prefabs.forEach((p, k) => {
       const st = isRecord(p) && isRecord(p['stamp']) ? p['stamp'] : null;
       try {
-        if (!st) throw new MapFileError(`Prefab ${k + 1} is not an object.`);
-        const heights = bin(st['heights'], `the heights of prefab ${k + 1}`);
-        if (heights.length % 4) throw new MapFileError(`The heights of prefab ${k + 1} are cut off.`);
+        if (!st) throw new MapFileError({ key: 'prefab', v: { n: k + 1 } });
+        const heights = bin(st['heights'], 'prefabHeights', k + 1);
+        if (heights.length % 4) throw new MapFileError({ key: 'heightsCut', v: { prefab: k + 1 } });
         st['heights'] = bytesToFloat(heights);
-        st['paint'] = bin(st['paint'], `the paint of prefab ${k + 1}`);
+        st['paint'] = bin(st['paint'], 'prefabPaint', k + 1);
         const water = st['water'];
-        if (isRecord(water)) water['mask'] = bin(water['mask'], `the water of prefab ${k + 1}`);
+        if (isRecord(water)) water['mask'] = bin(water['mask'], 'prefabWater', k + 1);
         else st['water'] = null;
       } catch {
         prefabs[k] = null;

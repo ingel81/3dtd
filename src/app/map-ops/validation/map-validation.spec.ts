@@ -397,9 +397,9 @@ describe('validateMap, what keeps the file from being written', () => {
     doc.paths.edges.push({ id: 'e-bad', a: doc.paths.nodes[0].id, b: 'gone', width: 6, kind: 'road' });
     doc.hq = { x: Number.NaN, y: 0 };
     const file = validateMap(doc).filter((i) => i.code === 'map-file');
-    expect(file).toEqual([
-      { severity: 'error', code: 'map-file', text: { key: 'mapFile', v: { problem: 'path edge e-bad names a node that does not exist' } }, part: 'paths', target: { kind: 'edge', id: 'e-bad' } },
-      { severity: 'error', code: 'map-file', text: { key: 'mapFile', v: { problem: 'the HQ has no position' } }, part: 'hq', target: { kind: 'hq' } },
+    expect(file.map((i) => ({ ...i, text: checkText(en, i.text) }))).toEqual([
+      { severity: 'error', code: 'map-file', text: 'The map cannot be saved: path edge e-bad names a node that does not exist.', part: 'paths', target: { kind: 'edge', id: 'e-bad' } },
+      { severity: 'error', code: 'map-file', text: 'The map cannot be saved: the HQ has no position.', part: 'hq', target: { kind: 'hq' } },
     ]);
   });
 
@@ -408,9 +408,9 @@ describe('validateMap, what keeps the file from being written', () => {
     doc.objects.push({ id: 'o1', asset: 'tree', x: Number.NaN, y: 4, z: 0, rotation: 0, scale: 1 });
     doc.prefabs = [{ id: 'p', name: 'P' } as never];
     expect(validateMap(doc).filter((i) => i.code === 'map-file')).toEqual([]);
-    expect(validateMap(doc).filter((i) => i.code === 'map-values')).toEqual([
-      { severity: 'warning', code: 'map-values', text: { key: 'mapValues', v: { problem: 'object o1 has a bad placement; it is left out' } }, part: 'objects', target: { kind: 'object', id: 'o1' } },
-      { severity: 'warning', code: 'map-values', text: { key: 'mapValues', v: { problem: 'prefab 1 needs an id, a name and its piece; it is left out' } }, part: 'prefabs' },
+    expect(validateMap(doc).filter((i) => i.code === 'map-values').map((i) => ({ ...i, text: checkText(en, i.text) }))).toEqual([
+      { severity: 'warning', code: 'map-values', text: 'Set right when the map opens next: object o1 has a bad placement; it is left out.', part: 'objects', target: { kind: 'object', id: 'o1' } },
+      { severity: 'warning', code: 'map-values', text: 'Set right when the map opens next: prefab 1 needs an id, a name and its piece; it is left out.', part: 'prefabs' },
     ]);
   });
 });

@@ -86,6 +86,7 @@ import { ProgramCompileHold } from './program-compile-hold';
 import { DisplayRefresh } from './dynamic-resolution';
 import { DynamicResolution, MIN_SAMPLES } from './dynamic-resolution';
 import { pixelRatioFor, QUALITY_LEVELS, QUALITY_TABLE, type QualityKnobs, type QualityWorld } from './render-quality';
+import type { Messages } from '../i18n/messages/en';
 
 /** Strength of the enemies' rim light on worlds that ask for it (WorldCapabilities.enemyRimLight) */
 const ENEMY_RIM_LIGHT = 0.2;
@@ -1258,8 +1259,8 @@ export class ThreeTilesEngine {
   }
 
   /** The credits of the map on screen, the world's (WorldProvider.attribution) */
-  getAttributions(): string[] {
-    return this.world.attribution();
+  getAttributions(t: Messages): string[] {
+    return this.world.attribution(t);
   }
 
   /**

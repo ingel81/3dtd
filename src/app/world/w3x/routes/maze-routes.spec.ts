@@ -3,6 +3,7 @@ import { regionVariable } from '../formats/w3r';
 import type { LaneMask } from './lane-mask';
 import { routesFromMaze } from './maze-routes';
 import { buildRouteGraph, routeLengths } from './route-graph';
+import { noteWords } from '../../testing/note-words';
 
 const CELL = 64;
 const at = (px: number): number => (px + 0.5) * CELL;
@@ -48,7 +49,7 @@ describe('maze routes', () => {
     const t = routesFromMaze({ mask: field(false), regions, spawns: [], ends: [], center: { x: at(45), y: at(20) } })!;
     const g = buildRouteGraph(t.raw, 'maze')!;
     expect(g.end).toBe('maze_end');
-    expect(t.warnings.join()).toMatch(/middle of the map/);
+    expect(noteWords(t.warnings).join()).toMatch(/middle of the map/);
   });
 
   it('gives up without spawns', () => {

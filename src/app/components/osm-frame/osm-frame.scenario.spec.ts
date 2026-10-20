@@ -235,7 +235,7 @@ describe('OSM world frame', () => {
     expect(status()).not.toContain('busy');
     opens.shift();
 
-    opens[0].reject(new Error(overpassFailure('overpass-api.de: HTTP 502; overpass.private.coffee: HTTP 500; 4 tries')));
+    opens[0].reject(overpassFailure('overpass-api.de: HTTP 502; overpass.private.coffee: HTTP 500; 4 tries'));
     await new Promise((r) => setTimeout(r, 0));
     fixture.detectChanges();
     const alert = root.querySelector('[role=alert]')!;

@@ -27,6 +27,7 @@ import { relayRiver, removeWholeRiver } from '../ops/water-commands';
 import { contentFingerprint } from './agent-reads';
 import { dabCentres, facing, MapKit, rng, type Brush, type Where } from '../ops/map-kit';
 import { strictMapProblems } from '../../world/custom-map/map-file';
+import { mapProblemText } from '../../world/custom-map/map-text';
 import {
   MAP_BIOMES,
   MAP_BRIDGE_STYLES,
@@ -978,7 +979,7 @@ export function runMapScript(source: string, doc: CustomMapDocument, catalog: Ma
     const consoleLike = Object.freeze({ log, info: log, warn: log, error: log });
     const value = compile(source)(map, rng, facing, log, consoleLike);
     const problems = strictMapProblems(doc);
-    if (problems.length) throw new ScriptError(`the map would not save: ${problems.slice(0, 5).join('; ')}`);
+    if (problems.length) throw new ScriptError(`the map would not save: ${problems.slice(0, 5).map((q) => mapProblemText(en, q)).join('; ')}`);
     let returned: unknown;
     try {
       returned = plainData(value, 'the returned value');
