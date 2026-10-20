@@ -46,7 +46,7 @@ Teile laufen mit demselben Aufbau direkt nacheinander.
 
 ## Korridor-Umbau (Test des Users am 16.09.; Logs und Bilder am 2026-09-27 gelöscht)
 
-Getestet an fünf Orten: Erlenbach, Rothenburg, Berlin, Paris, Tokyo. Je Ort laden, Ladescreen beobachten, danach
+Getestet an fünf Orten: Musterdorf, Rothenburg, Berlin, Paris, Tokyo. Je Ort laden, Ladescreen beobachten, danach
 zoomen und mit G springen.
 
 - **738 Stabilität: ok.** In keinem der fünf Logs kommt nach `loading.done` noch ein `[Corridor] build` oder
@@ -59,7 +59,7 @@ zoomen und mit G springen.
 - **739 Determinismus: ok.** Tokyo dreimal geladen (mit Intro, Intro abgebrochen plus Zoomen, andere Fenstergröße):
   jedes Mal Fingerprint `e51f7114`, auch jeder Teil gleich.
 - **740 Messung: ok.** Alle Stationen gemessen (`unmeasured=0`), alle auf der 2,5-m-Stufe.
-- **741 Ladezeit: ok** ("sehr gut" laut User). Bau gesamt, davon Tiles: Erlenbach 4,6 s (3,1), Rothenburg 5,2 (2,7),
+- **741 Ladezeit: ok** ("sehr gut" laut User). Bau gesamt, davon Tiles: Musterdorf 4,6 s (3,1), Rothenburg 5,2 (2,7),
   Berlin 6,5 (4,0), Paris 4,7 (2,6), Tokyo 11,7 (9,4). Ladescreen fertig nach 10,3 bis 17,6 s.
 - **742 Bilder: ok.** Berlin Straße und Platz sauber, Paris auf Deckhöhe mit sauberem Übergang am Brückenkopf, keine
   Zellen auf den Transportern, Tokyo ohne Ausreißer.
@@ -74,7 +74,7 @@ zoomen und mit G springen.
   **Vom User bestätigt (2026-09-16):** "Turmpassage sieht nun gut aus", Bau 4,9 s, 235 Stationen, alle gemessen,
   765 Zellen. **Offen bleibt:** `build.fallback what=cells missing=7 found=0`, also weiter sieben Zellen ohne Höhe;
   der Lauf dauert genau die Sekunde aus Punkt 744. Beide Punkte sind derselbe Fall.
-- **745 Ortswechsel im Spiel ändert den Korridor.** Erlenbach laden, dann im Spiel nach Tokyo navigieren: Fingerprint
+- **745 Ortswechsel im Spiel ändert den Korridor.** Musterdorf laden, dann im Spiel nach Tokyo navigieren: Fingerprint
   `fa4461be` statt `e51f7114` beim frischen Laden. Abweichend sind `band` (`23291918` statt `40f24cbd`) und `heights`
   (`813a9c6f` statt `8ae65891`); `stations`, `cells` und `tiles` sind gleich, alle Anzahlen identisch. Also weichen
   nur Säulenhöhen ab, und das Rückgrat verschiebt das Band mit. Nach einem vollständigen Neuladen stimmt der Hash
@@ -98,7 +98,7 @@ zoomen und mit G springen.
      `[CorridorTrace] ... build.tiles`.
   2. Dieselbe URL noch einmal mit F5: Hash gleich A? `tileSet` gleich? (Wenn nicht, taugt `tileSet` nicht, trotzdem
      weiter.)
-  3. Erlenbach `?l=49.17337,9.26851&s=49.17556,9.26401`, F5, warten. Dann Header "Change location", Tab "Showcase",
+  3. Musterdorf `?l=49.16337,9.66851&s=49.16556,9.66401`, F5, warten. Dann Header "Change location", Tab "Showcase",
      "Tokyo, Shibuya Crossing", Ladescreen abwarten, nicht neu laden. `__corridor.fingerprint()`: gleich A? `tileSet`
      der neuen `build.tiles`-Zeile notieren.
   4. Ohne Neuladen `__corridor.reset()`, warten auf `[Corridor] Corridor rebuilt`. `__corridor.fingerprint()`: gleich
@@ -106,7 +106,7 @@ zoomen und mit G springen.
   Auswertung: 2, 3 und 4 gleich A heißt behoben. Weicht es ab, bitte die Fingerprint-Tabellen und die
   `build.tiles`-Zeilen schicken; bei anderem `tileSet` wurde auf anderen Tiles gemessen, bei gleichem dazu
   `__corridor.trace()` nach Schritt 3 und 4.
-  **Nachtest ok (User, 2026-09-16):** frisch, zweites F5, Navigation Erlenbach -> Tokyo und `reset()` liefern alle
+  **Nachtest ok (User, 2026-09-16):** frisch, zweites F5, Navigation Musterdorf -> Tokyo und `reset()` liefern alle
   `1fc26ab1` (band `bab15dbb`, stations `01764c71`, cells `cee4fd07`, heights `31d812ba`, tiles `cb1e6d21`; 470, 387,
   1509, 1509, 1896 Einträge). **Neue Eichung Tokyo: `1fc26ab1`.** `tileSet` taugt so nur bedingt: frisch `311f13f3`
   (201 Tiles, coarse 20), nach Navigation und `reset()` `aa4f29c7` (195 Tiles, coarse 14), bei gleichem `fine=181`
@@ -169,7 +169,7 @@ zoomen und mit G springen.
   geschlossen; `passages` im Trace zählt keine Durchgänge mehr, die an einen OSM-Tunnel grenzen. Test: Turm-Szene in 65
   Gitterlagen, Überdeckungen in drei Winkeln, Pont d'Iéna und A6 in allen Lagen. **Risiko:** Die Bedingung "Band
   schmaler als 3 m" ist weg, an Traufen oder Kronen können neue Durchgänge entstehen. `passages` bisher: Berlin 0,
-  Erlenbach 0, Paris 0, Tokyo 1, Rothenburg 2 (jetzt erwartet 0, der Turm liegt an einem OSM-Tunnel).
+  Musterdorf 0, Paris 0, Tokyo 1, Rothenburg 2 (jetzt erwartet 0, der Turm liegt an einem OSM-Tunnel).
   **Offene Nebenbefunde (vor dem Fix schon so):** Zellen auf Dächern an Routenecken (`jointCap`, Ratstrinkstube,
   Markt 3); bei Überdeckung über 30 m liest `street` die Dächer (`PASSAGE_SPAN_M`); Marktplatz-Füllregel greift in 10
   von 65 Lagen nicht.
@@ -178,16 +178,16 @@ zoomen und mit G springen.
      Weißen Turm: gelbe Zellen durchgehend durch das Tor auf Straßenhöhe, keine Zelle auf dem Turm, rote Linie ohne
      Buckel. Snapshot.
   2. Anderen Ort laden, im Spiel über Favoriten oder "letzte Orte" nach Rothenburg, gleiche Prüfung, Snapshot.
-  3. Kurz Berlin, Erlenbach, Paris, Tokyo kalt laden: `band.build ... passages=` wie bisher (0, 0, 0, 1)? Wo mehr: dort
+  3. Kurz Berlin, Musterdorf, Paris, Tokyo kalt laden: `band.build ... passages=` wie bisher (0, 0, 0, 1)? Wo mehr: dort
      ein Snapshot mit Kamera auf die gelbe Stelle.
   **Nachtest ok (User, 2026-09-16, Snapshots in `tmp/snapshots/`, *-1503xx bis *-1509xx):** Rothenburg kalt und nach
   Navigation identisch, Fingerprint `d8050177` in allen fünf Teilen, `passages=0`, HQ beide `49.37721,10.17904`.
-  `passages`: Berlin 0, Erlenbach 0, Paris 0, Tokyo 2 (vorher 1; laut User legitim). **Neue Eichung** (URL-Orte mit
-  festem Spawn): Rothenburg `d8050177`, Tokyo `efc7362a`, Berlin `1d521dce`, Paris `16fbf786`; Erlenbach mit Spawn
-  `s=49.17434,9.25915` `deaf0179`. **Beobachtung Erlenbach** (dieser Spawn): 2 von 482 Stationen ohne Tile auf beiden
+  `passages`: Berlin 0, Musterdorf 0, Paris 0, Tokyo 2 (vorher 1; laut User legitim). **Neue Eichung** (URL-Orte mit
+  festem Spawn): Rothenburg `d8050177`, Tokyo `efc7362a`, Berlin `1d521dce`, Paris `16fbf786`; Musterdorf mit Spawn
+  `s=49.16434,9.65915` `deaf0179`. **Beobachtung Musterdorf** (dieser Spawn): 2 von 482 Stationen ohne Tile auf beiden
   Stufen (`lod ... none:2`, `build.fallback what=stations missing=2 found=0`), auf einem Stück von rund 0,6 m
-  (Segment `49.1736292,9.2614654|49.1736286,9.2614738`); `build.band` 1,02 s. Lead aus dem Snapshot: ein rund 2 m
-  breiter Nord-Süd-Streifen ohne jeden Säulentreffer bei `49.17363, 9.26147` (vermutlich Naht zwischen Tiles, nicht
+  (Segment `49.1636292,9.6614654|49.1636286,9.6614738`); `build.band` 1,02 s. Lead aus dem Snapshot: ein rund 2 m
+  breiter Nord-Süd-Streifen ohne jeden Säulentreffer bei `49.16363, 9.66147` (vermutlich Naht zwischen Tiles, nicht
   belegt); Zellen dort gefüllt, die zwei Stationen auf Standardbreiten. **User: zurückgestellt**, wieder aufmachen,
   wenn solche Löcher gehäuft Probleme machen.
 - **748 Band an Kurven und Abzweigungen dünn** (User, 2026-09-16, Stuttgart `?l=48.77895,9.17875&s=48.78353,9.17791`,
@@ -221,8 +221,8 @@ zoomen und mit G springen.
      über die Fahrbahn, rote Linie ohne Sprünge. Snapshot.
   2. Kalt laden, je Snapshot (der Lead vergleicht Breiten gegen die alten Dateien): Rothenburg
      `?l=49.37721,10.17904&s=49.37944,10.18365`, Berlin `?l=52.51630,13.37759&s=52.51861,13.37529`, Paris
-     `?l=48.85889,2.29320&s=48.86239,2.29190`, Tokyo `?l=35.65924,139.70049&s=35.65208,139.69853`, Erlenbach
-     `?l=49.17337,9.26851&s=49.17434,9.25915`.
+     `?l=48.85889,2.29320&s=48.86239,2.29190`, Tokyo `?l=35.65924,139.70049&s=35.65208,139.69853`, Musterdorf
+     `?l=49.16337,9.66851&s=49.16434,9.65915`.
   3. Tokyo gezielt: `band.build ... passages=` (vorher 2) und die gelben Durchgänge zwischen den zwei Knicken: Läuft die
      Linie noch darunter oder daneben, und ist daneben wirklich begehbar?
   4. Rothenburg: Weißer Turm weiter ein Durchgang, keine Zelle auf dem Turm.
@@ -242,7 +242,7 @@ zoomen und mit G springen.
      Ende des Ladescreens bzw. nach der Intro-Landung steht sauber über der Route.
      `__corridor.fingerprint()` = `1fc26ab1`, `tileSet` aus `build.tiles` notieren.
   2. Noch einmal F5: Fingerprint `1fc26ab1`, `tileSet` gleich wie in 1.
-  3. Erlenbach `?l=49.17337,9.26851&s=49.17556,9.26401` laden, im Spiel "Change location" -> Tab "Showcase" -> "Tokyo,
+  3. Musterdorf `?l=49.16337,9.66851&s=49.16556,9.66401` laden, im Spiel "Change location" -> Tab "Showcase" -> "Tokyo,
      Shibuya Crossing": nach "Loading Street Network" dreht sofort "Placing Headquarters". Danach Fingerprint
      `1fc26ab1`, `tileSet` gleich wie in 1. Dann `__corridor.reset()`: Fingerprint und `tileSet` gleich.
   4. Straßen aus (Vorgabe): `__raycastStats()` notieren, zoomen, bis Tiles nachladen, erneut `__raycastStats()`: der
@@ -252,20 +252,20 @@ zoomen und mit G springen.
 
 ## Nachtests 3 (Fixes der Session 4, 15.09.)
 
-### Runde 18: Erlenbach (717 bis 720)
+### Runde 18: Musterdorf (717 bis 720)
 
-Aufbau: Erlenbach per URL laden (F5 auf der Orts-URL), Konsole offen, Layers "Route Grid Overlay" und "Show streets"
+Aufbau: Musterdorf per URL laden (F5 auf der Orts-URL), Konsole offen, Layers "Route Grid Overlay" und "Show streets"
 an.
 
 - **717** (649, hqsound): Nach dem Intro Rechtsklick auf "+HP" (-10 HP). Ist an der HQ der Explosionston zu hören?
   Dann eine Welle ohne Tower, einen Zombie ins HQ laufen lassen: Ton auch beim Leck?
   **717, 718 und 720 ok (2026-09-15).** 719: Böschung ok, neben den Autos weiter Löcher in der Straße, die Autos
-  selbst tragen noch Zellen (Zellbericht Erlenbacher Weg, Way 959083801: fehlende Zellen mit Boden auf Straßenhöhe
+  selbst tragen noch Zellen (Zellbericht Musterweg, Way 959083801: fehlende Zellen mit Boden auf Straßenhöhe
   und begehbaren Nachbarn, Breite je Station springt zwischen 2 und 7 m). Daten an Worker detour.
-- **718** (D2, underpass): Kamera schräg auf die A6-Brücke über der Weinsberger Straße. Verschwindet die rote Linie
+- **718** (D2, underpass): Kamera schräg auf die A6-Brücke über der Kreisstraße. Verschwindet die rote Linie
   unter dem Deck und kommt dahinter wieder heraus, unter dem Deck gelbe Zellen auf Straßenhöhe? Custom Wave, Count 5:
   laufen die Gegner unter dem Deck durch, keiner oben auf der Autobahn?
-- **719** (706 bis 708, carcells): Weinstraße, Erlenweg, Schulstraße. Liegen neben den Reihen parkender Autos wieder
+- **719** (706 bis 708, carcells): drei Wohnstraßen. Liegen neben den Reihen parkender Autos wieder
   Straßenzellen? Böschung talseitig weiter frei? (Zellen auf Autos direkt auf der OSM-Linie bleiben, bis das
   Ausweichen aus E6 kommt, Worker detour.)
 - **720** (cellreport): Developer options, "Waves & Inspect", Kachel "Cells". Erscheint oben mittig das Panel "CELL
@@ -328,7 +328,7 @@ Aufbau: beliebiger Ort, Konsole offen mit Filter "Corridor", Cheat "Credits".
 Aufbau für 733 und 734: Cheat "Abilities", Custom Wave "Zombie", Count 20. Fähigkeiten nur während einer Welle, nach
 jedem Einsatz "Abilities" erneut. Ton an, möglichst Kopfhörer.
 
-- **732** (719, detour): Erlenbach, Erlenbacher Weg (`http://localhost:4200/?l=49.17337,9.26851&s=49.17434,9.25915`),
+- **732** (719, detour): Musterdorf, Musterweg (`http://localhost:4200/?l=49.16337,9.66851&s=49.16434,9.65915`),
   "Route Grid Overlay" an, warten, bis kein neues `[Corridor] rebuild` kommt. Biegt die rote Linie vor der Autoreihe
   zur Fahrbahnseite aus? Liegen auf den Autos keine Zellen, und ist das Band daneben ohne Löcher?
   **Ergebnis (2026-09-15): nicht gut.** Zellen auf den Autos und Löcher links der Straße wie vorher (Zellbericht,
@@ -399,7 +399,7 @@ die Tabelle schicken.
   neben der Öffnung.)
   **Ergebnis (2026-09-15):** Einstieg in den Torbogen etwas besser, Ausstieg deutlich besser. Parkende Autos dort
   schlechter (siehe 706).
-- **708** (608): Erlenbach, Weinstraße und Erlenweg, die Böschung auf der Talseite. Keine Zellreihen mehr die
+- **708** (608): Musterdorf, zwei Wohnstraßen, die Böschung auf der Talseite. Keine Zellreihen mehr die
   Böschung hinunter? Bäume und Hecken weiter frei?
   **Ergebnis (2026-09-15):** Böschung besser. Parkende Autos dort schlechter oder weiter so schlecht wie vorher (siehe
   706). Picks Schulstraße (Way 959083801), drei Autos: die höchste Zelle je Auto ist `walkCheck: 'centre line'`,
@@ -473,7 +473,7 @@ heißt Brückendeck samt dem Stück Straße, das es hinter dem Brückenende fort
   hervorgehoben? Fehlt in der Konsole die Zeile "WARNING: sanitizing HTML stripped some content"?
   **ok (2026-09-15)**
 
-### Runde 2: Korridor in Rothenburg und Erlenbach (605 bis 608)
+### Runde 2: Korridor in Rothenburg und Musterdorf (605 bis 608)
 
 Aufbau: keine Tower, keine Welle, "Route Grid Overlay" an. Nach dem Laden misst der Korridor mehrmals nach, jedes Mal
 mit einer Konsolenzeile `[Corridor] rebuild`. Warten, bis einige Sekunden lang keine neue solche Zeile mehr kommt.
@@ -501,7 +501,7 @@ Zelle, die Tabelle schicken.
   einzelne Autos haben noch Zellen (rotes Auto, Favorit "rothenburg rotes auto"); am schmalen Durchgang eines
   Torbogens sind die Zellen gelb, steigen an, und die Gegner kommen auf der anderen Seite aus der Wand. Fix corridor5,
   erneut prüfen.
-- **608** (205 bis 209): Erlenbach, Weinstraße und Erlenweg, die Stellen deiner Screenshots. Keine einzelnen weißen
+- **608** (205 bis 209): Musterdorf, zwei Wohnstraßen, die Stellen deiner Screenshots. Keine einzelnen weißen
   Zellen mehr in Baumkronen oder auf Hecken? Endet der Korridor davor? Gleich danach D2 (selber Ort).
   **Ergebnis (2026-09-15): ok** für Bäume und Hecken. **Befund:** auf der Talseite einer Straße noch zu viele Zellen
   eine Böschung hinunter (wie 605). Fix corridor5.
@@ -771,7 +771,7 @@ Aufbau: je Punkt beschrieben.
   der Adresszeile schicken, dazu die Ausgabe von `__routes.describe()`.
   **Ergebnis (2026-09-15):** Route nicht gut. Neuer Ort vom User: `?l=35.65924,139.70049&s=35.65208,139.69853`.
   Worker showcase.
-- **D2 Erlenbach unter der Autobahn (alte 53):** Weinsberger Straße unter der Autobahnbrücke. `__corridor.pick()`,
+- **D2 Musterdorf unter der Autobahn (alte 53):** Kreisstraße unter der Autobahnbrücke. `__corridor.pick()`,
   Linksklick auf die rote Linie mitten unter der Brücke, die Zeile `[Corridor] column at the click` schicken. Dann F5:
   liegen Zellen und Gegner danach auf der Straße? Das zeigt die Ursache, behoben ist noch nichts.
   **Daten (2026-09-15):** Die rote Linie liegt weiter oben auf dem Autobahndeck (Screenshot). Pick bei 268,3/-812,8,
@@ -817,7 +817,7 @@ Einzeln vorlegen. Die Lead-Entscheidungen sind gebaut und lassen sich einzeln zu
   sichtbar. Bestätigen oder zurücknehmen. **Entscheidung User (2026-09-15): bleibt** (Prüfpunkt über dem Objekt).
 - **E6 Mittellinienzellen auf Dach oder Erker:** Läuft die OSM-Linie selbst unter einem Erker oder über eine Dachecke,
   bleibt die Zelle, bekommt aber Straßenhöhe (`f75e72ab`). Alternative: Zelle oben lassen, dann `f75e72ab` und
-  `afb3ad2d` zusammen zurücknehmen. `afb3ad2d` ist zugleich der Kronen-Fix für Erlenbach (608); die Alternative nimmt
+  `afb3ad2d` zusammen zurücknehmen. `afb3ad2d` ist zugleich der Kronen-Fix für Musterdorf (608); die Alternative nimmt
   ihn mit zurück. **User (2026-09-15):** Es soll realistisch sein, Straßenhöhe unter einem gefüllten Erker ist falsch,
   das 3D-Modell gilt. In Diskussion: Ausweichen im Korridor (Zelle weg, Weg biegt um das Hindernis, ohne Platz
   daneben wie ein Durchgang), gilt dann auch für Autos auf der Mittellinie (706 bis 708). **Entscheidungen User
@@ -907,7 +907,7 @@ Paris `?l=48.85889,2.29320&s=48.86239,2.29190`.
   build` eine Zeile `[Camera] ... corridor.cameraCorrection`, Kamera nach der Landung über der Route?
   `__corridor.fingerprint()` und `tileSet` aus der Zeile `[CorridorTrace] ... build.tiles` notieren. Zweites F5: beides
   gleich?
-- **K2.2** Erlenbach `?l=49.17337,9.26851&s=49.17556,9.26401` laden, Header "Change location", Tab "Showcase", "Tokyo,
+- **K2.2** Musterdorf `?l=49.16337,9.66851&s=49.16556,9.66401` laden, Header "Change location", Tab "Showcase", "Tokyo,
   Shibuya Crossing": dreht nach "Loading Street Network" sofort "Placing Headquarters"? Fingerprint und `tileSet` gleich
   K2.1? Dann `__corridor.reset()`, warten auf `[Corridor] Corridor rebuilt`: weiter gleich?
 - **K2.3** Rothenburg-URL, F5: keine Zeile `build.fallback what=cells`, in `build.freeze` `cellsWithoutHeight=0` und
@@ -983,7 +983,7 @@ Layers "Route Grid Overlay" an, Custom Wave wie K5 mit Count 5, Kamera an den HQ
 - **K6.1** Audi NSU `?l=49.19489,9.22041&s=49.18659,9.22281`: Zellen des Endstücks mit blauer Kontur auf Straßenhöhe,
   keine auf dem Hallendach (vorher Bild 20)? Rote Linie flach zur Fassade? Gegner laufen ebenerdig hinein, keiner
   erscheint auf dem Dach?
-- **K6.2** Erlenbach BBH `?l=49.17337,9.26851&s=49.17434,9.25915`: keine Zellen auf dem Schuldach, rote Linie nicht mehr
+- **K6.2** Musterdorf, Schule `?l=49.16337,9.66851&s=49.16434,9.65915`: keine Zellen auf dem Schuldach, rote Linie nicht mehr
   schräg die Fassade hinauf (vorher Bild 21), Gegner ebenerdig hinein?
 - **K6.3** Berlin Pariser Platz `?l=52.51630,13.37759&s=52.51861,13.37529` (HQ auf freier Fläche): Endstück blau,
   Zellen und Gegner auf dem Pflaster wie bisher, kein Höhensprung am HQ?

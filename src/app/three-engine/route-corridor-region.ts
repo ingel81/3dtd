@@ -4,7 +4,7 @@ import { fnv1a } from '../utils/fnv1a';
 /**
  * Geometric error in metres a corridor build refines the region to while it
  * measures: the finest level the tiles have. At all five places measured on
- * 2026-09-16 (Berlin, Erlenbach, Rothenburg, Paris, Tokyo;
+ * 2026-09-16 (Berlin, Musterdorf, Rothenburg, Paris, Tokyo;
  * tmp/archive-2026-09/fix1/reports/phase0-results.md) the tiles under every station were
  * 2.0 m at 2.5 as at 0, so nothing the camera loads is finer.
  *

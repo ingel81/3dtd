@@ -89,7 +89,7 @@ describe('StreetRenderingService', () => {
   });
 
   /**
-   * Playtest 2026-09-15, Erlenbach (D2): a street under a motorway deck
+   * Playtest 2026-09-15, Musterdorf (D2): a street under a motorway deck
    * whose underside the photogrammetry has filled.
    */
   it('draws a street node under a bridge of another way between the ground either side', () => {

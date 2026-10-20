@@ -152,7 +152,7 @@ describe('CorridorConsole', () => {
     showCellSelection = vi.fn();
     cellReport = { start: vi.fn(() => 'Cell report on'), connect: vi.fn(), disconnect: vi.fn() };
     lodProbe = { run: vi.fn(async () => 'probed'), fingerprint: vi.fn(() => ({ hash: '0123abcd' })) };
-    snapshot = { take: vi.fn(async () => 'Saved corridor-erlenbach-cold-221530.json, 12 kB') };
+    snapshot = { take: vi.fn(async () => 'Saved corridor-musterdorf-cold-221530.json, 12 kB') };
     grid = fakeGrid();
     installed = install();
   });
@@ -218,7 +218,7 @@ describe('CorridorConsole', () => {
   /** The Snapshot tile's download lives in CorridorSnapshotService; the console takes one the same way. */
   describe('snapshot', () => {
     it('takes a snapshot and hands its last line through', async () => {
-      await expect(api().snapshot()).resolves.toBe('Saved corridor-erlenbach-cold-221530.json, 12 kB');
+      await expect(api().snapshot()).resolves.toBe('Saved corridor-musterdorf-cold-221530.json, 12 kB');
       expect(snapshot.take).toHaveBeenCalledTimes(1);
     });
   });
@@ -276,7 +276,7 @@ describe('CorridorConsole', () => {
     });
 
     /**
-     * Playtest 2026-09-14, Erlenbach: cells on an Autobahn deck over the
+     * Playtest 2026-09-14, Musterdorf: cells on an Autobahn deck over the
      * street the route runs on. Whether the street is in the column at all,
      * only in a coarser tile, or only not yet in the cache, the column at the
      * click tells.

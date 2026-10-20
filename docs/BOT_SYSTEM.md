@@ -223,7 +223,7 @@ Der Zufall kommt aus dem `bot`-Strom des Laufs, Läufe bleiben reproduzierbar.
 `buildTempo` ist das Bautempo eines Menschen:
 höchstens `base + perWave × Welle` Kampftower, abgerundet (`towersByWave`). Per
 Gold schlägt ein neuer Tower jedes Upgrade, ein Bot nur nach Nutzen baute 35
-Archer bis Welle 4. Im Lauf des Users (2026-10-01, Binswangen) standen 1
+Archer bis Welle 4. Im Lauf des Users (2026-10-01, Musterdorf) standen 1
 Kampftower bei W1, 3 bei W2, 8 bei W4, 14 bei W8, 29 bei W12; das Gold darüber
 ging in Upgrades. Abgleich mit `tools/play-profile/play-profile.mjs`.
 

@@ -365,7 +365,7 @@ export class RouteCellSampler {
    * a to b, between the mouths (the portals stand for the ground outside
    * them, TUNNEL_PORTAL_OFFSET_M), on stretches up to SUPPORT_MAX_M.
    *
-   * Playtest 2026-09-15, Erlenbach (D2): under the A6 the photogrammetry is
+   * Playtest 2026-09-15, Musterdorf (D2): under the A6 the photogrammetry is
    * filled down to the ground but for a few columns at the edges of the
    * deck, which show the street 5.6 and 5.9 m under it. A street lowered
    * under a bridge lies below the line between the portals; a car parked

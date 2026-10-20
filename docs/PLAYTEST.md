@@ -201,7 +201,7 @@ Paket C3, Editor und OSM:
 - **C3.1 Straßenbelag:** Editor, Werkzeug Roads, Straße anklicken, unter „Surface“ Pflaster wählen. *Belag wechselt sofort,
   Undo nimmt ihn zurück.*
 - **C3.2 Bauverbot als Rechteck:** neben einer langen Halle einen Tower setzen. *Gesperrt nur im gedrehten Rechteck.*
-- **C3.3 OSM-Welt Erlenbach:** New game, „A map of a real place“, Erlenbach 74235. *Einfamilienhäuser statt Wohnblöcken,
+- **C3.3 OSM-Welt Musterdorf:** New game, „A map of a real place“, Musterdorf 12345. *Einfamilienhäuser statt Wohnblöcken,
   Gehweg und Pflaster als graue Platten.*
 - **C3.4 OSM-Tunnel Miltenberg:** OSM-Welt Miltenberg. *Tunnel mit Portal an beiden Enden, Gegner laufen hindurch.*
 - **C3.5 Biome:** Editor, Biom-Pinsel Wiese, Dorf, Wüste und das neue Herbst-Biom. *Mehrere Baumarten je Biom.*

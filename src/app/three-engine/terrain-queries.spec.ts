@@ -617,7 +617,7 @@ describe('TerrainQueries', () => {
         expect(at(0, 10, null)(queries)).toBeCloseTo(8, 6);
       });
 
-      // Playtest 2026-09-15, Erlenbach (D2): eine Straße unter einem Autobahndeck, das die Photogrammetrie bis zum Boden füllt.
+      // Playtest 2026-09-15, Musterdorf (D2): eine Straße unter einem Autobahndeck, das die Photogrammetrie bis zum Boden füllt.
       it('nimmt unter einem anderen Way die Höhe zwischen dem Boden an den beiden Portalen', () => {
         const { queries, addTile } = setup();
         // Portal bei z = -10 auf 0 m, Portal bei z = 10 auf 2 m, dazwischen ein Deck auf 6 m ohne Boden darunter.
@@ -630,7 +630,7 @@ describe('TerrainQueries', () => {
       });
     });
 
-    // Playtest 2026-09-14, Erlenbach: Zellen auf einem Autobahndeck über der
+    // Playtest 2026-09-14, Musterdorf: Zellen auf einem Autobahndeck über der
     // Straße, auf der die Route läuft, obwohl Zellen den untersten Treffer nehmen.
     describe('inspectColumn()', () => {
       it('zeigt eine Straße, die nur in einem gröberen Tile als das Deck darüber liegt: die Säule verwirft sie', () => {

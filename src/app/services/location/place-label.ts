@@ -3,7 +3,7 @@ import type { NominatimAddress } from './geocoding.service';
 /** "6", "12a", "3-5": a part of an address line that is only a house number */
 const HOUSE_NUMBER = /^\d{1,3}\s?[a-z]?(\s?[-/]\s?\d{1,3}\s?[a-z]?)?$/i;
 
-/** "74235", "1010": a part that is only a postcode */
+/** "12345", "1010": a part that is only a postcode */
 const POSTCODE = /^\d{4,}(-\d+)?$/;
 
 /** "49.1234, 9.1234": a place without a geocoded name */

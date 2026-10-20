@@ -223,13 +223,13 @@ describe('corridor snapshot', () => {
       const here = { lat: 49.37721, lon: 10 };
       const recents = [
         recent('Rothenburg', here.lat, 5),
-        recent('Erlenbach', 49.17337, 2),
+        recent('Musterdorf', 49.16337, 2),
         recent('Berlin', 52.5163, -30),
       ];
       const loads: CorridorLoad[] = [{ label: PAGE_LOAD, atS: 0 }, { label: 'location change', atS: 200 }];
 
       expect(describeLoad(loads, recents, here, pageStart, 300).previous).toEqual({
-        name: 'Erlenbach', lat: 49.17337, lon: 10, visitedAt: '2026-09-16T20:02:00.000Z',
+        name: 'Musterdorf', lat: 49.16337, lon: 10, visitedAt: '2026-09-16T20:02:00.000Z',
       });
       // Berlin was played before this page was loaded
       expect(describeLoad([{ label: PAGE_LOAD, atS: 0 }], [recents[0], recents[2]], here, pageStart, 300).previous).toBeNull();

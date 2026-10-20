@@ -307,7 +307,7 @@ export function isGroundBuilding(tags: Readonly<Record<string, string>>): boolea
 /**
  * Median footprint (m²) of the buildings around under which the place is one
  * of houses (a village, a suburb): there a big untagged footprint is a big
- * house or a farmhouse, not a block of flats (Erlenbach: median about 110 m²)
+ * house or a farmhouse, not a block of flats (Musterdorf: median about 110 m²)
  */
 export const HOUSE_PLACE_AREA = 180;
 /** Untagged footprints bigger than this (m²) are blocks of flats; among houses (HOUSE_PLACE_AREA) the second */

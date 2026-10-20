@@ -48,7 +48,7 @@ import { fakeWorldContext } from '../../../test/world-context-fake';
 
 /**
  * Playtest 747 (a): Rothenburg ob der Tauber loaded cold from its URL stood
- * at HQ 49.37721, 10.17904; loaded again after a trip to Binswangen, with
+ * at HQ 49.37721, 10.17904; loaded again after a trip to Musterdorf, with
  * every digit, at 49.377211325234484, 10.179041659717791.
  * 0.19 m (the spawn 0.16 m) moved the cell grid against the world, and the
  * same tiles gave another corridor (fingerprint af3f120a against 1ead05fb).
@@ -70,8 +70,8 @@ const SPAWN = { lat: 49.37944, lon: 10.18365 };
 /** HQ and spawn of the load after the trip, with every digit */
 const FULL_HQ = { lat: 49.377211325234484, lon: 10.179041659717791 };
 const FULL_SPAWN = { lat: 49.379440871377206, lon: 10.18365173337133 };
-/** Binswangen, where the player came from */
-const ELSEWHERE_SEARCH = '?l=49.17337,9.26851&s=49.17555,9.26387';
+/** Musterdorf, where the player came from */
+const ELSEWHERE_SEARCH = '?l=49.16337,9.66851&s=49.16555,9.66387';
 /** Another HQ and spawn in Rothenburg's streets, where the clicks start from */
 const NEARBY_SEARCH = '?l=49.37800,10.18000&s=49.38100,10.18600';
 

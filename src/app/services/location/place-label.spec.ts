@@ -9,7 +9,7 @@ describe('placeLabel', () => {
 
   it('puts a leading house number behind its street when only the line is there', () => {
     expect(placeLabel('6, Am Thorwengert, Miltenberg-Nord, Miltenberg, Bayern, 63897, Deutschland')).toBe('Am Thorwengert 6, Miltenberg-Nord');
-    expect(placeLabel('12a, Hauptstraße, Erlenbach')).toBe('Hauptstraße 12a, Erlenbach');
+    expect(placeLabel('12a, Hauptstraße, Musterdorf')).toBe('Hauptstraße 12a, Musterdorf');
   });
 
   it('keeps a street with its number and the town of a short line', () => {
@@ -18,7 +18,7 @@ describe('placeLabel', () => {
 
   it('names a town by itself and drops a postcode before a name', () => {
     expect(placeLabel('Miltenberg, Landkreis Miltenberg, Bayern, Deutschland')).toBe('Miltenberg');
-    expect(placeLabel('74235, Erlenbach, Baden-Württemberg')).toBe('Erlenbach');
+    expect(placeLabel('12345, Musterdorf, Baden-Württemberg')).toBe('Musterdorf');
     expect(placeLabel('Miltenberg', { town: 'Miltenberg', county: 'Landkreis Miltenberg' })).toBe('Miltenberg');
   });
 

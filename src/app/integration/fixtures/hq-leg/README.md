@@ -7,7 +7,7 @@ leg to the HQ stood on the roof of the HQ's building.
 | File | Snapshot | Place | Leg |
 |---|---|---|---|
 | `neckarsulm-audi.json` | `corridor-neckarsulm-kernstadt-cold-231301.json` | Audi NSU Neckarsulm, hall | 16 m, segment 79, 8 stations |
-| `erlenbach-bbh.json` | `corridor-binswangen-cold-231425.json` | Erlenbach, BBH, school | 12 m, segment 57, 6 stations |
+| `musterdorf-school.json` | `corridor-musterdorf-cold-231425.json` | Musterdorf, school | 12 m, segment 57, 6 stations |
 
 ## Format
 

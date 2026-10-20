@@ -554,12 +554,12 @@ Ausnahmen:
     Endstück in den Hang. `buildRouteFromPath` setzt `offStreet` dort nicht,
     das Endstück nimmt wie vorher den Boden.
   - **Anlass:** Playtest 2026-09-16, Audi NSU Neckarsulm
-    (`?l=49.19489,9.22041`) und Erlenbach, BBH (`?l=49.17337,9.26851`):
-    Zellen und rote Linie auf dem Hallendach unter dem HQ-Marker, am BBH die
+    (`?l=49.19489,9.22041`) und Musterdorf, Schule (`?l=49.16337,9.66851`):
+    Zellen und rote Linie auf dem Hallendach unter dem HQ-Marker, an der Schule die
     rote Linie schräg die Fassade hinauf; Gegner liefen ins Haus und kamen
     durchs Dach wieder heraus. In den Snapshots dazu
     (`corridor-neckarsulm-kernstadt-cold-231301`,
-    `corridor-binswangen-cold-231425`) ist das Endstück 16 und 12 m lang,
+    `corridor-musterdorf-cold-231425`) ist das Endstück 16 und 12 m lang,
     die Straße unter seiner letzten Station 198,94 und 227,33 m. Sechs
     Zellen des Endstücks lagen auf dem Hallendach (206,22 bis 207,58 m),
     acht auf dem Schuldach (235,59 bis 236,93 m). Auf den Säulen der
@@ -650,7 +650,7 @@ Ausnahmen:
     Zellen, die Gegner aus der Zelle, in der sie stehen. Liegt ein Portal
     trotzdem auf dem Deck, greift "Portal unter einem Dach" oben, solange
     die Mittellinie hinter ihm auf der Straße liegt.
-  - **Anlass (D2, Playtest 2026-09-15, Erlenbach):** Weinsberger Straße
+  - **Anlass (D2, Playtest 2026-09-15, Musterdorf):** Kreisstraße
     (Way 230161781, `secondary`, `lanes=2`, ohne `layer`) unter den beiden
     Fahrbahnen der A6 (Ways 15258911 und 15258913, `motorway`,
     `bridge=yes layer=1 lanes=3`; OSM-Daten über Overpass, 2026-09-15). Sie
@@ -660,7 +660,7 @@ Ausnahmen:
     die Säule am Klick mit einem einzigen Treffer (220,67 m), zwei Säulen
     daneben mit der Straße bei 214,72 und 215,05 m unter dem Deck
     (Oberkante 220,6 und 220,7 m). Unter dem Deck ist das Mesh also
-    größtenteils bis zum Boden gefüllt (Fall c im Befund Erlenbach unten).
+    größtenteils bis zum Boden gefüllt (Fall c im Befund Musterdorf unten).
     Nachgestellt in `path-route.service.spec.ts` ("under a bridge of no
     route way") und `global-route-grid.spec.ts` ("under a deck").
 
@@ -809,7 +809,7 @@ Brückenkopf über dem Kai).
     daneben. `pick()` zeigt `walkCheck: 'drop'`, abschaltbar mit
     `__corridor.set({ stepDrop: 50 })` (misst neu).
 
-    Zweiter Fall: Playtest 2026-09-15 (608, Erlenbach), Wohnstraße,
+    Zweiter Fall: Playtest 2026-09-15 (608, Musterdorf), Wohnstraße,
     talseitig mehrere Zellreihen die Böschung hinunter, je Reihe etwa 0,5
     bis 1 m tiefer. Nachgestellt in `utils/corridor-walk.spec.ts`
     (Straße eben, bergseitig Gärten auf Straßenhöhe, also keine
@@ -871,7 +871,7 @@ Seit 2026-09-16 (Phase 2, `89651d26`). Code:
 
 **Anlass** (Nutzerentscheidung E6, 2026-09-15: "Es soll realistisch sein, das
 3D-Modell gilt."): Die OSM-Linie einer Straße läuft über etwas, das die
-Photogrammetrie auf der Straße zeigt: parkende Autos (Erlenbach, Way 959083801:
+Photogrammetrie auf der Straße zeigt: parkende Autos (Musterdorf, Way 959083801:
 Mittellinienzellen 0,59 bis 1,08 m über der Linie), Erker und Dachecken
 (Rothenburg). Der Korridor nimmt eine Zelle, durch die die Linie läuft, bei jeder
 Breite; die Gegner stiegen über das Auto, die rote Linie nahm seine Dachhöhe. Der
@@ -1104,7 +1104,7 @@ Station um ihren Versatz zur Seite gesetzt, jeder Punkt der Route entlang der
 Gehrung seiner beiden Segmente und das Routenende. Auf der Innenseite eines Knicks
 entfällt jede Station, die entlang ihres Segments hinter dem Gehrungspunkt liegt
 (vor dem Knick darüber hinaus, danach noch davor); der Gehrungspunkt übernimmt
-ihre Halbbreiten. Sonst liefe die Linie dort ein Stück rückwärts (Erlenbach,
+ihre Halbbreiten. Sonst liefe die Linie dort ein Stück rückwärts (Musterdorf,
 2026-09-17: 0,3 m bei 95 Grad und 1,23 m Versatz). Die Halbbreiten eines Stücks
 sind die Bandkanten ab der Linie, das Schmalere seiner beiden Enden; in einem
 Durchgang die OSM-Halbbreite. Ein Stück abseits der OSM-Linie trägt `detour`, ein
@@ -1947,7 +1947,7 @@ __corridor.snapshot()                                   // alles zum Korridor al
      Höhe@Tiefe/geometricError, von oben. Unterscheidet eine Straße unter
      einem Deck, die kein Treffer zeigt, eine nur in einem gröberen Tile
      (verworfen) und eine, die der Cache noch nicht kennt (siehe Befund
-     Erlenbach).
+     Musterdorf).
   3. `[Corridor] width at the nearest route station`: woher die Breite an der
      nächsten Station kommt (`explainCorridorAt`,
      `path-route.service.ts`).
@@ -2257,8 +2257,8 @@ Layer "Show streets" im Layers-Menü der Quick-Actions
   in `underpass.ts`), zwischen dem Boden an zwei Portalen 2 m vor den
   Enden des Stücks (`getGroundHeightEstimate` dort), wie die Zellen, aber
   ohne Stützen. Das betrifft nur Knoten: Liegt keiner im Stück, läuft die
-  Linie gerade vom Knoten davor zum Knoten danach. In Erlenbach (D2)
-  liegen die Knoten der Weinsberger Straße 5,8 und 4,6 m vor den Enden des
+  Linie gerade vom Knoten davor zum Knoten danach. In Musterdorf (D2)
+  liegen die Knoten der Kreisstraße 5,8 und 4,6 m vor den Enden des
   Stücks, dort ändert sich nichts. Tunnel-Ways selbst bleiben, wie sie
   sind (ein Tunnel aus mehreren Ways hätte je Way eigene Portale im
   Tunnel).
@@ -2349,9 +2349,9 @@ Was der Code dazu sagt:
   Strecke hinter dem Brückenende), seit dem Retest 601 auch um eine Ecke
   und bis 60 m.
 
-**Befund Erlenbach** (Playtest 2026-09-14, seit 2026-09-15 als Unterführung
+**Befund Musterdorf** (Playtest 2026-09-14, seit 2026-09-15 als Unterführung
 behoben, siehe Zellhöhe, "Unter einer fremden Brücke"): Route `spawn-1` auf der
-Weinsberger Straße (Way 31361736, ohne Tags) unter einer Autobahnbrücke,
+Kreisstraße (Way 31361736, ohne Tags) unter einer Autobahnbrücke,
 die kein Way der Route ist. Zellen und Gegner lagen auf dem Deck,
 `maxCellAboveStreetM` 10,1. Keine Regel der Zellen hebt sie dorthin: Der
 Way ist keine Brücke und lag damals auf keiner Strecke hinter einem
@@ -2631,7 +2631,7 @@ archive/REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
     stabile Zellen auf einem Dach (jenseits des Bandrands, etwa an einem
     Knick), nimmt sie deren Median (`fillGaps`) und liegt auf dem Dach. Die
     Paar-Regel hat dasselbe Risiko. Nicht beobachtet, nicht getestet.
-  - **Stationen ohne Tile:** In Erlenbach (Playtest 2026-09-15) blieben
+  - **Stationen ohne Tile:** In Musterdorf (Playtest 2026-09-15) blieben
     zwei Stationen ohne Tile-Treffer, vermutlich an einer Naht zwischen
     Tiles; sie bekommen die gröbere Stufe (Rückfall für Stationen). Der
     User will das erst wieder aufmachen, wenn es sich häuft.

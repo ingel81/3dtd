@@ -383,7 +383,7 @@ describe('buildBand', () => {
 
 describe('bandPath', () => {
   /**
-   * Erlenbach, corridor snapshot of 2026-09-17: at a turn of 95 degrees the
+   * Musterdorf, corridor snapshot of 2026-09-17: at a turn of 95 degrees the
    * line lay 1.23 m inside it, the last station before the joint 0.31 m past
    * the mitre and the first after it 0.27 m short of it. The line stepped
    * back twice, and the enemies turned on the spot.

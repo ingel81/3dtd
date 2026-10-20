@@ -329,7 +329,7 @@ Workern plinthedge, cornerarc, hqleg, innerfold, portalclip und portalcentre, Ga
       Ankunft unverändert, Wurm und Held unverändert. Die Bögen entstehen beim Einfrieren in Zeitscheiben.
 - [x] **C13 Endstück zum HQ steigt aufs Dach** (`d81bad5c` bis `4707e72e`, K6): Das Endstück trägt die Straßenhöhe
       weiter wie das Brückenende (`carried-height.ts`); ein Treffer mehr als 1,5 m über der getragenen Höhe ist kein
-      Boden. Audi NSU und Erlenbach BBH als Snapshot-Spec.
+      Boden. Audi NSU und Musterdorf, Schule als Snapshot-Spec.
 - [x] **C14 Gegnerlinie faltet sich an Innenecken** (`28f91f24`): `bandPath` verwirft Stationen innen hinter dem
       Gehrungspunkt. Rest: Zwei Knicke auf einem sehr kurzen Stück können noch kurz zurückgehen.
 - [x] **C15 Flaches Spawn-Portal** (`d7c80697` bis `df27ba7d`, `9eb07e31` bis `0c0b4570`): Der Rahmen ist nur noch

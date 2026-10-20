@@ -10,8 +10,8 @@ import { DetMath } from './det-math';
  *
  * A cell takes the lowest hit of its column (RouteCellSampler). Under a deck
  * whose underside the photogrammetry has filled down to the ground, that is
- * the deck. Playtest 2026-09-15, Erlenbach (D2): the route on Weinsberger
- * Straße (way 230161781, secondary, no layer) passes under the two
+ * the deck. Playtest 2026-09-15, Musterdorf (D2): the route on county
+ * road (way 230161781, secondary, no layer) passes under the two
  * carriageways of the A6 (ways 15258911 and 15258913, motorway,
  * `bridge=yes layer=1`, 3 lanes), which cross it at 85 degrees 16 m apart.
  * The column at the click had one hit, on the deck at 220.67 m; two columns

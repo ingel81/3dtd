@@ -98,7 +98,7 @@ describe('LocationManagementService', () => {
   });
 
   it('reset() restores the same name it starts with', () => {
-    service.displayName.set('Erlenbach');
+    service.displayName.set('Musterdorf');
     service.reset();
     expect(service.displayName()).toBe('No location');
     expect(service.hq()).toBeNull();
@@ -154,7 +154,7 @@ describe('LocationManagementService', () => {
 
   describe('recent locations', () => {
     it('records a place on top and persists it', () => {
-      service.recordRecent({ lat: 49.17, lon: 9.26 }, [{ lat: 49.175, lon: 9.26 }], 'Heilbronn');
+      service.recordRecent({ lat: 49.16, lon: 9.66 }, [{ lat: 49.165, lon: 9.66 }], 'Heilbronn');
       service.recordRecent({ lat: 48.87, lon: 2.33 }, [{ lat: 48.875, lon: 2.33 }], 'Paris');
       expect(service.recents().map((r) => r.name)).toEqual(['Paris', 'Heilbronn']);
       expect(JSON.parse(localStorage.getItem('td_recent_locations_v1')!)).toHaveLength(2);
@@ -167,21 +167,21 @@ describe('LocationManagementService', () => {
     });
 
     it('loads the stored list on construction', () => {
-      service.recordRecent({ lat: 49.17, lon: 9.26 }, [{ lat: 49.175, lon: 9.26 }], 'Heilbronn');
+      service.recordRecent({ lat: 49.16, lon: 9.66 }, [{ lat: 49.165, lon: 9.66 }], 'Heilbronn');
       expect(create().recents().map((r) => r.name)).toEqual(['Heilbronn']);
     });
 
     it('offers a place for the list only once a route joins spawn and HQ', () => {
-      service.hq.set({ lat: 49.17, lon: 9.26 });
-      service.spawns.set([{ lat: 49.175, lon: 9.26 }]);
+      service.hq.set({ lat: 49.16, lon: 9.66 });
+      service.spawns.set([{ lat: 49.165, lon: 9.66 }]);
       service.displayName.set('Heilbronn');
       // HQ, spawn and name are there, the route is not (yet, or it failed)
       expect(service.recentCandidate()).toBeNull();
 
       hasRoutes.set(true);
       expect(service.recentCandidate()).toEqual({
-        hq: { lat: 49.17, lon: 9.26 },
-        spawns: [{ lat: 49.175, lon: 9.26 }],
+        hq: { lat: 49.16, lon: 9.66 },
+        spawns: [{ lat: 49.165, lon: 9.66 }],
         name: 'Heilbronn',
       });
     });
@@ -198,8 +198,8 @@ describe('LocationManagementService', () => {
       });
       const played = runInInjectionContext(injector, () => new LocationManagementService());
       hasRoutes.set(true);
-      played.hq.set({ lat: 49.17, lon: 9.26 });
-      played.spawns.set([{ lat: 49.175, lon: 9.26 }]);
+      played.hq.set({ lat: 49.16, lon: 9.66 });
+      played.spawns.set([{ lat: 49.165, lon: 9.66 }]);
       played.displayName.set('Heilbronn');
       expect(played.recentCandidate()).toBeNull();
       game.towerCount.set(1);
@@ -210,17 +210,17 @@ describe('LocationManagementService', () => {
     });
 
     it('forgets a place taken off the list, and keeps it so', () => {
-      service.recordRecent({ lat: 49.17, lon: 9.26 }, [{ lat: 49.175, lon: 9.26 }], 'Heilbronn');
+      service.recordRecent({ lat: 49.16, lon: 9.66 }, [{ lat: 49.165, lon: 9.66 }], 'Heilbronn');
       service.recordRecent({ lat: 48.87, lon: 2.33 }, [{ lat: 48.875, lon: 2.33 }], 'Paris');
-      service.forgetRecent({ lat: 49.17001, lon: 9.26001 });
+      service.forgetRecent({ lat: 49.16001, lon: 9.66001 });
       expect(service.recents().map((r) => r.name)).toEqual(['Paris']);
       expect(create().recents().map((r) => r.name)).toEqual(['Paris']);
     });
 
     it('offers nothing while the name still resolves or no spawn is set', () => {
       hasRoutes.set(true);
-      service.hq.set({ lat: 49.17, lon: 9.26 });
-      service.spawns.set([{ lat: 49.175, lon: 9.26 }]);
+      service.hq.set({ lat: 49.16, lon: 9.66 });
+      service.spawns.set([{ lat: 49.165, lon: 9.66 }]);
       service.displayName.set('Loading...');
       expect(service.recentCandidate()).toBeNull();
 
@@ -236,18 +236,18 @@ describe('LocationManagementService', () => {
     });
 
     it('prints HQ only without a spawn', () => {
-      expect(formatShowcaseLine({ lat: 49.17327, lon: 9.26859 }, undefined)).toBe(
-        "{ id: 'TODO', name: 'TODO', hint: 'TODO', lat: 49.17327, lon: 9.26859 }",
+      expect(formatShowcaseLine({ lat: 49.16327, lon: 9.66859 }, undefined)).toBe(
+        "{ id: 'TODO', name: 'TODO', hint: 'TODO', lat: 49.16327, lon: 9.66859 }",
       );
     });
 
     it('adds the spawn, and its bearing when the portal was turned', () => {
-      const hq = { lat: 49.17327, lon: 9.26859 };
-      expect(formatShowcaseLine(hq, { lat: 49.17555, lon: 9.26387 })).toBe(
-        "{ id: 'TODO', name: 'TODO', hint: 'TODO', lat: 49.17327, lon: 9.26859, spawn: { lat: 49.17555, lon: 9.26387 } }",
+      const hq = { lat: 49.16327, lon: 9.66859 };
+      expect(formatShowcaseLine(hq, { lat: 49.16555, lon: 9.66387 })).toBe(
+        "{ id: 'TODO', name: 'TODO', hint: 'TODO', lat: 49.16327, lon: 9.66859, spawn: { lat: 49.16555, lon: 9.66387 } }",
       );
-      expect(formatShowcaseLine(hq, { lat: 49.17555, lon: 9.26387, portalBearing: 187.46 })).toBe(
-        "{ id: 'TODO', name: 'TODO', hint: 'TODO', lat: 49.17327, lon: 9.26859, spawn: { lat: 49.17555, lon: 9.26387, portalBearing: 187.5 } }",
+      expect(formatShowcaseLine(hq, { lat: 49.16555, lon: 9.66387, portalBearing: 187.46 })).toBe(
+        "{ id: 'TODO', name: 'TODO', hint: 'TODO', lat: 49.16327, lon: 9.66859, spawn: { lat: 49.16555, lon: 9.66387, portalBearing: 187.5 } }",
       );
     });
 
@@ -255,12 +255,12 @@ describe('LocationManagementService', () => {
       const api = (globalThis as Record<string, unknown>)['__showcase'] as { line(): string };
       expect(api).toBeDefined();
 
-      service.hq.set({ lat: 49.17327, lon: 9.26859 });
-      service.spawns.set([{ lat: 49.17555, lon: 9.26387 }]);
+      service.hq.set({ lat: 49.16327, lon: 9.66859 });
+      service.spawns.set([{ lat: 49.16555, lon: 9.66387 }]);
       const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
       const line = api.line();
 
-      expect(line).toBe("{ id: 'TODO', name: 'TODO', hint: 'TODO', lat: 49.17327, lon: 9.26859, spawn: { lat: 49.17555, lon: 9.26387 } }");
+      expect(line).toBe("{ id: 'TODO', name: 'TODO', hint: 'TODO', lat: 49.16327, lon: 9.66859, spawn: { lat: 49.16555, lon: 9.66387 } }");
       expect(log).toHaveBeenCalledWith(line);
       log.mockRestore();
     });

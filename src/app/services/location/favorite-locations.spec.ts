@@ -28,7 +28,7 @@ describe('favorite locations', () => {
       // The format of td_favorites_v2 until 2026-09-14: no name
       const old = [
         { id: 'a', hq: { lat: 48.8, lon: 2.3 }, spawns: [{ lat: 48.805, lon: 2.3 }], createdAt: 1700000000000 },
-        { id: 'b', hq: { lat: 49.17, lon: 9.26 }, spawns: [], createdAt: 1700000000001 },
+        { id: 'b', hq: { lat: 49.16, lon: 9.66 }, spawns: [], createdAt: 1700000000001 },
       ];
       localStorage.setItem(FAVORITES_KEY, JSON.stringify(old));
       expect(loadFavoriteLocations()).toEqual(old);

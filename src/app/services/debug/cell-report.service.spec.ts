@@ -40,7 +40,7 @@ describe('CellReportService', () => {
   const setClipboard = (value: unknown) => Object.defineProperty(navigator, 'clipboard', { value, configurable: true });
 
   beforeEach(() => {
-    hq = signal<{ lat: number; lon: number } | null>({ lat: 49.17327, lon: 9.26859 });
+    hq = signal<{ lat: number; lon: number } | null>({ lat: 49.16327, lon: 9.66859 });
     source = {
       spotAt: vi.fn((point: Vector3) => spot(point.x, point.z)),
       cellsInRect: vi.fn((): CellSpot[] => []),
@@ -62,7 +62,7 @@ describe('CellReportService', () => {
 
     const injector = Injector.create({
       providers: [
-        { provide: LocationManagementService, useValue: { hq, displayName: signal('Erlenbach') } },
+        { provide: LocationManagementService, useValue: { hq, displayName: signal('Musterdorf') } },
         { provide: DebugFacadeService, useValue: { vfx: signal(withVfxPreset(DEFAULT_VFX_SETTINGS, 'medium')) } },
       ],
     });
@@ -191,7 +191,7 @@ describe('CellReportService', () => {
     });
 
     it('copies the report of the selected cells with meta and note', async () => {
-      window.history.replaceState({}, '', '/?l=49.17327,9.26859&s=49.17555,9.26387');
+      window.history.replaceState({}, '', '/?l=49.16327,9.66859&s=49.16555,9.66387');
       setCorridorConfig({ maxHalfWidth: 5 });
       service.note.set('Auto am Rand');
       service.click(hit(1, 1));
@@ -202,9 +202,9 @@ describe('CellReportService', () => {
       expect(source.describe).toHaveBeenCalledWith([spot(1, 1), spot(3, 1)]);
       const report = JSON.parse(writeText.mock.calls[0][0]);
       expect(report.meta).toMatchObject({
-        url: `${window.location.origin}/?l=49.17327,9.26859&s=49.17555,9.26387`,
+        url: `${window.location.origin}/?l=49.16327,9.66859&s=49.16555,9.66387`,
         version: BUILD_VERSION,
-        location: 'Erlenbach',
+        location: 'Musterdorf',
         effects: 'medium',
         corridor: { maxHalfWidth: 5 },
         routes: ['spawn-1'],
@@ -218,7 +218,7 @@ describe('CellReportService', () => {
 
     it('carries no tile credentials, from the stored ones or the URL', async () => {
       localStorage.setItem('3dtd-tile-credentials', JSON.stringify({ provider: 'cesium', token: 'SECRET-TOKEN-123' }));
-      window.history.replaceState({}, '', '/?l=49.17327,9.26859&token=SECRET-TOKEN-123&key=SECRET-KEY-456');
+      window.history.replaceState({}, '', '/?l=49.16327,9.66859&token=SECRET-TOKEN-123&key=SECRET-KEY-456');
       service.click(hit(1, 1));
 
       await service.copy();
@@ -226,7 +226,7 @@ describe('CellReportService', () => {
       const json = writeText.mock.calls[0][0] as string;
       expect(json).not.toContain('SECRET-TOKEN-123');
       expect(json).not.toContain('SECRET-KEY-456');
-      expect(JSON.parse(json).meta.url).toBe(`${window.location.origin}/?l=49.17327,9.26859`);
+      expect(JSON.parse(json).meta.url).toBe(`${window.location.origin}/?l=49.16327,9.66859`);
     });
 
     it('logs the report to the console where the clipboard refuses, and says so', async () => {

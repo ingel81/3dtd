@@ -40,7 +40,7 @@ import { DetMath } from './det-math';
  * a building, the lowest hit of a column there is its roof: the cells of
  * the leg climbed onto the HQ's building, the red line ran up its facade,
  * and enemies walked into the house and came out through the roof
- * (playtest 2026-09-16, Audi NSU Neckarsulm and Erlenbach BBH). So the leg
+ * (playtest 2026-09-16, Audi NSU Neckarsulm and Musterdorf school). So the leg
  * carries the height too, from the lowest hit where it leaves the street,
  * along the whole leg (routeApproaches): a yard, a garden, a ramp or stairs
  * follow their ground, a building keeps the street's level, and the

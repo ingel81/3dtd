@@ -1,7 +1,7 @@
 /**
  * Snapshots: the leg to the HQ on the columns of corridor snapshots (utils/carried-height.ts)
  *
- * Playtest 2026-09-16: at Audi NSU Neckarsulm and at Erlenbach BBH the cells
+ * Playtest 2026-09-16: at Audi NSU Neckarsulm and at Musterdorf school the cells
  * of the last metres to the HQ stood on the roof of the HQ's building, the
  * red line ran up its facade, and enemies walked into the house and came out
  * through the roof. Each fixture in fixtures/hq-leg is the end of the route
@@ -48,7 +48,7 @@ function build(fixture: Fixture): GlobalRouteGrid {
 }
 
 describe('the leg to the HQ on the columns of corridor snapshots (playtest 2026-09-16)', () => {
-  for (const [name, place] of [['neckarsulm-audi', 'Audi NSU Neckarsulm'], ['erlenbach-bbh', 'Erlenbach BBH']] as const) {
+  for (const [name, place] of [['neckarsulm-audi', 'Audi NSU Neckarsulm'], ['musterdorf-school', 'Musterdorf school']] as const) {
     it(`${place}: runs the leg into the building at the street's level, where the snapshot had its cells on the roof`, () => {
       const fixture = load(name);
       const grid = build(fixture);

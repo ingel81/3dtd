@@ -383,7 +383,7 @@ describe('Worlds stage', () => {
   it('OpenStreetMap lists its unchanged maps as Recent worlds; Remove asks, then the map goes to the trash', async () => {
     own = [
       ownMap('miltenberg', 'Miltenberg', { generated: true, osm: { lat: 49.7, lon: 9.26 } }),
-      ownMap('binswangen', 'Binswangen', { osm: { lat: 48.5, lon: 10.6 } }),
+      ownMap('musterdorf', 'Musterdorf', { osm: { lat: 48.5, lon: 10.6 } }),
     ];
     const f = await open({ key: true });
     card(f, 'osm').click();
@@ -404,7 +404,7 @@ describe('Worlds stage', () => {
   it('Built Worlds lists every other map with its picture and where it comes from; Recent shows the maps played lately', async () => {
     own = [
       ownMap('miltenberg', 'Miltenberg', { generated: true, osm: { lat: 49.7, lon: 9.26 } }),
-      ownMap('binswangen', 'Binswangen', { osm: { lat: 48.5, lon: 10.6 } }),
+      ownMap('musterdorf', 'Musterdorf', { osm: { lat: 48.5, lon: 10.6 } }),
       ownMap('demo-valley-copy', 'Demo Valley (copy)', { copyOf: { id: 'demo-valley', hash: 'h' } }),
     ];
     localStorage.setItem('td_recent_maps_v1', JSON.stringify(['demo-valley']));
@@ -414,11 +414,11 @@ describe('Worlds stage', () => {
     const sections = [...el(f).querySelectorAll('.wm-body .td-group')].map((g) => [text(g.querySelector('.td-section')), [...g.querySelectorAll<HTMLElement>('[data-map]')].map((r) => r.dataset['map'])]);
     expect(sections).toEqual([
       ['Recent', ['demo-valley']],
-      ['Your built worlds', ['binswangen', 'demo-valley-copy']],
+      ['Your built worlds', ['musterdorf', 'demo-valley-copy']],
       ['From coop hosts', []],
       ['Shipped', ['demo-valley']],
     ]);
-    expect(text(el(f).querySelector('[data-map="binswangen"]'))).toContain('from OpenStreetMap');
+    expect(text(el(f).querySelector('[data-map="musterdorf"]'))).toContain('from OpenStreetMap');
     expect(text(el(f).querySelector('[data-map="demo-valley-copy"]'))).toContain('copy of Demo Valley');
     expect(el(f).querySelector<HTMLImageElement>('[data-map="demo-valley"] img')!.getAttribute('src')).toBe('maps/demo-valley.png');
     el(f).querySelector<HTMLElement>('[data-recent-remove]')!.click();

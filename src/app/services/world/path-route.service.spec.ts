@@ -1089,7 +1089,7 @@ describe('PathAndRouteService route geometry', () => {
 });
 
 /**
- * Playtest 2026-09-15, Erlenbach (D2): the route on Weinsberger Straße runs
+ * Playtest 2026-09-15, Musterdorf (D2): the route on the county road runs
  * under the A6, a bridge that is no way of the route. The photogrammetry is
  * filled under most of the deck; cells, red line and enemies stood on it.
  */

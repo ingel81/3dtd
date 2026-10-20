@@ -219,7 +219,7 @@ describe('CorridorBuild', () => {
     });
 
     /**
-     * Browser check 2026-09-16, Erlenbach in a background tab: the wait ended
+     * Browser check 2026-09-16, Musterdorf in a background tab: the wait ended
      * 1 s in with `tiles=0 pending=0`, every station measured `none`, and the
      * corridor froze at OSM width. Nothing was loading because nothing had
      * been asked for: in a background tab rAF stands, so the renderer never

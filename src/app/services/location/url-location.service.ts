@@ -11,7 +11,7 @@ import { WORLD_URL_PARAM, worldUrlValue, type WorldRef } from '../../world/world
  * Links to a place: read at the page's start into the start order
  * (WorldStartService), made for a share or invite link. The address itself
  * is no longer written when the place changes (docs/WORLDS_NAVIGATION_PLAN.md, 3.8).
- * Format: ?l=49.17327,9.26859&s=49.17555,9.26387,187.5;49.18000,9.27000
+ * Format: ?l=49.16327,9.66859&s=49.16555,9.66387,187.5;49.17000,9.67000
  * - l = HQ (lat,lon) - COORD_DECIMALS (5) decimal places, the canonical form
  *   of a place's coordinates the game takes every place in (canonicalCoords)
  * - s = Spawns (semicolon-separated): lat,lon and, for a portal the player

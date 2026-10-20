@@ -1,7 +1,7 @@
 {
-"place": "Weinstraße 50, Binswangen",
-"url": "http://localhost:4200/?l=49.17337,9.26851&s=49.17434,9.25915",
-"snapshot": "corridor-binswangen-cold-231425.json",
+"place": "Hauptstraße 1, Musterdorf",
+"url": "http://localhost:4200/?l=49.16337,9.66851&s=49.16434,9.65915",
+"snapshot": "corridor-musterdorf-cold-231425.json",
 "fingerprint": "8ad850a2",
 "cellSize": 2,
 "route": {"points":[[22.641,11.199],[0.592,12.264],[0,0]],"offStreet":[false,true],"left":[2.5,2.75],"right":[1.66,2.75]},

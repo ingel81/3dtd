@@ -5,7 +5,7 @@ describe('GeocodingService name formatting', () => {
   const service = new GeocodingService();
 
   it('extractLocationName prefers the city', () => {
-    expect(service.extractLocationName({ city: 'Erlenbach', county: 'Miltenberg' })).toBe('Erlenbach');
+    expect(service.extractLocationName({ city: 'Musterdorf', county: 'Miltenberg' })).toBe('Musterdorf');
   });
 
   it('extractLocationName falls back to the unknown-location name', () => {
@@ -13,15 +13,15 @@ describe('GeocodingService name formatting', () => {
   });
 
   it('formatAddressShort joins street, city and country', () => {
-    expect(service.formatAddressShort({ road: 'Hauptstraße', house_number: '5', town: 'Erlenbach', country: 'Germany' }))
-      .toBe('Hauptstraße 5, Erlenbach, Germany');
+    expect(service.formatAddressShort({ road: 'Hauptstraße', house_number: '5', town: 'Musterdorf', country: 'Germany' }))
+      .toBe('Hauptstraße 5, Musterdorf, Germany');
     // The dice lands anywhere, so the country belongs in the name
     expect(service.formatAddressShort({ city: 'Tokyo', country: 'Japan' })).toBe('Tokyo, Japan');
   });
 
   it('formatAddressShort leaves out what the address does not name', () => {
-    expect(service.formatAddressShort({ road: 'Hauptstraße', house_number: '5', town: 'Erlenbach' }))
-      .toBe('Hauptstraße 5, Erlenbach');
+    expect(service.formatAddressShort({ road: 'Hauptstraße', house_number: '5', town: 'Musterdorf' }))
+      .toBe('Hauptstraße 5, Musterdorf');
     expect(service.formatAddressShort({ country: 'Japan' })).toBe('Japan');
   });
 

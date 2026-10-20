@@ -664,7 +664,7 @@ Empfehlung bis dahin:
    Mensch spielt besser, und 4 % für den Bot können 30 % für einen Menschen heißen. Messbar nur mit deinen
    eigenen Läufen.
 
-### Die Raketen-Falle (2026-09-21, Menschenlauf Binswangen)
+### Die Raketen-Falle (2026-09-21, Menschenlauf Musterdorf)
 
 Ein Menschenlauf endete in W11 mit 27 % des Gesamtgolds in Raketentürmen, die 1,5 % des Schadens
 machten (1299 Gold, 0,08 DPS je Gold). Der Lauf war nicht falsch gespielt, der Forschungsbaum hat

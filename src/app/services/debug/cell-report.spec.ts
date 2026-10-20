@@ -20,9 +20,9 @@ import type { CorridorExplanation, CorridorSideRow } from '../world/path-route.s
 describe('cell report JSON', () => {
   const meta: CellReportMeta = {
     time: '2026-09-15T10:00:00.000Z',
-    url: 'http://localhost:4200/?l=49.17327,9.26859&s=49.17555,9.26387',
+    url: 'http://localhost:4200/?l=49.16327,9.66859&s=49.16555,9.66387',
     version: 'v0.2.0',
-    location: 'Erlenbach',
+    location: 'Musterdorf',
     effects: 'high',
     corridor: { maxHalfWidth: 5 },
   };
@@ -47,7 +47,7 @@ describe('cell report JSON', () => {
     distanceM,
     way: 4242,
     type: 'residential',
-    name: 'Weinsberger Straße',
+    name: 'the county road',
     tags: 'width=6 layer=-1',
     streetWidthM: 6,
     widthSource: 'width',
@@ -76,7 +76,7 @@ describe('cell report JSON', () => {
   ];
 
   const cell = (x: number, z: number, nearest: CorridorExplanation | null): ProbedCell => ({
-    geo: '49.1732712,9.2685934',
+    geo: '49.1632712,9.6685934',
     row: {
       x, z, routeM: 3.2, cell: true, state: 'stable', heightM: 190.12345, walkable: false, walkCheck: 'roof',
       overLineM: 1.456, aboveNeighboursM: 1.5, surface: 'ground', ground: 'visible', air: '-', displayed: true,
@@ -110,7 +110,7 @@ describe('cell report JSON', () => {
     const [reported] = JSON.parse(buildCellReport(meta, '', probe([cell(1, 1, station('spawn-1', '7:3/32', 1.2))]))).cells;
 
     for (const field of PICK_FIELDS) expect(reported, field).toHaveProperty(field);
-    expect(reported.geo).toBe('49.1732712,9.2685934');
+    expect(reported.geo).toBe('49.1632712,9.6685934');
     expect(reported.column.hits).toBe('191.67@21/1 190.12@21/1');
     expect(Object.keys(reported.nb)).toHaveLength(8);
     expect(reported.nb['1,-1']).toBeNull();
@@ -163,8 +163,8 @@ describe('cell report JSON', () => {
 
   describe('reportUrl', () => {
     it('keeps the location parameters and drops those that could carry a key', () => {
-      expect(reportUrl('http://localhost:4200/?l=49.17327,9.26859&token=abc&s=49.1,9.2;49.2,9.3&apiKey=xyz&access_token=q#frag'))
-        .toBe('http://localhost:4200/?l=49.17327,9.26859&s=49.1,9.2;49.2,9.3');
+      expect(reportUrl('http://localhost:4200/?l=49.16327,9.66859&token=abc&s=49.1,9.2;49.2,9.3&apiKey=xyz&access_token=q#frag'))
+        .toBe('http://localhost:4200/?l=49.16327,9.66859&s=49.1,9.2;49.2,9.3');
     });
 
     it('drops user info and a query that holds nothing else', () => {
@@ -173,7 +173,7 @@ describe('cell report JSON', () => {
     });
 
     it('points a report from the desktop build at the web version', () => {
-      expect(reportUrl('app://app/?l=49.17327,9.26859&token=abc')).toBe('https://3dtd.sgeht.net/play/?l=49.17327,9.26859');
+      expect(reportUrl('app://app/?l=49.16327,9.66859&token=abc')).toBe('https://3dtd.sgeht.net/play/?l=49.16327,9.66859');
     });
   });
 

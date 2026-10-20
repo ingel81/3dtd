@@ -735,7 +735,7 @@ eingefrorenen Probe (Katalog-Modelle, keine Objekte auf Straßen oder in der Luf
 - **Art raten:** `building` (Tabelle), sonst `amenity`, `shop`, sonst Größe, Seitenverhältnis, Stockwerke und die
   Landnutzung unter der Mitte: unter 15 m² Schuppen, bis 45 m² Garage (quadratisch bis 25 m² Schuppen), in
   Industrie Halle, auf Hof- und Ackerland Scheune, über 220 m² oder ab 3 Geschossen Wohnblock, sonst Haus.
-  Unter Häusern (Median der Grundrisse ab 45 m² in 100 m unter 180 m², ein Dorf, eine Siedlung; Erlenbach rund
+  Unter Häusern (Median der Grundrisse ab 45 m² in 100 m unter 180 m², ein Dorf, eine Siedlung; Musterdorf rund
   110 m²) wird ein Grundriss ohne Geschosse erst über 400 m² zum Wohnblock (E198).
   `commercial` ohne Geschosse und über 600 m² ist eine Halle (Winzergenossenschaft in Oberbergen), kein Bürohaus.
   `bridge`, `ruins`, `container`, Tiefgaragen (`location=underground`, `layer<0`) bleiben weg; `building:part` wird
@@ -747,7 +747,7 @@ eingefrorenen Probe (Katalog-Modelle, keine Objekte auf Straßen oder in der Luf
   (Module einer Reihen-Art 0,01, sonst 0,06 bis 0,12), zweite Reihe, Geschosse und eine von der Straße abgewandte
   Front. Grenze 0,5, sonst die Rückfall-Art (bis zu drei Stufen). Ohne Geschosse in den Tags höchstens 5 Geschosse
   (kein Hochhaus im Dorf). Ein Modul (blinde Seiten) einer Art ohne Reihen (das Reihenhaus unter `house`) steht nur
-  allein und mit Aufschlag 0,1, als schmales Haus zwischen Nachbarn; in Erlenbach waren vorher 247 Häuser ein
+  allein und mit Aufschlag 0,1, als schmales Haus zwischen Nachbarn; in Musterdorf waren vorher 247 Häuser ein
   einzelnes und 180 eine Reihe von Reihenhaus-Modulen (E198). Unter ähnlich guten Modellen wählt das Salz des
   Grundrisses (bis 0,08 Fehlermaß), Häuser, Garagen, Schuppen und Höfe bekommen je Grundriss eine Tönung aus
   `BUILDING_TINTS` (Wände Creme bis Sand, Dächer zu Braun und Grau; Instanzfarben, kein Draw Call mehr). Eckhäuser nur an den Enden von Blockreihen mit Seitenstraße in 10 m, so gedreht, dass
@@ -970,7 +970,7 @@ Fall in `import-osm.spec.ts` auf der eingefrorenen Probe (Ausstattung im Anteil,
   E269; vorher prüfte nur die Mitte jedes Stücks, eine 6-m-Hecke lief so über Gleis und Fahrbahn). Dieselbe Regel gilt
   für die Hecken und Zäune der Grundstücke und der Flächen (Friedhof, Kleingärten, Sportplätze). `barrier=city_wall` baut die Burgmauer (`wallAlong`, Blöcke an
   den Ecken), sie darf in Gebäude reichen (Tore, Türme sind dort oft Gebäude). **Leitplanken** (`guard_rail`) bleiben
-  weg: der Betonblock ist keine Leitplanke und kostet 526 Punkte je 1,5 m (Erlenbach: rund 1 070 Stück); ein Modell
+  weg: der Betonblock ist keine Leitplanke und kostet 526 Punkte je 1,5 m (Musterdorf: rund 1 070 Stück); ein Modell
   „Leitplanke“ fehlt. Bordsteine, Tore, Schranken, Kabelsperren bleiben weg.
 - **Gleise** (Stand O5; seit E238 neu gebaut, siehe „Bahn und Straße, gebaut“): `railway=rail`, `light_rail`, `tram`,
   `narrow_gauge`, `subway`, `funicular` ohne Tunnel und Brücke (Brücken haben kein Deck für Gleise): `rail-track` alle 10 m. Straßenbahn in der Straße fällt mit der Straßenregel
@@ -1002,11 +1002,11 @@ Fall in `import-osm.spec.ts` auf der eingefrorenen Probe (Ausstattung im Anteil,
 
 ### Messungen O5 (2026-10-16)
 
-Dieselben Rohdaten wie O1 (Oberbergen, Miltenberg, Stuttgart Mitte; Abfrage vom 2026-10-15), dazu Erlenbach (Abfrage
+Dieselben Rohdaten wie O1 (Oberbergen, Miltenberg, Stuttgart Mitte; Abfrage vom 2026-10-15), dazu Musterdorf (Abfrage
 vom 2026-10-15 über rund 1,5 km, ohne Höhen, flach). Erzeugen in Node (`tools/osm/osm-world.spec.ts`, Rechner mit
 anderen Läufen belegt, Richtwerte).
 
-| | Oberbergen | Miltenberg | Stuttgart Mitte | Erlenbach |
+| | Oberbergen | Miltenberg | Stuttgart Mitte | Musterdorf |
 |---|---|---|---|---|
 | Ausstattung, Objekte | 111 | 3 557 | 6 051 | 1 418 |
 | davon Linien (Zaun, Mauer, Stützmauer, Hecke, Burgmauer, Barriere) | 0 | 1 987 | 3 551 | 1 334 |
@@ -1040,16 +1040,16 @@ Die Ausstattung kostet rund 1 bis 3 % Draw Calls und 3 bis 5 % Dreiecke; die Bil
 ## Phase O7, Messung (2026-10-16, Teil)
 
 Gemessen an den vier Orten mit gespeicherten Rohdaten: Oberbergen (Dorf im Weinberg), Miltenberg (Kleinstadt am
-Fluss), Stuttgart Mitte (Innenstadt), Erlenbach (Dorf; Abfrage über rund 1,5 km statt 2,4 km, ohne Höhen, also flach
+Fluss), Stuttgart Mitte (Innenstadt), Musterdorf (Dorf; Abfrage über rund 1,5 km statt 2,4 km, ohne Höhen, also flach
 und nur in der Mitte gefüllt). Stand: O1 bis O5 samt Häusern (E198), Tunneln und Betonbrücken. Küste, Gebirge und ein
-Ort außerhalb Europas fehlen: ein frischer Abruf für Erlenbach über 2,4 km scheiterte am 2026-10-16 an beiden Servern
+Ort außerhalb Europas fehlen: ein frischer Abruf für Musterdorf über 2,4 km scheiterte am 2026-10-16 an beiden Servern
 des Spiels (overpass-api.de 502 „at capacity“, overpass.private.coffee 500), je ein Versuch, keine Wiederholung.
 
 Erzeugen in Node (`tools/osm/osm-world.spec.ts`, ein Kern, Rechner mit anderen Läufen belegt, Richtwerte); Spiel im
 Dev-Server, headless Chromium mit D3D11 (RTX 5080), 1600 × 900, Startansicht nach „Skip intro“, 90 Bilder ohne
 Bildratenbremse:
 
-| | Oberbergen | Miltenberg | Stuttgart Mitte | Erlenbach (1,5 km, flach) | Demo-Tal (512 m) |
+| | Oberbergen | Miltenberg | Stuttgart Mitte | Musterdorf (1,5 km, flach) | Demo-Tal (512 m) |
 |---|---|---|---|---|---|
 | Erzeugen (ohne Abruf) | 2,3 s | 2,0 s | 3,3 s | 1,2 s | |
 | Packen | 1,6 s | 1,4 s | 1,7 s | 0,9 s | |

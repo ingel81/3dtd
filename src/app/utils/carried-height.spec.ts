@@ -85,7 +85,7 @@ describe('carriedY', () => {
   });
 
   /*
-   * Playtest 2026-09-16, Audi NSU Neckarsulm and Erlenbach BBH: the leg from
+   * Playtest 2026-09-16, Audi NSU Neckarsulm and Musterdorf school: the leg from
    * the street into the HQ's building. The photogrammetry has no floor in a
    * building, the only hit there is its roof.
    */

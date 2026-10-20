@@ -312,7 +312,7 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
 - [ ] **E153 Desktop auf der starken GPU**: in 0.7.1 ausgeliefert, auf dem Laptop geprüft (PLAYTEST A3.3); nach DONE
       auf Zuruf.
 - [ ] **E198 OSM-Häuser**: Einfamilienhäuser statt Reihenhaus-Reihen und Blöcke (Nachbarschaft unter 180 m², Block erst ab
-      400 m²), Modellwahl per Salz, Tönung je Grundriss; Erlenbach 74235 im Editor ansehen.
+      400 m²), Modellwahl per Salz, Tönung je Grundriss; Musterdorf 12345 im Editor ansehen.
 - [ ] **E201 Bauverbot als Rechteck**: Gebäude und Mauern sperren und sitzen nach ihrem gedrehten Rechteck (Katalog `box`);
       neben einer langen Schule bauen, Sitz am Hang.
 - [ ] **E197 Rauchsäule** `fx-smoke-column` (Life-Panel „Tall smoke column“), Ember Crater mit drei Säulen; dort ansehen.

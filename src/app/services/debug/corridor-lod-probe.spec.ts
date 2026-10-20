@@ -108,7 +108,7 @@ describe('CorridorLodProbe', () => {
       },
       now: () => clock,
       clipboard: clipboard as ProbeClipboard,
-      pageUrl: () => 'http://localhost:4200/?l=49.17337,9.26851&s=49.17556,9.26401',
+      pageUrl: () => 'http://localhost:4200/?l=49.16337,9.66851&s=49.16556,9.66401',
     };
     probe = new CorridorLodProbe(deps as unknown as CorridorLodProbeDeps);
   });
@@ -274,7 +274,7 @@ describe('CorridorLodProbe', () => {
       const report = copied();
       expect(report).toMatchObject({
         report: 'corridor-lod-probe',
-        url: 'http://localhost:4200/?l=49.17337,9.26851&s=49.17556,9.26401',
+        url: 'http://localhost:4200/?l=49.16337,9.66851&s=49.16556,9.66401',
         tiles: { regionErrorTarget: 5, cameraErrorTarget: 20, lodVersion: 17 },
         restored: { regionErrorTarget: 5, cameraErrorTarget: 20 },
         stoppedEarly: null,

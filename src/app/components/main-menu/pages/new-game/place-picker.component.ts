@@ -339,7 +339,7 @@ export class PlacePickerComponent {
 
 /** The first part of a long address: "Hauptstraße 5, Miltenberg, Bayern" -> "Hauptstraße 5" */
 function shortName(name: string): string {
-  // The first part that is a name, not a postcode or a house number: "74235, Erlenbach" is Erlenbach
+  // The first part that is a name, not a postcode or a house number: "12345, Musterdorf" is Musterdorf
   const parts = name.split(',').map((part) => part.trim()).filter((part) => part !== '');
   return parts.find((part) => !/^[\d\s-]+$/.test(part)) ?? parts[0] ?? name;
 }

@@ -88,7 +88,7 @@ Der Kern spielt so gut er kann; das Profil macht ihn menschlich:
 | Rauschen | Nutzen mit Streuung, wählt nicht immer den besten |
 | Wissen | welche Werkzeuge er kennt (Zielwahl, Verkaufen, LOS-Probe, Forschungsplan) |
 
-Kalibriert gegen echte Run-Logs (`tmp/runs/`, Replay W1 bis W60 Binswangen): Tower je Welle, Gold auf dem Konto,
+Kalibriert gegen echte Run-Logs (`tmp/runs/`, Replay W1 bis W60 Musterdorf): Tower je Welle, Gold auf dem Konto,
 Verhältnis Bauen zu Upgrade, Zeitpunkt der Forschung, Verkäufe. Ein Werkzeug vergleicht Bot-Lauf und Mensch-Lauf in
 diesen Zahlen.
 
@@ -134,7 +134,7 @@ besseren Tower freischaltet, ist ein Kauf. Dazu ein Bautempo je Profil (`buildTe
 ein Tower je Gold jedes Upgrade schlägt: ohne Tempo baute der Bot 35 Archer bis Welle 4. Beschreibung in
 [BOT_SYSTEM.md](BOT_SYSTEM.md#der-schiedsrichter).
 
-Browserlauf DevWorld (dichte Gebäude, Könner bis Welle 11), gegen den Lauf des Users (Binswangen, 2026-10-01, vor
+Browserlauf DevWorld (dichte Gebäude, Könner bis Welle 11), gegen den Lauf des Users (Musterdorf, 2026-10-01, vor
 den Mindestwellen der Forschung):
 
 | Welle | User: Tower | Bot vor B3 | Bot mit B3 |

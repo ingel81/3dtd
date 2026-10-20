@@ -977,7 +977,7 @@ describe('GlobalRouteGrid bridges', () => {
     });
 
     /**
-     * Playtest 2026-09-14, Erlenbach: Weinsberger Straße runs under an
+     * Playtest 2026-09-14, Musterdorf: the county road runs under an
      * Autobahn bridge that is no way of the route. With its street in the
      * columns, a way under a deck of no route way keeps its ground, also
      * right past the end of a bridge of its own route.
@@ -1126,7 +1126,7 @@ describe('GlobalRouteGrid bridges', () => {
 });
 
 /**
- * Playtest 2026-09-16, Audi NSU Neckarsulm and Erlenbach BBH: on the last
+ * Playtest 2026-09-16, Audi NSU Neckarsulm and Musterdorf school: on the last
  * metres to the HQ the cells stood on the roof of the HQ's building, the red
  * line ran up its facade, and enemies walked into the house and out through
  * the roof. The leg from the street to the HQ runs over no street; the
@@ -1341,7 +1341,7 @@ describe('GlobalRouteGrid tunnels', () => {
   });
 
   /**
-   * Playtest 2026-09-15, Erlenbach (D2): a street under a motorway deck
+   * Playtest 2026-09-15, Musterdorf (D2): a street under a motorway deck
    * whose underside the photogrammetry has filled; a few columns at the
    * edges of the deck show the street under it. PathAndRouteService makes
    * the piece under the deck a tunnel stretch (underpass.ts).

@@ -190,9 +190,9 @@ describe('Place picker of New game', () => {
     const frames: OsmFrameRequest[] = [];
     fixture.componentInstance.mapOfPlace.subscribe((r) => frames.push(r));
     click(fixture, 'Map from OpenStreetMap');
-    pickPlace(fixture, 'City, street or address…', { lat: 49.17, lon: 9.27, name: '74235, Erlenbach, Landkreis Heilbronn, Deutschland' });
+    pickPlace(fixture, 'City, street or address…', { lat: 49.16, lon: 9.67, name: '12345, Musterdorf, Landkreis Musterkreis, Deutschland' });
     click(fixture, 'Make the map');
-    expect(frames[0].place.name).toBe('Erlenbach');
+    expect(frames[0].place.name).toBe('Musterdorf');
   });
 
   it('with the maps closed (before their release) no place becomes a map', () => {

@@ -409,7 +409,7 @@ function planeThrough(points: readonly { x: number; z: number; y: number }[]): (
 
 describe('the walkable band on the OSM fixtures', () => {
   it('732: runs the enemies on the street left of the parked cars, no cell on them, no hole beside them', () => {
-    const fixture = load('erlenbach-732');
+    const fixture = load('musterdorf-732');
     const frame = frameOf(fixture.hq);
     const line = fixture.routePoints.map(([lat, lon]) => frame.toLocal({ lat, lon }));
     // Heights: the 24 reported cells. The street a plane through the street cells the corridor lost; the cars
@@ -766,7 +766,7 @@ describe('the walkable band on the OSM fixtures', () => {
     const DECK_Y = 220.7;
     LATTICE_SHIFTS.forEach((shift, i) => {
       const at = `lattice ${shift.join(', ')}`;
-      const fixture = shifted(load('erlenbach-weinsberger-a6'), shift);
+      const fixture = shifted(load('musterdorf-underpass'), shift);
       const frame = frameOf(fixture.hq);
       const decks = streetsOf(fixture).filter((s) => fixture.route.underWayIds.includes(s.id)).map((s) => s.nodes.map(frame.toLocal));
       const columns = (x: number, z: number): BandColumn => {

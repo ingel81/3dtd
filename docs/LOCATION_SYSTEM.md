@@ -250,7 +250,7 @@ Quelle: Natural Earth 1:110m, Version 5.1.2, `ne_110m_coastline` und `ne_110m_ad
 Liest und baut Links zu einem Ort. Format:
 
 ```
-?l=49.17327,9.26859&s=49.17555,9.26387,187.5;49.18000,9.27000
+?l=49.16327,9.66859&s=49.16555,9.66387,187.5;49.17000,9.67000
 ```
 
 - `l` = HQ (lat,lon) - 5 Dezimalstellen (`COORD_DECIMALS`), die kanonische Form, siehe [Kanonische Koordinaten](#kanonische-koordinaten)

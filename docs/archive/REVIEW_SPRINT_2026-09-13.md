@@ -1281,7 +1281,7 @@ unterscheiden, nur in `pick()` und `__rg.dumpStats()`.
 208. `__routes.describe()`: Way 89873545 zeigt in leftM und rightM keine
      2.75 mehr, solange `noTile` dort keine weiteren Stationen nennt.
 209. Welle starten: an der Stelle keine Taille im Gegnerstrom.
-     **Playtest 2 (2026-09-14), 205 bis 209:** Erlenbach, Clearance ohne
+     **Playtest 2 (2026-09-14), 205 bis 209:** Musterdorf, Clearance ohne
      `noTile` (`stations=236 unmeasured=0 rays=944 changed=true in
      373.6ms`), Zellen bis auf einzelne Ausreißer in Bäumen und Hecken gut
      (an corridor3). Die Route lief nicht über den Schießmauerweg (Way
