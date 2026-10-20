@@ -1,7 +1,7 @@
 // Stutter of the build preview (TODO E258): a tower picked for building as the build menu does, the real mouse moved
 // over screen points beside a route stretch, in passes over the same stretch, once the camera stands and the engine's
 // background warm-up (warmRest) is through. Per pass, split into the pick (the first second) and the move: the frame
-// intervals (longest, over 33 ms), the slowest one-pixel read back (the GPU process's wait, where ANGLE builds a
+// intervals (longest, over 33 ms), with --read the slowest one-pixel read back (the GPU process's wait, where ANGLE builds a
 // program on its first draw) and the programs linked; then the programs, geometries and textures three made, the GL
 // uploads by call, the main thread's time in the preview's parts (cursor pick, footprint and validation, LOS update,
 // cube render) and the cube's GPU time. A pass ends in Escape and the next picks the tower anew, as a player does.
@@ -10,6 +10,9 @@
 //   node e2e/perf/build-preview-probe.ts --url http://localhost:<port> --map autumn-keep [--passes 3] [--profile]
 //   An own map (an OSM world): --seed <dir>/<id>.3dtdmap --map <id> (with <id>.summary.json beside it, see map-load.ts)
 //   --idle: a pass 0 of the same moves with nothing picked; --shots <prefix>: screenshots at a pass's start and move 40
+//   --user-data <dir>: a kept browser profile (run once to warm it, measure the second); --vsync: frames at the
+//   display's rate, as a player has them (without: as fast as they go); --settle 30000: after the background warm-up
+//   Finding a long frame: --frame-gpu, --gl-slow <ms>, --sync-draws <ms>, --without los|cube, --time <paths>, --read
 import { chromium, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { FrameProfiler } from './frame-profile.ts';
@@ -39,13 +42,42 @@ const SHOTS = argument('shots', '');
 /** The pick's window: the frames this long after the tower was picked */
 const PICK_MS = Number(argument('pick-ms', '1000'));
 
-const browser = await chromium.launch({
-  headless: !HEADED,
-  args: ['--window-size=1600,1000', '--enable-gpu', '--ignore-gpu-blocklist', '--disable-gpu-vsync', '--disable-frame-rate-limit'],
-});
-const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
+// --read: a one-pixel read back per frame, the GPU process's wait (where ANGLE builds a program on its first draw);
+// off by default, as the read waits for the GPU and so makes the frame it is in a long one
+const READ = process.argv.includes('--read');
+// --frame-gpu: each frame's GPU time by timer query (EXT_disjoint_timer_query_webgl2), in the list of long frames; the
+// cube's own query is then left out (one query of a kind runs at a time)
+const FRAME_GPU = process.argv.includes('--frame-gpu');
+// --gl-slow <ms>: every WebGL call that takes longer, with where it came from, in the list of long frames (a call that
+// waits for the GPU process: its command buffer full, or a result it has to wait for)
+const GL_SLOW_MS = Number(argument('gl-slow', '0'));
+// --chrome-trace <file>: a Chrome trace of the last pass's pick (for e2e/perf/trace-tasks.ts); not with --user-data
+const CHROME_TRACE = argument('chrome-trace', '');
+// --without los|cube: the preview without its LOS viz (no cell plates, no cube), or without the cube's render
+const WITHOUT = argument('without', '');
+// --time world.view.environment.update,...: methods by their path from the engine, timed as the preview's parts are
+const TIME = argument('time', '') ? argument('time', '').split(',') : [];
+// --sync-draws <ms>: for this long after the pick, a round trip to the GPU process after every draw (getError waits
+// until it has run all before), booked on the object drawn: what the GPU process spends on a draw, its CPU included
+// (ANGLE's work, which the GPU timer does not see). The frames themselves get slow then. With --gl-slow as well, the
+// calls before each draw that waited over 20 ms
+const SYNC_DRAWS_MS = Number(argument('sync-draws', '0'));
+
+// --vsync: frames at the display's rate, as a player has them. Without it they run as fast as they can: the GPU
+// process then falls behind now and then, and a WebGL call waits on it (long frames that are the uncapped rate's)
+const VSYNC = process.argv.includes('--vsync');
+const LAUNCH_ARGS = ['--window-size=1600,1000', '--enable-gpu', '--ignore-gpu-blocklist', ...(VSYNC ? [] : ['--disable-gpu-vsync', '--disable-frame-rate-limit'])];
+// --user-data <dir>: a browser profile kept between runs, as a player's (siege-probe.ts): a fresh one compiles Skia's
+// and the GPU program cache's programs anew, a first run's hitches that are not the game's
+const USER_DATA = argument('user-data', '');
+const persistent = USER_DATA
+  ? await chromium.launchPersistentContext(USER_DATA, { headless: !HEADED, args: LAUNCH_ARGS, viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 })
+  : null;
+const browser = persistent ? null : await chromium.launch({ headless: !HEADED, args: LAUNCH_ARGS });
+const page = persistent ? (persistent.pages()[0] ?? (await persistent.newPage())) : await browser!.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
+const close = () => (persistent ? persistent.close() : browser!.close());
 page.on('pageerror', (e) => console.log('pageerror', e.message));
-await page.addInitScript((quality) => {
+await page.addInitScript(([quality, frameGpu, glSlowMs]) => {
   localStorage.setItem('td_render_quality_v1', JSON.stringify({ setting: quality, auto: null, overrides: {}, plantMotion: 'full' }));
   localStorage.setItem('td_seen_version', '9999.0.0');
   localStorage.setItem('td_onboarding_v2', JSON.stringify({ done: true, completed: [] }));
@@ -77,14 +109,56 @@ await page.addInitScript((quality) => {
       return result;
     };
   }
-}, QUALITY);
+  (globalThis as { __frameGpu?: boolean }).__frameGpu = frameGpu;
+  // Armed by the pick for --sync-draws (until `until`): after each draw a getError, its wait booked on `drawing`
+  const sync = { until: 0, drawing: '', costs: [] as [string, number][], calls: [] as string[], logged: [] as string[] };
+  (globalThis as { __sync?: unknown }).__sync = sync;
+  for (const name of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced', 'drawRangeElements', 'clear']) {
+    const original = gl[name];
+    gl[name] = function (this: WebGL2RenderingContext, ...args: unknown[]) {
+      const result = original.apply(this, args);
+      if (performance.now() < sync.until) {
+        const t0 = performance.now();
+        this.getError();
+        const ms = performance.now() - t0;
+        if (ms > 2) sync.costs.push([`${name} ${sync.drawing}`, ms]);
+        if (ms > 20 && sync.logged.length < 6) sync.logged.push(`${ms.toFixed(1)} ms ${name} ${sync.drawing}: ${sync.calls.join(' ')}`);
+        sync.calls.length = 0;
+      }
+      return result;
+    };
+  }
+  const slow: [number, string, number, string][] = [];
+  (globalThis as { __glSlow?: unknown }).__glSlow = slow;
+  if (glSlowMs > 0) {
+    for (const name of Object.getOwnPropertyNames(WebGL2RenderingContext.prototype)) {
+      const descriptor = Object.getOwnPropertyDescriptor(WebGL2RenderingContext.prototype, name);
+      const original = descriptor?.value as ((...args: unknown[]) => unknown) | undefined;
+      if (typeof original !== 'function' || name === 'constructor') continue;
+      gl[name] = function (this: unknown, ...args: unknown[]) {
+        if (performance.now() < sync.until && sync.calls.length < 400) {
+          sync.calls.push(`${name}(${args.map((a) => (typeof a === 'number' ? a : ArrayBuffer.isView(a) ? `[${a.constructor.name.replace('Array', '')} ${(a as ArrayBufferView).byteLength}]` : a === null ? 'null' : typeof a === 'object' ? (a as object).constructor.name.replace('WebGL', '') : String(a))).join(',')})`);
+        }
+        const t0 = performance.now();
+        const result = original.apply(this, args);
+        const ms = performance.now() - t0;
+        if (ms > glSlowMs) {
+          const stack = (new Error().stack ?? '').split('\n').slice(2, 9).map((l) => l.trim().replace(/^at /, '').replace(/\(?https?:\/\/[^/]+\//, '(')).join(' < ');
+          slow.push([performance.now(), name, ms, stack]);
+        }
+        return result;
+      };
+    }
+  }
+}, [QUALITY, FRAME_GPU, GL_SLOW_MS] as const);
 
 async function seed(target: Page, file: string): Promise<void> {
   const bytes = [...readFileSync(file)];
   const summary = JSON.parse(readFileSync(file.replace(/\.3dtdmap$/, '.summary.json'), 'utf8')) as { id: string };
   await target.evaluate(async ({ bytes, summary }) => {
     await new Promise((resolve, reject) => {
-      const req = indexedDB.open('3dtd-maps', 1);
+      // No version: a kept profile's store is at the app's (MapStore's), a fresh one starts at 1 and the app upgrades it
+      const req = indexedDB.open('3dtd-maps');
       req.onupgradeneeded = () => {
         for (const store of ['files', 'summaries']) {
           if (!req.result.objectStoreNames.contains(store)) req.result.createObjectStore(store, { keyPath: 'id' });
@@ -122,7 +196,7 @@ for (let i = 0; i < 10; i++) {
 await page.waitForTimeout(Number(argument('settle', '4000')));
 
 // The preview's parts timed on the main thread: wrapped on the live objects, summed until read
-await page.evaluate(() => {
+await page.evaluate(([without, timed]) => {
   interface Ng { getComponent(e: Element): Record<string, unknown> }
   const host = document.querySelector('app-tower-defense')!;
   const comp = (globalThis as unknown as { ng: Ng }).ng.getComponent(host) as Record<string, Record<string, unknown>>;
@@ -130,6 +204,9 @@ await page.evaluate(() => {
   const placement = comp['towerPlacement'] as Record<string, unknown>;
   const times: Record<string, { calls: number; ms: number; max: number }> = {};
   (globalThis as { __parts?: unknown }).__parts = times;
+  // The calls over a millisecond by their end, to name what ran in a long frame
+  const events: [number, string, number][] = [];
+  (globalThis as { __events?: unknown }).__events = events;
   const wrap = (target: Record<string, unknown>, name: string, label: string) => {
     const original = target[name] as (...args: unknown[]) => unknown;
     if (typeof original !== 'function') return;
@@ -138,11 +215,13 @@ await page.evaluate(() => {
       try {
         return original.apply(this, args);
       } finally {
-        const ms = performance.now() - t;
+        const now = performance.now();
+        const ms = now - t;
         const s = (times[label] ??= { calls: 0, ms: 0, max: 0 });
         s.calls++;
         s.ms += ms;
         s.max = Math.max(s.max, ms);
+        if (ms > 1) events.push([now, label, ms]);
       }
     };
   };
@@ -151,6 +230,16 @@ await page.evaluate(() => {
   wrap(placement, 'probeFootprint', 'footprint');
   wrap(placement, 'validateTowerPosition', 'validate');
   wrap(placement, 'tickBuildPreviewViz', 'preview tick');
+  wrap(engine, 'render', 'engine render');
+  // The object three draws now, for --sync-draws
+  const renderer = (engine as unknown as { getRenderer(): Record<string, unknown> }).getRenderer();
+  const direct = renderer['renderBufferDirect'] as (...args: unknown[]) => unknown;
+  const sync = (globalThis as unknown as { __sync: { drawing: string } }).__sync;
+  renderer['renderBufferDirect'] = function (this: unknown, ...args: unknown[]) {
+    const [camera, , geometry, material, object] = args as [{ type: string }, unknown, { attributes: Record<string, unknown> }, { type: string; name: string; transparent: boolean }, { name: string; type: string; parent?: { name: string } }];
+    sync.drawing = `${object.type} "${object.name || object.parent?.name || ''}" ${material.type}${material.name ? ` "${material.name}"` : ''}${material.transparent ? ' transparent' : ''} [${Object.keys(geometry.attributes).join(' ')}] via ${camera.type}`;
+    return direct.apply(this, args);
+  };
   const mapper = engine.getTowerShadowMapper();
   // update() returns whether it rendered: a cube only then
   const update = mapper['update'] as (...args: unknown[]) => boolean;
@@ -172,8 +261,10 @@ await page.evaluate(() => {
     requestAnimationFrame(collect);
   };
   requestAnimationFrame(collect);
+  const cubeTimer = (globalThis as { __frameGpu?: boolean }).__frameGpu ? null : timer;
   mapper['update'] = function (this: unknown, ...args: unknown[]) {
     const t = performance.now();
+    const timer = cubeTimer;
     const query = timer ? gl.createQuery() : null;
     if (query && timer) gl.beginQuery(timer.TIME_ELAPSED_EXT, query);
     const rendered = update.apply(this, args);
@@ -183,11 +274,13 @@ await page.evaluate(() => {
       else gl.deleteQuery(query);
     }
     if (rendered) {
-      const ms = performance.now() - t;
+      const now = performance.now();
+      const ms = now - t;
       const s = (times['cube render'] ??= { calls: 0, ms: 0, max: 0 });
       s.calls++;
       s.ms += ms;
       s.max = Math.max(s.max, ms);
+      events.push([now, 'cube render', ms]);
     }
     return rendered;
   };
@@ -205,7 +298,16 @@ await page.evaluate(() => {
     return cells;
   };
   wrap(los, 'dispose', 'los dispose');
-});
+  if (without === 'los') los['update'] = () => undefined;
+  if (without === 'cube') mapper['update'] = () => false;
+  for (const path of timed) {
+    const names = path.split('.');
+    let target: Record<string, unknown> | undefined = engine;
+    for (const name of names.slice(0, -1)) target = target?.[name] as Record<string, unknown> | undefined;
+    if (typeof target?.[names[names.length - 1]] !== 'function') throw new Error(`--time: no method ${path}`);
+    wrap(target!, names[names.length - 1], path);
+  }
+}, [WITHOUT, TIME] as const);
 
 /** The camera's position, to wait until it stands (an intro flight, a glide) */
 async function cameraStill(): Promise<void> {
@@ -287,7 +389,7 @@ await page.waitForTimeout(1000);
 const points = await routePoints();
 console.log(`${points.length} points on screen`);
 if (points.length < 10) {
-  await browser.close();
+  await close();
   throw new Error('no route stretch on screen');
 }
 
@@ -317,17 +419,36 @@ for (let pass = IDLE ? 0 : 1; pass <= PASSES; pass++) {
   await snapshot();
   const before = await snapshot();
   // Frames and the GPU wait of each, recorded in the page until stopped
-  await page.evaluate(() => {
+  await page.evaluate(([read, frameGpu]) => {
     const canvases = [...document.querySelectorAll('canvas')].sort((a, b) => b.width * b.height - a.width * a.height);
-    const gl = canvases[0]?.getContext('webgl2') ?? null;
-    const rec = { gaps: [] as number[], ends: [] as number[], reads: [] as number[], pickAt: Infinity, on: true };
+    const ctx = canvases[0]?.getContext('webgl2') ?? null;
+    const gl = read ? ctx : null;
+    const timer = frameGpu && ctx ? (ctx.getExtension('EXT_disjoint_timer_query_webgl2') as { TIME_ELAPSED_EXT: number } | null) : null;
+    const rec = { gaps: [] as number[], ends: [] as number[], reads: [] as number[], gpu: [] as number[], pickAt: Infinity, leaveAt: Infinity, on: true };
     (globalThis as { __rec?: unknown }).__rec = rec;
+    // A query from one frame's callback to the next: the GPU work between, booked on the frame that ends it
+    let open: WebGLQuery | null = null;
+    const queries: [WebGLQuery, number][] = [];
     let last = performance.now();
     const frame = () => {
       const now = performance.now();
       rec.gaps.push(now - last);
       rec.ends.push(now);
+      rec.gpu.push(-1);
       last = now;
+      if (timer && ctx) {
+        if (open) {
+          ctx.endQuery(timer.TIME_ELAPSED_EXT);
+          queries.push([open, rec.gaps.length - 1]);
+        }
+        while (queries.length && ctx.getQueryParameter(queries[0][0], ctx.QUERY_RESULT_AVAILABLE)) {
+          const [query, at] = queries.shift()!;
+          rec.gpu[at] = ctx.getQueryParameter(query, ctx.QUERY_RESULT) / 1e6;
+          ctx.deleteQuery(query);
+        }
+        open = rec.on ? ctx.createQuery() : null;
+        if (open) ctx.beginQuery(timer.TIME_ELAPSED_EXT, open);
+      }
       if (gl) {
         const r0 = performance.now();
         gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
@@ -336,31 +457,46 @@ for (let pass = IDLE ? 0 : 1; pass <= PASSES; pass++) {
       if (rec.on) requestAnimationFrame(frame);
     };
     requestAnimationFrame(frame);
-  });
+  }, [READ, FRAME_GPU] as const);
   await profiler?.start();
+  const tracing = CHROME_TRACE && browser && pass === PASSES;
+  if (tracing) {
+    await browser.startTracing(page, {
+      path: CHROME_TRACE,
+      // The GPU process's tasks too (gpu.service): a WebGL call that waits shows there what the process ran meanwhile
+      categories: ['devtools.timeline', 'toplevel', 'v8.execute', 'disabled-by-default-v8.gc', 'gpu', 'disabled-by-default-gpu.service', '__metadata'],
+    });
+  }
   await page.mouse.move(points[0].x, points[0].y);
-  await page.evaluate((tower) => {
+  await page.evaluate(([tower, syncMs]) => {
     interface Ng { getComponent(e: Element): { selectTowerType(id: string): void } }
     const load = (globalThis as unknown as { __load: { emit(c: unknown): void } }).__load;
     load.emit({ type: 'debug:add-credits', amount: 1_000_000 });
     (globalThis as unknown as { __rec: { pickAt: number } }).__rec.pickAt = performance.now();
+    if (syncMs > 0) (globalThis as unknown as { __sync: { until: number } }).__sync.until = performance.now() + syncMs;
     if (tower) (globalThis as unknown as { ng: Ng }).ng.getComponent(document.querySelector('app-tower-defense')!).selectTowerType(tower);
-  }, pass > 0 ? TOWER : '');
+  }, [pass > 0 ? TOWER : '', SYNC_DRAWS_MS] as const);
   const tStart = Date.now();
+  // The trace covers the pick only: a trace of the whole pass is too large to read and slows the frames it records
+  const traced = tracing ? page.waitForTimeout(PICK_MS).then(() => browser.stopTracing()) : null;
   for (const [i, p] of points.entries()) {
     if (SHOTS && (i === 0 || i === 40)) await page.screenshot({ path: `${SHOTS}-${pass}-${i}.png` });
     await page.mouse.move(p.x, p.y);
     await page.waitForTimeout(MOVE_MS);
   }
   const moveMs = Date.now() - tStart;
+  await traced;
   // Out of build mode (with nothing picked Escape opens the menu)
+  await page.evaluate(() => ((globalThis as unknown as { __rec: { leaveAt: number } }).__rec.leaveAt = performance.now()));
   if (pass > 0) await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
   const rec = await page.evaluate((PICK_MS) => {
-    const r = (globalThis as unknown as { __rec: { gaps: number[]; ends: number[]; reads: number[]; pickAt: number; on: boolean } }).__rec;
+    const r = (globalThis as unknown as { __rec: { gaps: number[]; ends: number[]; reads: number[]; gpu: number[]; pickAt: number; leaveAt: number; on: boolean } }).__rec;
     r.on = false;
     const links = (globalThis as unknown as { __linkTimes: number[] }).__linkTimes.splice(0);
-    // The pick: the frames up to PICK_MS after the tower was picked; the move: the ones after
+    const events = (globalThis as unknown as { __events: [number, string, number][] }).__events.splice(0);
+    const slow = (globalThis as unknown as { __glSlow: [number, string, number, string][] }).__glSlow.splice(0);
+    // The pick: the frames up to PICK_MS after the tower was picked; the move: the ones after, up to Escape; the leave
     const pickEnd = r.pickAt + PICK_MS;
     const inPick = (t: number) => t >= r.pickAt && t < pickEnd;
     const split = (keep: (t: number) => boolean) => ({
@@ -368,7 +504,15 @@ for (let pass = IDLE ? 0 : 1; pass <= PASSES; pass++) {
       reads: r.reads.filter((_, i) => keep(r.ends[i])),
       links: links.filter(keep).length,
     });
-    return { pick: split(inPick), move: split((t) => t >= pickEnd) };
+    // Each frame over 33 ms: its start after the pick, its GPU time and the timed calls that ended in it
+    const long = r.gaps.flatMap((gap, i) => {
+      if (gap <= 33 || r.ends[i] < r.pickAt) return [];
+      const from = r.ends[i] - gap;
+      const ran = events.filter(([t]) => t > from && t <= r.ends[i]).map(([, label, ms]) => `${label} ${ms.toFixed(1)}`);
+      for (const [t, name, ms, stack] of slow) if (t > from && t <= r.ends[i]) ran.push(`\n      gl.${name} ${ms.toFixed(1)} ms < ${stack}`);
+      return [`${(from - r.pickAt).toFixed(0)} ms: ${gap.toFixed(1)} ms, GPU ${r.gpu[i] >= 0 ? r.gpu[i].toFixed(1) : '?'} ms${ran.length ? `, ${ran.join(', ')}` : ''}`];
+    });
+    return { pick: split(inPick), move: split((t) => t >= pickEnd && t < r.leaveAt), leave: split((t) => t >= r.leaveAt), long };
   }, PICK_MS);
   const after = await snapshot();
   const round = (x: number) => Math.round(x * 10) / 10;
@@ -387,6 +531,21 @@ for (let pass = IDLE ? 0 : 1; pass <= PASSES; pass++) {
   console.log(`PASS ${pass} (${moveMs} ms of moves)`);
   console.log(`  pick: ${line(rec.pick)}`);
   console.log(`  move: ${line(rec.move)}`);
+  console.log(`  leave: ${line(rec.leave)}`);
+  for (const l of rec.long) console.log(`  long at ${l}`);
+  if (SYNC_DRAWS_MS > 0) {
+    const costs = await page.evaluate(() => (globalThis as unknown as { __sync: { costs: [string, number][] } }).__sync.costs.splice(0));
+    const logged = await page.evaluate(() => (globalThis as unknown as { __sync: { logged: string[] } }).__sync.logged.splice(0));
+    for (const l of logged) console.log(`  calls before ${l}`);
+    const sums = new Map<string, [number, number, number]>();
+    for (const [what, ms] of costs) {
+      const v = sums.get(what) ?? [0, 0, 0];
+      sums.set(what, [v[0] + 1, v[1] + ms, Math.max(v[2], ms)]);
+    }
+    for (const [what, [n, sum, max]] of [...sums].sort((a, b) => b[1][1] - a[1][1]).slice(0, 15)) {
+      console.log(`  sync ${sum.toFixed(1)} ms (${n}x, max ${max.toFixed(1)}): ${what}`);
+    }
+  }
   const left = [...before.names];
   const added = after.names.filter((n) => {
     const k = left.indexOf(n);
@@ -402,4 +561,4 @@ for (let pass = IDLE ? 0 : 1; pass <= PASSES; pass++) {
   if (profiler) console.log(await profiler.stop(Number(argument('lines', '16'))));
   await page.waitForTimeout(500);
 }
-await browser.close();
+await close();

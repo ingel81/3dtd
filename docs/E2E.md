@@ -135,7 +135,13 @@ node e2e/perf/sim-load.ts --url http://localhost:4244 --browser chromium --heade
   listet jeden Aufruf benannter Methoden mit Argumenten, `--profile` das CPU-Profil langer Frames. Dev-Server nötig.
 - `e2e/perf/build-preview-probe.ts`: wählt einen Tower wie das Baumenü und fährt die echte Maus in Durchgängen neben
   einer Route entlang (TODO E258); je Durchgang Bildabstände beim Wählen und beim Bewegen, gelinkte Programme,
-  Hauptthread-Zeit der Vorschau-Teile, GPU-Zeit des Würfels. Eigene Karten (OSM-Welten) mit `--seed`.
+  Hauptthread-Zeit der Vorschau-Teile, GPU-Zeit des Würfels. Eigene Karten (OSM-Welten) mit `--seed`. Gemessen wird
+  mit `--vsync` (Bilder im Takt der Anzeige wie beim Spieler; ohne laufen sie so schnell sie können, der GPU-Prozess
+  kommt dann ab und zu nicht nach und ein WebGL-Aufruf wartet bis 370 ms auf ihn), `--user-data <dir>` (ein Profil
+  über die Läufe, ein Lauf zum Aufwärmen) und `--settle 30000` (nach dem Hintergrund-Warm-up). Für einen langen Frame:
+  `--frame-gpu` (GPU-Zeit je Frame), `--gl-slow <ms>` (wartende WebGL-Aufrufe mit Herkunft), `--sync-draws <ms>`
+  (nach jedem Draw ein Rundgang zum GPU-Prozess, seine Zeit je Objekt), `--without los|cube`, `--time <Pfade>`
+  (Methoden ab der Engine), `--chrome-trace` (nur die Wahl).
 
 ## Coop-Läufe mit Bots (`e2e/coop-bots/run.ts`)
 
