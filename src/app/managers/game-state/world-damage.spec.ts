@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { WorldDamage, type WorldDamageHost } from './world-damage';
 import { MAP_METERS_PER_DEGREE as K } from '../../world/custom-map/map-document';
 import { PROJECTILE_TYPES } from '../../configs/projectile-types.config';
-import { ABILITY_DESTRUCTION, IMPACT_REACH_M, WEAR } from '../../configs/destruction.config';
+import { ABILITY_DESTRUCTION, CRATERS, IMPACT_REACH_M, WEAR } from '../../configs/destruction.config';
 import { runRulesOf, type RunStructure } from '../../sim/protocol/run-rules';
 import type { StampField } from '../../utils/stamp-field';
 import type { Tower } from '../../entities/tower.entity';
@@ -148,6 +148,28 @@ describe('WorldDamage (docs/DESTRUCTION_PLAN.md)', () => {
     damage.reset();
     damage.publish();
     expect([ops, field(), damage.craters.size, damage.captureCraters()]).toEqual([[], null, 0, undefined]);
+  });
+
+  it('with its list full of shell craters still digs a strike anywhere, in the place of the smallest, its ground and op with it', () => {
+    const { damage, ops, field, host } = setup([]);
+    // Shells along a route fill the list (one crater every 3 m)
+    for (let i = 0; i < CRATERS.max; i++) damage.impact(geo(-90 + (i % 60) * 3, -90 + Math.floor(i / 60) * 3).lat, geo(-90 + (i % 60) * 3, 0).lon, PROJECTILE_TYPES.cannonball, false);
+    expect(damage.craters.size).toBe(CRATERS.max);
+    const before = field()!.heightAt(0.5, 60.5);
+    const seen = vi.mocked(host.seeAround).mock.calls.length;
+    // A strike far from all of them: it digs, in the place of crater 0, whose stamp leaves the field
+    damage.ability('nuclear-strike', { ...geo(0, 60), height: 0 }, 0, 0);
+    expect(Array.from(damage.craters.entry(0))).toEqual([0, 600, 250, ABILITY_DESTRUCTION['nuclear-strike'].crater!.depthCm]);
+    expect(ops.at(-1)).toEqual(['craters.dig', 0, 0, 600, 250, ABILITY_DESTRUCTION['nuclear-strike'].crater!.depthCm]);
+    expect(field()!.heightAt(0.5, 60.5)).toBeLessThan(before - 3);
+    expect(field()!.heightAt(-89.5, -89.5)).toBe(0);
+    expect(vi.mocked(host.seeAround).mock.calls.length).toBe(seen + 1);
+    // From a snapshot: the same list and the same ground
+    const list = damage.captureCraters();
+    const heights = [field()!.heightAt(0.5, 60.5), field()!.heightAt(-86.5, -89.5)];
+    damage.reset();
+    damage.restore([], list);
+    expect([field()!.heightAt(0.5, 60.5), field()!.heightAt(-86.5, -89.5)]).toEqual(heights);
   });
 
   it('lays the rubble of a fall and the craters into the field, and the same anew from a snapshot', () => {

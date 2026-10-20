@@ -215,8 +215,9 @@ export class WorldDamage {
     }
     const e = this.craters.entry(dug.index);
     this.host.sink.craters.dig(dug.index, e[0], e[1], e[2], e[3]);
-    // A new crater under the routes: the towers probe the enemies' new ground (a deeper one, a few cm more, does not ask)
-    if (touched && !dug.before) this.host.seeAround(e[0] / 10, e[1] / 10, (e[2] / 10) * CRATER_SIGHT_REACH);
+    // A new crater under the routes (one in the place of the smallest too): the towers probe the enemies' new ground
+    // (a deeper one, a few cm more, does not ask)
+    if (touched && (!dug.before || dug.before[0] !== e[0] || dug.before[1] !== e[1])) this.host.seeAround(e[0] / 10, e[1] / 10, (e[2] / 10) * CRATER_SIGHT_REACH);
   }
 
   /**

@@ -182,7 +182,14 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
 - Quellen: Kanonenkugel und Heldengranate (1,5 m), Rakete (2,5 m), Atomschlag (25 m, 4 m); ein Treffer gräbt 14 cm je
   Meter Radius, höchstens 40 cm je Meter.
 - **Zusammenlegen:** ein Einschlag in 2 m eines Kraters vertieft ihn und weitet ihn auf den größeren Radius, bis zur
-  Höchsttiefe; Deckel 256 je Lauf, danach nur noch Brandflecken ohne Zustand.
+  Höchsttiefe (40 cm je Meter Radius). Hat er die erreicht, weitet ein weiterer Einschlag dort ihn um ein Viertel des
+  eigenen Radius, bis zum Doppelten davon, und der weitere Krater darf entsprechend tiefer werden (`widenShare`,
+  `widenTo`; ein Atomkrater 25 m und 4 m kommt so über 10 m Tiefe auf 50 m und 20 m). Vorher lief ein Krater auf
+  seiner Höchsttiefe still ins Leere.
+- **Deckel:** 256 je Lauf. Ist die Liste voll, nimmt ein Einschlag, der einen größeren Krater gräbt als der kleinste
+  (Radius im Quadrat mal Tiefe, bei Gleichstand der älteste), dessen Platz: sein Stempel geht aus dem Raster, der neue
+  hinein, Op `craters.dig` mit dem Index. Kleinere Einschläge hinterlassen dann nur Brandflecken ohne Zustand.
+  Vorher grub ab dem 256. Krater nichts mehr, auch kein Atomschlag an anderer Stelle.
 - **Tower:** keine Dämpfung in der Simulation. Das Stempelraster der Simulation liegt nur über den Routenzellen, und
   dort steht nie ein Tower; den Fuß eines Towers neben einem Krater hält das Geländebild (Z4) aus der Mulde heraus.
 - Snapshot `craters?: number[]` (nur mit Einträgen), Hash im Teil `health` nur mit Einträgen.

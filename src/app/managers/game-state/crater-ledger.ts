@@ -24,8 +24,14 @@ export function craterHitDepthCm(rDm: number): number {
  * in the order they were dug. A hit within CRATERS.mergeM of a crater's
  * middle deepens it and widens it to the larger radius, up to the depth its
  * radius allows, instead of making another: the list grows with the places,
- * not with the hits, and holds at most CRATERS.max. Part of the snapshot and
- * the state hash once it has an entry.
+ * not with the hits. Once that depth is reached a hit there widens it (by
+ * CRATERS.widenShare of the hit's radius, up to CRATERS.widenTo times it),
+ * so a crater bombed again keeps growing. The list holds at most
+ * CRATERS.max; full, a hit that digs a bigger crater than the smallest takes
+ * its place (the smallest by radius squared times depth, the oldest of
+ * equals): a strike always finds room, a shell when the list is full of
+ * strikes' craters does not. Part of the snapshot and the state hash once it
+ * has an entry.
  */
 export class CraterLedger {
   private readonly data = new Int32Array(CRATERS.max * CRATER_STRIDE);
@@ -38,8 +44,8 @@ export class CraterLedger {
 
   /**
    * A hit at map dm (`xDm`, `yDm`) digging a crater `rDm` dm wide `depthCm`
-   * deeper; null when the list is full or the hit changes nothing (a crater
-   * as deep as its radius allows)
+   * deeper; null when it changes nothing: a crater as deep and as wide as
+   * the hit can make it, or a full list without a smaller crater to replace
    */
   dig(xDm: number, yDm: number, rDm: number, depthCm: number): CraterDug | null {
     const d = this.data;
@@ -49,20 +55,47 @@ export class CraterLedger {
       const dy = d[k + 1] - yDm;
       if (dx * dx + dy * dy > this.mergeDm2) continue;
       const before = [d[k], d[k + 1], d[k + 2], d[k + 3]] as const;
-      const radius = Math.max(d[k + 2], rDm);
-      const depth = Math.min(craterMaxDepthCm(radius), Math.max(d[k + 3], d[k + 3] + depthCm));
+      let radius = Math.max(d[k + 2], rDm);
+      let depth = Math.min(craterMaxDepthCm(radius), Math.max(d[k + 3], d[k + 3] + depthCm));
+      // As deep as its radius allows: the hit widens it, and the wider one may go deeper
+      if (radius === d[k + 2] && depth === d[k + 3]) {
+        radius = Math.max(radius, Math.min(Math.round(rDm * CRATERS.widenTo), radius + Math.round(rDm * CRATERS.widenShare)));
+        depth = Math.min(craterMaxDepthCm(radius), depth + depthCm);
+      }
       if (radius === d[k + 2] && depth === d[k + 3]) return null;
       d[k + 2] = radius;
       d[k + 3] = depth;
       return { index: i, before };
     }
-    if (this.count >= CRATERS.max) return null;
-    const k = this.count * CRATER_STRIDE;
-    d[k] = xDm;
-    d[k + 1] = yDm;
-    d[k + 2] = rDm;
-    d[k + 3] = Math.min(craterMaxDepthCm(rDm), depthCm);
-    return { index: this.count++, before: null };
+    const depth = Math.min(craterMaxDepthCm(rDm), depthCm);
+    if (this.count < CRATERS.max) {
+      this.write(this.count, xDm, yDm, rDm, depth);
+      return { index: this.count++, before: null };
+    }
+    // Full: in the place of the smallest crater, when this one is bigger
+    let smallest = -1;
+    let least = rDm * rDm * depth;
+    for (let i = 0; i < this.count; i++) {
+      const k = i * CRATER_STRIDE;
+      const v = d[k + 2] * d[k + 2] * d[k + 3];
+      if (v < least) {
+        least = v;
+        smallest = i;
+      }
+    }
+    if (smallest < 0) return null;
+    const k = smallest * CRATER_STRIDE;
+    const before = [d[k], d[k + 1], d[k + 2], d[k + 3]] as const;
+    this.write(smallest, xDm, yDm, rDm, depth);
+    return { index: smallest, before };
+  }
+
+  private write(i: number, xDm: number, yDm: number, rDm: number, depthCm: number): void {
+    const k = i * CRATER_STRIDE;
+    this.data[k] = xDm;
+    this.data[k + 1] = yDm;
+    this.data[k + 2] = rDm;
+    this.data[k + 3] = depthCm;
   }
 
   /** Crater `i`'s four numbers, a view into the list */
