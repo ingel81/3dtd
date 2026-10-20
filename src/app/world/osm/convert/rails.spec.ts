@@ -30,6 +30,8 @@ import {
   RAIL_GROUND,
   RAIL_HEAD,
   railPieces,
+  STREET_SINK,
+  STREET_TOP,
   timberSleepers,
   UNDER_CLEARANCE,
   type RailPlan,
@@ -394,6 +396,48 @@ describe('OSM railway', () => {
       way(12, { railway: 'rail' }, [[0, 0, 13], [0, -190, 15]]),
     ]);
     expect(sharp.plan.chains.map((c) => Math.round(c.length)).sort((a, b) => a - b)).toEqual([190, 380]);
+  });
+
+  it('sinks street track under the road it runs in, its pieces on the profile, joining the bed rail to rail', () => {
+    // A yard road along the middle of a line, x -50 to 50
+    const elements = [way(1, { highway: 'service' }, [[-50, 0.3, 1], [50, 0.3, 2]]), way(10, { railway: 'rail' }, [[-190, 0, 11], [190, 0, 12]])];
+    const { doc, plan } = world(elements, () => 3);
+    expect(plan.streets.length).toBe(1);
+    const t = doc.terrain;
+    levelRails(t, plan, doc.paths);
+    const c = plan.chains[0];
+    expect(profileAt(c, 190, t)).toBeCloseTo(heightAt(t, 0, 0) - STREET_SINK, 2);
+    const pieces = railPieces(plan, t, doc.paths).filter((p) => p.source === 'track').map((p) => p.o);
+    const street = pieces.filter((o) => o.asset === RAIL_ASSETS.street);
+    expect(street.length).toBeGreaterThan(30);
+    // Every piece's formation on the profile: the street's rail heads STREET_TOP over the road, the bed's meet them
+    for (const o of pieces) {
+      if (Math.abs(o.x) > 70) continue;
+      expect(Math.abs(heightAt(t, o.x, o.y) + o.z - profileAt(c, Math.abs(o.x - c.line[0].x), t))).toBeLessThan(0.1);
+    }
+    for (const o of street.filter((o) => Math.abs(o.x) < 40)) expect(heightAt(t, o.x, o.y) + o.z + RAIL_HEAD - heightAt(t, o.x, 0.3)).toBeCloseTo(STREET_TOP, 1);
+  });
+
+  it("carries a crossing's panels over the road's pavements and leaves the pavements as the road levelled them", () => {
+    const elements = [
+      way(1, { highway: 'secondary', sidewalk: 'both' }, [[0, -190, 1], [0, 0, 2], [0, 190, 3]]),
+      way(10, { railway: 'rail' }, [[-190, 0, 11], [0, 0, 2], [190, 0, 12]]),
+      node(2, { railway: 'level_crossing' }, 0, 0),
+    ];
+    const { doc, features } = world(elements, (x) => 3 + 0.02 * x);
+    // The pavements as layPavements gives them, 2 m either side
+    for (const e of doc.paths.edges) if (e.kind === 'road') e.sidewalk = 2;
+    const plan = planRails(features, doc.paths);
+    const edge = doc.paths.edges.find((e) => e.kind === 'road')!;
+    const pavement = 2;
+    const x = plan.crossings[0];
+    expect(x.half).toBeGreaterThanOrEqual(edge.width / 2 + pavement);
+    const t = doc.terrain;
+    // The pavements' ground beside the bed, before and after
+    const outer = edge.width / 2 + pavement - 0.5;
+    const before = [-6, -4, 4, 6].map((y) => heightAt(t, outer, y));
+    levelRails(t, plan, doc.paths);
+    expect([-6, -4, 4, 6].map((y) => heightAt(t, outer, y))).toEqual(before);
   });
 
   it('stops a hedge OSM maps across the line at the bed and its gravel and at the road', () => {

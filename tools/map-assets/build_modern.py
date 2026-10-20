@@ -1469,36 +1469,52 @@ def level_crossing(name, length=2.5):
     export_lod(name, obj, ratio=min(1.0, 40 / max(1, len(obj.data.polygons))), textured=True)
 
 
+STREET_TOP = 0.05
+
+
 def street_track(name, length=2.5):
-    """A 2.5 m module of track in a street or yard along X: the rails' heads flush with an asphalt strip 5 cm over
-    the road (grooves beside the heads), its edges chamfered down to it, a setts band along each rail; sleepers
-    under it. A tramway down a street, a siding in a yard"""
+    """A 2.5 m module of track in a street or yard along X in the track's format: the track's ballast bed, sleepers
+    and rails (origin on the formation, so street and bed pieces join rail to rail and bed to bed), an asphalt strip
+    over them flush with the rail heads (grooves beside the heads, a setts band along each rail), its edges chamfered
+    down to the road STREET_TOP under it, reaching down to the ballast. convert/rails.ts lays the formation
+    STREET_SINK under the road there, so the road hides the ballast. Baked like the track (one material). A tramway
+    down a street, a siding in a yard"""
     clear_scene()
+    ballast, sleepers, steel = track_parts(length, False, BALLAST_TOP)
     asphalt = Part(pbr_material('street-track-asphalt', 'asphalt_02', (0.9, 0.9, 0.9)), uv_metres=2.5, bevel=0.0)
     setts = Part(pbr_material('street-track-setts', 'concrete_slab_wall', (0.55, 0.55, 0.53)), uv_metres=0.6, bevel=0.0)
     groove = Part(flat_material('street-track-groove', (0.05, 0.05, 0.05), 0.7, 0.3))
-    sleepers = Part(sleeper_material(), uv_metres=1.0, bevel=0.01)
-    steel = Part(steel_material())
-    top = 0.05
-    rails(steel, sleepers, -length / 2, length / 2, z=top - 0.35)
+    h = BALLAST_TOP
+    top = h - 0.08 + 0.35
+    road = top - STREET_TOP
     x0, x1 = -length / 2, length / 2
+    prism(ballast, [Vector((x0, -2.68, -0.3)), Vector((x0, 2.68, -0.3)), Vector((x0, 1.82, h - 0.03)), Vector((x0, 1.7, h)),
+                    Vector((x0, -1.7, h)), Vector((x0, -1.82, h - 0.03))], Vector((length, 0, 0)))
     head = GAUGE / 2 + 0.035
     inner = head - 0.075
-    box(asphalt, 0, 0, top - 0.15, length, inner * 2 - 0.3, 0.15)
+    box(asphalt, 0, 0, h, length, inner * 2 - 0.3, top - h)
+    # The ballast's shoulder under the strip's outer edge: 1.82 m out at h - 0.03, falling to -0.3 at 2.68 m
+    y2 = 2.1
+    foot = -0.3 + (2.68 - y2) * (h - 0.03 + 0.3) / (2.68 - 1.82)
     for s in (-1, 1):
         # A setts band either side of each rail, the groove between band and head
         for a, b in ((inner - 0.15, inner), (head + 0.075, head + 0.3)):
             lo, hi = (a, b) if s > 0 else (-b, -a)
-            box(setts, 0, (lo + hi) / 2, top - 0.15, length, hi - lo, 0.15)
-        g0, g1 = (inner, head - 0.035) if s > 0 else (-(head - 0.035), -inner)
-        box(groove, 0, (g0 + g1) / 2, top - 0.06, length, g1 - g0, 0.04)
-        y0, y1, y2 = s * (head + 0.3), s * 1.5, s * 1.75
+            box(setts, 0, (lo + hi) / 2, h, length, hi - lo, top - h)
+        # The grooves either side of the head, down to the ballast (no slot at a piece's end)
+        for a, b in ((inner, head - 0.035), (head + 0.035, head + 0.075)):
+            g0, g1 = (a, b) if s > 0 else (-b, -a)
+            box(groove, 0, (g0 + g1) / 2, h, length, g1 - g0, top - 0.02 - h)
+        y0, y1 = s * (head + 0.3), s * 1.82
         lo, hi = (y0, y1) if s > 0 else (y1, y0)
-        box(asphalt, 0, (lo + hi) / 2, top - 0.15, length, hi - lo, 0.15)
-        prism(asphalt, [Vector((x0, y1, top - 0.15)), Vector((x0, y2, top - 0.15)), Vector((x0, y2, 0.0)), Vector((x0, y1, top))],
-              Vector((length, 0, 0)))
-    export(name, [asphalt.to_object(name), setts.to_object(name + '-setts'), groove.to_object(name + '-grooves'),
-                  sleepers.to_object(name + '-sleepers'), steel.to_object(name + '-rails')], lod=40)
+        box(asphalt, 0, (lo + hi) / 2, h - 0.03, length, hi - lo, top - h + 0.03)
+        # The chamfer down to the road, the strip's underside on the shoulder
+        prism(asphalt, [Vector((x0, y1, h - 0.03)), Vector((x0, s * y2, foot)), Vector((x0, s * y2, road)), Vector((x0, s * 1.9, top)),
+                        Vector((x0, y1, top))], Vector((length, 0, 0)))
+    objects = without_undersides([ballast.to_object(name), sleepers.to_object(name + '-sleepers'), steel.to_object(name + '-rails'),
+                                  asphalt.to_object(name + '-asphalt'), setts.to_object(name + '-setts'), groove.to_object(name + '-grooves')])
+    obj = bake_surface(name, objects, size=512, samples=24, ao_distance=0.4)
+    export_lod(name, obj, ratio=min(1.0, 40 / max(1, len(obj.data.polygons))), textured=True)
 
 
 def crossed_board(part, z, y, size, width, thick):

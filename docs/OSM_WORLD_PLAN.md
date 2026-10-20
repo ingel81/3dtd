@@ -1163,8 +1163,12 @@ Höhen- und Darstellungsfehler. Neu (`convert/rails.ts`, Abfrage um `railway=lev
   Geländes steht; über 30 m Pfeiler (`bridge-pier`) etwa alle 25 m, keiner auf einer Straße oder einem Gleisbett.
   Straßenbrücken über der Bahn bekommen Widerlager dort, wo der Boden erstmals 1 m unter dem Deck liegt, und Pfeiler
   nach derselben Regel. Eine Linie, deren Mitte in einer Straße liegt (Straßenbahn im Straßenraum), liegt dort
-  ohne Schotterbett: Schienen im Asphalt mit Pflasterstreifen (`rail-street`), wo bisher das Bett als „auf der Straße“
-  wegfiel (Gleisanschlüsse auf Werkhöfen, Straßenbahn). Oberleitungsmasten stehen nur am Bett, nicht an Übergang oder
+  ohne sichtbares Schotterbett: Schienen im Asphalt mit Pflasterstreifen (`rail-street`), wo bisher das Bett als „auf
+  der Straße“ wegfiel (Gleisanschlüsse auf Werkhöfen, Straßenbahn). Wie das Übergangsstück ist es ein Gleisstück mit
+  Asphalt darüber (Ursprung auf dem Planum), das Planum liegt dort `STREET_SINK` = 0,57 m unter der Straße
+  (Schienenkopf bündig mit dem Asphalt 5 cm darüber), so stoßen Straßengleis und Bett Schiene an Schiene (E267; vorher
+  stand das Bett 0,57 m über dem Straßengleis). Die Platten eines Übergangs reichen auch über die Gehwege, und das
+  Einebnen der Betten lässt die Gehwege wie die Fahrbahn liegen. Oberleitungsmasten stehen nur am Bett, nicht an Übergang oder
   Brücke; die übrige Ausstattung (Laternen, Zäune, Punkte) hält sich vom Gleisbett fern wie von einer Straße.
 - **Gleisbett-Optik** (2026-10-19, nach Kritik „Farbe/Textur hässlich“): Gleis- und Brückenstücke sind in Blender
   gebacken (`bake_surface`, eine Textur und ein Material je Modell): Schotter aus einzelnen Steinen (Voronoi, jeder

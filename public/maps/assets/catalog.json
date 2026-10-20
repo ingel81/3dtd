@@ -24433,12 +24433,12 @@
     },
     {
       "id": "rail-street",
-      "name": "Track in a street or yard (2.5 m along X, rails in asphalt)",
+      "name": "Track in a street or yard (2.5 m along X, rails in asphalt, formation at 0)",
       "category": "structure",
       "file": "models/rail-street.glb",
-      "triangles": 380,
-      "footprint": 1.6,
-      "height": 0.1,
+      "triangles": 352,
+      "footprint": 2.4,
+      "height": 0.6,
       "blocksLos": false,
       "blocksBuild": false,
       "scaleRange": [
@@ -24454,25 +24454,23 @@
         "temperate"
       ],
       "textures": [
-        "textures/asphalt_02_arm_1k-429aea395f8f3b6a.ktx2",
-        "textures/asphalt_02_diff_1k-b2b8d4a733e033d0.ktx2",
-        "textures/asphalt_02_nor_gl_1k-2161d8c5db461693.ktx2",
-        "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
-        "textures/brushed_concrete_diff_1k-x1.10-1.10-1.05-47eb9bb1e7c51957.ktx2",
-        "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
-        "textures/concrete_slab_wall_arm_1k-04aa40681112b4c4.ktx2",
-        "textures/concrete_slab_wall_diff_1k-5fb5eccf812b2193.ktx2",
-        "textures/concrete_slab_wall_nor_gl_1k-d4a9dff8a5d1f8a3.ktx2",
-        "textures/rail-street-ao-d5568f0307056f3a.ktx2"
+        "textures/rail-street-colour-98292675bf052acf.ktx2",
+        "textures/rail-street-normal-d9291b8a033b511e.ktx2",
+        "textures/rail-street-orm-91c4b9711b72add7.ktx2"
       ],
       "lod": [
         {
           "file": "models/rail-street-lod1.glb",
-          "screen": 0.0079,
-          "triangles": 42
+          "screen": 0.0119,
+          "textures": [
+            "textures/rail-street-colour-18af8ce26c392981.ktx2",
+            "textures/rail-street-normal-d9291b8a033b511e.ktx2",
+            "textures/rail-street-orm-a79b5cdf543acbf2.ktx2"
+          ],
+          "triangles": 74
         }
       ],
-      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/asphalt_02; https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete"
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/asphalt_02; https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete"
     },
     {
       "id": "crossing-saltire",
