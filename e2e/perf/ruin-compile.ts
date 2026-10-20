@@ -13,7 +13,10 @@
 //   npx ng serve --port <port>
 //   node e2e/perf/ruin-compile.ts --url http://localhost:<port> [--map ruined-city] [--mode compile|hit] [--after 500]
 //        [--id o4] [--settle 15000] [--cpu]
+//   An own map (an OSM world): --seed <dir>/<id>.3dtdmap --map <id> (perf-run.ts); a map without structure --id
+//   strikes its first structure
 import { chromium } from '@playwright/test';
+import { seedMap } from './perf-run.ts';
 
 function argument(name: string, fallback: string): string {
   const at = process.argv.indexOf(`--${name}`);
@@ -27,6 +30,7 @@ const AFTER = Number(argument('after', '500'));
 const ID = argument('id', 'o4');
 const SETTLE = Number(argument('settle', '15000'));
 const CPU = process.argv.includes('--cpu');
+const SEED = argument('seed', '');
 
 const browser = await chromium.launch({ headless: false, args: ['--enable-gpu', '--ignore-gpu-blocklist', '--window-size=1280,800'] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
@@ -39,6 +43,11 @@ await page.addInitScript(() => {
   localStorage.setItem('td_onboarding_v2', JSON.stringify({ done: true, completed: [] }));
   localStorage.setItem('td_globe_quality_v1', '"off"');
 });
+if (SEED) {
+  // On the game's origin first: the map store needs it
+  await page.goto(`${URL_BASE}/build-info.json`);
+  await seedMap(page, SEED);
+}
 const t0 = Date.now();
 await page.goto(`${URL_BASE}/?world=map:${MAP}&menu=skip`);
 await page.waitForFunction(() => performance.getEntriesByName('load:ready').length > 0, null, { timeout: 300_000 });
@@ -98,7 +107,7 @@ if (MODE === 'hit') {
       }
     };
     const list = g.__worldDamage.structures();
-    const index = list.findIndex((s) => s.id === id);
+    const index = Math.max(0, list.findIndex((s) => s.id === id));
     const s = list[index];
     const frames: number[] = [];
     const at: number[] = [];
