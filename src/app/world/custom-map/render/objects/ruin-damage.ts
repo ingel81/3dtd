@@ -67,6 +67,9 @@ export const DAMAGE_UNIFORMS: {
 };
 RUIN_HOLES.onTexture((t) => (DAMAGE_UNIFORMS.uRuinHoles.value = t));
 
+/** Holes punched (their highest order) past the first two after which a ruin is worn down to the ground */
+const WORN_OUT = 12;
+
 /** Seconds the column over a large hole takes to come down */
 const SAG_SECONDS = 2;
 
@@ -437,6 +440,22 @@ float dmgSagStart(vec3 p, vec4 a, out float floorY) {
   }
   return -1.0;
 }
+// A break line worn by the holes: it dips to each (where it was hit it gives way first), and the more holes were
+// punched (their highest order), the lower all of it, down to the ground after WORN_OUT of them: a ruin under fire
+// wears away to its rubble
+float dmgWorn(vec3 p, float cut, vec4 a, vec4 b) {
+  float row = dmgHoleRow(a);
+  if (row < 0.0) return cut;
+  float seat = dmgSeat(a, b);
+  float punched = 0.0;
+  for (int k = 0; k < ${HOLE_SLOTS}; k++) {
+    vec4 h = dmgHole(row, k);
+    if (h.w <= 0.0) continue;
+    cut = min(cut, max(seat + 0.05, h.y - 0.6 * h.w + 0.7 * length(p.xz - h.xz)));
+    punched = max(punched, dmgHoleTime(row, k).z);
+  }
+  return seat + (cut - seat) * clamp(1.0 - (punched - 2.0) / ${WORN_OUT.toFixed(1)}, 0.0, 1.0);
+}
 // cave-in: the break line, low ragged stumps inside rising steeply to the walls (6 m and a quarter of the height
 // over the seat at most), those on the side of the hit (against the heading) lower, dipping to the holes; its rim
 // ragged by angle only, so nothing stays standing as an island
@@ -454,15 +473,7 @@ float dmgCaveCut(vec3 p, vec4 a, vec4 b, vec4 c) {
   float away = 0.55 + 0.45 * dot(dir, vec2(cos(dmgHeading(a)), sin(dmgHeading(a))));
   float walls = min(c.w - seat, 6.0 + 0.25 * (c.w - seat));
   cut += outer * outer * walls * away;
-  // Down to the holes: where it was hit it gives way first
-  float row = dmgHoleRow(a);
-  if (row >= 0.0) {
-    for (int k = 0; k < ${HOLE_SLOTS}; k++) {
-      vec4 h = dmgHole(row, k);
-      if (h.w > 0.0) cut = min(cut, max(seat + 0.8, h.y - 0.6 * h.w + 0.7 * length(p.xz - h.xz)));
-    }
-  }
-  return cut;
+  return dmgWorn(p, cut, a, b);
 }
 // cave-in: where a falling part comes to rest, the highest floor (a storey of 3 m) under the break line, through up
 // to two of them in patches of 4 m; else the ground
@@ -579,7 +590,7 @@ ${VARYINGS}
 // Height of the ragged break line at a point: broken masonry, not a saw cut (a cave-in's dmgCaveCut)
 float damageCut(vec3 p) {
   if (!dmgTower(vDmgC)) return dmgCaveCut(p, vDmg, vDmgB, vDmgC);
-  return vDmg.w + (dmgNoise(p.xz * 0.8 + dmgHeading(vDmg)) - 0.5) * 1.3 + (dmgNoise(p.xz * 3.3) - 0.5) * 0.45;
+  return dmgWorn(p, vDmg.w + (dmgNoise(p.xz * 0.8 + dmgHeading(vDmg)) - 0.5) * 1.3 + (dmgNoise(p.xz * 3.3) - 0.5) * 0.45, vDmg, vDmgB);
 }
 // How far a point lies outside the bite, m (negative inside): its edge jagged by angle and height
 float damageBite(vec3 p) {

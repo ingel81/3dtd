@@ -13,7 +13,8 @@
 //        [--cpu: a CPU profile of each fall's first second] [--list-damage: the ruins' shadow programs and meshes]
 //        [--attribs: the programs' attribute slots against the GPU's limit]
 //        [--hits n [--blast rocket|hit]: n blasts (hit: debug hits of an eighth of its HP) at each from the camera's side
-//        first, holes then the fall, one clip] [--many n: the n nearest structures holed, the frames before and after]
+//        first, holes then the fall, one clip; --wear n: n more at the ruin after] [--many n: the n nearest structures
+//        holed, the frames before and after]
 //   A baseline (perf-run.ts): --no-vsync (default: the display's rate), --user-data <dir>, --json <file>: each fall's
 //   frames (with --no-video: the screencast costs frames)
 import { chromium } from '@playwright/test';
@@ -313,6 +314,13 @@ for (const spec of IDS) {
     }
     await call('stage', id, 3);
     await page.waitForTimeout(FALL_MS);
+    // --wear n: n more of them at the ruin it left, round its sides: what is left wears down to its rubble
+    const wear = Number(argument('wear', '0'));
+    for (let k = 0; k < wear; k++) {
+      await call('blast', id, side + (k % 4) * 0.5 - 0.75, argument('blast', 'rocket'));
+      await page.waitForTimeout(900);
+    }
+    if (wear > 0) await page.waitForTimeout(1500);
     const frames = await call('frames', mark);
     console.log(`${id} hits: ${frames.length} frames, longest ${Math.max(...frames).toFixed(1)} ms, over ${LONG_MS} ms: ${frames.filter((f) => f > LONG_MS).length}`);
     await stop();

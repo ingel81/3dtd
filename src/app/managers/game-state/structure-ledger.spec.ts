@@ -260,4 +260,24 @@ describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
     ledger.setStage(0, 0, 100, 0);
     expect(ledger.holeList()).toBeUndefined();
   });
+
+  it('goes on wearing a fallen structure down: holes low in its stump, its HP and stage as they were (E259)', () => {
+    const { sink, ledger } = setup([{ id: 'block', lat: 0, lon: 100 / K, radius: 10, height: 12, hp: 1000 }]);
+    ledger.hit(100, 0, 0, 1000);
+    expect(ledger.stages()[0]).toBe(3);
+    const before = ledger.holeList()!;
+    const stageCalls = sink.structures.stage.mock.calls.length;
+    for (let k = 0; k < 5; k++) ledger.hit(115, 0, 10, 100);
+    // Still fallen, no stage op more; five more holes or grown ones, numbered on, each 0.3 to 2 m up
+    expect(ledger.hpList()).toEqual([0]);
+    expect(sink.structures.stage.mock.calls.length).toBe(stageCalls);
+    const holes = ledger.holeList()!;
+    expect(holes).not.toEqual(before);
+    const fresh = Array.from({ length: HOLE_SLOTS }, (_, s) => holes.slice(s * HOLE_STRIDE, (s + 1) * HOLE_STRIDE)).filter((h) => h[4] > 1);
+    expect(Math.max(...fresh.map((h) => h[4]))).toBe(6);
+    for (const h of fresh) expect(h[2] >= 3 && h[2] <= 20).toBe(true);
+    // A light hit wears nothing
+    ledger.hit(115, 0, 10, 10);
+    expect(ledger.holeList()).toEqual(holes);
+  });
 });

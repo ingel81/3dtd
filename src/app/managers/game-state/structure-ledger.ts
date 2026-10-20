@@ -256,7 +256,14 @@ export class StructureLedger {
   hit(x: number, y: number, reach: number, amount: number): number {
     if (amount <= 0 || this.structures.length === 0) return 0;
     let changed = 0;
-    for (const i of this.near(x, y, reach)) if (this.damage(i, amount, x, y)) changed++;
+    for (const i of this.near(x, y, reach, true)) {
+      if (this.hp[i] > 0) {
+        if (this.damage(i, amount, x, y)) changed++;
+      } else if (amount >= this.maxHp[i] * HOLE_LEAST_SHARE) {
+        // A ruin goes on wearing down: holes in what is left of its walls, low (E259)
+        this.punch(i, amount, x, y, true);
+      }
+    }
     return changed;
   }
 
@@ -274,7 +281,7 @@ export class StructureLedger {
    * what follows from it (falls, sight requests) comes in the same order on
    * every client. A scratch list, valid until the next call
    */
-  near(x: number, y: number, reach: number): readonly number[] {
+  near(x: number, y: number, reach: number, fallen = false): readonly number[] {
     const reached = this.reached;
     reached.length = 0;
     if (this.columns === 0) return reached;
@@ -290,7 +297,7 @@ export class StructureLedger {
           const i = this.items[k];
           if (this.seen[i] === q) continue;
           this.seen[i] = q;
-          if (this.hp[i] <= 0) continue;
+          if (this.hp[i] <= 0 && !fallen) continue;
           const r = reach + this.radius[i];
           const dx = this.x[i] - x;
           const dy = this.y[i] - y;
@@ -360,11 +367,12 @@ export class StructureLedger {
   /**
    * A hole in structure `index` where a hit of `amount` struck at map
    * metres (`x`, `y`): on the side it came from (within 90 % of its ground
-   * radius), at a height its count rolls (25 to 80 % of its height), as
-   * large as the hit's share of the HP (holeRadiusDm). Near a hole it has,
-   * that one grows; else it takes a free slot or the oldest hole's
+   * radius), at a height its count rolls (25 to 80 % of its height; in a
+   * fallen one's stump 0.3 to 2 m), as large as the hit's share of the HP
+   * (holeRadiusDm). Near a hole it has, that one grows; else it takes a
+   * free slot or the oldest hole's
    */
-  private punch(index: number, amount: number, x: number, y: number): void {
+  private punch(index: number, amount: number, x: number, y: number, fallen = false): void {
     let dx = x - this.x[index];
     let dy = y - this.y[index];
     const d = Math.sqrt(dx * dx + dy * dy);
@@ -377,7 +385,9 @@ export class StructureLedger {
     const oy = Math.round(dy * 10);
     const n = ++this.holeCount[index];
     const roll = (Math.imul(index + 1, 0x9e3779b1) ^ Math.imul(n, 0x85ebca6b)) >>> 0;
-    const h = Math.round(this.height[index] * 10 * (0.25 + (0.55 * (roll % 1000)) / 1000));
+    const h = fallen
+      ? Math.round(3 + (17 * (roll % 1000)) / 1000)
+      : Math.round(this.height[index] * 10 * (0.25 + (0.55 * (roll % 1000)) / 1000));
     const holes = this.holes;
     const k0 = index * HOLES_EACH;
     let merge = -1;

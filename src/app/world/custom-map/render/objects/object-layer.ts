@@ -530,12 +530,12 @@ export class MapObjectLayer {
       at = { x: o.x, y: o.y, seat: slot.batch.source.matrices[slot.index * 16 + 13] };
     }
     const rim = (structureSeed(id) % 97) * 0.37;
-    const list: [number, number, number, number, number, number][] = [];
+    const list: [number, number, number, number, number, number, number][] = [];
     for (let s = 0; s < HOLE_SLOTS; s++) {
       const k = s * HOLE_STRIDE;
       if (holes[k + 3] <= 0) continue;
       const opened = this.holeTimes.get(`${id}#${s}`) ?? FELL_LONG_AGO;
-      list.push([-(at.x + holes[k] / 10), at.seat + holes[k + 2] / 10, at.y + holes[k + 1] / 10, holes[k + 3] / 10, opened, rim + s * 3.1]);
+      list.push([-(at.x + holes[k] / 10), at.seat + holes[k + 2] / 10, at.y + holes[k + 1] / 10, holes[k + 3] / 10, opened, rim + s * 3.1, holes[k + 4]]);
     }
     RUIN_HOLES.set(id, list);
   }

@@ -126,6 +126,8 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   und höchstens 90 % des Radius weit; Höhe über dem Grund in dm, aus Bauwerk und Lochzähler gewürfelt, 25 bis 80 % der
   Höhe; Radius in dm, 1 bis 5 m nach der Wurzel des HP-Anteils; die Nummer des Lochs). Ein Treffer innerhalb 1,5 m plus
   Radius eines Lochs vergrößert es um 0,6 m (höchstens 6 m), sonst nimmt er einen freien Platz oder den des ältesten.
+  Auch ein Gefallener nimmt weiter Löcher, tief in seinem Stumpf (0,3 bis 2 m über dem Grund); HP und Stufe bleiben,
+  es gibt keinen Stufen-Op (`hit` sieht dafür auch gefallene Bauwerke, `near(…, fallen)`).
   Sie gehen einmal je Paket als `structures.holes` an den Hauptthread und ganz mit den Stufen (`setStages`); Snapshot
   und Hash tragen sie, sobald es eines gibt (`structureHoles`, wie die Richtungen: ein Spielstand von davor lädt ohne
   Löcher, ohne neue Formatversion). Instandsetzen nimmt sie. Spec: gleiche Löcher und Prüfsumme auf zwei Clients, im
@@ -280,7 +282,11 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   der Biss (den zeigt nur noch eine Ruine ohne Löcher, etwa aus einem alten Spielstand); ein neues Loch geht in 0,3 s
   auf, ein gewachsenes behält seine Zeit. Über einem großen Loch (ab 2,2 m) sackt eine gezackte Säule (0,8 seines
   Radius, von 0,4 bis 2,6 Radien über ihm) auf die Decke darunter und ist weg (dieselben Regeln wie beim Einsturz).
-  Beim Fall senkt sich die Bruchkante zu den Löchern: der Einsturz beginnt, wo getroffen wurde. Die Sichtlinie sieht
+  Beim Fall senkt sich die Bruchkante zu den Löchern: der Einsturz beginnt, wo getroffen wurde (`dmgWorn`). Je mehr
+  Löcher ein Bauwerk bekam (die höchste Nummer), desto niedriger die ganze Kante, zwölf nach den ersten zwei auf dem
+  Boden: eine Ruine unter weiterem Beschuss verschwindet bis auf ihren Schutt. Türme stehen auf den Höhen der Karte
+  und dem Schutt, nicht auf dem Stumpf: ein schrumpfender Stumpf verschiebt keinen. Die Sichtlinie sieht den
+  niedrigeren Stumpf beim nächsten Rechnen. Die Sichtlinie sieht
   durch die Löcher (der LOS-Patch liest dieselbe Textur), wenn sie das nächste Mal gerechnet wird; ein Loch allein
   fordert sie nicht neu an.
   - Gemessen (Ruined City, Chrome 60 Hz): 60 Bauwerke mit je drei Löchern im Bild, die Bilder vorher und nachher im
