@@ -32,6 +32,8 @@ const START = argument('start', 'wave');
 const PICK_MS = Number(argument('pick', '3000'));
 // --close: the camera goes to the first shot, 45 m behind the gun and up, looking at where the shell lands
 const CLOSE = process.argv.includes('--close');
+// --speed 4: the game's speed over the window (the side switches of a long walk in less time)
+const SPEED = Number(argument('speed', '1'));
 // --trace view.updateHeights,...: every call of these, with its arguments, time and length
 const TRACE = argument('trace', '') ? argument('trace', '').split(',') : [];
 
@@ -82,7 +84,7 @@ if (START === 'wave') {
 const profiler = process.argv.includes('--profile') ? await FrameProfiler.attach(page, LONG_MS) : null;
 await profiler?.start();
 const result = await page.evaluate(
-  async ([enemy, ms, longMs, close, how, trace]) => {
+  async ([enemy, ms, longMs, close, how, trace, speed]) => {
     interface Info { programs: { name: string; cacheKey: string }[] | null; memory: { geometries: number; textures: number } }
     interface Component {
       engine?: { getRenderer(): { info: Info } };
@@ -212,6 +214,27 @@ const result = await page.evaluate(
     let known = programs();
     let last = performance.now();
     const start = last;
+    // The side a crab's front faces (EnemyInstanceManager, crabSide), per enemy: how often it changes, in game time
+    interface CrabState { crabSide: number; isDead: boolean }
+    const pools = (engine['enemies'] as { instanceManager: { pools: Map<string, { instances: Map<string, CrabState> }> } }).instanceManager.pools;
+    const sides = new Map<string, { side: number; switches: number; fromMs: number; toMs: number }>();
+    const gameMs = () => component.sim?.mirror.scalars.gameTimeMs ?? 0;
+    const watchSides = () => {
+      const now = gameMs();
+      for (const pool of pools.values()) {
+        for (const [id, st] of pool.instances) {
+          if (st.crabSide === undefined || st.crabSide === 0 || st.isDead) continue;
+          const seen = sides.get(id);
+          if (!seen) sides.set(id, { side: st.crabSide, switches: 0, fromMs: now, toMs: now });
+          else {
+            if (seen.side !== st.crabSide) seen.switches++;
+            seen.side = st.crabSide;
+            seen.toMs = now;
+          }
+        }
+      }
+    };
+    if (speed !== 1) (g.__load as unknown as { speed(v: number): void }).speed(speed);
     if (how === 'wave') (component as unknown as { startCustomWave(): void }).startCustomWave();
     else {
       const path = g.__load.state().paths[0].map(([lat, lon]) => ({ lat, lon }));
@@ -229,6 +252,7 @@ const result = await page.evaluate(
           open = ctx.createQuery();
           if (open) ctx.beginQuery(timer.TIME_ELAPSED_EXT, open);
         }
+        watchSides();
         const r0 = performance.now();
         ctx.readPixels(0, 0, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, new Uint8Array(4));
         const read = performance.now() - r0;
@@ -308,11 +332,13 @@ const result = await page.evaluate(
       moments,
       long,
       traced,
+      sides: [...sides.values()].map((v) => ({ switches: v.switches, gameS: r((v.toMs - v.fromMs) / 1000), perMinute: r((v.switches * 60_000) / Math.max(1, v.toMs - v.fromMs)) })),
     };
   },
-  [ENEMY, WINDOW_MS, LONG_MS, CLOSE, START, TRACE] as const,
+  [ENEMY, WINDOW_MS, LONG_MS, CLOSE, START, TRACE, SPEED] as const,
 );
-const { long, moments, traced, ...summary } = result;
+const { long, moments, traced, sides, ...summary } = result;
+console.log('SIDES ' + JSON.stringify(sides));
 if (traced.length) console.log('TRACE ' + traced.join(' '));
 console.log('SUMMARY ' + JSON.stringify(summary));
 for (const m of moments) console.log('MOMENT ' + JSON.stringify(m));
