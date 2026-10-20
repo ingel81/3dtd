@@ -6,7 +6,8 @@ import type { GeoPosition } from '../../models/game.types';
 import type { Tower } from '../../entities/tower.entity';
 import type { Enemy } from '../../entities/enemy.entity';
 import { ABILITIES } from '../../configs/abilities.config';
-import { ABILITY_DESTRUCTION, IMPACT_REACH_M, WEAR, type StructureStage } from '../../configs/destruction.config';
+import { ABILITY_DESTRUCTION, IMPACT_REACH_M, WEAR, type DebugBlast, type StructureStage } from '../../configs/destruction.config';
+import { PROJECTILE_TYPES } from '../../configs/projectile-types.config';
 import { MAP_METERS_PER_DEGREE } from '../../world/custom-map/map-document';
 import { StructureLedger } from './structure-ledger';
 import { CraterLedger, craterHitDepthCm } from './crater-ledger';
@@ -234,6 +235,35 @@ export class WorldDamage {
   /** Debug: a crater of `radiusM` at map degrees (`lat`, `lon`), `depthCm` deeper, where the world takes craters */
   debugDig(lat: number, lon: number, radiusM: number, depthCm: number): void {
     this.dig(lon * MAP_METERS_PER_DEGREE, lat * MAP_METERS_PER_DEGREE, radiusM, Math.round(depthCm));
+  }
+
+  /**
+   * Debug (the dev tools' destruction tool): `blast` goes off at map degrees
+   * (`lat`, `lon`) as the real one does: a projectile type's impact on the
+   * ground, or the nuclear strike where it lands. The show is the caller's
+   */
+  debugBlast(lat: number, lon: number, blast: DebugBlast): void {
+    if (blast === 'nuclear-strike') this.ability(blast, { lat, lon }, 0, 0);
+    else this.impact(lat, lon, PROJECTILE_TYPES[blast], false);
+  }
+
+  /**
+   * Debug: structure `index` to `stage`, pushed from map degrees (`lat`,
+   * `lon`) (StructureLedger.setStage). Worse goes the way of damage; a
+   * mended one takes its rubble with it, the main thread hears every stage
+   * anew and the towers round it look again
+   */
+  debugSetStage(index: number, stage: StructureStage, lat: number, lon: number): void {
+    const wasFallen = this.structures.stages()[index] === 3;
+    if (!this.structures.setStage(index, stage, lon * MAP_METERS_PER_DEGREE, lat * MAP_METERS_PER_DEGREE)) return;
+    this.rebuild();
+    this.structures.publish();
+    if (wasFallen) this.host.seeAround(this.structures.xOf(index), this.structures.yOf(index), this.structures.radiusOf(index));
+  }
+
+  /** The HP that changed go out to the main thread, once per packet (StructureLedger.flushHp) */
+  flushHp(): void {
+    this.structures.flushHp();
   }
 
   /** Debug: `amount` off the structures within `reach` m of map degrees (`lat`, `lon`); how many changed their stage */

@@ -399,6 +399,14 @@ export class GameCommandsHandler {
       this.gsm.worldDamage.debugDig(event.lat, event.lon, event.radius, event.depth);
     });
 
+    this.on('debug:blast', (event) => {
+      this.gsm.debugBlast(event.lat, event.lon, event.height, event.blast);
+    });
+
+    this.on('debug:set-structure-stage', (event) => {
+      this.gsm.worldDamage.debugSetStage(event.index, event.stage, event.lat, event.lon);
+    });
+
     this.on('debug:complete-all-research', () => {
       this.gsm.researchOf(this.gsm.actingPlayerId).completeAllResearch();
     });

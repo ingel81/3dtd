@@ -15,7 +15,7 @@ function setup(structures: RunStructure[], destruction = { craters: true, wear: 
   const ops: [string, ...unknown[]][] = [];
   const record = (path: string) => (...args: unknown[]) => ops.push([path, ...args]);
   const sink = {
-    structures: { setStages: record('structures.setStages'), stage: record('structures.stage') },
+    structures: { setStages: record('structures.setStages'), stage: record('structures.stage'), hp: record('structures.hp') },
     craters: { setAll: record('craters.setAll'), dig: record('craters.dig') },
     main: { structureFell: record('main.structureFell') },
   };
@@ -60,6 +60,36 @@ describe('WorldDamage (docs/DESTRUCTION_PLAN.md)', () => {
     // An arrow takes nothing and digs nothing
     damage.impact(0, 0, PROJECTILE_TYPES.arrow, false);
     expect(damage.structures.hpList()[0]).toBe(300 - rocket.structureDamage);
+  });
+
+  it("sets off the destruction tool's blasts as the real ones and sets stages: worse by damage, mended without its rubble (E261)", () => {
+    // The tool's rocket and nuke against the real impact and strike, on two worlds alike
+    const a = setup([house('a', 10, 0), house('b', 40, 0)]);
+    const b = setup([house('a', 10, 0), house('b', 40, 0)]);
+    a.damage.debugBlast(geo(0, 0).lat, geo(0, 0).lon, 'rocket');
+    b.damage.impact(geo(0, 0).lat, geo(0, 0).lon, PROJECTILE_TYPES.rocket, false);
+    a.damage.debugBlast(geo(30, 0).lat, geo(30, 0).lon, 'nuclear-strike');
+    b.damage.ability('nuclear-strike', geo(30, 0), 0, 0);
+    expect(a.damage.structures.hpList()).toEqual(b.damage.structures.hpList());
+    expect(Array.from(a.damage.craters.list())).toEqual(Array.from(b.damage.craters.list()));
+    expect(a.ops).toEqual(b.ops);
+    expect(a.damage.structures.hpList()).toEqual([0, 0]);
+
+    // A house felled by the tool: its fall and rubble as by a hit; mended: no rubble, every stage out anew
+    const { damage, ops, field, host } = setup([house('a', 0, 0), house('b', 40, 0)]);
+    damage.debugSetStage(0, 3, geo(-3, 0).lat, geo(-3, 0).lon);
+    expect(ops.filter(([p]) => p === 'structures.stage' || p === 'main.structureFell').map(([p]) => p)).toEqual(['structures.stage', 'main.structureFell']);
+    expect(field()!.heightAt(0, 0)).toBeGreaterThan(0);
+    const published = ops.filter(([p]) => p === 'structures.setStages').length;
+    damage.debugSetStage(0, 0, geo(-3, 0).lat, geo(-3, 0).lon);
+    expect(damage.structures.hpList()).toEqual([300, 300]);
+    expect(field()).toBeNull();
+    expect(ops.filter(([p]) => p === 'structures.setStages')).toHaveLength(published + 1);
+    expect(host.seeAround).toHaveBeenCalledTimes(2);
+    // To heavy damage; the HP go out with the flush
+    damage.debugSetStage(1, 2, geo(40, 0).lat, geo(40, 0).lon);
+    damage.flushHp();
+    expect(ops.at(-1)).toEqual(['structures.hp', new Int32Array([1, 60])]);
   });
 
   it('fells everything in the nuke radius but a house with a tower on its roof, and digs its crater', () => {

@@ -16,6 +16,8 @@ import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { GameObject } from '../core/game-object';
 import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
 import { TIMING } from '../configs/timing.config';
+import { ABILITIES } from '../configs/abilities.config';
+import type { DebugBlast } from '../configs/destruction.config';
 import { Tower } from '../entities/tower.entity';
 import { EconomyService, skippedWavesGold } from '../services/economy.service';
 import { GameCommandsHandler } from './game-commands.handler';
@@ -1463,6 +1465,25 @@ export class GameStateManager {
   /** Debug: take `amount` off the structures within `reach` m of a point (WorldDamage.debugHit); how many changed their stage */
   hitStructures(lat: number, lon: number, reach: number, amount: number): number {
     return this.worldDamage.debugHit(lat, lon, reach, amount);
+  }
+
+  /**
+   * Debug (the dev tools' destruction tool): `blast` goes off at (`lat`,
+   * `lon`) through the world's real damage (WorldDamage.debugBlast) and
+   * shows as the real one: a projectile's impact, the nuclear strike's
+   * landing (no strike before it, strike id -1). Enemies take nothing
+   */
+  debugBlast(lat: number, lon: number, height: number, blast: DebugBlast): void {
+    this.worldDamage.debugBlast(lat, lon, blast);
+    if (blast === 'nuclear-strike') {
+      const playerId = this.actingPlayerId;
+      this.eventBus.emit({
+        type: 'ability:impact', abilityId: blast, strikeId: -1, target: { lat, lon, height },
+        radiusM: ABILITIES[blast].radiusM, playerId, local: playerId === this.localPlayerId,
+      });
+    } else {
+      this.eventBus.emitDeferred({ type: 'vfx:projectile-impact', lat, lon, height, projectileType: blast, targetLost: true });
+    }
   }
 
   /**

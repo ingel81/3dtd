@@ -47,6 +47,8 @@ export const COMMAND_FIELDS = {
   'debug:add-health': ['amount'],
   'debug:hit-structures': ['lat', 'lon', 'reach', 'amount'],
   'debug:dig-crater': ['lat', 'lon', 'radius', 'depth'],
+  'debug:blast': ['lat', 'lon', 'height', 'blast'],
+  'debug:set-structure-stage': ['index', 'stage', 'lat', 'lon'],
   'debug:complete-all-research': [],
   'debug:max-upgrade-all-towers': [],
   'debug:ready-ability': ['abilityId'],

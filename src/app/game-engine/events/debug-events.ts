@@ -2,6 +2,7 @@
 import type { GeoPosition } from '../../models/game.types';
 import type { AbilityId } from '../../configs/abilities.config';
 import type { SpawnStart } from '../../managers/enemy.manager';
+import type { DebugBlast, StructureStage } from '../../configs/destruction.config';
 
 export type DebugEvent =
   // ==================== Debug Events ====================
@@ -57,6 +58,24 @@ export type DebugEvent =
       lon: number;
       radius: number;
       depth: number;
+    }
+  | {
+      // The destruction tool: `blast` goes off at a point of a destructible world as the real one does
+      // (WorldDamage.debugBlast), at `height` for its show (docs/DESTRUCTION_PLAN.md)
+      type: 'debug:blast';
+      lat: number;
+      lon: number;
+      height: number;
+      blast: DebugBlast;
+    }
+  | {
+      // The destruction tool: structure `index` (run rules' order) to `stage`, pushed from the point (lat, lon)
+      // (WorldDamage.debugSetStage): worse by damage, better mended
+      type: 'debug:set-structure-stage';
+      index: number;
+      stage: StructureStage;
+      lat: number;
+      lon: number;
     }
   | {
       type: 'debug:complete-all-research';

@@ -110,6 +110,14 @@ export const WEAR = {
   bossHp: 10,
 } as const;
 
+/**
+ * What the dev tools' destruction tool sets off (debug:blast): a projectile
+ * type's impact or the nuclear strike, through the same damage as the real
+ * one. Not a value of the fight, so not in the world key
+ */
+export const DEBUG_BLASTS = ['cannonball', 'rocket', 'nuclear-strike'] as const;
+export type DebugBlast = (typeof DEBUG_BLASTS)[number];
+
 /** Every value above, of the projectile types and of the siege guns as text, for the world key of a world that can be damaged */
 export function destructionKeyParts(): string[] {
   const projectiles = Object.values(PROJECTILE_TYPES).map((p) => `${p.id}:${p.structureDamage}:${p.craterRadius ?? 0}:${p.splashRadius ?? 0}`);

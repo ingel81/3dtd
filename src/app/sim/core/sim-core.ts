@@ -340,6 +340,8 @@ export class SimCore implements SimCoreApi {
   private packet(stepsRun: number, presented: boolean): SimFramePacket {
     // The flames of the pass go out once, the last of its sub-steps
     this.combat.flushBeams();
+    // ... and the structures' HP that changed in it
+    this.gsm.worldDamage.flushHp();
     const ops = this.gsm.ops.take();
     const events = this.events;
     this.events = [];

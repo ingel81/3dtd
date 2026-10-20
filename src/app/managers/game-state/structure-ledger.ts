@@ -1,7 +1,7 @@
 import type { SimSink } from '../../sim/core/sim-sink';
 import type { RunStructure } from '../../sim/protocol/run-rules';
 import { MAP_METERS_PER_DEGREE } from '../../world/custom-map/map-document';
-import { structureHeading, structureStage, type StructureStage } from '../../configs/destruction.config';
+import { presetHp, structureHeading, structureStage, type StructureStage } from '../../configs/destruction.config';
 import { DetMath } from '../../utils/det-math';
 import { ringsContain } from '../../world/custom-map/object-mass';
 
@@ -37,9 +37,11 @@ function boxReach(box: readonly [number, number, number, number, number], x: num
  * costs the few structures near it, not all of a city's thousands.
  *
  * The main thread hears the stages: all of them as one byte each in the run
- * rules' order (`structures.setStages`) after a load, a new run, a restore
- * or a replay's seek, and one stage at a time as it changes
- * (`structures.stage`), a few bytes however long the run. The owner hears
+ * rules' order (`structures.setStages`, with the HP) after a load, a new
+ * run, a restore or a replay's seek, and one stage at a time as it changes
+ * (`structures.stage`), a few bytes however long the run. The HP that
+ * changed go out once per packet (flushHp, `structures.hp`), for the bars
+ * over the damaged ones and the dev tools. The owner hears
  * every change by damage (StructureEvents.staged) for what follows from it:
  * the moment of a fall, its rubble, the towers that see past it. Snapshots
  * and the state hash carry the HP.
@@ -80,6 +82,9 @@ export class StructureLedger {
   private query = 0;
   /** The structures a query reached, in their order (scratch) */
   private readonly reached: number[] = [];
+  /** The structures whose HP changed since the last flushHp, each once (`hpDirty` marks them) */
+  private readonly hpChanged: number[] = [];
+  private hpDirty = new Uint8Array(0);
 
   constructor(
     private readonly sink: SimSink,
@@ -106,6 +111,8 @@ export class StructureLedger {
       : null);
     this.seen = new Uint32Array(n);
     this.query = 0;
+    this.hpDirty = new Uint8Array(n);
+    this.hpChanged.length = 0;
     list.forEach((s, i) => {
       this.x[i] = s.lon * MAP_METERS_PER_DEGREE;
       this.y[i] = s.lat * MAP_METERS_PER_DEGREE;
@@ -310,6 +317,7 @@ export class StructureLedger {
     if (this.hp[index] <= 0 || amount <= 0) return false;
     if (!Number.isNaN(this.roof[index * ROOF_STRIDE]) && this.events.carried(index)) return false;
     this.hp[index] = Math.max(0, this.hp[index] - amount);
+    this.markHp(index);
     const to = structureStage(this.hp[index], this.maxHp[index]);
     const from = this.stage[index] as StructureStage;
     if (to === from) return false;
@@ -319,6 +327,53 @@ export class StructureLedger {
     this.sink.structures.stage(index, to, this.heading[index]);
     this.events.staged(index, from, to);
     return true;
+  }
+
+  /**
+   * Debug (the dev tools' destruction tool): structure `index` to `stage`
+   * with the HP in the middle of it (presetHp; 0 fallen, full standing),
+   * pushed from map metres (`x`, `y`). Down to a worse stage it takes the
+   * difference as a hit there would (damage: the tower on its roof holds
+   * it, the stage op, the fall); to more HP it is mended: the HP set, its
+   * heading forgotten. Whether it was mended: the owner takes its rubble
+   * away and tells the main thread (publish)
+   */
+  setStage(index: number, stage: StructureStage, x: number, y: number): boolean {
+    if (index < 0 || index >= this.structures.length) return false;
+    const target = stage === 3 ? 0 : presetHp(this.maxHp[index], stage);
+    const hp = this.hp[index];
+    if (target < hp) this.damage(index, hp - target, x, y);
+    if (target <= hp) return false;
+    this.hp[index] = target;
+    this.stage[index] = structureStage(target, this.maxHp[index]);
+    this.heading[index] = -1;
+    this.markHp(index);
+    return true;
+  }
+
+  private markHp(index: number): void {
+    if (this.hpDirty[index]) return;
+    this.hpDirty[index] = 1;
+    this.hpChanged.push(index);
+  }
+
+  /**
+   * The HP that changed since the last flush to the main thread, as pairs
+   * of index and HP in one `structures.hp` (once per packet, SimCore): none
+   * when nothing changed
+   */
+  flushHp(): void {
+    const changed = this.hpChanged;
+    if (changed.length === 0) return;
+    const pairs = new Int32Array(changed.length * 2);
+    for (let k = 0; k < changed.length; k++) {
+      const i = changed[k];
+      pairs[k * 2] = i;
+      pairs[k * 2 + 1] = this.hp[i];
+      this.hpDirty[i] = 0;
+    }
+    changed.length = 0;
+    this.sink.structures.hp(pairs);
   }
 
   /**
@@ -402,10 +457,12 @@ export class StructureLedger {
     this.publish();
   }
 
-  /** Tell the main thread every structure's stage, one byte each in the run rules' order, with the headings */
+  /** Tell the main thread every structure's stage, one byte each in the run rules' order, with the headings and the HP */
   publish(): void {
     if (this.structures.length === 0) return;
-    this.sink.structures.setStages(this.stage.slice(), this.heading.slice());
+    for (const i of this.hpChanged) this.hpDirty[i] = 0;
+    this.hpChanged.length = 0;
+    this.sink.structures.setStages(this.stage.slice(), this.heading.slice(), this.hp.slice());
   }
 
   /** Every structure's stage, a view in the run rules' order */

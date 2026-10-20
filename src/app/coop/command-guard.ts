@@ -10,6 +10,7 @@
 import { TOWER_TYPES } from '../configs/tower-types.config';
 import { ABILITIES } from '../configs/abilities.config';
 import { HERO_AMMO } from '../configs/hero.config';
+import { DEBUG_BLASTS } from '../configs/destruction.config';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { ALL_SPAWN_PATTERNS } from '../director/spawn-schedule-builder';
 
@@ -199,6 +200,12 @@ export function commandProblem(c: Command): string | null {
     case 'debug:dig-crater':
       return finite(c['lat']) && finite(c['lon']) && finite(c['radius']) && c['radius'] > 0 && c['radius'] <= 100
         && finite(c['depth']) && c['depth'] > 0 && c['depth'] <= 10_000 ? null : 'crater';
+    case 'debug:blast':
+      return finite(c['lat']) && finite(c['lon']) && finite(c['height'])
+        && (DEBUG_BLASTS as readonly unknown[]).includes(c['blast']) ? null : 'blast';
+    case 'debug:set-structure-stage':
+      return integerIn(c['index'], 0, 1_000_000) && integerIn(c['stage'], 0, 3)
+        && finite(c['lat']) && finite(c['lon']) ? null : 'stage';
     case 'debug:ready-ability':
       return known(c['abilityId'], ABILITIES) ? null : 'ability';
     case 'debug:jump-to-wave':

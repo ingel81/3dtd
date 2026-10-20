@@ -38,6 +38,7 @@ import { TEST_WORLD_REF } from '../../../test/world-context-fake';
 import { runStartAt, runStartGold } from '../protocol/run-start';
 import { RUN_PLAN_RULES } from '../../director/sources/budget/run-plan';
 import type { RunStructure, RunWaveEvent } from '../protocol/run-rules';
+import { PROJECTILE_TYPES } from '../../configs/projectile-types.config';
 
 const SEED = 0x51c0;
 const HEAD = { configHash: 'spec', gameVersion: 'spec', commit: 'spec' };
@@ -270,14 +271,19 @@ describe('SimCore in the same thread', () => {
     // Two hits of 60 in reach: the barn falls with the second
     drive.send({ type: 'debug:hit-structures', lat: 140 / M, lon: 22 / M, reach: 1, amount: 60 });
     let packet = drive.tick();
-    // Worn down to 40 %, still standing: its stage, a delta of three numbers (pushed west by a hit from its east)
-    expect(packet.ops.filter((op) => op[0].startsWith('structures.'))).toEqual([['structures.stage', 0, 2, 128]]);
+    // Worn down to 40 %, still standing: its stage, a delta of three numbers (pushed west by a hit from its east),
+    // and its HP once at the end of the packet
+    expect(packet.ops.filter((op) => op[0].startsWith('structures.'))).toEqual([
+      ['structures.stage', 0, 2, 128],
+      ['structures.hp', new Int32Array([0, 40])],
+    ]);
     expect(core.gsm.stateHash()).not.toBe(hashBefore);
     drive.send({ type: 'debug:hit-structures', lat: 140 / M, lon: 22 / M, reach: 1, amount: 60 });
     packet = drive.tick();
     expect(packet.ops.filter((op) => op[0].startsWith('structures.') || op[0] === 'main.structureFell')).toEqual([
       ['structures.stage', 0, 3, 128],
       ['main.structureFell', 0, barn.lat, barn.lon, 5, 6],
+      ['structures.hp', new Int32Array([0, 0])],
     ]);
     // The cannon 29 m off asks for its sight again (still its first, so as 'place'), to see past where the barn stood
     const cannon = core.gsm.towerManager.getAll()[0];
@@ -288,7 +294,8 @@ describe('SimCore in the same thread', () => {
     core.gsm.restoreSnapshot(before, 'live');
     expect(core.gsm.captureSnapshot().structures).toEqual([100]);
     expect(core.gsm.stateHash()).toBe(hashBefore);
-    expect(drive.tick().ops.filter((op) => op[0] === 'structures.setStages')).toEqual([['structures.setStages', new Uint8Array([0]), new Int16Array([-1])]]);
+    expect(drive.tick().ops.filter((op) => op[0] === 'structures.setStages'))
+      .toEqual([['structures.setStages', new Uint8Array([0]), new Int16Array([-1]), new Int32Array([100])]]);
   });
 
   it("shells a destructible world's structure with the jumper's gun, the same on every run; on a world without, its gun looks ahead", () => {
@@ -458,6 +465,83 @@ describe('SimCore in the same thread', () => {
       expect(replay.core.gsm.worldDamage.structures.hpList().slice(0, -1).some((hp) => hp < 240)).toBe(true);
       expect(seekOps).toContain('structures.setStages');
       expect(seekOps).toContain('craters.setAll');
+      replay.core.rpc('replayExit');
+    } finally {
+      Math.random = mathRandom;
+    }
+  });
+
+  it("sets off the destruction tool's blasts and stages as commands: the same on two clients and in a replay (E261)", { timeout: 120_000 }, () => {
+    const mathRandom = Math.random;
+    Math.random = mulberry32(SEED + 5);
+    try {
+      const main = mainWorld();
+      const structures: RunStructure[] = [];
+      for (let n = 60; n <= 300; n += 60) {
+        for (const east of [12, -12]) structures.push({ id: `h${n}${east}`, lat: n / M, lon: east / M, radius: 5, height: 8, hp: 240, box: [east, n, 4, 3, 0.2] });
+      }
+      const rules = { startCredits: 100, hqHealth: 500, towers: null, structures, destruction: { craters: true, wear: false }, start: null };
+      const world: SimWorld = {
+        ...main.world,
+        rules,
+        worldKey: worldKeyOf(main.grid.snapshotHeights(), main.world.paths.map(([, p]) => p), main.sync.getOrigin(), rules),
+      };
+      const tools = [
+        { type: 'debug:blast', lat: 60 / M, lon: 14 / M, height: 0, blast: 'rocket' },
+        { type: 'debug:blast', lat: 120 / M, lon: 10 / M, height: 0, blast: 'cannonball' },
+        // The house at 180 m east falls, is mended, is set to heavy damage
+        { type: 'debug:set-structure-stage', index: 4, stage: 3, lat: 180 / M, lon: 20 / M },
+        { type: 'debug:set-structure-stage', index: 4, stage: 0, lat: 180 / M, lon: 20 / M },
+        { type: 'debug:set-structure-stage', index: 4, stage: 2, lat: 180 / M, lon: 20 / M },
+        { type: 'debug:set-structure-stage', index: 6, stage: 3, lat: 240 / M, lon: 20 / M },
+        { type: 'debug:blast', lat: 300 / M, lon: 0, height: 0, blast: 'nuclear-strike' },
+      ];
+      const run = () => {
+        const core = newCore(world);
+        const drive = new Driver(core);
+        drive.tick();
+        drive.send({ type: 'command:start-wave', config: wave });
+        for (let f = 0; f < 20000; f++) {
+          // One tool command every 20 frames, early in the wave
+          if (f % 20 === 5 && f / 20 < tools.length) drive.send(tools[Math.floor(f / 20)]);
+          const packet = drive.tick();
+          if (packet.scalars.phase !== 'wave' && f > 200) break;
+        }
+        for (let f = 0; f < 400 && drive.packets.at(-1)!.scalars.snapshotRefusal !== null; f++) drive.tick();
+        return drive;
+      };
+      const a = run();
+      const damage = a.core.gsm.worldDamage;
+      const hp = damage.structures.hpList();
+      // The rocket and the cannon took off what their impact takes, the house at 180 m stands at heavy damage
+      expect(hp[0]).toBe(240 - PROJECTILE_TYPES.rocket.structureDamage);
+      expect(hp[2]).toBe(240 - PROJECTILE_TYPES.cannonball.structureDamage);
+      expect(hp[4]).toBe(Math.round(240 * 0.2));
+      expect(damage.structures.stages()[4]).toBe(2);
+      // The nuke felled everything in its 25 m (the houses at 300 m), the fall at 240 m stayed fallen
+      expect([hp[6], hp[8], hp[9]]).toEqual([0, 0, 0]);
+      expect(damage.craters.size).toBeGreaterThanOrEqual(3);
+      const ops = a.packets.flatMap((p) => p.ops.map((op) => op[0]));
+      expect(ops).toContain('structures.hp');
+      expect(ops.filter((op) => op === 'main.structureFell').length).toBeGreaterThanOrEqual(4);
+      // Mended: every stage went out anew, the fall's rubble gone from the field with it
+      expect(ops.filter((op) => op === 'structures.setStages')).toHaveLength(2);
+
+      // Another client with the same commands: the same world, bit for bit
+      const b = run();
+      expect(b.core.gsm.stateHash()).toBe(a.core.gsm.stateHash());
+
+      // The wave again from the replay file: every hash checked, no divergence
+      const file = a.core.rpc('replayFile', { ...HEAD, world: TEST_WORLD_REF })!;
+      expect(file.waves).toEqual([1]);
+      const replay = new Driver(newCore(world));
+      expect(replay.core.rpc('loadReplayFile', file.text, { ...HERE, world: TEST_WORLD_REF }).refusal).toBeNull();
+      replay.core.rpc('replayEnter', 1, true);
+      let state = replay.tick({ replay: { playing: true, speed: 10 } }).scalars.replay!;
+      for (let f = 0; f < 20000 && !state.finished; f++) state = replay.tick({ replay: { playing: true, speed: 10 } }).scalars.replay!;
+      expect(state.finished).toBe(true);
+      expect(state.divergedAt).toBeNull();
+      expect(replay.core.gsm.worldDamage.structures.hpList()).toEqual(hp);
       replay.core.rpc('replayExit');
     } finally {
       Math.random = mathRandom;

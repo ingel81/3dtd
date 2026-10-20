@@ -9,7 +9,7 @@ function setup(structures: RunStructure[] = [
   { id: 'barn', lat: 0, lon: 100 / K, radius: 5, height: 6, hp: 100 },
   { id: 'wall', lat: 0, lon: 300 / K, radius: 1, height: 2, hp: 1000 },
 ]) {
-  const sink = { structures: { setStages: vi.fn(), stage: vi.fn() } };
+  const sink = { structures: { setStages: vi.fn(), stage: vi.fn(), hp: vi.fn() } };
   const staged = vi.fn();
   const carried = vi.fn((_index: number) => false);
   const ledger = new StructureLedger(sink as never, { staged, carried });
@@ -20,7 +20,7 @@ function setup(structures: RunStructure[] = [
 describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
   it('reaches what lies within the reach plus its radius, in whole HP, through its stages to the fall', () => {
     const { sink, staged, ledger } = setup();
-    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([0, 0]), new Int16Array([-1, -1]));
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([0, 0]), new Int16Array([-1, -1]), new Int32Array([100, 1000]));
     // Just in reach of the barn (100 + 5 + 4), and just out of it
     expect(ledger.hit(108.9, 0, 4, 20)).toBe(0);
     expect(ledger.hpList()).toEqual([80, 1000]);
@@ -44,6 +44,55 @@ describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
     expect(staged).toHaveBeenCalledTimes(3);
     // The stage sets went out with load only: the rest were deltas
     expect(sink.structures.setStages).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends the HP that changed once per flush, as pairs of index and HP, and none after the whole set', () => {
+    const { sink, ledger } = setup();
+    ledger.flushHp();
+    expect(sink.structures.hp).not.toHaveBeenCalled();
+    // The barn twice, the wall once: each once, in the order they changed, with their HP at the flush
+    ledger.hit(100, 0, 0, 10);
+    ledger.hit(300, 0, 0, 7);
+    ledger.hit(100, 0, 0, 10);
+    ledger.flushHp();
+    expect(sink.structures.hp).toHaveBeenCalledTimes(1);
+    expect(sink.structures.hp).toHaveBeenLastCalledWith(new Int32Array([0, 80, 1, 993]));
+    ledger.flushHp();
+    expect(sink.structures.hp).toHaveBeenCalledTimes(1);
+    // The whole set carries the HP: what changed before it goes with it
+    ledger.hit(100, 0, 0, 5);
+    ledger.restore(ledger.hpList());
+    ledger.flushHp();
+    expect(sink.structures.hp).toHaveBeenCalledTimes(1);
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([1, 0]), new Int16Array([-1, -1]), new Int32Array([75, 993]));
+  });
+
+  it("sets a structure's stage for the destruction tool: worse by a hit from the point, better mended (E261)", () => {
+    const { sink, staged, carried, ledger } = setup();
+    // Heavy from the west: the HP in the middle of the stage, a hit's stage op and heading
+    expect(ledger.setStage(0, 2, 95, 0)).toBe(false);
+    expect(ledger.hpList()[0]).toBe(presetHp(100, 2));
+    expect(sink.structures.stage).toHaveBeenLastCalledWith(0, 2, 0);
+    expect(staged).toHaveBeenLastCalledWith(0, 0, 2);
+    // Fell now: the fall as a hit brings it
+    ledger.setStage(0, 3, 95, 0);
+    expect(staged).toHaveBeenLastCalledWith(0, 2, 3);
+    expect(ledger.stages()[0]).toBe(3);
+    // Mended to full: its stage from the HP, its heading forgotten, no op of a hit (the owner publishes)
+    expect(ledger.setStage(0, 0, 95, 0)).toBe(true);
+    expect([ledger.hpList()[0], ledger.stages()[0], ledger.headingList()]).toEqual([100, 0, undefined]);
+    expect(staged).toHaveBeenCalledTimes(2);
+    // The same stage again: nothing; a tower on its roof holds it as against a hit
+    expect(ledger.setStage(0, 0, 95, 0)).toBe(false);
+    carried.mockReturnValue(true);
+    ledger.load([{ id: 'hall', lat: 0, lon: 100 / K, radius: 5, height: 6, hp: 100, roof: true }]);
+    ledger.setStage(0, 3, 95, 0);
+    expect(ledger.hpList()).toEqual([100]);
+    // Out of the list: nothing
+    expect(ledger.setStage(5, 3, 0, 0)).toBe(false);
+    // A new load starts with the whole set: nothing left to flush
+    ledger.flushHp();
+    expect(sink.structures.hp).not.toHaveBeenCalled();
   });
 
   it('fells what stands in reach, but a structure that carries a tower on its roof', () => {
@@ -96,12 +145,12 @@ describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
       { id: 'whole', lat: 0, lon: 100 / K, radius: 4, height: 6, hp: 200 },
     ]);
     expect(ledger.hpList()).toEqual([0, 120, 200]);
-    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 1, 0]), new Int16Array([-1, -1, -1]));
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 1, 0]), new Int16Array([-1, -1, -1]), new Int32Array([0, 120, 200]));
     ledger.hit(100, 0, 0, 200);
     ledger.reset();
     expect(ledger.hpList()).toEqual([0, 120, 200]);
     ledger.restore([0, 10, 50]);
-    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 2, 2]), new Int16Array([-1, -1, -1]));
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 2, 2]), new Int16Array([-1, -1, -1]), new Int32Array([0, 10, 50]));
     ledger.restore(undefined);
     expect(ledger.hpList()).toEqual([0, 120, 200]);
     ledger.load(null);
@@ -157,7 +206,7 @@ describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
     ledger.reset();
     expect(ledger.headingList()).toBeUndefined();
     ledger.restore(hp, [192, -1]);
-    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 0]), new Int16Array([192, -1]));
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 0]), new Int16Array([192, -1]), new Int32Array([0, 1000]));
     // A snapshot from before the headings knows none
     ledger.restore(hp);
     expect(ledger.headingList()).toBeUndefined();

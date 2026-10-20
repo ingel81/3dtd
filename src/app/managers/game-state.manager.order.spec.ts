@@ -394,7 +394,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'command:hire-hero', 'command:hero-move', 'command:hero-ammo',
         'command:start-wave', 'command:los-mask', 'command:leave-game', 'command:set-ready', 'command:give-credits',
         'command:restart-game',
-        'debug:add-credits', 'debug:add-health', 'debug:hit-structures', 'debug:dig-crater', 'debug:complete-all-research', 'debug:kill-all', 'debug:spawn-enemy',
+        'debug:add-credits', 'debug:add-health', 'debug:hit-structures', 'debug:dig-crater', 'debug:blast', 'debug:set-structure-stage', 'debug:complete-all-research', 'debug:kill-all', 'debug:spawn-enemy',
         'debug:remove-enemy', 'debug:max-upgrade-all-towers',
         'debug:ready-ability', 'debug:jump-to-wave', 'debug:enemy-move', 'debug:movement', 'debug:enemy-speed',
         'debug:ready-hero',
