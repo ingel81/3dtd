@@ -6,7 +6,7 @@
       @if (h.record.detail !== h.record.name) {
         <span class="td-note">{{ h.record.detail }}</span>
       }
-      <span class="td-figure">Best wave {{ h.record.bestWave }}@if (h.isCurrent) {<span class="td-muted">, playing now</span>}</span>
+      <span class="td-figure">{{ t().globe.bestWave(h.record.bestWave) }}@if (h.isCurrent) {<span class="td-muted">{{ t().globe.playingNow }}</span>}</span>
     </div>
   }
 </div>

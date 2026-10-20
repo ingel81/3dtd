@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { APP_DOWNLOADS } from '../../../../coop/coop-access';
+import { injectT } from '../../../../i18n/i18n.service';
 
 /**
  * Coop in a browser on the site (E114, D52, D59): it is played in the
@@ -13,20 +14,17 @@ import { APP_DOWNLOADS } from '../../../../coop/coop-access';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="td-group">
-      <h3 class="td-section">Co-op runs in the desktop app</h3>
-      <p class="td-note">
-        The browser version is for a quick look, solo. Co-op, with online lobbies and games on the same network,
-        lives in the free desktop app for Windows and Linux.
-      </p>
+      <h3 class="td-section">{{ t().coop.app.title }}</h3>
+      <p class="td-note">{{ t().coop.app.about }}</p>
       @if (roomCode(); as code) {
-        <p class="td-note">You were invited to room <b class="td-code">{{ code }}</b>. In the app, open Coop and join with this code.</p>
+        <p class="td-note">{{ t().coop.app.invited.before }} <b class="td-code">{{ code }}</b>{{ t().coop.app.invited.after }}</p>
       }
       <div class="td-actions is-start">
         @for (download of downloads; track download.url; let first = $first) {
-          <a [class]="first ? 'td-btn-primary' : 'td-btn-secondary'" [href]="download.url" target="_blank" rel="noopener">{{ download.label }}</a>
+          <a [class]="first ? 'td-btn-primary' : 'td-btn-secondary'" [href]="download.url" target="_blank" rel="noopener">{{ t().coop.app.downloadFor[download.os] }}</a>
         }
       </div>
-      <p class="td-note"><a class="td-link" [href]="allDownloads" target="_blank" rel="noopener">All downloads and release notes</a></p>
+      <p class="td-note"><a class="td-link" [href]="allDownloads" target="_blank" rel="noopener">{{ t().coop.app.allDownloads }}</a></p>
     </section>
   `,
   host: { class: 'td-stack is-loose' },
@@ -34,14 +32,15 @@ import { APP_DOWNLOADS } from '../../../../coop/coop-access';
 export class CoopAppHintComponent {
   /** The room of the invite link this page was opened with, null without one */
   readonly roomCode = input<string | null>(null);
+  protected readonly t = injectT();
 
   protected readonly downloads = appDownloads(typeof navigator === 'undefined' ? '' : navigator.userAgent);
   protected readonly allDownloads = APP_DOWNLOADS.all;
 }
 
 /** Both downloads, the one for the player's system first (Linux by the user agent, Windows otherwise) */
-export function appDownloads(userAgent: string): { label: string; url: string }[] {
-  const windows = { label: 'Download for Windows', url: APP_DOWNLOADS.windows };
-  const linux = { label: 'Download for Linux', url: APP_DOWNLOADS.linux };
+export function appDownloads(userAgent: string): { os: 'windows' | 'linux'; url: string }[] {
+  const windows = { os: 'windows' as const, url: APP_DOWNLOADS.windows };
+  const linux = { os: 'linux' as const, url: APP_DOWNLOADS.linux };
   return /Linux/.test(userAgent) && !/Android/.test(userAgent) ? [linux, windows] : [windows, linux];
 }

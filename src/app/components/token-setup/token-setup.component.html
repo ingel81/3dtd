@@ -1,12 +1,13 @@
 <!-- Covers the whole page: Tab stays in it, and the focus goes back where it was when it closes -->
+@let w = t().token;
 <div class="token-setup" role="dialog" aria-modal="true" aria-labelledby="token-setup-title"
      cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
  <div class="td-dlg">
   <header class="td-dlg-head">
-    <h2 class="td-dlg-title" id="token-setup-title">{{ rejected() ? 'Key rejected' : 'Bring your own map key' }}</h2>
+    <h2 class="td-dlg-title" id="token-setup-title">{{ rejected() ? w.rejected : w.title }}</h2>
     @if (fromWorlds()) {
       <!-- On the globes it is one of the stage's overlays: left by the cross like the others -->
-      <button class="td-close" type="button" aria-label="Back (Esc)" (click)="dismiss()">
+      <button class="td-close" type="button" [attr.aria-label]="t().worlds.backEsc" (click)="dismiss()">
         <td-icon name="close" [size]="12" />
       </button>
     }
@@ -14,35 +15,28 @@
 
   <div class="td-dlg-body">
   @if (rejected()) {
-    <p class="td-text">The tile server refused it. Check you pasted the whole thing.</p>
+    <p class="td-text">{{ w.refused }}</p>
   } @else {
-    <p class="td-text">
-      The 3D tiles are billed per request, so this build ships without a key.
-      A free account covers playing.
-    </p>
+    <p class="td-text">{{ w.billed }}</p>
     @if (coopRoom && coopAccess === 'hint') {
       <!-- A browser on the site joins no room: co-op is played in the desktop app (E114) -->
       <p class="td-text token-coop">
-        You were invited to coop room {{ coopRoom }}. Co-op runs in the free
-        <a class="td-link" [href]="appDownloads" target="_blank" rel="noopener">desktop app</a> for Windows and Linux: open Coop
-        there and join with this code. Here you can play solo with your own key.
+        {{ w.invited.before(coopRoom) }}
+        <a class="td-link" [href]="appDownloads" target="_blank" rel="noopener">{{ w.invited.link }}</a>{{ w.invited.after }}
       </p>
     } @else if (coopRoom) {
-      <p class="td-text token-coop">
-        You are joining coop room {{ coopRoom }}. Every player needs a map key of their own; once yours is in,
-        the host's map loads and you join by yourself.
-      </p>
+      <p class="td-text token-coop">{{ w.joining(coopRoom) }}</p>
     }
   }
 
   @if (!coopRoom) {
     <div class="td-well token-maps">
-      <p class="td-text">No key? The maps play without one: hand-built levels, your own from the editor, imported ones.</p>
-      <button class="td-btn-primary" type="button" [disabled]="!mapsOpen" [attr.title]="mapsOpen ? null : 'Coming soon'" (click)="playMaps()">Play the maps</button>
+      <p class="td-text">{{ w.noKey }}</p>
+      <button class="td-btn-primary" type="button" [disabled]="!mapsOpen" [attr.title]="mapsOpen ? null : t().worlds.whyNot.soon" (click)="playMaps()">{{ w.playMaps }}</button>
     </div>
   }
 
-  <div class="td-seg token-tabs" role="tablist" tdRovingGroup aria-label="Map provider">
+  <div class="td-seg token-tabs" role="tablist" tdRovingGroup [attr.aria-label]="w.provider">
     <button
       type="button"
       role="tab"
@@ -61,19 +55,17 @@
 
   @if (provider() === 'cesium') {
     <ol class="td-well td-text token-steps">
-      <li>Sign up at <a class="td-link" href="https://ion.cesium.com/signup" target="_blank" rel="noopener">ion.cesium.com</a></li>
-      <li>Copy your default token under <strong>Access Tokens</strong></li>
-      <li>Paste it here</li>
+      <li>{{ w.cesium.signUp }} <a class="td-link" href="https://ion.cesium.com/signup" target="_blank" rel="noopener">ion.cesium.com</a></li>
+      <li>{{ w.cesium.copy }} <strong>Access Tokens</strong></li>
+      <li>{{ w.pasteHere }}</li>
     </ol>
   } @else {
     <ol class="td-well td-text token-steps">
-      <li>Create a project in the <a class="td-link" href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a></li>
-      <li>Enable the <strong>Map Tiles API</strong>, create a key</li>
-      <li>Paste it here</li>
+      <li>{{ w.google.project }} <a class="td-link" href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a></li>
+      <li>{{ w.google.enable.before }} <strong>Map Tiles API</strong>{{ w.google.enable.after }}</li>
+      <li>{{ w.pasteHere }}</li>
     </ol>
-    <p class="td-note is-warn">
-      Referrer-restricted and not offered in every region. Use Cesium Ion if the map stays empty.
-    </p>
+    <p class="td-note is-warn">{{ w.google.warn }}</p>
   }
 
   <form class="td-inline token-form" (submit)="submit($event)">
@@ -87,13 +79,13 @@
       autocomplete="off"
       [value]="value()"
       (input)="onInput($event)"
-      [attr.aria-label]="provider() === 'cesium' ? 'Cesium Ion access token' : 'Google Maps API key'" />
+      [attr.aria-label]="provider() === 'cesium' ? w.cesium.label : w.google.label" />
     <button
       class="td-btn-secondary"
       type="button"
       [disabled]="!value().trim() || testing()"
-      (click)="test()">{{ testing() ? 'Checking' : 'Test' }}</button>
-    <button class="td-btn-primary" type="submit" [disabled]="!value().trim()">Start</button>
+      (click)="test()">{{ testing() ? w.checking : w.test }}</button>
+    <button class="td-btn-primary" type="submit" [disabled]="!value().trim()">{{ w.start }}</button>
   </form>
 
   @if (testResult(); as result) {
@@ -103,9 +95,9 @@
   }
 
   <p class="td-note">
-    Stays in this browser, goes only to the tile provider.
+    {{ w.stays }}
     @if (config.hasStoredToken()) {
-      <button class="td-link" type="button" (click)="clear()">Forget stored key</button>
+      <button class="td-link" type="button" (click)="clear()">{{ w.forget }}</button>
     }
   </p>
   </div>
@@ -113,7 +105,7 @@
   @if (!fromWorlds()) {
     <footer class="td-dlg-foot">
       <button class="td-btn-secondary token-back" type="button" (click)="dismiss()">
-        {{ dismissible() ? 'Back to the game' : 'Back to the worlds' }}
+        {{ dismissible() ? w.backToGame : w.backToWorlds }}
         <kbd class="td-kbd">Esc</kbd>
       </button>
     </footer>

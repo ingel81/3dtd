@@ -1,4 +1,5 @@
 import type { BootStep } from './boot-step.model';
+import type { Messages } from '../../../i18n/messages/en';
 
 /** The loading plate's numbers, from the boot steps (EngineInitializationService.loadingSteps) */
 export interface LoadingPlateView {
@@ -31,9 +32,8 @@ export function loadingPlateView(steps: readonly BootStep[]): LoadingPlateView {
  * network. Null once all have come, or when none came from the network
  * (all from the cache: nothing worth saying).
  */
-export function mapDataLine(p: { requested: number; done: number; fetched: number; bytes: number }): string | null {
+export function mapDataLine(t: Messages, p: { requested: number; done: number; fetched: number; bytes: number }): string | null {
   if (p.done >= p.requested || p.fetched === 0) return null;
-  const mb = p.bytes / 1_000_000;
-  return `Map data ${p.done} of ${p.requested} files, ${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
+  return t.menu.mapData(p.done, p.requested, p.bytes / 1_000_000);
 }
 

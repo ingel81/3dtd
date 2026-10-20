@@ -203,7 +203,7 @@ export class LocationChangeExecutorService {
     callbacks: LocationChangeCallbacks
   ): Promise<void> {
     await this.engineInit.setStepCurrent('engine');
-    this.engineInit.updateStepMeta('engine', 'Resetting game state...');
+    this.engineInit.updateStepMeta('engine', this.t().boot.meta.resetting);
 
     // Stop running updates
     this.heightUpdate.stopHeightUpdates();
@@ -219,7 +219,7 @@ export class LocationChangeExecutorService {
 
     // The camera rises out of the old place into the menu globe first
     // (docs/GLOBE_PLAN.md); without a globe this resolves at once
-    this.engineInit.updateStepMeta('engine', 'Leaving the place...');
+    this.engineInit.updateStepMeta('engine', this.t().boot.meta.leaving);
     await this.globe?.beforeOriginChange();
 
     // Update engine origin
@@ -233,7 +233,7 @@ export class LocationChangeExecutorService {
     this.locationMgmt.setLocation({ lat: input.hq.lat, lon: input.hq.lon }, spawnsOf(input));
 
     // Compute and apply optimal camera framing IMMEDIATELY (before tiles load)
-    this.engineInit.updateStepMeta('engine', 'Positioning camera...');
+    this.engineInit.updateStepMeta('engine', this.t().boot.meta.camera);
     const hqCoord: GeoPoint = { lat: input.hq.lat, lon: input.hq.lon };
     const spawnCoords: GeoPoint[] = spawnsOf(input).map(({ lat, lon }) => ({ lat, lon }));
 
@@ -266,12 +266,12 @@ export class LocationChangeExecutorService {
 
     // Check if we can reuse cached street network
     if (!this.isSameStreetNetworkLocation(ctx, input.hq.lat, input.hq.lon)) {
-      this.engineInit.updateStepMeta('streets', 'Loading OSM data...');
+      this.engineInit.updateStepMeta('streets', this.t().boot.meta.osmData);
       streetNetwork = await this.worldContext.streets.loadStreets(input.hq.lat, input.hq.lon, STREET_RADIUS_M);
       callbacks.setStreetNetwork(streetNetwork);
       callbacks.setStreetNetworkLocation({ lat: input.hq.lat, lon: input.hq.lon });
     } else {
-      this.engineInit.updateStepMeta('streets', 'Using cache...');
+      this.engineInit.updateStepMeta('streets', this.t().boot.meta.cache);
       streetNetwork = ctx.streetNetwork!;
     }
 
@@ -279,7 +279,7 @@ export class LocationChangeExecutorService {
     this.engineInit.osmLoading.set(false);
 
     const streetCnt = streetNetwork.streets.length;
-    await this.engineInit.setStepDone('streets', streetCnt > 0 ? `${streetCnt} Streets` : undefined);
+    await this.engineInit.setStepDone('streets', streetCnt > 0 ? this.t().boot.meta.streets(streetCnt) : undefined);
 
     return streetNetwork;
   }
@@ -370,7 +370,7 @@ export class LocationChangeExecutorService {
       SPAWN_COLORS[i % SPAWN_COLORS.length], spawn.portalBearing,
     ));
 
-    await this.engineInit.setStepDone('spawns', spawns.length > 1 ? `${spawns.length} points` : '1 point');
+    await this.engineInit.setStepDone('spawns', this.t().boot.meta.points(spawns.length));
   }
 
   /**
@@ -381,7 +381,7 @@ export class LocationChangeExecutorService {
     callbacks: LocationChangeCallbacks
   ): Promise<void> {
     await this.engineInit.setStepCurrent('routes');
-    this.engineInit.updateStepMeta('routes', 'A* Pathfinding...');
+    this.engineInit.updateStepMeta('routes', this.t().boot.meta.pathfinding);
 
     const base = callbacks.getBaseCoords();
     const waveSpawnPoints: WaveSpawnPoint[] = callbacks.getSpawnPoints().map((sp) => ({
@@ -403,7 +403,7 @@ export class LocationChangeExecutorService {
 
     // Initialize GlobalRouteGrid after routes are computed
     await this.engineInit.setStepCurrent('grid');
-    this.engineInit.updateStepMeta('grid', 'Calculating grid...');
+    this.engineInit.updateStepMeta('grid', this.t().boot.meta.grid);
     this.world.buildCells(true);
     // The overlays that are on (Route Grid, Air Route Grid, air route) went
     // with the old cells in STEP 2: draw them on the new cells now, as

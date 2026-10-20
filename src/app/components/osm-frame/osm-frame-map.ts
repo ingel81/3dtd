@@ -54,8 +54,8 @@ export interface FrameMapHandlers {
   drop(index: number, at: GeoPoint): void;
   /** A spawn clicked, null for the map beside them */
   select(index: number | null): void;
-  /** The map cannot show (no WebGL, the tiles' server) */
-  problem(text: string): void;
+  /** The map's tiles did not come (the tiles' server): why, null when no answer came */
+  tilesFailed(message: string | null): void;
   /** The square as it may stand, while it is dragged */
   fit(area: OsmArea): OsmArea;
   /** A spawn may be dragged and the square moved or sized now (not while a load, a drop or the making runs) */
@@ -135,7 +135,7 @@ export class OsmFrameMap {
     this.map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-right');
     this.map.addControl(new ml.AttributionControl({ compact: true }), 'bottom-right');
     this.map.on('error', (e) => {
-      if (!this.ready) handlers.problem(`The map's tiles did not come (${e.error?.message ?? 'no answer'}). The spawns still work from the list.`);
+      if (!this.ready) handlers.tilesFailed(e.error?.message ?? null);
     });
     this.map.on('load', () => this.onLoad());
     window.addEventListener('mouseup', this.letGo);

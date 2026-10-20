@@ -22,6 +22,7 @@ import { GLOBE_LINK } from './globe-link';
 import { readJson, writeJson } from '../../utils/storage';
 import { pageQuery } from '../../core/page-switches';
 import { WorldStartService } from '../../world/world-start';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * What the globe does (docs/GLOBE_PLAN.md, Ablauf):
@@ -126,6 +127,7 @@ const toArray = (m: Matrix4): number[] => m.toArray() as number[];
  */
 @Injectable({ providedIn: 'root' })
 export class GlobeDirectorService {
+  private readonly t = injectT();
   private readonly zone = inject(NgZone);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly locationMgmt = inject(LocationManagementService);
@@ -683,18 +685,8 @@ export class GlobeDirectorService {
     const now = performance.now();
     if (now - this.hudAtMs < HUD_MS) return;
     this.hudAtMs = now;
-    const status: Record<GlobePhase, string> = {
-      off: '',
-      idle: '',
-      turning: 'Locating',
-      waiting: 'Loading',
-      // The loading plate shows it, with how far
-      warming: '',
-      diving: 'Descending',
-      handover: 'Descending',
-      gone: '',
-      rising: 'Ascending',
-    };
+    // The loading plate shows warming, with how far
+    const status = this.t().globe.phases;
     const place = this.place;
     const name = this.placeName();
     const hud: GlobeHud = {
@@ -702,7 +694,7 @@ export class GlobeDirectorService {
       lat: place?.lat ?? null,
       lon: place?.lon ?? null,
       altitudeKm: Math.max(0, Math.round(this.altitude / 1000)),
-      status: status[this.phase()],
+      status: status[this.phase()] ?? '',
       progress: this.engineInit.loading() ? this.loadingPercent() : null,
     };
     const descent = this.phase() === 'warming' ? (this.descentPercent() ?? 0) : null;

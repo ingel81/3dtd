@@ -18,6 +18,7 @@ import { DAMAGE_TYPE_UI } from '../../configs/combat/combat-ui.config';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
 import { en } from '../../i18n/messages/en';
+import { de } from '../../i18n/messages/de';
 import type { EnemyTypeId } from '../../configs/enemy-types.config';
 
 /** Matrix mit 1.0 überall, einzelne Felder überschrieben. */
@@ -71,7 +72,7 @@ describe('buildDamageMatrixRows', () => {
       const damageType = TOWER_TYPES[row.towerId].damageType;
       for (const cell of row.cells) {
         expect(cell.multiplier).toBe(DAMAGE_MATRIX[damageType][cell.armor]);
-        expect(cell.text).toBe(formatMultiplier(cell.multiplier));
+        expect(cell.text).toBe(formatMultiplier(en, cell.multiplier));
       }
     }
   });
@@ -96,7 +97,7 @@ describe('buildDamageMatrixRows', () => {
     });
     const archer = buildDamageMatrixRows(en, () => true, [TOWER_TYPES.archer], matrix)[0];
     expect(archer.cells.map((c) => c.effectiveness)).toEqual(['devastating', 'strong', 'normal', 'weak', 'normal']);
-    expect(archer.cells[0].text).toBe(formatMultiplier(t.devastating));
+    expect(archer.cells[0].text).toBe(formatMultiplier(en, t.devastating));
     expect(archer.cells[0].tierLabel).toBe('Devastating');
     expect(archer.cells[0].color).toBe(EFFECTIVENESS_COLORS.devastating);
     expect(archer.cells[2].color).toBe(MATRIX_NORMAL_COLOR);
@@ -123,8 +124,9 @@ describe('buildDamageMatrixRows', () => {
   });
 
   it('formats multipliers like the tower tooltips', () => {
-    expect(formatMultiplier(1.5)).toBe('1.50×');
-    expect(formatMultiplier(0.15)).toBe('0.15×');
+    expect(formatMultiplier(en, 1.5)).toBe('1.50×');
+    expect(formatMultiplier(en, 0.15)).toBe('0.15×');
+    expect(formatMultiplier(de, 1.5)).toBe('1,50×');
   });
 });
 
@@ -148,14 +150,14 @@ describe('buildDamageMatrixColumns', () => {
 
 describe('buildEffectivenessLegend', () => {
   it('lists the four tiers with the configured thresholds and the table colours', () => {
-    const legend = buildEffectivenessLegend();
+    const legend = buildEffectivenessLegend(en);
     const t = EFFECTIVENESS_THRESHOLDS;
     expect(legend.map((e) => e.effectiveness)).toEqual(['weak', 'normal', 'strong', 'devastating']);
     expect(legend.map((e) => e.range)).toEqual([
-      `below ${formatMultiplier(t.weak)}`,
+      `below ${formatMultiplier(en, t.weak)}`,
       '',
-      `${formatMultiplier(t.strong)} and up`,
-      `${formatMultiplier(t.devastating)} and up`,
+      `${formatMultiplier(en, t.strong)} and up`,
+      `${formatMultiplier(en, t.devastating)} and up`,
     ]);
     for (const entry of legend) expect(entry.color).toBe(matrixTierColor(entry.effectiveness));
   });

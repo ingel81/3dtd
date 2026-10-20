@@ -5,6 +5,7 @@ import { GameStore } from '../../../../store/game.store';
 import { SAVE_GAME, type LoadResult } from '../../../../services/save-game/save-game.port';
 import { loadSlotRows, saveSlotRows } from './slot-rows';
 import { MainMenuService } from '../../main-menu.service';
+import { injectT } from '../../../../i18n/i18n.service';
 
 /** What the page asks before it does it, in its own body */
 export type SlotConfirm =
@@ -35,6 +36,7 @@ export type SlotConfirm =
   host: { class: 'td-stack is-loose' },
 })
 export class SaveSlotsComponent {
+  protected readonly t = injectT();
   readonly saves = inject(SAVE_GAME);
   /** A slot of another world loads there (MainMenuService.loadSlot) */
   private readonly menu = inject(MainMenuService, { optional: true });
@@ -56,10 +58,10 @@ export class SaveSlotsComponent {
   private readonly underWay = computed(() => this.store.gameStarted() || this.store.towerCount() > 0);
   /** Loading replaces the run: between waves only, like saving */
   readonly canLoad = computed(() => !this.store.waveActive());
-  readonly cannotLoadReason = computed(() => (this.canLoad() ? null : 'Loads between waves.'));
+  readonly cannotLoadReason = computed(() => (this.canLoad() ? null : this.t().saves.betweenWaves));
 
-  readonly saveRows = computed(() => saveSlotRows(this.saves.slots()));
-  readonly loadRows = computed(() => loadSlotRows(this.saves.slots()));
+  readonly saveRows = computed(() => saveSlotRows(this.t(), this.saves.slots()));
+  readonly loadRows = computed(() => loadSlotRows(this.t(), this.saves.slots()));
 
   constructor() {
     void this.saves.refresh();
@@ -74,7 +76,7 @@ export class SaveSlotsComponent {
     this.cancelConfirm();
     await this.run(async () => {
       const result = await this.saves.save(slotId);
-      this.status.set(result.ok ? { text: 'Saved.', bad: false } : { text: result.reason, bad: true });
+      this.status.set(result.ok ? { text: this.t().saves.saved, bad: false } : { text: result.reason, bad: true });
     });
   }
 
@@ -120,7 +122,7 @@ export class SaveSlotsComponent {
   /** Loaded: back to the game, unless the save came from another version; then the page says so first */
   private afterLoad(result: LoadResult): void {
     if (!result.ok) this.status.set({ text: result.reason, bad: true });
-    else if (result.note) this.status.set({ text: `Loaded. ${result.note}`, bad: false });
+    else if (result.note) this.status.set({ text: this.t().menu.loadedNote(result.note), bad: false });
     else this.loaded.emit();
   }
 

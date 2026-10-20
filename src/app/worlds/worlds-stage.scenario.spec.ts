@@ -286,7 +286,7 @@ describe('Worlds stage', () => {
     await settle(f);
     button(f, /^Demo Valley/).click();
     await settle(f);
-    expect(text(el(f).querySelector('.wm-detail'))).toContain('River valley.');
+    expect(text(el(f).querySelector('.wm-detail'))).toContain('River valley with a village');
     el(f).querySelector<HTMLElement>('[data-stage-start]')!.click();
     expect(opened).toHaveLength(1);
     expect(opened[0]).toMatchObject({ world: { kind: 'custom-map', mapId: 'demo-valley' }, play: true, label: 'Demo Valley', resume: null });

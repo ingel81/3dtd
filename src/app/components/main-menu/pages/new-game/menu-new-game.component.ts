@@ -7,6 +7,7 @@ import type { PlaceChoice } from '../../../../services/location/place-choice';
 import { WorldContext } from '../../../../world/world-context.service';
 import type { OsmFrameRequest } from '../../../osm-frame/osm-frame-request';
 import { PlacePickerComponent } from './place-picker.component';
+import { injectT } from '../../../../i18n/i18n.service';
 
 /**
  * The menu's New game page: another place of this world (the place picker,
@@ -26,22 +27,22 @@ import { PlacePickerComponent } from './place-picker.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (ui.coopMapLocked()) {
-      <p class="td-note">The host picks the place of this room.</p>
+      <p class="td-note">{{ t().menu.hostPicksPlace }}</p>
     } @else if (world.capabilities().realPlace) {
       <app-place-picker (chosen)="choose($event)" (mapOfPlace)="mapOf($event)" />
       @if (menu.leaveWhy(); as why) {
-        <p class="td-note">A map of a place: {{ why }}.</p>
+        <p class="td-note">{{ t().menu.mapOfPlaceWhy(why) }}</p>
       }
     } @else {
       <section class="td-group">
-        <p class="td-note">This game plays on a map. Another map, or a real place, is picked in the worlds: the game waits behind them.</p>
+        <p class="td-note">{{ t().menu.playsOnMap }}</p>
         <div class="td-actions is-start">
           @if (menu.worldMenuLabel(); as name) {
             <button type="button" class="td-btn-primary" [attr.aria-disabled]="menu.leaveWhy() ? true : null" [attr.title]="menu.leaveWhy()"
                     (click)="menu.leaveTo('world')">{{ name }}</button>
           }
           <button type="button" class="td-btn-secondary" [attr.aria-disabled]="menu.leaveWhy() ? true : null" [attr.title]="menu.leaveWhy()"
-                  (click)="menu.leaveTo('globes')">All worlds</button>
+                  (click)="menu.leaveTo('globes')">{{ t().menu.entries.allWorlds }}</button>
         </div>
       </section>
     }
@@ -53,6 +54,7 @@ export class MenuNewGameComponent {
   readonly ui = inject(UIStore);
   readonly world = inject(WorldContext);
   readonly menu = inject(MainMenuService);
+  protected readonly t = injectT();
   private readonly coordinator = inject(LocationChangeCoordinatorService);
 
   /** A map of a place: its frame under OpenStreetMap on the globes, this game held behind them */

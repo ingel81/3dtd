@@ -9,11 +9,11 @@
 import { describe, it, expect } from 'vitest';
 import { ATTRIBUTIONS } from './attributions.config';
 
-const category = (title: string) => ATTRIBUTIONS.find((c) => c.title === title);
+const category = (id: string) => ATTRIBUTIONS.find((c) => c.id === id);
 
 describe('Attributions of the hero and the world map (playtest 302)', () => {
   it('302: lists the SWAT model as the hero, by Quaternius, CC0', () => {
-    expect(category('3D Models')!.items).toContainEqual(expect.objectContaining({
+    expect(category('models')!.items).toContainEqual(expect.objectContaining({
       name: 'SWAT (Hero, recoloured, gun added)',
       author: 'Quaternius',
       license: 'CC0',
@@ -22,12 +22,12 @@ describe('Attributions of the hero and the world map (playtest 302)', () => {
 
   it('names Stone Golem and Herbert as original work of ingel81 (decided 2026-09-16)', () => {
     for (const name of ['Stone Golem', 'Herbert']) {
-      expect(category('3D Models')!.items).toContainEqual({ name, author: 'ingel81', license: 'Original work' });
+      expect(category('models')!.items).toContainEqual({ name, author: 'ingel81', license: 'Original work' });
     }
   });
 
   it('302: has a section "Map Data" with Natural Earth, Public Domain, and OpenStreetMap under the ODbL', () => {
-    expect(category('Map Data')!.items).toEqual([
+    expect(category('mapData')!.items).toEqual([
       expect.objectContaining({ author: 'Natural Earth', license: 'Public Domain' }),
       // The menu globe (docs/GLOBE_PLAN.md): NASA's earth, GEBCO's relief, the Yale star catalogue
       expect.objectContaining({ author: 'NASA Earth Observatory, NASA Visible Earth', license: 'Public domain (NASA)' }),

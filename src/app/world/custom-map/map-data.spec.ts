@@ -4,6 +4,7 @@ import {
   tidyMapData, type MapDataProgress,
 } from './map-data';
 import { mapDataLine } from '../../components/main-menu/loading/loading-plate';
+import { en } from '../../i18n/messages/en';
 
 /** Cache Storage as the browser has it, in memory */
 function fakeCaches() {
@@ -184,10 +185,10 @@ describe('map data (TODO E134)', () => {
   });
 
   it('says on the loading plate how far the files are, only while some come from the network', () => {
-    expect(mapDataLine({ requested: 0, done: 0, fetched: 0, bytes: 0 })).toBeNull();
-    expect(mapDataLine({ requested: 40, done: 12, fetched: 0, bytes: 0 })).toBeNull();
-    expect(mapDataLine({ requested: 48, done: 12, fetched: 10, bytes: 3_400_000 })).toBe('Map data 12 of 48 files, 3.4 MB');
-    expect(mapDataLine({ requested: 48, done: 30, fetched: 30, bytes: 42_600_000 })).toBe('Map data 30 of 48 files, 43 MB');
-    expect(mapDataLine({ requested: 48, done: 48, fetched: 48, bytes: 9e7 })).toBeNull();
+    expect(mapDataLine(en, { requested: 0, done: 0, fetched: 0, bytes: 0 })).toBeNull();
+    expect(mapDataLine(en, { requested: 40, done: 12, fetched: 0, bytes: 0 })).toBeNull();
+    expect(mapDataLine(en, { requested: 48, done: 12, fetched: 10, bytes: 3_400_000 })).toBe('Map data 12 of 48 files, 3.4 MB');
+    expect(mapDataLine(en, { requested: 48, done: 30, fetched: 30, bytes: 42_600_000 })).toBe('Map data 30 of 48 files, 43 MB');
+    expect(mapDataLine(en, { requested: 48, done: 48, fetched: 48, bytes: 9e7 })).toBeNull();
   });
 });

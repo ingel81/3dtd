@@ -19,6 +19,23 @@ export interface Formatters {
   time(at: string | number | Date): string;
 }
 
+/** Where a text's bold part begins and ends: private-use characters no name or word carries */
+const BOLD_OPEN = '';
+const BOLD_CLOSE = '';
+
+/** Marks `text` as the bold part of a line: `Waiting for ${bold(name)} to ready up` */
+export function bold(text: string): string {
+  return BOLD_OPEN + String(text).replaceAll(BOLD_OPEN, '').replaceAll(BOLD_CLOSE, '') + BOLD_CLOSE;
+}
+
+/** A line with a bold part taken apart for a template: before it, the bold part, after it */
+export function splitBold(line: string): { lead: string; bold: string; text: string } {
+  const open = line.indexOf(BOLD_OPEN);
+  const close = line.indexOf(BOLD_CLOSE, open + 1);
+  if (open < 0 || close < 0) return { lead: '', bold: '', text: line };
+  return { lead: line.slice(0, open), bold: line.slice(open + 1, close), text: line.slice(close + 1) };
+}
+
 const made = new Map<Locale, Formatters>();
 
 export function formatters(locale: Locale): Formatters {

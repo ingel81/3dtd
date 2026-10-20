@@ -11,6 +11,7 @@ import {
   worldNotHere,
   type WorldRef,
 } from './world-ref';
+import { en } from '../i18n/messages/en';
 
 const CESIUM: WorldRef = { kind: 'tiles', source: 'cesium' };
 const GOOGLE: WorldRef = { kind: 'tiles', source: 'google' };
@@ -20,13 +21,13 @@ const TILESET: WorldRef = { kind: 'tileset', id: 'kalasatama' };
 
 describe('WorldRef', () => {
   it('says why a run cannot stand here: another world, another map, or its map changed since', () => {
-    expect(worldNotHere(MAP, { ...MAP })).toBeNull();
+    expect(worldNotHere(en, MAP, { ...MAP })).toBeNull();
     // A file of before the content hash fits any content of its map
-    expect(worldNotHere({ ...MAP, contentHash: '' }, { ...MAP, contentHash: 'new' })).toBeNull();
-    expect(worldNotHere(MAP, { ...MAP, contentHash: 'edited' }))
+    expect(worldNotHere(en, { ...MAP, contentHash: '' }, { ...MAP, contentHash: 'new' })).toBeNull();
+    expect(worldNotHere(en, MAP, { ...MAP, contentHash: 'edited' }))
       .toBe('The map "Bay" was changed since this run was played on it, so the run cannot go on there.');
-    expect(worldNotHere(MAP, { kind: 'custom-map', mapId: 'reef', contentHash: 'x' })).toBe('It plays the map "Bay", which is not open here. Open that map first.');
-    expect(worldNotHere(DEV, CESIUM)).toContain('It plays on another world');
+    expect(worldNotHere(en, MAP, { kind: 'custom-map', mapId: 'reef', contentHash: 'x' })).toBe('It plays the map "Bay", which is not open here. Open that map first.');
+    expect(worldNotHere(en, DEV, CESIUM)).toContain('It plays on another world');
   });
 
   it('reads a custom map from the link and writes it back', () => {

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input } from '@an
 import { TdIconComponent } from '../components/icon/icon.component';
 import type { WorldId } from './world-rules';
 import { WorldsStageService } from './worlds-stage.service';
+import { injectT } from '../i18n/i18n.service';
 
 /**
  * The first row of a world's menu (docs/WORLDS_STATE_PLAN.md, 3.3): the
@@ -23,7 +24,7 @@ import { WorldsStageService } from './worlds-stage.service';
             <span class="td-note td-num" [class.is-warn]="!!why()">{{ why() ?? it.line }}</span>
           </button>
           @if (it.run) {
-            <button type="button" class="td-tool" data-stage-discard [attr.aria-label]="'Discard ' + it.line" title="Discard this run"
+            <button type="button" class="td-tool" data-stage-discard [attr.aria-label]="t().worlds.discardLine(it.line)" [attr.title]="t().worlds.discardRun"
                     (click)="stage.discard(it)">
               <td-icon name="trash" [size]="16" />
             </button>
@@ -39,6 +40,7 @@ import { WorldsStageService } from './worlds-stage.service';
 })
 export class StageContinueComponent {
   readonly stage = inject(WorldsStageService);
+  protected readonly t = injectT();
   readonly world = input.required<WorldId>();
   readonly item = computed(() => this.stage.continueOf(this.world()));
   readonly why = computed(() => this.stage.whyNot('play', this.world()));

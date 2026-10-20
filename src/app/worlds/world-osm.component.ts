@@ -7,6 +7,7 @@ import { WorldsStageService } from './worlds-stage.service';
 import { MAX_RECENT_WORLDS } from './recent-maps';
 import { placeLabel } from '../services/location/place-label';
 import type { NominatimAddress } from '../services/location/geocoding.service';
+import { injectT } from '../i18n/i18n.service';
 
 /**
  * OpenStreetMap's menu (docs/WORLDS_NAVIGATION_PLAN.md, user decision 5):
@@ -23,24 +24,25 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './world-menu.scss',
   template: `
+    @let w = t().worlds;
     <div class="wm-body">
       @if (stage.frame(); as frame) {
         <app-osm-frame [place]="frame.place" [spawnsAt]="frame.spawnsAt" [backLink]="false" (back)="stage.frameBack()"
                        (done)="stage.frameDone($event.summary, $event.then)" />
       } @else {
         @if (lock()) {
-          <p class="td-banner is-warn">Maps from OpenStreetMap are coming soon in this build.</p>
+          <p class="td-banner is-warn">{{ w.osmSoon }}</p>
         }
         <app-stage-continue world="osm" />
         <section class="td-group" aria-labelledby="wm-osm-place">
-          <h3 class="td-section" id="wm-osm-place">A map of a real place</h3>
-          <app-td-address-autocomplete [placeholder]="'Town, street or address'" [currentValue]="null"
+          <h3 class="td-section" id="wm-osm-place">{{ w.osmPlace }}</h3>
+          <app-td-address-autocomplete [placeholder]="w.townPlaceholder" [currentValue]="null"
                                        (locationSelected)="frameAt($event.lat, $event.lon, placeName($event))" />
           @if (realPlace(); as place) {
             <div class="td-rows">
               <button type="button" class="td-row wm-row" (click)="frameAt(place.hq.lat, place.hq.lon, place.name, place.spawns)">
                 <span class="wm-row-name">
-                  <span class="td-name">Use the place from Real places</span>
+                  <span class="td-name">{{ w.useRealPlace }}</span>
                   <small class="td-note">{{ place.name }}</small>
                 </span>
               </button>
@@ -48,7 +50,7 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
           }
         </section>
         <section class="td-group" aria-labelledby="wm-osm-mine">
-          <h3 class="td-section" id="wm-osm-mine">Recent worlds</h3>
+          <h3 class="td-section" id="wm-osm-mine">{{ w.recentWorlds }}</h3>
           @if (mine().length) {
             <div class="td-rows">
               @for (map of mine(); track map.id) {
@@ -63,18 +65,18 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
                       }
                       <span class="td-name">{{ map.name }}</span>
                     </span>
-                    <span class="td-note td-num wm-meta">{{ map.spawns }} {{ map.spawns === 1 ? 'spawn' : 'spawns' }}</span>
+                    <span class="td-note td-num wm-meta">{{ w.spawns(map.spawns) }}</span>
                   </button>
-                  <button type="button" class="td-tool" data-recent-remove [attr.aria-label]="'Remove ' + map.name + ' from Recent worlds'"
-                          title="Remove from Recent worlds" (click)="stage.removeWorld(map)">
+                  <button type="button" class="td-tool" data-recent-remove [attr.aria-label]="w.removeRecentWorld(map.name)"
+                          [attr.title]="w.removeFromRecentWorlds" (click)="stage.removeWorld(map)">
                     <td-icon name="close" [size]="12" />
                   </button>
                 </div>
               }
             </div>
-            <p class="td-note">The last {{ max }} maps made here. Change one in the editor and it becomes a Built World.</p>
+            <p class="td-note">{{ w.recentWorldsNote(max) }}</p>
           } @else {
-            <p class="td-note">None yet. A map you make here shows first.</p>
+            <p class="td-note">{{ w.recentWorldsEmpty }}</p>
           }
         </section>
       }
@@ -92,7 +94,7 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
               <td-icon name="play" [size]="14" /><span>{{ playWord() }}</span>
             </button>
             <button type="button" class="td-btn-secondary" [attr.aria-disabled]="stage.whyNot('edit', 'osm') ? true : null"
-                    [attr.title]="stage.whyNot('edit', 'osm')" (click)="stage.edit('osm')">Edit in the editor</button>
+                    [attr.title]="stage.whyNot('edit', 'osm')" (click)="stage.edit('osm')">{{ w.editInEditor }}</button>
           </div>
           @if (playWhy(); as why) {
             <p class="td-note is-warn">{{ why }}.</p>
@@ -100,7 +102,7 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
             <p class="td-note is-warn" role="status">{{ notice }}</p>
           }
         } @else {
-          <p class="td-note">Search a place for a new map, or pick one of yours. The globe turns there.</p>
+          <p class="td-note">{{ w.osmPick }}</p>
         }
       </div>
     }
@@ -108,6 +110,7 @@ import type { NominatimAddress } from '../services/location/geocoding.service';
 })
 export class WorldOsmComponent {
   readonly stage = inject(WorldsStageService);
+  protected readonly t = injectT();
 
   readonly lock = computed(() => this.stage.lock('osm'));
   /** The maps made here and not changed since, newest first (Recent worlds) */
@@ -129,7 +132,7 @@ export class WorldOsmComponent {
   });
   readonly playWhy = computed(() => this.stage.whyNot('play', 'osm'));
   /** Start's word: Continue of a run, Back to the place held, else Play */
-  readonly playWord = computed(() => this.stage.playWord('osm', this.stage.picks().osm, 'Play'));
+  readonly playWord = computed(() => this.stage.playWord('osm', this.stage.picks().osm, this.t().worlds.play));
 
   /** A searched place's name as the search list showed it */
   placeName(found: { name: string; address?: NominatimAddress }): string {

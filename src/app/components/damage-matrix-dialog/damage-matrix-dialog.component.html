@@ -1,15 +1,15 @@
 <div class="td-dlg">
   <header class="td-dlg-head">
     <div class="td-stack dm-head">
-      <h2 class="td-dlg-title" [id]="titleId">Damage vs armor</h2>
-      <p class="td-note" [id]="descId">Multiplier on every hit</p>
+      <h2 class="td-dlg-title" [id]="titleId">{{ t().dialogs.matrix.title }}</h2>
+      <p class="td-note" [id]="descId">{{ t().dialogs.matrix.about }}</p>
     </div>
-    <button class="td-close" type="button" aria-label="Close" (click)="close()">
+    <button class="td-close" type="button" [attr.aria-label]="t().common.close" (click)="close()">
       <td-icon name="close" [size]="12"></td-icon>
     </button>
   </header>
 
-  <div class="td-dlg-body" tabindex="0" role="region" aria-label="Damage multipliers">
+  <div class="td-dlg-body" tabindex="0" role="region" [attr.aria-label]="t().dialogs.matrix.region">
     <table class="td-table dm-matrix" [attr.aria-labelledby]="titleId">
       <colgroup>
         <col class="col-tower">
@@ -19,7 +19,7 @@
       </colgroup>
       <thead>
         <tr>
-          <th scope="col" class="dm-corner">Tower</th>
+          <th scope="col" class="dm-corner">{{ t().dialogs.matrix.tower }}</th>
           @for (col of columns(); track col.armor) {
             <th scope="col">{{ col.label }}</th>
           }
@@ -27,11 +27,11 @@
       </thead>
       <tbody>
         <tr class="dm-examples td-note">
-          <th scope="row">Enemies</th>
+          <th scope="row">{{ t().dialogs.matrix.enemies }}</th>
           @for (col of columns(); track col.armor) {
             <td>
               <!-- One name a line, wrapping inside its column: in one run they ran into the next (TODO E146) -->
-              <ul class="dm-enemies" [attr.aria-label]="col.label + ' enemies'">
+              <ul class="dm-enemies" [attr.aria-label]="t().dialogs.matrix.enemiesOf(col.label)">
                 @for (name of col.examples; track name) {
                   <li>{{ name }}</li>
                 }
@@ -59,14 +59,14 @@
     @if (hasLockedTowers()) {
       <p class="td-note td-inline dm-locked">
         <td-icon name="lock" [size]="12"></td-icon>
-        More towers unlock through research.
+        {{ t().dialogs.matrix.moreTowers }}
       </p>
     }
   </div>
 
   <footer class="td-dlg-foot td-actions is-split">
-    <ul class="td-legend td-inline td-note" aria-label="Tiers">
-      @for (entry of legend; track entry.effectiveness) {
+    <ul class="td-legend td-inline td-note" [attr.aria-label]="t().dialogs.matrix.tiers">
+      @for (entry of legend(); track entry.effectiveness) {
         <li>
           <span class="td-swatch" [style.--td-mark]="entry.color"></span>
           <span>{{ entry.label }}</span>
@@ -76,6 +76,6 @@
         </li>
       }
     </ul>
-    <button class="td-btn-primary" type="button" (click)="close()">Close</button>
+    <button class="td-btn-primary" type="button" (click)="close()">{{ t().common.close }}</button>
   </footer>
 </div>

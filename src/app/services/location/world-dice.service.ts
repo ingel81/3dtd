@@ -1,4 +1,5 @@
 import { Injectable, isDevMode, signal } from '@angular/core';
+import { injectT } from '../../i18n/i18n.service';
 
 /** What the player reads when the city list did not load. */
 export const WORLD_DICE_FAILED =
@@ -41,6 +42,7 @@ interface CityPoolFile {
 
 @Injectable({ providedIn: 'root' })
 export class WorldDiceService {
+  private readonly t = injectT();
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
 
@@ -72,7 +74,7 @@ export class WorldDiceService {
 
     try {
       if (this.cityPool.length === 0) {
-        this.updateDetail('Loading city list...');
+        this.updateDetail(this.t().boot.meta.cityList);
         await this.loadCityPool();
       }
 
@@ -80,7 +82,7 @@ export class WorldDiceService {
         throw new Error('No cities loaded');
       }
 
-      this.updateDetail('Rolling city...');
+      this.updateDetail(this.t().boot.meta.rolling);
       return this.playable[Math.floor(Math.random() * this.playable.length)];
     } catch (err) {
       if (err instanceof Error) {

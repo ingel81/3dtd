@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output, signal } f
 import type { DagEdge, DagOrientation } from '../../utils/dag-layout';
 import { TdIconComponent } from '../icon/icon.component';
 import { buildTechTreeView, chainToRoots, type TechTreeNode } from './tech-tree-view';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * Draws a tech tree: nodes in levels, edges between them, state per node.
@@ -27,11 +28,13 @@ import { buildTechTreeView, chainToRoots, type TechTreeNode } from './tech-tree-
   styleUrl: './tech-tree.component.scss',
 })
 export class TechTreeComponent {
+  protected readonly t = injectT();
   readonly nodes = input.required<readonly TechTreeNode[]>();
   readonly edges = input.required<readonly DagEdge[]>();
   readonly orientation = input<DagOrientation>('vertical');
   /** Label of the whole graph for screen readers, for instance "Research tree". */
-  readonly label = input<string>('Tech tree');
+  /** The tree's accessible name; null: the dictionary's "Tech tree" */
+  readonly label = input<string | null>(null);
   /** Drawn with a brighter frame: what the panel beside the tree is showing. */
   readonly selectedId = input<string | null>(null);
 
@@ -75,21 +78,22 @@ export class TechTreeComponent {
 
   /** Spoken state, so a screen reader hears more than the title. */
   protected stateLabel(node: TechTreeNode): string {
+    const w = this.t().dialogs.techTree;
     switch (node.state) {
       case 'completed':
-        return 'researched';
+        return w.completed;
       case 'active':
-        return `in progress, ${this.progressPercent(node.progress)} percent`;
+        return w.active(this.progressPercent(node.progress));
       case 'queued':
-        return node.badge ? `queued, position ${node.badge}` : 'queued';
+        return node.badge ? w.queuedAt(node.badge) : w.queued;
       case 'available':
-        return 'ready to start';
+        return w.available;
       case 'poor':
-        return 'open, not enough credits';
+        return w.poor;
       case 'pending':
-        return 'waiting on the queue';
+        return w.pending;
       case 'locked':
-        return node.hint ? `locked, ${node.hint}` : 'locked';
+        return node.hint ? w.lockedWhy(node.hint) : w.locked;
     }
   }
 }

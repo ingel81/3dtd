@@ -6,11 +6,11 @@ import { EngineInitializationService } from '../infrastructure/engine-initializa
 import { HeightUpdateService } from '../world/height-update.service';
 import { LocationManagementService } from './location-management.service';
 import { UrlLocationService } from './url-location.service';
-import { WORLD_DICE_FAILED, WorldDiceService } from './world-dice.service';
+import { WorldDiceService } from './world-dice.service';
 import { UIStore } from '../../store/ui.store';
 import { FavoriteLocation, SavedSpawn } from '../../models/location.types';
 import { coveragePlace, type PlaceChoice, type PlacedChoice } from './place-choice';
-import { isInsideCoverage, outsideCoverageText } from '../../world/world-coverage';
+import { isInsideCoverage } from '../../world/world-coverage';
 import {
   LocationChangeExecutorService,
   LocationChangeCallbacks,
@@ -22,6 +22,8 @@ import { GLOBE_LINK } from '../world/globe-link';
 import { canonicalCoords } from '../../utils/geo-utils';
 import type { NominatimAddress } from './geocoding.service';
 import { isOverpassCancelled } from '../../world/osm/overpass-client';
+import { injectT } from '../../i18n/i18n.service';
+import type { Messages } from '../../i18n/messages/en';
 
 /**
  * Delegate interface for component-specific state the coordinator needs
@@ -40,11 +42,8 @@ export interface LocationFlowDelegate {
  * (`lost`: a change to it was stopped or failed half way, Play is blocked):
  * then no place is loaded, and Retry or another place is the way on.
  */
-export function streetsFailedText(place: string, lost = false): string {
-  const why = `The streets of ${place} did not load: the map server is busy or out of reach.`;
-  return lost
-    ? `${why} The place before was already left, so no place is loaded now. Try again in a minute, or pick another place.`
-    : `${why} You stay where you are; try again in a minute.`;
+export function streetsFailedText(t: Messages, place: string, lost = false): string {
+  return t.places.streetsFailed(place, lost);
 }
 
 /**
@@ -62,6 +61,7 @@ const AREA_PLACE_NAME = 'Map center';
 
 @Injectable({ providedIn: 'root' })
 export class LocationChangeCoordinatorService {
+  private readonly t = injectT();
   private readonly engineInit = inject(EngineInitializationService);
   private readonly worldContext = inject(WorldContext);
   private readonly heightUpdate = inject(HeightUpdateService);
@@ -169,7 +169,7 @@ export class LocationChangeCoordinatorService {
    */
   private outsideCoverage(hq: { lat: number; lon: number }): boolean {
     if (isInsideCoverage(this.worldContext.coverage(), hq.lat, hq.lon)) return false;
-    this.uiStore.loadProblem.set({ text: outsideCoverageText() });
+    this.uiStore.loadProblem.set({ text: this.t().places.outsideArea });
     return true;
   }
 
@@ -189,7 +189,7 @@ export class LocationChangeCoordinatorService {
   private async rollStartCity(): Promise<PlacedChoice | null> {
     const city = await this.worldDice.rollRandomCity();
     if (!city) {
-      this.uiStore.loadProblem.set({ text: WORLD_DICE_FAILED, retry: () => void this.choosePlace({ kind: 'dice' }) });
+      this.uiStore.loadProblem.set({ text: this.t().places.diceFailed, retry: () => void this.choosePlace({ kind: 'dice' }) });
       return null;
     }
     const name = city.country ? `${city.name}, ${city.country}` : city.name;
@@ -239,7 +239,7 @@ export class LocationChangeCoordinatorService {
           // A change before this one stopped half way (its error blocks Play), or is under way and stops at
           // its next step for this choice: there is no place to stay at
           const lost = this.engineInit.error() !== null || this.locationMgmt.isApplyingLocation();
-          this.uiStore.loadProblem.set({ text: streetsFailedText(target.name, lost), retry: () => void this.moveTo(target, spawn) });
+          this.uiStore.loadProblem.set({ text: streetsFailedText(this.t(), target.name, lost), retry: () => void this.moveTo(target, spawn) });
           return;
         }
 
@@ -337,7 +337,7 @@ export class LocationChangeCoordinatorService {
       callbacks?.appendDebugLog('World Dice: Failed - ' + (reason || 'Unknown error'));
       // Hide loading overlay on error and say so: it used to close without a word
       this.engineInit.setLoading(false);
-      this.uiStore.loadProblem.set({ text: WORLD_DICE_FAILED, retry: () => void this.onWorldDice() });
+      this.uiStore.loadProblem.set({ text: this.t().places.diceFailed, retry: () => void this.onWorldDice() });
       return;
     }
 
@@ -479,17 +479,17 @@ export class LocationChangeCoordinatorService {
         // plate. The old place was reset half way, so Play stays blocked until the next one stands; the
         // error waits behind the load
         if (this.worldContext.provider() !== null) {
-          this.engineInit.setError('The place did not load: another place was chosen.');
+          this.engineInit.setError(this.t().places.otherChosen);
           // Its own flags; `loading` is the next load's
           this.engineInit.tilesLoading.set(false);
           this.engineInit.osmLoading.set(false);
           this.heightUpdate.heightsLoading.set(false);
         }
       } else {
-        const message = err instanceof Error ? err.message : 'Error changing location';
+        const message = err instanceof Error ? err.message : this.t().places.changeFailed;
         // The old place may be gone half way: the run cannot go on, the menu says so and offers the way back
         this.engineInit.setError(message);
-        this.uiStore.loadProblem.set({ text: `The place did not load: ${message}`, retry: () => void this.applyNewLocation(data) });
+        this.uiStore.loadProblem.set({ text: this.t().places.didNotLoad(message), retry: () => void this.applyNewLocation(data) });
 
         // Reset loading flags on error; without `loading` the menu's plate stood on its last step for good
         this.engineInit.setLoading(false);

@@ -3,6 +3,7 @@ import { TdIconComponent } from '../icon/icon.component';
 import { RelocationStatusService } from '../../services/world/relocation-status.service';
 import { WorldContext } from '../../world/world-context.service';
 import { overpassRetryText } from '../../world/osm/overpass-client';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * Hint over the map while the HQ moves: the step under way and, while the
@@ -21,11 +22,12 @@ import { overpassRetryText } from '../../world/osm/overpass-client';
   host: { role: 'status', class: 'td-chip-slot' },
 })
 export class RelocationStatusComponent {
+  protected readonly t = injectT();
   private readonly world = inject(WorldContext);
   private readonly shown = inject(RelocationStatusService).status;
   readonly status = computed(() => {
     const status = this.shown();
     const retry = status?.streets ? this.world.provider()?.streets.retrying?.() : null;
-    return status && retry ? { ...status, step: `${overpassRetryText(retry)}…` } : status;
+    return status && retry ? { ...status, step: `${overpassRetryText(this.t(), retry)}…` } : status;
   });
 }

@@ -24,7 +24,9 @@ import { MainMenuComponent } from './main-menu.component';
 import { MainMenuService, startMenuSkipped } from './main-menu.service';
 import { MenuHomeComponent } from './pages/home/menu-home.component';
 import { MenuLoadingComponent } from './loading/menu-loading.component';
-import { FIELD_TIPS } from './loading/field-tips';
+import { en } from '../../i18n/messages/en';
+
+const FIELD_TIPS = en.menu.tips;
 import { RovingGroupDirective } from '../roving-group.directive';
 import type { BootStep } from './loading/boot-step.model';
 import { UIStore } from '../../store/ui.store';

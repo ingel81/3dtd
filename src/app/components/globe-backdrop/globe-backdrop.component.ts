@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { GlobeDirectorService, type GlobeHud, type GlobeMark, type GlobeOverlay } from '../../services/world/globe-director.service';
+import { injectT } from '../../i18n/i18n.service';
 
 /** The room the target's dot and label take, px around its dot: other marks there step back */
 const TARGET_CLEAR_Y = 30;
@@ -35,6 +36,7 @@ const TARGET_CLEAR_RIGHT = 280;
   host: { 'aria-hidden': 'true' },
 })
 export class GlobeBackdropComponent implements GlobeOverlay {
+  protected readonly t = injectT();
   readonly director = inject(GlobeDirectorService);
   /** Coordinates read without sign, the hemisphere letter says it */
   readonly abs = Math.abs;

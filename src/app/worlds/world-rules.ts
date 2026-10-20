@@ -12,21 +12,19 @@ export type WorldId = 'real' | 'osm' | 'maps';
 /** Their fixed order on the globes: only the size of the last one played changes */
 export const WORLD_IDS: readonly WorldId[] = ['real', 'osm', 'maps'];
 
-export const WORLD_NAMES: Readonly<Record<WorldId, string>> = {
-  real: 'Real places',
-  osm: 'OpenStreetMap',
-  maps: 'Built Worlds',
-};
+/** Why a whole world is locked; the words are the dictionary's (worlds.lock) */
+export type WorldLock = 'noKey' | 'soon';
 
 /**
  * Why a whole world is locked, or null. A locked globe is grey and stays
  * clickable: its menu shows the list, Start is locked with this reason.
  * Why a single way is blocked is world/why-not.ts, one list of reasons for
- * the path, the game's menus and the globes.
+ * the path, the game's menus and the globes. The world names are the
+ * dictionary's (worlds.names).
  */
-export function worldLock(world: WorldId, state: { hasKey: boolean; mapsOpen: boolean }): string | null {
-  if (world === 'real') return state.hasKey ? null : 'No map key';
-  return state.mapsOpen ? null : 'Coming soon';
+export function worldLock(world: WorldId, state: { hasKey: boolean; mapsOpen: boolean }): WorldLock | null {
+  if (world === 'real') return state.hasKey ? null : 'noKey';
+  return state.mapsOpen ? null : 'soon';
 }
 
 /** What a world menu has chosen: a place of the real places, an own tileset there, or a map */

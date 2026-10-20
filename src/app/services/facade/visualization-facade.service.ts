@@ -581,7 +581,7 @@ export class VisualizationFacadeService {
 
     // Initialize GlobalRouteGrid
     void this.engineInit.setStepCurrent('grid');
-    this.engineInit.updateStepMeta('grid', 'Calculating grid...');
+    this.engineInit.updateStepMeta('grid', this.t().boot.meta.grid);
     this.world.buildCells(true);
     void this.engineInit.setStepDone('grid');
 

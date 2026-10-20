@@ -11,15 +11,9 @@ import { formatVisitAge, isSamePlace } from '../services/location/recent-locatio
 import { WorldChoiceService } from '../world/world-choice.service';
 import type { WorldPick } from './world-rules';
 import { WorldsStageService, type RealList } from './worlds-stage.service';
+import { injectT } from '../i18n/i18n.service';
 
-const LISTS: readonly { id: RealList; label: string }[] = [
-  { id: 'recent', label: 'Recent' },
-  { id: 'favorites', label: 'Favorites' },
-  { id: 'showcase', label: 'Showcase' },
-  { id: 'search', label: 'Search' },
-  { id: 'records', label: 'World map' },
-  { id: 'tilesets', label: 'Tilesets' },
-];
+const LISTS: readonly RealList[] = ['recent', 'favorites', 'showcase', 'search', 'records', 'tilesets'];
 
 /**
  * The real places' menu (docs/WORLDS_NAVIGATION_PLAN.md, 3.1): the lists of
@@ -36,29 +30,30 @@ const LISTS: readonly { id: RealList; label: string }[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './world-menu.scss',
   template: `
+    @let w = t().worlds;
     <div class="wm-body">
       @if (noKey()) {
         <div class="td-banner is-warn td-stack">
-          <p>No map key: the 3D tiles need a Cesium Ion token or a Google Maps key. You can still look around and pick a place.</p>
+          <p>{{ w.noKeyBanner }}</p>
           <div class="td-actions is-start">
-            <button type="button" class="td-btn-secondary td-btn-sm" (click)="stage.openOverlay('key')">Enter map key</button>
+            <button type="button" class="td-btn-secondary td-btn-sm" (click)="stage.openOverlay('key')">{{ w.enterKey }}</button>
             <button type="button" class="td-btn-secondary td-btn-sm" [attr.aria-disabled]="stage.lock('osm') ? true : null"
-                    [attr.title]="stage.lock('osm')" (click)="toOsm()">Make an OpenStreetMap map instead</button>
+                    [attr.title]="stage.lock('osm')" (click)="toOsm()">{{ w.osmInstead }}</button>
           </div>
         </div>
       }
       <app-stage-continue world="real" />
 
-      <div class="td-seg is-sm wm-tabs" role="tablist" aria-label="Places" tdRovingGroup>
-        @for (list of lists; track list.id) {
-          <button type="button" role="tab" [attr.aria-selected]="stage.realList() === list.id" (click)="stage.realList.set(list.id)">{{ list.label }}</button>
+      <div class="td-seg is-sm wm-tabs" role="tablist" [attr.aria-label]="w.places" tdRovingGroup>
+        @for (list of lists; track list) {
+          <button type="button" role="tab" [attr.aria-selected]="stage.realList() === list" (click)="stage.realList.set(list)">{{ w.realLists[list] }}</button>
         }
       </div>
 
       @switch (stage.realList()) {
         @case ('recent') {
           @if (locations.recents().length) {
-            <div class="td-rows" role="group" aria-label="Recent places">
+            <div class="td-rows" role="group" [attr.aria-label]="w.recentPlaces">
               @for (recent of locations.recents(); track recent.visitedAt) {
                 <div class="wm-line">
                   <button type="button" class="td-row wm-row" (dblclick)="stage.start('real')" [class.is-selected]="isPicked(recent.hq)"
@@ -66,40 +61,40 @@ const LISTS: readonly { id: RealList; label: string }[] = [
                     <span class="td-name">{{ recent.name }}</span>
                     <span class="td-note td-num wm-meta">{{ age(recent.visitedAt) }}</span>
                   </button>
-                  <button type="button" class="td-tool" data-recent-remove [attr.aria-label]="'Remove ' + recent.name + ' from Recent'"
-                          title="Remove from Recent" (click)="locations.forgetRecent(recent.hq)">
+                  <button type="button" class="td-tool" data-recent-remove [attr.aria-label]="w.removeRecent(recent.name)"
+                          [attr.title]="w.removeFromRecent" (click)="locations.forgetRecent(recent.hq)">
                     <td-icon name="close" [size]="12" />
                   </button>
                 </div>
               }
             </div>
           } @else {
-            <p class="td-note">Every place you play shows up here, once its first wave or tower is in.</p>
+            <p class="td-note">{{ w.recentEmpty }}</p>
           }
         }
         @case ('favorites') {
           @if (locations.favorites().length) {
-            <div class="td-rows" role="group" aria-label="Favorites">
+            <div class="td-rows" role="group" [attr.aria-label]="w.realLists.favorites">
               @for (fav of locations.favorites(); track fav.id) {
                 <button type="button" class="td-row wm-row" (dblclick)="stage.start('real')" [class.is-selected]="isPicked(fav.hq)"
                         (click)="pickPlace(fav.hq, fav.spawns, fav.name ?? coordinates(fav.hq))">
                   <span class="td-name">{{ fav.name ?? coordinates(fav.hq) }}</span>
-                  <span class="td-note td-num wm-meta">{{ fav.spawns.length }} {{ fav.spawns.length === 1 ? 'spawn' : 'spawns' }}</span>
+                  <span class="td-note td-num wm-meta">{{ w.spawns(fav.spawns.length) }}</span>
                 </button>
               }
             </div>
           } @else {
-            <p class="td-note">No favorites yet. The star in the game's header keeps the place you play.</p>
+            <p class="td-note">{{ w.favoritesEmpty }}</p>
           }
         }
         @case ('showcase') {
-          <div class="td-rows" role="group" aria-label="Showcase">
+          <div class="td-rows" role="group" [attr.aria-label]="w.realLists.showcase">
             @for (place of showcase; track place.id) {
               <button type="button" class="td-row wm-row" (dblclick)="stage.start('real')" [class.is-selected]="isPicked(place)"
                       (click)="pickPlace(place, place.spawn ? [place.spawn] : [], place.name)">
                 <span class="wm-row-name">
-                  <span class="td-name">{{ place.name }}</span>
-                  <small class="td-note">{{ place.hint }}</small>
+                  <span class="td-name">{{ t().showcase[place.id].name }}</span>
+                  <small class="td-note">{{ t().showcase[place.id].hint }}</small>
                 </span>
               </button>
             }
@@ -107,33 +102,33 @@ const LISTS: readonly { id: RealList; label: string }[] = [
         }
         @case ('search') {
           <div class="wm-search">
-            <app-td-address-autocomplete [placeholder]="'City, street or address'" [currentValue]="null"
+            <app-td-address-autocomplete [placeholder]="w.searchPlaceholder" [currentValue]="null"
                                          (locationSelected)="pickPlace($event, [], $event.name)" />
             <button type="button" class="td-icon-btn" [attr.aria-busy]="stage.rolling() ? true : null"
-                    title="Roll a random city" aria-label="Roll a random city" (click)="stage.rollDice()">
+                    [attr.title]="w.rollCity" [attr.aria-label]="w.rollCity" (click)="stage.rollDice()">
               <td-icon name="dice" [size]="16" />
             </button>
           </div>
-          <p class="td-note">The dice picks a city with 3D tiles. The globe turns there; Start loads it.</p>
+          <p class="td-note">{{ w.diceNote }}</p>
         }
         @case ('records') {
           @if (records().length) {
-            <div class="td-rows" role="group" aria-label="Defended places">
+            <div class="td-rows" role="group" [attr.aria-label]="w.defendedPlaces">
               @for (record of records(); track record) {
                 <button type="button" class="td-row wm-row" (dblclick)="stage.start('real')" [class.is-selected]="isPicked(record.hq)"
                         (click)="pickPlace(record.hq, record.spawns.slice(0, 1), record.detail)">
                   <span class="td-name">{{ record.name }}</span>
-                  <span class="td-note td-num wm-meta">wave {{ record.bestWave }}</span>
+                  <span class="td-note td-num wm-meta">{{ w.wave(record.bestWave) }}</span>
                 </button>
               }
             </div>
           } @else {
-            <p class="td-note">Every place you defend shows up here with the best wave you reached.</p>
+            <p class="td-note">{{ w.recordsEmpty }}</p>
           }
         }
         @case ('tilesets') {
           @if (worlds.tilesets().length) {
-            <div class="td-rows" role="group" aria-label="Own tilesets">
+            <div class="td-rows" role="group" [attr.aria-label]="w.ownTilesets">
               @for (set of worlds.tilesets(); track set.id) {
                 <button type="button" class="td-row wm-row" (dblclick)="stage.start('real')" [class.is-selected]="pick()?.kind === 'tileset' && pick()?.name === set.name"
                         (click)="stage.pick('real', { kind: 'tileset', id: set.id, name: set.name })">
@@ -142,7 +137,7 @@ const LISTS: readonly { id: RealList; label: string }[] = [
               }
             </div>
           } @else {
-            <p class="td-note">An own 3D tileset (a tileset.json) plays like a real place. The config lists them (ownTilesets).</p>
+            <p class="td-note">{{ w.tilesetsEmpty }}</p>
           }
         }
       }
@@ -158,26 +153,27 @@ const LISTS: readonly { id: RealList; label: string }[] = [
           </button>
           @if (pick.kind === 'place') {
             <button type="button" class="td-btn-secondary" [attr.aria-disabled]="stage.whyNot('edit', 'osm') ? true : null"
-                    [attr.title]="stage.whyNot('edit', 'osm')" (click)="stage.edit('real')">Make a map of this place</button>
+                    [attr.title]="stage.whyNot('edit', 'osm')" (click)="stage.edit('real')">{{ w.mapOfPlace }}</button>
           }
         </div>
         @if (playWhy(); as why) {
           <p class="td-note is-warn">{{ why }}.
             @if (noKey()) {
-              <button type="button" class="td-link" (click)="stage.openOverlay('key')">Enter map key</button>
+              <button type="button" class="td-link" (click)="stage.openOverlay('key')">{{ w.enterKey }}</button>
             }
           </p>
         } @else if (stage.notice(); as notice) {
           <p class="td-note is-warn" role="status">{{ notice }}</p>
         }
       } @else {
-        <p class="td-note">Pick a place: the globe turns there. Start loads it.</p>
+        <p class="td-note">{{ w.pickPlace }}</p>
       }
     </div>
   `,
 })
 export class WorldRealComponent {
   readonly stage = inject(WorldsStageService);
+  protected readonly t = injectT();
   readonly locations = inject(LocationManagementService);
   readonly worlds = inject(WorldChoiceService);
   private readonly bestWaves = inject(BestWaveService);
@@ -189,14 +185,15 @@ export class WorldRealComponent {
   readonly noKey = computed(() => this.stage.lock('real') !== null);
   readonly playWhy = computed(() => this.stage.whyNot('play', 'real'));
   /** Start's word: Continue of a run, Back to the place held, else Start */
-  readonly playWord = computed(() => this.stage.playWord('real', this.pick(), 'Start'));
+  readonly playWord = computed(() => this.stage.playWord('real', this.pick(), this.t().worlds.start));
   private readonly openedAt = Date.now();
 
   readonly spawnLine = computed(() => {
     const pick = this.pick();
-    if (pick?.kind === 'tileset') return 'An own 3D tileset: the HQ starts in the middle of its area.';
-    if (pick?.kind !== 'place' || pick.spawns.length === 0) return 'A random spawn 500 to 1000 m from the HQ.';
-    return pick.spawns.length === 1 ? 'Its spawn as played.' : `Its ${pick.spawns.length} spawns.`;
+    const w = this.t().worlds;
+    if (pick?.kind === 'tileset') return w.tilesetSpawn;
+    if (pick?.kind !== 'place' || pick.spawns.length === 0) return w.randomSpawn;
+    return pick.spawns.length === 1 ? w.oneSpawn : w.manySpawns(pick.spawns.length);
   });
 
   constructor() {
@@ -220,7 +217,7 @@ export class WorldRealComponent {
   }
 
   age(visitedAt: number): string {
-    return formatVisitAge(visitedAt, this.openedAt);
+    return formatVisitAge(this.t(), visitedAt, this.openedAt);
   }
 
   coordinates(hq: { lat: number; lon: number }): string {

@@ -13,6 +13,7 @@ import { worldNotHere } from '../../world/world-ref';
 import { coordKey } from '../../utils/geo-utils';
 import type { GeoPosition, RouteWaypoint } from '../../models/game.types';
 import type { SpawnPoint } from '../../managers/wave.manager';
+import { injectT } from '../../i18n/i18n.service';
 
 /** Longest wait for the load of a place before giving up on it, ms */
 export const WORLD_LOAD_TIMEOUT_MS = 120_000;
@@ -31,6 +32,7 @@ function samePlace(a: GeoPosition, b: GeoPosition): boolean {
  */
 @Injectable({ providedIn: 'root' })
 export class WorldPackageLoader {
+  private readonly t = injectT();
   private readonly config = inject(ConfigService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly locationMgmt = inject(LocationManagementService);
@@ -49,7 +51,7 @@ export class WorldPackageLoader {
    * of a refusal (docs/WORLD_PROVIDER_PLAN.md).
    */
   worldHere(world: Pick<WorldPackage, 'world' | 'origin'>): string | null {
-    return worldNotHere(packageWorldRef(world, this.config.tileProvider()), this.worldContext.ref());
+    return worldNotHere(this.t(), packageWorldRef(world, this.config.tileProvider()), this.worldContext.ref());
   }
 
   /**

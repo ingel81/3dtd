@@ -19,12 +19,4 @@ export interface MainMenuState {
   page: MenuPage;
 }
 
-/** A page's title: its heading, and the dialog's name while it shows */
-export const MENU_PAGE_TITLES: Readonly<Record<MenuPage, string>> = {
-  home: 'Menu',
-  'new-game': 'New game',
-  coop: 'Coop',
-  saves: 'Saves',
-  settings: 'Settings',
-  extras: 'Extras',
-};
+

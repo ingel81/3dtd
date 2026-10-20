@@ -1,49 +1,49 @@
 <!-- One tab per section (TODO E138): the page held them all and ran long -->
-<div class="td-seg set-tabs" role="tablist" aria-label="Settings" tdRovingGroup>
-  @for (t of tabs(); track t.id) {
-    <button type="button" role="tab" [id]="'td-set-tab-' + t.id" aria-controls="td-set-panel"
-            [attr.aria-selected]="tab() === t.id" (click)="selectTab(t.id)">{{ t.label }}</button>
+<div class="td-seg set-tabs" role="tablist" [attr.aria-label]="t().settings.tabsLabel" tdRovingGroup>
+  @for (id of tabs; track id) {
+    <button type="button" role="tab" [id]="'td-set-tab-' + id" aria-controls="td-set-panel"
+            [attr.aria-selected]="tab() === id" (click)="selectTab(id)">{{ t().settings.tabs[id] }}</button>
   }
 </div>
 
 <section class="td-group" role="tabpanel" id="td-set-panel" [attr.aria-labelledby]="'td-set-tab-' + tab()">
   @switch (tab()) {
     @case ('audio') {
-      @for (row of volumes; track row.label) {
+      @for (row of volumes; track row.id) {
         <div class="set-volume td-setting">
-          <span>{{ row.label }}</span>
+          <span>{{ t().settings.volumes[row.id] }}</span>
           <input type="range" class="td-slider" min="0" max="100" step="1"
-                 [attr.aria-label]="row.label + ' volume'"
+                 [attr.aria-label]="t().settings.volumeOf(t().settings.volumes[row.id])"
                  [value]="row.level() * 100" (input)="onVolume(row, $event)">
-          <span class="mp-meta set-volume-value td-figure">{{ row.muted() ? 'off' : percent(row.level()) }}</span>
+          <span class="mp-meta set-volume-value td-figure">{{ row.muted() ? t().settings.volumeOff : percent(row.level()) }}</span>
           <button class="td-icon-btn is-sm" type="button" (click)="row.toggleMute()" [attr.aria-pressed]="row.muted()"
-                  [attr.aria-label]="'Mute ' + row.label.toLowerCase()">
+                  [attr.aria-label]="t().settings.muteOf(t().settings.volumes[row.id])">
             <td-icon [name]="row.muted() ? 'audioOff' : row.icon" [size]="14"></td-icon>
           </button>
         </div>
       }
-      <p class="td-note">M mutes everything in the game.</p>
+      <p class="td-note">{{ t().settings.muteKey }}</p>
     }
     @case ('graphics') {
-      <h3 class="td-section">Picture quality</h3>
-      <div class="td-seg" role="radiogroup" aria-label="Picture quality" tdRovingGroup data-test="quality-levels">
-        @for (option of qualityOptions; track option.id) {
-          <button type="button" role="radio" [attr.aria-checked]="quality.setting() === option.id"
-                  [attr.aria-disabled]="quality.fromUrl || null" [matTooltip]="option.hint" (click)="setQuality(option.id)">{{ option.label }}</button>
+      <h3 class="td-section">{{ t().settings.qualityTitle }}</h3>
+      <div class="td-seg" role="radiogroup" [attr.aria-label]="t().settings.qualityTitle" tdRovingGroup data-test="quality-levels">
+        @for (id of qualityOptions; track id) {
+          <button type="button" role="radio" [attr.aria-checked]="quality.setting() === id"
+                  [attr.aria-disabled]="quality.fromUrl || null" [matTooltip]="t().settings.quality[id].hint" (click)="setQuality(id)">{{ t().settings.quality[id].label }}</button>
         }
       </div>
       <p class="td-note" data-test="quality-resolved">{{ qualityResolved() }}</p>
       <p class="td-note td-muted">{{ qualityNote() }}</p>
 
-      <h3 class="td-section set-world" data-test="quality-tiles">Real places
-        <span class="td-muted">| {{ tilesState().level }}{{ tilesState().mixed ? ', own mix' : '' }}</span>
+      <h3 class="td-section set-world" data-test="quality-tiles">{{ t().settings.realPlaces }}
+        <span class="td-muted">{{ t().settings.headLevel(tilesState().level, tilesState().mixed) }}</span>
         @if (tilesState().mixed) {
-          <button class="td-link" type="button" (click)="resetWorld('tiles')">Back to {{ tilesState().level }}</button>
+          <button class="td-link" type="button" (click)="resetWorld('tiles')">{{ t().settings.backTo(tilesState().level) }}</button>
         }
       </h3>
-      <p class="td-note">{{ tilesState().picture }}. Shadows and map effects exist on custom maps only.</p>
+      <p class="td-note">{{ t().settings.tilesOnly(tilesState().picture) }}</p>
       <!-- A part of a world set on top of the level, as a row of levels (E156) -->
-      @for (row of tileSteps; track row.id) {
+      @for (row of tileSteps(); track row.id) {
         <div class="td-setting" [matTooltip]="row.hint" matTooltipPosition="left">
           <span [id]="'td-set-' + row.id">{{ row.label }}</span>
           <div class="td-seg is-compact" role="radiogroup" [attr.aria-labelledby]="'td-set-' + row.id" tdRovingGroup>
@@ -55,14 +55,14 @@
         </div>
       }
 
-      <h3 class="td-section set-world" data-test="quality-custom-maps">Custom maps
-        <span class="td-muted">| {{ mapsState().level }}{{ mapsState().mixed ? ', own mix' : '' }}</span>
+      <h3 class="td-section set-world" data-test="quality-custom-maps">{{ t().settings.customMaps }}
+        <span class="td-muted">{{ t().settings.headLevel(mapsState().level, mapsState().mixed) }}</span>
         @if (mapsState().mixed) {
-          <button class="td-link" type="button" (click)="resetWorld('custom-map')">Back to {{ mapsState().level }}</button>
+          <button class="td-link" type="button" (click)="resetWorld('custom-map')">{{ t().settings.backTo(mapsState().level) }}</button>
         }
       </h3>
       <p class="td-note">{{ mapsState().picture }}</p>
-      @for (row of mapSteps; track row.id) {
+      @for (row of mapSteps(); track row.id) {
         <div class="td-setting" [matTooltip]="row.hint" matTooltipPosition="left">
           <span [id]="'td-set-' + row.id">{{ row.label }}</span>
           <div class="td-seg is-compact" role="radiogroup" [attr.aria-labelledby]="'td-set-' + row.id" tdRovingGroup>
@@ -74,82 +74,82 @@
         </div>
       }
       <div class="set-switches">
-        @for (row of mapSwitches; track row.id) {
-          <label class="td-setting" [matTooltip]="row.hint" matTooltipPosition="left">
-            <span>{{ row.label }}</span>
-            <input class="td-switch" type="checkbox" [checked]="switchOn(row.id)" (change)="toggleMapSwitch(row.id)">
+        @for (id of mapSwitches; track id) {
+          <label class="td-setting" [matTooltip]="t().settings.mapSwitches[id].hint" matTooltipPosition="left">
+            <span>{{ t().settings.mapSwitches[id].label }}</span>
+            <input class="td-switch" type="checkbox" [checked]="switchOn(id)" (change)="toggleMapSwitch(id)">
           </label>
         }
       </div>
-      <div class="td-setting" matTooltip="The map keeps its own wind; this only calms how far plants follow it" matTooltipPosition="left">
-        <span id="td-set-plants">Plant motion</span>
+      <div class="td-setting" [matTooltip]="t().settings.plantMotion.tip" matTooltipPosition="left">
+        <span id="td-set-plants">{{ t().settings.plantMotion.label }}</span>
         <div class="td-seg is-compact" role="radiogroup" aria-labelledby="td-set-plants" tdRovingGroup>
-          @for (option of plantMotions; track option.id) {
-            <button type="button" role="radio" [attr.aria-checked]="quality.plantMotion() === option.id"
-                    [matTooltip]="option.hint" (click)="quality.setPlantMotion(option.id)">{{ option.label }}</button>
+          @for (id of plantMotions; track id) {
+            <button type="button" role="radio" [attr.aria-checked]="quality.plantMotion() === id"
+                    [matTooltip]="t().settings.plantMotion[id].hint" (click)="quality.setPlantMotion(id)">{{ t().settings.plantMotion[id].label }}</button>
           }
         </div>
       </div>
-      <div class="td-setting" matTooltip="For players sensitive to flashing light: a storm's lightning dimmer and without flicker" matTooltipPosition="left">
-        <span id="td-set-lightning">Lightning flashes</span>
+      <div class="td-setting" [matTooltip]="t().settings.lightning.tip" matTooltipPosition="left">
+        <span id="td-set-lightning">{{ t().settings.lightning.label }}</span>
         <div class="td-seg is-compact" role="radiogroup" aria-labelledby="td-set-lightning" tdRovingGroup>
-          @for (option of lightningFlashes; track option.id) {
-            <button type="button" role="radio" [attr.aria-checked]="quality.lightningFlash() === option.id"
-                    [matTooltip]="option.hint" (click)="quality.setLightningFlash(option.id)">{{ option.label }}</button>
+          @for (id of lightningFlashes; track id) {
+            <button type="button" role="radio" [attr.aria-checked]="quality.lightningFlash() === id"
+                    [matTooltip]="t().settings.lightning[id].hint" (click)="quality.setLightningFlash(id)">{{ t().settings.lightning[id].label }}</button>
           }
         </div>
       </div>
       <p class="td-note">{{ mapFixed() }}</p>
 
-      <h3 class="td-section">Everywhere</h3>
+      <h3 class="td-section">{{ t().settings.everywhere }}</h3>
       <div class="td-setting">
-        <span id="td-set-effects">Effects</span>
+        <span id="td-set-effects">{{ t().settings.effects }}</span>
         <div class="td-seg is-compact" role="radiogroup" aria-labelledby="td-set-effects" tdRovingGroup>
-          @for (preset of presets; track preset.id) {
-            <button type="button" role="radio" [attr.aria-checked]="activePreset() === preset.id"
-                    [matTooltip]="preset.hint" (click)="setPreset(preset.id)">{{ preset.label }}</button>
+          @for (id of presets; track id) {
+            <button type="button" role="radio" [attr.aria-checked]="activePreset() === id"
+                    [matTooltip]="t().settings.effectPresets[id].hint" (click)="setPreset(id)">{{ t().settings.effectPresets[id].label }}</button>
           }
         </div>
       </div>
       @if (!activePreset()) {
-        <p class="td-note">Your own mix of the switches below.</p>
+        <p class="td-note">{{ t().settings.ownSwitchMix }}</p>
       }
       <div class="set-switches">
-        @for (row of switches; track row.label) {
-          <label class="td-setting" [matTooltip]="row.hint" matTooltipPosition="left">
-            <span>{{ row.label }}</span>
+        @for (row of switches; track row.id) {
+          <label class="td-setting" [matTooltip]="t().settings.switches[row.id].hint" matTooltipPosition="left">
+            <span>{{ t().settings.switches[row.id].label }}</span>
             <input class="td-switch" type="checkbox" [checked]="row.on()" (change)="row.toggle()">
           </label>
         }
       </div>
       <label class="td-setting">
-        <span>Color grading</span>
+        <span>{{ t().settings.colorGrading }}</span>
         <select class="td-select set-select is-auto" (change)="setColorGrading($event)">
           @for (preset of colorGradings; track preset.id) {
-            <option [value]="preset.id" [selected]="colorGrading() === preset.id">{{ preset.label }}</option>
+            <option [value]="preset.id" [selected]="colorGrading() === preset.id">{{ t().settings.colorGradings[preset.id] }}</option>
           }
         </select>
       </label>
       <div class="td-setting">
-        <span id="td-set-fps">Frame limit</span>
+        <span id="td-set-fps">{{ t().settings.frameLimit }}</span>
         <div class="td-seg is-compact" role="radiogroup" aria-labelledby="td-set-fps" tdRovingGroup>
           @for (fps of fpsLimits; track fps) {
-            <button type="button" role="radio" [attr.aria-checked]="fpsLimit() === fps" (click)="setFpsLimit(fps)">{{ fps === 0 ? 'Off' : fps }}</button>
+            <button type="button" role="radio" [attr.aria-checked]="fpsLimit() === fps" (click)="setFpsLimit(fps)">{{ fps === 0 ? t().settings.off : fps }}</button>
           }
         </div>
       </div>
-      <div class="td-setting" matTooltip="The earth behind the menu while a place loads, and the flight into it. Low: smaller textures; Off: a dark background." matTooltipPosition="left">
-        <span id="td-set-globe">Menu globe</span>
+      <div class="td-setting" [matTooltip]="t().settings.menuGlobe.tip" matTooltipPosition="left">
+        <span id="td-set-globe">{{ t().settings.menuGlobe.label }}</span>
         <div class="td-seg is-compact" role="radiogroup" aria-labelledby="td-set-globe" tdRovingGroup>
-          @for (option of globeOptions; track option.id) {
-            <button type="button" role="radio" [attr.aria-checked]="globe.setting() === option.id" (click)="globe.setSetting(option.id)">{{ option.label }}</button>
+          @for (id of globeOptions; track id) {
+            <button type="button" role="radio" [attr.aria-checked]="globe.setting() === id" (click)="globe.setSetting(id)">{{ t().settings.menuGlobe[id] }}</button>
           }
         </div>
       </div>
       <div class="td-setting">
-        <span>Fullscreen <kbd class="td-kbd">F11</kbd></span>
+        <span>{{ t().settings.fullscreen }} <kbd class="td-kbd">F11</kbd></span>
         <button class="td-btn-secondary td-btn-sm" type="button" (click)="toggleFullscreen()">
-          {{ fullscreen() ? 'Leave fullscreen' : 'Go fullscreen' }}
+          {{ fullscreen() ? t().settings.leaveFullscreen : t().settings.goFullscreen }}
         </button>
       </div>
     }
@@ -163,7 +163,7 @@
         </select>
       </label>
       <div class="td-setting">
-        <span id="td-set-speed">Game speed</span>
+        <span id="td-set-speed">{{ t().settings.gameSpeed }}</span>
         <div class="td-seg is-compact" role="radiogroup" aria-labelledby="td-set-speed" tdRovingGroup>
           @for (s of speeds; track s) {
             <button type="button" role="radio" [attr.aria-checked]="speed() === s"
@@ -171,34 +171,34 @@
           }
         </div>
       </div>
-      <p class="td-note">{{ speedLocked() ? 'The host sets the speed.' : '+ and - change it in the game.' }}</p>
+      <p class="td-note">{{ speedLocked() ? t().settings.hostSetsSpeed : t().settings.speedKeys }}</p>
       <label class="td-setting">
-        <span>Start the next wave on its own</span>
+        <span>{{ t().settings.autoStart }}</span>
         <input class="td-switch" type="checkbox" [checked]="ui.autoStartWaves()" (change)="toggleAutoStart()">
       </label>
     }
     @case ('map') {
       <div class="td-setting">
-        <span>Map key <span class="mp-meta td-muted">{{ provider() }}</span></span>
-        <button class="td-btn-secondary td-btn-sm" type="button" (click)="changeKey()">Change key</button>
+        <span>{{ t().settings.mapKey }} <span class="mp-meta td-muted">{{ provider() }}</span></span>
+        <button class="td-btn-secondary td-btn-sm" type="button" (click)="changeKey()">{{ t().settings.changeKey }}</button>
       </div>
     }
     @case ('coop') {
       @if (coop; as c) {
         <label class="td-setting">
-          <span>Your name</span>
+          <span>{{ t().settings.yourName }}</span>
           <input class="td-input set-name" type="text" maxlength="32" [value]="playerName()"
                  (input)="setPlayerName($any($event.target).value)">
         </label>
         @if (c.lobbies().length) {
-          <ul class="td-rows" aria-label="Online lobbies">
+          <ul class="td-rows" [attr.aria-label]="t().settings.lobbies">
             @for (lobby of c.lobbies(); track lobby.url) {
               <li class="td-row">
                 <span class="mp-name">{{ lobby.name }}</span>
                 <span class="mp-meta set-lobby-url td-muted td-trunc">{{ lobby.url }}</span>
                 @if (!lobby.builtIn) {
                   <button class="td-tool" type="button" (click)="removeLobby(lobby.url)"
-                          [attr.aria-label]="'Remove ' + lobby.name" matTooltip="Remove">
+                          [attr.aria-label]="t().settings.removeLobby(lobby.name)" [matTooltip]="t().settings.remove">
                     <td-icon name="trash" [size]="16"></td-icon>
                   </button>
                 }
@@ -207,11 +207,11 @@
           </ul>
         }
         <div class="set-lobby-add">
-          <input class="td-input" type="text" maxlength="40" placeholder="Name" aria-label="Lobby name"
+          <input class="td-input" type="text" maxlength="40" [placeholder]="t().settings.lobbyNamePlaceholder" [attr.aria-label]="t().settings.lobbyName"
                  [value]="newLobbyName()" (input)="newLobbyName.set($any($event.target).value)">
-          <input class="td-input" type="text" placeholder="wss://…" aria-label="Lobby address"
+          <input class="td-input" type="text" placeholder="wss://…" [attr.aria-label]="t().settings.lobbyAddress"
                  [value]="newLobbyUrl()" (input)="newLobbyUrl.set($any($event.target).value)" (keydown.enter)="addLobby()">
-          <button class="td-btn-secondary" type="button" (click)="addLobby()" [disabled]="!newLobbyUrl().trim()">Add lobby</button>
+          <button class="td-btn-secondary" type="button" (click)="addLobby()" [disabled]="!newLobbyUrl().trim()">{{ t().settings.addLobby }}</button>
         </div>
         @if (lobbyNote(); as note) {
           <p class="td-note" [class.is-ok]="note.ok" [class.is-error]="!note.ok" role="status">{{ note.text }}</p>
@@ -220,19 +220,19 @@
     }
     @case ('privacy') {
       <label class="td-setting">
-        <span>After a coop game, send its log to the coop server, to find errors and improve the game (kept 90 days)</span>
+        <span>{{ t().settings.uploadRuns }}</span>
         <input class="td-switch" type="checkbox" [checked]="uploadRuns()" (change)="setUploadRuns($any($event.target).checked)">
       </label>
       @if (agent) {
         <label class="td-setting">
-          <span>Allow AI agents to edit maps</span>
+          <span>{{ t().settings.agentAllow }}</span>
           <input class="td-switch" type="checkbox" [checked]="agentStatus().enabled" (change)="setAgentEnabled($any($event.target).checked)">
         </label>
-        <p class="td-note">An AI agent on this computer (an MCP client such as Claude Code) builds and changes the map open in the map editor while you watch; each change is one undo step. It may read and copy your other maps, never change them. Any program on this computer can connect while this is on.</p>
+        <p class="td-note">{{ t().settings.agentAbout }}</p>
         @if (agentStatus().url; as url) {
           <div class="td-setting">
             <span class="set-agent-url td-trunc" data-test="agent-url">{{ url }}</span>
-            <button class="td-btn-secondary td-btn-sm" type="button" (click)="copyAgentUrl(url)">{{ agentCopied() ? 'Copied' : 'Copy address' }}</button>
+            <button class="td-btn-secondary td-btn-sm" type="button" (click)="copyAgentUrl(url)">{{ agentCopied() ? t().settings.copied : t().settings.copyAddress }}</button>
           </div>
           <p class="td-note">Claude Code: <code>claude mcp add --transport http 3dtd {{ url }}</code></p>
         }

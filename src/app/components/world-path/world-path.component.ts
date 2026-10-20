@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { injectT } from '../../i18n/i18n.service';
 
 /** A chip beside the path: a run that waits, the editor's map; a click goes there */
 export interface PathChip {
@@ -28,12 +29,12 @@ export type PathAction = 'worlds' | 'world' | 'play' | 'edit' | { chip: string }
   imports: [MatTooltipModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <nav class="wp-path" aria-label="Where you are">
-      <button class="td-crumb" type="button" (click)="go.emit('worlds')" [matTooltip]="worldsHint()"
-              [attr.aria-current]="world() === null ? 'page' : null" data-test="path-worlds">Worlds</button>
+    <nav class="wp-path" [attr.aria-label]="t().worlds.path.whereYouAre">
+      <button class="td-crumb" type="button" (click)="go.emit('worlds')" [matTooltip]="worldsHint() ?? t().worlds.path.worldsHint"
+              [attr.aria-current]="world() === null ? 'page' : null" data-test="path-worlds">{{ t().worlds.path.worlds }}</button>
       @if (world(); as name) {
         <span class="wp-sep" aria-hidden="true">›</span>
-        <button class="td-crumb" type="button" (click)="go.emit('world')" [matTooltip]="worldHint()"
+        <button class="td-crumb" type="button" (click)="go.emit('world')" [matTooltip]="worldHint() ?? t().worlds.path.worldHint"
                 [attr.aria-current]="worldHere() ? 'page' : null" data-test="path-world">{{ name }}</button>
         @if (!worldHere()) {
           <span class="wp-sep" aria-hidden="true">›</span>
@@ -42,11 +43,11 @@ export type PathAction = 'worlds' | 'world' | 'play' | 'edit' | { chip: string }
     </nav>
     <ng-content />
     @if (modes()) {
-      <div class="td-seg is-compact is-sm wp-mode" role="group" aria-label="Play or edit">
+      <div class="td-seg is-compact is-sm wp-mode" role="group" [attr.aria-label]="t().worlds.path.playOrEdit">
         <button type="button" [attr.aria-pressed]="mode() === 'play'" [attr.aria-disabled]="playWhy() !== null || null"
-                [matTooltip]="playWhy() ?? playHint()" (click)="mode() !== 'play' && playWhy() === null && go.emit('play')" data-test="path-play">{{ playLabel() }}</button>
+                [matTooltip]="playWhy() ?? playHint() ?? t().worlds.path.play" (click)="mode() !== 'play' && playWhy() === null && go.emit('play')" data-test="path-play">{{ playLabel() ?? t().worlds.path.play }}</button>
         <button type="button" [attr.aria-pressed]="mode() === 'edit'" [attr.aria-disabled]="editWhy() !== null || null"
-                [matTooltip]="editWhy() ?? editHint()" (click)="mode() !== 'edit' && editWhy() === null && go.emit('edit')" data-test="path-edit">{{ editLabel() }}</button>
+                [matTooltip]="editWhy() ?? editHint() ?? t().worlds.path.editHint" (click)="mode() !== 'edit' && editWhy() === null && go.emit('edit')" data-test="path-edit">{{ editLabel() ?? t().worlds.path.edit }}</button>
       </div>
     }
     @for (chip of chips(); track chip.id) {
@@ -62,6 +63,7 @@ export type PathAction = 'worlds' | 'world' | 'play' | 'edit' | { chip: string }
   `],
 })
 export class WorldPathComponent {
+  protected readonly t = injectT();
   /** The world the window shows or edits: "Real places", "Built Worlds", "Dev world" ...; null on the globes */
   readonly world = input<string | null>(null);
   /** The world's own menu, with nothing picked in it: the path ends at the world */
@@ -71,16 +73,17 @@ export class WorldPathComponent {
   /** Play and Edit show: off where nothing is picked yet */
   readonly modes = input(true);
   /** "Play", or "Continue" for a run that waits */
-  readonly playLabel = input('Play');
+  readonly playLabel = input<string | null>(null);
   /** On a real place there is no map to edit: a map of the place is made ("Make map") */
-  readonly editLabel = input('Edit');
+  readonly editLabel = input<string | null>(null);
   /** Why Play or Edit cannot be taken now; null when it can */
   readonly playWhy = input<string | null>(null);
   readonly editWhy = input<string | null>(null);
-  readonly playHint = input('Play');
-  readonly editHint = input('Edit this map');
-  readonly worldsHint = input('All worlds');
-  readonly worldHint = input('This world');
+  /** The hints of the steps; null takes the path's own words (worlds.path) */
+  readonly playHint = input<string | null>(null);
+  readonly editHint = input<string | null>(null);
+  readonly worldsHint = input<string | null>(null);
+  readonly worldHint = input<string | null>(null);
   readonly chips = input<readonly PathChip[]>([]);
   readonly go = output<PathAction>();
 }

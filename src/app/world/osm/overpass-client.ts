@@ -14,6 +14,7 @@
 import type { GeoBox } from '../../services/location/street-box';
 import { overpassHealth, type OverpassHealth } from './overpass-health';
 import { OVERPASS_SERVERS, serversFor, type OverpassServer } from './overpass-servers';
+import type { Messages } from '../../i18n/messages/en';
 
 /** An element of an Overpass answer, as far as the parsers read it */
 export interface OverpassElement {
@@ -200,24 +201,13 @@ export interface OverpassRetry {
   kind: OverpassFailureKind;
 }
 
-/** Why a round failed, as the player reads it */
-const RETRY_REASON: Partial<Record<OverpassFailureKind, string>> = {
-  busy: 'The map server is busy',
-  network: 'The map server cannot be reached',
-  timeout: 'The map server did not answer in time',
-  server: 'The map server answered with an error',
-  malformed: 'The map server sent a broken answer',
-};
-
 /**
- * What the player reads while a load asks again: why, and with `secondsLeft` the wait before the next round
- * (0 or less: the round is under way)
+ * What the player reads while a load asks again: why (`osm.retryReason`), and with `secondsLeft` the wait
+ * before the next round (0 or less: the round is under way)
  */
-export function overpassRetryText(retry: OverpassRetry, secondsLeft?: number): string {
-  const why = RETRY_REASON[retry.kind] ?? RETRY_REASON.busy!;
-  const round = `(${retry.attempt} of ${retry.of})`;
-  if (secondsLeft === undefined) return `${why}, trying again ${round}`;
-  return secondsLeft > 0 ? `${why}, trying again in ${Math.ceil(secondsLeft)} s ${round}` : `${why}, asking again ${round}`;
+export function overpassRetryText(t: Messages, retry: OverpassRetry, secondsLeft?: number): string {
+  const reasons: Partial<Record<OverpassFailureKind, string>> = t.osm.retryReason;
+  return t.osm.retry(reasons[retry.kind] ?? t.osm.retryReason.busy, retry.attempt, retry.of, secondsLeft);
 }
 
 export interface OverpassRequest<T> {

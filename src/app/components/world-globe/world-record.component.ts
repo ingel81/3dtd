@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
 import type { NewRecord } from '../../services/location/best-wave.service';
 import type { BestWave } from '../../services/location/best-waves';
 import { WorldGlobeComponent } from './world-globe.component';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * Game-over hint of a new record: a small globe turned to the place, "New
@@ -22,6 +23,7 @@ import { WorldGlobeComponent } from './world-globe.component';
   `,
 })
 export class WorldRecordComponent {
+  protected readonly t = injectT();
   readonly record = input.required<NewRecord>();
   /** Every place, so the globe shows the new record among the others */
   readonly records = input.required<readonly BestWave[]>();

@@ -14,6 +14,7 @@ import {
 } from './overpass-client';
 import { OverpassHealth } from './overpass-health';
 import type { OverpassServer } from './overpass-servers';
+import { en } from '../../i18n/messages/en';
 
 /**
  * The Overpass client's failures and retries, on a fake fetch: each kind of
@@ -214,9 +215,9 @@ describe('overpass-client', () => {
       // Each round begins with the other server: round 8 with the second; the first failure of a round answered 502
       expect(asked.slice(-2)).toEqual(['b.example', 'a.example']);
       await expect(loading).rejects.toThrow('b.example: HTTP 502; a.example: HTTP 500; 8 tries');
-      expect(overpassRetryText(retries[0])).toBe('The map server is busy, trying again (2 of 8)');
-      expect(overpassRetryText({ ...retries[0], kind: 'timeout' }, 3.2)).toBe('The map server did not answer in time, trying again in 4 s (2 of 8)');
-      expect(overpassRetryText({ ...retries[0], kind: 'network' }, 0)).toBe('The map server cannot be reached, asking again (2 of 8)');
+      expect(overpassRetryText(en, retries[0])).toBe('The map server is busy, trying again (2 of 8)');
+      expect(overpassRetryText(en, { ...retries[0], kind: 'timeout' }, 3.2)).toBe('The map server did not answer in time, trying again in 4 s (2 of 8)');
+      expect(overpassRetryText(en, { ...retries[0], kind: 'network' }, 0)).toBe('The map server cannot be reached, asking again (2 of 8)');
     });
 
     it('leaves a server that answered 429 alone for 30 s and asks the others meanwhile', async () => {

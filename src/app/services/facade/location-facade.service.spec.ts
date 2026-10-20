@@ -17,7 +17,7 @@ import { TILES_CAPABILITIES } from '../../world/tiles/tiles-world';
 import { DEV_WORLD_CAPABILITIES } from '../../devworld/dev-world-provider';
 import type { WorldCapabilities, WorldStartLayout } from '../../world/world-provider';
 import { UIStore, type UiNotice } from '../../store/ui.store';
-import { OUTSIDE_COVERAGE_LINK_TEXT } from '../../world/world-coverage';
+import { en } from '../../i18n/messages/en';
 import { fakeWorldContext } from '../../../test/world-context-fake';
 import { RouteAnimationService } from '../world/route-animation.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
@@ -361,7 +361,7 @@ describe('LocationFacadeService', () => {
 
       expect(locationMgmt.setLocation).toHaveBeenCalledWith(middle, []);
       expect(coordinator.waitForStartChoice).not.toHaveBeenCalled();
-      expect(uiStore.notice()).toEqual({ text: OUTSIDE_COVERAGE_LINK_TEXT, tone: 'warn' });
+      expect(uiStore.notice()).toEqual({ text: en.places.outsideAreaLink, tone: 'warn' });
     });
 
     it('without a place in the URL waits for the place chosen in the menu, the browser is not asked', async () => {

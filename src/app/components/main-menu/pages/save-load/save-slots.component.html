@@ -1,43 +1,44 @@
+@let w = t().saves;
 @if (confirm(); as c) {
   <!-- What overwrites, ends the run or deletes, asked on the page itself -->
   <div class="td-group mp-confirm" role="alertdialog" aria-labelledby="td-slot-ask">
     @switch (c.kind) {
       @case ('overwrite') {
-        <p class="td-text" id="td-slot-ask">Overwrite "{{ c.title }}"?</p>
+        <p class="td-text" id="td-slot-ask">{{ w.overwriteAsk(c.title) }}</p>
         <div class="td-actions">
-          <button class="td-btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
-          <button class="td-btn-primary" type="button" (click)="saveTo(c.slotId, true, c.title)">Overwrite</button>
+          <button class="td-btn-secondary" type="button" (click)="cancelConfirm()">{{ t().common.cancel }}</button>
+          <button class="td-btn-primary" type="button" (click)="saveTo(c.slotId, true, c.title)">{{ w.overwrite }}</button>
         </div>
       }
       @case ('load') {
-        <p class="td-text" id="td-slot-ask">Load "{{ c.title }}"?</p>
-        <p class="td-note">The run under way ends; save it first to keep it.</p>
+        <p class="td-text" id="td-slot-ask">{{ w.loadAsk(c.title) }}</p>
+        <p class="td-note">{{ w.runEnds }}</p>
         <div class="td-actions">
-          <button class="td-btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
-          <button class="td-btn-primary" type="button" (click)="loadSlot(c.slotId)">Load</button>
+          <button class="td-btn-secondary" type="button" (click)="cancelConfirm()">{{ t().common.cancel }}</button>
+          <button class="td-btn-primary" type="button" (click)="loadSlot(c.slotId)">{{ w.load }}</button>
         </div>
       }
       @case ('ends') {
-        <p class="td-text" id="td-slot-ask">Load "{{ c.title }}"? {{ c.text }}</p>
+        <p class="td-text" id="td-slot-ask">{{ w.loadAsk(c.title) }} {{ c.text }}</p>
         <p class="td-note">{{ c.note }}</p>
         <div class="td-actions">
-          <button class="td-btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
-          <button class="td-btn-primary" type="button" (click)="loadSlot(c.slotId)">End it and load</button>
+          <button class="td-btn-secondary" type="button" (click)="cancelConfirm()">{{ t().common.cancel }}</button>
+          <button class="td-btn-primary" type="button" (click)="loadSlot(c.slotId)">{{ t().worlds.endAndLoad }}</button>
         </div>
       }
       @case ('import') {
-        <p class="td-text" id="td-slot-ask">Load a save from a file?</p>
-        <p class="td-note">The run under way ends; save it first to keep it.</p>
+        <p class="td-text" id="td-slot-ask">{{ w.importAsk }}</p>
+        <p class="td-note">{{ w.runEnds }}</p>
         <div class="td-actions">
-          <button class="td-btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
-          <button class="td-btn-primary" type="button" (click)="askImport()">Pick file</button>
+          <button class="td-btn-secondary" type="button" (click)="cancelConfirm()">{{ t().common.cancel }}</button>
+          <button class="td-btn-primary" type="button" (click)="askImport()">{{ w.pickFile }}</button>
         </div>
       }
       @case ('delete') {
-        <p class="td-text" id="td-slot-ask">Delete "{{ c.title }}"?</p>
+        <p class="td-text" id="td-slot-ask">{{ w.deleteAsk(c.title) }}</p>
         <div class="td-actions">
-          <button class="td-btn-secondary" type="button" (click)="cancelConfirm()">Cancel</button>
-          <button class="td-btn-danger" type="button" (click)="deleteSlot(c.slotId)">Delete</button>
+          <button class="td-btn-secondary" type="button" (click)="cancelConfirm()">{{ t().common.cancel }}</button>
+          <button class="td-btn-danger" type="button" (click)="deleteSlot(c.slotId)">{{ t().common.delete }}</button>
         </div>
       }
     }
@@ -47,7 +48,7 @@
     @if (saves.cannotSaveReason(); as reason) {
       <p class="td-note">{{ reason }}</p>
     }
-    <ul class="td-rows" aria-label="Save slots">
+    <ul class="td-rows" [attr.aria-label]="w.slots">
       @for (row of saveRows(); track row.id) {
         <li class="td-row mp-slot-row">
           <button class="mp-slot td-row-main" type="button" [class.td-muted]="!row.filled"
@@ -71,9 +72,9 @@
       <p class="td-note">{{ reason }}</p>
     }
     @if (loadRows().length === 0) {
-      <p class="td-note">No saved game in this browser yet.</p>
+      <p class="td-note">{{ w.none }}</p>
     } @else {
-      <ul class="td-rows" aria-label="Saved games">
+      <ul class="td-rows" [attr.aria-label]="w.savedGames">
         @for (row of loadRows(); track row.id) {
           <li class="td-row mp-slot-row">
             <button class="mp-slot td-row-main" type="button" [disabled]="!canLoad() || busy()"
@@ -90,12 +91,12 @@
               <span class="mp-slot-detail td-note">{{ row.detail }}</span>
             </button>
             <button class="mp-slot-tool td-tool" type="button" [disabled]="busy()" (click)="exportSlot(row.id)"
-                    [attr.aria-label]="'Save ' + row.title + ' as a file'" matTooltip="Save as a file">
+                    [attr.aria-label]="w.exportOf(row.title)" [matTooltip]="w.export">
               <td-icon name="download" [size]="16"></td-icon>
             </button>
             <!-- An autosave is its world's Continue: deleting it is how that goes too -->
             <button class="mp-slot-tool td-tool" type="button" [disabled]="busy()" (click)="askDelete(row.id, row.title)"
-                    [attr.aria-label]="'Delete ' + row.title" matTooltip="Delete">
+                    [attr.aria-label]="w.deleteOf(row.title)" [matTooltip]="t().common.delete">
               <td-icon name="trash" [size]="16"></td-icon>
             </button>
           </li>
@@ -103,7 +104,7 @@
       </ul>
     }
     <div class="td-actions is-start">
-      <button class="td-btn-secondary" type="button" [disabled]="!canLoad() || busy()" (click)="askImport()">Load from a file</button>
+      <button class="td-btn-secondary" type="button" [disabled]="!canLoad() || busy()" (click)="askImport()">{{ w.fromFile }}</button>
     </div>
   </section>
 }

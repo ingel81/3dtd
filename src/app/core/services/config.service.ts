@@ -5,6 +5,12 @@ import { readJson, removeKey, writeJson } from '../../utils/storage';
 import { parseOwnTilesets, type OwnTileset } from '../../world/tileset/own-tileset';
 import { pageSwitches } from '../page-switches';
 
+/** What the provider said to a key; the words are the dictionary's (`token.check`) */
+export type CredentialCheck =
+  | { ok: boolean; code: 'empty' | 'works' | 'unreachable' | 'cesiumRejected' | 'cesiumNoAccess' | 'googleRejected' }
+  | { ok: false; code: 'cesiumNoAsset'; asset: string | number }
+  | { ok: false; code: 'status'; status: number };
+
 /** Shape of the optional `runtime-config.json` next to `index.html`. */
 interface RuntimeConfig {
   tileProvider?: 'cesium' | 'google';
@@ -144,12 +150,9 @@ export class ConfigService {
    * engine. Hits exactly the endpoint the renderer's auth plugin would hit
    * first, so a pass here means the tile pipeline gets past authentication.
    */
-  async validateCredentials(
-    provider: 'cesium' | 'google',
-    value: string
-  ): Promise<{ ok: boolean; message: string }> {
+  async validateCredentials(provider: 'cesium' | 'google', value: string): Promise<CredentialCheck> {
     const trimmed = value.trim();
-    if (!trimmed) return { ok: false, message: 'Nothing to check.' };
+    if (!trimmed) return { ok: false, code: 'empty' };
 
     const url =
       provider === 'cesium'
@@ -159,27 +162,22 @@ export class ConfigService {
     let status: number;
     try {
       const response = await fetch(url, { cache: 'no-store' });
-      if (response.ok) return { ok: true, message: 'Works. Tiles are reachable.' };
+      if (response.ok) return { ok: true, code: 'works' };
       status = response.status;
     } catch {
       // Fetch rejects before a status exists: offline, DNS, or a blocked request.
-      return { ok: false, message: 'Could not reach the provider. Check your connection.' };
+      return { ok: false, code: 'unreachable' };
     }
 
     if (provider === 'cesium') {
-      if (status === 401) return { ok: false, message: 'Token rejected by Cesium Ion.' };
-      if (status === 403) return { ok: false, message: 'Token has no access to this asset.' };
-      if (status === 404) {
-        return {
-          ok: false,
-          message: `Asset ${this.cesiumAssetId()} is not in your ion account. Add "Google Photorealistic 3D Tiles" there.`,
-        };
-      }
+      if (status === 401) return { ok: false, code: 'cesiumRejected' };
+      if (status === 403) return { ok: false, code: 'cesiumNoAccess' };
+      if (status === 404) return { ok: false, code: 'cesiumNoAsset', asset: this.cesiumAssetId() };
     } else if (status === 400 || status === 403) {
-      return { ok: false, message: 'Key rejected. Is the Map Tiles API enabled for it?' };
+      return { ok: false, code: 'googleRejected' };
     }
 
-    return { ok: false, message: `Provider answered with ${status}.` };
+    return { ok: false, code: 'status', status };
   }
 
   /**

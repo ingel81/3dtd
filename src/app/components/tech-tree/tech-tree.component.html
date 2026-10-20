@@ -1,6 +1,6 @@
 <div class="td-tech-tree" [class.td-focus]="hoveredId() !== null"
      [style.width.px]="view().width" [style.height.px]="view().height"
-     role="group" [attr.aria-label]="label()" (pointerleave)="onLeaveGraph()">
+     role="group" [attr.aria-label]="label() ?? t().dialogs.techTree.label" (pointerleave)="onLeaveGraph()">
 
   <!-- Edges below the nodes. Decorative: the prerequisites are spoken at the node. -->
   <svg class="td-tech-tree-edges" [attr.viewBox]="'0 0 ' + view().width + ' ' + view().height"

@@ -1,4 +1,5 @@
-import { WORLD_NAMES, type WorldId } from '../worlds/world-rules';
+import type { Messages } from '../i18n/messages/en';
+import type { WorldId } from '../worlds/world-rules';
 
 /**
  * A way the path and the menus offer (docs/WORLDS_NAVIGATION_PLAN.md, 3.2).
@@ -28,36 +29,47 @@ export interface WhyNotFacts {
   waveRecorded?: boolean;
 }
 
+/** Why a way is blocked; its sentence is the dictionary's (worlds.whyNot) */
+export type WhyNot =
+  | 'hostPicksMap' | 'needsKey' | 'mapsSoon' | 'soon' | 'leaveCoopToEdit' | 'leaveReplay' | 'hostSaves'
+  | 'trialNotSaved' | 'noRun' | 'hostsMap' | 'hostRestarts' | 'afterFirstWave' | 'leaveCoop' | 'tilesetNoMap';
+
 /**
- * The sentence beside a blocked way, null when it is open. A blocked way
- * stays visible with it (3.2): never hidden.
+ * Why a way is blocked, null when it is open. A blocked way stays visible
+ * with its sentence (3.2, `worlds.whyNot` in the player's language): never hidden.
  */
-export function whyNot(way: PathWay, facts: WhyNotFacts): string | null {
+export function whyNot(way: PathWay, facts: WhyNotFacts): WhyNot | null {
   switch (way) {
     case 'play':
-      if (facts.coopGuest) return 'In a coop room the host picks the map';
-      if (facts.world === 'real' && facts.hasKey === false) return 'Needs a map key (Cesium Ion or Google)';
-      if ((facts.world === 'osm' || facts.world === 'maps') && !facts.mapsOpen) return 'Maps are coming soon';
+      if (facts.coopGuest) return 'hostPicksMap';
+      if (facts.world === 'real' && facts.hasKey === false) return 'needsKey';
+      if ((facts.world === 'osm' || facts.world === 'maps') && !facts.mapsOpen) return 'mapsSoon';
       return null;
     case 'edit':
-      if (!facts.mapsOpen) return 'Coming soon';
-      if (facts.inCoopRoom) return 'Leave the coop room to edit';
-      if (facts.replay) return 'Leave the replay first';
+      if (!facts.mapsOpen) return 'soon';
+      if (facts.inCoopRoom) return 'leaveCoopToEdit';
+      if (facts.replay) return 'leaveReplay';
       return null;
     case 'save':
-      if (facts.coopGuest) return 'In coop the host saves';
-      if (facts.trial) return 'A trial run is not saved';
-      if (facts.runLoaded === false) return 'No run to save';
+      if (facts.coopGuest) return 'hostSaves';
+      if (facts.trial) return 'trialNotSaved';
+      if (facts.runLoaded === false) return 'noRun';
       return null;
     case 'load':
-      return facts.coopGuest ? "The room plays the host's map" : null;
+      return facts.coopGuest ? 'hostsMap' : null;
     case 'restart':
-      return facts.coopGuest ? 'The host restarts' : null;
+      return facts.coopGuest ? 'hostRestarts' : null;
     case 'replay':
-      return facts.waveRecorded === false ? 'After the first wave' : null;
+      return facts.waveRecorded === false ? 'afterFirstWave' : null;
     case 'leave':
-      return facts.inCoopRoom ? 'Leave the coop room first' : null;
+      return facts.inCoopRoom ? 'leaveCoop' : null;
   }
+}
+
+/** The sentence of a blocked way in the player's language, null when it is open */
+export function whyNotText(t: Messages, way: PathWay, facts: WhyNotFacts): string | null {
+  const why = whyNot(way, facts);
+  return why ? t.worlds.whyNot[why] : null;
 }
 
 /**
@@ -66,6 +78,6 @@ export function whyNot(way: PathWay, facts: WhyNotFacts): string | null {
  * tileset the real places', as their menus and the pause menu say; DevWorld
  * is none of them
  */
-export function worldName(world: WorldId | null): string {
-  return world ? WORLD_NAMES[world] : 'Dev world';
+export function worldName(t: Messages, world: WorldId | null): string {
+  return world ? t.worlds.names[world] : t.worlds.devWorld;
 }

@@ -27,8 +27,9 @@ import type { StepProgress } from '../world/relocation-status.service';
 import { SPAWN_COLORS, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE } from '../../configs/map-constants.config';
 import { bearingToPortalHeading } from '../../three-engine/renderers/marker/spawn-portal-pose';
 import { canonicalCoords } from '../../utils/geo-utils';
-import { OUTSIDE_COVERAGE_LINK_TEXT, isInsideCoverage } from '../../world/world-coverage';
+import { isInsideCoverage } from '../../world/world-coverage';
 import { UIStore } from '../../store/ui.store';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * Callbacks to visualization sub-facade methods,
@@ -73,6 +74,7 @@ interface ComponentContext {
  */
 @Injectable({ providedIn: 'root' })
 export class LocationFacadeService {
+  private readonly t = injectT();
   private readonly world = inject(MainWorldService);
   private readonly grid = inject(GlobalRouteGridService);
   private readonly gridViz = inject(RouteGridVizService);
@@ -218,15 +220,15 @@ export class LocationFacadeService {
     const coverage = this.worldContext.coverage();
     if (urlData && isInsideCoverage(coverage, urlData.hq.lat, urlData.hq.lon)) {
       this.locationMgmt.setLocation(urlData.hq, urlData.spawns);
-      await this.engineInit.setStepDone('location', 'from URL');
+      await this.engineInit.setStepDone('location', this.t().boot.meta.fromUrl);
     } else if (urlData && coverage) {
       // A link's place outside the world's area (an own tileset's): its middle with a random
       // spawn, as the dice goes, and a word why; waiting for a choice left a black page under menu=skip
       this.locationMgmt.setLocation({ lat: coverage.center.lat, lon: coverage.center.lon }, []);
-      this.uiStore.notice.set({ text: OUTSIDE_COVERAGE_LINK_TEXT, tone: 'warn' });
-      await this.engineInit.setStepDone('location', 'middle of the area');
+      this.uiStore.notice.set({ text: this.t().places.outsideAreaLink, tone: 'warn' });
+      await this.engineInit.setStepDone('location', this.t().boot.meta.middle);
     } else {
-      this.engineInit.updateStepMeta('location', 'Choose a place');
+      this.engineInit.updateStepMeta('location', this.t().boot.meta.choose);
       try {
         await this.waitForPlaceChoice();
       } catch (err) {
@@ -234,7 +236,7 @@ export class LocationFacadeService {
         if (err instanceof ComponentGoneError) return false;
         throw err;
       }
-      await this.engineInit.setStepDone('location', 'chosen');
+      await this.engineInit.setStepDone('location', this.t().boot.meta.chosen);
     }
 
     const hq = this.locationMgmt.hq();

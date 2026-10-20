@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { whyNot, worldName, type WhyNotFacts } from './why-not';
+import { en } from '../i18n/messages/en';
+import { whyNotText, worldName, type WhyNotFacts } from './why-not';
+
+/** The reason as the player reads it in English */
+const whyNot = (way: Parameters<typeof whyNotText>[1], facts: WhyNotFacts) => whyNotText(en, way, facts);
 
 /** The reasons beside a blocked way (docs/WORLDS_NAVIGATION_PLAN.md, 3.2) */
 describe('whyNot', () => {
@@ -36,9 +40,9 @@ describe('whyNot', () => {
   });
 
   it('names the worlds as the path does: the world the page plays in, as its menu and the pause menu name it', () => {
-    expect(worldName('real')).toBe('Real places');
-    expect(worldName('osm')).toBe('OpenStreetMap');
-    expect(worldName('maps')).toBe('Built Worlds');
-    expect(worldName(null)).toBe('Dev world');
+    expect(worldName(en, 'real')).toBe('Real places');
+    expect(worldName(en, 'osm')).toBe('OpenStreetMap');
+    expect(worldName(en, 'maps')).toBe('Built Worlds');
+    expect(worldName(en, null)).toBe('Dev world');
   });
 });

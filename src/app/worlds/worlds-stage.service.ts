@@ -24,13 +24,15 @@ import {
   samePick,
   worldLock,
   worldOfMap,
-  WORLD_NAMES,
   type AutosaveRun,
   type WorldId,
+  type WorldLock,
   type WorldPick,
 } from './world-rules';
 import { whyNot, type WhyNotFacts } from '../world/why-not';
 import { placeLabel } from '../services/location/place-label';
+import { injectT } from '../i18n/i18n.service';
+import type { Messages } from '../i18n/messages/en';
 
 /** The lists of the real places' menu */
 export type RealList = 'recent' | 'favorites' | 'showcase' | 'search' | 'records' | 'tilesets';
@@ -83,9 +85,9 @@ export interface StageContinue {
 }
 
 /** A Continue as a chip or a globe's line says it (the same everywhere, docs/WORLDS_STATE_PLAN.md 3.3) */
-export function chipLine(go: StageContinue): string {
+export function chipLine(t: Messages, go: StageContinue): string {
   if (go.kind === 'back') return go.label;
-  return `${go.line} | ${go.kind === 'ready' ? 'ready' : 'autosave'}`;
+  return t.worlds.chip(go.line, go.kind === 'ready');
 }
 
 /** The world last started, for the globes' order of sizes */
@@ -130,6 +132,7 @@ function readPicks(): Readonly<Record<WorldId, WorldPick | null>> {
  */
 @Injectable({ providedIn: 'root' })
 export class WorldsStageService {
+  private readonly t = injectT();
   private readonly session = inject(WorldSession);
   private readonly screens = inject(AppScreen);
   private readonly config = inject(ConfigService);
@@ -166,7 +169,7 @@ export class WorldsStageService {
 
   /** The slots as the globes see them: Load opens a slot's world with it */
   private readonly slotStore = inject(SAVE_SLOT_STORE);
-  readonly saves = new StageSaves(this.slotStore, (slot) => this.continueSlot(slot), (mapId) => this.mapWorld(mapId));
+  readonly saves = new StageSaves(this.slotStore, (slot) => this.continueSlot(slot), (mapId) => this.mapWorld(mapId), () => this.t());
 
   /** What the ways of the globes hang on: the key and the release; no room, no run, no replay here */
   readonly rules = computed<WhyNotFacts & { hasKey: boolean }>(() => ({
@@ -211,12 +214,20 @@ export class WorldsStageService {
     this.slotStore.watch?.(() => void this.saves.refresh());
   }
 
-  lock(world: WorldId): string | null {
+  /** Why `world` is locked, as a code (the globes ask which lock it is) */
+  lockCode(world: WorldId): WorldLock | null {
     return worldLock(world, this.rules());
   }
 
+  /** Why `world` is locked, in the player's words; null when it is open */
+  lock(world: WorldId): string | null {
+    const lock = this.lockCode(world);
+    return lock ? this.t().worlds.lock[lock] : null;
+  }
+
   whyNot(action: 'play' | 'edit', world: WorldId | null): string | null {
-    return whyNot(action, { ...this.rules(), world });
+    const why = whyNot(action, { ...this.rules(), world });
+    return why ? this.t().worlds.whyNot[why] : null;
   }
 
   /** The run an autosave holds for this world and pick: Start continues it */
@@ -233,8 +244,9 @@ export class WorldsStageService {
 
   /** What Start says for a pick: Continue of its run, Back to the place held, else `fresh` (Start, Play) */
   playWord(world: WorldId, pick: WorldPick | null, fresh: string): string {
-    if (this.heldHere(world, pick)) return this.session.parked()!.run ? 'Continue' : `Back to ${this.session.parked()!.label}`;
-    return this.runHere(world, pick) ? 'Continue' : fresh;
+    const words = this.t().worlds;
+    if (this.heldHere(world, pick)) return this.session.parked()!.run ? words.continue : words.backTo(this.session.parked()!.label);
+    return this.runHere(world, pick) ? words.continue : fresh;
   }
 
   /** The autosave of a world, for its menu's Continue */
@@ -246,14 +258,15 @@ export class WorldsStageService {
   continueOf(world: WorldId): StageContinue | null {
     const held = this.session.parked();
     const run = this.autosaveOf(world);
+    const words = this.t().worlds;
     if (held && held.world === world) {
       // The autosave of the held run is the one Discard drops with it
       const own = run && held.pick && run.pick && samePick(run.pick, held.pick) ? run : null;
       return held.run
-        ? { world, kind: 'ready', label: 'Continue', line: `${held.label} | wave ${held.wave}`, run: own ?? this.heldRun(held) }
-        : { world, kind: 'back', label: `Back to ${held.label}`, line: held.over ? 'Still loaded, the run is over' : 'Still loaded, no run yet', run: null };
+        ? { world, kind: 'ready', label: words.continue, line: words.runLine(held.label, held.wave), run: own ?? this.heldRun(held) }
+        : { world, kind: 'back', label: words.backTo(held.label), line: held.over ? words.stillLoadedOver : words.stillLoadedNoRun, run: null };
     }
-    return run ? { world, kind: 'saved', label: 'Continue', line: `${run.name} | wave ${run.wave}`, run } : null;
+    return run ? { world, kind: 'saved', label: words.continue, line: words.runLine(run.name, run.wave), run } : null;
   }
 
   /** A held run with no autosave of its own yet, as Discard and a start elsewhere see it */
@@ -276,16 +289,12 @@ export class WorldsStageService {
    * unless the editor shows
    */
   pathChips(except: WorldId | null, editor: boolean): PathChip[] {
-    const hints: Record<StageContinue['kind'], string> = {
-      ready: 'Back to the run, as you left it',
-      back: 'Back to the place, still loaded',
-      saved: 'Continue from the autosave',
-    };
+    const t = this.t();
     const chips: PathChip[] = this.continues()
       .filter((go) => go.world !== except)
-      .map((go) => ({ id: `continue-${go.world}`, label: chipLine(go), hint: this.whyNot('play', go.world) ?? hints[go.kind] }));
+      .map((go) => ({ id: `continue-${go.world}`, label: chipLine(t, go), hint: this.whyNot('play', go.world) ?? t.worlds.chipHints[go.kind] }));
     const draft = this.screens.draft();
-    if (editor && draft) chips.push({ id: 'editor', label: `Editor: ${draft.name}${draft.unsaved ? ' | unsaved' : ''}`, hint: 'Back to the map editor, the map as you left it' });
+    if (editor && draft) chips.push({ id: 'editor', label: t.worlds.editorChip(draft.name, draft.unsaved), hint: t.worlds.editorChipHint });
     return chips;
   }
 
@@ -415,13 +424,14 @@ export class WorldsStageService {
       this.go(world, pick);
       return;
     }
+    const t = this.t();
     this.confirm.set({
-      text: `${item.line} waits in ${WORLD_NAMES[world]}.`,
-      note: 'Each world keeps one run. Starting something new here ends it now.',
+      text: t.worlds.waitsIn(item.line, t.worlds.names[world]),
+      note: t.worlds.oneRunStart,
       answers: [
-        { label: 'End it and start', primary: true, run: () => void this.endThenGo(risk, () => this.go(world, pick)) },
-        { label: `Continue ${risk.name}`, run: () => this.resume(item) },
-        { label: 'Cancel', run: () => undefined },
+        { label: t.worlds.endAndStart, primary: true, run: () => void this.endThenGo(risk, () => this.go(world, pick)) },
+        { label: t.worlds.continueName(risk.name), run: () => this.resume(item) },
+        { label: t.common.cancel, run: () => undefined },
       ],
     });
   }
@@ -442,12 +452,13 @@ export class WorldsStageService {
 
   /** Discard a world's Continue, asked first: its autosave goes for good (docs/WORLDS_STATE_PLAN.md, 3.4) */
   discardRun(run: AutosaveRun): void {
+    const t = this.t();
     this.confirm.set({
-      text: `Discard ${run.name} | wave ${run.wave}?`,
-      note: 'It cannot be continued.',
+      text: t.worlds.discardAsk(t.worlds.runLine(run.name, run.wave)),
+      note: t.worlds.cannotContinue,
       answers: [
-        { label: 'Discard', primary: true, run: () => void this.endRun(run) },
-        { label: 'Cancel', run: () => undefined },
+        { label: t.worlds.discard, primary: true, run: () => void this.endRun(run) },
+        { label: t.common.cancel, run: () => undefined },
       ],
     });
   }
@@ -490,8 +501,8 @@ export class WorldsStageService {
       text: ask.text,
       note: ask.note,
       answers: [
-        { label: 'End it and load', primary: true, run: () => void this.endThenGo(ask.run, load) },
-        { label: 'Cancel', run: () => undefined },
+        { label: this.t().worlds.endAndLoad, primary: true, run: () => void this.endThenGo(ask.run, load) },
+        { label: this.t().common.cancel, run: () => undefined },
       ],
     });
     return null;
@@ -509,9 +520,10 @@ export class WorldsStageService {
     const item = this.continueOf(world);
     if (!item || item.kind === 'back' || !item.run) return null;
     if (item.kind === 'saved' && item.run.slotId === slot.id) return null;
+    const t = this.t();
     return {
-      text: `${item.line} waits in ${WORLD_NAMES[world]}.`,
-      note: 'Each world keeps one run. Loading this save ends it now.',
+      text: t.worlds.waitsIn(item.line, t.worlds.names[world]),
+      note: t.worlds.oneRunLoad,
       run: item.run,
     };
   }
@@ -596,13 +608,14 @@ export class WorldsStageService {
    */
   async deleteMap(map: StageMap): Promise<void> {
     if (map.origin === 'shipped') return;
+    const t = this.t();
     if (map.origin === 'shared') {
       this.confirm.set({
-        text: `Delete ${map.name}?`,
-        note: 'The host sends it again when you join their room.',
+        text: t.worlds.deleteAsk(map.name),
+        note: t.worlds.hostSendsAgain,
         answers: [
-          { label: 'Delete', primary: true, run: () => void this.worlds.deleteShared(map.id).then(() => this.afterDelete(map)) },
-          { label: 'Cancel', run: () => undefined },
+          { label: t.common.delete, primary: true, run: () => void this.worlds.deleteShared(map.id).then(() => this.afterDelete(map)) },
+          { label: t.common.cancel, run: () => undefined },
         ],
       });
       return;
@@ -610,12 +623,12 @@ export class WorldsStageService {
     const { library, error } = await this.lib();
     const key = await library.deleteMap(map.id, map.name);
     if (!key) {
-      this.notice.set(error() ?? `${map.name} was not deleted.`);
+      this.notice.set(error() ?? this.t().worlds.notDeleted(map.name));
       return;
     }
     this.trashed.set({ key, name: map.name });
     await this.afterDelete(map);
-    this.notice.set(`${map.name} is in the trash at the end of the list.`);
+    this.notice.set(this.t().worlds.inTrash(map.name));
   }
 
   private async afterDelete(map: StageMap): Promise<void> {
@@ -635,12 +648,13 @@ export class WorldsStageService {
 
   /** A map out of the trash for good, asked first */
   purgeMap(map: MapSummary): void {
+    const t = this.t();
     this.confirm.set({
-      text: `Delete ${map.name} for good?`,
-      note: 'It cannot come back.',
+      text: t.worlds.deleteForGoodAsk(map.name),
+      note: t.worlds.cannotComeBack,
       answers: [
-        { label: 'Delete for good', primary: true, run: () => void this.lib().then(({ library }) => library.deleteForGood(map)).then(() => this.refreshMaps()) },
-        { label: 'Cancel', run: () => undefined },
+        { label: t.worlds.deleteForGood, primary: true, run: () => void this.lib().then(({ library }) => library.deleteForGood(map)).then(() => this.refreshMaps()) },
+        { label: t.common.cancel, run: () => undefined },
       ],
     });
   }
@@ -659,13 +673,14 @@ export class WorldsStageService {
       join();
       return;
     }
+    const t = this.t();
     this.confirm.set({
-      text: 'No map key in this browser.',
-      note: 'If the host plays a real place, you need one; maps play without. Enter it first, or join and see.',
+      text: t.worlds.noKeyHere,
+      note: t.worlds.noKeyJoin,
       answers: [
-        { label: 'Join', primary: true, run: join },
-        { label: 'Enter map key', run: () => this.openOverlay('key') },
-        { label: 'Cancel', run: () => undefined },
+        { label: t.worlds.join, primary: true, run: join },
+        { label: t.worlds.enterKey, run: () => this.openOverlay('key') },
+        { label: t.common.cancel, run: () => undefined },
       ],
     });
   }
@@ -708,15 +723,16 @@ export class WorldsStageService {
    */
   removeWorld(map: StageMap): void {
     if (this.autosaves().some((r) => r.pick?.kind === 'map' && r.pick.id === map.id)) {
-      this.notice.set(`A run plays on ${map.name}: discard its Continue first.`);
+      this.notice.set(this.t().worlds.runPlaysOn(map.name));
       return;
     }
+    const t = this.t();
     this.confirm.set({
-      text: `Remove ${map.name} from Recent worlds?`,
-      note: "The map goes to the editor's trash.",
+      text: t.worlds.removeRecentAsk(map.name),
+      note: t.worlds.toEditorTrash,
       answers: [
-        { label: 'Remove', primary: true, run: () => void this.trashThen(map.id) },
-        { label: 'Cancel', run: () => undefined },
+        { label: t.worlds.remove, primary: true, run: () => void this.trashThen(map.id) },
+        { label: t.common.cancel, run: () => undefined },
       ],
     });
   }
@@ -749,7 +765,7 @@ export class WorldsStageService {
     try {
       const city = await this.dice.rollRandomCity();
       if (!city) {
-        this.notice.set('The city list did not load, so there is no random city.');
+        this.notice.set(this.t().worlds.noCityList);
         return;
       }
       const name = city.country ? `${city.name}, ${city.country}` : city.name;
@@ -876,15 +892,14 @@ export class WorldsStageService {
       go();
       return;
     }
+    const t = this.t();
     this.confirm.set({
-      text: `${held.label} | wave ${held.wave} is in the middle of its wave.`,
-      note: keeps === 'wave-start'
-        ? `Going on keeps it as it stood at the start of wave ${held.wave}.`
-        : 'It has no autosave yet: going on ends it.',
+      text: t.worlds.midWave(t.worlds.runLine(held.label, held.wave)),
+      note: keeps === 'wave-start' ? t.worlds.keepsWaveStart(held.wave) : t.worlds.noAutosaveYet,
       answers: [
-        { label: 'Go on', primary: true, run: go },
-        { label: `Back to ${held.label}`, run: () => this.showHeld() },
-        { label: 'Cancel', run: () => undefined },
+        { label: t.worlds.goOn, primary: true, run: go },
+        { label: t.worlds.backTo(held.label), run: () => this.showHeld() },
+        { label: t.common.cancel, run: () => undefined },
       ],
     });
   }

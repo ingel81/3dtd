@@ -20,6 +20,7 @@ import { haversineDistance } from '../../../../utils/geo-utils';
 import { GameStore } from '../../../../store/game.store';
 import { CUSTOM_MAPS_OPEN } from '../../../../world/custom-maps-open';
 import type { OsmFrameRequest } from '../../../osm-frame/osm-frame-request';
+import { injectT } from '../../../../i18n/i18n.service';
 
 type SpawnMode = 'random' | 'manual';
 
@@ -30,11 +31,7 @@ type SpawnMode = 'random' | 'manual';
  */
 export type PlaceList = 'favorites' | 'showcase' | 'world';
 
-const LISTS: readonly { id: PlaceList; label: string }[] = [
-  { id: 'favorites', label: 'Favorites' },
-  { id: 'showcase', label: 'Showcase' },
-  { id: 'world', label: 'World' },
-];
+const LISTS: readonly PlaceList[] = ['favorites', 'showcase', 'world'];
 
 /** What a searched place looks like before it loads */
 interface SearchedPlace {
@@ -71,6 +68,7 @@ interface SearchedPlace {
   host: { class: 'td-stack is-loose' },
 })
 export class PlacePickerComponent {
+  protected readonly t = injectT();
   private readonly geocoding = inject(GeocodingService);
   private readonly geolocation = inject(GeolocationService);
   private readonly locationMgmt = inject(LocationManagementService);
@@ -159,9 +157,10 @@ export class PlacePickerComponent {
 
   /** The folded spawn line: "Spawn: random, 0.5 to 1 km from the HQ" */
   readonly spawnSummary = computed(() => {
-    if (this.spawnMode() === 'random') return 'random, 0.5 to 1 km from the HQ';
+    const w = this.t().places;
+    if (this.spawnMode() === 'random') return w.spawnRandom;
     const spawn = this.selectedSpawn();
-    return spawn?.name ? `at ${spawn.name}` : 'by address, none picked yet';
+    return spawn?.name ? w.spawnAt(spawn.name) : w.spawnNone;
   });
 
   // ---- Search and coordinates ----

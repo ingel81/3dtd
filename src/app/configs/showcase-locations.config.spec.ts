@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { SHOWCASE_LOCATIONS } from './showcase-locations.config';
+import { en } from '../i18n/messages/en';
+import { de } from '../i18n/messages/de';
 
 describe('SHOWCASE_LOCATIONS', () => {
   it('stays a short list', () => {
@@ -20,12 +22,18 @@ describe('SHOWCASE_LOCATIONS', () => {
     }
   });
 
-  it('gives every place a one-line hint', () => {
-    for (const p of SHOWCASE_LOCATIONS) {
-      expect(p.hint.length, p.id).toBeGreaterThan(0);
-      expect(p.hint.length, p.id).toBeLessThanOrEqual(48);
-      expect(p.hint.includes('\n'), p.id).toBe(false);
+  it('gives every place a name and a one-line hint in every language (showcase), the English name its own', () => {
+    for (const t of [en, de]) {
+      for (const p of SHOWCASE_LOCATIONS) {
+        const words = t.showcase[p.id];
+        expect(words.name.length, p.id).toBeGreaterThan(0);
+        expect(words.hint.length, p.id).toBeGreaterThan(0);
+        expect(words.hint.length, p.id).toBeLessThanOrEqual(48);
+        expect(words.hint.includes('\n'), p.id).toBe(false);
+      }
     }
+    for (const p of SHOWCASE_LOCATIONS) expect(en.showcase[p.id].name, p.id).toBe(p.name);
+    expect(Object.keys(en.showcase).sort()).toEqual(SHOWCASE_LOCATIONS.map((p) => p.id).sort());
   });
 
   it('holds a valid spawn where one is given, not on the HQ itself', () => {
@@ -38,6 +46,6 @@ describe('SHOWCASE_LOCATIONS', () => {
   });
 
   it('no longer lists Dubai, Marina Walk: no photorealistic 3D tiles there', () => {
-    expect(SHOWCASE_LOCATIONS.find((p) => p.id === 'dubai-marina')).toBeUndefined();
+    expect(SHOWCASE_LOCATIONS.find((p) => (p.id as string) === 'dubai-marina')).toBeUndefined();
   });
 });

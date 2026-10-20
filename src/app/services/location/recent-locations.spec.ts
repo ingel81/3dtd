@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { en } from '../../i18n/messages/en';
 import {
   addRecentLocation,
-  formatVisitAge,
+  formatVisitAge as formatAge,
   isSamePlace,
   loadRecentLocations,
   MAX_RECENT_LOCATIONS,
@@ -79,6 +80,7 @@ describe('recent locations', () => {
   });
 
   describe('formatVisitAge', () => {
+    const formatVisitAge = (at: number, now: number) => formatAge(en, at, now);
     const now = 10 * 24 * 3_600_000;
     it('reads out hours, then days', () => {
       expect(formatVisitAge(now - 5 * 60_000, now)).toBe('just now');

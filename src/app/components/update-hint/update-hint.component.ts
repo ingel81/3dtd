@@ -17,6 +17,7 @@ import { TemplatePortal } from '@angular/cdk/portal';
 import { TdIconComponent } from '../icon/icon.component';
 import { readDesktopBridge, type DesktopUpdate } from '../../core/desktop-bridge';
 import { parseReleaseBody } from '../../utils/changelog';
+import { injectT } from '../../i18n/i18n.service';
 
 /** Items of the release notes the hint lists; the rest shows in "What's new" after the restart. */
 const NOTE_ITEMS = 3;
@@ -45,6 +46,7 @@ const NOTE_ITEMS = 3;
   styleUrl: './update-hint.component.scss',
 })
 export class UpdateHintComponent {
+  protected readonly t = injectT();
   private readonly bridge = readDesktopBridge();
   readonly update = signal<DesktopUpdate | null>(null);
   readonly hidden = signal(false);

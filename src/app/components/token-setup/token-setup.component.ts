@@ -9,6 +9,7 @@ import { FIRST_MAP_ID, WorldChoiceService } from '../../world/world-choice.servi
 import { CUSTOM_MAPS_OPEN } from '../../world/custom-maps-open';
 import { WorldStartService } from '../../world/world-start';
 import { WorldSession } from '../../world/world-session.service';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * First-run screen that asks the player for their own tile credentials.
@@ -80,6 +81,7 @@ export class TokenSetupComponent {
 
   readonly testing = signal(false);
   readonly testResult = signal<{ ok: boolean; message: string } | null>(null);
+  protected readonly t = injectT();
 
   selectProvider(provider: 'cesium' | 'google'): void {
     this.provider.set(provider);
@@ -100,7 +102,8 @@ export class TokenSetupComponent {
     this.testing.set(true);
     this.testResult.set(null);
     try {
-      this.testResult.set(await this.config.validateCredentials(this.provider(), this.value()));
+      const check = await this.config.validateCredentials(this.provider(), this.value());
+      this.testResult.set({ ok: check.ok, message: this.t().token.check(check) });
     } finally {
       this.testing.set(false);
     }

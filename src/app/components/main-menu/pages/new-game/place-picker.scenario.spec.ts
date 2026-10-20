@@ -233,9 +233,9 @@ describe('Place picker of New game', () => {
   it('a showcase place loads with one click: with its fixed spawn and bearing, random without one', () => {
     const fixture = open();
     const picker = fixture.componentInstance;
-    picker.loadShowcase({ id: 'nyc', name: 'New York, Times Square', hint: 'Midtown grid', lat: 40.75701, lon: -73.98597 });
+    picker.loadShowcase({ id: 'nyc-times-square', name: 'New York, Times Square', lat: 40.75701, lon: -73.98597 });
     picker.loadShowcase({
-      id: 'rio', name: 'Rio de Janeiro, Copacabana', hint: 'Beachfront avenue', lat: -22.96889, lon: -43.18085,
+      id: 'rio-copacabana', name: 'Rio de Janeiro, Copacabana', lat: -22.96889, lon: -43.18085,
       spawn: { lat: -22.96421, lon: -43.17463, portalBearing: 187.5 },
     });
     expect(chosen).toEqual([

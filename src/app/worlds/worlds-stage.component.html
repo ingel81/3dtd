@@ -6,9 +6,9 @@
   <header class="ws-bar td-topbar">
     <img class="ws-bar-logo" src="assets/images/logo/logo.svg" alt="3DTD" width="64" height="36">
     <!-- The same path as over the game and the editor (components/world-path) -->
-    <app-world-path class="ws-path" [world]="view() === 'world' ? names[world()] : null" [worldHere]="!pickName()"
+    <app-world-path class="ws-path" [world]="view() === 'world' ? names()[world()] : null" [worldHere]="!pickName()"
                     [modes]="view() === 'world' && !!pick()" [playLabel]="playLabel()" [editLabel]="editLabel()"
-                    [playWhy]="playWhy()" [editWhy]="editWhy()" worldHint="This world's menu" (go)="onPath($event)">
+                    [playWhy]="playWhy()" [editWhy]="editWhy()" [worldHint]="t().worlds.worldHint" (go)="onPath($event)">
       @if (view() === 'world' && pickName(); as name) {
         <span class="td-crumb" aria-current="page">{{ name }}</span>
       }
@@ -18,7 +18,7 @@
       <button type="button" class="td-stone-chip ws-chip" [attr.data-chip]="chip.id" [attr.title]="chip.hint"
               (click)="stage.goChip(chip.id)">{{ chip.label }}</button>
     }
-    <button type="button" class="td-tool" aria-label="Settings" title="Settings" (click)="stage.openOverlay('settings')">
+    <button type="button" class="td-tool" [attr.aria-label]="t().worlds.settings" [attr.title]="t().worlds.settings" (click)="stage.openOverlay('settings')">
       <td-icon name="cog" [size]="18" />
     </button>
   </header>
@@ -27,9 +27,9 @@
     <div class="ws-globes">
       <div class="ws-col">
         <img class="ws-logo" src="assets/images/logo/logo.svg" alt="3DTD" width="480" height="272">
-        <p class="ws-tagline td-caps">Tower defense on real streets</p>
-        <nav class="ws-menu td-panel" aria-label="Main menu">
-          <div class="td-menu" role="menu" aria-label="Menu" aria-orientation="vertical" tdRovingGroup>
+        <p class="ws-tagline td-caps">{{ t().worlds.tagline }}</p>
+        <nav class="ws-menu td-panel" [attr.aria-label]="t().worlds.mainMenu">
+          <div class="td-menu" role="menu" [attr.aria-label]="t().worlds.menu" aria-orientation="vertical" tdRovingGroup>
             @for (item of startItems(); track item.id) {
               @if (item.rule) {
                 <div class="td-menu-rule" role="separator"></div>
@@ -50,41 +50,41 @@
       </div>
 
       <div class="ws-stagearea">
-        <div class="ws-cards" role="group" aria-label="Worlds">
+        <div class="ws-cards" role="group" [attr.aria-label]="t().worlds.worlds">
           @for (w of worldIds; track w) {
             <button type="button" class="ws-card" [class.is-hero]="stage.hero() === w" [attr.data-world]="w"
-                    [attr.aria-label]="names[w] + (lock(w) ? ', ' + lock(w) : '')" (click)="stage.openWorld(w)">
+                    [attr.aria-label]="lock(w) ? t().worlds.lockLabel(names()[w], lock(w)!) : names()[w]" (click)="stage.openWorld(w)">
               <span class="ws-slot" [attr.data-globe]="w">
                 @if (globesOff()) {
                   <span class="ws-disc td-world-disc" [class.is-osm]="w === 'osm'" [class.is-maps]="w === 'maps'" [class.is-grey]="!!lock(w)"></span>
                 }
               </span>
-              <span class="ws-card-name">{{ names[w] }}</span>
+              <span class="ws-card-name">{{ names()[w] }}</span>
               <span class="td-note ws-card-sub">{{ cardSub(w) }}</span>
-              @if (lock(w); as why) {
-                <span class="td-note is-warn ws-card-line">{{ why === 'No map key' ? 'No map key: the 3D tiles need a Cesium Ion token or a Google Maps key' : why + ' in this build' }}</span>
+              @if (lockLine(w); as why) {
+                <span class="td-note is-warn ws-card-line">{{ why }}</span>
               } @else if (stage.continueOf(w); as go) {
                 <span class="td-note ws-card-line">{{ chipLine(go) }}</span>
               }
             </button>
           }
         </div>
-        @if (lock('real') === 'No map key') {
+        @if (stage.lockCode('real') === 'noKey') {
           <div class="ws-key td-actions">
-            <button type="button" class="td-btn-secondary td-btn-sm" (click)="stage.openOverlay('key')">Enter map key</button>
+            <button type="button" class="td-btn-secondary td-btn-sm" (click)="stage.openOverlay('key')">{{ t().worlds.enterKey }}</button>
           </div>
         }
-        <p class="td-note ws-hint">Pick a world. Nothing loads until you start.</p>
+        <p class="td-note ws-hint">{{ t().worlds.pickWorld }}</p>
       </div>
     </div>
   } @else {
     <div class="ws-world">
-      <section class="ws-panel td-panel" [attr.aria-label]="names[world()]">
+      <section class="ws-panel td-panel" [attr.aria-label]="names()[world()]">
         <header class="td-dlg-head ws-panel-head">
-          <h2 class="td-dlg-title">{{ world() === 'osm' && stage.frame() ? stage.frame()!.place.name : names[world()] }}</h2>
+          <h2 class="td-dlg-title">{{ world() === 'osm' && stage.frame() ? stage.frame()!.place.name : names()[world()] }}</h2>
           <button type="button" class="td-btn-secondary td-btn-sm ws-back" (click)="stage.back()">
             <td-icon name="caretL" [size]="12" />
-            <span>{{ world() === 'osm' && stage.frame() ? 'Back' : 'Worlds' }}</span>
+            <span>{{ world() === 'osm' && stage.frame() ? t().worlds.back : t().worlds.worlds }}</span>
             <kbd class="td-kbd">Esc</kbd>
           </button>
         </header>
@@ -103,7 +103,7 @@
         </span>
       </div>
 
-      <nav class="ws-switch" aria-label="Other worlds">
+      <nav class="ws-switch" [attr.aria-label]="t().worlds.otherWorlds">
         @for (w of otherWorlds(); track w) {
           <button type="button" class="td-btn-secondary ws-mini" (click)="stage.openWorld(w)">
             <span class="ws-slot is-mini" [attr.data-globe]="w">
@@ -112,13 +112,13 @@
               }
             </span>
             <span class="ws-mini-text">
-              <span>{{ names[w] }}</span>
+              <span>{{ names()[w] }}</span>
               <small class="td-note" [class.is-warn]="!!lock(w)">{{ miniSub(w) }}</small>
             </span>
           </button>
         }
         <button type="button" class="td-btn-secondary ws-mini is-all" (click)="stage.toGlobes()">
-          <td-icon name="globe" [size]="16" /><span>All worlds</span>
+          <td-icon name="globe" [size]="16" /><span>{{ t().worlds.allWorlds }}</span>
         </button>
       </nav>
     </div>
@@ -136,8 +136,8 @@
       <div class="ws-overlay td-backdrop">
         <section class="ws-dlg td-dlg" role="dialog" aria-modal="true" aria-labelledby="ws-dlg-title" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
           <header class="td-dlg-head">
-            <h2 class="td-dlg-title" id="ws-dlg-title">{{ overlayTitles[overlay] }}</h2>
-            <button type="button" class="td-close" aria-label="Back (Esc)" (click)="closeOverlay()">
+            <h2 class="td-dlg-title" id="ws-dlg-title">{{ t().worlds.overlays[overlay] }}</h2>
+            <button type="button" class="td-close" [attr.aria-label]="t().worlds.backEsc" (click)="closeOverlay()">
               <td-icon name="close" [size]="12" />
             </button>
           </header>

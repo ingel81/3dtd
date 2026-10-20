@@ -10,6 +10,7 @@ import type { StoredRun } from '../../run-log/run-log.store';
 import { MAX_RUNS } from '../../run-log/run-log.store';
 import { runWorld } from '../../run-log/run-log.types';
 import { worldPlaceName } from '../../world/world-ref';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * The runs this browser kept, newest first, each one to save as a file.
@@ -26,6 +27,7 @@ import { worldPlaceName } from '../../world/world-ref';
   styleUrl: './runs-dialog.component.scss',
 })
 export class RunsDialogComponent {
+  protected readonly t = injectT();
   private readonly dialogRef = inject(MatDialogRef<RunsDialogComponent>);
   private readonly runLog = inject(RunLogFacade);
 
@@ -50,13 +52,19 @@ export class RunsDialogComponent {
   /** Where it was played. A world of its own first (DevWorld, a map): its HQ sits at 0,0 and would read as coordinates. */
   place(run: StoredRun): string {
     const world = runWorld(run.head);
-    return (world && worldPlaceName(world)) ?? run.head.location?.name ?? 'Unknown place';
+    return (world && worldPlaceName(world)) ?? run.head.location?.name ?? this.t().dialogs.runs.unknownPlace;
   }
 
   /** Who played it. */
   who(run: StoredRun): string {
-    if (run.head.coop) return `coop: ${run.head.coop.players.join(', ')}`;
-    return run.head.player === 'bot' ? `bot ${run.head.botSkill ?? ''}`.trim() : 'you';
+    const w = this.t().dialogs.runs;
+    if (run.head.coop) return w.coop(run.head.coop.players.join(', '));
+    return run.head.player === 'bot' ? w.bot(run.head.botSkill ?? '') : w.you;
+  }
+
+  /** When it began, short, as the player's language writes a date */
+  when(at: string | number): string {
+    return this.t().dialogs.runs.when(new Date(at));
   }
 
   save(run: StoredRun): void {

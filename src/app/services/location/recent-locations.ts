@@ -1,5 +1,6 @@
 import { haversineDistance } from '../../utils/geo-utils';
 import { readJson, writeJson } from '../../utils/storage';
+import type { Messages } from '../../i18n/messages/en';
 
 /** localStorage key of the recent list, separate from the favorites (td_favorites_v2) */
 export const RECENT_LOCATIONS_KEY = 'td_recent_locations_v1';
@@ -61,11 +62,12 @@ export function saveRecentLocations(list: readonly RecentLocation[]): void {
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
 
-/** "just now", "5 h ago", "yesterday", "3 days ago" */
-export function formatVisitAge(visitedAt: number, now: number): string {
+/** "just now", "5 h ago", "yesterday", "3 days ago" in the player's language */
+export function formatVisitAge(t: Messages, visitedAt: number, now: number): string {
   const age = Math.max(0, now - visitedAt);
-  if (age < HOUR_MS) return 'just now';
-  if (age < DAY_MS) return `${Math.floor(age / HOUR_MS)} h ago`;
+  const words = t.units.ago;
+  if (age < HOUR_MS) return words.justNow;
+  if (age < DAY_MS) return words.hours(Math.floor(age / HOUR_MS));
   const days = Math.floor(age / DAY_MS);
-  return days === 1 ? 'yesterday' : `${days} days ago`;
+  return days === 1 ? words.yesterday : words.days(days);
 }

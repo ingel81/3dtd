@@ -16,6 +16,7 @@ import { openRunsDialog } from '../../../runs-dialog/open-runs-dialog';
 import { openHotkeyHelpDialog } from '../../../hotkey-help-dialog/open-hotkey-help-dialog';
 import { openAttributionsDialog } from '../../../attributions-dialog/open-attributions-dialog';
 import { openDamageMatrixDialog } from '../../../damage-matrix-dialog/open-damage-matrix-dialog';
+import { injectT } from '../../../../i18n/i18n.service';
 
 export const REPO_URL = 'https://github.com/ingel81/3dtd';
 
@@ -36,6 +37,7 @@ export const REPO_URL = 'https://github.com/ingel81/3dtd';
   host: { class: 'td-stack is-loose' },
 })
 export class ExtrasListComponent {
+  protected readonly t = injectT();
   private readonly dialog = inject(MatDialog);
   private readonly store = inject(GameStore);
   private readonly ui = inject(UIStore);
@@ -69,9 +71,10 @@ export class ExtrasListComponent {
   /** A replay file plays on the place loaded, between waves or after game over, not in coop */
   readonly replayOffered = this.replay !== null && REPLAY_CONFIG.offered;
   readonly cannotLoadReplay = computed(() => {
-    if (!this.locationMgmt.hq()) return 'Load a place first.';
-    if (this.ui.coopMapLocked() || this.inCoop()) return 'Replays are off in a coop game.';
-    if (this.store.waveActive()) return 'A replay loads between waves.';
+    const w = this.t().extras;
+    if (!this.locationMgmt.hq()) return w.loadPlaceFirst;
+    if (this.ui.coopMapLocked() || this.inCoop()) return w.noReplayInCoop;
+    if (this.store.waveActive()) return w.replayBetweenWaves;
     return null;
   });
   readonly canSaveReplay = computed(() => (this.replay?.recordedWave() ?? null) !== null);
@@ -91,24 +94,24 @@ export class ExtrasListComponent {
     await replay.loadFile(file);
     // The file brought a replay up: back to the game, where its bar plays it
     if (replay.active()) this.leave.emit();
-    else this.status.set({ text: replay.fileProblem() ?? 'The replay did not start.', bad: true });
+    else this.status.set({ text: replay.fileProblem() ?? this.t().extras.replayNotStarted, bad: true });
   }
 
   /** The replay was played elsewhere: go there and play it */
   async playThere(): Promise<void> {
     const replay = this.replay;
     if (!replay) return;
-    this.status.set({ text: `Going to ${replay.elsewhere()?.name ?? 'its place'}...`, bad: false });
+    this.status.set({ text: this.t().extras.goingTo(replay.elsewhere()?.name ?? null), bad: false });
     await replay.playThere();
     if (replay.active()) this.leave.emit();
-    else this.status.set({ text: replay.fileProblem() ?? 'The replay did not start.', bad: true });
+    else this.status.set({ text: replay.fileProblem() ?? this.t().extras.replayNotStarted, bad: true });
   }
 
   async saveReplay(): Promise<void> {
     this.busy.set(true);
     try {
       const saved = (await this.replay?.saveFile()) ?? false;
-      this.status.set(saved ? { text: 'Replay saved.', bad: false } : { text: 'No wave to save yet.', bad: true });
+      this.status.set(saved ? { text: this.t().extras.replaySaved, bad: false } : { text: this.t().extras.noWaveYet, bad: true });
     } finally {
       this.busy.set(false);
     }
@@ -116,8 +119,8 @@ export class ExtrasListComponent {
 
   exportRunLog(): void {
     this.status.set(this.runLog.export()
-      ? { text: 'Run log saved.', bad: false }
-      : { text: 'No run to save yet.', bad: true });
+      ? { text: this.t().extras.runLogSaved, bad: false }
+      : { text: this.t().extras.noRunYet, bad: true });
   }
 
   openRuns(): void {

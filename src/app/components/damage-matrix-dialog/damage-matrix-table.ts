@@ -60,12 +60,6 @@ export interface EffectivenessLegendEntry {
   color: string;
 }
 
-export const EFFECTIVENESS_LABELS: Readonly<Record<DamageEffectiveness, string>> = {
-  weak: 'Weak',
-  normal: 'Normal',
-  strong: 'Strong',
-  devastating: 'Devastating',
-};
 
 /**
  * Neutraler Text für die Stufe "normal". Sekundärtext statt Haupttext: 1.00× ist die
@@ -81,8 +75,8 @@ export function matrixTierColor(effectiveness: DamageEffectiveness): string {
   return effectiveness === 'normal' ? MATRIX_NORMAL_COLOR : EFFECTIVENESS_COLORS[effectiveness];
 }
 
-export function formatMultiplier(multiplier: number): string {
-  return `${multiplier.toFixed(2)}×`;
+export function formatMultiplier(t: Messages, multiplier: number): string {
+  return `${t.units.fixed(multiplier, 2)}×`;
 }
 
 /**
@@ -117,10 +111,10 @@ export function buildDamageMatrixRows(
         return {
           armor,
           multiplier,
-          text: formatMultiplier(multiplier),
+          text: formatMultiplier(t, multiplier),
           effectiveness,
           color: matrixTierColor(effectiveness),
-          tierLabel: EFFECTIVENESS_LABELS[effectiveness],
+          tierLabel: t.dialogs.matrix.effectiveness[effectiveness],
         };
       }),
     }));
@@ -147,18 +141,19 @@ export function buildDamageMatrixColumns(
 }
 
 /** Legende der vier Stufen, Schwellen direkt aus EFFECTIVENESS_THRESHOLDS. */
-export function buildEffectivenessLegend(): EffectivenessLegendEntry[] {
-  const t = EFFECTIVENESS_THRESHOLDS;
+export function buildEffectivenessLegend(t: Messages): EffectivenessLegendEntry[] {
+  const at = EFFECTIVENESS_THRESHOLDS;
+  const words = t.dialogs.matrix;
   const entry = (effectiveness: DamageEffectiveness, range: string): EffectivenessLegendEntry => ({
     effectiveness,
-    label: EFFECTIVENESS_LABELS[effectiveness],
+    label: words.effectiveness[effectiveness],
     range,
     color: matrixTierColor(effectiveness),
   });
   return [
-    entry('weak', `below ${formatMultiplier(t.weak)}`),
+    entry('weak', words.below(formatMultiplier(t, at.weak))),
     entry('normal', ''),
-    entry('strong', `${formatMultiplier(t.strong)} and up`),
-    entry('devastating', `${formatMultiplier(t.devastating)} and up`),
+    entry('strong', words.andUp(formatMultiplier(t, at.strong))),
+    entry('devastating', words.andUp(formatMultiplier(t, at.devastating))),
   ];
 }

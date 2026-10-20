@@ -36,8 +36,9 @@ import { StageCoopComponent } from './stage-coop.component';
 import { WorldMapsComponent } from './world-maps.component';
 import { WorldOsmComponent } from './world-osm.component';
 import { WorldRealComponent } from './world-real.component';
-import { WORLD_IDS, WORLD_NAMES, type WorldId, type WorldPick } from './world-rules';
-import { WorldsStageService, chipLine, type StageContinue, type StageOverlay } from './worlds-stage.service';
+import { WORLD_IDS, type WorldId, type WorldPick } from './world-rules';
+import { injectT } from '../i18n/i18n.service';
+import { WorldsStageService, chipLine, type StageContinue } from './worlds-stage.service';
 import { placeLabel } from '../services/location/place-label';
 
 /** An entry of the menu on the globes */
@@ -54,12 +55,6 @@ interface StartItem {
   run: () => void;
 }
 
-const OVERLAY_TITLES: Record<Exclude<StageOverlay, 'key'>, string> = {
-  settings: 'Settings',
-  extras: 'Extras',
-  load: 'Load game',
-  coop: 'Coop',
-};
 
 /**
  * The start of the game (docs/WORLDS_NAVIGATION_PLAN.md, phases 6 and 7):
@@ -113,11 +108,11 @@ export class WorldsStageComponent {
   private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('globes');
   private readonly bridge = readDesktopBridge();
 
+  protected readonly t = injectT();
   readonly worldIds = WORLD_IDS;
-  readonly names = WORLD_NAMES;
+  readonly names = computed(() => this.t().worlds.names);
   readonly view = this.stage.view;
   readonly world = this.stage.world;
-  readonly overlayTitles = OVERLAY_TITLES;
 
   /** The globes are not drawn (the menu globe is off, or WebGL failed): the squares show discs */
   private readonly failed = signal(false);
@@ -142,13 +137,14 @@ export class WorldsStageComponent {
   readonly otherWorlds = computed(() => WORLD_IDS.filter((w) => w !== this.world()));
 
   /** Start or Continue, as the header and the detail call it */
-  readonly playLabel = computed(() => this.stage.playWord(this.world(), this.pick(), this.world() === 'real' ? 'Start' : 'Play'));
-  readonly editLabel = computed(() => (this.pick()?.kind === 'map' ? 'Edit' : 'Make map'));
+  readonly playLabel = computed(() => this.stage.playWord(this.world(), this.pick(), this.world() === 'real' ? this.t().worlds.start : this.t().worlds.play));
+  readonly editLabel = computed(() => (this.pick()?.kind === 'map' ? this.t().worlds.edit : this.t().worlds.makeMap));
   readonly playWhy = computed(() => this.stage.whyNot('play', this.world()));
-  readonly editWhy = computed(() => (this.pick()?.kind === 'tileset' ? 'An own tileset has no map to make' : this.stage.whyNot('edit', this.world())));
+  readonly editWhy = computed(() => (this.pick()?.kind === 'tileset' ? this.t().worlds.whyNot.tilesetNoMap : this.stage.whyNot('edit', this.world())));
 
   readonly startItems = computed<StartItem[]>(() => {
     const items: StartItem[] = [];
+    const words = this.t().worlds;
     const item = (id: string, label: string, icon: TdIconName, run: () => void, extra: Partial<StartItem> = {}): StartItem =>
       ({ id, label, icon, sub: null, why: null, rule: false, run, ...extra });
     for (const go of this.stage.continues()) {
@@ -158,16 +154,16 @@ export class WorldsStageComponent {
       }));
     }
     items.push(
-      item('coop', 'Coop', 'users', () => this.stage.openOverlay('coop'), { rule: items.length > 0 }),
-      item('load', 'Load game', 'filing', () => this.stage.openOverlay('load')),
-      item('editor', 'Map editor', 'terrain', () => this.openEditor(), {
-        sub: 'New map, import, edit: Built Worlds',
+      item('coop', words.items.coop, 'users', () => this.stage.openOverlay('coop'), { rule: items.length > 0 }),
+      item('load', words.items.load, 'filing', () => this.stage.openOverlay('load')),
+      item('editor', words.items.editor, 'terrain', () => this.openEditor(), {
+        sub: words.editorSub,
         why: this.stage.whyNot('edit', null),
       }),
-      item('settings', 'Settings', 'cog', () => this.stage.openOverlay('settings')),
-      item('extras', 'Extras', 'manual', () => this.stage.openOverlay('extras')),
+      item('settings', words.items.settings, 'cog', () => this.stage.openOverlay('settings')),
+      item('extras', words.items.extras, 'manual', () => this.stage.openOverlay('extras')),
     );
-    if (typeof this.bridge?.quit === 'function') items.push(item('quit', 'Quit 3DTD', 'power', () => this.bridge?.quit?.(), { rule: true }));
+    if (typeof this.bridge?.quit === 'function') items.push(item('quit', words.items.quit, 'power', () => this.bridge?.quit?.(), { rule: true }));
     return items;
   });
 
@@ -230,14 +226,21 @@ export class WorldsStageComponent {
     return this.stage.lock(world);
   }
 
+  /** The line under a locked globe, which says what the lock needs */
+  lockLine(world: WorldId): string | null {
+    const lock = this.stage.lockCode(world);
+    return lock ? this.t().worlds.lockCard[lock] : null;
+  }
+
   /** The line under a globe */
   cardSub(world: WorldId): string {
-    if (world === 'real') return 'Photorealistic 3D tiles of the real world';
-    if (world === 'osm') return 'Maps made from OpenStreetMap, no key needed';
+    const sub = this.t().worlds.cardSub;
+    if (world === 'real') return sub.real;
+    if (world === 'osm') return sub.osm;
     const maps = this.stage.maps();
     const shipped = maps.filter((m) => m.origin === 'shipped').length;
     const own = maps.filter((m) => m.origin !== 'shipped' && !m.generated).length;
-    return maps.length === 0 ? 'Shipped maps and your own' : `${shipped} shipped maps, ${own} of yours`;
+    return maps.length === 0 ? sub.mapsNone : sub.maps(shipped, own);
   }
 
   /** The line of a small globe beside the big one */
@@ -246,12 +249,12 @@ export class WorldsStageComponent {
     if (lock) return lock;
     const go = this.stage.continueOf(world);
     if (go) return go.line;
-    return world === 'real' ? '3D tiles' : world === 'osm' ? 'No key needed' : 'Shipped and yours';
+    return this.t().worlds.miniSub[world];
   }
 
   /** A Continue as chip and globe line: "Heilbronn | wave 12 | autosave", "... | ready" when held, "Back to Heilbronn" */
   chipLine(go: StageContinue): string {
-    return chipLine(go);
+    return chipLine(this.t(), go);
   }
 
   activate(item: StartItem): void {

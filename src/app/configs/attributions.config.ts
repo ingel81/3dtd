@@ -6,8 +6,11 @@ export interface Attribution {
   sourceUrl?: string;
 }
 
+/** The groups of the credits; their headings are the dictionary's (`dialogs.attributions.categories`) */
+export type AttributionCategoryId = 'models' | 'fonts' | 'sounds' | 'textures' | 'mapAssets' | 'music' | 'mapData' | 'openSource';
+
 export interface AttributionCategory {
-  title: string;
+  id: AttributionCategoryId;
   icon: string;
   items: Attribution[];
 }
@@ -21,7 +24,7 @@ export const OSM_MAP_ATTRIBUTION = 'Routes © OpenStreetMap contributors';
 
 export const ATTRIBUTIONS: AttributionCategory[] = [
   {
-    title: '3D Models',
+    id: 'models',
     icon: 'tower',
     items: [
       {
@@ -142,7 +145,7 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
     ],
   },
   {
-    title: 'Fonts and icons',
+    id: 'fonts',
     icon: 'text',
     items: [
       {
@@ -169,7 +172,7 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
     ],
   },
   {
-    title: 'Sound Effects',
+    id: 'sounds',
     icon: 'audio',
     items: [
       {
@@ -181,7 +184,7 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
     ],
   },
   {
-    title: 'Textures & Art',
+    id: 'textures',
     icon: 'terrain',
     items: [
       {
@@ -207,7 +210,7 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
   {
     // What the credit line of a custom map points to (CUSTOM_MAP_ASSET_CREDIT); every file in
     // public/maps/assets/LICENSES.md, per material and model
-    title: 'Custom map assets',
+    id: 'mapAssets',
     icon: 'terrain',
     items: [
       {
@@ -227,7 +230,7 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
     ],
   },
   {
-    title: 'Music',
+    id: 'music',
     icon: 'audio',
     items: [
       {
@@ -239,7 +242,7 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
     ],
   },
   {
-    title: 'Map Data',
+    id: 'mapData',
     icon: 'globe',
     items: [
       {
@@ -299,7 +302,7 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
     ],
   },
   {
-    title: 'Open Source',
+    id: 'openSource',
     icon: 'filing',
     items: [
       {

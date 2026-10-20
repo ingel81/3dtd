@@ -94,6 +94,11 @@ const SOURCE_T: Signal<Messages> = signal(en).asReadonly();
  * hand without it (or with a stand-in) gets the source language.
  */
 export function injectT(): Signal<Messages> {
-  const i18n = inject(I18n, { optional: true });
+  let i18n: unknown = null;
+  try {
+    i18n = inject(I18n, { optional: true });
+  } catch {
+    // A service a spec makes with `new`, outside any injector: the source language
+  }
   return i18n instanceof I18nService ? i18n.t : SOURCE_T;
 }

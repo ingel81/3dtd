@@ -5,6 +5,7 @@ import { ATTRIBUTIONS } from '../../configs/attributions.config';
 import { TdIconComponent } from '../icon/icon.component';
 import { LEGAL_URL } from '../../utils/public-url';
 import { ATTRIBUTIONS_TITLE_ID } from './open-attributions-dialog';
+import { injectT } from '../../i18n/i18n.service';
 
 @Component({
   selector: 'app-attributions-dialog',
@@ -19,6 +20,7 @@ import { ATTRIBUTIONS_TITLE_ID } from './open-attributions-dialog';
   styleUrl: './attributions-dialog.component.scss',
 })
 export class AttributionsDialogComponent {
+  protected readonly t = injectT();
   private readonly dialogRef = inject(MatDialogRef<AttributionsDialogComponent>);
   readonly attributions = ATTRIBUTIONS;
   /** Imprint and privacy notice of the project, on the public site */

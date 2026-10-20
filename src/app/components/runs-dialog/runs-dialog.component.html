@@ -1,47 +1,44 @@
+@let w = t().dialogs.runs;
 <div class="td-dlg">
   <header class="td-dlg-head">
-    <h2 class="td-dlg-title" id="td-runs-dialog-title">Runs</h2>
+    <h2 class="td-dlg-title" id="td-runs-dialog-title">{{ w.title }}</h2>
     @if (!loading()) {
       <span class="td-note td-num runs-count">{{ runs().length }} / {{ maxRuns }}</span>
     }
-    <button class="td-close" type="button" aria-label="Close" (click)="close()">
+    <button class="td-close" type="button" [attr.aria-label]="t().common.close" (click)="close()">
       <td-icon name="close" [size]="12"></td-icon>
     </button>
   </header>
 
   <div class="td-dlg-body">
-    <p class="td-note">
-      The last {{ maxRuns }} runs of this browser. Saving gives you the run as a file.
-    </p>
-    <p class="td-note">
-      Coop run logs to the coop server: {{ uploadRuns ? 'on' : 'off' }}. Change it under Settings, Privacy.
-    </p>
+    <p class="td-note">{{ w.about(maxRuns) }}</p>
+    <p class="td-note">{{ w.upload(uploadRuns) }}</p>
 
     @if (loading()) {
-      <p class="td-note">Reading…</p>
+      <p class="td-note">{{ w.reading }}</p>
     } @else if (runs().length === 0) {
-      <p class="td-note">No run kept yet. One is written per finished wave.</p>
+      <p class="td-note">{{ w.none }}</p>
     } @else {
       <ul class="td-rows">
         @for (run of runs(); track run.runId) {
           <li class="td-row runs-row">
-            <span class="runs-wave" role="img" [attr.aria-label]="'Wave ' + run.waveReached">
+            <span class="runs-wave" role="img" [attr.aria-label]="t().saves.wave(run.waveReached)">
               <span class="td-value is-sm" aria-hidden="true">{{ run.waveReached }}</span>
-              <span class="td-caps" aria-hidden="true">Wave</span>
+              <span class="td-caps" aria-hidden="true">{{ w.wave }}</span>
             </span>
             <div class="runs-text">
               <span class="td-name runs-where" [title]="place(run)">{{ place(run) }}</span>
               <span class="td-sub td-inline runs-meta">
-                {{ run.startedAt | date: 'short' }}
+                {{ when(run.startedAt) }}
                 <span class="td-caps" [class.runs-human]="run.head.player !== 'bot'">{{ who(run) }}</span>
               </span>
             </div>
             <button class="td-tool" type="button" (click)="save(run)"
-                    matTooltip="Save as file" aria-label="Save run as file">
+                    [matTooltip]="w.save" [attr.aria-label]="w.saveRun">
               <td-icon name="download" [size]="16"></td-icon>
             </button>
             <button class="td-tool" type="button" (click)="remove(run)"
-                    matTooltip="Delete" aria-label="Delete run">
+                    [matTooltip]="t().common.delete" [attr.aria-label]="w.deleteRun">
               <td-icon name="trash" [size]="16"></td-icon>
             </button>
           </li>
@@ -52,16 +49,16 @@
 
   <footer class="td-dlg-foot">
     @if (confirmingClear()) {
-      <span class="td-note is-warn runs-confirm" role="alert">Delete all {{ runs().length }} runs? This cannot be undone.</span>
-      <button class="td-btn-secondary" type="button" (click)="confirmingClear.set(false)">Cancel</button>
-      <button class="td-btn-danger" type="button" (click)="clearAll()">Delete all</button>
+      <span class="td-note is-warn runs-confirm" role="alert">{{ w.deleteAllAsk(runs().length) }}</span>
+      <button class="td-btn-secondary" type="button" (click)="confirmingClear.set(false)">{{ t().common.cancel }}</button>
+      <button class="td-btn-danger" type="button" (click)="clearAll()">{{ w.deleteAll }}</button>
     } @else {
       <button class="td-btn-danger runs-clear" type="button" (click)="confirmingClear.set(true)"
               [disabled]="loading() || runs().length === 0">
-        Delete all
+        {{ w.deleteAll }}
       </button>
-      
-      <button class="td-btn-primary" type="button" (click)="close()">Close</button>
+
+      <button class="td-btn-primary" type="button" (click)="close()">{{ t().common.close }}</button>
     }
   </footer>
 </div>

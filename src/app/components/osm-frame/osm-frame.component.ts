@@ -15,6 +15,7 @@ import { OSM_CANCELLED, OsmFrameSession } from '../../world/osm/osm-frame-sessio
 import { overpassRetryText, type OverpassRetry } from '../../world/osm/overpass-client';
 import { OsmFrameMap } from './osm-frame-map';
 import type { OsmFramePlace } from './osm-frame-request';
+import { injectT } from '../../i18n/i18n.service';
 
 /** Makes the frame's line to the OSM worker; a spec hands in one on the calling thread */
 export const OSM_FRAME_SESSION = new InjectionToken<() => OsmFrameSession>('OSM_FRAME_SESSION', {
@@ -52,6 +53,7 @@ const RETRY_NOW_S = 15;
   host: { class: 'td-stack is-loose' },
 })
 export class OsmFrameComponent implements OnInit, OnDestroy {
+  protected readonly t = injectT();
   private readonly store = inject(MAP_STORE);
 
   readonly place = input.required<OsmFramePlace>();
@@ -69,7 +71,8 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   /** The map's square as it stands (laid out by the worker); null before the place is open */
   readonly area = signal<OsmArea | null>(null);
   readonly sideKm = computed(() => ((this.area()?.sideM ?? OSM_WORLD_SIDE) / 1000).toFixed(1));
-  readonly sideLimits = `${OSM_MIN_SIDE / 1000} to ${OSM_WORLD_SIDE / 1000} km`;
+  readonly sideMin = OSM_MIN_SIDE / 1000;
+  readonly sideMax = OSM_WORLD_SIDE / 1000;
   readonly hqEdge = OSM_HQ_EDGE_M;
   readonly maxSpawns = OSM_FRAME_MAX_SPAWNS;
   readonly phase = signal<Phase>('loading');
@@ -122,9 +125,9 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   /** What the player reads under the rows while the OpenStreetMap servers keep them waiting; null while all goes on */
   readonly waitText = computed(() => {
     const retry = this.retry();
-    if (retry) return overpassRetryText(retry, (this.retryAt - this.now()) / 1000);
+    if (retry) return overpassRetryText(this.t(), retry, (this.retryAt - this.now()) / 1000);
     // The first answer can take long (a busy server keeps the request open): the player sees it is still waiting
-    if (this.askingOverpass() && this.waited() >= SLOW_S) return `Still waiting for the OpenStreetMap server (${this.waited()} s)`;
+    if (this.askingOverpass() && this.waited() >= SLOW_S) return this.t().osm.stillWaiting(this.waited());
     return null;
   });
   /** Ask again at once: offered while the servers are asked again, or when the first answer is slow */
@@ -134,7 +137,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   readonly percent = computed(() => Math.round(this.makingNow().share * 100));
   readonly fetchedOn = computed(() => {
     const at = this.frame()?.fetchedAt;
-    return at ? new Date(at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    return at ? this.t().osm.fetchedOn(new Date(at)) : '';
   });
   /** The credit line under the map: the data the map is made of */
   readonly credits = computed(() => {
@@ -198,10 +201,10 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       this.spawns.set(frame.spawns);
       this.selected.set(null);
       this.phase.set('ready');
-      if (!frame.hq) this.error.set('This place has no streets in OpenStreetMap: enemies would have nowhere to walk.');
-      else if (!frame.spawns.length) this.error.set('No street 500 to 1000 m from the HQ has a route to it. Try a place nearby.');
+      if (!frame.hq) this.error.set(this.t().osm.noStreets);
+      else if (!frame.spawns.length) this.error.set(this.t().osm.noRoute);
       else if (before && standing.some((p) => !frame.spawns.some((s) => Math.abs(s.lat - p.lat) < 2e-5 && Math.abs(s.lon - p.lon) < 3e-5))) {
-        this.dropNote.set('Spawns that no longer fit in the square were drawn anew.');
+        this.dropNote.set(this.t().osm.spawnsRedrawn);
       }
       // The map's box exists once the phase is ready; a map that stands shows the new square
       if (this.map) this.redraw();
@@ -212,11 +215,11 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       if (before) {
         // The square goes back: the worker keeps what was laid out before (OsmFrameSession.open)
         this.phase.set('ready');
-        this.error.set(message === OSM_CANCELLED ? null : `The new square did not load: ${message}`);
+        this.error.set(message === OSM_CANCELLED ? null : this.t().osm.squareFailed(message));
         this.redraw();
       } else {
         this.phase.set('failed');
-        this.error.set(message === OSM_CANCELLED ? 'Cancelled.' : message);
+        this.error.set(message === OSM_CANCELLED ? this.t().osm.cancelled : message);
       }
     } finally {
       if (gen === this.loadGen) {
@@ -263,8 +266,8 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
 
   /** What a row of the load says beside its words; the OpenStreetMap row counts the wait while no byte came */
   rowDetail(row: OsmLoadRow): string {
-    if (row.step === 'overpass' && row.status === 'active' && !row.detail) return this.retry() ? 'busy, asking again' : `asking (${this.waited()} s)`;
-    return row.detail ?? (row.status === 'done' ? 'done' : '');
+    if (row.step === 'overpass' && row.status === 'active' && !row.detail) return this.retry() ? this.t().osm.busyAsking : this.t().osm.asking(this.waited());
+    return row.detail ?? (row.status === 'done' ? this.t().osm.rowDone : '');
   }
 
   /** The flat map, MapLibre loaded on first use */
@@ -276,7 +279,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       const map = await OsmFrameMap.open(host, this.place(), area, {
         drop: (index, at) => void this.dropSpawn(index, at),
         select: (index) => this.select(index),
-        problem: (text) => this.mapProblem.set(text),
+        tilesFailed: (message) => this.mapProblem.set(this.t().osm.tilesFailed(message)),
         fit: (area) => fitArea(area, this.hqPlace()),
         canEdit: () => this.canEdit(),
         reframe: (area) => this.reframe(area),
@@ -288,7 +291,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       this.map = map;
       this.redraw();
     } catch (e) {
-      this.mapProblem.set(`The map did not load (${(e as Error).message}). The spawns still work from the list.`);
+      this.mapProblem.set(this.t().osm.mapFailed((e as Error).message));
     }
   }
 
@@ -327,8 +330,8 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
 
   /** "Johanneskirche (church, 320 m)", "the town hall (450 m)" */
   landmarkLabel(l: FrameLandmark): string {
-    const km = l.distanceM >= 1000 ? `${(l.distanceM / 1000).toFixed(1)} km` : `${l.distanceM} m`;
-    return l.name ? `${l.name} (${l.kind}, ${km})` : `the ${l.kind} (${km})`;
+    const osm = this.t().osm;
+    return osm.landmark(l.name, osm.landmarks[l.kind], osm.distance(l.distanceM));
   }
 
   select(index: number | null): void {
@@ -347,7 +350,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     try {
       const dropped = await this.session.drop(at);
       if ('reason' in dropped) {
-        this.dropNote.set(`${dropped.reason}: the spawn stays where it was.`);
+        this.dropNote.set(this.t().osm.dropped(dropped.reason));
       } else {
         this.dropNote.set(null);
         this.spawns.update((list) => list.map((s, k) => (k === index ? dropped : s)));
@@ -370,7 +373,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   async rollOne(index: number): Promise<void> {
     await this.drawing(async () => {
       const [next] = await this.session.draw(1, this.spawns().filter((_, k) => k !== index));
-      if (!next) this.dropNote.set('No other street 500 to 1000 m out has room for a spawn.');
+      if (!next) this.dropNote.set(this.t().osm.noOtherStreet);
       return next ? this.spawns().map((s, k) => (k === index ? next : s)) : this.spawns();
     });
   }
@@ -378,7 +381,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   async addSpawn(): Promise<void> {
     await this.drawing(async () => {
       const [next] = await this.session.draw(1, this.spawns());
-      if (!next) this.dropNote.set('No other street 500 to 1000 m out has room for a spawn.');
+      if (!next) this.dropNote.set(this.t().osm.noOtherStreet);
       return next ? [...this.spawns(), next] : this.spawns();
     });
   }
@@ -442,7 +445,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       if (this.destroyed) return;
       this.phase.set('ready');
       const message = (e as Error).message;
-      this.error.set(message === OSM_CANCELLED ? null : `The map was not made: ${message}`);
+      this.error.set(message === OSM_CANCELLED ? null : this.t().osm.notMade(message));
     } finally {
       this.making = null;
       this.stopTicker();
@@ -460,17 +463,17 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
 
   /** "820 m out, route 1.1 km" */
   spawnLine(s: FrameSpawn): string {
-    const km = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`);
-    return `${km(s.distanceM)} out, route ${km(s.routeM)}`;
+    const osm = this.t().osm;
+    return osm.spawnLine(osm.distance(s.distanceM), osm.distance(s.routeM));
   }
 
   /** What the made map holds, in a line */
   reportLine(report: OsmImportReport): string {
     const r = report.roads;
     const spawns = report.layout.spawns.length;
-    const built = report.buildings.placed;
-    return `${Math.round(r.km.road + r.km.bridge)} km of road, ${Math.round(r.km.path)} km of paths, ` +
-      `${r.bridges} ${r.bridges === 1 ? 'bridge' : 'bridges'}, ${built} ${built === 1 ? 'building' : 'buildings'}, ${spawns} ${spawns === 1 ? 'spawn' : 'spawns'}`;
+    return this.t().osm.report({
+      roadKm: Math.round(r.km.road + r.km.bridge), pathKm: Math.round(r.km.path), bridges: r.bridges, buildings: report.buildings.placed, spawns,
+    });
   }
 }
 

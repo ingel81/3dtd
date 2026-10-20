@@ -34,6 +34,7 @@ import {
   traceLines,
   viewRotation,
 } from './globe-projection';
+import { injectT } from '../../i18n/i18n.service';
 
 interface LatLon {
   lat: number;
@@ -94,6 +95,7 @@ export interface GlobeHover {
   `,
 })
 export class WorldGlobeComponent implements OnDestroy {
+  protected readonly t = injectT();
   private readonly zone = inject(NgZone);
   private readonly canvasRef = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
 
@@ -113,7 +115,7 @@ export class WorldGlobeComponent implements OnDestroy {
   readonly hover = signal<GlobeHover | null>(null);
   readonly ariaLabel = computed(() => {
     const n = this.records().length;
-    return n === 0 ? 'World map, no places defended yet' : `World map, ${n} ${n === 1 ? 'place' : 'places'} defended`;
+    return this.t().globe.label(n);
   });
 
   /** Lowest wave first, so the higher records are drawn on top */

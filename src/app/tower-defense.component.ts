@@ -61,7 +61,7 @@ import { CoopSquadComponent } from './components/coop-squad/coop-squad.component
 import { CoopDockComponent } from './components/coop-dock/coop-dock.component';
 import { WorldContext } from './world/world-context.service';
 import { CUSTOM_MAPS_OPEN } from './world/custom-maps-open';
-import { whyNot, worldName } from './world/why-not';
+import { whyNotText, worldName } from './world/why-not';
 import type { GamePath } from './components/game-header/game-header.component';
 import type { PathAction } from './components/world-path/world-path.component';
 import { WorldsStageService } from './worlds/worlds-stage.service';
@@ -331,19 +331,20 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     const ref = this.worldContext.ref();
     const onMap = ref.kind === 'custom-map';
     // The editor's test: Edit goes back to the editor, which waits with its map
-    const world = worldName(worldOfPage(ref));
+    const path = this.t().worlds.path;
+    const world = worldName(this.t(), worldOfPage(ref));
     if (this.mainMenu.fromEditor) {
       return {
         world,
-        playLabel: 'Trial',
-        playHint: 'A test of the map: never saved, no run',
-        editLabel: 'Edit',
-        editHint: 'Back to the editor, the map as you left it',
+        playLabel: path.trial,
+        playHint: path.trialHint,
+        editLabel: path.edit,
+        editHint: path.backToEditorHint,
         editWhy: null,
         chips: [],
       };
     }
-    const editWhy = whyNot('edit', {
+    const editWhy = whyNotText(this.t(), 'edit', {
       mapsOpen: this.mapsOpen,
       inCoopRoom: this.coop.room() !== null || this.coop.inGame(),
       coopGuest: this.uiStore.coopMapLocked(),
@@ -351,11 +352,11 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     });
     return {
       world,
-      playLabel: 'Play',
-      playHint: 'Play',
-      editLabel: onMap ? 'Edit' : 'Make map',
-      editHint: onMap ? 'Edit this map in the editor' : 'Make a map of this place from OpenStreetMap',
-      editWhy: editWhy ?? (onMap || ref.kind === 'tiles' ? null : 'There is no map to edit here'),
+      playLabel: path.play,
+      playHint: path.play,
+      editLabel: onMap ? path.edit : this.t().worlds.makeMap,
+      editHint: onMap ? path.editInEditorHint : path.makeMapHint,
+      editWhy: editWhy ?? (onMap || ref.kind === 'tiles' ? null : path.noMapHere),
       // The same chips as on the globes and in the editor: the other worlds' Continues and the editor's map
       chips: this.stage.pathChips(worldOfPage(ref), true),
     };

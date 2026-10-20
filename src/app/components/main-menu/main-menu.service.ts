@@ -27,8 +27,9 @@ import { PLAIN_START } from '../../world/world-start';
 import { WorldsStageService } from '../../worlds/worlds-stage.service';
 import { worldOfPage } from '../../world/world-of-page';
 import { recordRecentMap } from '../../worlds/recent-maps';
-import { WORLD_NAMES, autosaveSlotOf, samePick, type WorldId, type WorldPick } from '../../worlds/world-rules';
-import { whyNot } from '../../world/why-not';
+import { autosaveSlotOf, samePick, type WorldId, type WorldPick } from '../../worlds/world-rules';
+import { injectT } from '../../i18n/i18n.service';
+import { whyNotText } from '../../world/why-not';
 import { BackgroundMusicService } from '../../game-engine/background-music.service';
 
 export { startMenuSkipped } from './start-menu-skipped';
@@ -52,6 +53,7 @@ export { startMenuSkipped } from './start-menu-skipped';
  */
 @Injectable()
 export class MainMenuService {
+  private readonly t = injectT();
   private readonly ui = inject(UIStore);
   private readonly store = inject(GameStore);
   private readonly coop = inject(COOP, { optional: true });
@@ -151,9 +153,9 @@ export class MainMenuService {
   /** The world is the editor's test of its map ("Test map", the bot check): editing the map goes back to the editor */
   readonly fromEditor = this.start.current().trial !== null;
   /** The words of the way into the editor: back to it from its test tab, else the map opens there */
-  readonly editMapLabel = this.fromEditor ? 'Back to editor' : 'Edit this map';
+  readonly editMapLabel = computed(() => (this.fromEditor ? this.t().menu.backToEditor : this.t().menu.editMap));
   /** Restart's words: the editor's test starts again at its wave (RunRules.start), a run here anew */
-  readonly restartLabel = this.fromEditor ? `Again from wave ${this.start.current().startWave}` : 'Restart here';
+  readonly restartLabel = computed(() => (this.fromEditor ? this.t().menu.againFromWave(this.start.current().startWave) : this.t().menu.restartHere));
 
   /**
    * The map editor in this window on the map this page plays (a shipped one opens there as an own copy); the
@@ -240,7 +242,7 @@ export class MainMenuService {
     const world = ref.kind === 'tiles' ? null : ref.kind === 'custom-map' ? { ...ref, contentHash: '' } : ref;
     this.screens.waitingRun.set({
       order: { ...PLAIN_START, world, resume: slotId, play: true, label: name },
-      label: `${name} | wave ${slot.wave}`,
+      label: this.t().worlds.runLine(name, slot.wave),
       mapId: ref.kind === 'custom-map' ? ref.mapId : null,
     });
   }
@@ -480,13 +482,13 @@ export class MainMenuService {
     if (!slotId) return;
     void this.saves.load(slotId).then((result) => {
       if (result.ok) {
-        if (result.note) this.notice.set(`Loaded. ${result.note}`);
+        if (result.note) this.notice.set(this.t().menu.loadedNote(result.note));
         else this.requestPlay();
         return;
       }
       // No run came of it: the start's Play instead of a loading that waits for nothing, a fresh run
       this.starting.set(false);
-      this.notice.set(`${result.reason} Play starts a fresh run here.`);
+      this.notice.set(this.t().menu.freshRun(result.reason));
     });
   }
 
@@ -514,19 +516,19 @@ export class MainMenuService {
   }));
 
   /** Why the game cannot go back to the worlds now (a coop room would lose the player), null when it can */
-  readonly leaveWhy = computed(() => whyNot('leave', this.wayFacts()));
+  readonly leaveWhy = computed(() => whyNotText(this.t(), 'leave', this.wayFacts()));
 
   /**
    * Why the map editor cannot open from this game now, null when it can: in a coop room (its lobby or its game)
    * the editor would take the game down and the room with it, so it stays locked with the reason, as on the
    * path. The editor's own test goes back to the editor always.
    */
-  readonly editWhy = computed(() => (this.fromEditor ? null : whyNot('edit', this.wayFacts())));
+  readonly editWhy = computed(() => (this.fromEditor ? null : whyNotText(this.t(), 'edit', this.wayFacts())));
 
   /** The menu of this page's world, by its name; null in Dev world, which has none (All worlds is its way out) */
   readonly worldMenuLabel = computed(() => {
     const world = this.worldOfPage();
-    return world ? WORLD_NAMES[world] : null;
+    return world ? this.t().worlds.names[world] : null;
   });
 
   /**
@@ -572,7 +574,7 @@ export class MainMenuService {
     return {
       world: this.worldOfPage(),
       pick,
-      label: pick ? (pick.kind === 'place' ? shortPlaceName(pick.name) : pick.name) : (this.placeName() ?? 'this place'),
+      label: pick ? (pick.kind === 'place' ? shortPlaceName(pick.name) : pick.name) : (this.placeName() ?? this.t().menu.thisPlace),
       wave: this.runWave(),
       run: this.underWay() && !this.store.isGameOver(),
       // Held, the game stands still: what a later leave keeps of the run is known now (the editor's rule)

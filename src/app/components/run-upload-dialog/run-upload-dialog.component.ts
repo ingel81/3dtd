@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { injectT } from '../../i18n/i18n.service';
 
 const TITLE_ID = 'td-run-upload-title';
 
@@ -16,27 +17,23 @@ const TITLE_ID = 'td-run-upload-title';
   template: `
     <div class="td-dlg">
       <header class="td-dlg-head">
-        <h2 class="td-dlg-title" [id]="titleId">Help improve 3DTD?</h2>
+        <h2 class="td-dlg-title" [id]="titleId">{{ t().dialogs.upload.title }}</h2>
       </header>
       <div class="td-dlg-body">
-        <p class="td-text">
-          May the game send the log of this coop game to the coop server? It holds the names in the game, the
-          place you played with its address, and every move and number of the run.
-        </p>
-        <p class="td-text">
-          It is used only to find errors and to improve the game, and deleted after 90 days. It helps a lot.
-        </p>
-        <p class="td-note">You can change this later under Runs.</p>
+        <p class="td-text">{{ t().dialogs.upload.ask }}</p>
+        <p class="td-text">{{ t().dialogs.upload.use }}</p>
+        <p class="td-note">{{ t().dialogs.upload.later }}</p>
       </div>
       <footer class="td-dlg-foot">
-        <button class="td-btn-secondary" type="button" (click)="answer(false)">No</button>
-        <button class="td-btn-primary" type="button" (click)="answer(true)">Yes, send it</button>
+        <button class="td-btn-secondary" type="button" (click)="answer(false)">{{ t().dialogs.upload.no }}</button>
+        <button class="td-btn-primary" type="button" (click)="answer(true)">{{ t().dialogs.upload.yes }}</button>
       </footer>
     </div>
   `,
   styleUrl: './run-upload-dialog.component.scss',
 })
 export class RunUploadDialogComponent {
+  protected readonly t = injectT();
   private readonly dialogRef = inject(MatDialogRef<RunUploadDialogComponent, boolean>);
   readonly titleId = TITLE_ID;
 

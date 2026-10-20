@@ -1,24 +1,24 @@
 <div class="td-dlg">
   <header class="td-dlg-head">
-    <h2 class="td-dlg-title" [id]="titleId">Attributions</h2>
-    <button class="td-close" type="button" aria-label="Close" (click)="close()">
+    <h2 class="td-dlg-title" [id]="titleId">{{ t().dialogs.attributions.title }}</h2>
+    <button class="td-close" type="button" [attr.aria-label]="t().common.close" (click)="close()">
       <td-icon name="close" [size]="12"></td-icon>
     </button>
   </header>
 
   <div class="td-dlg-body is-loose">
-    @for (category of attributions; track category.title) {
+    @for (category of attributions; track category.id) {
       <section class="td-group">
         <h3 class="td-section td-inline at-head">
           <td-icon [name]="$any(category.icon)" [size]="14"></td-icon>
-          {{ category.title }}
+          {{ t().dialogs.attributions.categories[category.id] }}
           <span class="td-note td-num">{{ category.items.length }}</span>
         </h3>
         @for (item of category.items; track item.name) {
           <div class="td-row">
             <div class="at-info">
               <span class="td-name">{{ item.name }}</span>
-              <span class="td-sub">by {{ item.author }}</span>
+              <span class="td-sub">{{ t().dialogs.attributions.by(item.author) }}</span>
             </div>
             <div class="td-inline at-actions">
               @if (item.licenseUrl) {
@@ -38,8 +38,8 @@
                   target="_blank"
                   rel="noopener"
                   class="td-tool"
-                  title="View source"
-                  [attr.aria-label]="'View source: ' + item.name"
+                  [attr.title]="t().dialogs.attributions.source"
+                  [attr.aria-label]="t().dialogs.attributions.sourceOf(item.name)"
                 >
                   <td-icon name="externalLink" [size]="14"></td-icon>
                 </a>
@@ -52,7 +52,7 @@
   </div>
 
   <footer class="td-dlg-foot">
-    <a class="td-btn-secondary" [href]="legalUrl" target="_blank" rel="noopener">Legal &amp; privacy</a>
-    <button class="td-btn-primary" type="button" (click)="close()">Close</button>
+    <a class="td-btn-secondary" [href]="legalUrl" target="_blank" rel="noopener">{{ t().extras.legal }}</a>
+    <button class="td-btn-primary" type="button" (click)="close()">{{ t().common.close }}</button>
   </footer>
 </div>

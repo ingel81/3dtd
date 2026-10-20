@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 
 import { LocationChangeCoordinatorService, LocationFlowDelegate, streetsFailedText } from './location-change-coordinator.service';
+import { en } from '../../i18n/messages/en';
 import {
   LocationChangeExecutorService,
   LocationChangeCallbacks,
@@ -31,7 +32,6 @@ import { storedPlace } from './place-choice';
 import type { StreetNetwork } from './osm-street.service';
 import { WorldContext } from '../../world/world-context.service';
 import { fakeWorldContext } from '../../../test/world-context-fake';
-import { outsideCoverageText } from '../../world/world-coverage';
 import { OverpassError } from '../../world/osm/overpass-client';
 import { overpassHealth } from '../../world/osm/overpass-health';
 import { OsmStreetService } from './osm-street.service';
@@ -644,7 +644,7 @@ describe('LocationChangeCoordinatorService', () => {
 
       await coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'Schlossplatz' }, spawn: null });
 
-      expect(uiStore.loadProblem()?.text).toBe(streetsFailedText('Schlossplatz'));
+      expect(uiStore.loadProblem()?.text).toBe(streetsFailedText(en, 'Schlossplatz'));
       expect(engineInit.setLoading).toHaveBeenLastCalledWith(false);
       expect(engine.setOrigin).not.toHaveBeenCalled();
 
@@ -668,7 +668,7 @@ describe('LocationChangeCoordinatorService', () => {
       await Promise.all([A, coordinator.choosePlace({ kind: 'place', hq: { lat: HQ.lat + 0.1, lon: HQ.lon, name: 'B' }, spawn: null })]);
 
       // Not "You stay where you are": A was reset half way, Play stays blocked, Retry or another place goes on
-      expect(uiStore.loadProblem()?.text).toBe(streetsFailedText('B', true));
+      expect(uiStore.loadProblem()?.text).toBe(streetsFailedText(en, 'B', true));
       expect(uiStore.loadProblem()?.text).toContain('no place is loaded now');
       expect(engineInit.error()).toBe('The place did not load: another place was chosen.');
       expect(uiStore.loadProblem()?.retry).toBeTypeOf('function');
@@ -703,12 +703,12 @@ describe('LocationChangeCoordinatorService', () => {
       await vi.waitFor(() => expect(tilesOfA).toBeTypeOf('function'));
       osm.loadStreets.mockRejectedValueOnce(new OverpassError('The map servers for the streets are busy or out of reach.', 'busy'));
       await coordinator.choosePlace({ kind: 'place', hq: { lat: HQ.lat + 0.1, lon: HQ.lon, name: 'B' }, spawn: null });
-      expect(uiStore.loadProblem()?.text).toBe(streetsFailedText('B', true));
+      expect(uiStore.loadProblem()?.text).toBe(streetsFailedText(en, 'B', true));
       tilesOfA();
       await A;
       expect(callbacks.addSpawnPoint).not.toHaveBeenCalled();
       expect(engineInit.error()).toBe('The place did not load: another place was chosen.');
-      expect(uiStore.loadProblem()?.text).toBe(streetsFailedText('B', true));
+      expect(uiStore.loadProblem()?.text).toBe(streetsFailedText(en, 'B', true));
     });
 
     describe('on the street service and busy servers (scenario)', () => {
@@ -759,7 +759,7 @@ describe('LocationChangeCoordinatorService', () => {
         await going;
         expect(asked).toBe(32);
         expect(streets.retrying()).toBeNull();
-        expect(uiStore.loadProblem()?.text).toBe(streetsFailedText('Schlossplatz'));
+        expect(uiStore.loadProblem()?.text).toBe(streetsFailedText(en, 'Schlossplatz'));
         expect(engineInit.setLoading).toHaveBeenLastCalledWith(false);
         expect(engine.setOrigin).not.toHaveBeenCalled();
 
@@ -875,7 +875,7 @@ describe('LocationChangeCoordinatorService', () => {
       worldContext.setCoverage({ center: { lat: HQ.lat + 0.1, lon: HQ.lon }, radiusM: 1000 });
       coordinator.initializeFlow(delegate);
       expect(await coordinator.choosePlace({ kind: 'place', hq: { ...HQ, name: 'HQ' }, spawn: null })).toBe(false);
-      expect(uiStore.loadProblem()?.text).toBe(outsideCoverageText());
+      expect(uiStore.loadProblem()?.text).toBe(en.places.outsideArea);
       expect(engine.setOrigin).not.toHaveBeenCalled();
 
       const waiting = coordinator.waitForStartChoice();
@@ -1058,7 +1058,7 @@ describe('LocationChangeCoordinatorService', () => {
 
       // It used to leave the loading screen up for good
       expect(engineInit.setLoading).toHaveBeenLastCalledWith(false);
-      expect(uiStore.loadProblem()?.text).toBe(streetsFailedText('Lyon, France'));
+      expect(uiStore.loadProblem()?.text).toBe(streetsFailedText(en, 'Lyon, France'));
       expect(callbacks.addSpawnPoint).not.toHaveBeenCalled();
     });
 

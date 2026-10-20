@@ -15,7 +15,7 @@ import {
 import { CdkTrapFocus, FocusMonitor } from '@angular/cdk/a11y';
 import { MatDialog } from '@angular/material/dialog';
 import { MainMenuService } from './main-menu.service';
-import { MENU_PAGE_TITLES, type MenuPage } from './menu-page';
+import type { MenuPage } from './menu-page';
 import { MenuHomeComponent } from './pages/home/menu-home.component';
 import { MenuNewGameComponent } from './pages/new-game/menu-new-game.component';
 import { MenuCoopComponent } from './pages/coop/menu-coop.component';
@@ -24,7 +24,7 @@ import { MenuSettingsComponent } from './pages/settings/menu-settings.component'
 import { MenuExtrasComponent } from './pages/extras/menu-extras.component';
 import { MenuLoadingComponent } from './loading/menu-loading.component';
 import { followStartPlaces } from './pages/start-places';
-import { FIELD_TIPS } from './loading/field-tips';
+import { injectT } from '../../i18n/i18n.service';
 import { BUILD_VERSION } from '../../configs/build-info.config';
 import { ConfigService } from '../../core/services/config.service';
 import { WorldContext } from '../../world/world-context.service';
@@ -78,6 +78,7 @@ const TIP_GAP = 16;
 })
 export class MainMenuComponent {
   readonly menu = inject(MainMenuService);
+  protected readonly t = injectT();
   private readonly config = inject(ConfigService);
   private readonly worldContext = inject(WorldContext);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
@@ -91,7 +92,8 @@ export class MainMenuComponent {
 
   readonly layer = this.menu.layer;
   readonly page = this.menu.page;
-  readonly title = computed(() => MENU_PAGE_TITLES[this.page()]);
+  /** A page's title: its heading, and the dialog's name while it shows */
+  readonly title = computed(() => this.t().menu.pages[this.page()]);
 
   /**
    * The loading plate: on the start list while the place loads, the dive's
@@ -109,8 +111,8 @@ export class MainMenuComponent {
   readonly legalUrl = LEGAL_URL;
   readonly privacyUrl = PRIVACY_URL;
 
-  readonly tips = FIELD_TIPS;
-  readonly tipIndex = signal(Math.floor(Math.random() * FIELD_TIPS.length));
+  readonly tips = computed(() => this.t().menu.tips);
+  readonly tipIndex = signal(Math.floor(Math.random() * this.tips().length));
   private tipTimer?: ReturnType<typeof setInterval>;
   /**
    * The tip fits under the list: it stands at the window's foot, so a long
@@ -127,7 +129,7 @@ export class MainMenuComponent {
 
   private restartTipTimer(): void {
     clearInterval(this.tipTimer);
-    this.tipTimer = setInterval(() => this.tipIndex.update((i) => (i + 1) % this.tips.length), TIP_ROTATE_MS);
+    this.tipTimer = setInterval(() => this.tipIndex.update((i) => (i + 1) % this.tips().length), TIP_ROTATE_MS);
   }
 
   constructor() {

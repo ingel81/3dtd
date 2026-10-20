@@ -2,8 +2,8 @@
   <!-- The bar of the globes and the world menus: the page belongs to the Built Worlds (docs/WORLDS_STATE_PLAN.md) -->
   <header class="mb-bar td-topbar">
     <img class="mb-bar-logo" src="assets/images/logo/logo.svg" alt="3DTD" width="64" height="36">
-    <app-world-path class="mb-path" world="Built Worlds" [mode]="null" [modes]="false" [chips]="pathChips()" worldHint="The Built Worlds' menu"
-                    worldsHint="All worlds" (go)="onPath($event)">
+    <app-world-path class="mb-path" [world]="t().worlds.names.maps" [mode]="null" [modes]="false" [chips]="pathChips()" [worldHint]="t().worlds.path.builtWorldsMenu"
+                    (go)="onPath($event)">
       <span class="td-crumb" aria-current="page">{{ title() }}</span>
     </app-world-path>
     <span class="mb-bar-gap"></span>

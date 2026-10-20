@@ -49,11 +49,8 @@ export function coveredSpawnRange(
   return { min: Math.min(min, cappedMax / 2), max: cappedMax };
 }
 
-/** What the player reads when a place lies outside the world's area */
-export function outsideCoverageText(): string {
-  return 'This place lies outside the area this map covers. Pick a place inside it.';
-}
-
-/** What the player reads when a link's place lay outside the world's area and the game started in its middle */
-export const OUTSIDE_COVERAGE_LINK_TEXT = 'The place in the link lies outside the area this map covers. The game starts in its middle.';
+/*
+ * What the player reads when a place lies outside the world's area, and when a link's place did and the game
+ * started in its middle: the dictionary's `places.outsideArea` and `places.outsideAreaLink`.
+ */
 

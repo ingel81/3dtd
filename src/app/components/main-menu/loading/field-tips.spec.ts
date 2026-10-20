@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { FIELD_TIPS } from './field-tips';
+import { en } from '../../../i18n/messages/en';
+import { de } from '../../../i18n/messages/de';
+
+const FIELD_TIPS = en.menu.tips;
 
 /**
  * The start menu renders each part of a tip as text and an accent as a
  * coloured `<b>` (main-menu.component.html). Markup in a part would
  * show as literal text, so the tips carry none.
  */
-describe('FIELD_TIPS', () => {
+describe('the field tips (menu.tips)', () => {
   it('carries text in every part and no markup', () => {
     for (const tip of FIELD_TIPS) {
       expect(tip.parts.length).toBeGreaterThan(0);
@@ -26,5 +29,13 @@ describe('FIELD_TIPS', () => {
     ]);
     expect(FIELD_TIPS.flatMap((tip) => tip.parts.filter((part) => part.accent).map((part) => part.accent)))
       .toEqual(['gold', 'teal', 'teal', 'gold']);
+  });
+
+  it('every language has the same tips with the same accents, and no markup', () => {
+    expect(de.menu.tips).toHaveLength(FIELD_TIPS.length);
+    de.menu.tips.forEach((tip, i) => {
+      expect(tip.parts.filter((part) => part.accent).map((part) => part.accent)).toEqual(FIELD_TIPS[i].parts.filter((part) => part.accent).map((part) => part.accent));
+      for (const part of tip.parts) expect(part.text).not.toMatch(/[<>]/);
+    });
   });
 });

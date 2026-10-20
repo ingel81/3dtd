@@ -33,7 +33,7 @@ describe('Saves page', () => {
   afterEach(() => TestBed.resetTestingModule());
 
   function setup(canSave: boolean, underWay: boolean) {
-    const menu = { canRestart: signal(true), underWay: signal(underWay), restart: vi.fn(), requestPlay: vi.fn(), restartLabel: 'Restart here' };
+    const menu = { canRestart: signal(true), underWay: signal(underWay), restart: vi.fn(), requestPlay: vi.fn(), restartLabel: signal('Restart here') };
     TestBed.configureTestingModule({
       providers: [{ provide: MainMenuService, useValue: menu }, { provide: SAVE_GAME, useValue: { canSave: signal(canSave) } }],
     });

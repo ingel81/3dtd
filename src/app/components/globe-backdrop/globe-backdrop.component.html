@@ -6,10 +6,10 @@
   @if (director.hud(); as hud) {
     <dl class="gb-readout td-globe-readout">
       @if (hud.name) {
-        <dt>Target</dt><dd><b>{{ hud.name }}</b></dd>
-        <dt>Pos</dt><dd>{{ abs(hud.lat!) | number: '1.4-4' }} {{ hud.lat! < 0 ? 'S' : 'N' }}&nbsp; {{ abs(hud.lon!) | number: '1.4-4' }} {{ hud.lon! < 0 ? 'W' : 'E' }}</dd>
+        <dt>{{ t().globe.target }}</dt><dd><b>{{ hud.name }}</b></dd>
+        <dt>{{ t().globe.pos }}</dt><dd>{{ abs(hud.lat!) | number: '1.4-4' }} {{ hud.lat! < 0 ? 'S' : 'N' }}&nbsp; {{ abs(hud.lon!) | number: '1.4-4' }} {{ hud.lon! < 0 ? 'W' : 'E' }}</dd>
       }
-      <dt>Alt</dt><dd>{{ hud.altitudeKm | number: '1.0-0' }} km</dd>
+      <dt>{{ t().globe.alt }}</dt><dd>{{ hud.altitudeKm | number: '1.0-0' }} km</dd>
       @if (hud.status) {
         <dt></dt><dd><em>{{ hud.status }}@if (hud.progress !== null) { {{ hud.progress }} %}</em></dd>
       }

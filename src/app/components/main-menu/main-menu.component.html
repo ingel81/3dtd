@@ -5,7 +5,7 @@
   <div class="mm-column">
     <img class="mm-logo" src="assets/images/logo/logo.svg" alt="3DTD" width="480" height="272">
     @if (layer() === 'start') {
-      <p class="mm-tagline td-caps">Tower defense on real streets</p>
+      <p class="mm-tagline td-caps">{{ t().menu.tagline }}</p>
     }
     @if (page() === 'home') {
       <h2 class="td-sr-only" id="td-menu-title">{{ title() }}</h2>
@@ -17,7 +17,7 @@
     <section class="mm-page td-dlg" aria-labelledby="td-menu-title">
       <header class="td-dlg-head">
         <h2 class="td-dlg-title" id="td-menu-title">{{ title() }}</h2>
-        <button type="button" class="mm-back td-close" (click)="menu.back()" aria-label="Back (Esc)">
+        <button type="button" class="mm-back td-close" (click)="menu.back()" [attr.aria-label]="t().menu.backEsc">
           <td-icon name="close" [size]="12" />
         </button>
       </header>
@@ -38,20 +38,20 @@
     <div class="mm-foot">
       <div class="mm-tip td-well td-text" [class.is-hidden]="!tipFits()" [attr.aria-hidden]="tipFits() ? null : 'true'">
         <div class="mm-tip-head td-caps">
-          <span class="mm-tip-label">Tip</span>
+          <span class="mm-tip-label">{{ t().menu.tip }}</span>
           <span class="mm-tip-dots">
-            @for (t of tips; track $index) {
+            @for (tip of tips(); track $index) {
               <button type="button" class="mm-tip-dot" [class.is-on]="$index === tipIndex()"
-                      [attr.aria-label]="'Tip ' + ($index + 1) + ' of ' + tips.length"
+                      [attr.aria-label]="t().menu.tipOf($index + 1, tips().length)"
                       [attr.aria-current]="$index === tipIndex() ? 'true' : null"
                       (click)="showTip($index)"></button>
             }
           </span>
         </div>
-        <p class="mm-tip-text">@for (part of tips[tipIndex()].parts; track $index) {@if (part.accent) {<b [class]="'mm-tip-' + part.accent">{{ part.text }}</b>} @else {<span>{{ part.text }}</span>}}</p>
+        <p class="mm-tip-text">@for (part of tips()[tipIndex()].parts; track $index) {@if (part.accent) {<b [class]="'mm-tip-' + part.accent">{{ part.text }}</b>} @else {<span>{{ part.text }}</span>}}</p>
       </div>
       <p class="mm-version td-caps">
-        <span><a [href]="legalUrl" target="_blank" rel="noopener">Legal</a> | <a [href]="privacyUrl" target="_blank" rel="noopener">Privacy</a></span>
+        <span><a [href]="legalUrl" target="_blank" rel="noopener">{{ t().menu.legal }}</a> | <a [href]="privacyUrl" target="_blank" rel="noopener">{{ t().menu.privacy }}</a></span>
         <span class="mm-version-build">{{ version() }}</span>
       </p>
     </div>

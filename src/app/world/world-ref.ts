@@ -1,3 +1,5 @@
+import type { Messages } from '../i18n/messages/en';
+
 /**
  * Which world a run plays on. Saved games, replay files, run logs, the coop
  * world package, the URL and bot runs all carry this one field, and the
@@ -131,16 +133,14 @@ export function worldsMatch(a: WorldRef, b: WorldRef): boolean {
  * ground, so the run does not go on there (docs/WORLDS_STATE_PLAN.md,
  * decision 7).
  */
-export function worldNotHere(theirs: WorldRef, mine: WorldRef): string | null {
+export function worldNotHere(t: Messages, theirs: WorldRef, mine: WorldRef): string | null {
   if (worldsMatch(theirs, mine)) return null;
   if (theirs.kind === 'custom-map') {
     const name = theirs.name ?? theirs.mapId;
-    if (mine.kind === 'custom-map' && mine.mapId === theirs.mapId) {
-      return `The map "${name}" was changed since this run was played on it, so the run cannot go on there.`;
-    }
-    return `It plays the map "${name}", which is not open here. Open that map first.`;
+    if (mine.kind === 'custom-map' && mine.mapId === theirs.mapId) return t.places.mapChanged(name);
+    return t.places.mapNotOpen(name);
   }
-  return `It plays on another world (${worldLabel(theirs)}), this page on ${worldLabel(mine)}. Open the same one first.`;
+  return t.places.otherWorld(worldLabel(theirs), worldLabel(mine));
 }
 
 /** A WorldRef read from a file: the shape checked, null for anything else */

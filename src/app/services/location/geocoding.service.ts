@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { readJson, writeJson } from '../../utils/storage';
+import { injectT } from '../../i18n/i18n.service';
 
 /** A search or reverse lookup without an answer for this long fails, ms (it showed "Searching..." until the browser gave up) */
 const GEOCODE_TIMEOUT_MS = 10_000;
@@ -64,6 +65,7 @@ export const UNKNOWN_LOCATION_NAME = 'Unknown location';
   providedIn: 'root',
 })
 export class GeocodingService {
+  private readonly t = injectT();
   private readonly NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
   readonly MIN_QUERY_LENGTH = 3;
   private readonly MAX_RESULTS = 8;
@@ -202,7 +204,7 @@ export class GeocodingService {
         return;
       }
       console.error('Geocoding error:', err);
-      this.error.set('Address search failed');
+      this.error.set(this.t().places.searchFailed);
       this.results.set([]);
     } finally {
       // A newer search keeps loading

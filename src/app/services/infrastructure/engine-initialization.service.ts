@@ -14,25 +14,18 @@ import type { WorldProvider } from '../../world/world-provider';
 import { isOverpassCancelled } from '../../world/osm/overpass-client';
 import { afterNextPaint } from '../../utils/next-frame';
 import { BootStep } from '../../components/main-menu/loading/boot-step.model';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * The steps of the loading screen, in order. A first load and a location
  * change both run through them; `location`, `grid`, `corridor` and `flight`
- * are reported by other services.
+ * are reported by other services. Their titles are the dictionary's
+ * (`boot.steps`), set when a load begins.
  */
-const BOOT_STEPS: readonly BootStep[] = [
-  { id: 'location', title: 'Determining Location', status: 'pending' },
-  { id: 'engine', title: 'Initializing Engine', status: 'pending' },
-  { id: 'streets', title: 'Loading Street Network', status: 'pending' },
-  { id: 'hq', title: 'Placing Headquarters', status: 'pending' },
-  { id: 'spawns', title: 'Placing Spawns', status: 'pending' },
-  { id: 'routes', title: 'Calculating Routes', status: 'pending' },
-  { id: 'grid', title: 'Generating Route Grid', status: 'pending' },
-  { id: 'view', title: 'Finalizing 3D View', status: 'pending' },
-  { id: 'corridor', title: 'Measuring the Corridor', status: 'pending' },
-  { id: 'shaders', title: 'Compiling Shaders', status: 'pending' },
-  { id: 'flight', title: 'Preparing Intro Flight', status: 'pending' },
-];
+const BOOT_STEP_IDS = ['location', 'engine', 'streets', 'hq', 'spawns', 'routes', 'grid', 'view', 'corridor', 'shaders', 'flight'] as const;
+
+/** A step of the loading screen; the dice's own step comes before a load */
+export type BootStepId = (typeof BOOT_STEP_IDS)[number] | 'dice-city';
 
 /** How often the loading screen reads the count of programs compiled while it waits for them, ms */
 const COMPILE_POLL_MS = 250;
@@ -54,6 +47,7 @@ export class EngineInitializationService {
   private readonly quality = inject(RenderQualityService);
   private readonly rendererHost = inject(RendererHostService);
   private readonly globe = inject(GLOBE_LINK, { optional: true });
+  private readonly t = injectT();
 
   // ========================================
   // SIGNALS
@@ -75,7 +69,7 @@ export class EngineInitializationService {
   readonly error = signal<string | null>(null);
 
   /** Loading steps for detailed progress display */
-  readonly loadingSteps = signal<BootStep[]>([...BOOT_STEPS]);
+  readonly loadingSteps = signal<BootStep[]>(this.bootSteps());
 
   /** performance.now() of the first tiles-loaded callback of this load, for the intro boot gate. */
   private firstTilesLoadedAt: number | null = null;
@@ -217,7 +211,7 @@ export class EngineInitializationService {
   startWorldDiceLoading(): void {
     this.loading.set(true);
     this.loadingSteps.set([
-      { id: 'dice-city', title: 'Rolling City', status: 'current', meta: 'Loading city pool...' },
+      { id: 'dice-city', title: this.t().boot.steps['dice-city'], status: 'current', meta: this.t().boot.meta.cityPool },
     ]);
   }
 
@@ -232,8 +226,14 @@ export class EngineInitializationService {
    * Reset all loading steps to 'pending' for a fresh start
    * Preserves 'location' step if already done (runs before initEngine)
    */
+  /** Every step pending, titled in the player's language */
+  private bootSteps(): BootStep[] {
+    const titles = this.t().boot.steps;
+    return BOOT_STEP_IDS.map((id) => ({ id, title: titles[id], status: 'pending' }));
+  }
+
   resetLoadingSteps(): void {
-    const [pendingLocation, ...rest] = BOOT_STEPS;
+    const [pendingLocation, ...rest] = this.bootSteps();
     const currentLocationStep = this.loadingSteps().find(s => s.id === 'location');
     const locationStep = currentLocationStep?.status === 'done' ? currentLocationStep : pendingLocation;
 
@@ -295,7 +295,7 @@ export class EngineInitializationService {
 
       // Step 1: Initialize Engine
       await this.setStepCurrent('engine');
-      this.updateStepMeta('engine', 'Three.js Engine...');
+      this.updateStepMeta('engine', this.t().boot.meta.threeEngine);
 
       // The page's renderer, its canvas in the game's place at its size: the context of the world before stays
       // (RendererHost). Its MSAA is fixed with the context; the rest of the quality level follows (attach)
@@ -324,7 +324,7 @@ export class EngineInitializationService {
       // applies all display options again once the game stands
       this.engine.applyVfxSettings(readVfxSettings(loadDisplayOptions()));
 
-      this.updateStepMeta('engine', 'World...');
+      this.updateStepMeta('engine', this.t().boot.meta.world);
 
       // Put the world into the scene: tiles or terrain, camera controls
       await this.engine.initialize();
@@ -365,10 +365,10 @@ export class EngineInitializationService {
 
       // Step 2: Load OSM streets
       await this.setStepCurrent('streets');
-      this.updateStepMeta('streets', 'Loading OSM data...');
+      this.updateStepMeta('streets', this.t().boot.meta.osmData);
       const streetCnt = await callbacks.onLoadStreets();
       if (gone()) return;
-      await this.setStepDone('streets', streetCnt > 0 ? `${streetCnt} Streets` : undefined);
+      await this.setStepDone('streets', streetCnt > 0 ? this.t().boot.meta.streets(streetCnt) : undefined);
       if (gone()) return;
 
       // Initialize services that depend on engine and street network
@@ -383,11 +383,11 @@ export class EngineInitializationService {
       // Step 4: Place spawn points
       await this.setStepCurrent('spawns');
       const spawnCnt = callbacks.onAddPredefinedSpawns();
-      await this.setStepDone('spawns', spawnCnt > 0 ? `${spawnCnt} Point${spawnCnt > 1 ? 's' : ''}` : undefined);
+      await this.setStepDone('spawns', spawnCnt > 0 ? this.t().boot.meta.points(spawnCnt) : undefined);
 
       // Step 5: Calculate routes
       await this.setStepCurrent('routes');
-      this.updateStepMeta('routes', 'A* Pathfinding...');
+      this.updateStepMeta('routes', this.t().boot.meta.pathfinding);
       const routeDetail = callbacks.onInitializeGameState();
       await this.setStepDone('routes', routeDetail);
 
@@ -408,7 +408,7 @@ export class EngineInitializationService {
       // A load left behind fails in the half taken down: no word of it on the next world
       if (gone()) return;
       console.error('[EngineInit] Engine init error:', err);
-      this.error.set(err instanceof Error ? err.message : 'Error loading 3D map');
+      this.error.set(err instanceof Error ? err.message : this.t().boot.loadError);
       this.loading.set(false);
     } finally {
       if (!gone()) this.building = null;

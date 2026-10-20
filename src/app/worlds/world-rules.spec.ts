@@ -11,9 +11,9 @@ const run = (slotId: string, world: AutosaveRun['world'], pick: WorldPick, saved
 /** The rules of the globes and the world menus (docs/WORLDS_NAVIGATION_PLAN.md, 3.2 and 3.5) */
 describe('world rules', () => {
   it('locks the real places without a key and the maps before their release; the globes stay clickable', () => {
-    expect(worldLock('real', { hasKey: false, mapsOpen: true })).toBe('No map key');
+    expect(worldLock('real', { hasKey: false, mapsOpen: true })).toBe('noKey');
     expect(worldLock('real', { hasKey: true, mapsOpen: false })).toBeNull();
-    expect(worldLock('osm', { hasKey: false, mapsOpen: false })).toBe('Coming soon');
+    expect(worldLock('osm', { hasKey: false, mapsOpen: false })).toBe('soon');
     expect(worldLock('maps', { hasKey: false, mapsOpen: true })).toBeNull();
   });
 

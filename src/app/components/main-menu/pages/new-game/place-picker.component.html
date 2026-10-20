@@ -1,123 +1,118 @@
+@let w = t().places;
 @if (runEnds(); as place) {
   <p class="td-banner is-warn is-row" role="note">
     <td-icon name="warn" [size]="14"></td-icon>
-    <span>The run at {{ place }} ends when a new place loads.</span>
+    <span>{{ w.runEnds(place) }}</span>
   </p>
 }
 
 @if (!movingSpawn()) {
   <section class="td-group">
     @if (mapsOpen) {
-      <div class="td-seg" role="radiogroup" aria-label="Kind of world" tdRovingGroup data-test="world-kind">
-        <button type="button" role="radio" [attr.aria-checked]="kind() === 'tiles'" (click)="kind.set('tiles')">3D city</button>
-        <button type="button" role="radio" [attr.aria-checked]="kind() === 'osm'" (click)="kind.set('osm')">Map from OpenStreetMap</button>
+      <div class="td-seg" role="radiogroup" [attr.aria-label]="w.kind" tdRovingGroup data-test="world-kind">
+        <button type="button" role="radio" [attr.aria-checked]="kind() === 'tiles'" (click)="kind.set('tiles')">{{ w.tiles }}</button>
+        <button type="button" role="radio" [attr.aria-checked]="kind() === 'osm'" (click)="kind.set('osm')">{{ w.osm }}</button>
       </div>
-      <p class="td-note">{{ kind() === 'tiles'
-        ? 'Photorealistic 3D tiles of the real place. Needs a map key.'
-        : 'A map of its own, made from OpenStreetMap: no map key needed, and it opens in the editor.' }}</p>
+      <p class="td-note">{{ kind() === 'tiles' ? w.tilesAbout : w.osmAbout }}</p>
     }
-    <h3 class="td-section">Search</h3>
+    <h3 class="td-section">{{ w.search }}</h3>
     <div class="pp-search">
       <app-td-address-autocomplete
-        [placeholder]="'City, street or address…'"
+        [placeholder]="w.searchPlaceholder"
         [currentValue]="selectedHQ()"
         (locationSelected)="onHQSelected($event)"
         (locationCleared)="onHQCleared()"
       />
       <button type="button" class="td-icon-btn" (click)="useMyLocation()" [attr.aria-busy]="locating() === 'busy'"
-              [title]="locating() === 'busy' ? 'Asking the browser…' : 'Use my location'" aria-label="Use my location">
+              [title]="locating() === 'busy' ? w.askingBrowser : w.myLocation" [attr.aria-label]="w.myLocation">
         <td-icon name="pin" [size]="16"></td-icon>
       </button>
-      <button type="button" class="td-icon-btn" (click)="rollDice()" title="Roll a random city" aria-label="Roll a random city">
+      <button type="button" class="td-icon-btn" (click)="rollDice()" [title]="t().worlds.rollCity" [attr.aria-label]="t().worlds.rollCity">
         <td-icon name="dice" [size]="16"></td-icon>
       </button>
       <button type="button" class="td-icon-btn" (click)="showCoordinates.set(!showCoordinates())" [attr.aria-expanded]="showCoordinates()"
-              title="Coordinates or a link" aria-label="Coordinates or a link">
+              [title]="w.coordinates" [attr.aria-label]="w.coordinates">
         <span class="pp-hash" aria-hidden="true">#</span>
       </button>
     </div>
     @if (locating() === 'failed') {
-      <p class="td-note is-error" role="status">The browser gave no location: it was denied or is not available.</p>
+      <p class="td-note is-error" role="status">{{ w.noLocation }}</p>
     }
 
     @if (showCoordinates()) {
       <div class="mp-coords pp-coords">
         <label class="td-field">
-          <span class="td-label">Lat</span>
+          <span class="td-label">{{ w.lat }}</span>
           <input class="td-input" type="text" [value]="coordLat()" (input)="onCoordLat($event)"
-                 (paste)="onCoordPaste($event)" placeholder="49.5432 or a link" />
+                 (paste)="onCoordPaste($event)" [placeholder]="w.latPlaceholder" />
         </label>
         <label class="td-field">
-          <span class="td-label">Lon</span>
+          <span class="td-label">{{ w.lon }}</span>
           <input class="td-input" type="text" [value]="coordLon()" (input)="onCoordLon($event)"
                  (paste)="onCoordPaste($event)" placeholder="9.1234" />
         </label>
         <button type="button" class="td-btn-secondary" [disabled]="!canApplyCoords() || isLoadingCoords()" (click)="applyCoordinates()">
-          {{ isLoadingCoords() ? 'Looking up…' : 'Use' }}
+          {{ isLoadingCoords() ? w.lookingUp : w.use }}
         </button>
       </div>
-      <p class="td-note">Paste a 3DTD link to open that place with its spawns.</p>
+      <p class="td-note">{{ w.pasteLink }}</p>
     }
 
     @if (kind() === 'tiles') {
       @if (selectedHQ() || current()) {
         <button type="button" class="td-link td-inline pp-spawn-line" (click)="spawnOpen.set(!spawnOpen())" [attr.aria-expanded]="spawnOpen()">
           <td-icon name="flag" [size]="14"></td-icon>
-          <span>Spawn: {{ selectedHQ() ? spawnSummary() : 'as it is' }}</span>
+          <span>{{ w.spawnLine(selectedHQ() ? spawnSummary() : w.asItIs) }}</span>
           <td-icon [name]="spawnOpen() ? 'caretU' : 'caret'" [size]="12"></td-icon>
         </button>
         @if (spawnOpen()) {
           <div class="td-stack pp-spawn">
             @if (selectedHQ()) {
-              <div class="td-seg" role="radiogroup" aria-label="Spawn point" tdRovingGroup>
-                <button type="button" role="radio" [attr.aria-checked]="spawnMode() === 'random'" (click)="setSpawnMode('random')">Random</button>
-                <button type="button" role="radio" [attr.aria-checked]="spawnMode() === 'manual'" (click)="setSpawnMode('manual')">By address</button>
+              <div class="td-seg" role="radiogroup" [attr.aria-label]="w.spawnPoint" tdRovingGroup>
+                <button type="button" role="radio" [attr.aria-checked]="spawnMode() === 'random'" (click)="setSpawnMode('random')">{{ w.random }}</button>
+                <button type="button" role="radio" [attr.aria-checked]="spawnMode() === 'manual'" (click)="setSpawnMode('manual')">{{ w.byAddress }}</button>
               </div>
               @if (spawnMode() === 'manual') {
                 <app-td-address-autocomplete
-                  [placeholder]="'Spawn address…'"
+                  [placeholder]="w.spawnAddress"
                   [currentValue]="selectedSpawn()"
                   (locationSelected)="onSpawnSelected($event)"
                   (locationCleared)="onSpawnCleared()"
                 />
                 @if (spawnDistance() !== null) {
-                  <p class="td-note" [class.is-error]="isSpawnTooFar()">
-                    {{ (spawnDistance()! / 1000).toFixed(1) }} km from the HQ{{ isSpawnTooFar() ? ', at most ' + maxSpawnKm + ' km' : '' }}
-                  </p>
+                  <p class="td-note" [class.is-error]="isSpawnTooFar()">{{ w.fromHq(spawnDistance()! / 1000, isSpawnTooFar() ? maxSpawnKm : null) }}</p>
                 }
               } @else {
-                <p class="td-note">Enemies come from a street 0.5 to 1 km from the HQ.</p>
+                <p class="td-note">{{ w.randomAbout }}</p>
               }
             }
             @if (current(); as here) {
-              <button type="button" class="td-link td-inline" (click)="setMovingSpawn(true)">Move only the spawn of {{ shortCurrent() }}…</button>
+              <button type="button" class="td-link td-inline" (click)="setMovingSpawn(true)">{{ w.moveOnlySpawn(shortCurrent()) }}</button>
             }
           </div>
         }
       }
       @if (selectedHQ()) {
         <div class="td-actions">
-          <button type="button" class="td-btn-primary" [disabled]="!canConfirm()" (click)="confirm()">Load place</button>
+          <button type="button" class="td-btn-primary" [disabled]="!canConfirm()" (click)="confirm()">{{ w.loadPlace }}</button>
         </div>
       }
     } @else {
       @if (selectedHQ() || current()) {
-        <p class="td-note">{{ selectedHQ()
-          ? 'The next page shows the map with the HQ and the spawns: drag them, then make the map.'
-          : 'A map of ' + shortCurrent() + ', the place you play, with the spawns of this run.' }}</p>
+        <p class="td-note">{{ selectedHQ() ? w.nextPage : w.mapOfCurrent(shortCurrent()) }}</p>
         <div class="td-actions">
           <button type="button" class="td-btn-primary" (click)="selectedHQ() ? mapOfSearched() : mapOfCurrent()"
-                  [attr.data-test]="selectedHQ() ? 'map-of-place' : 'map-of-current'">Make the map</button>
+                  [attr.data-test]="selectedHQ() ? 'map-of-place' : 'map-of-current'">{{ w.makeMap }}</button>
         </div>
       }
     }
   </section>
 
   <section class="td-group">
-    <div class="td-seg" role="tablist" aria-label="Places" tdRovingGroup>
-      @for (entry of lists; track entry.id) {
-        <button type="button" role="tab" [id]="'td-places-tab-' + entry.id" aria-controls="td-places-panel"
-                [attr.aria-selected]="list() === entry.id" (click)="list.set(entry.id)">{{ entry.label }}</button>
+    <div class="td-seg" role="tablist" [attr.aria-label]="t().worlds.places" tdRovingGroup>
+      @for (entry of lists; track entry) {
+        <button type="button" role="tab" [id]="'td-places-tab-' + entry" aria-controls="td-places-panel"
+                [attr.aria-selected]="list() === entry" (click)="list.set(entry)">{{ w.lists[entry] }}</button>
       }
     </div>
 
@@ -125,27 +120,27 @@
     @switch (list()) {
       @case ('favorites') {
         @if (favorites().length) {
-          <ul class="td-rows pp-list" aria-label="Favorites">
+          <ul class="td-rows pp-list" [attr.aria-label]="w.lists.favorites">
             @for (fav of favorites(); track fav.id) {
               <li>
                 <button type="button" class="td-row mp-row" [disabled]="isCurrent(fav.hq)" (click)="loadFavorite(fav)">
                   <span class="td-name mp-name">{{ favoriteName(fav) }}</span>
-                  <span class="td-note td-num mp-meta">{{ isCurrent(fav.hq) ? 'playing now' : fav.spawns.length + (fav.spawns.length === 1 ? ' spawn' : ' spawns') }}</span>
+                  <span class="td-note td-num mp-meta">{{ isCurrent(fav.hq) ? w.playingNow : t().worlds.spawns(fav.spawns.length) }}</span>
                 </button>
               </li>
             }
           </ul>
         } @else {
-          <p class="td-note">No favorites yet. The star in the header keeps the place you play.</p>
+          <p class="td-note">{{ w.favoritesEmpty }}</p>
         }
       }
       @case ('showcase') {
-        <ul class="td-rows pp-list" aria-label="Showcase">
+        <ul class="td-rows pp-list" [attr.aria-label]="w.lists.showcase">
           @for (place of showcase; track place.id) {
             <li>
               <button type="button" class="td-row mp-row" (click)="loadShowcase(place)">
-                <span class="td-name mp-name">{{ place.name }}</span>
-                <span class="td-note td-num mp-meta">{{ place.hint }}</span>
+                <span class="td-name mp-name">{{ t().showcase[place.id].name }}</span>
+                <span class="td-note td-num mp-meta">{{ t().showcase[place.id].hint }}</span>
               </button>
             </li>
           }
@@ -163,11 +158,11 @@
                 (picked)="loadRecord($event)"
               />
             } @error {
-              <p class="td-note">The map did not load. Check the connection and reload the page.</p>
+              <p class="td-note">{{ w.globeFailed }}</p>
             }
           </div>
           @if (worldRecords().length) {
-            <ul class="td-rows pp-list" aria-label="Defended places">
+            <ul class="td-rows pp-list" [attr.aria-label]="t().worlds.defendedPlaces">
               @for (record of worldRecords(); track record) {
                 <li>
                   <button type="button" class="td-row mp-row" [disabled]="isCurrent(record.hq)"
@@ -175,13 +170,13 @@
                           (focus)="worldHover.set(record)" (blur)="worldHover.set(null)"
                           (click)="loadRecord(record)">
                     <span class="td-name mp-name">{{ record.name }}</span>
-                    <span class="td-note td-num mp-meta">{{ isCurrent(record.hq) ? 'playing now, ' : '' }}wave {{ record.bestWave }}</span>
+                    <span class="td-note td-num mp-meta">{{ w.recordWave(record.bestWave, isCurrent(record.hq)) }}</span>
                   </button>
                 </li>
               }
             </ul>
           } @else {
-            <p class="td-note">Every place you defend shows up here with the best wave you reached.</p>
+            <p class="td-note">{{ t().worlds.recordsEmpty }}</p>
           }
         </div>
       }
@@ -192,27 +187,25 @@
   <!-- Moving only the spawn by address; the HQ stays -->
   <section class="td-group">
     <button type="button" class="td-link td-inline" (click)="setMovingSpawn(false)">
-      <td-icon name="caretL" [size]="12"></td-icon>Back to the places
+      <td-icon name="caretL" [size]="12"></td-icon>{{ w.backToPlaces }}
     </button>
     @if (current(); as here) {
-      <p class="td-note">HQ stays at {{ here.name }}.</p>
+      <p class="td-note">{{ w.hqStays(here.name) }}</p>
     }
-    <h3 class="td-section">New spawn</h3>
+    <h3 class="td-section">{{ w.newSpawn }}</h3>
     <app-td-address-autocomplete
-      [placeholder]="'Spawn address…'"
+      [placeholder]="w.spawnAddress"
       [currentValue]="selectedSpawn()"
       (locationSelected)="onSpawnSelected($event)"
       (locationCleared)="onSpawnCleared()"
     />
     @if (spawnDistance() !== null) {
-      <p class="td-note" [class.is-error]="isSpawnTooFar()">
-        {{ (spawnDistance()! / 1000).toFixed(1) }} km from the HQ{{ isSpawnTooFar() ? ', at most ' + maxSpawnKm + ' km' : '' }}
-      </p>
+      <p class="td-note" [class.is-error]="isSpawnTooFar()">{{ w.fromHq(spawnDistance()! / 1000, isSpawnTooFar() ? maxSpawnKm : null) }}</p>
     } @else {
-      <p class="td-note">At most {{ maxSpawnKm }} km from the HQ. To drop it on the map, use the flag in the header.</p>
+      <p class="td-note">{{ w.atMost(maxSpawnKm) }}</p>
     }
     <div class="td-actions">
-      <button type="button" class="td-btn-primary" [disabled]="!canConfirm()" (click)="confirm()">Move spawn</button>
+      <button type="button" class="td-btn-primary" [disabled]="!canConfirm()" (click)="confirm()">{{ w.moveSpawn }}</button>
     </div>
   </section>
 }

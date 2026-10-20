@@ -260,16 +260,17 @@ export class ResearchDialogComponent {
 
   /** The detail panel's last line on a partner's tree, where nothing can be done */
   protected viewOnlyNote(d: ResearchDetail): string {
-    const name = this.partnerName() ?? 'They';
+    const w = this.t().dialogs.research;
+    const name = this.partnerName() ?? w.they;
     switch (d.state) {
       case 'completed':
-        return `Active for the rest of ${name}'s run.`;
+        return w.partnerActive(name);
       case 'active':
-        return `Finishes in ${(d.remaining ?? 0).toFixed(1)} seconds.`;
+        return w.finishesIn(d.remaining ?? 0);
       case 'queued':
-        return `Position ${d.queuePosition} in ${name}'s queue.`;
+        return w.partnerPosition(d.queuePosition ?? 0, name);
       default:
-        return `View only: ${name} picks their own research.`;
+        return w.partnerPicks(name);
     }
   }
 

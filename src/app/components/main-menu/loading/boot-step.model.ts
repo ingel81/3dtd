@@ -12,6 +12,7 @@ export type BootStepStatus = 'pending' | 'current' | 'done';
  */
 export interface BootStep {
   id: string;
+  /** In the player's language when the load began (`boot.steps`) */
   title: string;
   meta?: string;
   status: BootStepStatus;

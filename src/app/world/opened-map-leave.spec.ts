@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { signal } from '@angular/core';
 import type { UiNotice } from '../store/ui.store';
 import { mayLeaveForOpenedMap } from './opened-map-leave';
+import { en } from '../i18n/messages/en';
 
 /** A map double-clicked in the desktop app, in a window that plays something (E195 phase 3) */
 describe('mayLeaveForOpenedMap', () => {
@@ -9,7 +10,7 @@ describe('mayLeaveForOpenedMap', () => {
     const game = { phase: signal(phase), waveNumber: signal(wave), isGameOver: signal(over) };
     const ui = { coopMapLocked: signal(locked), notice: signal<UiNotice | null>(null) };
     const confirm = vi.fn(() => false);
-    const may = mayLeaveForOpenedMap(game as never, ui as never, confirm);
+    const may = mayLeaveForOpenedMap(game as never, ui as never, confirm, () => en);
     return { may, ui, confirm };
   }
 

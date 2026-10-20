@@ -46,7 +46,7 @@ export class DamageMatrixDialogComponent {
   /** Reaktiv: eine Forschung, die bei offenem Dialog fertig wird, fügt die Zeile sofort ein. */
   readonly rows = computed(() => buildDamageMatrixRows(this.t(), this.isUnlocked));
   readonly hasLockedTowers = computed(() => countLockedTowers(this.isUnlocked) > 0);
-  readonly legend = buildEffectivenessLegend();
+  readonly legend = computed(() => buildEffectivenessLegend(this.t()));
   readonly highlightId = this.data?.towerId ?? null;
 
   constructor() {

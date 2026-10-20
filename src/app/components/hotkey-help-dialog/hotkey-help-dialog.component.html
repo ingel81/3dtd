@@ -1,7 +1,7 @@
 <div class="td-dlg">
   <header class="td-dlg-head">
-    <h2 class="td-dlg-title" [id]="titleId">Keyboard shortcuts</h2>
-    <button class="td-close" type="button" aria-label="Close" (click)="close()">
+    <h2 class="td-dlg-title" [id]="titleId">{{ t().extras.keys }}</h2>
+    <button class="td-close" type="button" [attr.aria-label]="t().common.close" (click)="close()">
       <td-icon name="close" [size]="12"></td-icon>
     </button>
   </header>
@@ -27,7 +27,7 @@
   </div>
 
   <footer class="td-dlg-foot">
-    <p class="td-note hk-hint">Shortcuts are off while you type or a dialog is open.</p>
-    <button class="td-btn-primary" type="button" (click)="close()">Close</button>
+    <p class="td-note hk-hint">{{ t().dialogs.keysOff }}</p>
+    <button class="td-btn-primary" type="button" (click)="close()">{{ t().common.close }}</button>
   </footer>
 </div>

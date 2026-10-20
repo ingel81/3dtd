@@ -11,8 +11,10 @@ import { GameStore } from '../../../../store/game.store';
 import { LocationStore } from '../../../../store/location.store';
 import { LocationManagementService } from '../../../../services/location/location-management.service';
 import { APP_DOWNLOADS } from '../../../../coop/coop-access';
-import { readCoopName, writeCoopName } from '../../../../coop/coop-name';
+import { PLAYER_NAME_FALLBACK, readCoopName, writeCoopName } from '../../../../coop/coop-name';
 import { readCoopLan } from '../../../../core/desktop-bridge';
+import { injectT } from '../../../../i18n/i18n.service';
+import type { Messages } from '../../../../i18n/messages/en';
 
 /** How often the open rooms of the lobby are looked at while shown, ms */
 const ROOMS_EVERY_MS = 5000;
@@ -51,7 +53,7 @@ export class CoopWaysComponent {
   private readonly game = inject(GameStore);
   private readonly locationStore = inject(LocationStore);
   private readonly locationMgmt = inject(LocationManagementService);
-
+  protected readonly t = injectT();
 
   /** The game's coop service; none over the globes, where no game runs */
   readonly coop: CoopService | null = inject(COOP, { optional: true });
@@ -67,7 +69,7 @@ export class CoopWaysComponent {
   protected readonly maxPlayers = MAX_PLAYERS;
   protected readonly allDownloads = APP_DOWNLOADS.all;
 
-  readonly name = signal(this.coop?.name ?? readCoopName() ?? 'Player');
+  readonly name = signal(this.coop?.name ?? readCoopName() ?? PLAYER_NAME_FALLBACK);
   readonly code = signal(this.coop?.roomFromUrl ?? '');
 
   /** The place loaded, the one a room opens on; '' before the first */
@@ -82,15 +84,16 @@ export class CoopWaysComponent {
   readonly soloRunEnds = computed(() => {
     if (this.locationStore.spawnPoints().length >= 2 || this.game.isGameOver()) return null;
     const wave = this.game.waveNumber();
-    if (wave > 0) return `wave ${wave}`;
-    return this.game.towerCount() > 0 ? 'your towers' : null;
+    const ways = this.t().coop.ways;
+    if (wave > 0) return ways.soloWave(wave);
+    return this.game.towerCount() > 0 ? ways.soloTowers : null;
   });
   /** A host button was pressed while it would end the solo run: the section asks once more */
   readonly confirmHost = signal<HostWay | null>(null);
 
   readonly busy = computed(() => this.coop?.status() === 'connecting');
   /** The lobby's open rooms, each with why it cannot be joined where it cannot */
-  readonly publicRooms = computed(() => this.coop?.publicRooms()?.map((room) => ({ ...room, why: publicRefusal(room) })) ?? null);
+  readonly publicRooms = computed(() => this.coop?.publicRooms()?.map((room) => ({ ...room, why: publicRefusal(this.t(), room) })) ?? null);
 
   /** The LAN scan has found nothing for a while */
   readonly lanQuiet = signal(false);
@@ -99,7 +102,7 @@ export class CoopWaysComponent {
   /** The refresh button turns for a moment after a click */
   readonly rescanning = signal(false);
   /** LAN games, each with why it cannot be joined where it cannot */
-  readonly lanGames = computed(() => this.coop?.lanGames().map((game) => ({ ...game, why: lanRefusal(game) })) ?? []);
+  readonly lanGames = computed(() => this.coop?.lanGames().map((game) => ({ ...game, why: lanRefusal(this.t(), game) })) ?? []);
 
   /** One timer for "the scan stays quiet": the first search and every search again share it */
   private quietTimer: ReturnType<typeof setTimeout> | null = null;
@@ -133,12 +136,12 @@ export class CoopWaysComponent {
   }
 
   private playerName(): string {
-    return this.name().trim() || 'Player';
+    return this.name().trim() || PLAYER_NAME_FALLBACK;
   }
 
   setName(value: string): void {
     this.name.set(value);
-    const name = value.trim() || 'Player';
+    const name = value.trim() || PLAYER_NAME_FALLBACK;
     if (this.coop) this.coop.name = name;
     else writeCoopName(name);
   }
@@ -233,18 +236,18 @@ export class CoopWaysComponent {
 }
 
 /** Why a room of the public list cannot be joined from here, null when it can */
-export function publicRefusal(room: PublicRoom): string | null {
-  if (room.gameVersion !== BUILD_VERSION) return `The host plays ${room.gameVersion || 'another version'}, you play ${BUILD_VERSION}.`;
-  if (room.started) return 'The game has started; joining a running game comes later.';
-  if (room.players >= MAX_PLAYERS) return 'The room is full.';
+export function publicRefusal(t: Messages, room: PublicRoom): string | null {
+  const ways = t.coop.ways;
+  if (room.gameVersion !== BUILD_VERSION) return ways.otherVersion(room.gameVersion, BUILD_VERSION, false);
+  if (room.started) return ways.started;
+  if (room.players >= MAX_PLAYERS) return ways.full;
   return null;
 }
 
 /** Why a LAN game cannot be joined from here, null when it can */
-export function lanRefusal(game: LanGame): string | null {
-  if (game.protocol !== PROTOCOL_VERSION || game.gameVersion !== BUILD_VERSION) {
-    return `The host plays ${game.gameVersion || 'another version'}, you play ${BUILD_VERSION}. Both need the same version.`;
-  }
-  if (game.players >= MAX_PLAYERS) return 'The room is full.';
+export function lanRefusal(t: Messages, game: LanGame): string | null {
+  const ways = t.coop.ways;
+  if (game.protocol !== PROTOCOL_VERSION || game.gameVersion !== BUILD_VERSION) return ways.otherVersion(game.gameVersion, BUILD_VERSION, true);
+  if (game.players >= MAX_PLAYERS) return ways.full;
   return null;
 }

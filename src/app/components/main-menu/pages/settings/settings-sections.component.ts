@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, isDevMode, output, signal } from '@angular/core';
 import { I18n, injectT } from '../../../../i18n/i18n.service';
+import type { Messages } from '../../../../i18n/messages/en';
 import { LOCALES, LOCALE_NAMES, PSEUDO_LOCALE, isLocalePreference, type Locale, type LocalePreference } from '../../../../i18n/locale';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent, type TdIconName } from '../../../icon/icon.component';
@@ -7,10 +8,11 @@ import { RovingGroupDirective } from '../../../roving-group.directive';
 import { UIStore } from '../../../../store/ui.store';
 import { GameStore } from '../../../../store/game.store';
 import { COOP } from '../../../../services/coop.token';
+import { PLAYER_NAME_FALLBACK } from '../../../../coop/coop-name';
 import { ConfigService } from '../../../../core/services/config.service';
 import { DebugFacadeService, FPS_LIMITS } from '../../../../services/debug/debug-facade.service';
 import { GlobeDirectorService, type GlobeSetting } from '../../../../services/world/globe-director.service';
-import { VFX_PRESET_CHOICES, matchingVfxPreset, type VfxPreset, type VfxSettings } from '../../../../three-engine/vfx-settings';
+import { VFX_PRESET_IDS, matchingVfxPreset, type VfxPreset, type VfxSettings } from '../../../../three-engine/vfx-settings';
 import { COLOR_GRADING_PRESETS, type ColorGradingPreset } from '../../../../three-engine/post-processing/color-grading';
 import { GAME_SPEEDS } from '../../../../configs/game-speed.config';
 import { readAgentBridge, readDesktopBridge, type AgentStatus } from '../../../../core/desktop-bridge';
@@ -24,7 +26,7 @@ import {
 
 /** One volume row: the channel's level and mute in UIStore */
 interface VolumeRow {
-  label: string;
+  id: 'master' | 'effects' | 'music' | 'interface';
   icon: TdIconName;
   level: () => number;
   muted: () => boolean;
@@ -34,15 +36,14 @@ interface VolumeRow {
 
 type VfxSwitch = Exclude<keyof VfxSettings, 'colorGrading'>;
 
-/** A display switch: what it shows, whether it is on, how it changes */
+type SwitchId = VfxSwitch | 'screenShake' | 'bossIntro' | 'healthBars' | 'damageNumbers';
+
+/** A display switch: what it shows (by id in the dictionary), whether it is on, how it changes */
 interface SwitchRow {
-  label: string;
-  hint: string;
+  id: SwitchId;
   on: () => boolean;
   toggle: () => void;
 }
-
-const LEVEL_NAMES: Record<QualityLevel, string> = { low: 'Low', medium: 'Medium', high: 'High', ultra: 'Ultra' };
 
 /** A part of a world the player sets on top of the level, as a row of levels */
 interface StepRow {
@@ -52,24 +53,27 @@ interface StepRow {
   options: { level: QualityLevel; label: string; hint: string }[];
 }
 
-function stepRow(id: QualityStep, label: string, hint: string, option: (k: QualityKnobs) => string, offWhen?: (k: QualityKnobs) => boolean): StepRow {
+/** The levels of step `id`, each named and with what it sets; `offWhen` names a level that switches the part off */
+function stepRow(t: Messages, id: QualityStep, option: (k: QualityKnobs) => string, offWhen?: (k: QualityKnobs) => boolean): StepRow {
+  const words = t.settings.steps[id];
   return {
-    id, label, hint,
+    id, label: words.label, hint: words.hint,
     options: QUALITY_LEVELS.map((level) => {
       const k = QUALITY_TABLE[level];
-      return { level, label: offWhen?.(k) ? 'Off' : LEVEL_NAMES[level], hint: option(k) };
+      return { level, label: offWhen?.(k) ? t.settings.off : t.settings.levels[level], hint: option(k) };
     }),
   };
 }
 
 /** What a level draws at on `world`: resolution and antialiasing (the level alone sets them) */
-function pictureLine(k: QualityKnobs, world: QualityWorld): string {
+function pictureLine(t: Messages, k: QualityKnobs, world: QualityWorld): string {
   const g = k.general;
   const cap = pixelRatioFor({ ...k, general: { ...g, scale: 1 } }, world, 99);
-  const resolution = g.dynamic
-    ? `Resolution ${Math.round(g.scale * 100)} % of ${cap}x, adapts ${Math.round(g.dynamic.min * 100)} to ${Math.round(g.dynamic.max * 100)} %`
-    : `Resolution up to ${cap}x pixel density`;
-  return `${resolution} | ${g.antialias === 'msaa' ? 'MSAA 4x' : 'FXAA'}${g.bloom ? '' : ' | no bloom'}`;
+  return t.settings.picture({
+    dynamic: !!g.dynamic, scale: Math.round(g.scale * 100), cap,
+    min: Math.round((g.dynamic?.min ?? 0) * 100), max: Math.round((g.dynamic?.max ?? 0) * 100),
+    msaa: g.antialias === 'msaa', bloom: g.bloom,
+  });
 }
 
 /** A tab of the Settings page (TODO E138) */
@@ -116,11 +120,7 @@ export class SettingsSectionsComponent {
   private readonly display = inject(DebugFacadeService);
   /** The menu globe's quality (docs/GLOBE_PLAN.md) */
   readonly globe = inject(GlobeDirectorService);
-  readonly globeOptions: { id: GlobeSetting; label: string }[] = [
-    { id: 'high', label: 'High' },
-    { id: 'low', label: 'Low' },
-    { id: 'off', label: 'Off' },
-  ];
+  readonly globeOptions: readonly GlobeSetting[] = ['high', 'low', 'off'];
   /** The game's coop service; the Coop section needs it */
   readonly coop = inject(COOP, { optional: true });
   private readonly bridge = readDesktopBridge();
@@ -129,14 +129,7 @@ export class SettingsSectionsComponent {
   readonly leave = output<void>();
 
   /** The tabs; Coop only with the game's coop service */
-  readonly tabs = computed((): { id: SettingsTab; label: string }[] => [
-    { id: 'audio', label: 'Audio' },
-    { id: 'graphics', label: 'Graphics' },
-    { id: 'gameplay', label: 'Gameplay' },
-    { id: 'map', label: 'Map' },
-    ...(this.coop ? [{ id: 'coop' as const, label: 'Coop' }] : []),
-    { id: 'privacy', label: 'Privacy' },
-  ]);
+  readonly tabs: readonly SettingsTab[] = ['audio', 'graphics', 'gameplay', 'map', ...(this.coop ? ['coop' as const] : []), 'privacy'];
   /** The tab shown */
   readonly tab = signal<SettingsTab>(lastTab === 'coop' && !this.coop ? 'audio' : lastTab);
 
@@ -151,25 +144,25 @@ export class SettingsSectionsComponent {
 
   readonly volumes: readonly VolumeRow[] = [
     {
-      label: 'Master', icon: 'audio',
+      id: 'master', icon: 'audio',
       level: this.ui.masterVolume, muted: this.ui.masterMuted,
       set: (v) => { this.ui.masterVolume.set(v); this.ui.masterMuted.set(false); },
       toggleMute: () => this.ui.masterMuted.update((m) => !m),
     },
     {
-      label: 'Effects', icon: 'sliders',
+      id: 'effects', icon: 'sliders',
       level: this.ui.sfxVolume, muted: this.ui.sfxMuted,
       set: (v) => { this.ui.sfxVolume.set(v); this.ui.sfxMuted.set(false); },
       toggleMute: () => this.ui.sfxMuted.update((m) => !m),
     },
     {
-      label: 'Music', icon: 'music',
+      id: 'music', icon: 'music',
       level: this.ui.musicVolume, muted: this.ui.musicMuted,
       set: (v) => { this.ui.musicVolume.set(v); this.ui.musicMuted.set(false); },
       toggleMute: () => this.ui.musicMuted.update((m) => !m),
     },
     {
-      label: 'Interface', icon: 'gamepad',
+      id: 'interface', icon: 'gamepad',
       level: this.ui.uiVolume, muted: this.ui.uiMuted,
       set: (v) => { this.ui.uiVolume.set(v); this.ui.uiMuted.set(false); },
       toggleMute: () => this.ui.uiMuted.update((m) => !m),
@@ -190,90 +183,61 @@ export class SettingsSectionsComponent {
   /** The picture's quality level (render-quality.ts): one choice for both worlds, parts of each set apart below it (E156) */
   readonly quality = inject(RenderQualityService);
   private readonly renderers = inject(RendererHostService);
-  readonly qualityOptions: { id: QualitySetting; label: string; hint: string }[] = [
-    { id: 'auto', label: 'Auto', hint: 'Picked for your graphics card and checked once; custom maps a level lower' },
-    { id: 'low', label: 'Low', hint: 'Lower resolution that adapts, FXAA, coarser tiles; on custom maps no grass and a short draw distance' },
-    { id: 'medium', label: 'Medium', hint: 'Adapting resolution, FXAA; on custom maps less grass and detail' },
-    { id: 'high', label: 'High', hint: 'The full picture: sharp, MSAA; on custom maps shadows 4096 and every map effect' },
-    { id: 'ultra', label: 'Ultra', hint: 'Finer tiles; on custom maps more grass and detail, softer shadows' },
-  ];
+  readonly qualityOptions: readonly QualitySetting[] = ['auto', 'low', 'medium', 'high', 'ultra'];
 
   /** What the shared level plays per world, own mixes named */
   readonly qualityResolved = computed(() => {
-    const world = (name: string, w: QualityWorld) =>
-      `${name}: ${LEVEL_NAMES[this.quality.levelFor(w)]}${this.quality.mixed(w).length ? ', own mix' : ''}`;
-    return `${world('Real places', 'tiles')} | ${world('Custom maps', 'custom-map')}`;
+    const s = this.t().settings;
+    const world = (name: string, w: QualityWorld) => s.worldLevel(name, s.levels[this.quality.levelFor(w)], this.quality.mixed(w).length > 0);
+    return `${world(s.realPlaces, 'tiles')} | ${world(s.customMaps, 'custom-map')}`;
   });
 
   readonly qualityNote = computed(() => {
-    if (this.quality.fromUrl) return 'This page was opened with a quality level in its address; it holds until you reload without it.';
-    const note = this.quality.setting() !== 'auto'
-      ? this.t().settings.levelSetsAll
-      : `Auto plays custom maps a level lower${this.quality.autoMeasured() ? ', checked on this machine' : ', checked once a world stands'}. Picking a level sets every part below again.`;
-    return this.renderers.antialiasPending() ? `${note} ${this.t().settings.antialiasNextStart}` : note;
+    const s = this.t().settings;
+    if (this.quality.fromUrl) return s.qualityFromUrl;
+    const note = this.quality.setting() !== 'auto' ? s.levelSetsAll : s.autoNote(this.quality.autoMeasured());
+    return this.renderers.antialiasPending() ? `${note} ${s.antialiasNextStart}` : note;
   });
 
   /** One world's section: its level, whether the player mixed it, what it draws at */
   private worldState(world: QualityWorld) {
+    const t = this.t();
     const level = this.quality.levelFor(world);
-    return { level: LEVEL_NAMES[level], mixed: this.quality.mixed(world).length > 0, picture: pictureLine(QUALITY_TABLE[level], world) };
+    return { level: t.settings.levels[level], mixed: this.quality.mixed(world).length > 0, picture: pictureLine(t, QUALITY_TABLE[level], world) };
   }
 
   readonly tilesState = computed(() => this.worldState('tiles'));
   readonly mapsState = computed(() => this.worldState('custom-map'));
 
   /** Real places: only the tiles' own detail acts there; shadows and the map effects exist on custom maps only */
-  readonly tileSteps: readonly StepRow[] = [
-    stepRow('tileDetail', 'Tile detail', 'How fine the 3D tiles load; finer costs memory and download', (k) => `${k.tiles.errorTarget} px error`),
-  ];
+  readonly tileSteps = computed((): readonly StepRow[] => {
+    const t = this.t();
+    return [stepRow(t, 'tileDetail', (k) => t.settings.steps.tileDetail.option(k.tiles.errorTarget))];
+  });
 
   /** Custom maps: the parts the level sets that the player may set apart */
-  readonly mapSteps: readonly StepRow[] = [
-    stepRow('shadows', 'Shadows', "Sharpness of the sun's shadows", (k) => `${k.customMaps.shadowMapSize} px${k.customMaps.shadowRadius > 1.5 ? ', softer' : ''}`),
-    stepRow('farDetail', 'Far detail', 'How far objects keep their detail and the ground its layers',
-      (k) => `${k.customMaps.lodBias}x draw distance, flat trees from ${k.customMaps.impostorFrom} m, simpler ground from ${k.customMaps.farSingle} m`),
-    stepRow('grass', 'Grass', 'Grass blades around the camera and in a ring beyond',
-      (k) => (k.customMaps.grassBlades
-        ? `${k.customMaps.grassBlades.toLocaleString('en-US')} near and ${k.customMaps.grassFarBlades.toLocaleString('en-US')} far blades`
-        : 'No grass'),
-      (k) => !k.customMaps.grassBlades),
-  ];
+  readonly mapSteps = computed((): readonly StepRow[] => {
+    const t = this.t();
+    const steps = t.settings.steps;
+    return [
+      stepRow(t, 'shadows', (k) => steps.shadows.option(k.customMaps.shadowMapSize, k.customMaps.shadowRadius > 1.5)),
+      stepRow(t, 'farDetail', (k) => steps.farDetail.option(k.customMaps.lodBias, k.customMaps.impostorFrom, k.customMaps.farSingle)),
+      stepRow(t, 'grass', (k) => steps.grass.option(k.customMaps.grassBlades, k.customMaps.grassFarBlades), (k) => !k.customMaps.grassBlades),
+    ];
+  });
 
-  readonly mapSwitches: readonly { id: QualitySwitch; label: string; hint: string }[] = [
-    { id: 'refraction', label: 'Water refraction', hint: 'Water shows the ground behind it, bent by its waves' },
-    { id: 'seaWaves', label: 'Sea waves', hint: 'Swell rolling over seas, flat towards the shore' },
-    { id: 'lavaGlow', label: 'Lava glow and heat haze', hint: 'The hottest lava glows through bloom, the air above it shimmers' },
-    { id: 'shadowCascade', label: 'Far land shadow', hint: 'Hills and mountains shade the land beyond the sharp shadows' },
-  ];
+  readonly mapSwitches: readonly QualitySwitch[] = ['refraction', 'seaWaves', 'lavaGlow', 'shadowCascade'];
 
   /** How grass, trees and plants move in the map's wind; no level changes it */
-  readonly plantMotions: readonly { id: PlantMotion; label: string; hint: string }[] = PLANT_MOTIONS.map((id) => ({
-    id,
-    label: { off: 'Off', calm: 'Calm', full: 'Full' }[id],
-    hint: {
-      off: 'Grass, trees and plants stand still',
-      calm: "They sway less than the map's wind would move them",
-      full: "They sway as far as the map's wind takes them",
-    }[id],
-  }));
+  readonly plantMotions: readonly PlantMotion[] = PLANT_MOTIONS;
 
   /** How a storm's lightning flashes; no level changes it */
-  readonly lightningFlashes: readonly { id: LightningFlash; label: string; hint: string }[] = LIGHTNING_FLASHES.map((id) => ({
-    id,
-    label: { full: 'Full', soft: 'Soft' }[id],
-    hint: {
-      full: 'Bright flashes that flicker with each stroke',
-      soft: 'Dimmer flashes that swell and fade without flicker',
-    }[id],
-  }));
+  readonly lightningFlashes: readonly LightningFlash[] = LIGHTNING_FLASHES;
 
   /** What the level sets on custom maps and no switch here changes */
   readonly mapFixed = computed(() => {
     const knobs = this.quality.knobsFor('custom-map');
-    const c = knobs.customMaps;
-    const shots = knobs.general.shotLights;
-    return `The level alone sets fire, smoke and sparks (${Math.round(c.particles * 100)} %), lamp lights at night (${c.pointLights}) ` +
-      `and the light of shots and blasts on the land (${shots > 0 ? `${shots} at once` : 'off'}).`;
+    return this.t().settings.mapFixed(Math.round(knobs.customMaps.particles * 100), knobs.customMaps.pointLights, knobs.general.shotLights);
   });
 
   stepValue(id: QualityStep): QualityLevel {
@@ -301,7 +265,7 @@ export class SettingsSectionsComponent {
     this.quality.set(setting);
   }
 
-  readonly presets = VFX_PRESET_CHOICES;
+  readonly presets = VFX_PRESET_IDS;
   readonly activePreset = computed(() => matchingVfxPreset(this.display.vfx()));
   readonly colorGradings = COLOR_GRADING_PRESETS;
   readonly colorGrading = computed(() => this.display.vfx().colorGrading);
@@ -310,38 +274,38 @@ export class SettingsSectionsComponent {
 
   /** The switches the presets set, then the ones they leave alone */
   readonly switches: readonly SwitchRow[] = [
-    this.vfxSwitch('muzzleFlash', 'Muzzle flash', 'Flash and light at the barrel of guns, launcher and bow'),
-    this.vfxSwitch('projectileTrails', 'Projectile trails', 'Streaks and particle trails behind projectiles'),
-    this.vfxSwitch('impactEffects', 'Impact effects', 'Explosions, smoke, spark bursts and blood spray at hits'),
-    this.vfxSwitch('groundMarks', 'Ground marks', 'Blood, frost, scorch marks and ooze puddles on the ground'),
-    this.vfxSwitch('bloom', 'Bloom', 'Glow around bright surfaces, an extra full-screen pass'),
-    this.vfxSwitch('freezeTint', 'Freeze tint', 'Blue tint and ice sparks on slowed enemies'),
-    this.vfxSwitch('bloodMoon', 'Blood Moon', 'Every 7th wave from wave 14: red night, glowing enemies, searchlights on the towers. Looks only'),
+    this.vfxSwitch('muzzleFlash'),
+    this.vfxSwitch('projectileTrails'),
+    this.vfxSwitch('impactEffects'),
+    this.vfxSwitch('groundMarks'),
+    this.vfxSwitch('bloom'),
+    this.vfxSwitch('freezeTint'),
+    this.vfxSwitch('bloodMoon'),
     {
-      label: 'Screen shake', hint: 'Nearby explosions, HQ damage and boss deaths shake the view',
+      id: 'screenShake',
       on: this.display.screenShakeEnabled,
       toggle: () => this.display.onScreenShakeToggled(!this.display.screenShakeEnabled()),
     },
     {
-      label: 'Boss intro', hint: 'Camera cut to a boss as it steps out of its portal; the game pauses meanwhile',
+      id: 'bossIntro',
       on: this.display.bossIntroEnabled,
       toggle: () => this.display.onBossIntroToggled(!this.display.bossIntroEnabled()),
     },
     {
-      label: 'Health bars', hint: 'Hold Alt to show them the other way round',
+      id: 'healthBars',
       on: this.display.healthBarsVisible,
       toggle: () => this.display.onHealthBarsToggled(!this.display.healthBarsVisible()),
     },
     {
-      label: 'Damage numbers', hint: 'Numbers rising from enemies that are hit',
+      id: 'damageNumbers',
       on: this.display.damageNumbersVisible,
       toggle: () => this.display.onDamageNumbersToggled(!this.display.damageNumbersVisible()),
     },
   ];
 
-  private vfxSwitch(key: VfxSwitch, label: string, hint: string): SwitchRow {
+  private vfxSwitch(key: VfxSwitch): SwitchRow {
     return {
-      label, hint,
+      id: key,
       on: () => this.display.vfx()[key],
       toggle: () => this.display.onVfxSettingsChanged({ [key]: !this.display.vfx()[key] }),
     };
@@ -416,14 +380,15 @@ export class SettingsSectionsComponent {
 
   setPlayerName(value: string): void {
     this.playerName.set(value);
-    if (this.coop) this.coop.name = value.trim() || 'Player';
+    // The stand-in name goes to the other players as it is: a name, the same in every language
+    if (this.coop) this.coop.name = value.trim() || PLAYER_NAME_FALLBACK;
   }
 
   addLobby(): void {
     const coop = this.coop;
     if (!coop) return;
     if (!coop.addLobby(this.newLobbyName(), this.newLobbyUrl())) {
-      this.lobbyNote.set({ ok: false, text: 'That is no lobby address (ws:// or wss://).' });
+      this.lobbyNote.set({ ok: false, text: this.t().settings.noLobbyAddress });
       return;
     }
     this.newLobbyName.set('');
@@ -435,9 +400,9 @@ export class SettingsSectionsComponent {
   private async checkLobby(): Promise<void> {
     const lobby = this.coop?.lobby();
     if (!this.coop || !lobby) return;
-    this.lobbyNote.set({ ok: true, text: 'Asking…' });
+    this.lobbyNote.set({ ok: true, text: this.t().settings.asking });
     const answer = await this.coop.probeLobby(lobby.url);
-    this.lobbyNote.set(answer.down ? { ok: false, text: `${lobby.name} does not answer right now.` } : { ok: answer.ok, text: answer.text });
+    this.lobbyNote.set(answer.down ? { ok: false, text: this.t().settings.lobbyDown(lobby.name) } : { ok: answer.ok, text: answer.text });
   }
 
   removeLobby(url: string): void {

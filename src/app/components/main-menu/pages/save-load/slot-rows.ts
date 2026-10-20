@@ -1,6 +1,6 @@
 import { MANUAL_SLOT_COUNT, manualSlotId, type SaveSlotInfo } from '../../../../services/save-game/save-game.port';
 import { shortPlaceName } from '../../../../services/save-game/slot-name';
-import { WORLD_NAMES } from '../../../../worlds/world-rules';
+import type { Messages } from '../../../../i18n/messages/en';
 
 /**
  * The slot lists of the menu's Save and Load pages (docs/SAVE_LOAD_PLAN.md): Save shows every
@@ -23,25 +23,23 @@ export interface SlotRow {
   note: string | null;
 }
 
-const WHEN = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-
 /** "Wave 7 | Heilbronn", the town of the saved place */
-export function slotDetail(info: SaveSlotInfo): string {
-  return [`Wave ${info.wave}`, shortPlaceName(info.location)].filter((part) => part !== '').join(' | ');
+export function slotDetail(t: Messages, info: SaveSlotInfo): string {
+  return [t.saves.wave(info.wave), shortPlaceName(info.location)].filter((part) => part !== '').join(' | ');
 }
 
 /** "5 Oct, 14:32"; "" for a broken date */
-export function slotWhen(info: SaveSlotInfo): string {
+export function slotWhen(t: Messages, info: SaveSlotInfo): string {
   const saved = new Date(info.savedAt);
-  return Number.isNaN(saved.getTime()) ? '' : WHEN.format(saved);
+  return Number.isNaN(saved.getTime()) ? '' : t.saves.when(saved);
 }
 
-function rowOf(info: SaveSlotInfo): SlotRow {
+function rowOf(t: Messages, info: SaveSlotInfo): SlotRow {
   return {
     id: info.id,
-    title: info.autosave ? (info.world ? `Autosave | ${WORLD_NAMES[info.world]}` : 'Autosave') : info.name,
-    detail: slotDetail(info),
-    when: slotWhen(info),
+    title: info.autosave ? (info.world ? t.saves.autosaveOf(t.worlds.names[info.world]) : t.saves.autosave) : info.name,
+    detail: slotDetail(t, info),
+    when: slotWhen(t, info),
     filled: true,
     autosave: info.autosave,
     note: info.note,
@@ -49,17 +47,17 @@ function rowOf(info: SaveSlotInfo): SlotRow {
 }
 
 /** Save: the manual slots in order, each filled or empty */
-export function saveSlotRows(slots: readonly SaveSlotInfo[], count = MANUAL_SLOT_COUNT): SlotRow[] {
+export function saveSlotRows(t: Messages, slots: readonly SaveSlotInfo[], count = MANUAL_SLOT_COUNT): SlotRow[] {
   return Array.from({ length: count }, (_, i) => {
     const id = manualSlotId(i + 1);
     const info = slots.find((slot) => slot.id === id);
     return info
-      ? rowOf(info)
-      : { id, title: `Slot ${i + 1}`, detail: 'Empty', when: '', filled: false, autosave: false, note: null };
+      ? rowOf(t, info)
+      : { id, title: t.saves.slot(i + 1), detail: t.saves.empty, when: '', filled: false, autosave: false, note: null };
   });
 }
 
 /** Load: the filled slots, the autosaves first (one per world, each a Continue), as the port lists them */
-export function loadSlotRows(slots: readonly SaveSlotInfo[]): SlotRow[] {
-  return [...slots].sort((a, b) => Number(b.autosave) - Number(a.autosave)).map(rowOf);
+export function loadSlotRows(t: Messages, slots: readonly SaveSlotInfo[]): SlotRow[] {
+  return [...slots].sort((a, b) => Number(b.autosave) - Number(a.autosave)).map((info) => rowOf(t, info));
 }

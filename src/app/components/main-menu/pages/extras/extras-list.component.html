@@ -1,28 +1,29 @@
+@let w = t().extras;
 @if (replayOffered) {
   <section class="td-group" aria-labelledby="td-extras-replays">
-    <h3 class="td-section" id="td-extras-replays">Replays and runs</h3>
+    <h3 class="td-section" id="td-extras-replays">{{ w.replaysAndRuns }}</h3>
     <ul class="td-rows">
       <li>
         <button class="td-row mp-row" type="button" [disabled]="!!cannotLoadReplay()" (click)="pickReplay()">
-          <span class="td-name mp-name">Load a replay file</span>
+          <span class="td-name mp-name">{{ w.loadReplay }}</span>
           <span class="td-note mp-meta">{{ cannotLoadReplay() ?? '' }}</span>
         </button>
       </li>
       <li>
         <button class="td-row mp-row" type="button" [disabled]="!canSaveReplay() || busy()" (click)="saveReplay()">
-          <span class="td-name mp-name">Save the replay</span>
-          <span class="td-note mp-meta">{{ canSaveReplay() ? '' : 'after the first wave' }}</span>
+          <span class="td-name mp-name">{{ w.saveReplay }}</span>
+          <span class="td-note mp-meta">{{ canSaveReplay() ? '' : w.afterFirstWave }}</span>
         </button>
       </li>
       <li>
         <button class="td-row mp-row" type="button" (click)="openRuns()">
-          <span class="td-name mp-name">Runs</span>
-          <span class="td-note mp-meta">this browser's last runs</span>
+          <span class="td-name mp-name">{{ w.runs }}</span>
+          <span class="td-note mp-meta">{{ w.lastRuns }}</span>
         </button>
       </li>
       <li>
         <button class="td-row mp-row" type="button" (click)="exportRunLog()">
-          <span class="td-name mp-name">Save the run log</span>
+          <span class="td-name mp-name">{{ w.saveRunLog }}</span>
         </button>
       </li>
     </ul>
@@ -30,17 +31,17 @@
   </section>
 } @else {
   <section class="td-group" aria-labelledby="td-extras-runs">
-    <h3 class="td-section" id="td-extras-runs">Runs</h3>
+    <h3 class="td-section" id="td-extras-runs">{{ w.runs }}</h3>
     <ul class="td-rows">
       <li>
         <button class="td-row mp-row" type="button" (click)="openRuns()">
-          <span class="td-name mp-name">Runs</span>
-          <span class="td-note mp-meta">this browser's last runs</span>
+          <span class="td-name mp-name">{{ w.runs }}</span>
+          <span class="td-note mp-meta">{{ w.lastRuns }}</span>
         </button>
       </li>
       <li>
         <button class="td-row mp-row" type="button" (click)="exportRunLog()">
-          <span class="td-name mp-name">Save the run log</span>
+          <span class="td-name mp-name">{{ w.saveRunLog }}</span>
         </button>
       </li>
     </ul>
@@ -52,44 +53,41 @@
 }
 @if (replay?.elsewhere(); as there) {
   <div class="td-actions is-start">
-    <button type="button" class="td-btn-primary" [disabled]="replay.goingThere()" (click)="playThere()">Go to {{ there.name }} and play</button>
+    <button type="button" class="td-btn-primary" [disabled]="replay.goingThere()" (click)="playThere()">{{ w.goThere(there.name) }}</button>
   </div>
 }
 
 <section class="td-group" aria-labelledby="td-extras-game">
-  <h3 class="td-section" id="td-extras-game">The game</h3>
+  <h3 class="td-section" id="td-extras-game">{{ w.theGame }}</h3>
   <ul class="td-rows">
     <li>
       <button class="td-row mp-row" type="button" (click)="openWhatsNew()">
-        <span class="td-name mp-name">What's new</span>
+        <span class="td-name mp-name">{{ w.whatsNew }}</span>
       </button>
     </li>
     <li>
       <button class="td-row mp-row" type="button" (click)="openKeys()">
-        <span class="td-name mp-name">Keyboard shortcuts</span>
+        <span class="td-name mp-name">{{ w.keys }}</span>
         <kbd class="td-kbd">H</kbd>
       </button>
     </li>
     <li>
       <button class="td-row mp-row" type="button" (click)="openDamageMatrix()">
-        <span class="td-name mp-name">Damage vs armor</span>
+        <span class="td-name mp-name">{{ w.damageMatrix }}</span>
       </button>
     </li>
     @if (canBenchmark()) {
       <li>
         <button class="td-row mp-row" type="button" (click)="runBenchmark()" [attr.aria-expanded]="confirmBenchmark()">
-          <span class="td-name mp-name">Benchmark</span>
-          <span class="td-note mp-meta">about 3 minutes</span>
+          <span class="td-name mp-name">{{ w.benchmark }}</span>
+          <span class="td-note mp-meta">{{ w.benchmarkTime }}</span>
         </button>
         @if (confirmBenchmark()) {
           <div class="td-stack ex-confirm" role="alertdialog" aria-labelledby="td-extras-bench">
-            <p class="td-note" id="td-extras-bench">
-              A test world opens and measures frame rate and simulation with up to 10,000 enemies.
-              The game under way ends. At the end you can copy the results.
-            </p>
+            <p class="td-note" id="td-extras-bench">{{ w.benchmarkAbout }}</p>
             <div class="td-actions">
-              <button class="td-btn-secondary td-btn-sm" type="button" (click)="confirmBenchmark.set(false)">Cancel</button>
-              <button class="td-btn-primary td-btn-sm" type="button" (click)="runBenchmark()">Run</button>
+              <button class="td-btn-secondary td-btn-sm" type="button" (click)="confirmBenchmark.set(false)">{{ t().common.cancel }}</button>
+              <button class="td-btn-primary td-btn-sm" type="button" (click)="runBenchmark()">{{ w.run }}</button>
             </div>
           </div>
         }
@@ -98,18 +96,15 @@
     @if (canRenderBenchmark()) {
       <li>
         <button class="td-row mp-row" type="button" (click)="runRenderBenchmark()" [attr.aria-expanded]="confirmRenderBenchmark()">
-          <span class="td-name mp-name">Graphics benchmark</span>
-          <span class="td-note mp-meta">under a minute</span>
+          <span class="td-name mp-name">{{ w.renderBenchmark }}</span>
+          <span class="td-note mp-meta">{{ w.renderBenchmarkTime }}</span>
         </button>
         @if (confirmRenderBenchmark()) {
           <div class="td-stack ex-confirm" role="alertdialog" aria-labelledby="td-extras-render-bench">
-            <p class="td-note" id="td-extras-render-bench">
-              This map opens anew and the camera flies four fixed paths around your HQ, measuring frame and GPU time.
-              The game under way ends. At the end you can copy the results.
-            </p>
+            <p class="td-note" id="td-extras-render-bench">{{ w.renderBenchmarkAbout }}</p>
             <div class="td-actions">
-              <button class="td-btn-secondary td-btn-sm" type="button" (click)="confirmRenderBenchmark.set(false)">Cancel</button>
-              <button class="td-btn-primary td-btn-sm" type="button" (click)="runRenderBenchmark()">Run</button>
+              <button class="td-btn-secondary td-btn-sm" type="button" (click)="confirmRenderBenchmark.set(false)">{{ t().common.cancel }}</button>
+              <button class="td-btn-primary td-btn-sm" type="button" (click)="runRenderBenchmark()">{{ w.run }}</button>
             </div>
           </div>
         }
@@ -119,22 +114,22 @@
 </section>
 
 <section class="td-group" aria-labelledby="td-extras-about">
-  <h3 class="td-section" id="td-extras-about">About</h3>
+  <h3 class="td-section" id="td-extras-about">{{ w.about }}</h3>
   <ul class="td-rows">
     <li>
       <button class="td-row mp-row" type="button" (click)="openAttributions()">
-        <span class="td-name mp-name">Attributions</span>
+        <span class="td-name mp-name">{{ w.attributions }}</span>
       </button>
     </li>
     <li>
       <a class="td-row mp-row" [href]="legalUrl" target="_blank" rel="noopener">
-        <span class="td-name mp-name">Legal &amp; privacy</span>
+        <span class="td-name mp-name">{{ w.legal }}</span>
         <td-icon class="td-muted" name="externalLink" [size]="14"></td-icon>
       </a>
     </li>
     <li>
       <a class="td-row mp-row" [href]="repoUrl" target="_blank" rel="noopener">
-        <span class="td-name mp-name">Source on GitHub</span>
+        <span class="td-name mp-name">{{ w.source }}</span>
         <td-icon class="td-muted" name="externalLink" [size]="14"></td-icon>
       </a>
     </li>
