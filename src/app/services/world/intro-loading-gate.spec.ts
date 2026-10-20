@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { en } from '../../i18n/messages/en';
 import { signal } from '@angular/core';
 import { IntroLoadingGate, type IntroLoadingGateDeps } from './intro-loading-gate';
 import { INTRO_GATE_MIN_READY, INTRO_GATE_SAMPLES_PER_FRAME, INTRO_GATE_TIMEOUT_MS } from '../../utils/flight-gate';
@@ -31,6 +32,7 @@ describe('IntroLoadingGate', () => {
       pathRoute: { getCachedPaths: vi.fn(() => cachedPaths) },
       introFlight: { prepare: vi.fn(() => true), readiness: vi.fn(() => 0), prepareTick: vi.fn() },
       recheck: vi.fn(),
+      words: () => en,
     };
   }
 

@@ -29,6 +29,7 @@ import { worldOfPage } from '../../world/world-of-page';
 import { recordRecentMap } from '../../worlds/recent-maps';
 import { autosaveSlotOf, samePick, type WorldId, type WorldPick } from '../../worlds/world-rules';
 import { injectT } from '../../i18n/i18n.service';
+import { say } from '../../i18n/said';
 import { whyNotText } from '../../world/why-not';
 import { BackgroundMusicService } from '../../game-engine/background-music.service';
 
@@ -482,13 +483,13 @@ export class MainMenuService {
     if (!slotId) return;
     void this.saves.load(slotId).then((result) => {
       if (result.ok) {
-        if (result.note) this.notice.set(this.t().menu.loadedNote(result.note));
+        if (result.note) this.notice.set(this.t().menu.loadedNote(say(this.t().saves.note, result.note)));
         else this.requestPlay();
         return;
       }
       // No run came of it: the start's Play instead of a loading that waits for nothing, a fresh run
       this.starting.set(false);
-      this.notice.set(this.t().menu.freshRun(result.reason));
+      this.notice.set(this.t().menu.freshRun(say(this.t().saves.refusal, result.reason)));
     });
   }
 

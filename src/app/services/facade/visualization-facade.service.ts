@@ -194,6 +194,7 @@ export class VisualizationFacadeService {
     pathRoute: this.pathRoute,
     introFlight: this.introFlight,
     recheck: () => this.checkAllLoaded(),
+    words: () => this.t(),
   });
 
   /** Overview frame and camera debug toggles, see CameraOverview. */

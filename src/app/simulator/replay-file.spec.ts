@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  MAX_REPLAY_FILE_BYTES, REPLAY_FILE_VERSION, readReplayFile, replayFileRefusalText, serializeReplayFile, type ReplayFile,
+  MAX_REPLAY_FILE_BYTES, REPLAY_FILE_VERSION, readReplayFile, serializeReplayFile, type ReplayFile,
   replayFileBlob, replayFileName, replayFileText,
 } from './replay-file';
 import type { WaveRecord } from './sim-recorder';
@@ -52,7 +52,6 @@ describe('readReplayFile', () => {
 
   it('refuses a text far above any replay before parsing it', () => {
     expect(readReplayFile('x'.repeat(MAX_REPLAY_FILE_BYTES + 1), here).refusal).toBe('too-big');
-    expect(replayFileRefusalText('too-big')).toContain('too big');
   });
 
   it('refuses a damaged or hand-made file instead of handing it to the simulation', () => {
@@ -68,7 +67,6 @@ describe('readReplayFile', () => {
       (f) => { f['waves'] = [7]; },
     ];
     for (const patch of broken) expect(readReplayFile(file(patch), here).refusal).toBe('damaged');
-    expect(replayFileRefusalText('damaged')).toContain('damaged');
   });
 });
 

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   INTRO_GATE_MIN_READY,
   INTRO_GATE_TIMEOUT_MS,
-  flightGateMeta,
+  flightGatePercent,
   flightGateOpen,
 } from './flight-gate';
 
@@ -38,10 +38,10 @@ describe('flightGateOpen', () => {
   });
 });
 
-describe('flightGateMeta', () => {
+describe('flightGatePercent', () => {
   it('zeigt den Fortschritt in ganzen Prozent, abgerundet', () => {
-    expect(flightGateMeta(0)).toBe('0 % of the route');
-    expect(flightGateMeta(0.899)).toBe('89 % of the route');
-    expect(flightGateMeta(1)).toBe('100 % of the route');
+    expect(flightGatePercent(0)).toBe(0);
+    expect(flightGatePercent(0.899)).toBe(89);
+    expect(flightGatePercent(1)).toBe(100);
   });
 });

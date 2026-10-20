@@ -1,4 +1,5 @@
 import { Injectable, signal } from '@angular/core';
+import { injectT } from '../../i18n/i18n.service';
 import { ThreeTilesEngine } from '../../three-engine';
 import { cameraTimeline } from '../../utils/camera-timeline';
 
@@ -12,6 +13,7 @@ import { cameraTimeline } from '../../utils/camera-timeline';
  */
 @Injectable({ providedIn: 'root' })
 export class HeightUpdateService {
+  private readonly t = injectT();
   // ========================================
   // CONSTANTS
   // ========================================
@@ -124,7 +126,7 @@ export class HeightUpdateService {
 
     // Update detail for first cycle
     if (this.onUpdateDetailCallback) {
-      this.onUpdateDetailCallback('Starting terrain sync...');
+      this.onUpdateDetailCallback(this.t().boot.meta.terrainStart);
     }
 
     return new Promise((resolve) => {
@@ -152,9 +154,9 @@ export class HeightUpdateService {
     if (this.onUpdateDetailCallback) {
       const remaining = this.attempts - this.heightUpdateAttempts;
       if (remaining > 0) {
-        this.onUpdateDetailCallback(`Synchronizing terrain... (${this.heightUpdateAttempts}/${this.attempts})`);
+        this.onUpdateDetailCallback(this.t().boot.meta.terrainSync(this.heightUpdateAttempts, this.attempts));
       } else {
-        this.onUpdateDetailCallback(`Finalizing terrain...`);
+        this.onUpdateDetailCallback(this.t().boot.meta.terrainEnd);
       }
     }
 

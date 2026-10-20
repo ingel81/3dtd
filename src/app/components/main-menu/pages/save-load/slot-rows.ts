@@ -1,6 +1,7 @@
 import { MANUAL_SLOT_COUNT, manualSlotId, type SaveSlotInfo } from '../../../../services/save-game/save-game.port';
 import { shortPlaceName } from '../../../../services/save-game/slot-name';
 import type { Messages } from '../../../../i18n/messages/en';
+import { say } from '../../../../i18n/said';
 
 /**
  * The slot lists of the menu's Save and Load pages (docs/SAVE_LOAD_PLAN.md): Save shows every
@@ -42,7 +43,7 @@ function rowOf(t: Messages, info: SaveSlotInfo): SlotRow {
     when: slotWhen(t, info),
     filled: true,
     autosave: info.autosave,
-    note: info.note,
+    note: info.note ? say(t.saves.note, info.note) : null,
   };
 }
 

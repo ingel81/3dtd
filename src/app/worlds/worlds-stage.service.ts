@@ -169,7 +169,7 @@ export class WorldsStageService {
 
   /** The slots as the globes see them: Load opens a slot's world with it */
   private readonly slotStore = inject(SAVE_SLOT_STORE);
-  readonly saves = new StageSaves(this.slotStore, (slot) => this.continueSlot(slot), (mapId) => this.mapWorld(mapId), () => this.t());
+  readonly saves = new StageSaves(this.slotStore, (slot) => this.continueSlot(slot), (mapId) => this.mapWorld(mapId));
 
   /** What the ways of the globes hang on: the key and the release; no room, no run, no replay here */
   readonly rules = computed<WhyNotFacts & { hasKey: boolean }>(() => ({

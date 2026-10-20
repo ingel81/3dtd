@@ -42,7 +42,7 @@
         <select class="td-select select is-auto" (change)="onColorGradingChange($event)">
           @for (preset of colorGradingPresets; track preset.id) {
             <option [value]="preset.id" [selected]="colorGrading() === preset.id">
-              {{ preset.label }}
+              {{ words.settings.colorGradings[preset.id] }}
             </option>
           }
         </select>

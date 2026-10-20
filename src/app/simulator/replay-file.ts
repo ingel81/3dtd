@@ -284,18 +284,6 @@ export async function replayFileText(blob: Blob, max = MAX_REPLAY_FILE_BYTES): P
   return text + decoder.decode();
 }
 
-/** What the player reads when a file does not load. */
-export function replayFileRefusalText(refusal: ReplayFileRefusal): string {
-  switch (refusal) {
-    case 'not-a-replay': return 'That file is no 3DTD replay.';
-    case 'too-big': return 'That file is far too big for a 3DTD replay.';
-    case 'damaged': return 'That replay file is damaged.';
-    case 'version': return 'That replay was saved by another version of the game.';
-    case 'other-world': return 'That replay was played on another map. Load the same place first.';
-    case 'other-balance': return 'That replay was played with other tower or enemy values.';
-    case 'empty': return 'That replay holds no wave.';
-  }
-}
 
 /** File name for a download: 3dtd-replay-<place>-w<first>-w<last>.json.gz */
 export function replayFileName(file: ReplayFile, place: string): string {

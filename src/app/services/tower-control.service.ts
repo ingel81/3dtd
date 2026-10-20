@@ -493,7 +493,7 @@ export class TowerControlService {
     this.marker.set(null);
     if (this.markerTimer) clearTimeout(this.markerTimer);
     this.markerTimer = null;
-    this.announcer.announce('Out of the tower.');
+    this.announcer.announce(this.t().hud.manned.out);
   }
 
   private saveCamera(engine: ThreeTilesEngine): CameraPose {

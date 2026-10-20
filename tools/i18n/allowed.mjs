@@ -20,6 +20,8 @@ const STREET = "a street's name in the street network, data like the names OpenS
 const KIND = 'a kind of landmark as an id; the frame words it (osm.landmarks)';
 const SIGN = 'the words on a shop sign in the world, as the place itself would write them';
 const NOTE = 'a note for the map makers in the code; no player reads it';
+const CONSOLE = 'the answer of the developer console (__corridor, __routes) or a corridor trace label, English like the debug windows (docs/I18N_PLAN.md 4.10)';
+const PLACE_DATA = 'a fixed name a place or spawn carries as data (saves, the world package); the HUD words it on display (i18n/place-names.ts)';
 
 export const ALLOWED = {
   'components/main-menu/autosave-place.ts': { 'last run': 'a code (AutosavePlace.source)', 'last played': 'a code (AutosavePlace.source)' },
@@ -119,4 +121,63 @@ export const ALLOWED = {
   'editor/ui/panels/measure-panel.component.ts': { Esc: KEY },
   'editor/ui/panels/object-panel.component.html': { Del: KEY },
   'editor/ui/panels/path-panel.component.ts': { Del: KEY },
+  // HUD and game
+  'components/boss-intro/boss-intro.component.ts': { Esc: KEY },
+  'components/game-sidebar/hero-panel/hero-panel.component.html': { Esc: KEY },
+  'components/replay-bar/replay-bar.component.html': { Esc: KEY },
+  'components/tower-control-hud/tower-control-hud.component.ts': { Esc: KEY },
+  'tower-defense.component.html': { Esc: KEY },
+  'interfaces/street-network-provider.interface.ts': { 'Unnamed Street': PLACE_DATA },
+  'services/facade/map-relocation.service.ts': {
+    'Fallback Spawn': PLACE_DATA, 'Loading...': PLACE_DATA, Spawn: PLACE_DATA,
+    'HQ moved, new origin': CONSOLE, 'HQ moved in place': CONSOLE, 'spawn moved in place': CONSOLE, 'spawn added': CONSOLE,
+  },
+  'services/facade/visualization-facade.service.ts': {
+    'Not changed: __corridor.probeLod() is running.': CONSOLE, 'visible after unmeasured freeze': CONSOLE,
+    'new corridor tiles after unmeasured freeze': CONSOLE, 'location load': CONSOLE, 'tilesLoaded lod={}': DIAG, '[PerfTrace] onTilesLoaded: {}ms total | ': DIAG,
+  },
+  'services/tower-placement.service.ts': { 'not probed': DIAG },
+  'services/world/corridor-build.ts': {
+    'towers stand on the map, sell them first': CONSOLE, 'a wave is running': CONSOLE, 'enemies are on the map': CONSOLE,
+    'the run has played {} wave(s), restart it first': CONSOLE, 'a coop game is running': CONSOLE, 'routes replaced': CONSOLE,
+    ', and the tiles never settled': CONSOLE, 'no station found a tile ({} stations{})': CONSOLE, 'no cell got a height ({} cells{})': CONSOLE,
+    'Not changed: no location loaded.': CONSOLE, 'Not changed: {}.': CONSOLE, 'Not changed: the corridor is being built.': CONSOLE,
+    'settings changed': CONSOLE, 'Settings changed, the build stopped: the routes were replaced.': CONSOLE,
+    'Corridor rebuilt{}: {} cells. Widths per stretch: __routes.describe()': CONSOLE, ', measured again': CONSOLE,
+  },
+  'services/world/intro-camera-flight.service.ts': { 'key Escape': DIAG },
+  'services/world/path-route.service.ts': {
+    'location changed': CONSOLE, 'routes replaced': CONSOLE, 'measurements cleared': CONSOLE, '{}, overhang: outer face': CONSOLE,
+    'under way {}: street width': CONSOLE, 'passage: street width': CONSOLE, 'tunnel or covered: street width': CONSOLE,
+    'not measured yet: street width': CONSOLE, '{}, short narrowing closed': CONSOLE, 'no probe': CONSOLE, 'under way {}: not measured': CONSOLE,
+    'passage: not measured': CONSOLE, 'tunnel or covered: not measured': CONSOLE, 'no probe (DevWorld)': CONSOLE, 'not measured yet': CONSOLE,
+  },
+  'services/world/strategic-placement.service.ts': {
+    'Near {} ({}m along path, {}m offset)': 'why a spot was suggested, for the bots and the debug window',
+    'Zone {}/{} ({}m along path, need={})': 'why a spot was suggested, for the bots and the debug window',
+  },
+  'three-engine/renderers/marker/spawn-portal-sigils.ts': {
+    'falling moon': NOTE, 'wandering orbit': NOTE, 'spiral shard': NOTE, 'crescents in tow': NOTE, 'tethered seeds': NOTE,
+    'broken moonring': NOTE, 'eclipse trail': NOTE, 'dotted whorl': NOTE, 'haloed moon': NOTE, 'averted moon': NOTE,
+    'else if (index < {}.5)': 'shader code',
+  },
+  'three-engine/terrain-queries.ts': { 'no tile': CONSOLE, 'coarse tile': CONSOLE, 'no approach start': CONSOLE },
+  'three-engine/three-tiles-engine.ts': { '[PerfTrace] onTilesLoadCallback: {}ms total | ': DIAG },
+  'utils/corridor-trace.ts': {
+    'page load': CONSOLE, 'Corridor trace {}': CONSOLE, '{} corridor events since {}{}': CONSOLE, ' (trace is off: __corridor.trace(true))': CONSOLE,
+  },
+  'utils/corridor-walk.ts': {
+    'deck or tunnel': CONSOLE, 'no sample': CONSOLE, 'coarse tile': CONSOLE, 'no band': CONSOLE, 'fixed stretch': CONSOLE, 'beyond the band': CONSOLE,
+  },
+  'utils/global-route-grid.ts': { 'retryUnsampled unsampledBefore={} promoted={}': DIAG },
+  'utils/los-perf.ts': { '{}: avg={}ms max={}ms ': DIAG },
+  'utils/route-cell-sampler.ts': {
+    'miss key={}': DIAG, 'promote key={} y={} depth={} err={}': DIAG, 'reject reason=outlier key={} y={} medianN={}': DIAG, 'fill key={} y={}': DIAG,
+  },
+  'utils/route-corridor.ts': {
+    'highwayWidths.{} must be a width from 0 to 50 m': CONSOLE, 'unknown setting {}': CONSOLE, '{} must be a number from {} to {}': CONSOLE,
+    'minHalfWidth must not be above maxHalfWidth': CONSOLE, 'defaultHalfWidth must lie between minHalfWidth and maxHalfWidth': CONSOLE,
+    'unmeasured: street width': CONSOLE, 'unmeasured: from neighbours': CONSOLE, 'low obstacle, raised behind': CONSOLE, 'dip closed': CONSOLE,
+    'bulge cut': CONSOLE, 'no wall within the maximum': CONSOLE, 'wall less margin': CONSOLE, 'leg to the HQ: street width': CONSOLE,
+  },
 };

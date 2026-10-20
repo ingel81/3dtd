@@ -2,7 +2,7 @@
 import '@angular/compiler';
 import { describe, it, expect, vi } from 'vitest';
 import { Injector, signal } from '@angular/core';
-import { LOAD_NO_ROUTE, SAVE_NO_ROUTE, SaveGameService } from './save-game.service';
+import { SaveGameService } from './save-game.service';
 import { SimClient } from '../../sim/client/sim-client.service';
 import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { MainWorldService } from '../world/main-world.service';
@@ -158,7 +158,7 @@ function setup(options: { inCoop?: boolean; editorTest?: boolean; slots?: Stored
 describe('SaveGameService (TODO E110)', () => {
   it("keeps no save of the editor's test of its map (E195 phase 5)", async () => {
     const { service } = setup({ editorTest: true });
-    expect(service.cannotSaveReason()).toBe('A test of the map is not saved.');
+    expect(service.cannotSaveReason()).toEqual({ key: 'mapTest' });
     expect(await service.autosaveNow()).toBe(false);
   });
 
@@ -166,10 +166,10 @@ describe('SaveGameService (TODO E110)', () => {
     const { service, phase } = setup();
     expect(service.canSave()).toBe(true);
     phase.set('wave');
-    expect(service.cannotSaveReason()).toBe('Saving works only between waves.');
+    expect(service.cannotSaveReason()).toEqual({ key: 'betweenWaves' });
     phase.set('gameover');
     expect(service.canSave()).toBe(false);
-    expect(setup({ inCoop: true }).service.cannotSaveReason()).toBe('Saving is off in co-op.');
+    expect(setup({ inCoop: true }).service.cannotSaveReason()).toEqual({ key: 'coop' });
   });
 
   it('puts director, random source and run log back after the packet of the restore, the reset before it', async () => {
@@ -190,7 +190,7 @@ describe('SaveGameService (TODO E110)', () => {
       order.push(method);
       throw new Error('restore stopped');
     });
-    expect(await apply(saveFile())).toBe('That save is damaged: a fresh run starts on its place.');
+    expect(await apply(saveFile())).toEqual({ key: 'damagedFresh' });
     expect(order).toEqual(['source budget', 'adopt', 'restoreSnapshot', 'fresh run']);
     expect(director.restoreState).not.toHaveBeenCalled();
   });
@@ -198,7 +198,7 @@ describe('SaveGameService (TODO E110)', () => {
   it("takes the main thread's part before the simulation answers, so a wave started meanwhile changes none of it", async () => {
     const { service, order } = setup();
     // The simulation refuses: a wave began meanwhile
-    expect(await service.save('slot-1')).toEqual({ ok: false, reason: 'Saving works only between waves.' });
+    expect(await service.save('slot-1')).toEqual({ ok: false, reason: { key: 'betweenWaves' } });
     expect(order).toEqual(['director save', 'run-log save', 'captureSnapshot']);
   });
 
@@ -207,8 +207,8 @@ describe('SaveGameService (TODO E110)', () => {
     try {
       const { service, order, mirror, bus } = setup();
       mirror.losAwaiting.set(1);
-      expect(service.cannotSaveReason()).toBe('A tower is still measuring its line of sight.');
-      expect(await service.save('slot-1')).toEqual({ ok: false, reason: 'A tower is still measuring its line of sight.' });
+      expect(service.cannotSaveReason()).toEqual({ key: 'losPending' });
+      expect(await service.save('slot-1')).toEqual({ ok: false, reason: { key: 'losPending' } });
       bus.emit({ type: 'wave:completed', wave: 3, credits: 0, perfect: true, closeCall: false, hpLost: 0 } as never);
       await vi.advanceTimersByTimeAsync(1000);
       expect(order).toEqual([]);
@@ -224,7 +224,7 @@ describe('SaveGameService (TODO E110)', () => {
   it('keeps no save of a run without a route, so no Continue brings one back (TODO E232)', async () => {
     const { service, locationStore } = setup();
     locationStore.hasLanes.set(false);
-    expect(service.cannotSaveReason()).toBe(SAVE_NO_ROUTE);
+    expect(service.cannotSaveReason()).toEqual({ key: 'noRoute' });
     expect(await service.autosaveNow()).toBe(false);
   });
 
@@ -232,7 +232,7 @@ describe('SaveGameService (TODO E110)', () => {
     const { apply, order, loader } = setup();
     const file = saveFile();
     file.world.paths = [];
-    expect(await apply(file)).toBe(LOAD_NO_ROUTE);
+    expect(await apply(file)).toEqual({ key: 'loadNoRoute' });
     expect(loader.placeLoaded).not.toHaveBeenCalled();
     expect(order).toEqual([]);
   });
@@ -240,7 +240,7 @@ describe('SaveGameService (TODO E110)', () => {
   it('refuses a save of another world before it moves anywhere', async () => {
     const { apply, order, loader } = setup();
     loader.worldHere.mockReturnValue('It plays on another world (devworld flat/42), this page on tiles cesium. Open the same one first.');
-    expect(await apply(saveFile())).toContain('That save cannot load here.');
+    expect(await apply(saveFile())).toMatchObject({ key: 'notHere' });
     expect(loader.placeLoaded).not.toHaveBeenCalled();
     expect(order).toEqual([]);
   });
@@ -264,7 +264,7 @@ describe('SaveGameService (TODO E110)', () => {
     expect(await apply(saveFile())).toBeNull();
     expect(loader.moveTo).toHaveBeenCalledWith(saveFile().world, 'Heilbronn');
     loader.adopt.mockReturnValue('other');
-    expect(await apply(saveFile())).toBe('The world of the save did not come out the same here.');
+    expect(await apply(saveFile())).toEqual({ key: 'worldDiffers' });
   });
 
   it('saves on its own after a wave, once the other listeners had their turn, and not when the next wave began', async () => {

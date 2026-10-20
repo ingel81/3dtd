@@ -1,7 +1,7 @@
 import {
   INTRO_GATE_SAMPLES_PER_FRAME,
   INTRO_GATE_TIMEOUT_MS,
-  flightGateMeta,
+  flightGatePercent,
   flightGateOpen,
 } from '../../utils/flight-gate';
 import { cameraTimeline } from '../../utils/camera-timeline';
@@ -9,6 +9,7 @@ import type { EngineInitializationService } from '../infrastructure/engine-initi
 import type { HeightUpdateService } from './height-update.service';
 import type { PathAndRouteService } from './path-route.service';
 import type { IntroCameraFlightService } from './intro-camera-flight.service';
+import type { Messages } from '../../i18n/messages/en';
 
 /** What IntroLoadingGate needs; VisualizationFacadeService passes its services. */
 export interface IntroLoadingGateDeps {
@@ -21,6 +22,8 @@ export interface IntroLoadingGateDeps {
   introFlight: Pick<IntroCameraFlightService, 'prepare' | 'readiness' | 'prepareTick'>;
   /** Ask again whether loading is done (VisualizationFacadeService.checkAllLoaded). */
   recheck: () => void;
+  /** The player's words, for the line on the loading screen */
+  words: () => Messages;
 }
 
 /**
@@ -71,11 +74,11 @@ export class IntroLoadingGate {
     if (flightGateOpen(readiness, performance.now(), this.introGateDeadline)) {
       cameraTimeline.record('intro.gateOpen', { readiness: Math.round(readiness * 100) / 100 });
       this.introGateDone = true;
-      void engineInit.setStepDone('flight', flightGateMeta(readiness));
+      void engineInit.setStepDone('flight', this.deps.words().boot.meta.ofRoute(flightGatePercent(readiness)));
       return false;
     }
 
-    engineInit.updateStepMeta('flight', flightGateMeta(readiness));
+    engineInit.updateStepMeta('flight', this.deps.words().boot.meta.ofRoute(flightGatePercent(readiness)));
     if (this.introGateRaf === null) {
       this.introGateRaf = requestAnimationFrame(() => {
         this.introGateRaf = null;

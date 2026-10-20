@@ -620,7 +620,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly controlsHintVisible = signal(true);
   /** With "M: Sound is off" while M from the last session holds (review 2026-10-01) */
   readonly controlsHints = computed(() => controlsHints(this.t(), this.uiStore.masterMuted()));
-  readonly controlsHintActions: HintAction[] = [{ id: 'hide', label: 'Got it' }];
+  readonly controlsHintActions = computed<HintAction[]>(() => [{ id: 'hide', label: this.t().hud.hints.gotIt }]);
   private controlsHintTimer: ReturnType<typeof setTimeout> | null = null;
   /** Set once the game started; the hint's 15 s count only after the intro flight. */
   private readonly controlsHintArmed = signal(false);
@@ -1212,9 +1212,9 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   /** Who the charts show: the coop players in their lane colours, alone the one player */
   readonly chartPlayers = computed<RunChartPlayer[]>(() => {
     const rows = this.coop.summary();
-    if (rows) return rows.map((row) => ({ id: row.id, name: row.me ? `${row.name} (you)` : row.name, color: row.color }));
+    if (rows) return rows.map((row) => ({ id: row.id, name: row.me ? `${row.name}${this.t().hud.gameOver.you}` : row.name, color: row.color }));
     const last = this.waveSeries().at(-1);
-    return last ? Object.keys(last.players).map((id) => ({ id, name: 'You', color: 'var(--td-brass)' })) : [];
+    return last ? Object.keys(last.players).map((id) => ({ id, name: this.t().hud.gameOver.youAlone, color: 'var(--td-brass)' })) : [];
   });
 
   /** Gold a player earned in the run (kills and wave bonuses), for the coop table */

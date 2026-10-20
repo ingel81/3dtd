@@ -46,7 +46,7 @@
 } @else if (mode() === 'save') {
   <section class="td-group">
     @if (saves.cannotSaveReason(); as reason) {
-      <p class="td-note">{{ reason }}</p>
+      <p class="td-note">{{ refusal(reason) }}</p>
     }
     <ul class="td-rows" [attr.aria-label]="w.slots">
       @for (row of saveRows(); track row.id) {

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { en } from '../../i18n/messages/en';
 import { Injector, NgZone, runInInjectionContext, signal } from '@angular/core';
 import { EngineInitializationService } from './engine-initialization.service';
 import { IntroLoadingGate, type IntroLoadingGateDeps } from '../world/intro-loading-gate';
@@ -75,6 +76,7 @@ describe('EngineInitializationService loading steps', () => {
       pathRoute: { getCachedPaths: () => new Map([['spawn-1', []]]) },
       introFlight: { prepare: () => true, readiness, prepareTick: vi.fn() },
       recheck: vi.fn(),
+      words: () => en,
     } as unknown as IntroLoadingGateDeps);
     const statuses = () => init.loadingSteps().map((s) => s.status);
 

@@ -9,7 +9,7 @@ import { UIStore } from '../store/ui.store';
 import { REPLAY_CONFIG } from '../configs/replay.config';
 import type { ReplayMarker } from '../replay/replay-bar-view';
 import {
-  MAX_REPLAY_FILE_BYTES, replayFileBlob, replayFileName, replayFileRefusalText, replayFileText, type ReplayFile, type ReplayFileRefusal,
+  MAX_REPLAY_FILE_BYTES, replayFileBlob, replayFileName, replayFileText, type ReplayFile, type ReplayFileRefusal,
   type ReplayPlace,
 } from '../simulator/replay-file';
 import { buildWorldPackage } from '../coop/world-package';
@@ -35,6 +35,7 @@ import { BossIntroService } from './boss-intro.service';
 import { SimClient } from '../sim/client/sim-client.service';
 import { TowerSelectionService } from './tower-selection.service';
 import type { ReplayEntered } from '../sim/protocol/messages';
+import { injectT } from '../i18n/i18n.service';
 
 /** Wall-clock ms between two updates of the replay bar while it plays */
 const BAR_REFRESH_MS = 50;
@@ -68,6 +69,7 @@ interface CameraPose {
 @Injectable()
 export class ReplayService {
   private readonly worldContext = inject(WorldContext);
+  private readonly t = injectT();
   private readonly uiStore = inject(UIStore);
   private readonly store = inject(TowerDefenseStore);
   private readonly gameStore = inject(GameStore);
@@ -233,7 +235,7 @@ export class ReplayService {
     }
     this.active.set(true);
     this.syncBar();
-    this.announcer.announce(`Replay of wave ${wave}. Space pauses, Esc leaves it.`);
+    this.announcer.announce(this.t().hud.replay.started(wave));
     // Space pauses from anywhere; the focus waits on play and pause all the same
     this.afterLayout(() => this.host.nativeElement.querySelector<HTMLElement>('.td-replay-play')?.focus());
   }
@@ -254,7 +256,7 @@ export class ReplayService {
     this.active.set(false);
     const focus = this.focusBefore;
     this.focusBefore = null;
-    this.announcer.announce('Replay left.');
+    this.announcer.announce(this.t().hud.replay.left);
     this.afterLayout(() => {
       if (focus?.isConnected) focus.focus();
     });
@@ -284,7 +286,7 @@ export class ReplayService {
       return;
     }
     this.syncBar();
-    this.announcer.announce(`Replay of wave ${next}.`);
+    this.announcer.announce(this.t().hud.replay.next(next));
   }
 
   togglePlay(): void {
@@ -372,7 +374,7 @@ export class ReplayService {
         this.ngZone.run(() => this.enter(pending.wave));
       } else if (performance.now() - pending.since > QUIET_WAIT_MS) {
         this.pending = null;
-        this.ngZone.run(() => this.announcer.announce('The replay cannot start while shots are still flying.'));
+        this.ngZone.run(() => this.announcer.announce(this.t().hud.replay.shotsFlying));
       }
     }
     const replay = this.sim.replay;
@@ -414,7 +416,7 @@ export class ReplayService {
     link.download = replayFileName(named, this.locations.editableHqLocation()?.name ?? 'map');
     link.click();
     URL.revokeObjectURL(url);
-    this.announcer.announce(`Replay of ${file.waves.length} waves saved.`);
+    this.announcer.announce(this.t().hud.replay.saved(file.waves.length));
     return true;
   }
 
@@ -440,21 +442,21 @@ export class ReplayService {
     this.there = null;
     // Before reading it whole: a file far above any replay could freeze the tab
     if (blob.size > MAX_REPLAY_FILE_BYTES) {
-      this.ngZone.run(() => this.fileProblem.set(replayFileRefusalText('too-big')));
+      this.ngZone.run(() => this.fileProblem.set(this.t().hud.replay.refusal['too-big']));
       return;
     }
     const text = await replayFileText(blob);
     if (text === 'too-big' || text === 'not-a-replay') {
-      this.ngZone.run(() => this.fileProblem.set(replayFileRefusalText(text)));
+      this.ngZone.run(() => this.fileProblem.set(this.t().hud.replay.refusal[text]));
       return;
     }
     const phase = this.store.phase();
     if (this.active() || (phase !== 'setup' && phase !== 'gameover')) {
-      this.ngZone.run(() => this.fileProblem.set('A replay loads between waves.'));
+      this.ngZone.run(() => this.fileProblem.set(this.t().hud.replay.betweenWaves));
       return;
     }
     if (this.uiStore.coopMapLocked()) {
-      this.ngZone.run(() => this.fileProblem.set('Replays are off in a coop game.'));
+      this.ngZone.run(() => this.fileProblem.set(this.t().hud.replay.coopOff));
       return;
     }
     const read = await this.sim.rpc('loadReplayFile', text, { configHash: this.configHash(), gameVersion: BUILD_VERSION, world: this.worldContext.ref() });
@@ -463,8 +465,8 @@ export class ReplayService {
         const place = read.refusal === 'other-world' ? read.place : null;
         // Another place of this world: the game can go there; another world (a map, the other tiles) it cannot
         const why = place && this.worldLoader.worldHere(place.world) === null
-          ? `That replay was played in ${place.name}. Going there ends the run here.`
-          : replayFileRefusalText(read.refusal as ReplayFileRefusal);
+          ? this.t().hud.replay.playedIn(place.name)
+          : this.t().hud.replay.refusal[read.refusal as ReplayFileRefusal];
         if (place && this.worldLoader.worldHere(place.world) === null) {
           this.there = { blob, place };
           this.elsewhere.set({ name: place.name });
@@ -502,7 +504,7 @@ export class ReplayService {
     if (!there || this.goingThere()) return;
     const world = there.place.world;
     this.goingThere.set(true);
-    this.fileProblem.set(`Going to ${there.place.name}...`);
+    this.fileProblem.set(this.t().hud.replay.goingTo(there.place.name));
     try {
       let ok = await this.worldLoader.placeLoaded();
       if (ok && !this.worldLoader.standsOn(world)) {
@@ -511,11 +513,11 @@ export class ReplayService {
           : await this.worldLoader.moveTo(world, there.place.name);
       }
       if (!ok || !this.worldLoader.standsOn(world)) {
-        this.fileProblem.set(`${there.place.name} did not load.`);
+        this.fileProblem.set(this.t().hud.replay.didNotLoad(there.place.name));
         return;
       }
       if (this.worldLoader.adopt(world) !== world.worldKey) {
-        this.fileProblem.set(`The world of ${there.place.name} did not come out the same here.`);
+        this.fileProblem.set(this.t().hud.replay.worldDiffers(there.place.name));
         return;
       }
       await this.loadFile(there.blob);
@@ -530,7 +532,7 @@ export class ReplayService {
     const phase = this.store.phase();
     if (phase !== 'setup' && phase !== 'gameover') return;
     if (this.sim.scalars.snapshotRefusal !== null) {
-      this.fileProblem.set('The replay cannot start while shots are still flying.');
+      this.fileProblem.set(this.t().hud.replay.shotsFlying);
       return;
     }
     await this.begin(wave);

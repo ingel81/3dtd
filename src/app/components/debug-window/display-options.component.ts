@@ -3,6 +3,7 @@ import { DraggableDebugPanelComponent } from './draggable-debug-panel.component'
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { DebugFacadeService } from '../../services/debug/debug-facade.service';
 import { ColorGradingPreset, COLOR_GRADING_PRESETS } from '../../three-engine/post-processing/color-grading';
+import { en } from '../../i18n/messages/en';
 import { loadDisplayOptions, persistDisplayOptions } from '../../utils/display-options.storage';
 
 @Component({
@@ -28,6 +29,8 @@ export class DisplayOptionsComponent {
   readonly tileLodDebug = signal(false);
 
   readonly colorGradingPresets = COLOR_GRADING_PRESETS;
+  /** A debug window speaks English (docs/I18N_PLAN.md 4.10) */
+  protected readonly words = en;
 
   readonly enemiesToggled = output<boolean>();
   readonly healthBarsToggled = output<boolean>();

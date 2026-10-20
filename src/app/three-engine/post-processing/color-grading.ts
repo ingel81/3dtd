@@ -16,12 +16,7 @@ export type ColorGradingPreset = 'none' | 'dark-fantasy' | 'noir' | 'warm-sunset
 /**
  * All available presets for UI iteration
  */
-export const COLOR_GRADING_PRESETS: { id: ColorGradingPreset; label: string }[] = [
-  { id: 'none', label: 'None' },
-  { id: 'dark-fantasy', label: 'Dark Fantasy' },
-  { id: 'noir', label: 'Noir' },
-  { id: 'warm-sunset', label: 'Warm Sunset' },
-];
+export const COLOR_GRADING_PRESETS: { id: ColorGradingPreset }[] = [{ id: 'none' }, { id: 'dark-fantasy' }, { id: 'noir' }, { id: 'warm-sunset' }];
 
 /**
  * LUT size — 16³ is enough for subtle color grading and very cheap

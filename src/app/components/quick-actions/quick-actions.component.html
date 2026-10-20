@@ -94,99 +94,100 @@
     <td-icon name="target" [size]="18"></td-icon>
   </button>
   <!-- Dev Menu: tile grid in four groups, opens above the quick-actions bar -->
+  @let d = t().hud.dev;
   <div class="qa-wrap">
     <div class="td-overlay td-reveal is-up qa-dev" [class.is-open]="uiStore.devMenuExpanded()">
-      <div class="td-caps qa-group">Map</div>
+      <div class="td-caps qa-group">{{ d.groupMap }}</div>
       <button class="td-icon-btn qa-tile"
               [class.is-on]="uiStore.heightDebugVisible()"
               (click)="heightDebugToggled.emit()"
-              matTooltip="Height markers"
+              [matTooltip]="d.heightMarkers"
               matTooltipPosition="left"
-              aria-label="Height markers" [attr.aria-pressed]="uiStore.heightDebugVisible()">
+              [attr.aria-label]="d.heightMarkers" [attr.aria-pressed]="uiStore.heightDebugVisible()">
         <td-icon name="terrain" [size]="18"></td-icon>
-        <span class="td-caps">Height</span>
+        <span class="td-caps">{{ d.height }}</span>
       </button>
       <button class="td-icon-btn qa-tile"
               [class.is-on]="uiStore.specialPointsDebugVisible()"
               (click)="specialPointsDebugToggled.emit()"
-              matTooltip="Special points"
+              [matTooltip]="d.specialPoints"
               matTooltipPosition="left"
-              aria-label="Special points" [attr.aria-pressed]="uiStore.specialPointsDebugVisible()">
+              [attr.aria-label]="d.specialPoints" [attr.aria-pressed]="uiStore.specialPointsDebugVisible()">
         <td-icon name="pin" [size]="18"></td-icon>
-        <span class="td-caps">Points</span>
+        <span class="td-caps">{{ d.points }}</span>
       </button>
       <button class="td-icon-btn qa-tile"
               (click)="refreshHeights.emit()"
-              matTooltip="Re-raycast heights"
+              [matTooltip]="d.recastTip"
               matTooltipPosition="left"
-              aria-label="Re-raycast heights">
+              [attr.aria-label]="d.recastTip">
         <td-icon name="refresh" [size]="18"></td-icon>
-        <span class="td-caps">Recast</span>
+        <span class="td-caps">{{ d.recast }}</span>
       </button>
       <!-- State dump: JSON download for bug reports -->
       <button class="td-icon-btn qa-tile"
               (click)="debugStateDump.dumpAndDownload()"
-              matTooltip="Download state dump (JSON)"
+              [matTooltip]="d.dumpTip"
               matTooltipPosition="left"
-              aria-label="Download state dump">
+              [attr.aria-label]="d.dumpLabel">
         <td-icon name="copy" [size]="18"></td-icon>
-        <span class="td-caps">Dump</span>
+        <span class="td-caps">{{ d.dump }}</span>
       </button>
 
-      <div class="td-caps qa-group">View &amp; Panels</div>
+      <div class="td-caps qa-group">{{ d.groupView }}</div>
       <button class="td-icon-btn qa-tile"
               [class.is-on]="debugWindows.cameraWindow().isOpen"
               (click)="debugWindows.toggle('camera')"
-              matTooltip="Camera info"
+              [matTooltip]="d.cameraInfo"
               matTooltipPosition="left"
-              aria-label="Camera info" [attr.aria-pressed]="debugWindows.cameraWindow().isOpen">
+              [attr.aria-label]="d.cameraInfo" [attr.aria-pressed]="debugWindows.cameraWindow().isOpen">
         <td-icon name="eye" [size]="18"></td-icon>
-        <span class="td-caps">Camera</span>
+        <span class="td-caps">{{ d.camera }}</span>
       </button>
       <button class="td-icon-btn qa-tile"
               [class.is-on]="cameraFramingDebug()"
               (click)="cameraFramingDebugToggled.emit()"
-              matTooltip="Framing guides"
+              [matTooltip]="d.framing"
               matTooltipPosition="left"
-              aria-label="Framing guides" [attr.aria-pressed]="cameraFramingDebug()">
+              [attr.aria-label]="d.framing" [attr.aria-pressed]="cameraFramingDebug()">
         <td-icon name="fullscreen" [size]="18"></td-icon>
-        <span class="td-caps">Frame</span>
+        <span class="td-caps">{{ d.frame }}</span>
       </button>
       <button class="td-icon-btn qa-tile"
               [class.is-on]="debugWindows.displayWindow().isOpen"
               (click)="debugWindows.toggle('display')"
-              matTooltip="Display options"
+              [matTooltip]="d.displayOptions"
               matTooltipPosition="left"
-              aria-label="Display options" [attr.aria-pressed]="debugWindows.displayWindow().isOpen">
+              [attr.aria-label]="d.displayOptions" [attr.aria-pressed]="debugWindows.displayWindow().isOpen">
         <td-icon name="sliders" [size]="18"></td-icon>
-        <span class="td-caps">Display</span>
+        <span class="td-caps">{{ d.display }}</span>
       </button>
       <button class="td-icon-btn qa-tile"
               [class.is-on]="debugWindows.performanceWindow().isOpen"
               (click)="debugWindows.toggle('performance')"
-              matTooltip="Performance"
+              [matTooltip]="d.performance"
               matTooltipPosition="left"
-              aria-label="Performance" [attr.aria-pressed]="debugWindows.performanceWindow().isOpen">
+              [attr.aria-label]="d.performance" [attr.aria-pressed]="debugWindows.performanceWindow().isOpen">
         <td-icon name="speed" [size]="18"></td-icon>
-        <span class="td-caps">Perf</span>
+        <span class="td-caps">{{ d.perf }}</span>
       </button>
       <button class="td-icon-btn qa-tile"
               [class.is-on]="debugWindows.losWindow().isOpen"
               (click)="debugWindows.toggle('los')"
-              matTooltip="LOS Cubemap"
+              [matTooltip]="d.losCubemap"
               matTooltipPosition="left"
-              aria-label="LOS Cubemap" [attr.aria-pressed]="debugWindows.losWindow().isOpen">
+              [attr.aria-label]="d.losCubemap" [attr.aria-pressed]="debugWindows.losWindow().isOpen">
         <td-icon name="layers" [size]="18"></td-icon>
         <span class="td-caps">LOS</span>
       </button>
       <button class="td-icon-btn qa-tile"
               [class.is-on]="debugWindows.soundWindow().isOpen"
               (click)="debugWindows.toggle('sound')"
-              matTooltip="Spatial audio"
+              [matTooltip]="d.spatialAudio"
               matTooltipPosition="left"
-              aria-label="Spatial audio" [attr.aria-pressed]="debugWindows.soundWindow().isOpen">
+              [attr.aria-label]="d.spatialAudio" [attr.aria-pressed]="debugWindows.soundWindow().isOpen">
         <td-icon name="audio" [size]="18"></td-icon>
-        <span class="td-caps">Audio</span>
+        <span class="td-caps">{{ d.audio }}</span>
       </button>
       @if (worldContext.capabilities().regenerate) {
         <button class="td-icon-btn qa-tile"
@@ -200,113 +201,113 @@
         </button>
       }
 
-      <div class="td-caps qa-group">Cheats</div>
+      <div class="td-caps qa-group">{{ d.groupCheats }}</div>
       <button class="td-icon-btn qa-tile qa-cheat is-red"
               (click)="killAllEnemies.emit()"
-              matTooltip="Kill all enemies"
+              [matTooltip]="d.killTip"
               matTooltipPosition="left"
-              aria-label="Kill all enemies">
+              [attr.aria-label]="d.killTip">
         <td-icon name="skull" [size]="18"></td-icon>
-        <span class="td-caps">Kill</span>
+        <span class="td-caps">{{ d.kill }}</span>
       </button>
       <button class="td-icon-btn qa-tile qa-cheat is-brass"
               (click)="addCredits.emit($event)"
               (contextmenu)="$event.preventDefault(); addCredits.emit($event)"
               (wheel)="$event.preventDefault(); addCredits.emit($event)"
-              matTooltip="+1000 Credits (Shift: +100k). Right-click: -10 (Shift: -1000). Wheel: ±100 (Shift: ±1000)"
+              [matTooltip]="d.creditsTip"
               matTooltipPosition="left"
-              aria-label="Add 1000 credits, right-click takes 10, the wheel dials 100">
+              [attr.aria-label]="d.creditsLabel">
         <td-icon name="coin" [size]="18"></td-icon>
-        <span class="td-caps">Credits</span>
+        <span class="td-caps">{{ d.credits }}</span>
       </button>
       <button class="td-icon-btn qa-tile qa-cheat is-red"
               (click)="addHealth.emit($event)"
               (contextmenu)="$event.preventDefault(); addHealth.emit($event)"
               (wheel)="$event.preventDefault(); addHealth.emit($event)"
-              matTooltip="+1000 HP (Shift: +100k). Right-click: -10 HP (Shift: -1000). Wheel: ±100 HP (Shift: ±1000)"
+              [matTooltip]="d.hpTip"
               matTooltipPosition="left"
-              aria-label="Add 1000 HP, right-click takes 10 HP, the wheel dials 100 HP">
+              [attr.aria-label]="d.hpLabel">
         <td-icon name="heart" [size]="18"></td-icon>
         <span class="td-caps">+HP</span>
       </button>
       <button class="td-icon-btn qa-tile qa-cheat is-teal"
               (click)="completeAllResearch.emit()"
-              matTooltip="Complete all research"
+              [matTooltip]="d.researchTip"
               matTooltipPosition="left"
-              aria-label="Complete all research">
+              [attr.aria-label]="d.researchTip">
         <td-icon name="flask" [size]="18"></td-icon>
-        <span class="td-caps">Research</span>
+        <span class="td-caps">{{ d.research }}</span>
       </button>
       <button class="td-icon-btn qa-tile qa-cheat is-teal"
               (click)="maxUpgradeAllTowers.emit()"
-              matTooltip="Max-upgrade all towers"
+              [matTooltip]="d.maxUpTip"
               matTooltipPosition="left"
-              aria-label="Max-upgrade all towers">
+              [attr.aria-label]="d.maxUpTip">
         <td-icon name="arrowUp" [size]="18"></td-icon>
-        <span class="td-caps">Max Up</span>
+        <span class="td-caps">{{ d.maxUp }}</span>
       </button>
       <button class="td-icon-btn qa-tile is-wide qa-cheat is-orange"
               (click)="readyAbilities.emit()"
-              matTooltip="Abilities ready: every ability researched, all charges back"
+              [matTooltip]="d.abilitiesTip"
               matTooltipPosition="left"
-              aria-label="Abilities ready: every ability researched, all charges back">
+              [attr.aria-label]="d.abilitiesTip">
         <td-icon name="radiation" [size]="18"></td-icon>
-        <span class="td-caps">Abilities</span>
+        <span class="td-caps">{{ d.abilities }}</span>
       </button>
       <button class="td-icon-btn qa-tile qa-cheat is-green"
               (click)="readyHero.emit()"
-              matTooltip="Hero ready: Mercenary Contract researched, the Mercenary hired for free"
+              [matTooltip]="d.heroTip"
               matTooltipPosition="left"
-              aria-label="Hero ready: Mercenary Contract researched, the Mercenary hired for free">
+              [attr.aria-label]="d.heroTip">
         <td-icon name="user" [size]="18"></td-icon>
-        <span class="td-caps">Hero</span>
+        <span class="td-caps">{{ d.hero }}</span>
       </button>
 
-      <div class="td-caps qa-group">Waves &amp; Inspect</div>
+      <div class="td-caps qa-group">{{ d.groupWaves }}</div>
       <button class="td-icon-btn qa-tile"
               [class.is-on]="debugWindows.waveWindow().isOpen"
               (click)="debugWindows.toggle('wave')"
-              matTooltip="Wave spawner"
+              [matTooltip]="d.waveSpawner"
               matTooltipPosition="left"
-              aria-label="Wave spawner" [attr.aria-pressed]="debugWindows.waveWindow().isOpen">
+              [attr.aria-label]="d.waveSpawner" [attr.aria-pressed]="debugWindows.waveWindow().isOpen">
         <td-icon name="wave" [size]="18"></td-icon>
-        <span class="td-caps">Waves</span>
+        <span class="td-caps">{{ d.waves }}</span>
       </button>
       <button class="td-icon-btn qa-tile"
               [class.is-on]="debugWindows.botWindow().isOpen"
               (click)="debugWindows.toggle('bots')"
-              matTooltip="Bots"
+              [matTooltip]="d.bots"
               matTooltipPosition="left"
-              aria-label="Bots" [attr.aria-pressed]="debugWindows.botWindow().isOpen">
+              [attr.aria-label]="d.bots" [attr.aria-pressed]="debugWindows.botWindow().isOpen">
         <td-icon name="bulb" [size]="18"></td-icon>
-        <span class="td-caps">Bots</span>
+        <span class="td-caps">{{ d.bots }}</span>
       </button>
       <button class="td-icon-btn qa-tile"
               [class.is-on]="debugWindows.towerWindow().isOpen"
               (click)="debugWindows.toggle('tower')"
-              matTooltip="Tower inspector"
+              [matTooltip]="d.towerInspector"
               matTooltipPosition="left"
-              aria-label="Tower inspector" [attr.aria-pressed]="debugWindows.towerWindow().isOpen">
+              [attr.aria-label]="d.towerInspector" [attr.aria-pressed]="debugWindows.towerWindow().isOpen">
         <td-icon name="tower" [size]="18"></td-icon>
-        <span class="td-caps">Towers</span>
+        <span class="td-caps">{{ d.towers }}</span>
       </button>
       <button class="td-icon-btn qa-tile"
               [class.is-on]="debugWindows.enemyWindow().isOpen"
               (click)="debugWindows.toggle('enemy')"
-              matTooltip="Enemy inspector"
+              [matTooltip]="d.enemyInspector"
               matTooltipPosition="left"
-              aria-label="Enemy inspector" [attr.aria-pressed]="debugWindows.enemyWindow().isOpen">
+              [attr.aria-label]="d.enemyInspector" [attr.aria-pressed]="debugWindows.enemyWindow().isOpen">
         <td-icon name="bug" [size]="18"></td-icon>
-        <span class="td-caps">Enemies</span>
+        <span class="td-caps">{{ d.enemies }}</span>
       </button>
       <button class="td-icon-btn qa-tile"
               [class.is-on]="debugWindows.eventsWindow().isOpen"
               (click)="debugWindows.toggle('events')"
-              matTooltip="Event bus"
+              [matTooltip]="d.eventBus"
               matTooltipPosition="left"
-              aria-label="Event bus" [attr.aria-pressed]="debugWindows.eventsWindow().isOpen">
+              [attr.aria-label]="d.eventBus" [attr.aria-pressed]="debugWindows.eventsWindow().isOpen">
         <td-icon name="share" [size]="18"></td-icon>
-        <span class="td-caps">Events</span>
+        <span class="td-caps">{{ d.events }}</span>
       </button>
       <!-- Destruction: blasts by click, a structure's HP and stage (only where structures fall) -->
       @if (worldContext.provider()?.capabilities?.destructible) {
@@ -324,21 +325,21 @@
       <button class="td-icon-btn qa-tile"
               [class.is-on]="cellReport.active()"
               (click)="cellReport.toggle()"
-              matTooltip="Cell report: click grid cells or Shift + drag a box, then copy them as JSON"
+              [matTooltip]="d.cellsTip"
               matTooltipPosition="left"
-              aria-label="Cell report" [attr.aria-pressed]="cellReport.active()">
+              [attr.aria-label]="d.cellReport" [attr.aria-pressed]="cellReport.active()">
         <td-icon name="grid" [size]="18"></td-icon>
-        <span class="td-caps">Cells</span>
+        <span class="td-caps">{{ d.cells }}</span>
       </button>
       <!-- Corridor snapshot: everything of the corridor at this place as one JSON download -->
       <button class="td-icon-btn qa-tile"
               [class.is-on]="corridorSnapshot.busy()"
               (click)="corridorSnapshot.take()"
-              matTooltip="Corridor snapshot: fingerprint, trace, every cell with its column, stations, tiles and a screenshot as one JSON download"
+              [matTooltip]="d.snapshotTip"
               matTooltipPosition="left"
-              aria-label="Corridor snapshot" [attr.aria-busy]="corridorSnapshot.busy()">
+              [attr.aria-label]="d.snapshotLabel" [attr.aria-busy]="corridorSnapshot.busy()">
         <td-icon name="camera" [size]="18"></td-icon>
-        <span class="td-caps">Snapshot</span>
+        <span class="td-caps">{{ d.snapshot }}</span>
       </button>
       @if (corridorSnapshot.status(); as status) {
         <p class="td-note qa-status" role="status">{{ status }}</p>

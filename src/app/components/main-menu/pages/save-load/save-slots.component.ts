@@ -2,10 +2,11 @@ import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRend
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../../icon/icon.component';
 import { GameStore } from '../../../../store/game.store';
-import { SAVE_GAME, type LoadResult } from '../../../../services/save-game/save-game.port';
+import { SAVE_GAME, type LoadResult, type SaveRefusal } from '../../../../services/save-game/save-game.port';
 import { loadSlotRows, saveSlotRows } from './slot-rows';
 import { MainMenuService } from '../../main-menu.service';
 import { injectT } from '../../../../i18n/i18n.service';
+import { say } from '../../../../i18n/said';
 
 /** What the page asks before it does it, in its own body */
 export type SlotConfirm =
@@ -38,6 +39,11 @@ export type SlotConfirm =
 export class SaveSlotsComponent {
   protected readonly t = injectT();
   readonly saves = inject(SAVE_GAME);
+
+  /** Why saving is off now, in the player's words */
+  refusal(reason: SaveRefusal): string {
+    return say(this.t().saves.refusal, reason);
+  }
   /** A slot of another world loads there (MainMenuService.loadSlot) */
   private readonly menu = inject(MainMenuService, { optional: true });
   private readonly store = inject(GameStore);
@@ -76,7 +82,7 @@ export class SaveSlotsComponent {
     this.cancelConfirm();
     await this.run(async () => {
       const result = await this.saves.save(slotId);
-      this.status.set(result.ok ? { text: this.t().saves.saved, bad: false } : { text: result.reason, bad: true });
+      this.status.set(result.ok ? { text: this.t().saves.saved, bad: false } : { text: say(this.t().saves.refusal, result.reason), bad: true });
     });
   }
 
@@ -121,15 +127,15 @@ export class SaveSlotsComponent {
 
   /** Loaded: back to the game, unless the save came from another version; then the page says so first */
   private afterLoad(result: LoadResult): void {
-    if (!result.ok) this.status.set({ text: result.reason, bad: true });
-    else if (result.note) this.status.set({ text: this.t().menu.loadedNote(result.note), bad: false });
+    if (!result.ok) this.status.set({ text: say(this.t().saves.refusal, result.reason), bad: true });
+    else if (result.note) this.status.set({ text: this.t().menu.loadedNote(say(this.t().saves.note, result.note)), bad: false });
     else this.loaded.emit();
   }
 
   async exportSlot(slotId: string): Promise<void> {
     await this.run(async () => {
       const result = await this.saves.exportFile(slotId);
-      if (!result.ok) this.status.set({ text: result.reason, bad: true });
+      if (!result.ok) this.status.set({ text: say(this.t().saves.refusal, result.reason), bad: true });
     });
   }
 

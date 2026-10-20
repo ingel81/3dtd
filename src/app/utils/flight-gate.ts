@@ -35,7 +35,7 @@ export function flightGateOpen(
   return readiness >= minReady || nowMs >= deadlineMs;
 }
 
-/** Zeile im Ladescreen, z. B. "63 % of the route". */
-export function flightGateMeta(readiness: number): string {
-  return `${Math.floor(readiness * 100)} % of the route`;
+/** The share of the route with heights, whole percent, for the line on the loading screen (boot.meta.ofRoute) */
+export function flightGatePercent(readiness: number): number {
+  return Math.floor(readiness * 100);
 }

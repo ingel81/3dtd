@@ -605,8 +605,9 @@ describe('The main menu', () => {
       world.useCustomMap('bay', 'Bay', 'edited');
       locationMgmt.hq.set(HEILBRONN);
       engineInit.loading.set(false);
-      const reason = 'That save cannot load here. The map "Bay" was changed since this run was played on it, so the run cannot go on there.';
-      saves.load.mockResolvedValueOnce({ ok: false, reason });
+      const why = 'The map "Bay" was changed since this run was played on it, so the run cannot go on there.';
+      const reason = `That save cannot load here. ${why}`;
+      saves.load.mockResolvedValueOnce({ ok: false, reason: { key: 'notHere', v: why } });
       await setup('start', { ...PLAIN_START, world: { kind: 'custom-map', mapId: 'bay', contentHash: '' }, resume: AUTOSAVE_BUILT_SLOT, play: true, label: 'Bay' });
       await vi.waitFor(() => expect(menu.notice()).not.toBeNull());
       await settle();

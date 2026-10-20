@@ -15,7 +15,7 @@ import { Input, NO_ERRORS_SCHEMA, ViewChild, signal } from '@angular/core';
 import { getTestBed, TestBed } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { GameStore } from '../../../../store/game.store';
-import { AUTOSAVE_SLOT, SAVE_GAME, manualSlotId, type LoadResult, type SaveSlotInfo } from '../../../../services/save-game/save-game.port';
+import { AUTOSAVE_SLOT, SAVE_GAME, manualSlotId, type LoadResult, type SaveNote, type SaveSlotInfo } from '../../../../services/save-game/save-game.port';
 import { SaveSlotsComponent } from './save-slots.component';
 import { MainMenuService } from '../../main-menu.service';
 
@@ -26,7 +26,7 @@ Input({ alias: 'mode', required: true, isSignal: true } as Input)(SaveSlotsCompo
 // Same for viewChild(): without it the file input is not found
 ViewChild('importInput', { isSignal: true } as unknown as ViewChild)(SaveSlotsComponent.prototype, 'fileInput');
 
-const slot = (id: string, name: string, wave: number, note: string | null = null): SaveSlotInfo => ({
+const slot = (id: string, name: string, wave: number, note: SaveNote | null = null): SaveSlotInfo => ({
   id, name, wave, note, world: 'real',
   autosave: id === AUTOSAVE_SLOT,
   location: 'Heilbronn', hq: { lat: 49.14, lon: 9.21 }, map: null,
@@ -56,7 +56,7 @@ describe('Save and Load pages', () => {
   async function setup({ mode, canSave = false, slots = SLOTS, started = false, waveRunning = false, loadResult = { ok: true, note: null }, menu }: Setup) {
     const saves = {
       canSave: signal(canSave),
-      cannotSaveReason: signal(canSave ? null : 'Saving works only between waves.'),
+      cannotSaveReason: signal(canSave ? null : { key: 'betweenWaves' }),
       slots: signal(slots),
       hasAutosave: signal(slots.some((s) => s.autosave)),
       startPlace: signal(null),
@@ -198,17 +198,17 @@ describe('Save and Load pages', () => {
     });
 
     it('shows the version note of a save from another version and stays', async () => {
-      const note = 'Saved with version 0.5.0, values may differ.';
-      const { click, loaded, status } = await setup({ mode: 'load', loadResult: { ok: true, note } });
+      const note = 'Saved with version 0.5.0, this is 0.7.0: values may differ.';
+      const { click, loaded, status } = await setup({ mode: 'load', loadResult: { ok: true, note: { key: 'version', v: { saved: '0.5.0', here: '0.7.0' } } } });
       await click('Mine');
       expect(loaded).not.toHaveBeenCalled();
       expect(status()).toBe(`Loaded. ${note}`);
     });
 
     it('says why a load failed', async () => {
-      const { click, status } = await setup({ mode: 'load', loadResult: { ok: false, reason: 'This save is from another format.' } });
+      const { click, status } = await setup({ mode: 'load', loadResult: { ok: false, reason: { key: 'version' } } });
       await click('Mine');
-      expect(status()).toBe('This save is from another format.');
+      expect(status()).toBe('That save was written by a version of the game that saved in another format.');
     });
 
     it('loads nothing while a wave runs', async () => {

@@ -23,26 +23,14 @@ import { CameraSlotsService } from '../camera-slots.service';
 import { WorldStartService } from '../../world/world-start';
 import { SaveGame, type SaveGameHost } from './save-game';
 import { SAVE_SLOT_STORE } from './save-slot.store';
-import { AUTOSAVE_SLOT, type LoadResult, type SaveGamePort, type SaveResult, type SaveSlotInfo, type StartPlace } from './save-game.port';
+import { AUTOSAVE_SLOT, type LoadResult, type SaveGamePort, type SaveRefusal, type SaveResult, type SaveSlotInfo, type StartPlace } from './save-game.port';
 import { autosaveSlotOf, type WorldId } from '../../worlds/world-rules';
 import { worldOfPage } from '../../world/world-of-page';
 import { isSamePlace } from '../location/recent-locations';
 
-/** Why there is no save: the simulation's world has no spawn with a route (TODO E232) */
-export const SAVE_NO_ROUTE = 'No spawn has a route to the HQ: there is no run to save.';
-
-/** Why a save does not load: its world has no spawn with a route (TODO E232) */
-export const LOAD_NO_ROUTE = 'That save has no route from a spawn to the HQ, its streets did not load whole. Start a new run here.';
-
 /** How long the autosave waits after a wave for the last shots and events to settle, ms */
 const AUTOSAVE_WAIT_MS = 10_000;
 const AUTOSAVE_POLL_MS = 250;
-/**
- * Why a save waits while a tower measures its line of sight: the load would measure it again, against the
- * tiles of another session, and the run could go on otherwise
- */
-export const LOS_PENDING_TEXT = 'A tower is still measuring its line of sight.';
-
 /** Longest wait for the restored state's first packet after a load, ms */
 const RESTORE_WAIT_MS = 10_000;
 
@@ -87,21 +75,23 @@ export class SaveGameService implements SaveGamePort {
   private readonly inCoop = computed(() => !!this.coop && (this.coop.room() !== null || this.coop.inGame()));
 
   private readonly host: SaveGameHost = {
-    saveBlocked: computed(() => {
-      if (this.inCoop()) return 'Saving is off in co-op.';
-      if (this.editorTest) return 'A test of the map is not saved.';
-      if (this.uiStore.replayMode()) return 'Saving is off while a replay plays.';
-      if (this.gameStore.isGameOver()) return 'The run is over.';
-      if (this.gameStore.phase() !== 'setup') return 'Saving works only between waves.';
-      if (!this.locationMgmt.hq() || this.engineInit.loading()) return 'No place is loaded yet.';
+    saveBlocked: computed((): SaveRefusal | null => {
+      if (this.inCoop()) return { key: 'coop' };
+      if (this.editorTest) return { key: 'mapTest' };
+      if (this.uiStore.replayMode()) return { key: 'replay' };
+      if (this.gameStore.isGameOver()) return { key: 'runOver' };
+      if (this.gameStore.phase() !== 'setup') return { key: 'betweenWaves' };
+      if (!this.locationMgmt.hq() || this.engineInit.loading()) return { key: 'noPlace' };
       // A run no wave can come to is not worth keeping, nor to be continued (TODO E232)
-      if (!this.locationStore.hasLanes()) return SAVE_NO_ROUTE;
-      if (this.mirror.losAwaiting() > 0) return LOS_PENDING_TEXT;
+      if (!this.locationStore.hasLanes()) return { key: 'noRoute' };
+      // A tower still measures its line of sight: the load would measure it again, against the tiles of another
+      // session, and the run could go on otherwise
+      if (this.mirror.losAwaiting() > 0) return { key: 'losPending' };
       return null;
     }),
-    loadBlocked: computed(() => {
-      if (this.inCoop()) return 'Loading is off in co-op.';
-      if (this.uiStore.replayMode()) return 'Leave the replay first.';
+    loadBlocked: computed((): SaveRefusal | null => {
+      if (this.inCoop()) return { key: 'loadCoop' };
+      if (this.uiStore.replayMode()) return { key: 'leaveReplay' };
       return null;
     }),
     collect: () => this.collect(),
@@ -272,33 +262,33 @@ export class SaveGameService implements SaveGamePort {
    * there as a coop guest follows the host; then the save's world, the
    * snapshot, and with its first packet the main thread's part.
    */
-  private async apply(file: SaveFile): Promise<string | null> {
+  private async apply(file: SaveFile): Promise<SaveRefusal | null> {
     const world = file.world;
     // A save of another world (DevWorld, a map, the tiles) does not stand here
     const otherWorld = this.loader.worldHere(world);
-    if (otherWorld) return `That save cannot load here. ${otherWorld}`;
+    if (otherWorld) return { key: 'notHere', v: otherWorld };
     // Saved on streets that did not load whole (0.7.x): no wave on it would bring an enemy (TODO E232)
-    if (!packageHasLanes(world)) return LOAD_NO_ROUTE;
+    if (!packageHasLanes(world)) return { key: 'loadNoRoute' };
     if (!this.engineInit.getEngine() || !this.locationMgmt.hq()) {
       this.pendingPlace.set({ hq: file.place.hq, spawns: file.place.spawns });
       const loaded = await this.loader.placeLoaded();
       this.pendingPlace.set(null);
-      if (!loaded) return 'The place of the save did not load.';
+      if (!loaded) return { key: 'placeDidNotLoad' };
     } else if (!(await this.loader.placeLoaded())) {
       // The place here still loading or building its corridor: its end would send the measured world and a
       // fresh run over the save's
-      return 'The place of the save did not load.';
+      return { key: 'placeDidNotLoad' };
     }
     if (!this.loader.standsOn(world)) {
       const there = this.loader.sameHq(world)
         ? await this.loader.takeSpawns(world)
         : await this.loader.moveTo(world, file.place.name);
-      if (!there || !this.loader.standsOn(world)) return 'The place of the save did not load.';
+      if (!there || !this.loader.standsOn(world)) return { key: 'placeDidNotLoad' };
     }
     // The save's wave source for the fresh run adopt starts: its reset puts it into service on both threads,
     // so the simulation pays kill gold, leaks and wave ends by the save's rules (GameLoopFacade.resetWaveSource)
     this.director.useSourceNextRun(file.director.source);
-    if (this.loader.adopt(world) !== world.worldKey) return 'The world of the save did not come out the same here.';
+    if (this.loader.adopt(world) !== world.worldKey) return { key: 'worldDiffers' };
 
     // The fresh run on the save's world (adopt sent it) and then the snapshot; the main thread's part
     // waits for the packet that says the simulation was restored, after the reset's
@@ -309,9 +299,9 @@ export class SaveGameService implements SaveGamePort {
       // Stopped half way: a clean fresh run on the save's world instead of half of one
       console.error('[SaveGame] restore failed:', error);
       this.world.sendToSim();
-      return 'That save is damaged: a fresh run starts on its place.';
+      return { key: 'damagedFresh' };
     }
-    if (!(await restored)) return 'The game did not take the save.';
+    if (!(await restored)) return { key: 'notTaken' };
     this.director.restoreState(file.director);
     this.mirror.rng.setState(file.mainRng);
     this.runLog.resumeRun(file.runLog, file.waveSeries, file.sim.waveNumber);

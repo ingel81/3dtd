@@ -8,6 +8,7 @@ import {
   manualSlotId,
   type LoadResult,
   type SaveGamePort,
+  type SaveRefusal,
   type SaveResult,
   type SaveSlotInfo,
   type SlotWorld,
@@ -15,30 +16,39 @@ import {
 import { UNREADABLE, type SaveSlotStore, type StoredSlotMeta } from './save-slot.store';
 import { defaultSlotName } from './slot-name';
 
-/** A slot the browser would not hand out, apart from an empty one */
-const UNREADABLE_TEXT = 'This browser could not read the save (storage blocked or unavailable).';
 import {
   MAX_SAVE_FILE_BYTES,
   buildSaveFile,
   readSaveFile,
   saveFileName,
-  saveFileRefusalText,
   saveNote,
   type SaveFile,
+  type SaveFileRefusal,
   type SaveParts,
 } from '../../simulator/save-file';
+
+/** Why a save file does not load, as the menu words it */
+function fileRefusal(refusal: SaveFileRefusal, detail?: string): SaveRefusal {
+  switch (refusal) {
+    case 'unreleased': return { key: 'unreleased', v: detail ?? '' };
+    case 'not-a-save': return { key: 'notASave' };
+    case 'too-big': return { key: 'tooBig' };
+    case 'damaged': return { key: 'damaged' };
+    case 'version': return { key: 'version' };
+  }
+}
 import { replayFileBlob, replayFileText } from '../../simulator/replay-file';
 
 /** What the save game needs of the running game; SaveGameService fills it, specs stand in */
 export interface SaveGameHost {
   /** Why saving is not possible now, null when it is; read in a computed, so from signals */
-  readonly saveBlocked: Signal<string | null>;
+  readonly saveBlocked: Signal<SaveRefusal | null>;
   /** Why loading is not possible now (coop), null when it is */
-  readonly loadBlocked: Signal<string | null>;
+  readonly loadBlocked: Signal<SaveRefusal | null>;
   /** The run between the waves; null when the simulation said no (a wave started meanwhile) */
   collect(): Promise<Omit<SaveParts, 'name'> | null>;
   /** Put the save in place: place, world, simulation, director, run log; the reason when it failed */
-  apply(file: SaveFile): Promise<string | null>;
+  apply(file: SaveFile): Promise<SaveRefusal | null>;
   download(blob: Blob, fileName: string): void;
   /** The world the run plays in, kept with each save; null where none (DevWorld) */
   world?(): SlotWorld | null;
@@ -62,7 +72,7 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace' | 'autosaveNow'
   /** A save or load in flight: a second one waits its turn */
   private busy: Promise<unknown> = Promise.resolve();
 
-  readonly cannotSaveReason: Signal<string | null>;
+  readonly cannotSaveReason: Signal<SaveRefusal | null>;
   readonly canSave: Signal<boolean>;
   readonly slots: Signal<readonly SaveSlotInfo[]>;
   readonly hasAutosave: Signal<boolean>;
@@ -87,7 +97,7 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace' | 'autosaveNow'
   }
 
   save(slotId: string, name?: string): Promise<SaveResult> {
-    if (!isManual(slotId)) return Promise.resolve({ ok: false, reason: 'There is no such slot.' });
+    if (!isManual(slotId)) return Promise.resolve({ ok: false, reason: { key: 'noSlot' } });
     return this.queue(() => this.write(slotId, name));
   }
 
@@ -103,8 +113,8 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace' | 'autosaveNow'
       const blocked = this.host.loadBlocked();
       if (blocked) return { ok: false, reason: blocked };
       const text = await this.store.read(slotId);
-      if (text === null) return { ok: false, reason: 'That slot is empty.' };
-      if (text === UNREADABLE) return { ok: false, reason: UNREADABLE_TEXT };
+      if (text === null) return { ok: false, reason: { key: 'empty' } };
+      if (text === UNREADABLE) return { ok: false, reason: { key: 'unreadable' } };
       return this.loadText(text);
     });
   }
@@ -121,8 +131,8 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace' | 'autosaveNow'
   async exportFile(slotId: string): Promise<SaveResult> {
     const text = await this.store.read(slotId);
     const meta = this.stored().find((m) => m.id === slotId);
-    if (text === UNREADABLE) return { ok: false, reason: UNREADABLE_TEXT };
-    if (text === null || !meta) return { ok: false, reason: 'That slot is empty.' };
+    if (text === UNREADABLE) return { ok: false, reason: { key: 'unreadable' } };
+    if (text === null || !meta) return { ok: false, reason: { key: 'empty' } };
     const blob = await replayFileBlob(text);
     this.host.download(blob, saveFileName(meta.location, meta.wave));
     return { ok: true };
@@ -132,10 +142,10 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace' | 'autosaveNow'
     return this.queue(async () => {
       const blocked = this.host.loadBlocked();
       if (blocked) return { ok: false, reason: blocked };
-      if (file.size > MAX_SAVE_FILE_BYTES) return { ok: false, reason: saveFileRefusalText('too-big') };
+      if (file.size > MAX_SAVE_FILE_BYTES) return { ok: false, reason: fileRefusal('too-big') };
       const text = await replayFileText(file, MAX_SAVE_FILE_BYTES);
-      if (text === 'too-big') return { ok: false, reason: saveFileRefusalText('too-big') };
-      if (text === 'not-a-replay') return { ok: false, reason: saveFileRefusalText('not-a-save') };
+      if (text === 'too-big') return { ok: false, reason: fileRefusal('too-big') };
+      if (text === 'not-a-replay') return { ok: false, reason: fileRefusal('not-a-save') };
       return this.loadText(text);
     });
   }
@@ -145,17 +155,17 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace' | 'autosaveNow'
    * opens and loads it). Read and checked as a load would; the slot as the lists would show it, or why not.
    * `worldOf` names the world of a map's save (OpenStreetMap or the Built Worlds), the real places else.
    */
-  storeFile(file: File, slotId: string, worldOf: (mapId: string) => SlotWorld): Promise<{ ok: true; slot: SaveSlotInfo } | { ok: false; reason: string }> {
+  storeFile(file: File, slotId: string, worldOf: (mapId: string) => SlotWorld): Promise<{ ok: true; slot: SaveSlotInfo } | { ok: false; reason: SaveRefusal }> {
     return this.queue(async () => {
-      if (file.size > MAX_SAVE_FILE_BYTES) return { ok: false, reason: saveFileRefusalText('too-big') };
+      if (file.size > MAX_SAVE_FILE_BYTES) return { ok: false, reason: fileRefusal('too-big') };
       const text = await replayFileText(file, MAX_SAVE_FILE_BYTES);
-      if (text === 'too-big') return { ok: false, reason: saveFileRefusalText('too-big') };
-      if (text === 'not-a-replay') return { ok: false, reason: saveFileRefusalText('not-a-save') };
+      if (text === 'too-big') return { ok: false, reason: fileRefusal('too-big') };
+      if (text === 'not-a-replay') return { ok: false, reason: fileRefusal('not-a-save') };
       const read = readSaveFile(text, this.here);
-      if (read.refusal !== null) return { ok: false, reason: saveFileRefusalText(read.refusal, read.detail) };
+      if (read.refusal !== null) return { ok: false, reason: fileRefusal(read.refusal, read.detail) };
       const meta = this.metaOf(read.file, slotId);
       meta.world = meta.map ? worldOf(meta.map.id) : 'real';
-      if (!(await this.store.write(meta, text))) return { ok: false, reason: 'This browser did not keep the save (storage full or blocked).' };
+      if (!(await this.store.write(meta, text))) return { ok: false, reason: { key: 'notKept' } };
       await this.refresh();
       return { ok: true, slot: this.info(meta) };
     });
@@ -165,14 +175,14 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace' | 'autosaveNow'
     const blocked = this.host.saveBlocked();
     if (blocked) return { ok: false, reason: blocked };
     const parts = await this.host.collect();
-    if (!parts) return { ok: false, reason: 'Saving works only between waves.' };
+    if (!parts) return { ok: false, reason: { key: 'betweenWaves' } };
     const file = buildSaveFile({ ...parts, name: name?.trim() || defaultSlotName(parts.place.name, parts.wave) });
     const meta = this.metaOf(file, slotId);
     const of = AUTOSAVE_WORLD[slotId] ?? this.host.world?.() ?? null;
     if (of) meta.world = of;
     const written = await this.store.write(meta, JSON.stringify(file));
     await this.refresh();
-    return written ? { ok: true } : { ok: false, reason: 'This browser did not keep the save (storage full or blocked).' };
+    return written ? { ok: true } : { ok: false, reason: { key: 'notKept' } };
   }
 
   /** What a slot keeps beside the save itself: name, wave, place, versions, the map of a map's run */
@@ -194,14 +204,14 @@ export class SaveGame implements Omit<SaveGamePort, 'startPlace' | 'autosaveNow'
 
   private async loadText(text: string): Promise<LoadResult> {
     const read = readSaveFile(text, this.here);
-    if (read.refusal !== null) return { ok: false, reason: saveFileRefusalText(read.refusal, read.detail) };
-    let failed: string | null;
+    if (read.refusal !== null) return { ok: false, reason: fileRefusal(read.refusal, read.detail) };
+    let failed: SaveRefusal | null;
     try {
       failed = await this.host.apply(read.file);
     } catch (error) {
       // Whatever went wrong on the way, the player reads it instead of a menu that just stops being busy
       console.error('[SaveGame] load failed:', error);
-      failed = 'The save could not be loaded.';
+      failed = { key: 'failed' };
     }
     return failed ? { ok: false, reason: failed } : { ok: true, note: read.note };
   }

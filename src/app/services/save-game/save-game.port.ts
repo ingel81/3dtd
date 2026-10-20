@@ -1,4 +1,6 @@
 import { InjectionToken, signal, type Signal } from '@angular/core';
+import type { Messages } from '../../i18n/messages/en';
+import type { Said } from '../../i18n/said';
 
 /**
  * Saving and loading a single-player run (docs/SAVE_LOAD_PLAN.md, TODO E110):
@@ -52,8 +54,17 @@ export interface SaveSlotInfo {
   /** The game version (BUILD_VERSION) it was saved with */
   gameVersion: string;
   /** Saved with another version: loads, but values may differ (null when it is this version) */
-  note: string | null;
+  note: SaveNote | null;
 }
+
+/**
+ * Why a save or a load did not happen, as data (TODO E245): the save game
+ * reads no language, the menu words it (`say(t.saves.refusal, reason)`)
+ */
+export type SaveRefusal = Said<Messages['saves']['refusal']>;
+
+/** What a save that loads says about itself, as data (`say(t.saves.note, note)`) */
+export type SaveNote = Said<Messages['saves']['note']>;
 
 /**
  * The place a load waits for at a start without one: the menu hands it to
@@ -65,15 +76,15 @@ export interface StartPlace {
   spawns: { lat: number; lon: number }[];
 }
 
-export type SaveResult = { ok: true } | { ok: false; reason: string };
+export type SaveResult = { ok: true } | { ok: false; reason: SaveRefusal };
 /** A load that worked may carry a note (another game version) */
-export type LoadResult = { ok: true; note: string | null } | { ok: false; reason: string };
+export type LoadResult = { ok: true; note: SaveNote | null } | { ok: false; reason: SaveRefusal };
 
 export interface SaveGamePort {
   /** Saving is possible now: between waves, alone, with a place loaded */
   readonly canSave: Signal<boolean>;
   /** Why saving is not possible now, for a tooltip; null when it is */
-  readonly cannotSaveReason: Signal<string | null>;
+  readonly cannotSaveReason: Signal<SaveRefusal | null>;
   /** The filled slots, the autosave first, then the manual ones in their order */
   readonly slots: Signal<readonly SaveSlotInfo[]>;
   /** An autosave exists: the start screen offers "Continue" */
@@ -102,12 +113,12 @@ export interface SaveGamePort {
   autosaveNow(): Promise<boolean>;
 }
 
-const NOT_BUILT = 'Saving is not built yet.';
+const NOT_BUILT: SaveRefusal = { key: 'notBuilt' };
 
 /** Until the real one is in place: nothing saved, nothing to load (the menu can be built against it) */
 export class SaveGameStub implements SaveGamePort {
   readonly canSave = signal(false).asReadonly();
-  readonly cannotSaveReason = signal<string | null>(NOT_BUILT).asReadonly();
+  readonly cannotSaveReason = signal<SaveRefusal | null>(NOT_BUILT).asReadonly();
   readonly slots = signal<readonly SaveSlotInfo[]>([]).asReadonly();
   readonly hasAutosave = signal(false).asReadonly();
   readonly startPlace = signal<StartPlace | null>(null).asReadonly();

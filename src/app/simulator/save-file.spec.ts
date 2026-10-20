@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildSaveFile, readSaveFile, saveFileName, saveFileRefusalText, type SaveParts } from './save-file';
+import { buildSaveFile, readSaveFile, saveFileName, type SaveParts } from './save-file';
+import { en } from '../i18n/messages/en';
 import { buildWorldPackage } from '../coop/world-package';
 import { emptySimSnapshot } from '../../test/sim-snapshot-fixture';
 import { TEST_WORLD_REF } from '../../test/world-context-fake';
@@ -50,9 +51,9 @@ describe('save file (TODO E110)', () => {
 
   it('loads another game version or other values with a note', () => {
     const older = readSaveFile(text({ gameVersion: '0.6.0' }), HERE);
-    expect(older.refusal === null && older.note).toBe('Saved with version 0.6.0, this is 0.7.0: values may differ.');
+    expect(older.refusal === null && older.note).toEqual({ key: 'version', v: { saved: '0.6.0', here: '0.7.0' } });
     const balance = readSaveFile(text({ configHash: 'zzz' }), HERE);
-    expect(balance.refusal === null && balance.note).toBe('Saved with other tower or enemy values: values may differ.');
+    expect(balance.refusal === null && balance.note).toEqual({ key: 'values' });
   });
 
   it('refuses another format, another snapshot shape and a damaged file', () => {
@@ -83,7 +84,6 @@ describe('save file (TODO E110)', () => {
     for (const override of broken) expect(readSaveFile(text(override), HERE).refusal, JSON.stringify(override)).toBe('damaged');
     const pressure = { smoothed: null, samples: 0, multiplier: 1, lastStep: 'warming-up', lastTarget: null, lastPressure: null, lastChange: 1 };
     expect(readSaveFile(text({ director: { source: 'budget', sourceState: { pressure, lastCapped: false }, planned: null } }), HERE).refusal).toBeNull();
-    expect(saveFileRefusalText('damaged')).toBe('That save is damaged.');
   });
 
   it('refuses a save with an unreleased tower or path in a production build, and names it (configs/release.ts)', () => {
@@ -95,7 +95,7 @@ describe('save file (TODO E110)', () => {
     const withTower = (typeId: string, pathId: string | null = null) => text({ sim: { ...sim, towers: [tower(typeId, pathId)] } });
     const bastion = readSaveFile(withTower('bastion'), HERE, true);
     expect(bastion.refusal).toBe('unreleased');
-    expect(bastion.refusal !== null && saveFileRefusalText(bastion.refusal, bastion.detail))
+    expect(bastion.refusal !== null && en.saves.refusal.unreleased(bastion.detail ?? ''))
       .toBe('That save uses Iron Bastion, which this version of the game does not have yet.');
     expect(readSaveFile(withTower('archer', 'incendiary'), HERE, true).refusal).toBe('unreleased');
     expect(readSaveFile(withTower('archer', 'scout'), HERE, true).refusal).toBeNull();
