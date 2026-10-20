@@ -7,7 +7,7 @@
 //
 //   npx ng serve --port <port>
 //   node e2e/perf/collapse-probe.ts --url http://localhost:<port> --out <dir> [--map ruined-city]
-//        [--ids o4,o1:1:80,o8 (id, the side to look from in sixths of a turn, the distance)]
+//        [--ids o4,o1:1:80,o8:auto (id, the side to look from in sixths of a turn or side on to its fall from its left or right, auto or autor, the distance)]
 //        [--variants tip,sag,chunks,tip-break] [--distance 70] [--up 38] [--headed] [--no-video]
 //        [--shots <dir>: a still of each building at stage 2 and fallen, for the floors inside] [--scan <dir>]
 //        [--cpu: a CPU profile of each fall's first second] [--list-damage: the ruins' shadow programs and meshes]
@@ -187,7 +187,18 @@ if (process.argv.includes('--list-damage')) {
 if (process.argv.includes('--list-damage')) console.log(`damage programs before: ${programsBefore.filter((p) => p.includes('damage-depth')).map((p) => p.slice(-75)).join(' | ')}`);
 for (const spec of IDS) {
   const [id, sixth, far] = spec.split(':');
-  const side = sixth ? (Number(sixth) * Math.PI) / 3 : SIDE;
+  let side = sixth && !sixth.startsWith('auto') ? (Number(sixth) * Math.PI) / 3 : SIDE;
+  if (sixth?.startsWith('auto')) {
+    // Side on to the fall, a little from the front: where it falls from its ruin's impact (map dx, dy; scene -dx, dy)
+    await call('collapse', 'impact');
+    await call('stage', id, 2);
+    await page.waitForTimeout(1500);
+    const hit = await page.evaluate((i) => (globalThis as unknown as { __worldDamage: { structures(): { id: string }[]; impact(n: number): { dx: number; dy: number } | null } }).__worldDamage.impact(
+      (globalThis as unknown as { __worldDamage: { structures(): { id: string }[] } }).__worldDamage.structures().findIndex((s) => s.id === i)), id);
+    // auto from its left, autor from its right
+    if (hit) side = Math.atan2(hit.dy, -hit.dx) + (sixth === 'autor' ? -Math.PI / 2 + 0.4 : Math.PI / 2 - 0.4);
+    await call('stage', id, 0);
+  }
   const distance = far ? Number(far) : DISTANCE;
   const up = (UP * distance) / DISTANCE;
   if ((await call('index', id)) < 0) {
