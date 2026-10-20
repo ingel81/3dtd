@@ -59,7 +59,7 @@ import { compileProgram, findGlslang, preprocess, unmatchedFragmentInputs } from
 
 import { createPlinthMaterial } from '../../src/app/three-engine/renderers/tower-plinth/plinth-material';
 import { createPlinthMesh } from '../../src/app/three-engine/renderers/tower-plinth/tower-plinth.renderer';
-import { makeModelTransparent, tintPreviewModel } from '../../src/app/services/tower-preview-model';
+import { makeModelTransparent, tintPreviewModel } from '../../src/app/three-engine/renderers/tower-preview-model';
 import { RangeRingKit } from '../../src/app/three-engine/renderers/range-ring';
 import { TowerBadgeRenderer } from '../../src/app/three-engine/renderers/tower-badge/tower-badge.renderer';
 import { createOozeBandMaterial } from '../../src/app/three-engine/renderers/ooze/ooze-band-material';
