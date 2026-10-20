@@ -108,6 +108,23 @@
   min-width: 0;
 }
 
+// A Continue's world: its globe in the icon's place, as tall as title and line; it takes the icon's width,
+// so the titles stay in one column
+.ws-item-globe {
+  --gp-size: 36px;
+  margin: -4px -9px;
+  transition: transform var(--td-dur-slow) var(--td-ease-out), filter var(--td-dur-mid) var(--td-ease-out);
+
+  .td-menu-item:hover:not([aria-disabled='true']) &,
+  .td-menu-item:focus & {
+    transform: scale(1.1);
+  }
+
+  .td-menu-item[aria-disabled='true'] & {
+    filter: grayscale(1) brightness(.8);
+  }
+}
+
 .ws-stagearea {
   flex: 1 1 auto;
   display: flex;

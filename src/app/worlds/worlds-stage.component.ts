@@ -33,6 +33,7 @@ import type { StageGlobeId } from '../globe/globe-stage';
 import { focusQuietly } from '../utils/keyboard-target';
 import { StageGlobes, type StageGlobeState } from './stage-globes';
 import { StageCoopComponent } from './stage-coop.component';
+import { GlobePictureComponent, GlobePictures } from './globe-picture.component';
 import { WorldMapsComponent } from './world-maps.component';
 import { WorldOsmComponent } from './world-osm.component';
 import { WorldRealComponent } from './world-real.component';
@@ -52,6 +53,8 @@ interface StartItem {
   why: string | null;
   /** A rule above it */
   rule: boolean;
+  /** The world a Continue plays in: its globe shows with it */
+  world: WorldId | null;
   run: () => void;
 }
 
@@ -84,6 +87,7 @@ interface StartItem {
     SaveSlotsComponent,
     TokenSetupComponent,
     StageCoopComponent,
+    GlobePictureComponent,
     WorldRealComponent,
     WorldOsmComponent,
     WorldMapsComponent,
@@ -102,6 +106,7 @@ export class WorldsStageComponent {
   private readonly config = inject(ConfigService);
   private readonly worlds = inject(WorldChoiceService);
   private readonly globeSetting = inject(GlobeDirectorService).setting;
+  private readonly pictures = inject(GlobePictures);
   private readonly dialog = inject(MatDialog);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly injector = inject(Injector);
@@ -146,11 +151,12 @@ export class WorldsStageComponent {
     const items: StartItem[] = [];
     const words = this.t().worlds;
     const item = (id: string, label: string, icon: TdIconName, run: () => void, extra: Partial<StartItem> = {}): StartItem =>
-      ({ id, label, icon, sub: null, why: null, rule: false, run, ...extra });
+      ({ id, label, icon, sub: null, why: null, rule: false, world: null, run, ...extra });
     for (const go of this.stage.continues()) {
       items.push(item(`continue-${go.world}`, go.label, 'play', () => this.stage.resume(go), {
         sub: continueLine(this.t(), go),
         why: this.stage.whyNot('play', go.world),
+        world: go.world,
       }));
     }
     items.push(
@@ -166,6 +172,11 @@ export class WorldsStageComponent {
     if (typeof this.bridge?.quit === 'function') items.push(item('quit', words.items.quit, 'power', () => this.bridge?.quit?.(), { rule: true }));
     return items;
   });
+
+  /** Each world's globe as a still picture (StageGlobes), none while the globes are not drawn: the disc then */
+  pictureOf(world: WorldId): string | null {
+    return this.globesOff() ? null : (this.pictures.all()[world] ?? null);
+  }
 
   /** The globes' marks: where the pick of the world showing stands, with its name */
   readonly markName = computed(() => (this.view() === 'world' ? this.pickName() : null));
@@ -198,6 +209,7 @@ export class WorldsStageComponent {
         (globe) => this.globeState(globe),
         () => this.markAt(),
         () => zone.run(() => this.failed.set(true)),
+        (globe, url) => zone.run(() => this.pictures.set(globe, url)),
       );
       this.globes = globes;
       zone.runOutsideAngular(() => globes.start(this.globeSetting() === 'low' ? 'low' : 'high', homeLongitude()));

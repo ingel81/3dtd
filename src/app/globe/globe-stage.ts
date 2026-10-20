@@ -20,6 +20,8 @@ export interface StageSlot {
   saturation: number;
   /** A place to project for its mark (the pick), or null */
   mark: LatLon | null;
+  /** The earth's sun this far west of the middle, degrees; EARTH_SUN_WEST when absent */
+  earthSunWest?: number;
 }
 
 /** How much of its square a globe fills, the earth's air included */
@@ -107,6 +109,24 @@ export class GlobeStage {
     });
   }
 
+  /**
+   * A still picture of one globe, for a small image of it in the page (the menu's Continue): drawn alone into
+   * `size` CSS pixels at the canvas' top left and copied into `into` at once (sized to the device pixels),
+   * while the frame's buffer still holds it. It clears the canvas; the owner draws the frame's globes right
+   * after, in the same frame. The earth stands in the light of the styled globes there: its night, a third of
+   * the large disc, would darken half of an icon.
+   */
+  picture(globe: StageGlobeId, center: LatLon, size: number, now: number, into: CanvasRenderingContext2D): boolean {
+    if (this.disposed || size > this.width || size > this.height) return false;
+    this.render([{ globe, x: 0, y: 0, size, center, saturation: 1, mark: null, earthSunWest: SUN_WEST }], now);
+    const px = Math.round(size * this.renderer.getPixelRatio());
+    // A new size empties the picture too
+    into.canvas.width = px;
+    into.canvas.height = px;
+    into.drawImage(this.renderer.domElement, 0, 0, px, px, 0, 0, px, px);
+    return true;
+  }
+
   private drawEarth(slot: StageSlot, date: Date): ScreenSpot | null {
     const view = this.earth;
     const distance = stageDistance(EARTH_A, SHOT_FOV);
@@ -115,7 +135,7 @@ export class GlobeStage {
     view.setShift(0);
     view.setPose(this.pose.position, this.pose.target.set(0, 0, 0), this.pose.up);
     // The sun of the stage, not of the hour: day on the left, the night with its lights on the right
-    view.setSky({ lat: SUN_LAT, lon: slot.center.lon - EARTH_SUN_WEST }, date, ((date.getTime() / 1000) * CLOUD_DRIFT) % 1);
+    view.setSky({ lat: SUN_LAT, lon: slot.center.lon - (slot.earthSunWest ?? EARTH_SUN_WEST) }, date, ((date.getTime() / 1000) * CLOUD_DRIFT) % 1);
     view.setSaturation(slot.saturation);
     view.render();
     if (!slot.mark) return null;

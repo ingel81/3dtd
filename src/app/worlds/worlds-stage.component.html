@@ -36,7 +36,11 @@
               }
               <button type="button" role="menuitem" class="td-menu-item" [attr.data-entry]="item.id"
                       [attr.aria-disabled]="item.why ? true : null" [attr.title]="item.why" (click)="activate(item)">
-                <td-icon [name]="item.icon" [size]="18" />
+                @if (item.world; as w) {
+                  <app-globe-picture class="ws-item-globe" [world]="w" [src]="pictureOf(w)" [label]="names()[w]" />
+                } @else {
+                  <td-icon [name]="item.icon" [size]="18" />
+                }
                 <span class="ws-item">
                   <span>{{ item.label }}</span>
                   @if (item.why ?? item.sub; as line) {

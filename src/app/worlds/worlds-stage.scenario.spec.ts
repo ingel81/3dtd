@@ -42,6 +42,7 @@ import { TdIconComponent } from '../components/icon/icon.component';
 import { RovingGroupDirective } from '../components/roving-group.directive';
 import { AddressAutocompleteComponent } from '../components/address-autocomplete.component';
 import { StageCoopComponent } from './stage-coop.component';
+import { GlobePictureComponent } from './globe-picture.component';
 import { WorldMapsComponent } from './world-maps.component';
 import { WorldOsmComponent } from './world-osm.component';
 import { WorldRealComponent } from './world-real.component';
@@ -92,6 +93,7 @@ for (const name of ['world', 'worldHere', 'mode', 'modes', 'playLabel', 'editLab
 }
 
 Input({ alias: 'world', isSignal: true } as Input)(StageContinueComponent.prototype, 'world');
+for (const name of ['world', 'src', 'label']) Input({ alias: name, isSignal: true } as Input)(GlobePictureComponent.prototype, name);
 
 const summary = (s: Partial<MapSummary> & { id: string; name: string }): MapSummary => ({
   author: '', description: '', width: 0, depth: 0, updatedAt: '', origin: 'shipped', contentHash: '', objects: 0, spawns: 2, ...s,
@@ -189,7 +191,7 @@ describe('Worlds stage', () => {
         templateUrl: undefined,
         styleUrl: undefined,
         styles: [],
-        imports: [IconStub, RovingGroupDirective, TokenStub, SettingsStub, ExtrasStub, SlotsStub, StageCoopComponent, WorldRealComponent, WorldOsmComponent, WorldMapsComponent, WorldPathComponent],
+        imports: [IconStub, RovingGroupDirective, TokenStub, SettingsStub, ExtrasStub, SlotsStub, StageCoopComponent, GlobePictureComponent, WorldRealComponent, WorldOsmComponent, WorldMapsComponent, WorldPathComponent],
       },
     });
     TestBed.overrideComponent(WorldsStageComponent, { remove: { imports: [TdIconComponent, SettingsSectionsComponent, ExtrasListComponent, SaveSlotsComponent, TokenSetupComponent] } });
@@ -304,6 +306,16 @@ describe('Worlds stage', () => {
     const f = await open({ key: true, slots });
     const first = el(f).querySelector<HTMLElement>('.ws-menu [role="menuitem"]')!;
     expect(text(first)).toBe(`Continue Heilbronn | wave 12 | ${en.worlds.playedAt('2026-10-16T08:00:00Z')}`);
+    // Its world's globe in the play icon's place, named; with the globes off (this spec) the world's disc
+    const globe = first.querySelector<HTMLElement>('app-globe-picture')!;
+    expect(globe.getAttribute('data-globe-picture')).toBe('real');
+    expect(globe.getAttribute('aria-label')).toBe('Real places');
+    expect(globe.getAttribute('title')).toBe('Real places');
+    expect(globe.querySelector('.td-world-disc')).not.toBeNull();
+    expect(first.querySelector('td-icon')).toBeNull();
+    // The other entries keep their icons
+    expect(el(f).querySelector('[data-entry="coop"] td-icon')).not.toBeNull();
+    expect(el(f).querySelector('[data-entry="coop"] app-globe-picture')).toBeNull();
     expect(text(card(f, 'real'))).toContain('Heilbronn | wave 12 | autosave');
     expect(card(f, 'real').classList).toContain('is-hero');
 

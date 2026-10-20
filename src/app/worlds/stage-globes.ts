@@ -29,6 +29,9 @@ const IDLE_FRAME_MS = 1000 / 30;
  */
 const SETTLE_MS = 600;
 
+/** A globe's still picture (the menu's Continue): drawn this large, CSS pixels, shown smaller for a crisp edge */
+const PICTURE_SIZE = 64;
+
 /** A globe's square on the stage's canvas, CSS pixels */
 export interface GlobeSquare {
   el: HTMLElement;
@@ -173,6 +176,12 @@ export class StageGlobes {
     osm: { lat: 28, lon: -60 },
     maps: { lat: 18, lon: 30 },
   };
+  /** Where each still picture looks: the globes' first faces, the earth's on the player's home */
+  private readonly pictureCenters: Record<StageGlobeId, LatLon> = structuredClone(this.centers);
+  /** The globes whose still picture is still to take: all once the earth's maps are up, the maps' after new towers */
+  private readonly toPicture = new Set<StageGlobeId>();
+  private pictureCtx: CanvasRenderingContext2D | null = null;
+  private ready = false;
 
   constructor(
     private readonly host: HTMLElement,
@@ -180,11 +189,15 @@ export class StageGlobes {
     private readonly state: (globe: StageGlobeId) => StageGlobeState,
     private readonly mark: () => { globe: StageGlobeId; at: LatLon } | null,
     private readonly onFailed: () => void,
+    /** A globe's still picture as a PNG data URL: once per globe a visit, the maps' again after its towers changed */
+    private readonly onPicture: (globe: StageGlobeId, url: string) => void = () => undefined,
   ) {}
 
   /** The maps' globe: a tower per map, the pick in brass; returns where a map's tower stands */
   setMaps(maps: readonly { id: string }[], picked: string | null): void {
-    this.stage?.maps.setMaps(maps, picked);
+    if (!this.stage) return;
+    this.stage.maps.setMaps(maps, picked);
+    if (this.ready) this.toPicture.add('maps');
   }
 
   spotOf(mapId: string): LatLon | null {
@@ -193,13 +206,22 @@ export class StageGlobes {
 
   start(quality: GlobeQuality, homeLon: number): void {
     this.centers.real.lon = homeLon;
+    this.pictureCenters.real.lon = homeLon;
+    let stage: GlobeStage;
     try {
-      this.stage = new GlobeStage(this.canvas, quality, { pixelRatio: window.devicePixelRatio, baseUrl: document.baseURI });
+      stage = new GlobeStage(this.canvas, quality, { pixelRatio: window.devicePixelRatio, baseUrl: document.baseURI });
     } catch (err) {
       console.warn('[Worlds] no globes:', err);
       this.onFailed();
       return;
     }
+    this.stage = stage;
+    // The pictures wait for the earth's maps (OpenStreetMap's globe draws from them too)
+    stage.ready.then(() => {
+      if (this.stage !== stage) return;
+      this.ready = true;
+      for (const g of ['real', 'osm', 'maps'] as const) this.toPicture.add(g);
+    }, () => undefined);
     this.canvas.addEventListener('webglcontextlost', this.lost);
     const size = () => this.stage?.resize(this.canvas.clientWidth, this.canvas.clientHeight);
     size();
@@ -239,9 +261,11 @@ export class StageGlobes {
       const target = this.state(g).target;
       return target !== null && (Math.abs(target.lat - this.centers[g].lat) > 0.05 || Math.abs(lonDelta(this.centers[g].lon, target.lon)) > 0.05);
     });
-    if (!moving && now - this.last < IDLE_FRAME_MS) return;
+    if (!moving && this.toPicture.size === 0 && now - this.last < IDLE_FRAME_MS) return;
     const dt = Math.min(0.1, (now - (this.last || now)) / 1000);
     this.last = now;
+    // Before the frame's globes, which draw over them in this same frame
+    if (this.toPicture.size > 0) this.takePictures(stage);
 
     const slots: StageSlot[] = [];
     const mark = this.mark();
@@ -274,6 +298,17 @@ export class StageGlobes {
     }
     markEl.style.visibility = 'visible';
     markEl.style.transform = `translate(${spot.x.toFixed(1)}px, ${spot.y.toFixed(1)}px) translateY(-50%)`;
+  }
+
+  /** The still pictures still to take, each read back into a small canvas at once */
+  private takePictures(stage: GlobeStage): void {
+    this.pictureCtx ??= document.createElement('canvas').getContext('2d');
+    const ctx = this.pictureCtx;
+    // One try each: a canvas too small for it keeps the disc (no frames spent asking again)
+    for (const globe of this.toPicture) {
+      if (ctx && stage.picture(globe, this.pictureCenters[globe], PICTURE_SIZE, epochNow(), ctx)) this.onPicture(globe, ctx.canvas.toDataURL('image/png'));
+    }
+    this.toPicture.clear();
   }
 
   /** Toward the target the shortest way, or on round slowly */
