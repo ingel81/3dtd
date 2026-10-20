@@ -1483,8 +1483,9 @@ transformed.xz = spinTurn * transformed.xz;
         shader.fragmentShader = shader.fragmentShader
           .replace('#include <common>', '#include <common>\nuniform vec2 uFadeRange;\nuniform float uWindTime;')
           // Card normals are authored (bent out of the crown, up for grass); three flips them on
-          // back faces of double-sided materials, which turned every card's back black
-          .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\nnormal = normalize(vNormal);')
+          // back faces of double-sided materials, which turned every card's back black. A geometry
+          // without normals draws flat shaded, without vNormal
+          .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n#ifndef FLAT_SHADED\nnormal = normalize(vNormal);\n#endif')
           .replace(
             '#include <alphatest_fragment>',
             /* glsl */ `{

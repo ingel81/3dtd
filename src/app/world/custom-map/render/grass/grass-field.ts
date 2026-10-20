@@ -212,7 +212,7 @@ export class GrassField {
         .replace('#include <map_fragment>', 'diffuseColor.rgb = vBladeColor;')
         // Blades are double sided and three flips the normal on back faces: half the blades then
         // faced down and showed as dark specks over the meadow
-        .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\nnormal = normalize(vNormal);')
+        .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n#ifndef FLAT_SHADED\nnormal = normalize(vNormal);\n#endif')
         .replace('#include <lights_fragment_begin>', GRASS_LIGHTS);
     };
     material.customProgramCacheKey = () => 'custom-map-grass-4';

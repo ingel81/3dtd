@@ -263,7 +263,7 @@ function addCardFade(m: Material, key: string): void {
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vCardView;')
       .replace('#include <alphatest_fragment>', `${CARD_EDGE_FADE}\n#include <alphatest_fragment>`)
-      .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\nnormal = normalize(vNormal);');
+      .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n#ifndef FLAT_SHADED\nnormal = normalize(vNormal);\n#endif');
   };
   m.customProgramCacheKey = () => key;
 }
