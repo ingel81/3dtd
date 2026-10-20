@@ -186,10 +186,16 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   eigenen Radius, bis zum Doppelten davon, und der weitere Krater darf entsprechend tiefer werden (`widenShare`,
   `widenTo`; ein Atomkrater 25 m und 4 m kommt so über 10 m Tiefe auf 50 m und 20 m). Vorher lief ein Krater auf
   seiner Höchsttiefe still ins Leere.
-- **Deckel:** 256 je Lauf. Ist die Liste voll, nimmt ein Einschlag, der einen größeren Krater gräbt als der kleinste
-  (Radius im Quadrat mal Tiefe, bei Gleichstand der älteste), dessen Platz: sein Stempel geht aus dem Raster, der neue
-  hinein, Op `craters.dig` mit dem Index. Kleinere Einschläge hinterlassen dann nur Brandflecken ohne Zustand.
-  Vorher grub ab dem 256. Krater nichts mehr, auch kein Atomschlag an anderer Stelle.
+- **Kein Deckel zum Spielen:** die Liste wächst nach Bedarf (verdoppelt), ein Einschlag findet seinen Krater über ein
+  Raster aus Zellen von 2 m (die Krater der neun Zellen um ihn, der zuerst gegrabene gewinnt wie in der Liste), nicht
+  über alle. Gemessen bis 16 384 Treffer (rund 16 000 Krater): 4 bis 6 µs je Treffer in der Simulation, Prüfsumme
+  unter 1 ms, Restore 10 ms, Snapshot 262 KB JSON (89 KB gzip im Koop-Resync), im Bild kein Unterschied zu 256
+  (Messtabelle im Commit). Eine Sicherheitsgrenze bei 65 536 Kratern, weit über jedem Lauf: erreicht, geht der
+  kleinste Krater (Radius im Quadrat mal Tiefe, der erste gleicher) in seinen nächsten Nachbarn auf (weiter und so tief
+  wie der tiefere), und der neue nimmt seinen Platz; zwei Ops `craters.dig`, nichts verschwindet. Vorher war bei 256
+  Schluss, danach grub kein Treffer mehr (zuerst gar keiner, seit dem letzten Fix nur noch größere an Stelle der kleinsten).
+- **Spuren:** über 4 096 Marken (`MAX_IMPACT_MARKS`) zeigen die neuesten, auf den Plätzen der ältesten; die Mulden
+  im Gelände bleiben alle.
 - **Tower:** keine Dämpfung in der Simulation. Das Stempelraster der Simulation liegt nur über den Routenzellen, und
   dort steht nie ein Tower; den Fuß eines Towers neben einem Krater hält das Geländebild (Z4) aus der Mulde heraus.
 - Snapshot `craters?: number[]` (nur mit Einträgen), Hash im Teil `health` nur mit Einträgen.
@@ -503,7 +509,7 @@ samt GPU wie in `hitch-probe.ts`; Budgets in `npm run test:perf` für Ledger und
 | Ganze Menge | `structures.setStages` ein Byte je Bauwerk (7 928 Gebäude einer OSM-Stadt: 7,9 KB), nur nach Laden, Neustart, Restore, Sprung; vorher bei jedem Fall alle gefallenen Ids als Strings |
 | Gegner je Teilschritt | ohne Stempel nichts (Raster `null`); mit: ein Nachschlag für die Höhe, für Läufer am Boden ein Umrechnen nach lokal und ein zweiter für die Bremse |
 | Verschleiß | einmal je Sekunde Spielzeit eine Rasterabfrage je Gegner am Boden, nur mit `wear` |
-| Snapshot | die HP (wie bisher), `craters` vier Zahlen je Krater, höchstens 1 024 Zahlen |
+| Snapshot | die HP (wie bisher), `craters` vier Zahlen je Krater (16 000 Krater: 262 KB JSON, 89 KB gzip) |
 | Speicher | Raster drei `Int32Array` über dem Rechteck der Routenzellen, angelegt mit dem ersten Stempel (512 m: höchstens 786 KB) |
 
 Zeitmessungen stehen aus (Rechner unter Last), vorgemerkt in den Messnotizen.

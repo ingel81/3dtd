@@ -86,7 +86,9 @@ export class WorldDamagePresenter {
   private hp = new Int32Array(0);
   private readonly hpListeners = new Set<() => void>();
   /** The craters as the simulation said them last, CRATER_STRIDE numbers each */
+  /** The craters as the simulation said them, CRATER_STRIDE numbers each, in a list that doubles as it fills */
   private craters = new Int32Array(0);
+  private craterCount = 0;
   private field: StampField | null = null;
   private readonly local = new Vector3();
   private readonly toLocal: ToLocal;
@@ -252,6 +254,7 @@ export class WorldDamagePresenter {
   /** Every crater of the run (op `craters.setAll`) */
   setCraters(craters: Int32Array): void {
     this.craters = craters.slice();
+    this.craterCount = craters.length / CRATER_STRIDE;
     this.rebuild();
   }
 
@@ -259,14 +262,18 @@ export class WorldDamagePresenter {
   dig(index: number, x: number, y: number, radius: number, depth: number): void {
     const k = index * CRATER_STRIDE;
     const field = this.stampField();
-    if (k < this.craters.length) {
+    if (index < this.craterCount) {
       const c = this.craters;
       field?.crater(craterStampOf(c[k], c[k + 1], c[k + 2], c[k + 3], this.toLocal), -1);
       this.drawn?.crater(c[k], c[k + 1], c[k + 2], c[k + 3], -1);
     } else {
-      const grown = new Int32Array(k + CRATER_STRIDE);
-      grown.set(this.craters);
-      this.craters = grown;
+      // A new one at the end (the simulation's list grows by one): twice the room when full, not a copy per crater
+      if (k + CRATER_STRIDE > this.craters.length) {
+        const grown = new Int32Array(Math.max(64 * CRATER_STRIDE, this.craters.length * 2, k + CRATER_STRIDE));
+        grown.set(this.craters);
+        this.craters = grown;
+      }
+      this.craterCount = index + 1;
     }
     this.craters.set([x, y, radius, depth], k);
     field?.crater(craterStampOf(x, y, radius, depth, this.toLocal), 1);
@@ -346,7 +353,7 @@ export class WorldDamagePresenter {
 
   /** The craters as the simulation said them last, CRATER_STRIDE numbers each */
   craterList(): Int32Array {
-    return this.craters;
+    return this.craters.subarray(0, this.craterCount * CRATER_STRIDE);
   }
 
   /** The field for a stamp to come, made with everything known so far where there was none: before the lists change */
@@ -366,7 +373,7 @@ export class WorldDamagePresenter {
     drawn.clear();
     const list = this.runStructures();
     for (let i = 0; i < this.stages.length && i < list.length; i++) if (this.stages[i] === 3) drawn.rubble(list[i], 1);
-    const c = this.craters;
+    const c = this.craterList();
     for (let k = 0; k + CRATER_STRIDE <= c.length; k += CRATER_STRIDE) drawn.crater(c[k], c[k + 1], c[k + 2], c[k + 3], 1);
     for (const t of this.towerSource?.towers() ?? []) {
       drawn.holdTower(t.id, t.position.lon * MAP_METERS_PER_DEGREE, t.position.lat * MAP_METERS_PER_DEGREE);
@@ -377,7 +384,7 @@ export class WorldDamagePresenter {
   private rebuild(): void {
     this.redraw();
     const fallen = this.stages.indexOf(3) >= 0;
-    if (!fallen && this.craters.length === 0) this.useField(null);
+    if (!fallen && this.craterCount === 0) this.useField(null);
     else this.restamp(this.field ?? this.newField());
   }
 
@@ -389,7 +396,7 @@ export class WorldDamagePresenter {
       for (let i = 0; i < this.stages.length && i < list.length; i++) {
         if (this.stages[i] === 3) field.rubbleHeap(rubbleStampOf(list[i], this.toLocal), 1);
       }
-      const c = this.craters;
+      const c = this.craterList();
       for (let k = 0; k + CRATER_STRIDE <= c.length; k += CRATER_STRIDE) {
         field.crater(craterStampOf(c[k], c[k + 1], c[k + 2], c[k + 3], this.toLocal), 1);
       }

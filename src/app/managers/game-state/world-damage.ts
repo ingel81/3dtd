@@ -10,7 +10,7 @@ import { ABILITY_DESTRUCTION, IMPACT_REACH_M, WEAR, type DebugBlast, type Struct
 import { PROJECTILE_TYPES } from '../../configs/projectile-types.config';
 import { MAP_METERS_PER_DEGREE } from '../../world/custom-map/map-document';
 import { StructureLedger } from './structure-ledger';
-import { CraterLedger, craterHitDepthCm } from './crater-ledger';
+import { CraterLedger, craterHitDepthCm, type CraterDug } from './crater-ledger';
 import { StampField, craterStampOf, rubbleStampOf, type CellSpan, type ToLocal } from '../../utils/stamp-field';
 
 /** What the world's damage needs of the simulation round it */
@@ -203,8 +203,18 @@ export class WorldDamage {
     if (!this.cratersOn) return;
     const rDm = Math.round(radiusM * 10);
     const field = this.stampField();
-    const dug = this.craters.dig(Math.round(x * 10), Math.round(y * 10), rDm, depthCm ?? craterHitDepthCm(rDm));
+    // At the guard (CRATERS.max) the smallest crater goes into its neighbour first: that one changes too
+    const dug = this.craters.dig(Math.round(x * 10), Math.round(y * 10), rDm, depthCm ?? craterHitDepthCm(rDm), (merged) => this.changed(merged, field));
     if (!dug) return;
+    const touched = this.changed(dug, field);
+    const e = this.craters.entry(dug.index);
+    // A new crater under the routes (one in the place of the smallest too): the towers probe the enemies' new ground
+    // (a deeper one, a few cm more, does not ask)
+    if (touched && (!dug.before || dug.before[0] !== e[0] || dug.before[1] !== e[1])) this.host.seeAround(e[0] / 10, e[1] / 10, (e[2] / 10) * CRATER_SIGHT_REACH);
+  }
+
+  /** Crater `dug.index` changed: its stamp out of `field` as it was and in as it is, the op; whether it reached the field */
+  private changed(dug: CraterDug, field: StampField | null): boolean {
     let touched = false;
     if (field) {
       if (dug.before) {
@@ -215,9 +225,7 @@ export class WorldDamage {
     }
     const e = this.craters.entry(dug.index);
     this.host.sink.craters.dig(dug.index, e[0], e[1], e[2], e[3]);
-    // A new crater under the routes (one in the place of the smallest too): the towers probe the enemies' new ground
-    // (a deeper one, a few cm more, does not ask)
-    if (touched && (!dug.before || dug.before[0] !== e[0] || dug.before[1] !== e[1])) this.host.seeAround(e[0] / 10, e[1] / 10, (e[2] / 10) * CRATER_SIGHT_REACH);
+    return touched;
   }
 
   /**

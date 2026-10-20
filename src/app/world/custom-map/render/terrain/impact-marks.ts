@@ -36,7 +36,7 @@ vec3 shards(vec2 p) {
 }
 `;
 
-/** Marks at most: every crater a run keeps (CRATERS.max) and the rubble of a big city's fallen */
+/** Marks drawn at most: past them the newest take the oldest's places (set), the craters' ground stays */
 export const MAX_IMPACT_MARKS = 4096;
 
 /**
@@ -163,15 +163,16 @@ export class ImpactMarks {
     for (let i = 0; i < MAX_IMPACT_MARKS; i++) this.mesh.setMatrixAt(i, identity.matrix);
   }
 
-  /** Every mark as the ground has it now */
+  /** Every mark as the ground has it now, oldest first: past MAX_IMPACT_MARKS the newest show */
   set(marks: Iterable<ImpactMark>): void {
     let n = 0;
     for (const m of marks) {
-      if (n >= MAX_IMPACT_MARKS) break;
-      this.place.setXYZW(n, m.x, m.y, m.size, m.rotation);
-      this.look.setXYZW(n, m.kind, m.seed, m.strength, m.material);
+      const slot = n % MAX_IMPACT_MARKS;
+      this.place.setXYZW(slot, m.x, m.y, m.size, m.rotation);
+      this.look.setXYZW(slot, m.kind, m.seed, m.strength, m.material);
       n++;
     }
+    n = Math.min(n, MAX_IMPACT_MARKS);
     if (n === 0) this.place.setXYZW(0, 0, 0, 0, 0);
     this.place.needsUpdate = true;
     this.look.needsUpdate = true;

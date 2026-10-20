@@ -150,26 +150,37 @@ describe('WorldDamage (docs/DESTRUCTION_PLAN.md)', () => {
     expect([ops, field(), damage.craters.size, damage.captureCraters()]).toEqual([[], null, 0, undefined]);
   });
 
-  it('with its list full of shell craters still digs a strike anywhere, in the place of the smallest, its ground and op with it', () => {
-    const { damage, ops, field, host } = setup([]);
-    // Shells along a route fill the list (one crater every 3 m)
-    for (let i = 0; i < CRATERS.max; i++) damage.impact(geo(-90 + (i % 60) * 3, -90 + Math.floor(i / 60) * 3).lat, geo(-90 + (i % 60) * 3, 0).lon, PROJECTILE_TYPES.cannonball, false);
-    expect(damage.craters.size).toBe(CRATERS.max);
-    const before = field()!.heightAt(0.5, 60.5);
-    const seen = vi.mocked(host.seeAround).mock.calls.length;
-    // A strike far from all of them: it digs, in the place of crater 0, whose stamp leaves the field
-    damage.ability('nuclear-strike', { ...geo(0, 60), height: 0 }, 0, 0);
-    expect(Array.from(damage.craters.entry(0))).toEqual([0, 600, 250, ABILITY_DESTRUCTION['nuclear-strike'].crater!.depthCm]);
-    expect(ops.at(-1)).toEqual(['craters.dig', 0, 0, 600, 250, ABILITY_DESTRUCTION['nuclear-strike'].crater!.depthCm]);
-    expect(field()!.heightAt(0.5, 60.5)).toBeLessThan(before - 3);
-    expect(field()!.heightAt(-89.5, -89.5)).toBe(0);
-    expect(vi.mocked(host.seeAround).mock.calls.length).toBe(seen + 1);
+  it('digs every strike and shell past hundreds of craters, and at its guard merges, the field and ops following', () => {
+    const { damage, ops, field } = setup([]);
+    // 2 000 shells' craters along a route (every 3 m), then a strike far from all of them
+    for (let i = 0; i < 2000; i++) damage.impact(geo(-90 + (i % 60) * 3, -90 + Math.floor(i / 60) * 3).lat, geo(-90 + (i % 60) * 3, 0).lon, PROJECTILE_TYPES.cannonball, false);
+    expect(damage.craters.size).toBe(2000);
+    const before = field()!.heightAt(0.5, 160.5);
+    damage.ability('nuclear-strike', { ...geo(0, 160), height: 0 }, 0, 0);
+    expect(Array.from(damage.craters.entry(2000))).toEqual([0, 1600, 250, ABILITY_DESTRUCTION['nuclear-strike'].crater!.depthCm]);
+    expect(ops.at(-1)).toEqual(['craters.dig', 2000, 0, 1600, 250, ABILITY_DESTRUCTION['nuclear-strike'].crater!.depthCm]);
+    expect(field()!.heightAt(0.5, 160.5)).toBeLessThan(before - 3);
     // From a snapshot: the same list and the same ground
     const list = damage.captureCraters();
-    const heights = [field()!.heightAt(0.5, 60.5), field()!.heightAt(-86.5, -89.5)];
+    const heights = [field()!.heightAt(0.5, 160.5), field()!.heightAt(-86.5, -89.5)];
     damage.reset();
     damage.restore([], list);
-    expect([field()!.heightAt(0.5, 60.5), field()!.heightAt(-86.5, -89.5)]).toEqual(heights);
+    expect([field()!.heightAt(0.5, 160.5), field()!.heightAt(-86.5, -89.5)]).toEqual(heights);
+  });
+
+  it('at the guard folds the smallest crater into its neighbour: both ops out, the field as a restore makes it', () => {
+    const { damage, ops, field } = setup([]);
+    const list: number[] = [];
+    for (let i = 0; i < CRATERS.max; i++) list.push(-900 + (i % 600) * 30, -900 + Math.floor(i / 600) * 30, 15, 21);
+    damage.restore([], list);
+    ops.length = 0;
+    damage.ability('nuclear-strike', { ...geo(-150, 0), height: 0 }, 0, 0);
+    // Crater 0 into crater 1, then the strike in place 0
+    expect(ops.map((o) => o.slice(0, 2))).toEqual([['craters.dig', 1], ['craters.dig', 0]]);
+    const heights = [field()!.heightAt(89.5, -89.5), field()!.heightAt(86.5, -89.5), field()!.heightAt(149.5, 0.5)];
+    const again = setup([]);
+    again.damage.restore([], damage.captureCraters());
+    expect([again.field()!.heightAt(89.5, -89.5), again.field()!.heightAt(86.5, -89.5), again.field()!.heightAt(149.5, 0.5)]).toEqual(heights);
   });
 
   it('lays the rubble of a fall and the craters into the field, and the same anew from a snapshot', () => {

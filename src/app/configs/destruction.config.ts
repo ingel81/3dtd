@@ -111,11 +111,11 @@ export const ABILITY_DESTRUCTION: Record<AbilityId, AbilityDestruction> = {
 /** The craters of a run (CraterLedger) */
 export const CRATERS = {
   /**
-   * At most this many per run. With the list full a hit takes the place of the smallest crater (radius squared
-   * times depth, the oldest of equals) when it digs a bigger one; else it leaves only its scorch mark, which keeps
-   * no state
+   * A guard far beyond any run, not a limit to play against: the list grows as the run needs it. Reached, a new
+   * crater takes the place of the smallest (radius squared times depth, the first of equals), which goes into its
+   * nearest neighbour; nothing a hit digs is lost
    */
-  max: 256,
+  max: 65536,
   /** A hit this close to a crater's middle deepens it instead of making another, m */
   mergeM: 2,
   /**
