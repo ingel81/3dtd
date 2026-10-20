@@ -81,12 +81,72 @@ export function bakeEnemyVAT(
   animations: AnimationClip[],
   pixels?: ReadonlyMap<Texture, TexturePixels | null>,
 ): VATData | null {
+  return runBake(bakeEnemyVATSteps(config, model, animations, pixels));
+}
+
+/**
+ * bakeEnemyVAT spread over tasks: it gives the thread back once a slice
+ * took `budgetMs`, so the frames go on while a type bakes (the warlord's
+ * bake held one frame 104 ms, the jumper's 78 ms, in the background warm-up
+ * after the load). The same steps, the same result as bakeEnemyVAT.
+ */
+export async function bakeEnemyVATSliced(
+  config: EnemyTypeConfig,
+  model: Object3D,
+  animations: AnimationClip[],
+  pixels?: ReadonlyMap<Texture, TexturePixels | null>,
+  budgetMs = BAKE_SLICE_MS,
+): Promise<VATData | null> {
+  const steps = bakeEnemyVATSteps(config, model, animations, pixels);
+  for (;;) {
+    const until = performance.now() + budgetMs;
+    for (;;) {
+      const next = steps.next();
+      if (next.done) return next.value;
+      if (performance.now() >= until) break;
+    }
+    await nextTask();
+  }
+}
+
+/** Main-thread time a sliced bake takes before it gives the thread back, ms */
+export const BAKE_SLICE_MS = 4;
+
+/** A bake's steps: each yield is a point where it may give the thread back (a sampled frame) */
+type BakeSteps<T> = Generator<void, T, void>;
+
+/** Runs a bake's steps through at once */
+function runBake<T>(steps: BakeSteps<T>): T {
+  for (;;) {
+    const next = steps.next();
+    if (next.done) return next.value;
+  }
+}
+
+/** A task after the ones queued now (a message, not a timer: nested timers wait 4 ms each) */
+function nextTask(): Promise<void> {
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => {
+      channel.port1.close();
+      resolve();
+    };
+    channel.port2.postMessage(null);
+  });
+}
+
+function* bakeEnemyVATSteps(
+  config: EnemyTypeConfig,
+  model: Object3D,
+  animations: AnimationClip[],
+  pixels?: ReadonlyMap<Texture, TexturePixels | null>,
+): BakeSteps<VATData | null> {
   if (!config.hasAnimations || animations.length === 0) return bakeStaticVAT(model, config.scale, pixels, config.turret);
   const clips = vatClips(config);
   const grounded = config.groundedBake === true;
-  const skinned = bakeVAT(model, animations, clips, config.scale, DEFAULT_BAKE_FPS, grounded, pixels);
+  const skinned = yield* bakeVATSteps(model, animations, clips, config.scale, DEFAULT_BAKE_FPS, grounded, pixels);
   if (skinned && config.turret) console.warn(`[VATBaker] ${config.id}: turret joints take rigid parts, not a skinned mesh: no turret`);
-  return skinned ?? bakeObjectAnimVAT(model, animations, clips, config.scale, DEFAULT_BAKE_FPS, grounded, pixels, config.turret);
+  return skinned ?? (yield* bakeObjectAnimVATSteps(model, animations, clips, config.scale, DEFAULT_BAKE_FPS, grounded, pixels, config.turret));
 }
 
 /**
@@ -113,6 +173,18 @@ export function bakeVAT(
   grounded = false,
   pixels?: ReadonlyMap<Texture, TexturePixels | null>,
 ): VATData | null {
+  return runBake(bakeVATSteps(modelRoot, animations, clips, worldScale, fps, grounded, pixels));
+}
+
+function* bakeVATSteps(
+  modelRoot: Object3D,
+  animations: AnimationClip[],
+  clips: VATClip[],
+  worldScale: number,
+  fps: number,
+  grounded: boolean,
+  pixels?: ReadonlyMap<Texture, TexturePixels | null>,
+): BakeSteps<VATData | null> {
   // Collect ALL SkinnedMeshes (multi-mesh support: body, hair, clothes, etc.)
   const skins: (BakedMeshPart & { mesh: SkinnedMesh })[] = [];
   modelRoot.traverse((node) => {
@@ -138,7 +210,7 @@ export function bakeVAT(
 
   const tempVec = new Vector3();
   const skinning = skins.map((skin) => new SkinningBake(skin.mesh, skin.meshToRoot));
-  const baked = bakeClips(modelRoot, animations, clips, fps, totalVertices, grounded, (scratch) => {
+  const baked = yield* bakeClips(modelRoot, animations, clips, fps, totalVertices, grounded, (scratch) => {
     // Bake vertices from ALL skinned meshes
     for (let s = 0; s < skins.length; s++) {
       const skin = skins[s];
@@ -211,6 +283,19 @@ export function bakeObjectAnimVAT(
   pixels?: ReadonlyMap<Texture, TexturePixels | null>,
   turretConfig?: EnemyTurret,
 ): VATData | null {
+  return runBake(bakeObjectAnimVATSteps(modelRoot, animations, clips, worldScale, fps, grounded, pixels, turretConfig));
+}
+
+function* bakeObjectAnimVATSteps(
+  modelRoot: Object3D,
+  animations: AnimationClip[],
+  clips: VATClip[],
+  worldScale: number,
+  fps: number,
+  grounded: boolean,
+  pixels?: ReadonlyMap<Texture, TexturePixels | null>,
+  turretConfig?: EnemyTurret,
+): BakeSteps<VATData | null> {
   // Collect all non-skinned Mesh nodes
   interface ObjMeshInfo {
     mesh: Mesh;
@@ -243,7 +328,7 @@ export function bakeObjectAnimVAT(
   const rootInverse = new Matrix4();
   const setMarker = (scratch: FrameScratch) => (i: number, p: Vector3) => scratch.set(totalVertices + i, p);
   const texels = totalVertices + (rig ? TURRET_MARKERS : 0);
-  const baked = bakeClips(modelRoot, animations, clips, fps, texels, grounded, (scratch) => {
+  const baked = yield* bakeClips(modelRoot, animations, clips, fps, texels, grounded, (scratch) => {
     rootInverse.copy(modelRoot.matrixWorld).invert();
     // Bake vertices from all meshes with current-frame transforms
     for (const info of meshInfos) {
@@ -344,7 +429,7 @@ interface BakedClips {
  * does not come back to its start (loopTail) runs on past its end until it
  * does. Null when the model has none of the clips.
  */
-function bakeClips(
+function* bakeClips(
   modelRoot: Object3D,
   animations: AnimationClip[],
   clips: VATClip[],
@@ -352,24 +437,29 @@ function bakeClips(
   vertices: number,
   grounded: boolean,
   fill: (scratch: FrameScratch) => void,
-): BakedClips | null {
+): BakeSteps<BakedClips | null> {
   const scratch = new FrameScratch(vertices);
-  const withClip = (clip: AnimationClip, use: (sample: (time: number) => void) => void): void => {
+  // A clip on a mixer of its own while `use` samples it (steps: the bake may give the thread back in between)
+  function* withClip(clip: AnimationClip, use: (sample: (time: number) => void) => BakeSteps<void> | void): BakeSteps<void> {
     const mixer = new AnimationMixer(modelRoot);
     const action = mixer.clipAction(clip);
     action.setLoop(LoopOnce, 1);
     action.clampWhenFinished = true;
     action.play();
-    use((time) => {
-      mixer.setTime(time);
-      modelRoot.updateMatrixWorld(true);
-      fill(scratch);
-    });
-    action.stop();
-    mixer.stopAllAction();
-    mixer.uncacheClip(clip);
-    mixer.uncacheRoot(modelRoot);
-  };
+    try {
+      const steps = use((time) => {
+        mixer.setTime(time);
+        modelRoot.updateMatrixWorld(true);
+        fill(scratch);
+      });
+      if (steps) yield* steps;
+    } finally {
+      action.stop();
+      mixer.stopAllAction();
+      mixer.uncacheClip(clip);
+      mixer.uncacheRoot(modelRoot);
+    }
+  }
 
   const asked = vatClipRegistry(animations, clips, fps);
   if (!asked) return null;
@@ -377,9 +467,9 @@ function bakeClips(
   const measured = asked.validClips.map((vatClip) => {
     if (vatClip.seconds !== Infinity || vatClip.from) return vatClip;
     let tail = 0;
-    withClip(asked.clipMap.get(vatClip.name)!, (sample) => {
+    runBake(withClip(asked.clipMap.get(vatClip.name)!, (sample) => {
       tail = loopTail(sample, scratch, asked.clipMap.get(vatClip.name)!.duration, fps);
-    });
+    }));
     return tail > 0 ? { ...vatClip, tail } : vatClip;
   });
   const { clipMap, validClips, animEntries, totalFrames } = vatClipRegistry(animations, measured, fps)!;
@@ -396,7 +486,7 @@ function bakeClips(
     const entry = animEntries.get(vatClip.name)!;
     const from = clipFrom(clip.duration, vatClip);
     const tail = vatClip.tail ?? 0;
-    withClip(clip, (sample) => {
+    yield* withClip(clip, function* (sample) {
       // Past the end of an open loop: the end pose blends into the start pose over the tail
       let end: Float64Array | null = null;
       let start: Float64Array | null = null;
@@ -411,6 +501,7 @@ function bakeClips(
         if (end && start && time > clip.duration) scratch.blend(end, start, Math.min(1, (time - clip.duration) / tail));
         else sample(Math.min(time, clip.duration - END_EPSILON));
         scratch.write(data, entry.frameStart + frame, texWidth, rowsPerFrame, grounded, bounds);
+        yield;
       }
     });
   }

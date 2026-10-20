@@ -1037,7 +1037,10 @@ Enemies werden automatisch vom `InstancedEnemyRenderer` (`tilesEngine.enemies`) 
 `ThreeTilesEngine.preloadModels` bäckt beim Laden die VAT der Typen der nächsten Welle und legt ihre Pools an, die
 übrigen Typen außer der Ooze (ihr Körper ist ein Band, siehe oben) folgen nach dem Laden je in einem ruhigen Moment
 (`warmRest`: Modell, VAT, Programme, dann die Texturen, die ihre Draws binden, etwa die VAT; sonst lud der erste Draw
-sie im Bild seines Erscheinens hoch, beim Jumper 15 ms). Die Typen der nächsten Welle und die, die Wave Debug senden
+sie im Bild seines Erscheinens hoch, beim Jumper 15 ms). Die VAT bäckt in Scheiben von 4 ms
+(`bakeEnemyVATSliced`, dieselben Schritte wie `bakeEnemyVAT`): am Stück hielt sie ein Bild bis 104 ms (Warlord), 78
+(Jumper), 69 (Mammut), 61 (Zombie V2), 60 ms (Drache), im Hintergrund nach dem Laden und so auch bei einer früh
+gestarteten Welle. Die Typen der nächsten Welle und die, die Wave Debug senden
 soll (Single und Mixed), kommen sofort dran (`warmNow`, Effekt in `GameLoopFacadeService`): ein Boss direkt nach dem
 Laden aus dem Debug-Panel baute sonst das Programm seines Geschützturms im ersten Bild (50 ms).
 

@@ -11,7 +11,7 @@ import { EnemyInstanceManager, EnemyInstanceState } from './enemy-instance.manag
 import { HealthBarInstanceManager } from './health-bar-instance.manager';
 import { createPortalClipUniforms, type PortalClipUniforms } from '../portal-clip';
 import { StateLerp, stateLerpParam } from '../state-lerp';
-import { bakeEnemyVAT } from './vat-baker';
+import { bakeEnemyVAT, bakeEnemyVATSliced } from './vat-baker';
 import { keepVAT, pageVAT, replaceVAT } from './vat-cache';
 import { readColourMaps } from './vat-surface';
 import { pageQuery } from '../../../core/page-switches';
@@ -175,7 +175,8 @@ export class InstancedEnemyRenderer {
           this.loadedTypes.add(typeId);
           return;
         }
-        vatData = bakeEnemyVAT(config, clone, cached.animations, await readColourMaps(clone));
+        // Spread over tasks: a type that bakes in the background after the load holds no frame
+        vatData = await bakeEnemyVATSliced(config, clone, cached.animations, await readColourMaps(clone));
         if (vatData) {
           // Use config's unlit flag (material detection is unreliable before conversion)
           if (config.unlit) vatData.isUnlit = true;

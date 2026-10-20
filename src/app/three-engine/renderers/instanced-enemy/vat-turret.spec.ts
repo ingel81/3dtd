@@ -5,7 +5,7 @@ import { Vector3, type AnimationClip, type Object3D } from 'three';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import { parsePackedGlb } from '../../../../test/packed-glb';
-import { bakeEnemyVAT, type VATData } from './vat-baker';
+import { bakeEnemyVAT, bakeEnemyVATSliced, type VATData } from './vat-baker';
 import { TURRET_MARKERS, turnAbout, turretPoint } from './vat-turret';
 
 /**
@@ -45,6 +45,22 @@ describe('turret joints of the jumper', () => {
     animations = gltf.animations;
     model = clone(gltf.scene);
     vat = bakeEnemyVAT(JUMPER, model, animations)!;
+  }, 60_000);
+
+  it('comes out the same baked in slices, giving the thread back between them', async () => {
+    // A task queued before the bake starts: it runs while the bake waits for its next slice
+    let other = false;
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => {
+      other = true;
+      channel.port1.close();
+    };
+    channel.port2.postMessage(null);
+    const sliced = await bakeEnemyVATSliced(JUMPER, clone(model), animations, undefined, 1);
+    expect(other).toBe(true);
+    expect(sliced!.positionTexture.image.data).toEqual(vat.positionTexture.image.data);
+    expect(sliced!.geometry.getAttribute('position').array).toEqual(vat.geometry.getAttribute('position').array);
+    expect(sliced!.turret).toEqual(vat.turret);
   }, 60_000);
 
   it('bakes the turret behind the vertices, its markers in every frame', () => {
