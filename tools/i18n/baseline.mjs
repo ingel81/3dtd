@@ -1,6 +1,7 @@
 /**
  * The guard's baseline (TODO E245, docs/I18N_PLAN.md 7.2): the English texts
- * still hard-coded, by file, outside the developer and agent areas. The guard
+ * still hard-coded, by file, outside the developer and agent areas and the
+ * closed ones (scan.mjs CLOSED_AREAS, which have none). The guard
  * (guard.spec.ts) fails on any text not in it; after a package is translated
  * this is run again and the list shrinks.
  *   node tools/i18n/baseline.mjs

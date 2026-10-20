@@ -38,7 +38,7 @@ const UI_PROP = /^(label|title|name|text|description|desc|hint|tooltip|tip|place
 /** Template attributes that carry visible text */
 const UI_ATTR = /^(title|aria-label|aria-description|placeholder|alt|label|tdTooltip|matTooltip|tooltip|data-tip|heading|caption|hint|text|name|confirm)$/i;
 /** Calls whose string arguments never reach the player */
-const SKIP_CALL = /^(console\.\w+|\w*[lL]og(ger)?\.\w+|log|warn|debug|trace|require|import|querySelector(All)?|getElementById|addEventListener|removeEventListener|dispatchEvent|setAttribute|getAttribute|removeAttribute|hasAttribute|classList\.\w+|matchMedia|fetch|readText|writeText|readJson|writeJson|removeKey|getItem|setItem|removeItem|includes|startsWith|endsWith|indexOf|lastIndexOf|split|join|replace|replaceAll|match|test|has|get|delete|getObjectByName|getExtension|getContext|getParameter|postMessage|performance\.\w+|mark|measure|describe|it|test|expect|createElement|createElementNS|Symbol|InjectionToken|RegExp|toHaveBeenCalledWith|define|defineProperty|on|off|once|emit|send|invoke|handle|ipcRenderer\.\w+|ipcMain\.\w+)$/;
+const SKIP_CALL = /^(console\.\w+|appendDebugLog|\w*[lL]og(ger)?\.\w+|log|warn|debug|trace|require|import|querySelector(All)?|getElementById|addEventListener|removeEventListener|dispatchEvent|setAttribute|getAttribute|removeAttribute|hasAttribute|classList\.\w+|matchMedia|fetch|readText|writeText|readJson|writeJson|removeKey|getItem|setItem|removeItem|includes|startsWith|endsWith|indexOf|lastIndexOf|split|join|replace|replaceAll|match|test|has|get|delete|getObjectByName|getExtension|getContext|getParameter|postMessage|performance\.\w+|mark|measure|describe|it|test|expect|createElement|createElementNS|Symbol|InjectionToken|RegExp|toHaveBeenCalledWith|define|defineProperty|on|off|once|emit|send|invoke|handle|ipcRenderer\.\w+|ipcMain\.\w+)$/;
 const COMPARE = new Set([ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken, ts.SyntaxKind.EqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsToken, ts.SyntaxKind.InKeyword]);
 
 /** Does `text` read as words for the player? `single` allows one capitalised word. */
@@ -48,6 +48,8 @@ export function isProse(raw, single) {
   if (/^(https?:|data:|blob:|\.{0,2}\/|#[0-9a-f]{3,8}$|[\w./-]+\.(ts|js|mjs|json|glb|gltf|png|jpe?g|webp|ktx2|svg|mp3|ogg|wav|html|css|scss|md|3dtdmap|bin|f32|zip)$)/i.test(text)) return false;
   if (/^\s*<|<\/?[a-z][a-z0-9-]*[ >]/i.test(text)) return false;
   if (/(gl_|vec[234]\b|uniform |varying |#include|#define|void main)/.test(text)) return false;
+  // An Overpass query
+  if (/\[out:json\]/.test(text)) return false;
   if (/(^|[;{]\s*)[a-z-]+\s*:\s*[^ ]+;|var\(--|rgba?\(|\b\d+(px|rem|em|vh|vw|ms|deg)\b.*\b\d+(px|rem|em|vh|vw|ms|deg)\b/.test(text)) return false;
   if (/^[A-Z0-9_]+$/.test(text) || /^[a-z0-9_$.:\-/[\]]+$/i.test(text) && !/\s/.test(text) && !single) return false;
   if (/\s/.test(text) && /[A-Za-z]{2,}\s+[A-Za-z0-9]/.test(text)) {
@@ -257,12 +259,29 @@ export function inventory(files) {
 /** Areas the guard leaves out: developer tools and the agents' API speak English for good */
 const UNGUARDED = new Set(['dev', 'agent']);
 
-/** The texts the guard holds against its baseline: by file, sorted and unique, without the developer and agent areas */
-export function guardedTexts(root) {
+/**
+ * Areas done (docs/I18N_PLAN.md 6): no baseline holds texts for them, every
+ * text the scan finds there fails the guard unless tools/i18n/allowed.mjs
+ * names it with why. An area joins once its texts are in the dictionary.
+ */
+export const CLOSED_AREAS = new Set(['menus', 'dialogs', 'coop']);
+
+/** Texts by file, sorted and unique, of the areas `keep` lets through */
+function textsBy(root, keep) {
   const out = {};
   for (const f of scanSources(root)) {
-    if (UNGUARDED.has(areaOf(f.file).id) || !f.texts.length) continue;
+    if (!keep(areaOf(f.file).id) || !f.texts.length) continue;
     out[f.file] = [...new Set(f.texts)].sort();
   }
   return Object.fromEntries(Object.entries(out).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+/** The texts the guard holds against its baseline: without the developer and agent areas and the closed ones */
+export function guardedTexts(root) {
+  return textsBy(root, (area) => !UNGUARDED.has(area) && !CLOSED_AREAS.has(area));
+}
+
+/** The texts the scan finds in the closed areas, by file */
+export function closedTexts(root) {
+  return textsBy(root, (area) => CLOSED_AREAS.has(area));
 }
