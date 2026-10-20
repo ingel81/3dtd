@@ -5,7 +5,8 @@
  * forbids and a blob worker inherits; a worker loaded from a URL takes the
  * policy of its own response instead, and only this file's allows it
  * (desktop/src/protocol.js, public/.htaccess). Same body as the loader's
- * (KTX2Loader.init), so it follows a three update. Run by postinstall.
+ * (KTX2Loader.init), so it follows a three update. Run by postinstall, `npm start`
+ * and `npm run build`.
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
