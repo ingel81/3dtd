@@ -27,13 +27,20 @@ const LONG_MS = Number(argument('long', '33'));
 const QUALITY = argument('quality', 'high');
 const HEADED = process.argv.includes('--headed');
 // --start wave (default): Wave Debug as the player does it, the type picked, `--pick` ms later "Start Custom Wave" with
-// a count of one; --start spawn: the enemy put on the route straight away (debug:spawn-enemy, nothing of a wave)
+// a count of one; --start spawn: the enemy put on the route straight away (debug:spawn-enemy, nothing of a wave);
+// --start button: the run's next wave with the wave button, as a player starts it (no Wave Debug); --start idle:
+// nothing, the game standing after its load (the background's warm-up)
 const START = argument('start', 'wave');
 const PICK_MS = Number(argument('pick', '3000'));
 // --close: the camera goes to the first shot, 45 m behind the gun and up, looking at where the shell lands
 const CLOSE = process.argv.includes('--close');
+// --no-read: no one-pixel read back per frame (a read waits for all the GPU work queued before it: its first one
+// stands for whatever was queued, not for the game's frame)
+const READ = !process.argv.includes('--no-read');
 // --speed 4: the game's speed over the window (the side switches of a long walk in less time)
 const SPEED = Number(argument('speed', '1'));
+// --chrome-trace <file>: a Chrome trace of the window (devtools.timeline), for e2e/perf/trace-tasks.ts
+const CHROME_TRACE = argument('chrome-trace', '');
 // --trace view.updateHeights,...: every call of these, with its arguments, time and length
 const TRACE = argument('trace', '') ? argument('trace', '').split(',') : [];
 
@@ -43,6 +50,7 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
 page.on('pageerror', (e) => console.log('pageerror', e.message));
+if (process.argv.includes('--reduced-motion')) await page.emulateMedia({ reducedMotion: 'reduce' });
 const LOG = new RegExp(argument('log', '\[Warmup\]|warm-up|Warm-up|DBG'), 'i');
 page.on('console', (m) => {
   if (LOG.test(m.text())) console.log('console', m.text());
@@ -68,6 +76,8 @@ for (let i = 0; i < 10 && (await skip.count()); i++) {
   await page.waitForTimeout(700);
 }
 await page.waitForTimeout(SETTLE_MS);
+// --css "<rules>": a style sheet over the game's, to try a change of the UI's look on the frames
+if (argument('css', '')) await page.addStyleTag({ content: argument('css', '') });
 
 if (START === 'wave') {
   await page.evaluate((enemy) => {
@@ -83,8 +93,16 @@ if (START === 'wave') {
 
 const profiler = process.argv.includes('--profile') ? await FrameProfiler.attach(page, LONG_MS) : null;
 await profiler?.start();
+if (CHROME_TRACE) {
+  await browser.startTracing(page, {
+    path: CHROME_TRACE,
+    categories: process.argv.includes('--trace-gpu') ? ['devtools.timeline', 'toplevel', 'v8.execute', 'gpu', '__metadata'] : ['devtools.timeline', 'toplevel', 'v8.execute', 'disabled-by-default-v8.gc'],
+  });
+}
+// The button's click comes from outside the page, as the player's: started once the page records its frames
+const clicked = START === 'button' ? page.waitForTimeout(300).then(() => page.locator('.td-wave-btn').click()) : Promise.resolve();
 const result = await page.evaluate(
-  async ([enemy, ms, longMs, close, how, trace, speed]) => {
+  async ([enemy, ms, longMs, close, how, trace, speed, readBack]) => {
     interface Info { programs: { name: string; cacheKey: string }[] | null; memory: { geometries: number; textures: number } }
     interface Component {
       engine?: { getRenderer(): { info: Info } };
@@ -212,6 +230,8 @@ const result = await page.evaluate(
       }
     };
     let known = programs();
+    const keysBefore = new Set((renderer.info.programs ?? []).map((p) => p.cacheKey));
+    const depthBefore = [...keysBefore].filter((k) => k.startsWith('depth,')).map((k) => k.replace(/\s+/g, ' ').slice(0, 1500));
     let last = performance.now();
     const start = last;
     // The side a crab's front faces (EnemyInstanceManager, crabSide), per enemy: how often it changes, in game time
@@ -236,7 +256,7 @@ const result = await page.evaluate(
     };
     if (speed !== 1) (g.__load as unknown as { speed(v: number): void }).speed(speed);
     if (how === 'wave') (component as unknown as { startCustomWave(): void }).startCustomWave();
-    else {
+    else if (how === 'spawn') {
       const path = g.__load.state().paths[0].map(([lat, lon]) => ({ lat, lon }));
       g.__load.emit({ type: 'debug:spawn-enemy', enemyType: enemy, count: 1, path, start: 'portal' });
     }
@@ -254,7 +274,7 @@ const result = await page.evaluate(
         }
         watchSides();
         const r0 = performance.now();
-        ctx.readPixels(0, 0, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, new Uint8Array(4));
+        if (readBack) ctx.readPixels(0, 0, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, new Uint8Array(4));
         const read = performance.now() - r0;
         const list = programs();
         const left = [...known];
@@ -332,12 +352,19 @@ const result = await page.evaluate(
       moments,
       long,
       traced,
+      depthBefore,
+      // The programs built in the window, by their keys (what tells them from the ones there were)
+      newKeys: (renderer.info.programs ?? []).filter((p) => !keysBefore.has(p.cacheKey)).map((p) => p.cacheKey.replace(/\s+/g, ' ').slice(0, 400)),
       sides: [...sides.values()].map((v) => ({ switches: v.switches, gameS: r((v.toMs - v.fromMs) / 1000), perMinute: r((v.switches * 60_000) / Math.max(1, v.toMs - v.fromMs)) })),
     };
   },
-  [ENEMY, WINDOW_MS, LONG_MS, CLOSE, START, TRACE, SPEED] as const,
+  [ENEMY, WINDOW_MS, LONG_MS, CLOSE, START, TRACE, SPEED, READ] as const,
 );
-const { long, moments, traced, sides, ...summary } = result;
+await clicked;
+if (CHROME_TRACE) await browser.stopTracing();
+const { long, moments, traced, sides, newKeys, depthBefore, ...summary } = result;
+if (process.argv.includes('--depth-keys')) for (const key of depthBefore) console.log('DEPTHKEY ' + key);
+for (const key of newKeys) console.log('NEWKEY ' + key);
 console.log('SIDES ' + JSON.stringify(sides));
 if (traced.length) console.log('TRACE ' + traced.join(' '));
 console.log('SUMMARY ' + JSON.stringify(summary));
