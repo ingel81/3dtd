@@ -1132,7 +1132,8 @@ Höhen- und Darstellungsfehler. Neu (`convert/rails.ts`, Abfrage um `railway=lev
   `crossing:saltire=no`, an Fußwegen und bei Straßenbahnen (die per Ampel kreuzen) nur mit `yes`; `crossing:light=yes`:
   Kreuz mit gelbem und rotem Lichtzeichen (`crossing-signal`); `crossing:barrier` `half`, `full`, `double_half`, `yes`:
   Halbschranke, Baum offen (`crossing-barrier`). Je Zufahrt rechts (Rechtsverkehr),
-  3,6 m von der Gleismitte, zum Verkehr gedreht, die Schranke 1,4 m weiter zurück. Gespeicherte Rahmen ohne die
+  3,6 m von der Gleismitte, zum Verkehr gedreht, die Schranke 1,4 m weiter zurück; hinter dem Gehweg, wo die
+  Straße einen hat, nicht auf ihm (E269). Gespeicherte Rahmen ohne die
   Übergangsknoten bekommen das Kreuz (Straße) bzw. nichts (Fußweg).
 - **Gelände** (`levelRails`, nach dem Einebnen der Straßen): jede Linie bekommt ein Höhenprofil, der Boden entlang der
   Linie über 30 m gemittelt (60 m auf Wegen mit `embankment` oder `cutting`), zu den Enden hin gleichmäßig über weniger

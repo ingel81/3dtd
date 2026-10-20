@@ -194,6 +194,8 @@ export interface RailCrossing {
   /** Unit direction of the road and its width */
   roadDir: MapPoint;
   roadWidth: number;
+  /** Width of the road's pavement either side (0 without one): the panels reach over it, the signals stand past it */
+  pavement: number;
   /** What stands at each approach */
   saltire: boolean;
   light: boolean;
@@ -419,7 +421,7 @@ export function equipment(tags: Readonly<Record<string, string>>, foot: boolean,
 function crossing(c: RailChain, chain: number, along: number, at: MapPoint, roadDir: MapPoint, roadWidth: number, pavement: number, kit: Pick<RailCrossing, 'saltire' | 'light' | 'barrier'>): RailCrossing {
   // The panels carry the pavements over the line too
   const half = spanHalf(c, along, roadDir, roadWidth / 2 + pavement + CROSSING_MARGIN);
-  return { chain, along, at: { x: at.x, y: at.y }, half, roadDir, roadWidth, ...kit };
+  return { chain, along, at: { x: at.x, y: at.y }, half, roadDir, roadWidth, pavement, ...kit };
 }
 
 /**
@@ -1144,7 +1146,8 @@ function signals(c: RailChain, x: RailCrossing, group: string): RailPiece[] {
     const facing = wrap(Math.atan2(-side * x.roadDir.x, side * x.roadDir.y));
     const place = (fromTrack: number, out_: number) => {
       const d = fromTrack / sin;
-      return { x: x.at.x + side * x.roadDir.x * d + right.x * (x.roadWidth / 2 + out_), y: x.at.y + side * x.roadDir.y * d + right.y * (x.roadWidth / 2 + out_) };
+      const edge = x.roadWidth / 2 + x.pavement + out_;
+      return { x: x.at.x + side * x.roadDir.x * d + right.x * edge, y: x.at.y + side * x.roadDir.y * d + right.y * edge };
     };
     if (x.saltire || x.light) {
       const p = place(SIGNAL_FROM_TRACK, SIGNAL_OUT);

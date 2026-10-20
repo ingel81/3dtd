@@ -418,7 +418,7 @@ describe('OSM railway', () => {
     for (const o of street.filter((o) => Math.abs(o.x) < 40)) expect(heightAt(t, o.x, o.y) + o.z + RAIL_HEAD - heightAt(t, o.x, 0.3)).toBeCloseTo(STREET_TOP, 1);
   });
 
-  it("carries a crossing's panels over the road's pavements and leaves the pavements as the road levelled them", () => {
+  it("carries a crossing's panels over the road's pavements, stands its signals past them and leaves them as the road levelled them", () => {
     const elements = [
       way(1, { highway: 'secondary', sidewalk: 'both' }, [[0, -190, 1], [0, 0, 2], [0, 190, 3]]),
       way(10, { railway: 'rail' }, [[-190, 0, 11], [0, 0, 2], [190, 0, 12]]),
@@ -438,6 +438,10 @@ describe('OSM railway', () => {
     const before = [-6, -4, 4, 6].map((y) => heightAt(t, outer, y));
     levelRails(t, plan, doc.paths);
     expect([-6, -4, 4, 6].map((y) => heightAt(t, outer, y))).toEqual(before);
+    // The cross and the barrier stand past the pavement, not on it
+    const posts = railPieces(plan, t, doc.paths).filter((p) => p.source === 'crossing signal');
+    expect(posts.length).toBe(2);
+    for (const p of posts) expect(Math.abs(p.o.x)).toBeGreaterThan(edge.width / 2 + pavement);
   });
 
   it('stops a hedge OSM maps across the line at the bed and its gravel and at the road', () => {
