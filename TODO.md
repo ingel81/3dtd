@@ -41,6 +41,17 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Wahrzeichen auf 1024 px. Weg: Regel je Textur-Familie im Packwerkzeug (Farbe und ARM 1024, Normalen klein;
       `textureSize` gilt sonst je Modell und hübe alle Texturen), die betroffenen Modelle aus den Quellen in Blender neu
       bauen und packen (Beton in 82 Modellen, Bohlen 58, Burgmauer 50, Putz 39 …); Vorher-Nachher, Speicher und Download.
+### Zerstörung und Strecke (User 2026-10-20; E256 bis E258, E260 bis E263 und E265 gebaut, Abschnitt 2)
+
+- [ ] **E259 Optik der Gebäudezerstörung** (User 2026-10-20: „da geht noch was“, eigener Punkt). Geklärt 2026-10-20:
+      (1) der Einsturz selbst (heute kippt das Oberteil als starrer Block und versinkt): Ablauf erst als animierte
+      Vorschau in zwei bis drei Varianten, der User wählt am Bild (zusammensacken wie eine Sprengung, in Stücke
+      brechen, kippen und dabei brechen mit Aufprall). Bedingungen: deterministisch für Simulation, Coop und Replay
+      (Saat aus Id oder damageSeed), im Shader ohne Kosten je Ruine, Zufall je Gebäude, damit gleiche Gebäude nicht
+      gleich zerfallen. (2) Decken und Innenwände halbzerstörter Gebäude passen nicht zur Form: beim runden Turm ragten
+      die Ecken der Etagen weit über die Außenwand (ruin-slabs.ts baut sie aus dem Grundrechteck).
+- [ ] **E264 Bahnübergang mit Lücke** (User 2026-10-20, Bild): links und rechts der Übergangsplatten klafft eine
+      Lücke zum Gleis- und Schotterbett, der Boden darunter sieht durch.
 - Entschieden 2026-10-19: Schildgrenze 512 bleibt; Fähigkeiten, Held und Mutatoren bleiben übersetzt (nur Turm- und
   Gegnernamen englisch); Nachtlicht ohne Mond aufgehellt (gebaut).
 
@@ -178,6 +189,15 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 ---
 
 ## 2. Gebaut, wartet auf Test
+
+### Runde 2026-10-20 (auf `next`, Nachtests in PLAYTEST.md N)
+
+- [ ] **N1 Performance** E256 Ruckeln bei Treffern (Boden-Worker fiel am Kartenrand aus) und am Wellenstart (Gegner-
+      Animationen in 4-ms-Scheiben), Schattenprogramme vorab, E258 Bauvorschau auf OSM-Welten (kein Frame über 33 ms
+      statt bis 243 ms), Lava-Pinsel entprellt (N1 bis N4).
+- [ ] **N2 Jumper** E257 hält eine Straßenseite und dreht langsamer, E263 nimmt nur Ziele ab 3 m und 60 m³ (N5, N6).
+- [ ] **N3 Zerstörung und Optik** E261 Werkzeug „Zerstören“ in den Entwickleroptionen, E262 HP-Balken unter 100 %,
+      E260 Hecken-Shader nach dem Laden gespielter Karten, E265 Farbsprung der Altstadthäuser beim Zoomen (N7 bis N10).
 
 ### Nachtschicht 2026-10-18/19 (auf `origin/next`, Nachtests in PLAYTEST.md K)
 

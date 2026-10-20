@@ -491,8 +491,37 @@ erzeugt und nach Messwerten ausgewählt, nicht angehört: bei jedem Klang sagen,
   viel näher oder auf seiner keines mehr), schwenkt nur der Turm hinüber. Den Rumpf dreht er höchstens alle 16 s,
   ruhig in etwa 3,5 s über vorn (dabei kurz normaler Gang), und läuft dann in die andere Richtung seitwärts weiter;
   die Rohre bleiben auf dem Ziel, die Schritte setzen ohne Sprung fort. In Ruined City etwa einmal je Minute.*
+  **2026-10-20 User (vor dem Fix):** drehte zu schnell und zu oft hin und her in Straßen mit Häusern auf beiden
+  Seiten (E257, jetzt die Regel oben); Ruckeln bei Gebäudetreffern (E256, behoben).
 - **M9 Vorschau:** Enemy Debug, Typ „Jumper“, und in der Wellenvorschau von W45. *Drehbild ganz im Rahmen, Beine
   laufen.*
+
+## N Performance, Jumper und Zerstörungswerkzeug (2026-10-20)
+
+Gemessen ist alles per Probe (e2e/perf); hier zählt das Gefühl im echten Spiel. Konsole offen.
+
+- **N1 Treffer:** Ruined City › Play, Wave Debug „Single“, Jumper, 1, „Start Custom Wave“, 30 s zusehen, auch nah am
+  Kartenrand. *Beim Einschlag und Einsturz kein spürbares Ruckeln, auch nicht kurz danach; Effekte wie vorher.*
+- **N2 Wellenstart:** Ruined City › Play, nach dem Laden 15 s nichts tun, dann gleich nach dem Laden einmal den
+  Wellenknopf. *Kein Ruckeln im Leerlauf, die Welle startet ohne Hänger.*
+- **N3 Bauvorschau OSM:** eine OSM-Welt (gern die eigene Testwelt) › Spiel starten, sofort im Baumenü den Bogenschützen
+  wählen, die Maus die Route entlang ziehen, Escape; 3 bis 4 Mal, dann ein anderer Tower. *Kein Hänger beim Wählen,
+  bei der ersten Bewegung und beim Entlangfahren, auch auf neuer Strecke.*
+- **N4 Lava-Pinsel:** Editor › eine Karte › Lava-Becken pinseln; im Spiel einen Krater am Lavarand. *Pinsel flüssig;
+  Glut, Funken und Lichter erscheinen etwa 0,25 s nach dem Absetzen.*
+- **N5 Jumper hält die Seite:** wie M8. *Mehrere Schüsse auf einer Straßenseite, Rumpf dreht höchstens alle 16 s.*
+- **N6 Jumper nimmt Häuser:** OSM-Welt mit Gleisen und Häusern an der Route, Jumper wie N1. *Er feuert auf Häuser,
+  nicht auf Gleise, Zäune oder Hecken; Kleinkram geht nur nebenbei kaputt.*
+- **N7 Werkzeug:** Ruined City › Play › Developer options › „Zerstören“. Rakete an, mehrmals in die Stadt klicken;
+  ein Haus wählen, „Fell now“, „Mend“, wieder „Fell now“; „Nuke“ klicken. *Treffer wie echte; das Haus fällt beide
+  Male gleich; Pilzwolke, alles in 25 m fällt, Krater.*
+- **N8 HP-Balken:** nach N7. *Balken über beschädigten Häusern, keiner bei 100 % oder über Ruinen; Alt halten blendet
+  sie mit den Gegnerbalken aus; ein Haus davor verdeckt den Balken.*
+- **N9 Hecken nach dem Laden:** eine schon gespielte OSM-Karte mit Zerstörung laden, Konsole in den ersten Sekunden;
+  dann oben auf Edit. *Kein „Shader Error … foliage-hedge-bush … vNormal“.*
+- **N10 Altstadt beim Zoomen:** OSM-Welt mit Fachwerkhäusern, aus der Spielkamera langsam heraus- und hineinzoomen;
+  dasselbe an einem Wohnblock und einem Einfamilienhaus. *Dach bleibt dunkel ziegelrot, Wände behalten ihre Farbe,
+  nur die Ziegelstruktur glättet sich leicht.*
 
 ## Eichtabelle
 
