@@ -1645,8 +1645,8 @@ export const de: Messages = {
     },
     catalogNames: CATALOG_DE,
     categories: {
-      building: 'Gebäude', fx: 'Effekt', plant: 'Pflanze', prop: 'Requisite', rock: 'Fels', structure: 'Bauwerk', tree: 'Baum', wall: 'Mauer',
-      forest: 'Wald', grass: 'Gras', ice: 'Eis', road: 'Straße', sand: 'Sand', snow: 'Schnee', soil: 'Erde', volcanic: 'Vulkanisch', wood: 'Holz',
+      trees: 'Bäume', plants: 'Pflanzen', rocks: 'Felsen', buildings: 'Gebäude', walls: 'Mauern', structures: 'Bauwerke', props: 'Requisiten', effects: 'Effekte',
+      forest: 'Wald', grass: 'Gras', ice: 'Eis', road: 'Straße', rock: 'Fels', sand: 'Sand', snow: 'Schnee', soil: 'Erde', volcanic: 'Vulkanisch', wood: 'Holz',
     },
     markers: {
       moveHq: 'HQ versetzen',
@@ -2059,7 +2059,7 @@ export const de: Messages = {
       signText: 'Schildtext',
       signIcon: 'Piktogramm des Schilds',
       noIcon: 'Kein Piktogramm',
-      modes: { select: 'Auswählen', place: 'Setzen', scatter: 'Streuen', line: 'Reihe', erase: 'Radieren' },
+      modes: { select: 'Wählen', place: 'Setzen', scatter: 'Streuen', line: 'Reihe', erase: 'Löschen' },
       count: (n) => `${f.int(n)} Objekte`,
       blocksSight: 'Blockiert Sicht',
       blocksSightTip: 'Ob Türme hindurchsehen; Standard folgt dem Katalog',

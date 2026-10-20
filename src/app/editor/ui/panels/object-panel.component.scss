@@ -61,3 +61,9 @@
     flex: 0 0 auto;
   }
 }
+
+// Five tools in a narrow panel: each takes the room its word needs (German runs longer)
+.op-modes > button {
+  flex: 1 1 auto;
+  padding-inline: 6px;
+}

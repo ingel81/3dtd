@@ -1867,8 +1867,9 @@ export const en = {
     catalogNames: {} as Readonly<Record<string, string>>,
     /** The catalogue's categories (catalog.json), as the editor names them */
     categories: {
-      building: 'building', fx: 'effect', plant: 'plant', prop: 'prop', rock: 'rock', structure: 'structure', tree: 'tree', wall: 'wall',
-      forest: 'forest', grass: 'grass', ice: 'ice', road: 'road', sand: 'sand', snow: 'snow', soil: 'soil', volcanic: 'volcanic', wood: 'wood',
+      // Objects by the asset catalog's group (CATEGORY_NAMES), materials by catalog.json's category
+      trees: 'trees', plants: 'plants', rocks: 'rocks', buildings: 'buildings', walls: 'walls', structures: 'structures', props: 'props', effects: 'effects',
+      forest: 'forest', grass: 'grass', ice: 'ice', road: 'road', rock: 'rock', sand: 'sand', snow: 'snow', soil: 'soil', volcanic: 'volcanic', wood: 'wood',
     },
     /** Spawns and the HQ (marker tool, panel and steps) */
     markers: {

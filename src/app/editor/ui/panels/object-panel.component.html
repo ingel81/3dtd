@@ -1,4 +1,4 @@
-<div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.objects.tool">
+<div class="td-seg is-sm op-modes" role="radiogroup" [attr.aria-label]="t().editor.objects.tool">
   @for (m of modes; track m.id) {
     <button type="button" role="radio" [attr.aria-checked]="s().mode === m.id" (click)="setMode(m.id)" [attr.data-mode]="m.id">{{ t().editor.objects.modes[m.id] }}</button>
   }

@@ -13,6 +13,7 @@ import { WAVE_TABLE } from '../director/sources/table/wave-table';
 import { pseudoText } from './pseudo';
 import { de } from './messages/de';
 import { ATTRIBUTIONS } from '../configs/attributions.config';
+import { OBJECT_CATEGORIES } from '../map-ops/asset-catalog';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -92,6 +93,14 @@ describe('catalogue names', () => {
     const names = de.editor.catalogNames;
     expect(ids.filter((id) => !names[id]?.trim()), 'without a name').toEqual([]);
     expect(Object.keys(names).filter((id) => !ids.includes(id)), 'not in the catalogue').toEqual([]);
+  });
+
+  it('every object group and material category has a word in every language', () => {
+    const materials = (catalog as unknown as { materials: { category: string }[] }).materials.map((m) => m.category);
+    for (const category of [...OBJECT_CATEGORIES, ...materials]) {
+      expect(en.editor.categories, category).toHaveProperty(category.toLowerCase());
+      expect(de.editor.categories, category).toHaveProperty(category.toLowerCase());
+    }
   });
 
   it("English shows the catalogue's own names", () => {

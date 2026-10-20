@@ -54,6 +54,8 @@ function probe(): Finding[] {
     }
     if (!scrolls && (r.right > innerWidth + 1 || r.left < -1)) why.push('offscreen');
     const control = el.closest('button, [role="tab"], [role="radio"], .td-tag');
+    // A control whose label runs past its own box, over its neighbour, where nothing clips it
+    if (control === el && cs.overflowX === 'visible' && el.scrollWidth > el.clientWidth + 1) why.push('spills');
     if (control === el) {
       const range = document.createRange();
       const tops = new Set<number>();
