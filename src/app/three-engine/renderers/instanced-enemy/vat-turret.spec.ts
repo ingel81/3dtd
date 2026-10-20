@@ -56,12 +56,13 @@ describe('turret joints of the jumper', () => {
       channel.port1.close();
     };
     channel.port2.postMessage(null);
-    const sliced = await bakeEnemyVATSliced(JUMPER, clone(model), animations, undefined, 1);
+    // 8 ms slices: still many slices for this model, without thousands of yields that timed out on CI runners
+    const sliced = await bakeEnemyVATSliced(JUMPER, clone(model), animations, undefined, 8);
     expect(other).toBe(true);
     expect(sliced!.positionTexture.image.data).toEqual(vat.positionTexture.image.data);
     expect(sliced!.geometry.getAttribute('position').array).toEqual(vat.geometry.getAttribute('position').array);
     expect(sliced!.turret).toEqual(vat.turret);
-  }, 60_000);
+  }, 120_000);
 
   it('bakes the turret behind the vertices, its markers in every frame', () => {
     expect(vat.turret).not.toBeNull();
