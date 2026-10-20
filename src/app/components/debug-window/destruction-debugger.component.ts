@@ -11,7 +11,7 @@ import { RovingGroupDirective } from '../roving-group.directive';
 const BLAST_NAMES: Record<DebugBlast, string> = { cannonball: 'Cannon', rocket: 'Rocket', 'nuclear-strike': 'Nuke' };
 
 /** The collapse variants as the window names them (ruin-damage.ts, E259) */
-const COLLAPSE_NAMES: Record<CollapseVariant, string> = { tip: 'Tip', impact: 'Impact', buckle: 'Buckle' };
+const COLLAPSE_NAMES: Record<CollapseVariant, string> = { tip: 'Tip', impact: 'Impact', buckle: 'Buckle', 'cave-in': 'Cave-in' };
 
 /** The stages as the window names them (destruction.config.ts) */
 const STAGE_NAMES: Record<StructureStage, string> = { 0: 'Intact', 1: 'Battered', 2: 'Heavy', 3: 'Fallen' };

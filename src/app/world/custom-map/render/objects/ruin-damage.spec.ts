@@ -408,7 +408,7 @@ describe('ruin damage: the collapse variants', () => {
 
   it('switches the variant every ruin draws by one uniform, as the window does', () => {
     const s = ruinShape(structureSeed('v1'), frame);
-    expect(COLLAPSE_VARIANTS).toEqual(['tip', 'impact', 'buckle']);
+    expect(COLLAPSE_VARIANTS).toEqual(['tip', 'impact', 'buckle', 'cave-in']);
     setCollapseVariant('buckle');
     expect(DAMAGE_UNIFORMS.uCollapse.value).toBe(2);
     expect(collapseVariant()).toBe('buckle');
