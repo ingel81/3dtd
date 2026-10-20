@@ -49,7 +49,7 @@ describe('GroundAlbedo', () => {
   });
 
   it('is what groundColorAt reads once baked, until then the splat averages', () => {
-    expect(GROUND_COLOR_GLSL).toContain('if (uGroundAlbedoOn > 0.5) return textureLod(uGroundAlbedo, uv, 0.0).rgb;');
+    expect(GROUND_COLOR_GLSL).toMatch(/if \(uGroundAlbedoOn > 0\.5\) \{\s*c = textureLod\(uGroundAlbedo, uv, 0\.0\)\.rgb;/);
     expect(GROUND_COLOR_UNIFORMS.uGroundAlbedoOn.value).toBe(0);
   });
 });
