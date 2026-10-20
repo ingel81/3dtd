@@ -2,7 +2,8 @@ import type { SimSink } from '../../sim/core/sim-sink';
 import type { RunStructure } from '../../sim/protocol/run-rules';
 import { MAP_METERS_PER_DEGREE } from '../../world/custom-map/map-document';
 import {
-  HOLE_GROW_DM, HOLE_LEAST_SHARE, HOLE_MAX_DM, HOLE_MERGE_DM, HOLE_SLOTS, HOLE_STRIDE, holeRadiusDm, presetHp, structureHeading, structureStage,
+  HOLE_GROW_DM, HOLE_LEAST_DAMAGE, HOLE_MAX_DM, HOLE_MERGE_DM, HOLE_SLOTS, HOLE_STRIDE, holeRadiusDm, presetHp, structureHeading, structureStage,
+  WEAR_SIGHT_EVERY,
   type StructureStage,
 } from '../../configs/destruction.config';
 import { DetMath } from '../../utils/det-math';
@@ -17,6 +18,8 @@ export interface StructureEvents {
   staged(index: number, from: StructureStage, to: StructureStage): void;
   /** A tower stands on the roof of structure `index` (RunStructure.roof): it takes no damage */
   carried(index: number): boolean;
+  /** Fallen structure `index` wore down by another WEAR_SIGHT_EVERY holes: a wall of its stump went (the sight round it) */
+  worn?(index: number): void;
 }
 
 /** Numbers per roof in StructureLedger.roof: middle x, y, half extents, cos, sin */
@@ -57,7 +60,7 @@ function boxReach(box: readonly [number, number, number, number, number], x: num
  * stages go out with the headings; snapshots and the state hash carry them
  * once one is known, so a world never hit hashes and saves as before.
  *
- * A heavy hit (HOLE_LEAST_SHARE of the HP or more) leaves a hole where it
+ * A heavy hit (HOLE_LEAST_DAMAGE or more) leaves a hole where it
  * struck (punch, E259): the last HOLE_SLOTS per structure in whole numbers,
  * a hit near one grows it. They go out with the HP once per packet
  * (`structures.holes`) and whole with the stages; snapshots and the state
@@ -259,9 +262,10 @@ export class StructureLedger {
     for (const i of this.near(x, y, reach, true)) {
       if (this.hp[i] > 0) {
         if (this.damage(i, amount, x, y)) changed++;
-      } else if (amount >= this.maxHp[i] * HOLE_LEAST_SHARE) {
-        // A ruin goes on wearing down: holes in what is left of its walls, low (E259)
+      } else if (amount >= HOLE_LEAST_DAMAGE) {
+        // A ruin goes on wearing down: holes in what is left of its walls, low (E259); now and then a wall of it went
         this.punch(i, amount, x, y, true);
+        if ((this.holeCount[i] - 2) % WEAR_SIGHT_EVERY === 0) this.events.worn?.(i);
       }
     }
     return changed;
@@ -352,7 +356,7 @@ export class StructureLedger {
     if (!Number.isNaN(this.roof[index * ROOF_STRIDE]) && this.events.carried(index)) return false;
     this.hp[index] = Math.max(0, this.hp[index] - amount);
     this.markHp(index);
-    if (amount >= this.maxHp[index] * HOLE_LEAST_SHARE) this.punch(index, amount, x, y);
+    if (amount >= HOLE_LEAST_DAMAGE) this.punch(index, amount, x, y);
     const to = structureStage(this.hp[index], this.maxHp[index]);
     const from = this.stage[index] as StructureStage;
     if (to === from) return false;
@@ -368,8 +372,8 @@ export class StructureLedger {
    * A hole in structure `index` where a hit of `amount` struck at map
    * metres (`x`, `y`): on the side it came from (within 90 % of its ground
    * radius), at a height its count rolls (25 to 80 % of its height; in a
-   * fallen one's stump 0.3 to 2 m), as large as the hit's share of the HP
-   * (holeRadiusDm). Near a hole it has, that one grows; else it takes a
+   * fallen one's stump 0.3 to 2 m), as large as the hit's damage for its
+   * size (holeRadiusDm). Near a hole it has, that one grows; else it takes a
    * free slot or the oldest hole's
    */
   private punch(index: number, amount: number, x: number, y: number, fallen = false): void {
@@ -414,7 +418,7 @@ export class StructureLedger {
       holes[k + 4] = n;
     } else {
       slot = free >= 0 ? free : oldest;
-      holes.set([ox, oy, h, holeRadiusDm(amount, this.maxHp[index]), n], k0 + slot * HOLE_STRIDE);
+      holes.set([ox, oy, h, holeRadiusDm(amount, this.radius[index]), n], k0 + slot * HOLE_STRIDE);
     }
     this.holesChanged.push(index, slot);
   }

@@ -55,6 +55,8 @@ export class WorldDamage {
     this.structures = new StructureLedger(host.sink, {
       staged: (index, from, to) => this.staged(index, from, to),
       carried: (index) => this.carried(index),
+      // A ruin under fire lost a wall: the towers round it may see past it now
+      worn: (index) => this.host.seeAround(this.structures.xOf(index), this.structures.yOf(index), this.structures.radiusOf(index)),
     });
   }
 

@@ -214,8 +214,8 @@ describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
 
   it('leaves a hole where a heavy hit struck, grows one hit near it, keeps the last six, none when mended (E259)', () => {
     const { sink, ledger } = setup([{ id: 'block', lat: 0, lon: 100 / K, radius: 10, height: 12, hp: 200000 }]);
-    // A light hit (under 3 % of the HP) leaves none
-    ledger.hit(115, 0, 10, 4000);
+    // A light hit (under 25 structure damage) leaves none
+    ledger.hit(115, 0, 10, 20);
     ledger.flushHp();
     expect(ledger.holeList()).toBeUndefined();
     expect(sink.structures.holes).not.toHaveBeenCalled();
@@ -226,13 +226,13 @@ describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
     expect(holes.slice(0, 2)).toEqual([90, 0]);
     expect(holes[2]).toBeGreaterThanOrEqual(30);
     expect(holes[2]).toBeLessThanOrEqual(96);
-    expect(holes[3]).toBe(holeRadiusDm(80000, 200000));
+    expect(holes[3]).toBe(holeRadiusDm(80000, 10));
     expect(holes[4]).toBe(1);
     expect(sink.structures.holes).toHaveBeenLastCalledWith(new Int32Array([0, 0, ...holes.slice(0, 5)]));
     // Again from there: the same hole grows (the height the second hit rolls, 5 m lower, lies within its reach)
     ledger.hit(120, 0, 15, 80000);
     holes = ledger.holeList()!;
-    expect(holes[3]).toBe(holeRadiusDm(80000, 200000) + HOLE_GROW_DM);
+    expect(holes[3]).toBe(holeRadiusDm(80000, 10) + HOLE_GROW_DM);
     expect(holes[4]).toBe(2);
     expect(holes.slice(5).every((v) => v === 0)).toBe(true);
     // From six other sides: the sixth slot fills, then the oldest gives way
@@ -243,7 +243,7 @@ describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
     expect(orders).not.toContain(2);
     // The same holes from the same hits on another client
     const twin = setup([{ id: 'block', lat: 0, lon: 100 / K, radius: 10, height: 12, hp: 200000 }]).ledger;
-    for (const [x, y] of [[115, 0], [120, 0], [120, 0], [80, 0], [100, 20], [100, -20], [86, 14], [114, -14], [86, -14]]) twin.hit(x, y, 15, x === 115 ? 4000 : x === 120 ? 80000 : 6000);
+    for (const [x, y] of [[115, 0], [120, 0], [120, 0], [80, 0], [100, 20], [100, -20], [86, 14], [114, -14], [86, -14]]) twin.hit(x, y, 15, x === 115 ? 20 : x === 120 ? 80000 : 6000);
     expect(twin.holeList()).toEqual(holes);
     expect(Array.from(twin.holeView())).toEqual(holes);
     // From a snapshot and back; one from before the holes has none
@@ -279,5 +279,23 @@ describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
     // A light hit wears nothing
     ledger.hit(115, 0, 10, 10);
     expect(ledger.holeList()).toEqual(holes);
+  });
+
+  it('sizes a hole by the damage, larger in a small structure, smaller in a large one; asks for the sight as a ruin loses a wall', () => {
+    expect(holeRadiusDm(45, 6)).toBe(27);
+    expect(holeRadiusDm(45, 4)).toBe(37);
+    expect(holeRadiusDm(45, 12)).toBe(16);
+    expect(holeRadiusDm(30, 6)).toBe(24);
+    expect(holeRadiusDm(1200, 6)).toBe(50);
+    expect(holeRadiusDm(25, 30)).toBe(14);
+    // A fallen one: the sight round it anew at its second hole, its sixth, its tenth (every four from two)
+    const worn = vi.fn();
+    const sink = { structures: { setStages: vi.fn(), stage: vi.fn(), hp: vi.fn(), holes: vi.fn() } };
+    const ledger = new StructureLedger(sink as never, { staged: vi.fn(), carried: () => false, worn });
+    ledger.load([{ id: 'block', lat: 0, lon: 100 / K, radius: 10, height: 12, hp: 100 }]);
+    ledger.hit(100, 0, 0, 100);
+    for (let k = 0; k < 9; k++) ledger.hit(100 + (k % 3) * 8, 0, 10, 45);
+    expect(worn).toHaveBeenCalledTimes(3);
+    expect(worn).toHaveBeenLastCalledWith(0);
   });
 });
