@@ -19,6 +19,11 @@ radiusBelow/radiusAbove (around a vertical axis), ring (between two radii round 
 notColour (hue range and saturation of the texture at the face), anyOf (a list of rule lists, one of which holds:
 a part made of two boxes). Small islands a cut leaves are given to the
 neighbouring part. A part named drop_* is cut away. A part may have its own "pivot" and a fixed "restRotationDeg".
+"radial" rebuilds a part that turns about an axis from one intact sector of it: {"centre": [...], "axis": [...],
+"teeth": 21, "from": 45, "span": 7} keeps the `span` tooth pitches from `from` degrees (0 along the axis' first
+perpendicular, X for a horizontal axis along Y, 90 a quarter turn on towards Z), cut clean on the two planes, and
+sets copies of it round the full turn, welded on the seams: a gear whose buried side the source never modelled
+turns without showing it (the ballista's winch).
 Motions: swing, spin (optionally ramped up with "rampUp"), stroke, slide, recoil, throw; "stream" sends copies of
 loose pieces out in salvos timed to a stroke. `check` renders each part in its own colour from four sides, `show`
 renders a clip with a ground and a circling camera into <out_dir>/show.
@@ -177,6 +182,35 @@ for spec in specs:
     dup.rotation_mode = "XYZ"
     parts[name] = dup
 bpy.data.objects.remove(src, do_unlink=True)
+
+
+def make_radial(obj, rd):
+    """Rebuild `obj` from `span` tooth pitches of it, set round the axis (spec "radial")."""
+    centre = Vector(rd["centre"]); axis = Vector(rd["axis"]).normalized()
+    ref = Vector((1, 0, 0)) if abs(axis.x) < 0.9 else Vector((0, 0, 1))
+    u = (ref - axis * ref.dot(axis)).normalized(); v = u.cross(axis)
+    pitch = 2 * math.pi / rd["teeth"]
+    a0 = math.radians(rd["from"]); a1 = a0 + rd["span"] * pitch
+    copies = rd["teeth"] / rd["span"]
+    assert copies == int(copies) and rd["span"] * pitch < math.pi, rd
+    tangent = lambda a: -u * math.sin(a) + v * math.cos(a)
+    b = bmesh.new(); b.from_mesh(obj.data)
+    # The sector between the two half planes through the axis: in front of the first, behind the second
+    bmesh.ops.bisect_plane(b, geom=b.verts[:] + b.edges[:] + b.faces[:], plane_co=centre, plane_no=tangent(a0), clear_inner=True)
+    bmesh.ops.bisect_plane(b, geom=b.verts[:] + b.edges[:] + b.faces[:], plane_co=centre, plane_no=tangent(a1), clear_outer=True)
+    sector = b.verts[:] + b.edges[:] + b.faces[:]
+    for i in range(1, int(copies)):
+        dup = bmesh.ops.duplicate(b, geom=sector)["geom"]
+        bmesh.ops.rotate(b, cent=centre, matrix=Matrix.Rotation(i * rd["span"] * pitch, 3, axis),
+                         verts=[e for e in dup if isinstance(e, bmesh.types.BMVert)])
+    bmesh.ops.remove_doubles(b, verts=b.verts[:], dist=rd.get("weld", 0.0015))
+    b.to_mesh(obj.data); b.free()
+    obj.data.update()
+
+
+for spec in specs:
+    if "radial" in spec and spec["name"] in parts:
+        make_radial(parts[spec["name"]], spec["radial"])
 # Parts named drop_* are cut away for good (e.g. arms another script replaces)
 for name in [n for n in parts if n.startswith("drop_")]:
     bpy.data.objects.remove(parts.pop(name), do_unlink=True)

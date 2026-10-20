@@ -567,7 +567,12 @@ Draw-Calls mehr als vorher (Bolzen und Winde als eigene Knoten).
 
 **Ballista-Modell** (`tools/blender/towers/ballista.json`): `split_tower.py` schneidet `bolt` (zwei Kästen, Regel
 `anyOf`: Schäfte über dem Bett, Spitze bis unter ihren Rand) und `winch` (die Zahnkränze der beiden Räder, Regel
-`ring` um die Achse, die mit dem Gelenk der Waffe zusammenfällt) aus der Waffe. `build_tower.py` gibt der Waffe den
+`ring` um ihre eigene Achse, 2,5 cm vor und 1,7 cm unter dem Gelenk der Waffe, aus den Zahnspitzen gemessen) aus der
+Waffe. Meshy hat die Räder nur so weit gebaut, wie man sie sieht: unten im Rahmen und am Gehäuse fehlen Flächen. Der
+Block `radial` baut den Kranz deshalb aus einem heilen Stück von drei der 21 Zähne (oben, ab 70°), sauber an zwei
+Ebenen durch die Achse geschnitten und siebenmal um die Achse gesetzt, die Nähte verschweißt; die Scheibe innerhalb
+des Kranzes bleibt an der Waffe. So zeigt die Winde nach jeder halben Umdrehung dasselbe geschlossene Rad. Die sieben
+Wülste auf dem Kranz des Kurbelrads sind der eine des Originals, mitkopiert. `build_tower.py` gibt der Waffe den
 Morph `relaxed` (Block `morphs`): die Sehnenhälften werden als ganze Flächen von der Waffe gelöst und auf die gerade
 Linie von der Armspitze zur Mitte gelegt, die Arme biegen sich um 7° nach vorn, linear mit dem Abstand von ihrem
 Ansatz. `tower-model.spec.ts` prüft, dass jedes Modell die Knoten und den Morph seines Profils hat.
