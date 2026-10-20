@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { TdIconComponent } from '../components/icon/icon.component';
 import { StageContinueComponent } from './stage-continue.component';
 import type { StageMap } from './worlds-stage.service';
@@ -6,6 +6,10 @@ import { TRASH_DAYS, type MapSummary } from '../world/custom-map/map-store';
 import { WorldsStageService } from './worlds-stage.service';
 import { injectT } from '../i18n/i18n.service';
 import { shippedMapDescription } from '../i18n/shipped-maps';
+import { readJson, writeJson } from '../utils/storage';
+
+/** Whether the trash at the end of the maps' list stands open, kept over a reload */
+const TRASH_OPEN_KEY = 'td_maps_trash_open_v1';
 
 /**
  * The maps' menu (docs/WORLDS_NAVIGATION_PLAN.md, 3.1), the one list of
@@ -92,8 +96,16 @@ import { shippedMapDescription } from '../i18n/shipped-maps';
       }
       @if (stage.trash().length) {
         <section class="td-group" aria-labelledby="wm-maps-trash" data-test="trash">
-          <h3 class="td-section" id="wm-maps-trash">{{ w.trash }} <span class="td-note">{{ w.trashWait(trashDays) }}</span></h3>
-          <div class="td-rows">
+          <!-- Folded by default: its head says how many wait there -->
+          <h3 class="td-section wm-fold-head">
+            <button type="button" class="wm-fold" id="wm-maps-trash" aria-controls="wm-maps-trash-rows" [attr.aria-expanded]="trashOpen()"
+                    (click)="toggleTrash()" data-test="trash-toggle">
+              <span>{{ w.trash }} ({{ stage.trash().length }})</span>
+              <td-icon [name]="trashOpen() ? 'caretU' : 'caret'" [size]="12" />
+            </button>
+            <span class="td-note">{{ w.trashWait(trashDays) }}</span>
+          </h3>
+          <div class="td-rows" id="wm-maps-trash-rows" [hidden]="!trashOpen()">
             @for (m of stage.trash(); track m.id) {
               <!-- A row with its tools, as the save slots stand: the row brings the map back, the bin ends it -->
               <div class="td-row wm-trash" [attr.data-trash]="m.trash?.from" [class.is-fresh]="stage.trashed()?.key === m.id">
@@ -212,6 +224,23 @@ export class WorldMapsComponent {
     return id ? (this.stage.maps().find((m) => m.id === id) ?? null) : null;
   });
   readonly trashDays = TRASH_DAYS;
+  /** The trash folded or open (folded at first); a map just deleted opens it, so Undo's line shows where it went */
+  readonly trashOpen = signal(readJson(TRASH_OPEN_KEY) === true);
+
+  constructor() {
+    effect(() => {
+      if (this.stage.trashed()) untracked(() => this.setTrashOpen(true));
+    });
+  }
+
+  toggleTrash(): void {
+    this.setTrashOpen(!this.trashOpen());
+  }
+
+  private setTrashOpen(open: boolean): void {
+    this.trashOpen.set(open);
+    writeJson(TRASH_OPEN_KEY, open);
+  }
 
   /** The editor on a new map's form, in this window: one click, not its list and then New map again */
   newMap(): void {

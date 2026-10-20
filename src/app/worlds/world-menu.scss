@@ -1,6 +1,7 @@
 // Layout of a world's menu (docs/WORLDS_NAVIGATION_PLAN.md, 3.1): the lists
 // scroll, the pick with its Start stands under them. Shared by the three
 // worlds' menus; the look comes from the td-* classes.
+@use '../styles/game-ui' as ui;
 
 :host {
   display: flex;
@@ -51,6 +52,33 @@
 .wm-row {
   justify-content: space-between;
   gap: var(--td-sp-3);
+}
+
+// A head that folds its group (the trash): the name and its caret are the button, the note stays beside it
+.wm-fold-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--td-sp-2);
+}
+
+.wm-fold {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--td-sp-1);
+  @include ui.button-reset;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+
+  > td-icon {
+    color: var(--td-brass-dark);
+  }
+
+  &:hover > td-icon,
+  &:focus-visible > td-icon {
+    color: var(--td-brass-light);
+  }
 }
 
 // A map in the trash: a row with its tools (td-row-main, td-tool), the one deleted last marked

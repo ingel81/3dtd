@@ -121,11 +121,13 @@ describe('Worlds stage', () => {
     TestBed.resetTestingModule();
     localStorage.clear();
     own = [];
+    trashed = [];
   });
 
   let store: MemorySlotStore;
   const shipped = () => [{ summary: summary({ id: 'demo-valley', name: 'Demo Valley', description: 'River valley.' }), picture: 'maps/demo-valley.png' }];
   let own: { summary: MapSummary; picture: string | null }[] = [];
+  let trashed: MapSummary[] = [];
   let trashMap: ReturnType<typeof vi.fn<(id: string) => Promise<boolean>>>;
 
   async function open(setup: { key?: boolean; slots?: StoredSlotMeta[] } = {}): Promise<ComponentFixture<WorldsStageComponent>> {
@@ -169,7 +171,7 @@ describe('Worlds stage', () => {
             editMap: vi.fn(),
             newMap: vi.fn(),
             importMaps: vi.fn(),
-            listTrash: async () => [],
+            listTrash: async () => [...trashed],
             downloadMap: vi.fn(async () => undefined),
             duplicateMap: vi.fn(async () => 'bay-2'),
             deleteShared: vi.fn(async () => undefined),
@@ -732,6 +734,40 @@ describe('Worlds stage', () => {
     expect(stage.picks().maps).toBeNull();
     stage.restoreMap('bay~1');
     await vi.waitFor(() => expect(library.restoreMap).toHaveBeenCalledWith('bay~1'));
+  });
+
+  it('the trash folds: folded at first with its count, open by its head, kept over a visit, opened by a delete', async () => {
+    trashed = [
+      summary({ id: 'bay~1', name: 'Bay', origin: 'own', trash: { from: 'bay', at: new Date().toISOString(), created: '' } } as Partial<MapSummary> & { id: string; name: string }),
+      summary({ id: 'cove~1', name: 'Cove', origin: 'own', trash: { from: 'cove', at: new Date().toISOString(), created: '' } } as Partial<MapSummary> & { id: string; name: string }),
+    ];
+    let f = await open({ key: true });
+    card(f, 'maps').click();
+    await settle(f);
+    const head = () => el(f).querySelector<HTMLButtonElement>('[data-test="trash-toggle"]')!;
+    const rows = () => el(f).querySelector<HTMLElement>('#wm-maps-trash-rows')!;
+    expect(text(head())).toBe('Trash (2)');
+    expect(head().getAttribute('aria-expanded')).toBe('false');
+    expect(rows().hidden).toBe(true);
+    head().click();
+    await settle(f);
+    expect(head().getAttribute('aria-expanded')).toBe('true');
+    expect(rows().hidden).toBe(false);
+    expect(rows().querySelectorAll('.wm-trash')).toHaveLength(2);
+
+    // The next visit finds it as left; folded again, a delete opens it to show where the map went
+    f.destroy();
+    TestBed.resetTestingModule();
+    f = await open({ key: true });
+    TestBed.inject(WorldsStageService).openWorld('maps');
+    await settle(f);
+    expect(head().getAttribute('aria-expanded')).toBe('true');
+    head().click();
+    await settle(f);
+    expect(rows().hidden).toBe(true);
+    TestBed.inject(WorldsStageService).trashed.set({ key: 'bay~1', name: 'Bay' });
+    await settle(f);
+    expect(rows().hidden).toBe(false);
   });
 
   it('one source of chips for the globes, the game and the editor: the other worlds, the map in the editor', async () => {
