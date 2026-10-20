@@ -152,6 +152,13 @@ export interface EnemySiegeConfig {
    */
   sideHoldMs?: number;
   otherSideFactor?: number;
+  /**
+   * It takes only structures at least this tall (m) and this big (m³, its
+   * ground circle times its height): houses, not rails, fences or hedges.
+   * Its shells still reach whatever stands where they land. Missing: any
+   */
+  minTargetHeightM?: number;
+  minTargetVolumeM3?: number;
 }
 
 /**
@@ -1615,6 +1622,9 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
       // Three shots or so on one side of a street before the front turns to the other, and only for a house well nearer
       sideHoldMs: 16_000,
       otherSideFactor: 0.5,
+      // Houses and blocks: a cottage is 6 m and about 190 m³; rails, fences, hedges, kiosks and sheds are left be
+      minTargetHeightM: 3,
+      minTargetVolumeM3: 60,
     },
     crabGait: {
       // Scuttle: Walk's legs stepping across (tools/blender/jumper_boss.py); its pairs lift at 0 and 0.5

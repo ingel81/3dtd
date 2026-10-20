@@ -99,6 +99,25 @@ describe('EnemySiege', () => {
     expect(gun.target).toBe(1);
   });
 
+  it('leaves small structures be: rails, a fence and a shed nearer than the house are not taken', () => {
+    const { gun, run } = setup([
+      house('rail', 6, 0, { radius: 4.5, height: 0.6 }),
+      house('fence', -6, 0, { radius: 2, height: 1.3 }),
+      house('shed', 8, 2, { radius: 1.4, height: 2.9 }),
+      house('kiosk', -8, 2, { radius: 2.1, height: 3 }),
+      house('cottage', 25, 0, { radius: 3.2, height: 6 }),
+    ]);
+    run(STEP);
+    expect(gun.target).toBe(4);
+  });
+
+  it('takes nothing where only small structures stand', () => {
+    const { gun, ops, run } = setup([house('rail', 6, 0, { radius: 4.5, height: 0.6 }), house('hedge', -6, 0, { radius: 3, height: 1.8 })]);
+    run(20_000);
+    expect(gun.target).toBe(-1);
+    expect(shots(ops)).toEqual([]);
+  });
+
   it('keeps to its side of the way: a house across only when well nearer, the side itself only after a while', () => {
     const { gun, run, world } = setup([house('east', 30, 0), house('west', -20, 5), house('east-far', 60, 0)]);
     // The west house is nearer, but not by enough: the gun keeps to its side, east (a negative turn)

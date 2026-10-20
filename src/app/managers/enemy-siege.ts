@@ -129,9 +129,16 @@ export class EnemySiege {
     const structures = this.world.structures;
     const hold = siege.sideHoldMs;
     const factor = siege.otherSideFactor ?? 1;
-    const target = hold === undefined || gun.side === 0 || factor === 1
-      ? structures.nearestTarget(ex, ey, siege.rangeM)
-      : structures.nearestTarget(ex, ey, siege.rangeM, (index, sq) => (this.sideOf(enemy, index) === -gun.side ? sq / (factor * factor) : sq));
+    const sided = hold !== undefined && gun.side !== 0 && factor !== 1;
+    const list = structures.list();
+    const minHeight = siege.minTargetHeightM ?? 0;
+    const minVolume = siege.minTargetVolumeM3 ?? 0;
+    // Too small a structure costs Infinity: never taken (nearestTarget keeps only a lower cost)
+    const target = structures.nearestTarget(ex, ey, siege.rangeM, (index, sq) => {
+      const s = list[index];
+      if (s.height < minHeight || Math.PI * s.radius * s.radius * s.height < minVolume) return Infinity;
+      return sided && this.sideOf(enemy, index) === -gun.side ? sq / (factor * factor) : sq;
+    });
     const side = target >= 0 ? this.sideOf(enemy, target) : 0;
     if (side !== 0 && side !== gun.side && (gun.side === 0 || gun.sideMs >= (hold ?? 0))) {
       gun.side = side;
