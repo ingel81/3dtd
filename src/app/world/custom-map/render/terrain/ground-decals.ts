@@ -405,7 +405,8 @@ export function planDecals(doc: DecalSource, entries: Map<string, CatalogObject>
       doorPath(out, o, e, (ways ??= waySegments(doc)));
     }
   }
-  // Along roads and paths: worn patches at their edges every 9 to 15 m, puddles in the wet
+  // Along roads and paths: worn patches at their edges every 9 to 15 m, puddles in the wet; beyond a road's pavement
+  // (the road surface draws it over the ground: a patch under it showed through as a dark stain on the paving)
   const nodes = new Map(doc.paths.nodes.map((n) => [n.id, n]));
   for (const edge of doc.paths.edges) {
     if (edge.kind === 'bridge' || edge.tunnel) continue;
@@ -424,7 +425,7 @@ export function planDecals(doc: DecalSource, entries: Map<string, CatalogObject>
       for (; walked < len; walked += 9 + hash(walked + k) * 6) {
         const h = hash(p.x + walked * 1.3 + p.y * 0.7);
         const side = h < 0.5 ? -1 : 1;
-        const off = edge.width / 2 + 0.6 + h * 1.2;
+        const off = edge.width / 2 + (edge.sidewalk ?? 0) + 0.6 + h * 1.2;
         const x = p.x + tx * walked - ty * off * side;
         const y = p.y + ty * walked + tx * off * side;
         const kind = wet && h > 0.7 ? DecalKind.Puddle : DecalKind.Soil;

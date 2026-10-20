@@ -30,6 +30,10 @@ describe('planDecals', () => {
     expect(soil.length).toBeGreaterThan(8);
     expect(soil.every((d) => Math.abs(d.y) > 3)).toBe(true);
     expect(soil.some((d) => d.y > 0) && soil.some((d) => d.y < 0)).toBe(true);
+    // Beyond a pavement, not on it
+    const paved = doc();
+    paved.paths.edges[0].sidewalk = 2;
+    expect(planDecals(paved, entries).filter((d) => d.kind === DecalKind.Soil).every((d) => Math.abs(d.y) > 5.6)).toBe(true);
   });
 
   it('drops leaves under broadleaf trees, not under conifers, and puddles only in the wet', () => {

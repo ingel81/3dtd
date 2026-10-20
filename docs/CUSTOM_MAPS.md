@@ -206,7 +206,8 @@ Nebel der Szene wieder her.
   Endzeitbäumen); ein Trampelpfad von der Tür jedes Katalog-Hauses (Vorderkante seines `box`, etwas aus der Mitte) zum
   Rand der nächsten Straße oder des nächsten Pfads bis 32 m, in Stücken von etwa 2,5 m, die leicht pendeln und sich
   überlappen (gestreckte Decals, `stretch`), ohne Straße in Reichweite keiner; festgetretene Erde alle 9 bis 15 m an den
-  Rändern von Straßen und Pfaden, Pfützen dort bei Regen oder im Sumpf. Geplant werden alle der Karte, gezeichnet nur
+  Rändern von Straßen und Pfaden (jenseits eines Gehwegs, nicht auf ihm: dort schien ein Fleck als dunkle Stelle durch
+  das Pflaster, E269), Pfützen dort bei Regen oder im Sumpf. Geplant werden alle der Karte, gezeichnet nur
   die bis 320 m um den Fokus der Kamera, die nächsten zuerst und höchstens 4096, neu gewählt nach 24 m Bewegung, zum
   Rand hin ausgeblendet: eine Stadt mit 8000 Häusern behält ihre Pfade überall, wo die Kamera hinsieht (vorher ein
   fester Deckel von 3000 für die ganze Karte). Jedes ein kleines Gitter, im Vertex-Shader über die Höhentextur auf den Boden gelegt
