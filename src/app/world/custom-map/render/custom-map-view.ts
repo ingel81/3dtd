@@ -570,9 +570,10 @@ export class CustomMapView {
     for (const m of meshes) {
       if (Array.isArray(m.material)) continue;
       // A mesh with a depth material of its own (an impostor, a ruin) casts with that one, which the shadow pass
-      // gives the mesh material's side and maps as it does a twin (a ruin's are double-sided, a wall's textured)
+      // gives the mesh material's side and maps as it does a twin (a ruin's are double-sided, a wall's textured);
+      // one depth material serves many meshes, so a copy per mesh material holds each one's state
       const own = m.customDepthMaterial as MeshDepthMaterial | undefined;
-      const material = own ? asShadowPass(own, m.material, renderer.shadowMap.type) : this.depthTwinOf(m.material, renderer.shadowMap.type);
+      const material = own ? this.ownTwinOf(own, m.material, renderer.shadowMap.type) : this.depthTwinOf(m.material, renderer.shadowMap.type);
       let twin: Mesh;
       if (m instanceof InstancedMesh) {
         const instanced = new InstancedMesh(m.geometry, material, 1);
@@ -648,6 +649,23 @@ export class CustomMapView {
     for (const m of out) m.frustumCulled = false;
     this.effectMeshes = out;
     return out;
+  }
+
+  /**
+   * A copy of a mesh's own depth material as the shadow pass sets it for
+   * `material` (same program key: the pass finds the program built), one
+   * per pair, kept with the twins
+   */
+  private ownTwinOf(own: MeshDepthMaterial, material: Material, type: ShadowMapType): MeshDepthMaterial {
+    const key = `${own.uuid}|${material.uuid}`;
+    let twin = this.depthTwins.get(key);
+    if (!twin) {
+      twin = own.clone();
+      twin.onBeforeCompile = own.onBeforeCompile;
+      twin.customProgramCacheKey = own.customProgramCacheKey;
+      this.depthTwins.set(key, twin);
+    }
+    return asShadowPass(twin, material, type);
   }
 
   /** The depth material three's shadow pass would draw `material` with (WebGLShadowMap getDepthMaterial) */

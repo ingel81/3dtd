@@ -535,7 +535,14 @@ export class MapObjectLayer {
   private ensureRuinBatch(b: AssetBatch): void {
     if (!this.options.ruins || b.ruin || !DESTRUCTIBLE_CATEGORIES.has(b.entry.category) || b.model.placeholder) return;
     if (this.batches.some((x) => x.ruin && x.model.id === b.model.id && x.blocksLos === b.blocksLos)) return;
-    this.batches.push(this.buildBatch(b.model, b.lods, b.blocksLos, [], true));
+    const ruin = this.buildBatch(b.model, b.lods, b.blocksLos, [], true);
+    // Tinted like the asset's intact ones: the warm-up builds the programs with instance colours its ruins will draw
+    // with (the shadow's too), not the first fall after a Continue (a tinted house's depth program, 0.7 to 1.5 s)
+    if (b.source.colors) {
+      ruin.source.colors = new Float32Array(ruin.capacity * 3);
+      this.resize(ruin, ruin.capacity);
+    }
+    this.batches.push(ruin);
   }
 
   /** Removes objects by id: each leaves the lists it is in, the asset's last object fills its place */
