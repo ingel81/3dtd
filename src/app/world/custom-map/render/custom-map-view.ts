@@ -296,6 +296,8 @@ export class CustomMapView {
   private effectMeshes: Mesh[] | null = null;
   /** A render target to compile the shadow pass's programs for (linear output, no tone mapping) */
   private offscreen: WebGLRenderTarget | null = null;
+  /** The light state of the map's cached shadow build (ShadowParts: an empty scene), to compile its depth programs for */
+  private lightless: Scene | null = null;
 
   constructor(
     readonly doc: CustomMapDocument,
@@ -467,11 +469,16 @@ export class CustomMapView {
     }
     await Promise.all(compiled);
     if (this.disposed) return 0;
-    // The shadow pass's depth programs too, off the main thread: the shadow frame below finds them built
+    // The shadow pass's depth programs too, off the main thread: the shadow frame below finds them built. Every
+    // caster the objects can bring (showAllForWarmUp), not only the ones that cast now: an asset that first cast
+    // in the game (an intact tower stump in the sun's box after a fall nearby) linked its program in that frame
     if (renderer.shadowMap.enabled && scene instanceof Scene) {
-      const casters: Mesh[] = [];
-      this.group.traverse((o) => {
-        if (o instanceof Mesh && o.castShadow) casters.push(o);
+      const casters = this.withAllShown(() => {
+        const out: Mesh[] = [];
+        this.group.traverse((o) => {
+          if (o instanceof Mesh && o.castShadow) out.push(o);
+        });
+        return out;
       });
       await this.compileShadowTwins(renderer, scene, camera, casters);
     }
@@ -546,7 +553,11 @@ export class CustomMapView {
   /**
    * Compiles, off the main thread, the programs the sun's shadow pass draws
    * `meshes` with: twins with the depth materials three derives for them
-   * (getDepthMaterial), kept so the programs stay
+   * (getDepthMaterial), kept so the programs stay. Twice: for three's own
+   * pass in a frame of `scene` (the warm-up frame), and for the map's cached
+   * shadow build, which draws its parts inside the render of an empty scene
+   * (ShadowParts): no lights there, and the lights are part of a program's
+   * key even where a depth shader does not use them
    */
   private compileShadowTwins(renderer: WebGLRenderer, scene: Scene, camera: Camera, meshes: readonly Mesh[]): Promise<unknown> {
     if (!renderer.shadowMap.enabled) return Promise.resolve();
@@ -577,7 +588,7 @@ export class CustomMapView {
       renderer.setRenderTarget(this.offscreen);
       scene.fog = null;
       scene.environment = null;
-      return renderer.compileAsync(depth, camera, scene);
+      return Promise.all([renderer.compileAsync(depth, camera, scene), renderer.compileAsync(depth, camera, (this.lightless ??= new Scene()))]);
     } finally {
       renderer.setRenderTarget(previous);
       scene.fog = fog;

@@ -498,14 +498,16 @@ describe('CustomMapView warm-up', () => {
     };
     await view.warmUp(renderer as never, scene, new PerspectiveCamera(), target as never);
     // The scene for the frames, then the shadow pass's depth programs off the main thread (into a target of
-    // their own, as the shadow map has no fog), the ground's colour bake (its program, then its draw, into
-    // its own target), then one frame that draws the shadow map
-    expect(seen.map((s) => s.call)).toEqual(['compile', 'compile', 'compile', 'render', 'render']);
+    // their own, as the shadow map has no fog: for three's pass in the scene and for the map's cached build,
+    // which draws without lights), the ground's colour bake (its program, then its draw, into its own target),
+    // then one frame that draws the shadow map
+    expect(seen.map((s) => s.call)).toEqual(['compile', 'compile', 'compile', 'compile', 'render', 'render']);
     expect(seen[0].target).toBe(target);
     expect(seen[1].target).toBeInstanceOf(WebGLRenderTarget);
-    expect(seen[2].target).toBeInstanceOf(WebGLRenderTarget);
-    expect(seen[3].target).toBe(seen[2].target);
-    expect(seen[4].target).toBe(target);
+    expect(seen[2].target).toBe(seen[1].target);
+    expect(seen[3].target).toBeInstanceOf(WebGLRenderTarget);
+    expect(seen[4].target).toBe(seen[3].target);
+    expect(seen[5].target).toBe(target);
     // Back to where it was, the shadow map renders again for the real frame
     expect(current).toBe(null);
     expect(renderer.shadowMap.autoUpdate).toBe(false);

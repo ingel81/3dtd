@@ -152,7 +152,11 @@ Composer, dazu kommen die Programme der Pässe selbst. In beiden Fällen läuft 
   höchstens ein neues Material je Frame, und wartet auf einen Fence, bevor sie umschaltet.
 
 Die Schattenkarte einer neuen Größe baut wie jede Änderung über einige Frames (`ShadowParts`), die alte bleibt bis
-dahin; der Fernschatten einer eingeschalteten Kaskade backt verteilt; das Licht der Laternen auf dem Boden backt nur
+dahin. Die Teile zeichnen im Render einer leeren Szene, also ohne Lichter, und die Lichter gehören zum Schlüssel jedes
+Programms, auch eines Tiefenprogramms: `CustomMapView.warmUp` kompiliert die Schattenzwillinge darum auch für diesen
+Zustand, und zwar für jedes Objekt, das werfen kann (`showAllForWarmUp`), nicht nur für die, die gerade werfen (sonst
+baute ein Stumpf, der nach einem Einsturz nebenan zum ersten Mal in die Sonnenbox kam, sein Programm im Bild: 21 bis
+38 ms, E256); der Fernschatten einer eingeschalteten Kaskade backt verteilt; das Licht der Laternen auf dem Boden backt nur
 neu, wenn sich die Lichter oder der Boden darunter ändern (`LampLight.bake`). Gemessen auf Autumn Keep und Harbor
 Town (RTX 5080, headless, der Rechner geteilt): Laden wie zuvor (14,3 bis 16,8 s). Ohne V-Sync ist der Hintergrund
 nach 20 s fertig (fünf Zustände, 320 bis 350 Programme), längster Frame dabei 15 ms, keiner über 20 ms; mit V-Sync nach
