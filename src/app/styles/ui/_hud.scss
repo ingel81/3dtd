@@ -253,6 +253,45 @@
   }
 }
 
+// Brass rivets in a stone's edge, one per charge (the ability buttons): a
+// full one is brass, an empty one a dark hole; the one that fills shows
+// --rivet-fill (0 to 1) of quiet brass from the left
+@mixin rivets {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  pointer-events: none;
+
+  > i {
+    position: relative;
+    width: 14px;
+    height: 6px;
+    overflow: hidden;
+    border-radius: var(--td-radius);
+    background: var(--td-rivet-hole);
+    box-shadow: var(--td-rivet-hole-shadow);
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--td-brass-dark);
+      transform: scaleX(var(--rivet-fill, 0));
+      transform-origin: left;
+      transition: transform var(--td-dur-mid) var(--td-ease-out);
+    }
+  }
+
+  > i.is-on {
+    background: var(--td-brass);
+    box-shadow: var(--td-rivet);
+
+    &::before {
+      content: none;
+    }
+  }
+}
+
 // A thin progress bar in a well; its one child is the fill, width in %
 @mixin progress($height: 6px) {
   display: block;

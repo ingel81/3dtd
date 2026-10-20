@@ -562,13 +562,13 @@ dem Eintrag und dem Snapshot des `AbilityManager`:
 | Knopf da, sobald die Forschung fertig ist und der Abschussort steht (nur Nuklearschlag: Missile Silo) | `AbilityStatus.unlocked` und `AbilityStatus.launchSite` (`abilityBarIds`) |
 | Icon | `AbilityConfig.icon` (td-icon) |
 | Taste oben rechts, Tastenkappe im Tooltip | `AbilityConfig.hotkey` |
-| Ladungen (als Zahl nur ab `maxCharges` 2) | `AbilityStatus.charges` |
-| ein Strich je Welle bis zur nächsten Ladung | `AbilityConfig.rechargeWaves`, `AbilityStatus.wavesUntilCharge` |
+| eine Messingniete je Ladung im Steinrand, voll für jede Ladung zur Hand | `AbilityConfig.maxCharges`, `AbilityStatus.charges` |
+| die nächste Niete füllt sich von links, je geschaffter Welle ein Stück | `AbilityConfig.rechargeWaves`, `AbilityStatus.wavesUntilCharge` (`chargeRivets`) |
 | Schlag unterwegs | `AbilityStatus.pending` |
 | Zielmodus an | `AbilityTargetingService.targeting()` |
 
-Welche Knöpfe es gibt, Zustand und Texte berechnen `abilityBarIds()`,
-`abilityButtonView()` und `abilityTooltip()` (`ability-bar/ability-button.ts`),
+Welche Knöpfe es gibt, Zustand, Nieten und Texte berechnen `abilityBarIds()`,
+`abilityButtonView()`, `chargeRivets()` und `abilityTooltip()` (`ability-bar/ability-button.ts`),
 reine Funktionen mit Spec. Ohne Held und ohne erforschte Fähigkeit fehlt die
 Leiste ganz.
 

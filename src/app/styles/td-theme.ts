@@ -174,6 +174,11 @@ export const TD_RELIEF = {
   // A stone standing alone on the map (the ability buttons): raised, with a soft shadow on the map
   raisedOverMap: 'inset 0 1px 0 rgba(255,255,255,.16), inset 0 -2px 0 rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.55)',
   pressed: 'inset 0 3px 6px rgba(0,0,0,.75)',
+  // A brass rivet in a stone's edge (charges of an ability): lit top edge, a dark line under it;
+  // an empty one is a dark hole
+  rivet: `inset 0 1px 0 ${TD_THEME.brassLight}, 0 1px 0 rgba(0,0,0,.6)`,
+  rivetHole: 'rgba(0,0,0,.6)',
+  rivetHoleShadow: 'inset 0 1px 2px rgba(0,0,0,.8)',
   // A brick of the loading wall: lit top edge, shaded foot
   brick: 'inset 0 1px 0 rgba(255,255,255,.2), inset 0 -2px 0 rgba(0,0,0,.45)',
 
@@ -465,6 +470,9 @@ export const TD_CSS_VARS = `
   --td-raised-over-map: ${R.raisedOverMap};
   --td-pressed: ${R.pressed};
   --td-brick-relief: ${R.brick};
+  --td-rivet: ${R.rivet};
+  --td-rivet-hole: ${R.rivetHole};
+  --td-rivet-hole-shadow: ${R.rivetHoleShadow};
   --td-well: ${R.well};
   --td-well-shadow: ${R.wellShadow};
   --td-well-soft: ${R.wellSoft};

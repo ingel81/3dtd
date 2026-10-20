@@ -243,6 +243,7 @@
   .td-meter { @include hud.meter; }
   .td-progress { @include hud.progress; }
   .td-wall { @include hud.wall; }
+  .td-rivets { @include hud.rivets; }
   @include hud.wall-keyframes;
   .td-marker { @include hud.marker; }
   .td-marker-btn { @include hud.marker-btn; }

@@ -150,12 +150,12 @@ describe('Dev wave jump, playtest 381 and 382 replayed', () => {
     // W1 is over, as WaveManager ends it
     gsm.waveManager.phase.set('setup');
     bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
-    expect(button()).toMatchObject({ state: 'recharging', pips: [true, false, false], status: 'recharges in 2 waves' });
+    expect(button()).toMatchObject({ state: 'recharging', rivets: [1 / 3], status: 'recharges in 2 waves' });
 
     // Jump: next start W5, W2 to W4 skipped
     expect(gsm.jumpToWave(5, true)).toBe(true);
     expect(status().charges).toBe(NUKE.maxCharges);
-    expect(button()).toMatchObject({ state: 'waiting', pips: [true, true, true], status: 'ready, fires during a wave' });
+    expect(button()).toMatchObject({ state: 'waiting', rivets: [1], status: 'ready, fires during a wave' });
   });
 
   it('381, counter-check: a jump over one wave only is one wave toward the charge', () => {

@@ -29,12 +29,9 @@
               (click)="press(button.id)">
         <td-icon [name]="button.icon" [size]="20"></td-icon>
         <span class="td-bar-key td-caps" aria-hidden="true">{{ button.hotkey }}</span>
-        @if (button.view.charges !== null) {
-          <span class="td-ability-charges td-figure" aria-hidden="true">{{ button.view.charges }}</span>
-        }
-        <span class="td-ability-pips" aria-hidden="true">
-          @for (lit of button.view.pips; track $index) {
-            <span class="td-ability-pip" [class.is-on]="lit"></span>
+        <span class="td-rivets td-ability-rivets" aria-hidden="true">
+          @for (fill of button.view.rivets; track $index) {
+            <i [class.is-on]="fill >= 1" [style.--rivet-fill]="fill"></i>
           }
         </span>
       </button>

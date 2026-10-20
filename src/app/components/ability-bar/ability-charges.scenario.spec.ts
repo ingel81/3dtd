@@ -97,11 +97,11 @@ describe('Ability buttons through a strike and its recharge, playtest 318 and 31
     bus.emit({ type: 'wave:completed', wave, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
   };
 
-  it('318: between the waves every button waits with three lit pips, READY, FIRES DURING A WAVE, CHARGES 1/1, RECHARGE 3 waves', () => {
+  it('318: between the waves every button waits with its rivet full, READY, FIRES DURING A WAVE, CHARGES 1/1, RECHARGE 3 waves', () => {
     cheatAbilities();
     expect(bar.buttons().map((b) => b.id)).toEqual(ABILITY_IDS);
     for (const button of bar.buttons()) {
-      expect(button.view, button.id).toMatchObject({ state: 'waiting', enabled: false, pips: [true, true, true] });
+      expect(button.view, button.id).toMatchObject({ state: 'waiting', enabled: false, rivets: [1] });
       expect(button.tooltip.category).toBe('READY, FIRES DURING A WAVE');
       expect(button.tooltip.stats).toEqual([
         { label: 'CHARGES', value: '1/1' },
@@ -110,7 +110,7 @@ describe('Ability buttons through a strike and its recharge, playtest 318 and 31
     }
   });
 
-  it('319: armed on K, incoming after the click, then three grey pips that light one per completed wave', () => {
+  it('319: armed on K, incoming after the click, then an empty rivet that fills a third per completed wave', () => {
     cheatAbilities();
     waveActive.set(true);
     expect(nuke().view).toMatchObject({ state: 'ready', enabled: true });
@@ -122,26 +122,26 @@ describe('Ability buttons through a strike and its recharge, playtest 318 and 31
     // The click on the route: command:use-ability, and the service leaves the mode
     bus.emit({ type: 'command:use-ability', abilityId: 'nuclear-strike', target: { lat: 48.7758, lon: 9.1829, height: 0 } });
     targeting.set(null);
-    expect(nuke().view).toMatchObject({ state: 'pending', enabled: false, pips: [false, false, false] });
+    expect(nuke().view).toMatchObject({ state: 'pending', enabled: false, rivets: [0] });
 
     for (let i = 0; i < WARNING_STEPS; i++) abilities.update(STEP_MS);
     expect(nuke().view).toMatchObject({
       state: 'recharging',
       enabled: false,
-      pips: [false, false, false],
+      rivets: [0],
       label: 'Nuclear Strike: recharges in 3 waves',
     });
     expect(nuke().tooltip.stats?.[0]).toEqual({ label: 'CHARGES', value: '0/1' });
 
-    // The wave of the use counts: one pip per completed wave
+    // The wave of the use counts: a third of the rivet per completed wave
     completeWave(1);
-    expect(nuke().view.pips).toEqual([true, false, false]);
+    expect(nuke().view.rivets).toEqual([1 / 3]);
     waveActive.set(true);
     completeWave(2);
-    expect(nuke().view.pips).toEqual([true, true, false]);
+    expect(nuke().view.rivets).toEqual([2 / 3]);
     waveActive.set(true);
     completeWave(3);
-    expect(nuke().view).toMatchObject({ state: 'waiting', pips: [true, true, true] });
+    expect(nuke().view).toMatchObject({ state: 'waiting', rivets: [1] });
     waveActive.set(true);
     expect(nuke().view.state).toBe('ready');
 

@@ -30,12 +30,11 @@ describe('abilityBarIds', () => {
 });
 
 describe('abilityButtonView', () => {
-  it('ready in a wave: a press arms, every pip lit', () => {
+  it('ready in a wave: a press arms, its one rivet full', () => {
     expect(view(CHARGED)).toEqual({
       state: 'ready',
       enabled: true,
-      pips: [true, true, true],
-      charges: null,
+      rivets: [1],
       status: 'ready',
       label: 'Nuclear Strike: ready',
     });
@@ -55,24 +54,25 @@ describe('abilityButtonView', () => {
 
   it('pending while the strike is on its way', () => {
     const incoming = { ...CHARGED, charges: 0, wavesUntilCharge: 3, pending: true };
-    expect(view(incoming)).toMatchObject({ state: 'pending', enabled: false, pips: [false, false, false] });
+    expect(view(incoming)).toMatchObject({ state: 'pending', enabled: false, rivets: [0] });
   });
 
-  it('recharging: one pip per completed wave, the rest to go in the label', () => {
+  it('recharging: the rivet fills a third per completed wave, the rest to go in the label', () => {
     expect(view({ ...CHARGED, charges: 0, wavesUntilCharge: 2 })).toMatchObject({
       state: 'recharging',
       enabled: false,
-      pips: [true, false, false],
+      rivets: [1 / 3],
       label: 'Nuclear Strike: recharges in 2 waves',
     });
     expect(view({ ...CHARGED, charges: 0, wavesUntilCharge: 1 }).label).toBe('Nuclear Strike: recharges in 1 wave');
   });
 
-  it('counts the charges only for an ability that holds more than one', () => {
-    const twoCharges = { ...NUKE, maxCharges: 2 };
-    expect(abilityButtonView(en, twoCharges, { ...CHARGED, maxCharges: 2, charges: 1, wavesUntilCharge: 2 }, true, false))
-      .toMatchObject({ state: 'ready', charges: 1 });
-    expect(view(CHARGED).charges).toBeNull();
+  it('has a rivet per charge: those on hand full, the next filling, the rest empty', () => {
+    const threeCharges = { ...NUKE, maxCharges: 3 };
+    expect(abilityButtonView(en, threeCharges, { ...CHARGED, maxCharges: 3, charges: 1, wavesUntilCharge: 1 }, true, false))
+      .toMatchObject({ state: 'ready', rivets: [1, 2 / 3, 0] });
+    expect(abilityButtonView(en, threeCharges, { ...CHARGED, maxCharges: 3, charges: 3, wavesUntilCharge: 0 }, true, false).rivets)
+      .toEqual([1, 1, 1]);
   });
 });
 

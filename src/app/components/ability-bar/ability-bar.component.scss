@@ -49,9 +49,11 @@
 }
 
 
-/* A stone per ability. Key top right, a stroke per wave to the next charge
- * at the bottom. Brass while it is ready, pressed while it aims. Without
- * effect a button stays clickable (aria-disabled), so its tooltip shows.
+/* A stone per ability. Key top right, a rivet per charge in the foot: brass
+ * for a charge on hand, the next one filling from the left by the waves it
+ * needs, the rest sunk dark. Brass while it is ready, pressed while it
+ * aims. Without effect a button stays clickable (aria-disabled), so its
+ * tooltip shows.
  *   ready       icon brass
  *   armed       pressed (aria-pressed), brass
  *   waiting     charged, no wave: icon muted
@@ -62,7 +64,7 @@
   flex-shrink: 0;
   width: var(--td-bar-btn);
   height: var(--td-bar-btn);
-  padding-bottom: 4px;
+  padding-bottom: 8px;
   color: var(--td-text-disabled);
 }
 
@@ -84,31 +86,12 @@
   color: var(--td-warn-text);
 }
 
-/* Charges on hand, only for an ability that holds more than one */
-.td-ability-charges {
+/* A brass rivet per charge in the stone's foot (td-rivets) */
+.td-ability-rivets {
   position: absolute;
-  top: 3px;
-  left: 5px;
-  font-size: var(--td-fs-small);
-}
-
-.td-ability-pips {
-  position: absolute;
-  left: 8px;
-  right: 8px;
+  left: 0;
+  right: 0;
   bottom: 6px;
-  display: flex;
-  gap: 3px;
-}
-
-.td-ability-pip {
-  flex: 1;
-  height: 2px;
-  background: var(--td-line-dark);
-
-  &.is-on {
-    background: var(--td-brass);
-  }
 }
 
 /* The hero: a plain switch, pressed while he is selected; set a little apart

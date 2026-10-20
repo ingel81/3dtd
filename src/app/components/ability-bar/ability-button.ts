@@ -24,10 +24,12 @@ export interface AbilityButtonView {
   state: 'ready' | 'armed' | 'waiting' | 'pending' | 'recharging';
   /** A press does something (arm or leave the targeting mode) */
   enabled: boolean;
-  /** One per completed wave the charge needs, true once done; all true while charged */
-  pips: boolean[];
-  /** Charges on hand for an ability that holds more than one, else null */
-  charges: number | null;
+  /**
+   * A rivet per charge the ability holds, as its fill from 0 to 1: 1 for a
+   * charge on hand, the share of the completed waves the next charge needs
+   * for the one that fills, 0 for the ones after it
+   */
+  rivets: number[];
   /** What the state means: "recharges in 2 waves" */
   status: string;
   /** Accessible name: "Nuclear Strike: recharges in 2 waves" */
@@ -51,17 +53,25 @@ export function abilityButtonView(
   const name = t.abilities[config.id].name;
   const says = t.hud.ability;
   const charged = status.charges > 0;
-  const done = charged ? rechargeWaves : rechargeWaves - status.wavesUntilCharge;
-  const pips = Array.from({ length: rechargeWaves }, (_, i) => i < done);
-  const charges = maxCharges > 1 ? status.charges : null;
+  const rivets = chargeRivets(status.charges, maxCharges, rechargeWaves, status.wavesUntilCharge);
   const view = (state: AbilityButtonView['state'], enabled: boolean, text: string): AbilityButtonView =>
-    ({ state, enabled, pips, charges, status: text, label: says.label(name, text) });
+    ({ state, enabled, rivets, status: text, label: says.label(name, text) });
 
   if (status.pending) return view('pending', false, says.incoming);
   if (charged && targeting) return view('armed', true, says.armed);
   if (charged && waveActive) return view('ready', true, says.ready);
   if (charged) return view('waiting', false, says.waiting);
   return view('recharging', false, says.recharges(status.wavesUntilCharge));
+}
+
+/**
+ * The rivets of an ability button, one per charge it holds, as fills from 0
+ * to 1: the charges on hand full, the next one filled by the completed waves
+ * it needs, the rest empty. A full ability fills every rivet.
+ */
+export function chargeRivets(charges: number, maxCharges: number, rechargeWaves: number, wavesUntilCharge: number): number[] {
+  const next = rechargeWaves > 0 ? Math.min(Math.max((rechargeWaves - wavesUntilCharge) / rechargeWaves, 0), 1) : 0;
+  return Array.from({ length: maxCharges }, (_, i) => (i < charges ? 1 : i === charges ? next : 0));
 }
 
 /**

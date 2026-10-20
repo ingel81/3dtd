@@ -232,6 +232,7 @@ Bei `prefers-reduced-motion` springen alle Übergänge (globale Regel); Animatio
 | `td-menu`, `td-menu-item`, `td-menu-rule` | Hauptmenü: Einträge 48 px, 22 px/600, Symbol in Messing; Fokus und offene Seite (`aria-current`) als erhabene Steinplatte mit Messingtext; steht der Fokus woanders in der Liste, liegt die Platte der offenen Seite flach; Abstand 5 px |
 | `td-topbar`, `td-stat`, `td-sunk`, `td-loc-label`, `td-loc-name`, `td-meter` | Kopfleiste in Basalt 48 px mit Plattenkante; Wert mit tiefer eingeritztem Trenner davor (2 px `--td-sep-dark`, Licht `--td-sep-light`, 4 px Rand oben und unten); vertieftes Ortsfeld mit eingeritzter Kante (als Knopf hellt Hover den Ort); „Defend“ dunkler in Versalien mit Trenner; Ort halbfett; Segmentbalken |
 | `td-crumb` | Schritt des Pfads in einer Kopfleiste (Worlds › Welt › Wahl): eingravierter Text wie die Werkzeuge, gedämpft, 32 px hoch, Hover Messing; der Schritt, auf dem man steht (`aria-current`), in vollem Text und ohne Knopf-Cursor |
+| `td-rivets` | Messingnieten im Steinrand, eine je Ladung (Fähigkeitenknöpfe): `is-on` voll, sonst ein dunkles Loch, in das `--rivet-fill` (0 bis 1) Messing dunkel von links einläuft |
 | `td-wall` (`is-sm`) | Ladebalken als Mauer im Läuferverband, gesetzt von `app-brick-wall` (`components/brick-wall/`): drei Reihen in einem Mörtelbett (`--td-brick-mortar`, `--td-well-shadow`), die mittlere um einen halben Stein versetzt mit Halbsteinen an den Rändern, alle Fugen gleich (3 px). 31 Steine in drei Tönen (`--td-brick`, `-dark`, `-light`, Relief `--td-brick-relief`), gesetzt von unten links nach oben rechts, ein Stein je Stück Fortschritt; ein neuer Stein fällt 6 px in seine Lage (`--td-dur-mid`), der zuletzt gesetzte leuchtet kurz in Messing (`--td-dur-tick`). Reduced motion: kein Fall, der letzte Stein bleibt Messing. `role="progressbar"` mit `aria-valuenow` in Prozent; `is-sm` die niedrige Mauer unter einer Zeile (5 px je Reihe). Steht auf der Ladeplatte, beim Start einer Welt im Menü, beim Erzeugen einer OSM-Karte und beim Empfang der Karte im Coop-Beitritt |
 | `td-progress` (`is-edge`, `is-tick`, `is-teal`) | Fortschrittsbalken in einer Mulde, sein Kind ist die Füllung; `is-edge` 2 px an der Unterkante eines Knopfs oder einer Leiste; `is-tick` folgt einem Sekundenzähler; `is-teal` für eine laufende Welle |
 | `td-globe-mark`, `td-globe-readout` | Weltkugel hinter dem Menü: Punkt und Name eines Ortes (Rekord und Favorit Messing, der ladende Ort Teal mit Ring, zuletzt gespielt matt), die Anzeige oben rechts in Versalien (Ziel Messing, Status Teal); beide mit dem Schatten `--td-over-image` über dem Bild |
@@ -580,8 +581,10 @@ zu niedrig, schrumpft die Leiste und scrollt ohne sichtbare Scrollbar.
 Der Innenabstand (5 px) hält Platz für die Schatten der Steine in der scrollenden Spalte; die Steine stehen 12 px vom
 Kartenrand, 4 px auseinander.
 
-Knopf: `td-icon-btn is-over-map`, 48 px, oben rechts die Taste (`td-caps`), unten ein Strich je Welle bis zur nächsten Ladung
-(Messing, sobald die Welle geschafft ist); mehr als eine Ladung oben links als `td-figure`.
+Knopf: `td-icon-btn is-over-map`, 48 px, oben rechts die Taste (`td-caps`), unten im Steinrand eine Niete je Ladung
+(`td-rivets`, `chargeRivets()`): eine Ladung zur Hand ist Messing (`--td-brass`, `--td-rivet`), die nächste füllt sich
+von links in Messing dunkel um den Anteil der geschafften Wellen, die sie braucht (`--rivet-fill`), die übrigen sind
+dunkel eingelassen (`--td-rivet-hole`). Eine Fähigkeit mit einer Ladung hat eine Niete, die sich in Dritteln füllt.
 
 | Zustand | Darstellung |
 |---------|-------------|
@@ -589,7 +592,7 @@ Knopf: `td-icon-btn is-over-map`, 48 px, oben rechts die Taste (`td-caps`), unte
 | Zielt | gedrückt (`aria-pressed`) |
 | Wartet (keine Welle) | Symbol gedämpft |
 | Unterwegs | Symbol in Warnfarbe |
-| Lädt | Symbol gesperrt, die Striche zählen |
+| Lädt | Symbol gesperrt, die Niete füllt sich |
 
 Der Held-Knopf ist ein Schalter, gedrückt solange gewählt; bis zum Anheuern als Münze. Ohne Wirkung bleibt ein Knopf
 klickbar (`aria-disabled`), die Hinweisbox nennt den Grund ([Ablehnung](#hinweisbox)). Der Tooltip (`tdRichTooltip`)
