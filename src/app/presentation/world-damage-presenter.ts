@@ -85,8 +85,6 @@ export class WorldDamagePresenter {
   /** The HP as the simulation said them last, in the run rules' order */
   private hp = new Int32Array(0);
   private readonly hpListeners = new Set<() => void>();
-  /** Falls on their way to the ground (fell): the timers of their impacts */
-  private readonly landing = new Set<ReturnType<typeof setTimeout>>();
   /** The craters as the simulation said them last, CRATER_STRIDE numbers each */
   private craters = new Int32Array(0);
   private field: StampField | null = null;
@@ -94,6 +92,7 @@ export class WorldDamagePresenter {
   private readonly toLocal: ToLocal;
   private readonly unsubscribe: (() => void) | null;
   private readonly unsubscribeTowers: (() => void) | null;
+  private readonly unsubscribeImpacts: (() => void) | null;
   /** The world's drawn ground under craters and rubble, null where it stays as built */
   private readonly drawn: WorldGroundDamage | null;
 
@@ -106,6 +105,8 @@ export class WorldDamagePresenter {
     this.destruction = engine.world.capabilities.destructible ? engine.world.destruction : null;
     this.drawn = this.destruction?.ground ?? null;
     const drawn = this.drawn;
+    // Each fall as it comes down: its dust
+    this.unsubscribeImpacts = this.destruction?.onImpact?.((index, hit) => this.landed(index, hit)) ?? null;
     this.unsubscribeTowers = drawn && towerSource
       ? towerSource.onTowerChange((change) => {
         const t = change.tower;
@@ -139,7 +140,7 @@ export class WorldDamagePresenter {
       hp: (index: number) => this.hpOf(index),
       // Where and when structure index hits the ground as a ruin falling now would (collapse variants that break on it)
       impact: (index: number) => destruction.impactOf?.(index) ?? null,
-      // How buildings fall from now on (E259): 'tip', 'impact', 'buckle'
+      // How buildings fall from now on (E259): 'auto' (by shape), or all 'tip' or 'cave-in'
       collapse: (v?: CollapseVariant) => {
         if (v) setCollapseVariant(v);
         return collapseVariant();
@@ -298,23 +299,17 @@ export class WorldDamagePresenter {
     const large = Math.max(height, radius) >= DESTRUCTION_SOUNDS.largeFrom;
     this.playAt((large ? sizes.large : sizes.small).id, lat, lon);
     this.playAt(DESTRUCTION_SOUNDS.rubble.id, lat, lon);
-    // Where it hits the ground a moment later (a collapse variant that breaks on it): the dust hides the break
-    const hit = this.destruction.impactOf?.(index);
-    if (hit) {
-      const timer = setTimeout(() => {
-        this.landing.delete(timer);
-        this.landed(index, hit, material);
-      }, hit.delay * 1000);
-      this.landing.add(timer);
-    }
   }
 
   /**
-   * A falling structure hit the ground (`hit`, fell): dust rolling out
-   * along where it lies, grit and pieces of what it was built of thrown up,
-   * the rubble's sound; the shader breaks and crumbles it under that dust
+   * A falling structure came down (`hit`, the world's onImpact, on the
+   * clock its fall is drawn by): dust rolling out along where it lands,
+   * smoke over it, grit and pieces of what it was built of thrown up, the
+   * rubble's sound; under that dust it turns into its ruin
    */
-  private landed(index: number, hit: FallImpactAt, material: RubbleMaterial): void {
+  private landed(index: number, hit: FallImpactAt): void {
+    if (!this.destruction) return;
+    const material = this.destruction.structures()[index]?.material ?? 'plaster';
     const effects = this.engine.effects;
     const half = hit.length / 2;
     const size = Math.max(3, half * 0.8);
@@ -408,8 +403,7 @@ export class WorldDamagePresenter {
   }
 
   destroy(): void {
-    for (const timer of this.landing) clearTimeout(timer);
-    this.landing.clear();
+    this.unsubscribeImpacts?.();
     this.hpListeners.clear();
     this.engine.structureBars?.clear();
     this.unsubscribe?.();

@@ -8,7 +8,7 @@
 //   npx ng serve --port <port>
 //   node e2e/perf/collapse-probe.ts --url http://localhost:<port> --out <dir> [--map ruined-city]
 //        [--ids o4,o1:1:80,o8:auto (id, the side to look from in sixths of a turn or side on to its fall from its left or right, auto or autor, the distance)]
-//        [--variants tip,sag,chunks,tip-break] [--distance 70] [--up 38] [--headed] [--no-video]
+//        [--variants auto,tip,cave-in] [--distance 70] [--up 38] [--headed] [--no-video]
 //        [--shots <dir>: a still of each building at stage 2 and fallen, for the floors inside] [--scan <dir>]
 //        [--cpu: a CPU profile of each fall's first second] [--list-damage: the ruins' shadow programs and meshes]
 //        [--attribs: the programs' attribute slots against the GPU's limit]
@@ -29,7 +29,7 @@ const URL_BASE = argument('url', 'http://localhost:4200');
 const MAP = argument('map', 'ruined-city');
 const OUT = argument('out', 'tmp/collapse-clips');
 const IDS = argument('ids', 'o4').split(',');
-const VARIANTS = argument('variants', 'tip,sag,chunks,tip-break').split(',');
+const VARIANTS = argument('variants', 'auto').split(',');
 const DISTANCE = Number(argument('distance', '70'));
 const UP = Number(argument('up', '38'));
 const SIDE = Number(argument('side', '0.6'));
@@ -196,7 +196,6 @@ for (const spec of IDS) {
   let side = sixth && !sixth.startsWith('auto') ? (Number(sixth) * Math.PI) / 3 : SIDE;
   if (sixth?.startsWith('auto')) {
     // Side on to the fall, a little from the front: where it falls from its ruin's impact (map dx, dy; scene -dx, dy)
-    await call('collapse', 'impact');
     await call('stage', id, 2);
     await page.waitForTimeout(1500);
     const hit = await page.evaluate((i) => (globalThis as unknown as { __worldDamage: { structures(): { id: string }[]; impact(n: number): { dx: number; dy: number } | null } }).__worldDamage.impact(

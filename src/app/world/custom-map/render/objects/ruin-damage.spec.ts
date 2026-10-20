@@ -1,4 +1,4 @@
-import { BoxGeometry, BufferAttribute, CylinderGeometry, Group, InstancedMesh, Mesh, MeshStandardMaterial, PlaneGeometry, type Material } from 'three';
+import { BoxGeometry, CylinderGeometry, Group, InstancedMesh, Mesh, MeshStandardMaterial, PlaneGeometry, type Material } from 'three';
 import { describe, expect, it } from 'vitest';
 import { MASS_ASSET, type MapMass, type MapObject } from '../../map-document';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
@@ -12,8 +12,8 @@ import { modelSection } from './ruin-section';
 import type { CatalogRoof } from '../../object-roof';
 import { CustomMapDestruction } from '../../custom-map-destruction';
 import {
-  anchorCode, anchorPoint, COLLAPSE_VARIANTS, collapseCuts, collapseRoll, collapseSeconds, collapseVariant, fallImpact, fallTiming, DAMAGE_ATTRIBUTES, DAMAGE_LOS, DAMAGE_UNIFORMS, damageArrays, FELL_LONG_AGO,
-  readDamage, ruinGeometry, ruinSeed, ruinShape, sceneHeading, setCollapseVariant, structureSeed, writeDamage, type DamageArrays,
+  COLLAPSE_VARIANTS, collapseCuts, collapseRoll, collapseSeconds, collapseVariant, fallImpact, fallsAsTower, DAMAGE_ATTRIBUTES, DAMAGE_LOS, DAMAGE_UNIFORMS, damageArrays, FELL_LONG_AGO,
+  readDamage, ruinSeed, ruinShape, sceneHeading, setCollapseVariant, structureSeed, writeDamage, type DamageArrays,
 } from './ruin-damage';
 
 const entry = (id: string, category: CatalogObject['category'], file: string, extra: Partial<CatalogObject> = {}): CatalogObject => ({
@@ -406,82 +406,45 @@ describe('ruin damage: the collapse variants', () => {
     expect(collapseCuts(ruinShape(structureSeed('shed'), { ...frame, height: 5 }))).toHaveLength(1);
   });
 
-  it('switches the variant every ruin draws by one uniform, as the window does', () => {
+  it('switches how every ruin falls by one uniform, as the window does: by shape, or all tip, or all cave in', () => {
     const s = ruinShape(structureSeed('v1'), frame);
-    expect(COLLAPSE_VARIANTS).toEqual(['tip', 'impact', 'buckle', 'cave-in']);
-    setCollapseVariant('buckle');
-    expect(DAMAGE_UNIFORMS.uCollapse.value).toBe(2);
-    expect(collapseVariant()).toBe('buckle');
-    expect(collapseSeconds(s)).toBe(fallTiming(s, 2).seconds);
+    expect(COLLAPSE_VARIANTS).toEqual(['auto', 'tip', 'cave-in']);
     setCollapseVariant('tip');
+    expect(DAMAGE_UNIFORMS.uCollapse.value).toBe(1);
+    expect(collapseVariant()).toBe('tip');
+    expect(fallsAsTower(s)).toBe(true);
     expect(collapseSeconds(s)).toBe(s.fallS);
-    expect(fallImpact(s)).toBeNull();
+    setCollapseVariant('cave-in');
+    expect(fallsAsTower(s)).toBe(false);
+    setCollapseVariant('auto');
+    expect(fallsAsTower(s)).toBe(s.tower);
   });
 
-  it('topples slowly then fast and hits the ground past level, a taller one later, a buckle after holding longer', () => {
-    for (let k = 0; k < 50; k++) {
-      const s = ruinShape(structureSeed(`t${k}`), frame);
-      const t = fallTiming(s, 1);
-      // Lies past level by as much as its stump lets it reach the ground: its top on the ground
-      const length = Math.max(s.topY - s.breakY, 2);
-      expect(t.lie).toBeGreaterThan(Math.PI / 2);
-      expect(length * Math.cos(t.lie)).toBeCloseTo(-Math.min(0.9 * length, s.breakY - s.seatY), 5);
-      // As the shader: 0.12 cosh(omega (t - hold)) reaches the angle it lies at at the impact
-      expect(0.12 * Math.cosh(t.omega * (t.impact - t.hold))).toBeCloseTo(t.lie, 6);
-      expect(t.impact).toBeGreaterThan(1);
-      expect(t.impact).toBeLessThan(4);
-      expect(fallTiming(s, 2).impact - t.impact).toBeCloseTo(0.45, 6);
-    }
-    const low = fallTiming(ruinShape(structureSeed('t'), { ...frame, height: 8 }), 1);
-    const high = fallTiming(ruinShape(structureSeed('t'), { ...frame, height: 30 }), 1);
-    expect(high.impact).toBeGreaterThan(low.impact);
+  it('tips a slender tower, caves in every other building, and keeps which in the reach of its attributes', () => {
+    // 18 m high over a ground of 12 by 8 m: a building; over 4 by 4 m: a tower (more than 2.5 times its width)
+    const wide = ruinShape(structureSeed('w'), frame);
+    const slender = ruinShape(structureSeed('w'), { ...frame, ax: 2, bz: 2 });
+    expect([wide.tower, slender.tower]).toEqual([false, true]);
+    const arrays = damageArrays(2);
+    writeDamage(arrays, 0, 3, 0, wide);
+    writeDamage(arrays, 1, 3, 0, slender);
+    expect(arrays[2][2]).toBeGreaterThan(0);
+    expect(arrays[2][6]).toBeLessThan(0);
+    expect(readDamage(arrays, 0).tower).toBe(false);
+    expect(readDamage(arrays, 1)).toMatchObject({ tower: true, reach: Math.fround(slender.reach) });
   });
 
-  it('says where and when it hits: the middle of where it lies on its seat, along its heading', () => {
+  it('says where and when it comes down: a cave-in in its footprint as it starts to land, a tower beyond its foot', () => {
     const s = ruinShape(structureSeed('i1'), frame, 0);
-    const hit = fallImpact(s, 1)!;
-    const length = s.topY - s.breakY;
-    expect([hit.dx, hit.dz]).toEqual([1, 0]);
-    expect(hit.x).toBeCloseTo(s.cx + s.reach + length / 2);
-    expect(hit.z).toBeCloseTo(s.cz);
-    expect(hit.y).toBe(s.seatY);
-    expect(hit.length).toBeCloseTo(length);
-    expect(hit.delay).toBe(fallTiming(s, 1).impact);
-  });
-
-  it('gives a model ruin its triangles on corners of their own, each carrying its middle', () => {
-    const source = new BoxGeometry(2, 4, 2);
-    const g = ruinGeometry(source);
-    expect(ruinGeometry(source)).toBe(g);
-    const p = g.getAttribute('position');
-    const a = g.getAttribute('aDamageAnchor');
-    expect(g.index).toBeNull();
-    expect(p.count).toBe(source.index!.count);
-    expect(a.itemSize).toBe(1);
-    for (let t = 0; t < p.count; t += 3) {
-      // One code for the triangle's three corners, within a step of its middle
-      expect(a.getX(t + 1)).toBe(a.getX(t));
-      expect(a.getX(t + 2)).toBe(a.getX(t));
-      expect(Math.fround(a.getX(t))).toBe(a.getX(t));
-      const back = anchorPoint(a.getX(t));
-      for (let axis = 0; axis < 3; axis++) {
-        const mid = (p.getComponent(t, axis) + p.getComponent(t + 1, axis) + p.getComponent(t + 2, axis)) / 3;
-        expect(Math.abs(back[axis] - mid)).toBeLessThanOrEqual(0.2 + 1e-6);
-      }
-    }
-    source.dispose();
-  });
-
-  it('rides the anchor as a third value of roughMetal where a merged part has one, no attribute more for its material', () => {
-    const source = new BoxGeometry(2, 2, 2);
-    const n = source.getAttribute('position').count;
-    source.setAttribute('roughMetal', new BufferAttribute(new Float32Array(n * 2).fill(0.5), 2));
-    const g = ruinGeometry(source);
-    const rm = g.getAttribute('roughMetal');
-    expect(rm.itemSize).toBe(3);
-    for (let v = 0; v < rm.count; v++) expect([rm.getX(v), rm.getY(v), rm.getZ(v)]).toEqual([0.5, 0.5, g.getAttribute('aDamageAnchor').getX(v)]);
-    expect(anchorPoint(anchorCode(-51.2, -10, -51.2))).toEqual([-51, -9.8, -51].map((v) => expect.closeTo(v, 5)));
-    source.dispose();
+    const cave = fallImpact(s, 2);
+    expect([cave.x, cave.z, cave.y]).toEqual([s.cx, s.cz, s.seatY]);
+    expect(cave.length).toBeCloseTo(2 * s.reach);
+    // The foot gives 0.35 s, half a second later the first parts reach the floors below them
+    expect(cave.delay).toBeCloseTo(0.85);
+    const tower = fallImpact(s, 1);
+    expect([tower.dx, tower.dz]).toEqual([1, 0]);
+    expect(tower.x).toBeCloseTo(s.cx + s.reach + (s.topY - s.breakY) * 0.4);
+    expect(tower.delay).toBeCloseTo(s.fallS * 0.7);
   });
 });
 

@@ -377,8 +377,7 @@ export class MassLayer {
   private readonly damaged = new Map<string, { stage: number; fallStart: number; heading: number | null }>();
   /** The ruins as last built, with their seats */
   private readonly ruinShapes = new Map<string, { shape: RuinShape; seat: number }>();
-  private ruinRoofDepth: MeshDepthMaterial | null = null;
-  private ruinCapDepth: MeshDepthMaterial | null = null;
+  private ruinDepth: MeshDepthMaterial | null = null;
   private ruinWallDepth: MeshDepthMaterial | null = null;
   private surfaces: Map<string, Surface> | null = null;
   private loading: Promise<Map<string, Surface> | null> | null = null;
@@ -543,8 +542,7 @@ export class MassLayer {
     for (const m of this.materials.values()) m.dispose();
     this.materials.clear();
     this.depthMaterial.dispose();
-    this.ruinRoofDepth?.dispose();
-    this.ruinCapDepth?.dispose();
+    this.ruinDepth?.dispose();
     this.ruinWallDepth?.dispose();
     this.group.removeFromParent();
   }
@@ -689,7 +687,7 @@ export class MassLayer {
       geometry.setAttribute('aWallB', new InstancedBufferAttribute(b, 4));
       geometry.userData['owned'] = true;
       const mesh = new InstancedMesh(geometry, this.wallMaterial(facade, surface, surfaces.get('mass-plinth'), ruin), count);
-      mesh.customDepthMaterial = ruin ? (this.ruinWallDepth ??= damageDepthMaterial('mass-wall', 'attribute vec4 aWallB;', GABLE_GLSL, WALL_ANCHOR)) : this.depthMaterial;
+      mesh.customDepthMaterial = ruin ? (this.ruinWallDepth ??= damageDepthMaterial('mass-wall', 'attribute vec4 aWallB;', GABLE_GLSL)) : this.depthMaterial;
       walls.set(facade, { batch: { mesh, owners: [] }, a, b, damage: damageOf(mesh, count), n: 0 });
     }
     const roofs = new Map<Covering, { batch: Batch; uv: Float32Array; damage: DamageArrays | null; n: number }>();
@@ -699,7 +697,7 @@ export class MassLayer {
       const geometry = UNIT_TRIANGLE.clone();
       geometry.userData['owned'] = true;
       const mesh = new InstancedMesh(geometry, this.roofMaterial(covering, surface, ruin), count);
-      if (ruin) mesh.customDepthMaterial = this.ruinRoofDepth ??= damageDepthMaterial('mass-roof', '', '', ROOF_ANCHOR);
+      if (ruin) mesh.customDepthMaterial = this.ruinDepth ??= damageDepthMaterial('mass');
       const uv = new Float32Array(count * 6);
       roofs.set(covering, { batch: { mesh, owners: [] }, uv, damage: damageOf(mesh, count), n: 0 });
     }
@@ -710,7 +708,7 @@ export class MassLayer {
       const geometry = ruin ? UNIT_FLAT.clone() : UNIT_FLAT;
       if (ruin) geometry.userData['owned'] = true;
       const mesh = new InstancedMesh(geometry, this.capMaterial(plinth, ruin), capCount);
-      if (ruin) mesh.customDepthMaterial = this.ruinCapDepth ??= damageDepthMaterial('mass-cap', '', '', CAP_ANCHOR);
+      if (ruin) mesh.customDepthMaterial = this.ruinDepth ??= damageDepthMaterial('mass');
       caps = { batch: { mesh, owners: [] }, damage: damageOf(mesh, capCount), n: 0 };
     }
     const color = new Color();
@@ -889,7 +887,7 @@ export class MassLayer {
     };
     m.customProgramCacheKey = () => `mass-wall-${facade}`;
     addHeightFog(m);
-    if (ruin) asRuin(m, WALL_ANCHOR);
+    if (ruin) asRuin(m);
     this.materials.set(key, m);
     return m;
   }
@@ -912,7 +910,7 @@ export class MassLayer {
     };
     m.customProgramCacheKey = () => `mass-roof-${covering}`;
     addHeightFog(m);
-    if (ruin) asRuin(m, ROOF_ANCHOR);
+    if (ruin) asRuin(m);
     this.materials.set(key, m);
     return m;
   }
@@ -950,20 +948,15 @@ export class MassLayer {
     };
     m.customProgramCacheKey = () => 'mass-cap';
     addHeightFog(m);
-    if (ruin) asRuin(m, CAP_ANCHOR);
+    if (ruin) asRuin(m);
     this.materials.set(key, m);
     return m;
   }
 }
 
-/** The middles of the unit wall, roof triangle and coping: a ruin's instance goes whole with the piece its middle is in */
-const WALL_ANCHOR = [0.5, 0.5, 0] as const;
-const ROOF_ANCHOR = [1 / 3, 0, 1 / 3] as const;
-const CAP_ANCHOR = [0.5, 0, 0.5] as const;
-
-/** A ruin's material: the damage in its shader, its inside drawn (ruin-damage.ts), its instances anchored at `anchor` */
-function asRuin(m: Material, anchor: readonly [number, number, number]): void {
-  addDamage(m, anchor);
+/** A ruin's material: the damage in its shader, its inside drawn (ruin-damage.ts) */
+function asRuin(m: Material): void {
+  addDamage(m);
   m.side = DoubleSide;
 }
 

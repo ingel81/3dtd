@@ -14,7 +14,7 @@ import { addDamage, DAMAGE_ATTRIBUTES, damageArrays, damageDepthMaterial, writeD
  * high-rise has none where it is open; without a grid the rectangle. They
  * are cut by the same damage as the outer walls (ruin-damage.ts) with a
  * smaller bite, so floors and walls jut into the hole a little, and fall
- * with what stands above the break line, each box whole with its piece. A
+ * with what stands above the break line. A
  * whole building hides its insides behind its walls, so only ruins from
  * stage 2 have any, and intact buildings pay nothing for them.
  */
@@ -186,11 +186,10 @@ export class RuinSlabs {
   constructor() {
     // Inside, out of the sky's light: little of the environment
     const material = new MeshStandardMaterial({ roughness: 0.95, metalness: 0, side: DoubleSide, envMapIntensity: 0.3 });
-    // Each box goes whole with the piece its middle is in
-    addDamage(material, [0, 0, 0]);
+    addDamage(material);
     this.mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), material, 1);
     this.mesh.name = 'ruin-slabs';
-    this.mesh.customDepthMaterial = damageDepthMaterial('slab', '', '', [0, 0, 0]);
+    this.mesh.customDepthMaterial = damageDepthMaterial('slab');
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
     this.mesh.frustumCulled = false;

@@ -249,6 +249,7 @@ export class CustomMapWorld implements WorldProvider {
       ...(this.structuresFall ? { ruins: true, standingGround: this.map.doc.terrain.grid } : {}),
     });
     this.view = view;
+    view.onImpact = (id, hit) => this.destruction?.impacted(id, hit);
     // Stages that came before the view: the ruins as they lie
     if (this.stages.size) view.setObjectDamage([...this.stages].map(([id, s]) => ({ id, stage: s.stage, heading: s.heading, now: false })));
     if (this.quality) view.applyQuality(this.quality);

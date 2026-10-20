@@ -49,7 +49,7 @@ import { rubbleMaterialOf } from '../../rubble-material';
 import { RuinSlabs, type RuinFootprint } from './ruin-slabs';
 import { modelSection } from './ruin-section';
 import type { CatalogRoof } from '../../object-roof';
-import { addDamage, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, fallImpact, FELL_LONG_AGO, readDamage, RUIN_EMBERS, ruinGeometry, ruinSeed, ruinShape, writeDamage, type DamageArrays } from './ruin-damage';
+import { addDamage, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, fallImpact, FELL_LONG_AGO, readDamage, RUIN_EMBERS, ruinSeed, ruinShape, writeDamage, type DamageArrays } from './ruin-damage';
 
 /**
  * The placed objects of a map, drawn instanced: per asset, detail level and
@@ -500,11 +500,8 @@ export class MapObjectLayer {
   }
 
   /** Where the newest ruins from stage 2 smoulder, a dozen at most (group space) */
-  /**
-   * Where and when ruin `id` hits the ground as it falls now (fallImpact,
-   * group frame), null for one not drawn as a ruin or falling in `tip`
-   */
-  impactOf(id: string): ReturnType<typeof fallImpact> {
+  /** Where and when ruin `id` comes down as it falls now (fallImpact, group frame), null for one not drawn as a ruin */
+  impactOf(id: string): ReturnType<typeof fallImpact> | null {
     const raised = this.masses.ruinShapeOf(id);
     if (raised) return fallImpact(raised);
     const slot = this.byId.get(id);
@@ -834,8 +831,7 @@ export class MapObjectLayer {
     const entry = model.entry;
     const drawn = (m: ObjectModel) =>
       mergedParts(m).map((p) => ({
-        // A ruin's triangles each on their own corners, which know the triangle's middle (the collapse's pieces)
-        geometry: ruin ? ruinGeometry(p.geometry) : p.geometry,
+        geometry: p.geometry,
         material: this.objectMaterial(p.material, entry, ruin),
         depthMaterial: ruin ? this.ruinDepthMaterial() : isRotor(p.material) ? this.rotorShadow(entry) : undefined,
       }));

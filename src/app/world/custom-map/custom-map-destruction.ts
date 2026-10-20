@@ -177,6 +177,19 @@ export class CustomMapDestruction implements WorldDestruction {
     return s ? this.impact(s.id) : null;
   }
 
+  private readonly impactListeners = new Set<(index: number, hit: FallImpactAt) => void>();
+
+  onImpact(listener: (index: number, hit: FallImpactAt) => void): () => void {
+    this.impactListeners.add(listener);
+    return () => this.impactListeners.delete(listener);
+  }
+
+  /** Object `id`, falling, came down now (the view's clock): the listeners hear it by its index */
+  impacted(id: string, hit: FallImpactAt): void {
+    const index = this.list.findIndex((s) => s.id === id);
+    if (index >= 0) for (const listener of this.impactListeners) listener(index, hit);
+  }
+
   private change(i: number, stage: StructureStage, heading: number, changes: StageChange[]): void {
     const s = this.list[i];
     if (stage !== s.stage || heading !== s.heading) changes.push({ object: s.object, stage, heading, was: s.stage });

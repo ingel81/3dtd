@@ -1,4 +1,4 @@
-import { BufferAttribute, MeshDepthMaterial, RGBADepthPacking, type BufferGeometry, type Material, type Texture } from 'three';
+import { MeshDepthMaterial, RGBADepthPacking, type Material, type Texture } from 'three';
 import type { LosVertexPatch } from '../../../../three-engine/tower-shadow-mapper';
 import { STRUCTURE_HEADING_STEPS } from '../../../../configs/destruction.config';
 import { CRACK_TILE_M, crackTexture } from './crack-texture';
@@ -15,21 +15,17 @@ import { CRACK_TILE_M, crackTexture } from './crack-texture';
  * - stage 2: a bite out of a top corner, its edge ragged, charred and
  *   glowing in places; the inside shows its walls dimmed (the ruin's
  *   meshes are double-sided, intact buildings never are)
- * - stage 3: what stands above a ragged break line falls (from `fallStart`
- *   on the view's clock, uDamageTime) and is gone once it lies; the stump
- *   stays, cut along the break line. How it falls is one of the collapse
- *   variants (COLLAPSE_VARIANTS, uCollapse, E259), all in the vertex shader
- *   from the instance's numbers and the clock: `tip` (as before) tips whole
- *   about the foot of the side it gives way to and sinks; `impact` gives
- *   at the foot, tips under its weight slowly then fast, its upper storeys
- *   lagging, hits the ground, rebounds, breaks where it hit into the bands
- *   of collapseCuts and crumbles under the dust of the impact; `buckle`
- *   first sags and shudders at the break line, then falls as `impact`. A piece is chosen per triangle from its anchor (a
- *   model's triangle middle packed into one float, ruinGeometry; an
- *   instance's middle for the raised walls, roofs and slabs, a constant of
- *   their material), so a triangle goes whole with one piece.
- *   The triangles that cross the break line go while it falls, the dust
- *   hides it
+ * - stage 3 (from `fallStart` on the view's clock, uDamageTime): a building
+ *   caves in on itself (E259): a ragged break line low inside and rising
+ *   steeply to the walls (lower on the side of the hit); the foot gives
+ *   with a shudder, then everything above the line falls straight down and
+ *   a little inwards, heavily, and is gone where it lands: on the highest
+ *   floor under the line (through up to two of them in patches of 4 m) or
+ *   the ground. A slender tower (RuinShape.tower) tips instead, whole,
+ *   about the foot of the side it gives way to, and sinks. A triangle is
+ *   drawn only while all its corners fall alike: nothing stretches, the
+ *   rims follow the mesh; the dust of the impact (fallImpact, the view)
+ *   hides the change
  *
  * Every number comes from the structure's id (`structureSeed`) and its
  * frame, so every partner and every replay sees the same ruin. The shapes
@@ -41,90 +37,64 @@ import { CRACK_TILE_M, crackTexture } from './crack-texture';
 export const FELL_LONG_AGO = -1e6;
 
 /**
- * How a building falls (E259, for the user to choose; the window
- * Destruction switches them): `tip` as before (sinks), `impact` tips under
- * its weight and breaks on the ground, `buckle` gives way first, then as
- * `impact`; `cave-in` (E259 round 3, a prototype) sinks into itself: a
- * ragged break line low inside and high at the walls, everything above it
- * falls straight down drawn inwards and vanishes on a floor or the ground
+ * How buildings fall, for the developer's comparison (the window
+ * Destruction): `auto` by their shape (a slender tower tips, every other
+ * building caves in), or all of them `tip` or `cave-in`
  */
-export const COLLAPSE_VARIANTS = ['tip', 'impact', 'buckle', 'cave-in'] as const;
+export const COLLAPSE_VARIANTS = ['auto', 'tip', 'cave-in'] as const;
 export type CollapseVariant = (typeof COLLAPSE_VARIANTS)[number];
 
-/** Shared by every view: the clock falls run on (s), the cracks, the collapse variant (its index) */
+/** Shared by every view: the clock falls run on (s), the cracks, the collapse mode (its index) */
 export const DAMAGE_UNIFORMS: { uDamageTime: { value: number }; uCrackMap: { value: Texture | null }; uCollapse: { value: number } } = {
   uDamageTime: { value: 0 },
   uCrackMap: { value: null },
   uCollapse: { value: 0 },
 };
 
-/** The collapse variant every view draws from now on (a uniform: no program changes) */
+/** The collapse mode every view draws from now on (a uniform: no program changes) */
 export function setCollapseVariant(v: CollapseVariant): void {
   DAMAGE_UNIFORMS.uCollapse.value = Math.max(0, COLLAPSE_VARIANTS.indexOf(v));
 }
 
 export function collapseVariant(): CollapseVariant {
-  return COLLAPSE_VARIANTS[DAMAGE_UNIFORMS.uCollapse.value] ?? 'tip';
+  return COLLAPSE_VARIANTS[DAMAGE_UNIFORMS.uCollapse.value] ?? 'auto';
 }
 
-/**
- * How a ruin topples in `impact` and `buckle` (dmgTiming in the shader, the
- * same numbers): it holds `hold` seconds while the foot gives, then tips
- * under its weight, the angle `TILT0` times cosh(`omega` t), as a rod about
- * its foot does (omega from its length, quickened), until it lies at `lie`
- * (past level by as much as its stump lets it reach the ground) at
- * `impact` seconds; it rebounds, breaks and crumbles until `seconds`
- */
-export interface FallTiming {
-  hold: number;
-  omega: number;
-  lie: number;
-  impact: number;
-  seconds: number;
+/** A tower tips where its height is more than this many times its narrower width */
+const TOWER_SLENDER = 2.5;
+/** A cave-in: the seconds its foot gives (with a shudder), how heavily it falls then (m/s², drop = g t²), its seconds at most */
+const CAVE_HOLD = 0.35;
+const CAVE_FALL = 2.6;
+const CAVE_SECONDS = 4.5;
+
+/** Whether a ruin tips (a tower) or caves in, in collapse mode `v` (its index; dmgTower in the shader) */
+export function fallsAsTower(s: RuinShape, v: number = DAMAGE_UNIFORMS.uCollapse.value): boolean {
+  return v > 1.5 ? false : v > 0.5 ? true : s.tower;
 }
 
-/** The angle a toppling ruin leaves its foot with, radians */
-const TILT0 = 0.12;
-/** After the impact: the rebound, the break and the crumbling under the dust, s */
-const AFTER_IMPACT = 2.4;
-
-export function fallTiming(s: RuinShape, v: number = DAMAGE_UNIFORMS.uCollapse.value): FallTiming {
-  const hold = v > 1.5 ? 0.75 : 0.3;
-  const length = Math.max(Math.fround(s.topY) - Math.fround(s.breakY), 2);
-  const stump = Math.max(0, s.breakY - s.seatY);
-  const omega = 1.4 * Math.sqrt(14.715 / length);
-  const lie = Math.PI / 2 + Math.asin(Math.min(0.9, stump / length));
-  const impact = hold + Math.acosh(lie / TILT0) / omega;
-  return { hold, omega, lie, impact, seconds: impact + AFTER_IMPACT };
-}
-
-/** Seconds a cave-in takes: the highest part falls until it lands (dmgCaveFall) */
-const CAVE_SECONDS = 3.2;
-
-/** Seconds a ruin's fall takes in variant `v` (its index): `tip` its fallS, a cave-in CAVE_SECONDS, the others until crumbled (fallTiming) */
+/** Seconds a ruin's fall takes: a tower's fallS, a cave-in CAVE_SECONDS (damageDuration in the shader) */
 export function collapseSeconds(s: RuinShape, v: number = DAMAGE_UNIFORMS.uCollapse.value): number {
-  return v < 0.5 ? s.fallS : v > 2.5 ? CAVE_SECONDS : fallTiming(s, v).seconds;
+  return fallsAsTower(s, v) ? s.fallS : CAVE_SECONDS;
 }
 
 /**
- * Where and when a ruin falling in variant `v` hits the ground (group
- * frame): the middle of where it lies, its length along the heading, the
- * seconds after the fall's start; null for `tip`, which sinks
+ * Where and when a falling ruin comes down (group frame): the middle of
+ * where it lands, its length along the heading, the seconds after the
+ * fall's start. A cave-in lands in its own footprint as its first parts
+ * reach the floors below them (half a second after its foot gave); a tower
+ * beyond its foot, most of the way down
  */
 export function fallImpact(
   s: RuinShape, v: number = DAMAGE_UNIFORMS.uCollapse.value,
-): { x: number; y: number; z: number; dx: number; dz: number; length: number; delay: number } | null {
-  if (v < 0.5) return null;
-  if (v > 2.5) {
-    // A cave-in lands in its own footprint, most of it within the first second
-    return { x: s.cx, y: s.seatY, z: s.cz, dx: Math.cos(s.heading), dz: Math.sin(s.heading), length: 2 * s.reach, delay: 0.7 };
-  }
-  const t = fallTiming(s, v);
-  const length = Math.max(s.topY - s.breakY, 2);
-  const along = s.reach + length * 0.5;
+): { x: number; y: number; z: number; dx: number; dz: number; length: number; delay: number } {
   const dx = Math.cos(s.heading);
   const dz = Math.sin(s.heading);
-  return { x: s.cx + dx * along, y: s.seatY, z: s.cz + dz * along, dx, dz, length, delay: t.impact };
+  const upper = Math.max(2, s.topY - s.breakY);
+  if (fallsAsTower(s, v)) {
+    const along = s.reach + upper * 0.4;
+    return { x: s.cx + dx * along, y: s.seatY, z: s.cz + dz * along, dx, dz, length: upper, delay: s.fallS * 0.7 };
+  }
+  return { x: s.cx, y: s.seatY, z: s.cz, dx, dz, length: 2 * s.reach, delay: CAVE_HOLD + 0.5 };
 }
 
 /** A building's footing in the layer's group frame: its middle, two half axes of its ground rectangle, its seat and height */
@@ -156,10 +126,12 @@ export interface RuinShape {
   reach: number;
   /** Seconds the fall takes in the variant `tip` (collapseSeconds for the others) */
   fallS: number;
-  /** The seat and the top (scene y), and a roll 0 to 1 the collapse variants vary each building by */
+  /** The seat and the top (scene y), and a roll 0 to 1 each building's cave-in is varied by */
   seatY: number;
   topY: number;
   roll: number;
+  /** Slender: it tips about its foot instead of caving in (TOWER_SLENDER) */
+  tower: boolean;
 }
 
 /** A number per structure id (FNV-1a), which the ruin is rolled from */
@@ -228,6 +200,7 @@ export function ruinShape(seed: number, f: RuinFrame, heading: number | null = n
     topY: f.seatY + h,
     // As aDamage holds it (writeDamage): the shader and collapseCuts read the same number
     roll: Math.floor(roll(seed, 4) * ROLL_STEPS) / ROLL_STEPS,
+    tower: h > TOWER_SLENDER * 2 * Math.min(lenA, lenB),
   };
 }
 
@@ -238,24 +211,20 @@ const ROLL_STEPS = 4096;
 const STUMP_STEPS = 64;
 const BITE_SPAN = 8;
 
-/** Multipliers of a ruin's roll, one per collapse roll (dmgRoll in the shader) */
+/** Multipliers of a ruin's roll, one per collapse roll */
 const COLLAPSE_PRIMES = [1, 7, 13, 29, 41, 53, 67, 79, 97];
 
-/**
- * The k-th of a ruin's rolls for the collapse variants, 0 to 1, as the
- * shader works it out (dmgRoll): plain arithmetic on the roll, so float and
- * double agree
- */
+/** The k-th of a ruin's rolls, 0 to 1: plain arithmetic on the roll, as a shader would do it */
 export function collapseRoll(roll: number, k: number): number {
   const v = roll * COLLAPSE_PRIMES[k] + k * 0.618;
   return v - Math.floor(v);
 }
 
 /**
- * The heights (scene y, rising) where a fallen building's upper part comes
- * apart in the variants that break it across (`chunks` above its middle,
- * `tip-break` in bands), as the shader cuts them: a raised building's walls
- * are split there, so each piece of wall lies in one piece
+ * The heights (scene y, rising) where a fallen raised building's walls are
+ * split besides its break line: corners at these heights let the upper
+ * walls fall in pieces as the cave-in's line passes them (a wall is a quad,
+ * and a triangle only falls whole)
  */
 export function collapseCuts(s: RuinShape): number[] {
   const hu = Math.max(1, s.topY - s.breakY);
@@ -285,7 +254,8 @@ export function damageArrays(n: number): DamageArrays {
 /**
  * One object's damage at `i`: aDamage (stage plus a quarter of the roll,
  * fall start, heading, break height), aDamageB (bite centre; its radius
- * plus 8 times the stump in 1/64 m), aDamageC (middle x, z, reach, top).
+ * plus 8 times the stump in 1/64 m), aDamageC (middle x, z, reach, top;
+ * the reach negative for a tower).
  * The fall's seconds come from the height (ruinShape, dmgFallS)
  */
 export function writeDamage([a, b, c]: DamageArrays, i: number, stage: number, fallStart: number, s: RuinShape): void {
@@ -300,7 +270,7 @@ export function writeDamage([a, b, c]: DamageArrays, i: number, stage: number, f
   b[at + 3] = Math.min(s.biteR, BITE_SPAN - 0.01) + BITE_SPAN * Math.round(Math.max(0, s.breakY - s.seatY) * STUMP_STEPS);
   c[at] = s.cx;
   c[at + 1] = s.cz;
-  c[at + 2] = s.reach;
+  c[at + 2] = Math.max(0.01, s.reach) * (s.tower ? -1 : 1);
   c[at + 3] = s.topY;
 }
 
@@ -335,65 +305,13 @@ export function readDamage([a, b, c]: DamageArrays, i: number): RuinShape {
     biteR: b[at + 3] % BITE_SPAN,
     cx: c[at],
     cz: c[at + 1],
-    reach: c[at + 2],
+    reach: Math.abs(c[at + 2]),
     fallS: fallSeconds(c[at + 3] - seatY),
     roll: (a[at] - Math.floor(a[at])) * 4,
     seatY,
     topY: c[at + 3],
+    tower: c[at + 2] < 0,
   };
-}
-
-/** A model triangle's middle packed into one float (anchorCode): 0.4 m steps from (-51.2, -10, -51.2), 256 a side */
-const ANCHOR_STEP = 0.4;
-const ANCHOR_ORIGIN = [-51.2, -10, -51.2] as const;
-
-/** A point of a model (its own metres) as one float, x + 256 y + 65536 z steps: exact in a float's 24 bits */
-export function anchorCode(x: number, y: number, z: number): number {
-  const step = (v: number, k: number) => Math.min(255, Math.max(0, Math.floor((v - ANCHOR_ORIGIN[k]) / ANCHOR_STEP)));
-  return step(x, 0) + 256 * step(y, 1) + 65536 * step(z, 2);
-}
-
-/** The middle of the step of a point anchorCode packed (dmgAnchorLocal in the shader) */
-export function anchorPoint(code: number): [number, number, number] {
-  const z = Math.floor(code / 65536);
-  const y = Math.floor((code - z * 65536) / 256);
-  const x = code - z * 65536 - y * 256;
-  return [x, y, z].map((v, k) => ANCHOR_ORIGIN[k] + (v + 0.5) * ANCHOR_STEP) as [number, number, number];
-}
-
-const anchored = new WeakMap<BufferGeometry, BufferGeometry>();
-
-/**
- * A model's geometry as a ruin draws it: each triangle on corners of its
- * own, which carry its middle (anchorCode), so a collapse variant moves the
- * triangle whole with the piece its middle lies in. The middle rides as a
- * third value of `roughMetal` where the part has one (merged parts: its
- * material reads that, no attribute slot more) and in `aDamageAnchor` (the
- * shadow's depth material reads that). Made once per geometry, freed with it
- */
-export function ruinGeometry(source: BufferGeometry): BufferGeometry {
-  const known = anchored.get(source);
-  if (known) return known;
-  const g = source.index ? source.toNonIndexed() : source.clone();
-  const p = g.getAttribute('position');
-  const codes = new Float32Array(p.count);
-  for (let v = 0; v + 2 < p.count; v += 3) {
-    const mid = (axis: number) => (p.getComponent(v, axis) + p.getComponent(v + 1, axis) + p.getComponent(v + 2, axis)) / 3;
-    codes[v] = codes[v + 1] = codes[v + 2] = anchorCode(mid(0), mid(1), mid(2));
-  }
-  g.setAttribute('aDamageAnchor', new BufferAttribute(codes, 1));
-  const rm = g.getAttribute('roughMetal');
-  if (rm) {
-    const packed = new Float32Array(rm.count * 3);
-    for (let v = 0; v < rm.count; v++) packed.set([rm.getX(v), rm.getY(v), codes[v]], v * 3);
-    g.setAttribute('roughMetal', new BufferAttribute(packed, 3));
-  }
-  anchored.set(source, g);
-  source.addEventListener('dispose', () => {
-    g.dispose();
-    anchored.delete(source);
-  });
-  return g;
 }
 
 const VARYINGS = /* glsl */ `
@@ -422,17 +340,16 @@ float dmgSeat(vec4 a, vec4 b) {
 float dmgFallS(vec4 a, vec4 b, vec4 c) {
   return clamp(1.2 + (c.w - dmgSeat(a, b)) * 0.06, 1.2, 2.5);
 }
-// fallTiming: (hold, omega, lie, impact)
-vec4 dmgTiming(vec4 a, vec4 b, vec4 c) {
-  float hold = uCollapse > 1.5 ? 0.75 : 0.3;
-  float len = max(c.w - a.w, 2.0);
-  float omega = 1.4 * sqrt(14.715 / len);
-  float lie = 1.5708 + asin(min(0.9, max(0.0, a.w - dmgSeat(a, b)) / len));
-  return vec4(hold, omega, lie, hold + acosh(lie / ${TILT0.toFixed(2)}) / omega);
+// Whether this ruin tips (fallsAsTower), and its reach (the sign is the tower's flag)
+bool dmgTower(vec4 c) {
+  return uCollapse > 1.5 ? false : uCollapse > 0.5 ? true : c.z < 0.0;
+}
+float dmgReach(vec4 c) {
+  return abs(c.z);
 }
 // collapseSeconds
 float damageDuration(vec4 a, vec4 b, vec4 c) {
-  return uCollapse < 0.5 ? dmgFallS(a, b, c) : uCollapse > 2.5 ? ${CAVE_SECONDS.toFixed(2)} : dmgTiming(a, b, c).w + ${AFTER_IMPACT.toFixed(2)};
+  return dmgTower(c) ? dmgFallS(a, b, c) : ${CAVE_SECONDS.toFixed(2)};
 }
 float dmgHash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -443,21 +360,23 @@ float dmgNoise(vec2 p) {
   f = f * f * (3.0 - 2.0 * f);
   return mix(mix(dmgHash(i), dmgHash(i + vec2(1.0, 0.0)), f.x), mix(dmgHash(i + vec2(0.0, 1.0)), dmgHash(i + vec2(1.0, 1.0)), f.x), f.y);
 }
-// cave-in: the break line, low ragged stumps inside rising steeply to the walls, the walls on the side of the hit
-// (against the heading) lower; its rim ragged by angle only, so nothing stays standing as an island
+// cave-in: the break line, low ragged stumps inside rising steeply to the walls (6 m and a quarter of the height
+// over the seat at most), those on the side of the hit (against the heading) lower; its rim ragged by angle only,
+// so nothing stays standing as an island
 float dmgCaveCut(vec3 p, vec4 a, vec4 b, vec4 c) {
   float seat = dmgSeat(a, b);
   float roll = dmgRollOf(a) * 17.0;
   vec2 off = p.xz - c.xy;
   float dist = length(off);
   vec2 dir = off / max(dist, 1e-3);
-  float r = dist / max(c.z, 1.0);
+  float r = dist / max(dmgReach(c), 1.0);
   float rn = r + (dmgNoise(dir * 0.9 + 10.0 + roll) - 0.5) * 0.45 + (dmgNoise(dir * 3.5 + 20.0 + roll) - 0.5) * 0.06;
   float stump = max(1.2, a.w - seat);
   float cut = seat + max(1.2, stump * (0.25 + 1.0 * dmgNoise(p.xz / 4.0 + roll) + 0.35 * dmgNoise(p.xz / 1.1 + roll * 2.0)));
   float outer = max(0.0, (rn - 0.55) / 0.4);
   float away = 0.55 + 0.45 * dot(dir, vec2(cos(a.z), sin(a.z)));
-  return cut + outer * outer * (c.w - seat) * away;
+  float walls = min(c.w - seat, 6.0 + 0.25 * (c.w - seat));
+  return cut + outer * outer * walls * away;
 }
 // cave-in: where a falling part comes to rest, the highest floor (a storey of 3 m) under the break line, through up
 // to two of them in patches of 4 m; else the ground
@@ -478,18 +397,6 @@ attribute vec4 aDamageC;
 uniform float uDamageTime;
 ${COLLAPSE_PARS}
 ${VARYINGS}
-// A model triangle's middle back from its code (anchorPoint)
-vec3 dmgAnchorLocal(float code) {
-  float z = floor((code + 0.5) / 65536.0);
-  float r = code - z * 65536.0;
-  float y = floor((r + 0.5) / 256.0);
-  float x = r - y * 256.0;
-  return vec3(${ANCHOR_ORIGIN[0].toFixed(1)}, ${ANCHOR_ORIGIN[1].toFixed(1)}, ${ANCHOR_ORIGIN[2].toFixed(1)}) + (vec3(x, y, z) + 0.5) * ${ANCHOR_STEP.toFixed(1)};
-}
-// A roll of the ruin, 0 to 1 (collapseRoll: k and its multiplier)
-float dmgRoll(float prime, float k) {
-  return fract(dmgRollOf(aDamage) * prime + k * 0.618);
-}
 vec3 dmgAt(vec2 xz, float y) {
   return vec3(xz.x, y, xz.y);
 }
@@ -511,81 +418,38 @@ mat4 dmgTip(vec3 pivot, vec2 d, float th) {
 // tip: whole about the foot of the side it gives way to, sinking as it goes
 mat4 dmgFallTip(float t) {
   vec2 d = vec2(cos(aDamage.z), sin(aDamage.z));
-  vec3 pivot = dmgAt(aDamageC.xy + d * aDamageC.z, aDamage.w);
+  vec3 pivot = dmgAt(aDamageC.xy + d * dmgReach(aDamageC), aDamage.w);
   return dmgShift(vec3(0.0, -2.5 * t * t, 0.0)) * dmgTip(pivot, d, 1.4 * t * t);
 }
-// impact and buckle: the foot gives (a buckle sags further, slides back and shudders), it tips under its weight,
-// slowly then fast, the upper storeys lagging (it bends, straight again once it lies), hits the ground past level,
-// rebounds; where it hit it breaks into the bands of collapseCuts, those beyond the first slide on and apart with
-// a hop, and it settles into the dust while the fragment crumbles it
-vec3 dmgImpact(vec3 p, vec3 anchor, float s) {
-  bool buckle = uCollapse > 1.5;
-  vec4 tm = dmgTiming(aDamage, aDamageB, aDamageC);
-  vec2 d = vec2(cos(aDamage.z), sin(aDamage.z));
-  float base = aDamage.w;
-  float stump = max(0.0, base - dmgSeat(aDamage, aDamageB));
-  float len = max(aDamageC.w - base, 2.0);
-  float give = smoothstep(0.0, tm.x, s);
-  vec2 back = buckle ? -d * 0.35 * give : vec2(0.0);
-  vec3 shift = vec3(back.x, -(buckle ? min(1.2, 0.3 * stump) : min(0.4, 0.12 * stump)) * give, back.y);
-  float th = s < tm.x
-    ? ${TILT0.toFixed(2)} * (s / tm.x) * (s / tm.x) + (buckle ? 0.012 * sin(s * 31.0) * give : 0.0)
-    : min(tm.z, ${TILT0.toFixed(2)} * cosh(tm.y * (s - tm.x)));
-  float bend = (buckle ? 0.28 : 0.15) * clamp((p.y - base) / len, 0.0, 1.0) * sin(3.14159 * clamp(th / tm.z, 0.0, 1.0));
-  float k = s - tm.w;
-  if (k > 0.0) {
-    float j = min(k / 0.35, 1.0);
-    th = tm.z - 0.05 * sin(j * 3.14159) * (1.0 - j);
-    bend = 0.0;
-    // The bands past the cuts its anchor lies over (collapseCuts)
-    float hu = max(1.0, aDamageC.w - base);
-    float n = step(base + hu * (0.45 + 0.2 * dmgRoll(29.0, 3.0)), anchor.y);
-    if (hu > 4.0) n += step(base + hu * (0.38 + 0.14 * dmgRoll(7.0, 1.0)), anchor.y);
-    if (hu > 9.0) n += step(base + hu * (0.68 + 0.12 * dmgRoll(13.0, 2.0)), anchor.y);
-    float e = smoothstep(0.0, 0.3, k);
-    vec2 across = vec2(-d.y, d.x);
-    vec2 slide = (d * (0.8 + 0.8 * dmgRoll(53.0 + n, 5.0)) + across * (dmgRoll(41.0 + n, 4.0) - 0.5) * 1.2) * n * e;
-    shift += vec3(slide.x, 0.4 * n * sin(min(k / 0.4, 1.0) * 3.14159) - 0.6 * smoothstep(0.8, ${AFTER_IMPACT.toFixed(2)}, k), slide.y);
-    // Each band beyond the first rolls a little about the line it lies along, on the ground where it lies
-    if (n > 0.5) {
-      vec3 pivot = dmgAt(aDamageC.xy + d * aDamageC.z, base);
-      vec3 ground = dmgAt(aDamageC.xy + d * (aDamageC.z + len * (n + 0.5) / 4.0), dmgSeat(aDamage, aDamageB));
-      mat4 lying = dmgShift(shift) * dmgTip(pivot, d, th);
-      return (dmgTip(ground + vec3(slide.x, 0.0, slide.y), across, (dmgRoll(67.0 + n, 6.0) - 0.5) * 0.5 * e) * lying * vec4(p, 1.0)).xyz;
-    }
-  }
-  vec3 pivot = dmgAt(aDamageC.xy + d * aDamageC.z, base);
-  return (dmgShift(shift) * dmgTip(pivot, d, th * (1.0 - bend)) * vec4(p, 1.0)).xyz;
-}
-// cave-in: what stands above the break line falls as one, straight down and a little inwards (one motion: no
-// triangle stretches), until it reaches where it lands (dmgCaveLanding) and is gone (vDmgFall 0: the fragment
-// draws it only while every corner falls)
+// cave-in: what stands above the break line falls as one (one motion: no triangle stretches): the foot gives a
+// quarter metre with a shudder, then it comes down heavily, straight and a little inwards, until it reaches where it
+// lands (dmgCaveLanding) and is gone (vDmgFall 0: the fragment draws it only while every corner falls)
 vec3 dmgCaveFall(vec3 p) {
   float s = uDamageTime - aDamage.y;
   if (s <= 0.0 || s >= ${CAVE_SECONDS.toFixed(2)}) return p;
   float cut = dmgCaveCut(p, aDamage, aDamageB, aDamageC);
   if (p.y <= cut) return p;
-  float drop = 4.9 * s * s;
+  float give = smoothstep(0.0, ${CAVE_HOLD.toFixed(2)}, s);
+  float f = max(0.0, s - ${CAVE_HOLD.toFixed(2)});
+  float drop = 0.25 * give + 0.03 * sin(s * 47.0) * (1.0 - give) + ${CAVE_FALL.toFixed(2)} * f * f;
   if (p.y - drop < dmgCaveLanding(p, cut, aDamage, aDamageB, aDamageC) + 0.3) return p;
   vDmgFall = 1.0;
-  vec2 inward = (aDamageC.xy - p.xz) * min(0.25, 0.08 * s);
+  vec2 inward = (aDamageC.xy - p.xz) * min(0.25, 0.08 * f);
   return p + vec3(inward.x, -drop, inward.y);
 }
-// Where a point of the ruin is drawn (group frame): at rest, or with its piece (that of its anchor) as it falls.
-// In impact and buckle a triangle across the break line goes whole with the side its anchor is on
-vec3 damageMove(vec3 p, vec3 anchor) {
+// Where a point of the ruin is drawn (group frame): at rest, or as it falls
+vec3 damageMove(vec3 p) {
   if (aDamage.x < 2.5) return p;
-  if (uCollapse > 2.5) return dmgCaveFall(p);
-  if ((uCollapse > 0.5 ? anchor.y : p.y) < aDamage.w) return p;
+  if (!dmgTower(aDamageC)) return dmgCaveFall(p);
+  if (p.y < aDamage.w) return p;
   float s = uDamageTime - aDamage.y;
   float dur = damageDuration(aDamage, aDamageB, aDamageC);
   if (s <= 0.0 || s >= dur) return p;
-  if (uCollapse < 0.5) return (dmgFallTip(s / dur) * vec4(p, 1.0)).xyz;
-  return dmgImpact(p, anchor, s);
+  return (dmgFallTip(s / dur) * vec4(p, 1.0)).xyz;
 }
-void damageVaryings(vec3 rest, vec3 anchor) {
+void damageVaryings(vec3 rest) {
   vDmgP = rest;
-  vDmgSide = step(aDamage.w, uCollapse > 0.5 && uCollapse < 2.5 ? anchor.y : rest.y);
+  vDmgSide = step(aDamage.w, rest.y);
   vDmgFall = 0.0;
   vDmg = aDamage;
   vDmgB = aDamageB;
@@ -596,9 +460,8 @@ void damageVaryings(vec3 rest, vec3 anchor) {
 /** project_vertex with the fall between the instance and the model matrix (and the rest position for the fragment) */
 const DAMAGE_PROJECT_VERTEX = /* glsl */ `
 vec4 dmgRest = instanceMatrix * vec4(transformed, 1.0);
-vec3 dmgAnchor = (instanceMatrix * vec4(DMG_ANCHOR, 1.0)).xyz;
-damageVaryings(dmgRest.xyz, dmgAnchor);
-vec4 dmgMoved = vec4(damageMove(dmgRest.xyz, dmgAnchor), 1.0);
+damageVaryings(dmgRest.xyz);
+vec4 dmgMoved = vec4(damageMove(dmgRest.xyz), 1.0);
 vec4 mvPosition = modelViewMatrix * dmgMoved;
 gl_Position = projectionMatrix * mvPosition;
 `;
@@ -616,7 +479,7 @@ ${COLLAPSE_PARS}
 ${VARYINGS}
 // Height of the ragged break line at a point: broken masonry, not a saw cut (a cave-in's dmgCaveCut)
 float damageCut(vec3 p) {
-  if (uCollapse > 2.5) return dmgCaveCut(p, vDmg, vDmgB, vDmgC);
+  if (!dmgTower(vDmgC)) return dmgCaveCut(p, vDmg, vDmgB, vDmgC);
   return vDmg.w + (dmgNoise(p.xz * 0.8 + vDmg.z) - 0.5) * 1.3 + (dmgNoise(p.xz * 3.3) - 0.5) * 0.45;
 }
 // How far a point lies outside the bite, m (negative inside): its edge jagged by angle and height
@@ -633,24 +496,13 @@ float damageEdge() {
   if (vDmg.x > 2.5 && (uDamageTime - vDmg.y) >= damageDuration(vDmg, vDmgB, vDmgC)) e = min(e, damageCut(vDmgP) - vDmgP.y);
   return e;
 }
-// How far a fallen piece has crumbled into dust, 0 to 1 and past (impact and buckle, from just after the impact)
-float damageCrumble() {
-  if (vDmg.x < 2.5 || uCollapse < 0.5 || uCollapse > 2.5 || vDmgSide < 0.5) return 0.0;
-  float s = uDamageTime - vDmg.y;
-  if (s >= damageDuration(vDmg, vDmgB, vDmgC)) return 0.0;
-  return smoothstep(0.7, ${(AFTER_IMPACT - 0.05).toFixed(2)}, s - dmgTiming(vDmg, vDmgB, vDmgC).w) * 1.05;
-}
-// The grain it crumbles by, on the surface at rest
-float dmgGrain(vec3 p) {
-  return dmgNoise(p.xz * 1.3 + p.y * 0.9) * 0.7 + dmgNoise(p.xy * 4.1 + p.z * 1.7) * 0.3;
-}
 // Soot on the surface, which is matte (DAMAGE_COLOR_FRAGMENT sets it, the roughness reads it)
 float dmgSoot = 0.0;
 // Throws away what the damage took: the bite, while falling the triangles across the line, afterwards what stood above it
 void damageClip() {
   if (vDmg.x < 1.5) return;
   if (damageBite(vDmgP) < 0.0) discard;
-  if (vDmg.x > 2.5 && uCollapse > 2.5) {
+  if (vDmg.x > 2.5 && !dmgTower(vDmgC)) {
     // cave-in: above the line only while all of it falls, below it nothing that falls along; afterwards above goes
     bool above = vDmgP.y > damageCut(vDmgP);
     if ((uDamageTime - vDmg.y) < ${CAVE_SECONDS.toFixed(2)}) {
@@ -660,12 +512,8 @@ void damageClip() {
   }
   if (vDmg.x > 2.5) {
     if ((uDamageTime - vDmg.y) < damageDuration(vDmg, vDmgB, vDmgC)) {
-      // tip: the triangles across the line go; in impact and buckle one goes whole with the side its anchor is on,
-      // what of one left standing reaches above goes
-      if (uCollapse < 0.5 && vDmgSide > 0.002 && vDmgSide < 0.998) discard;
-      if (uCollapse > 0.5 && vDmgSide < 0.5 && vDmgP.y > vDmg.w) discard;
-      float crumble = damageCrumble();
-      if (crumble > 0.0 && dmgGrain(vDmgP) < crumble) discard;
+      // A tower: the triangles across the line go while it falls
+      if (vDmgSide > 0.002 && vDmgSide < 0.998) discard;
     } else if (vDmgP.y > damageCut(vDmgP)) discard;
   }
 }
@@ -691,9 +539,7 @@ if (vDmg.x > 0.5) {
   soot = max(soot, (1.0 - smoothstep(0.0, 1.3, edge)) * 0.85);
   dmgSoot = soot;
   diffuseColor.rgb *= (1.0 - 0.75 * lines * strength) * (1.0 - 0.7 * soot);
-  // Dark along where a landed piece crumbles
-  float crumble = damageCrumble();
-  if (crumble > 0.0) diffuseColor.rgb *= 1.0 - 0.55 * (1.0 - smoothstep(crumble, crumble + 0.18, dmgGrain(vDmgP)));
+
   // The inside: the same wall, out of the light
   if (!gl_FrontFacing) diffuseColor.rgb *= 0.6;
 }
@@ -714,38 +560,18 @@ if (vDmg.x > 0.5) {
 }
 `;
 
-/**
- * Where a vertex shader takes a piece's anchor from (DMG_ANCHOR, model
- * space): `fixed`, one point for every corner (an instance of a unit quad
- * goes whole); else a model triangle's code (ruinGeometry), from
- * `roughMetal` where the material reads that attribute already
- */
-function anchorPars(vertexShader: string, fixed?: readonly [number, number, number]): { shader: string; pars: string } {
-  // A ruin's windows are dark (DAMAGE_EMISSIVE_FRAGMENT): a merged part's glass share takes no attribute slot
-  vertexShader = vertexShader.replace('attribute float nightGlow;', '#define nightGlow 0.0');
-  if (fixed) return { shader: vertexShader, pars: `#define DMG_ANCHOR vec3(${fixed.map((v) => v.toFixed(4)).join(', ')})` };
-  if (vertexShader.includes('attribute vec2 roughMetal;')) {
-    const shader = vertexShader.replace('attribute vec2 roughMetal;', 'attribute vec3 roughMetal;').replace('vRoughMetal = roughMetal;', 'vRoughMetal = roughMetal.xy;');
-    return { shader, pars: '#define DMG_ANCHOR dmgAnchorLocal(roughMetal.z)' };
-  }
-  return { shader: vertexShader, pars: 'attribute float aDamageAnchor;\n#define DMG_ANCHOR dmgAnchorLocal(aDamageAnchor)' };
-}
-
-/**
- * Shader GLSL for a material of a damaged building's mesh; wraps what
- * compiles it so far. `anchor`: the one anchor of a unit geometry's
- * instances (anchorPars)
- */
-export function addDamage(material: Material, anchor?: readonly [number, number, number]): void {
+/** Shader GLSL for a material of a damaged building's mesh; wraps what compiles it so far */
+export function addDamage(material: Material): void {
   const prev = material.onBeforeCompile;
   const prevKey = material.customProgramCacheKey;
   DAMAGE_UNIFORMS.uCrackMap.value ??= crackTexture();
   material.onBeforeCompile = (shader, renderer) => {
     prev.call(material, shader, renderer);
     Object.assign(shader.uniforms, DAMAGE_UNIFORMS);
-    const { shader: vertex, pars } = anchorPars(shader.vertexShader, anchor);
-    shader.vertexShader = vertex
-      .replace('#include <common>', `#include <common>\n${DAMAGE_VERTEX_PARS}\n${pars}`)
+    // A ruin's windows are dark (DAMAGE_EMISSIVE_FRAGMENT): a merged part's glass share takes no attribute slot
+    shader.vertexShader = shader.vertexShader
+      .replace('attribute float nightGlow;', '#define nightGlow 0.0')
+      .replace('#include <common>', `#include <common>\n${DAMAGE_VERTEX_PARS}`)
       .replace('#include <project_vertex>', DAMAGE_PROJECT_VERTEX)
       .replace('#include <worldpos_vertex>', DAMAGE_WORLDPOS_VERTEX);
     shader.fragmentShader = shader.fragmentShader
@@ -759,15 +585,14 @@ export function addDamage(material: Material, anchor?: readonly [number, number,
 
 /**
  * The sun's shadow of a damaged building: falls and discards as it does.
- * `vertex` runs first in begin_vertex (a raised wall's gable); `anchor` as
- * addDamage's
+ * `vertex` runs first in begin_vertex (a raised wall's gable)
  */
-export function damageDepthMaterial(key: string, pars = '', vertex = '', anchor?: readonly [number, number, number]): MeshDepthMaterial {
+export function damageDepthMaterial(key: string, pars = '', vertex = ''): MeshDepthMaterial {
   const m = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
   m.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, DAMAGE_UNIFORMS);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', `#include <common>\n${pars}\n${DAMAGE_VERTEX_PARS}\n${anchorPars('', anchor).pars}`)
+      .replace('#include <common>', `#include <common>\n${pars}\n${DAMAGE_VERTEX_PARS}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>\n${vertex}`)
       .replace('#include <project_vertex>', DAMAGE_PROJECT_VERTEX);
     shader.fragmentShader = shader.fragmentShader

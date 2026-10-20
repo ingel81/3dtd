@@ -204,14 +204,15 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   Ruine zeigt ihr Modell bis zur Sichtweite, ohne Impostor oder Fern-Kasten. Gebäude aus dem eigenen Grundriss
   (`mass-layer.ts`) gehen ebenso: ihre Instanzen schrumpfen im intakten Batch auf null, die Ruinen werden als kleiner
   eigener Batch neu gebaut (eine Handvoll Gebäude, nicht die Karte); eine Wand eines Gefallenen wird an der Bruchkante in
-  Stumpf und Oberteil geteilt, und an den Höhen, an denen die Einsturzvarianten den Oberteil quer teilen
-  (`collapseCuts`), so liegt jedes Wandstück in einem Teil.
+  Stumpf und Oberteil geteilt, dazu an drei Höhen darüber (`collapseCuts`): eine Wand ist ein Quad, ein Dreieck fällt
+  nur ganz, so fallen die oberen Wandstücke einzeln, wenn die Bruchkante sie unterquert.
 - **Je Instanz drei vec4** (`aDamage`: Stufe plus ein Viertel des Wurfs, Fallstart, Richtung, Bruchhöhe; `aDamageB`:
   Mitte des Bisses, sein Radius plus 8 mal der Stumpf in 1/64 m; `aDamageC`: Mitte, Abstand zur Kippkante, Oberkante;
-  die Falldauer folgt aus der Höhe, `fallSeconds`), im Rahmen der Gruppe, für Modelle und Wände gleich. Nicht mehr:
+  negativ für einen Turm; die Falldauer folgt aus der Höhe, `fallSeconds`), im Rahmen der Gruppe, für Modelle und Wände gleich. Nicht mehr:
   ein Vertex-Shader hat 16 Attributplätze, und ein Ruinen-Material eines zusammengelegten Hauses braucht schon Position,
   Normale, zwei uv, Vertexfarbe, roughMetal, Instanzmatrix (vier), Instanzfarbe und `lodFade`. Ein vierter vec4 und ein
-  eigener Anker brachten es auf 18, das Programm band nicht („Too many attributes“, OSM-Welten); jetzt 15, die Spec
+  eigener Anker brachten es auf 18, das Programm band nicht („Too many attributes“, OSM-Welten); jetzt 15 (die
+  Nachtfenster einer Ruine sind aus, ihr Material liest `nightGlow` nicht), die Spec
   `ruin-attributes.spec.ts` zählt jedes Objekt-Material, intakt und als Ruine, samt Schatten. Die Form würfelt `ruinShape` auf der CPU aus der Id (oder `damageSeed`) und dem
   Grundrechteck: Richtung, Stumpf 1,5 bis 4 m (höchstens 55 % der Höhe), Biss in der oberen Ecke zur Kipprichtung,
   Falldauer 1,2 bis 2,5 s, dazu der Wurf, aus dem der Shader die Varianten je Gebäude streut (`collapseRoll`: Wurf mal
@@ -235,49 +236,35 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   0,3 m Wand weniger, so teilen Treppen, Balken oder Schutt drinnen keine Zeile. Der Rundturm hat so runde Decken in
   seiner Wand (vorher ragten die Ecken des Quadrats als Simse heraus), ein offenes Hochhaus keine, wo es offen ist; ohne
   Raster das Rechteck wie bisher.
-- **Stufe 3:** was über der gezackten Bruchkante steht, fällt (im Vertex-Shader aus Fallstart, den Zahlen der Instanz und
-  der Uhr, keine CPU je Bild); danach ist der Teil über der Kante weg. Wie es fällt, ist eine von vier Varianten (E259,
-  noch zur Wahl, siehe „Einsturzvarianten“); Standard ist `tip`: es kippt starr um den Fuß der Seite, zu der es fällt,
-  und sinkt dabei, die Dreiecke über der Kante gehen während des Falls. Der Stumpf bleibt mit den Decken, die ganz darin liegen; der Schutthaufen
+- **Stufe 3:** das Gebäude stürzt in sich zusammen (E259, im Vertex-Shader aus Fallstart, den Zahlen der Instanz und
+  der Uhr, keine CPU je Bild; siehe „Einsturz“), ein schlanker Turm kippt. Der Stumpf bleibt mit den Decken, die ganz darin liegen; der Schutthaufen
   (Z3) liegt darin. Ein Gefallener sperrt nicht mehr das Bauen (`CustomMapSurface.setObjectCatalog`), `FALLEN_SCALE`
   bleibt nur für Objekte, die ein Wellen-Ereignis verbirgt.
-- **Einsturzvarianten** (E259, zur Wahl; `COLLAPSE_VARIANTS`, ein Uniform `uCollapse`, also keine weiteren Programme
-  und Umschalten mitten im Fall): ein Stück wird je Dreieck nach seinem Anker gewählt: bei Modellen die Mitte des
-  Dreiecks (der Ruinen-Batch zeichnet das Modell mit eigenen Ecken je Dreieck, `ruinGeometry`, einmal je Geometrie), in
-  eine Zahl gepackt (`anchorCode`, 0,4-m-Schritte), die bei zusammengelegten Teilen als dritter Wert in `roughMetal`
-  reist (kein Platz mehr) und sonst in `aDamageAnchor`; bei Wänden, Dächern, Simsen und Decken die Mitte der Instanz,
-  eine Konstante ihres Materials. So bleibt ein Dreieck ganz, die Bruchlinien folgen dem Netz. Die Nachtfenster einer
-  Ruine sind aus, ihr Material liest `nightGlow` nicht.
-  - `tip` (bisher): starr um den Fuß, sinkt.
-  - Runde 1 (sag, chunks, tip-break) hat der User verworfen: unglaubwürdig, `tip` war noch das Beste. Runde 2 baut auf
-    `tip` auf und nimmt, was Spiele mit kleinem Budget glaubwürdig macht: ein Moment, in dem es nachgibt, ehe es fällt;
-    Fallen unter dem eigenen Gewicht (langsam, dann schnell) statt gleichmäßig; Aufschlagen statt Einsinken, und der Bruch
-    beim Aufschlag in wenige große Stücke; Staub genau dort und dann, wo die Form wechselt, damit der Wechsel zum Schutt
-    unter ihm geschieht. Verworfen für jetzt: vorab zerlegte Netze (eigene Assets je Modell), Kameraruck (Spielgefühl,
-    nicht Bild).
-  - `impact`: der Fuß gibt nach (ein paar Dezimeter, 0,3 s), dann kippt es wie ein Stab um seinen Fuß, der Winkel
-    0,12·cosh(ω t) mit ω aus der Länge (beschleunigt), die oberen Stockwerke hängen nach (es biegt sich, gerade wieder,
-    wenn es liegt), bis es über die Waagrechte hinaus auf dem Boden liegt (soweit sein Stumpf es den Boden erreichen
-    lässt); es federt zurück, bricht an den Höhen von `collapseCuts` in Bänder, die weiter vorn ein Stück rutschen,
-    springen und sich um ihre Linie drehen, und zerbröselt binnen 2,4 s unter dem Staub, sinkt dabei 0,6 m ein.
-    `fallTiming` (CPU) und `dmgTiming` (Shader) rechnen dieselben Zahlen; Aufschlag nach 1,4 bis 3,5 s.
-  - `buckle`: wie `impact`, doch es hält 0,75 s: der Fuß sackt um bis zu 30 % des Stumpfs, rutscht zurück und zittert,
-    dann fällt es, stärker gebogen.
-  - Aufschlag (`fallImpact`, `WorldDestruction.impactOf`): der Presenter legt beim Fall einen Zeitgeber auf den Aufschlag
-    (`WorldDamagePresenter.landed`): eine Staubwand an fünf Punkten entlang der Länge, Rauchwolken ohne Feuerball, Splitter
-    und Brocken der Materialklasse, der Schutt-Ton. Kein Rechnen je Bild.
-  - Grundriss-Gebäude fallen ganz (alle Wände ein Stück bis zum Aufschlag, die Wände an den Schnitthöhen geteilt), kein
-    Kartenhaus.
-  - In `impact` und `buckle` geht ein Dreieck über der Bruchkante ganz mit der Seite seines Ankers, statt zu
-    verschwinden (Stützen eines Gerippes fallen mit), was eines stehenden darüber reicht, geht.
-  - Umschalten: Fenster „Destruction“, Zeile „Collapse“ (Tip, Impact, Buckle), in der Adresse `?collapse=impact`,
-    in DevTools `__worldDamage.collapse('buckle')`. Vergleich: `e2e/perf/collapse-probe.ts` lässt dieselben Gebäude in
-    jeder Variante aus derselben Richtung fallen und nimmt je Fall einen Clip auf.
-  - Gemessen (Ruined City und Testkarte mit Rundturm und Grundriss-Gebäude, Chrome, 60 Hz, in Runde 2 auch während der
-    Aufnahme): kein Bild über 16,7 ms während eines Falls in jeder Variante;
-    keine neuen Programme, die Draw Calls je Asset und Stufe wie vorher (keine neuen Meshes). Kosten: größerer Vertex-Shader der Ruinen
-    (nur Ruinen zeichnen ihn), eine Zahl je Ecke der Ruinen-Modelle, die ohne Index gezeichnet werden (bis dreimal so
-    viele Ecken, nur in den Ruinen-Batches); kein Attributplatz mehr als vor E259.
+- **Einsturz** (E259, nach drei Runden mit dem User): Vorbild ist der alte Versuch, die Photo-Tiles zu zerstören, der
+  glaubwürdig wirkte, weil er vom Einschlag aus arbeitete, senkrecht nach innen fiel und auf Decken landete. Kippen,
+  Zerbrechen in Stücke und Stauchen (Runden 1 und 2) hat der User verworfen.
+  - Bruchkante (`dmgCaveCut`): innen niedrige, gezackte Stümpfe (Rauschen auf 4 m und 1,1 m, mindestens 1,2 m), zu den
+    Wänden steil ansteigend, dort höchstens 6 m plus ein Viertel der Höhe über dem Sitz, auf der Seite des Treffers
+    (gegen die Richtung) niedriger. Der Rand ist nur nach dem Winkel gezackt, so bleibt nichts als Insel stehen. Zurück
+    bleibt eine Hülle aus Wandresten.
+  - Fall (`dmgCaveFall`): der Fuß gibt 0,35 s nach (ein Viertelmeter, ein Zittern), dann fällt alles über der Kante als
+    Ganzes senkrecht und ein wenig nach innen, schwer (2,6 t²), bis es dort ist, wo es landet (`dmgCaveLanding`): auf
+    der höchsten Decke unter der Kante (Stockwerk 3 m), in Flecken von 4 m durch bis zu zwei Decken, sonst auf dem
+    Boden. Dort ist es weg. Eine Bewegung für alles: kein Dreieck dehnt sich.
+  - Fragment: über der Kante wird ein Dreieck nur gezeichnet, solange alle seine Ecken fallen (`vDmgFall`), unter ihr
+    nichts, was mitfällt; danach geht, was über der Kante stand. Die Kanten folgen dem Netz.
+  - Turm: höher als das 2,5-Fache seiner schmaleren Breite (`RuinShape.tower`, im Vorzeichen der Reichweite): er kippt
+    starr um den Fuß der Seite, zu der er fällt, und sinkt dabei (das bisherige `tip`).
+  - Staub beim Aufkommen (`fallImpact`): die Ansicht merkt sich beim Fall, wann er aufkommt, und meldet es auf ihrer Uhr
+    (`CustomMapView.onImpact`, `WorldDestruction.onImpact`), auf der auch der Shader fällt. Der Presenter wirft dann eine
+    Staubwand an fünf Punkten, Rauch ohne Feuerball, Splitter, Brocken und den Schutt-Ton. Beim Einsturz ist das eine
+    halbe Sekunde nach dem Nachgeben in seinem Grundriss, beim Turm jenseits seines Fußes, wenn er fast unten ist.
+  - Für Entwickler: Fenster „Destruction“, Zeile „Collapse“ (Auto nach Form, alle Tip, alle Cave-in), in der Adresse
+    `?collapse=cave-in`, in DevTools `__worldDamage.collapse('tip')`. Vergleich und Messung: `e2e/perf/collapse-probe.ts`
+    (Kamera seitlich zum Fall mit `auto`/`autor`, `--continue` lädt einen Spielstand mit Ruinen).
+  - Gemessen (Ruined City, Chrome, 60 Hz, ein Browser, während der Aufnahme): kein Bild über 16,7 ms in einem Fall;
+    keine neuen Programme, Draw Calls wie vorher.
+  - Als Nächstes (Runde 3, Schritt 2): Löcher an den Treffpunkten, die sich ansammeln; der Einsturz beginnt dort.
 - **Glutnester** (`EffectLayer.setRuinEmbers`): Glut und eine dünne Rauchfahne in den zwölf neuesten Ruinen ab Stufe 2,
   tief im Biss, bei einem Gefallenen im Stumpf.
 - **Sichtlinie und Schatten:** was weg ist, sperrt die Sicht der Tower nicht (`LosVertexPatch` mit Fragment-Teil und

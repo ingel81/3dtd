@@ -766,7 +766,15 @@ export class CustomMapView {
     if (this.disposed) return;
     const t0 = performance.now();
     if (this.flyingDebris) this.flyingDebris.time += dtSeconds;
-    if (this.options.ruins) DAMAGE_UNIFORMS.uDamageTime.value = this.damageTime += dtSeconds;
+    if (this.options.ruins) {
+      DAMAGE_UNIFORMS.uDamageTime.value = this.damageTime += dtSeconds;
+      for (let k = this.landing.length - 1; k >= 0; k--) {
+        const due = this.landing[k];
+        if (due.at > this.damageTime) continue;
+        this.landing.splice(k, 1);
+        this.onImpact?.(due.id, due.hit);
+      }
+    }
     this.updateFrame(dtSeconds, camera, focus);
     const ms = performance.now() - t0;
     this.stats.updateMs = this.stats.frames ? this.stats.updateMs * 0.95 + ms * 0.05 : ms;
@@ -790,13 +798,24 @@ export class CustomMapView {
       heading: sceneHeading(c.heading ?? -1),
     })));
     this.effects.setRuinEmbers(this.objects.embers(), !!this.options.ruins);
+    // A fall just now comes down a moment later, on the clock it falls by (update hands it to onImpact)
+    for (const c of changes) {
+      if (!c.now || c.stage < 3) continue;
+      const hit = this.impactOf(c.id);
+      if (hit) this.landing.push({ id: c.id, at: this.damageTime + hit.delay, hit });
+    }
   }
 
+  /** Falls on their way down: when each comes down (damageTime) and where */
+  private readonly landing: { id: string; at: number; hit: FallImpactAt }[] = [];
+
+  /** Hears each fall coming down, on the view's clock (its dust; CustomMapDestruction.onImpact) */
+  onImpact: ((id: string, hit: FallImpactAt) => void) | null = null;
+
   /**
-   * Where and when object `id` hits the ground as it falls now (map
-   * metres, the ground's height, the length it lies along `dx`, `dy`, the
-   * seconds after its fall began), null where it sinks (collapse `tip`) or
-   * is no ruin here
+   * Where and when object `id` comes down as it falls now (map metres,
+   * the ground's height, the length it lands along `dx`, `dy`, the seconds
+   * after its fall began), null where it is no ruin here
    */
   impactOf(id: string): FallImpactAt | null {
     const hit = this.objects.impactOf(id);
