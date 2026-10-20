@@ -1251,7 +1251,10 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   `castle`, `crystal`, `arena`, `city`, `wasteland`, `moon`, `mars`, `arctic`, `hell`; Rollen für Pinsel `conifer`,
   `shore`, `water`, `undergrowth`, `scree`. `category` bleibt die Art. Material- und Objekt-Ids teilen sich einen
   Namensraum
-- 89 Objekte haben eine Fernstufe (`lod`, `-lod1.glb` ohne Texturen); `screen` ist der Anteil an der Bildhöhe, unter
+- 89 Objekte haben eine Fernstufe (`lod`, `-lod1.glb` ohne Texturen; Farbe, Rauheit und Metall je Material aus
+  den Texturmitteln des vollen Modells per `match_lods.py`, sonst springt die Farbe beim Stufenwechsel: die fünf
+  Altstadthäuser trugen bis E265 noch den ersten Schätzwert des Baus, Dächer lachsfarben statt dunkelrot, Wände
+  blass; `packed-models.spec.ts` meldet einen LOD, über den das Skript nicht lief); `screen` ist der Anteil an der Bildhöhe, unter
   dem sie übernimmt (Radius durch halbe Bildhöhe im Abstand, Sichtfeld 60°), gebaut aus 350 m bzw. 40 % der Sichtweite
   für ein Objekt in Asset-Größe; 34 ein Licht (`light`), 40 Effekte (`effects`); 10 schwimmen (`float`: Boote, Schiff, Bojen, Seerosen, Eisscholle,
   Steg, Pier; Ursprung des Modells ist die Wasserlinie, ihr z zählt ab dem Spiegel unter ihnen, auf trockenem Boden ab

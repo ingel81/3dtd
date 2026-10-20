@@ -88,6 +88,29 @@ describe('map models', () => {
     expect(wrong).toEqual([]);
   });
 
+  it('give each LOD its full model look: flat colours from match_lods.py, not the builder guess', () => {
+    // blender_kit.flat_copy leaves roughness 0.8 and metalness 0 on each `<name>-lod`, and a first-guess colour (the
+    // mean of the sRGB values as a linear colour, too light). match_lods.py writes the texture means in four digits
+    // instead. A LOD it never ran over changes colour at its switch distance: the old town's roofs went from dark
+    // red to salmon (E265). A source without a texture may well have 0.8 and 0 itself
+    interface Materials {
+      materials?: { name?: string; pbrMetallicRoughness?: { roughnessFactor?: number; metallicFactor?: number; baseColorTexture?: unknown } }[];
+    }
+    const unmatched: string[] = [];
+    for (const o of catalog.objects) {
+      if (!o.lod?.length) continue;
+      const textured = new Set(((glbJson(join(MAP_ASSETS, o.file)) as Materials).materials ?? []).filter((m) => m.pbrMetallicRoughness?.baseColorTexture).map((m) => `${m.name}-lod`));
+      for (const l of o.lod) {
+        for (const m of (glbJson(join(MAP_ASSETS, l.file)) as Materials).materials ?? []) {
+          if (!m.name || !textured.has(m.name)) continue;
+          const pbr = m.pbrMetallicRoughness ?? {};
+          if (Math.abs((pbr.roughnessFactor ?? 1) - 0.8) < 1e-6 && (pbr.metallicFactor ?? 1) === 0) unmatched.push(`${l.file} ${m.name}`);
+        }
+      }
+    }
+    expect(unmatched).toEqual([]);
+  });
+
   it('tell from their data format whether they carry alpha (the enemy bake and foliage read it)', () => {
     const files = readdirSync(textures).filter((f) => f.endsWith('.ktx2'));
     const opaque = (prefix: string) => ktx2Opaque(new Uint8Array(readFileSync(join(textures, files.find((f) => f.startsWith(prefix))!))));

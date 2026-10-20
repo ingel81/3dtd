@@ -20760,10 +20760,7 @@
         {
           "file": "models/oldtown-gable-3-lod1.glb",
           "screen": 0.118,
-          "triangles": 1338,
-          "textures": [
-            "textures/oldtown-gable-3-ao-2c55e0418eb479de.ktx2"
-          ]
+          "triangles": 1338
         }
       ],
       "far": {
@@ -20847,10 +20844,7 @@
         {
           "file": "models/oldtown-gable-4-lod1.glb",
           "screen": 0.147,
-          "triangles": 1692,
-          "textures": [
-            "textures/oldtown-gable-4-ao-f3d30c6744d78389.ktx2"
-          ]
+          "triangles": 1692
         }
       ],
       "far": {
@@ -20934,10 +20928,7 @@
         {
           "file": "models/oldtown-gable-2-lod1.glb",
           "screen": 0.0833,
-          "triangles": 1396,
-          "textures": [
-            "textures/oldtown-gable-2-ao-9dd63e82c68d5573.ktx2"
-          ]
+          "triangles": 1396
         }
       ],
       "far": {
@@ -21021,10 +21012,7 @@
         {
           "file": "models/oldtown-eave-3-lod1.glb",
           "screen": 0.1323,
-          "triangles": 1652,
-          "textures": [
-            "textures/oldtown-eave-3-ao-1d38e5efeeb83f99.ktx2"
-          ]
+          "triangles": 1652
         }
       ],
       "far": {
@@ -21108,10 +21096,7 @@
         {
           "file": "models/oldtown-eave-2-lod1.glb",
           "screen": 0.0943,
-          "triangles": 1536,
-          "textures": [
-            "textures/oldtown-eave-2-ao-26cb647f4eb118b0.ktx2"
-          ]
+          "triangles": 1536
         }
       ],
       "far": {
