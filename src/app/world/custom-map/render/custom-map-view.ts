@@ -19,6 +19,7 @@ import {
   Scene,
   type ShaderMaterial,
   type ShadowMapType,
+  type Side,
   type WebGLRenderer,
 } from 'three';
 import type { CustomMapDocument, MapEnvironment, MapHeightGrid, MapLifeArea, MapObject, MapWaterKind } from '../map-document';
@@ -477,9 +478,11 @@ export class CustomMapView {
     if (renderer.shadowMap.enabled && scene instanceof Scene) {
       const casters = this.withAllShown(() => {
         const out: Mesh[] = [];
-        this.group.traverse((o) => {
-          if (o instanceof Mesh && o.castShadow) out.push(o);
-        });
+        for (const root of this.roots()) {
+          root.traverse((o) => {
+            if (o instanceof Mesh && o.castShadow) out.push(o);
+          });
+        }
         return out;
       });
       await this.compileShadowTwins(renderer, scene, camera, casters);
@@ -566,8 +569,10 @@ export class CustomMapView {
     const depth = new Group();
     for (const m of meshes) {
       if (Array.isArray(m.material)) continue;
-      // A mesh with a depth material of its own (an impostor) casts with that one
-      const material = (m.customDepthMaterial as MeshDepthMaterial | undefined) ?? this.depthTwinOf(m.material, renderer.shadowMap.type);
+      // A mesh with a depth material of its own (an impostor, a ruin) casts with that one, which the shadow pass
+      // gives the mesh material's side and maps as it does a twin (a ruin's are double-sided, a wall's textured)
+      const own = m.customDepthMaterial as MeshDepthMaterial | undefined;
+      const material = own ? asShadowPass(own, m.material, renderer.shadowMap.type) : this.depthTwinOf(m.material, renderer.shadowMap.type);
       let twin: Mesh;
       if (m instanceof InstancedMesh) {
         const instanced = new InstancedMesh(m.geometry, material, 1);
@@ -652,21 +657,7 @@ export class CustomMapView {
       twin = new MeshDepthMaterial();
       this.depthTwins.set(material.uuid, twin);
     }
-    const m = material as Material & Partial<MeshDepthMaterial>;
-    const flipped = { [FrontSide]: BackSide, [BackSide]: FrontSide, [DoubleSide]: DoubleSide };
-    twin.side = material.shadowSide ?? (type === VSMShadowMap ? material.side : flipped[material.side]);
-    twin.visible = material.visible;
-    twin.wireframe = m.wireframe ?? false;
-    twin.alphaMap = m.alphaMap ?? null;
-    twin.alphaTest = material.alphaToCoverage ? 0.5 : material.alphaTest;
-    twin.map = m.map ?? null;
-    twin.clipShadows = material.clipShadows;
-    twin.clippingPlanes = material.clippingPlanes;
-    twin.clipIntersection = material.clipIntersection;
-    twin.displacementMap = m.displacementMap ?? null;
-    twin.displacementScale = m.displacementScale ?? 1;
-    twin.displacementBias = m.displacementBias ?? 0;
-    return twin;
+    return asShadowPass(twin, material, type);
   }
 
   /**
@@ -687,6 +678,15 @@ export class CustomMapView {
    * process otherwise translated in the frame of a first rain (185 ms in the
    * editor) or night
    */
+  /**
+   * The map's own roots: its group, and the line of sight's blockers once
+   * attach lifted them beside it (the ruins a raised building warms up wait
+   * hidden there)
+   */
+  private roots(): Object3D[] {
+    return this.losBlockers.parent === this.group ? [this.group] : [this.group, this.losBlockers];
+  }
+
   withAllShown<T>(run: () => T): T {
     this.objects.showAllForWarmUp(true);
     const shown: Object3D[] = [];
@@ -697,7 +697,7 @@ export class CustomMapView {
         o.visible = true;
         shown.push(o);
       });
-    reveal(this.group);
+    for (const root of this.roots()) reveal(root);
     reveal(this.environment.lights);
     try {
       return run();
@@ -1930,4 +1930,27 @@ function impostorLights(env: CustomMapEnvironment): ImpostorLights {
     environment: env.environmentMap?.texture ?? null,
     environmentIntensity: env.environmentMap?.intensity ?? 0,
   };
+}
+
+/**
+ * A depth material as three's shadow pass sets it for a mesh of `material`
+ * (WebGLShadowMap.getDepthMaterial: side, maps, alpha test, clipping,
+ * displacement), so a program built ahead has the key the pass asks for
+ */
+function asShadowPass(depth: MeshDepthMaterial, material: Material, type: ShadowMapType): MeshDepthMaterial {
+  const m = material as Material & Partial<MeshDepthMaterial>;
+  const flipped: Record<Side, Side> = { [FrontSide]: BackSide, [BackSide]: FrontSide, [DoubleSide]: DoubleSide };
+  depth.side = material.shadowSide ?? (type === VSMShadowMap ? material.side : flipped[material.side]);
+  depth.visible = material.visible;
+  depth.wireframe = m.wireframe ?? false;
+  depth.alphaMap = m.alphaMap ?? null;
+  depth.alphaTest = material.alphaToCoverage ? 0.5 : material.alphaTest;
+  depth.map = m.map ?? null;
+  depth.clipShadows = material.clipShadows;
+  depth.clippingPlanes = material.clippingPlanes;
+  depth.clipIntersection = material.clipIntersection;
+  depth.displacementMap = m.displacementMap ?? null;
+  depth.displacementScale = m.displacementScale ?? 1;
+  depth.displacementBias = m.displacementBias ?? 0;
+  return depth;
 }
