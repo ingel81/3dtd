@@ -9,11 +9,24 @@ import { MAP_METERS_PER_DEGREE } from '../world/custom-map/map-document';
 import { RUBBLE_COLOURS, type RubbleMaterial } from '../world/custom-map/rubble-material';
 import { DESTRUCTION_SOUNDS } from '../configs/audio.config';
 import type { RunStructure } from '../sim/protocol/run-rules';
-import type { StructureStage } from '../configs/destruction.config';
+import type { DebugBlast, StructureStage } from '../configs/destruction.config';
+import { structureBarWidth } from '../three-engine/renderers/structure-health-bars';
 import { CRATER_STRIDE } from '../managers/game-state/crater-ledger';
 import { StampField, craterStampOf, rubbleStampOf, type CellSpan, type ToLocal } from '../utils/stamp-field';
 
-type DamageEngine = Pick<ThreeTilesEngine, 'world' | 'effects' | 'sync' | 'getTerrainHeightAtGeo'>;
+type DamageEngine = Pick<ThreeTilesEngine, 'world' | 'effects' | 'sync' | 'getTerrainHeightAtGeo' | 'structureBars'>;
+
+/** A structure's HP as the main thread mirrors them (WorldDamagePresenter.hpOf) */
+export interface StructureHp {
+  /** The map object's id */
+  id: string;
+  hp: number;
+  max: number;
+  stage: StructureStage;
+}
+
+/** How far over its roof a structure's bar floats, m */
+const BAR_OVER_ROOF_M = 1.5;
 
 /** The main thread's route grid as the stamps need it: its extent, and where its sight probes stand */
 export interface StampGround {
@@ -48,9 +61,16 @@ const DEBUG_HIT = { reach: 4, amount: 45 } as const;
  * grid, whose tower sight probes stand where the enemies stand. Nothing
  * here on a world that cannot be damaged: no op comes.
  *
+ * It mirrors every structure's HP too (with `structures.setStages`, and
+ * `structures.hp` once per packet for those that changed) and keeps a bar
+ * over each damaged one that still stands (engine.structureBars), set when
+ * its HP changes, never per frame. The dev tools' destruction tool reads
+ * the HP here (hpOf, onHpChanged).
+ *
  * In development `__worldDamage` in DevTools lists the structures and hits a
  * point through the simulation (`debug:hit-structures`, a cheat in coop):
- * `structures()`, `hit(lat, lon, reach, amount)`, `dig(lat, lon, radius, depth)`.
+ * `structures()`, `hit(lat, lon, reach, amount)`, `dig(lat, lon, radius, depth)`,
+ * `blast(lat, lon, blast)`, `setStage(index, stage)`, `hp(index)`.
  */
 export class WorldDamagePresenter {
   /** The world's structures; null for a world where nothing falls */
@@ -61,6 +81,9 @@ export class WorldDamagePresenter {
   private structures: readonly RunStructure[] | null = null;
   /** The stages as the simulation said them last, in the run rules' order */
   private stages = new Uint8Array(0);
+  /** The HP as the simulation said them last, in the run rules' order */
+  private hp = new Int32Array(0);
+  private readonly hpListeners = new Set<() => void>();
   /** The craters as the simulation said them last, CRATER_STRIDE numbers each */
   private craters = new Int32Array(0);
   private field: StampField | null = null;
@@ -104,14 +127,94 @@ export class WorldDamagePresenter {
       hit: (lat: number, lon: number, reach: number = DEBUG_HIT.reach, amount: number = DEBUG_HIT.amount) =>
         bus.emit({ type: 'debug:hit-structures', lat, lon, reach, amount }),
       dig: (lat: number, lon: number, radius = 2.5, depth = 35) => bus.emit({ type: 'debug:dig-crater', lat, lon, radius, depth }),
+      blast: (lat: number, lon: number, blast: DebugBlast = 'rocket') =>
+        bus.emit({ type: 'debug:blast', lat, lon, height: engine.getTerrainHeightAtGeo(lat, lon) ?? 0, blast }),
+      setStage: (index: number, stage: StructureStage) => {
+        const s = this.runStructures()[index];
+        if (s) bus.emit({ type: 'debug:set-structure-stage', index, stage, lat: s.lat, lon: s.lon });
+      },
+      hp: (index: number) => this.hpOf(index),
     };
   }
 
-  /** Every structure's stage (op `structures.setStages`), with the heading of the hit that brought it */
-  setStages(stages: Uint8Array, headings?: Int16Array): void {
+  /** Every structure's stage (op `structures.setStages`), with the heading of the hit that brought it and the HP */
+  setStages(stages: Uint8Array, headings?: Int16Array, hp?: Int32Array): void {
     this.stages = stages.slice();
     this.destruction?.setStages(stages, headings);
     this.rebuild();
+    if (hp) {
+      this.hp = hp.slice();
+      this.engine.structureBars?.clear();
+      for (let i = 0; i < this.hp.length; i++) this.showBar(i);
+    }
+    this.hpChanged();
+  }
+
+  /** The HP that changed, pairs of index and HP (op `structures.hp`) */
+  setHp(changes: Int32Array): void {
+    for (let k = 0; k + 1 < changes.length; k += 2) {
+      const i = changes[k];
+      if (i < 0 || i >= this.hp.length) continue;
+      this.hp[i] = changes[k + 1];
+      this.showBar(i);
+    }
+    this.hpChanged();
+  }
+
+  /** Structure `index`'s HP, its most and its stage as the simulation said them last; null for none */
+  hpOf(index: number): StructureHp | null {
+    const s = this.runStructures()[index];
+    if (!s || index >= this.hp.length) return null;
+    return { id: s.id, hp: this.hp[index], max: maxHpOf(s), stage: (this.stages[index] ?? 0) as StructureStage };
+  }
+
+  /** Hear when HP or stages change; returns the unsubscribe */
+  onHpChanged(listener: () => void): () => void {
+    this.hpListeners.add(listener);
+    return () => this.hpListeners.delete(listener);
+  }
+
+  private hpChanged(): void {
+    for (const listener of this.hpListeners) listener();
+  }
+
+  /**
+   * The structure under map degrees (`lat`, `lon`): the one whose ground
+   * plan holds the point (its circle where it has none), the nearest middle
+   * of several; -1 for none
+   */
+  structureAt(lat: number, lon: number): number {
+    const x = lon * MAP_METERS_PER_DEGREE;
+    const y = lat * MAP_METERS_PER_DEGREE;
+    const list = this.runStructures();
+    let best = -1;
+    let bestSq = Infinity;
+    for (let i = 0; i < list.length; i++) {
+      const s = list[i];
+      const dx = x - s.lon * MAP_METERS_PER_DEGREE;
+      const dy = y - s.lat * MAP_METERS_PER_DEGREE;
+      const sq = dx * dx + dy * dy;
+      if (sq >= bestSq || !covers(s, x, y, sq)) continue;
+      best = i;
+      bestSq = sq;
+    }
+    return best;
+  }
+
+  /** The bar over structure `index` as its HP stand: none while full or fallen */
+  private showBar(index: number): void {
+    const bars = this.engine.structureBars;
+    const s = this.runStructures()[index];
+    if (!bars || !s) return;
+    const hp = this.hp[index];
+    const max = maxHpOf(s);
+    if (hp <= 0 || hp >= max) {
+      bars.set(index, 0, 0, 0, 0, 0);
+      return;
+    }
+    const ground = this.engine.getTerrainHeightAtGeo(s.lat, s.lon) ?? 0;
+    const at = this.engine.sync.geoToLocalSimpleInto(s.lat, s.lon, ground + s.height + BAR_OVER_ROOF_M, this.local);
+    bars.set(index, at.x, at.y, at.z, structureBarWidth(s.radius), hp / max);
   }
 
   /** Structure `index` reached `stage` by damage just now, pushed the way of `heading` (op `structures.stage`) */
@@ -120,6 +223,7 @@ export class WorldDamagePresenter {
     const was = this.stages[index];
     this.stages[index] = stage;
     this.destruction?.setStage(index, stage, heading);
+    if (stage !== was) this.hpChanged();
     const s = this.runStructures()[index];
     if (stage !== 3 || was === 3 || !s) return;
     this.drawn?.rubble(s, 1);
@@ -256,12 +360,31 @@ export class WorldDamagePresenter {
   }
 
   destroy(): void {
+    this.hpListeners.clear();
+    this.engine.structureBars?.clear();
     this.unsubscribe?.();
     this.unsubscribeTowers?.();
     this.useField(null);
     const global = globalThis as Record<string, unknown>;
     if (this.debugApi && global['__worldDamage'] === this.debugApi) delete global['__worldDamage'];
   }
+}
+
+/** A structure's most HP, as StructureLedger takes them from the run rules */
+function maxHpOf(s: RunStructure): number {
+  return Math.max(1, Math.round(s.hp));
+}
+
+/** Map metres (`x`, `y`), `sq` from its middle, lie on structure `s`'s ground: in its box, or its circle without one */
+function covers(s: RunStructure, x: number, y: number, sq: number): boolean {
+  if (!s.box) return sq <= s.radius * s.radius;
+  const [bx, by, hx, hy, turn] = s.box;
+  const ox = x - bx;
+  const oy = y - by;
+  const cos = Math.cos(turn);
+  const sin = Math.sin(turn);
+  // In the box's own axes, as StructureLedger.onRoof
+  return Math.abs(-ox * cos - oy * sin) <= hx && Math.abs(-ox * sin + oy * cos) <= hy;
 }
 
 /** The collapse sound a rubble class falls with: plaster, brick and stone as masonry */

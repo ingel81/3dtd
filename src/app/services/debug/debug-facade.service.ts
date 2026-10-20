@@ -229,8 +229,11 @@ export class DebugFacadeService {
     this.applyHealthBars();
   }
 
+  /** The enemies' bars and those over damaged structures, one switch */
   private applyHealthBars(): void {
-    this.engine?.enemies.setHealthBarsVisible(this.healthBarsVisible() !== this.healthBarsInverted);
+    const visible = this.healthBarsVisible() !== this.healthBarsInverted;
+    this.engine?.enemies.setHealthBarsVisible(visible);
+    this.engine?.structureBars?.setVisible(visible);
   }
 
   /**

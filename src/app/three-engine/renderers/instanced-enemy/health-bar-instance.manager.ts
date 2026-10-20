@@ -197,11 +197,14 @@ export class HealthBarInstanceManager {
   /**
    * @param portalClip The spawn portals' clip, shared with the enemies (portal-clip.ts)
    * @param stateLerp The slide between two states, shared with the enemies (StateLerp.uniform)
+   * @param onTop The damaged bars also drawn over everything (the foreground pass); off, every bar is depth
+   *   tested (the structures' bars, StructureHealthBars). The same programs either way
    */
   constructor(
     private readonly scene: Scene,
     private readonly portalClip: PortalClipUniforms = createPortalClipUniforms(),
     private readonly stateLerp: IUniform<number> = { value: 1 },
+    onTop = true,
   ) {
     // Unit quad for the billboard; the shaders read only position and uv.
     const plane = new PlaneGeometry(1, 1);
@@ -254,9 +257,9 @@ export class HealthBarInstanceManager {
     this.foregroundMesh.matrixWorldAutoUpdate = false;
     this.foregroundMesh.updateMatrix();
 
-    this.gate = new DrawGate([this.backgroundMesh, this.foregroundMesh]);
+    this.gate = new DrawGate(onTop ? [this.backgroundMesh, this.foregroundMesh] : [this.backgroundMesh]);
     this.scene.add(this.backgroundMesh);
-    this.scene.add(this.foregroundMesh);
+    if (onTop) this.scene.add(this.foregroundMesh);
   }
 
   /**

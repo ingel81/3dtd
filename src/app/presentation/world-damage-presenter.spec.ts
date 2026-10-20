@@ -9,7 +9,7 @@ const BARN: RunStructure = { id: 'barn', lat: 10 / M, lon: -20 / M, radius: 5, h
 
 function setup(destructible: boolean) {
   const destruction = { structures: vi.fn(() => []), setStages: vi.fn(), setStage: vi.fn() };
-  const toLocal = (lat: number, lon: number, _h: number, out: Vector3) => out.set(-lon * M, 0, lat * M);
+  const toLocal = (lat: number, lon: number, h: number, out: Vector3) => out.set(-lon * M, h, lat * M);
   const engine = {
     world: { capabilities: { destructible }, destruction, runRules: () => ({ structures: [BARN] }) },
     effects: { spawnExplosion: vi.fn(), spawnGroundDust: vi.fn(), spawnBurstAtGeo: vi.fn() },
@@ -124,6 +124,54 @@ describe('WorldDamagePresenter (docs/DESTRUCTION_PLAN.md)', () => {
     ]);
     expect(collapseClass('plaster')).toBe('masonry');
     expect(collapseClass('wood')).toBe('wood');
+    presenter.destroy();
+  });
+
+  it('keeps a bar over each damaged structure that stands: none while full, none once fallen, set as the HP change (E262)', () => {
+    const shed: RunStructure = { id: 'shed', lat: 50 / M, lon: 0, radius: 3, height: 4, hp: 60, box: [0, 50, 4, 2, 0] };
+    const { engine, presenter } = setup(true);
+    const bars = { set: vi.fn(), clear: vi.fn() };
+    Object.assign(engine, { structureBars: bars });
+    engine.world.runRules = () => ({ structures: [BARN, shed] });
+    const heard = vi.fn();
+    presenter.onHpChanged(heard);
+    // The barn at 40 of 100 HP, the shed full: one bar, filled to 40 %, over the barn's roof, as wide as the barn
+    presenter.setStages(new Uint8Array([1, 0]), new Int16Array([-1, -1]), new Int32Array([40, 60]));
+    expect(bars.clear).toHaveBeenCalledTimes(1);
+    expect(bars.set).toHaveBeenCalledWith(0, expect.closeTo(20, 6), 12 + 6 + 1.5, expect.closeTo(10, 6), 6, 0.4);
+    // Full: no bar (a set to nothing)
+    expect(bars.set).toHaveBeenCalledWith(1, 0, 0, 0, 0, 0);
+    expect(presenter.hpOf(0)).toEqual({ id: 'barn', hp: 40, max: 100, stage: 1 });
+    expect(heard).toHaveBeenCalledTimes(1);
+    // A packet's HP: the shed hit, the barn fallen; only these two are set again
+    bars.set.mockClear();
+    presenter.setStage(0, 3);
+    presenter.setHp(new Int32Array([1, 30, 0, 0]));
+    expect(bars.set.mock.calls).toEqual([[1, expect.closeTo(0, 6), 12 + 4 + 1.5, expect.closeTo(50, 6), 6, 0.5], [0, 0, 0, 0, 0, 0]]);
+    expect(presenter.hpOf(0)).toEqual({ id: 'barn', hp: 0, max: 100, stage: 3 });
+    expect(heard).toHaveBeenCalledTimes(3);
+    // A click finds the structure under it: in the shed's box, in the barn's circle, beside both nothing
+    expect(presenter.structureAt(51 / M, 3.5 / M)).toBe(1);
+    expect(presenter.structureAt(51 / M, 5 / M)).toBe(-1);
+    expect(presenter.structureAt(12 / M, -18 / M)).toBe(0);
+    expect(presenter.structureAt(200 / M, 0)).toBe(-1);
+    presenter.destroy();
+    expect(bars.clear).toHaveBeenCalledTimes(2);
+  });
+
+  it("sends the destruction tool's blasts and stages from DevTools through the simulation (E261)", () => {
+    const { bus, presenter } = setup(true);
+    const sent: unknown[] = [];
+    bus.on('debug:blast', (e) => sent.push(e));
+    bus.on('debug:set-structure-stage', (e) => sent.push(e));
+    const api = (globalThis as unknown as { __worldDamage: { blast(lat: number, lon: number, blast?: string): void; setStage(index: number, stage: number): void } }).__worldDamage;
+    api.blast(0.001, 0.002, 'nuclear-strike');
+    api.setStage(0, 3);
+    api.setStage(7, 3);
+    expect(sent).toEqual([
+      { type: 'debug:blast', lat: 0.001, lon: 0.002, height: 12, blast: 'nuclear-strike' },
+      { type: 'debug:set-structure-stage', index: 0, stage: 3, lat: BARN.lat, lon: BARN.lon },
+    ]);
     presenter.destroy();
   });
 

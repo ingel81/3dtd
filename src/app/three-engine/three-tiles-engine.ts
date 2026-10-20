@@ -40,6 +40,7 @@ import {
   LightningBoltRenderer,
 } from './renderers';
 import { InstancedEnemyRenderer } from './renderers/instanced-enemy/instanced-enemy.renderer';
+import { StructureHealthBars } from './renderers/structure-health-bars';
 import { LaserBeamRenderer } from './renderers/laser-beam.renderer';
 import { ShotLights } from './shot-lights/shot-lights';
 import { disposeBlobShadows, setBlobGround } from './renderers/instanced-enemy/blob-shadow';
@@ -171,6 +172,8 @@ export class ThreeTilesEngine {
 
   // Entity renderers
   readonly enemies: InstancedEnemyRenderer;
+  /** The bars over a destructible world's damaged structures (WorldDamagePresenter); null where nothing falls */
+  readonly structureBars: StructureHealthBars | null;
   readonly towers: ThreeTowerRenderer;
   /** Stone plinths under towers on uneven ground */
   readonly plinths: TowerPlinthRenderer;
@@ -383,6 +386,7 @@ export class ThreeTilesEngine {
     }
 
     this.enemies = new InstancedEnemyRenderer(this.scene, coordinateSync, this.assetManager, this.portalClip);
+    this.structureBars = world.capabilities.destructible ? new StructureHealthBars(this.scene) : null;
     // A rim light lifts enemies off a custom map's lit, detailed ground; tiles keep their look
     this.enemies.setRimLight(world.capabilities.enemyRimLight ? ENEMY_RIM_LIGHT : 0);
     // Units on a world with cast shadows would float: blobs under enemies and the hero, towers into the sun's map
@@ -976,6 +980,7 @@ export class ThreeTilesEngine {
 
     // Enemy animation walks at game-time → feet stay synced with ground speed
     this.enemies.updateAnimations(gameDeltaSeconds, this.camera);
+    this.structureBars?.update(this.camera);
 
     // Tower visuals only (selection ring pulse, magic hover, GLTF mixer LOD)
     this.towers.updateAnimations(deltaTime, this.camera);
@@ -1804,6 +1809,7 @@ export class ThreeTilesEngine {
 
     // Dispose entity renderers
     this.enemies.dispose();
+    this.structureBars?.dispose();
     this.towers.dispose();
     this.plinths.dispose();
     this.towerBadges.dispose();
