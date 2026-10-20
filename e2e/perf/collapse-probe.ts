@@ -88,16 +88,36 @@ await page.addInitScript(() => {
   localStorage.setItem('td_onboarding_v2', JSON.stringify({ done: true, completed: [] }));
   localStorage.setItem('td_globe_quality_v1', '"off"');
 });
-await page.goto(`${URL_BASE}/?world=map:${MAP}&menu=skip`);
-await page.waitForSelector('app-quick-actions', { timeout: 300_000 });
-const skip = page.getByRole('button', { name: /skip intro|intro überspringen/i });
-await skip.waitFor({ timeout: 8000 }).catch(() => undefined);
-for (let i = 0; i < 10 && (await skip.count()); i++) {
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(700);
+/** Opens the map (from save `resume`) and waits until it stands, the intro skipped */
+const open = async (resume = ''): Promise<void> => {
+  await page.goto(`${URL_BASE}/?world=map:${MAP}&menu=skip${resume ? `&resume=${resume}` : ''}`);
+  await page.waitForSelector('app-quick-actions', { timeout: 300_000 });
+  const skip = page.getByRole('button', { name: /skip intro|intro überspringen/i });
+  await skip.waitFor({ timeout: 8000 }).catch(() => undefined);
+  for (let i = 0; i < 10 && (await skip.count()); i++) {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(700);
+  }
+  await page.waitForFunction(() => '__worldDamage' in globalThis, null, { timeout: 60_000 });
+  await page.waitForTimeout(3000);
+};
+await open();
+// --continue: the buildings ruined first (the first fallen, the others holed), saved, and the save loaded: the
+// ruins stand at the load and its warm-up, as a Continue brings them
+if (process.argv.includes('--continue')) {
+  await page.evaluate((ids) => {
+    const g = globalThis as unknown as { __worldDamage: { structures(): { id: string }[]; setStage(i: number, s: number): void } };
+    ids.forEach((id, k) => g.__worldDamage.setStage(g.__worldDamage.structures().findIndex((s) => s.id === id), k ? 2 : 3));
+  }, IDS.map((spec) => spec.split(':')[0]));
+  await page.waitForTimeout(6000);
+  const saved = await page.evaluate(async () => {
+    const g = globalThis as unknown as { ng: { getComponent(e: Element): { saveGame: { save(slot: string, name?: string): Promise<{ ok: boolean; reason?: string }> } } } };
+    const r = await g.ng.getComponent(document.querySelector('app-tower-defense')!).saveGame.save('slot-5', 'collapse probe');
+    return r.ok ? 'ok' : r.reason;
+  });
+  console.log(`saved with ruins: ${saved}; loading the save`);
+  await open('slot-5');
 }
-await page.waitForFunction(() => '__worldDamage' in globalThis, null, { timeout: 60_000 });
-await page.waitForTimeout(3000);
 
 /** The page's helpers: the camera on a structure, its stage, the variant, the frames since a mark */
 await page.evaluate(() => {
@@ -258,7 +278,7 @@ if (process.argv.includes('--attribs')) {
 const programsAfter = await call('programs');
 const added = programsAfter.filter((p) => !programsBefore.includes(p));
 if (process.argv.includes('--list-damage')) {
-  const wall = (l: string[]) => l.filter((p) => p.endsWith('damage-depth-mass-wall'));
+  const wall = (l: string[]) => l.filter((p) => p.includes('damage-depth'));
   const fresh = wall(added)[0];
   for (const old of wall(programsBefore)) {
     if (!fresh) break;
