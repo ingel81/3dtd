@@ -1113,8 +1113,11 @@ eingeebneten, tieferen Straße, anderswo blieb eine Lücke. Übergangsknoten wur
 auf Brücken und in Tunneln fehlten ganz. Gegnerwege waren nicht betroffen (Objekte sperren keine Route), es war ein
 Höhen- und Darstellungsfehler. Neu (`convert/rails.ts`, Abfrage um `railway=level_crossing|crossing` erweitert):
 
-- **Linien:** Gleiswege werden über gemeinsame Endknoten zu Linien verbunden, wo genau zwei sich treffen; eine Weiche,
-  eine Tunnelmündung oder das Ende der Antwort beendet eine Linie. Tunnel ab 40 m (`MIN_TUNNEL_M`) fallen weg und
+- **Linien:** Gleiswege werden über gemeinsame Endknoten zu Linien verbunden, wo genau zwei sich treffen. An einer Weiche
+  (mehr Enden an einem Knoten) laufen die beiden, die am geradesten weitergehen (bis 30 Grad Knick), als eine Linie
+  durch; die übrigen beginnen dort auf ihrem Bett und nehmen über 20 m dessen Höhe an, so liest sich die Weiche als ein
+  Bett (E269; vorher endeten alle drei am Knoten, auf ihr Raster gerundet, mit Lücke und roher Stirnseite). Eine
+  Tunnelmündung oder das Ende der Antwort beendet eine Linie. Tunnel ab 40 m (`MIN_TUNNEL_M`) fallen weg und
   bekommen Portale wie Straßentunnel (`buildTunnels` mit den Mündungen beider), kürzere bleiben Gleis.
 - **Wie Gleis und Straße sich treffen**, je Straßenweg (die Kanten des Straßengraphen sagen, was die Karte zeichnet):
   am gemeinsamen Knoten ein **Bahnübergang** (auch ohne Tags); das Gleis auf einer Brücke (`bridge=*`): **Bahnbrücke**,

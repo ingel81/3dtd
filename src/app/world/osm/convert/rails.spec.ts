@@ -366,6 +366,36 @@ describe('OSM railway', () => {
     expect(plan.chains.map((c) => Math.round(c.length)).sort((a, b) => a - b)).toEqual([130, 130, 380]);
   });
 
+  it('runs the line through a switch where two ways go on straight, the branch on its bed at its height', () => {
+    // A line split at a switch (node 13) on a slope, a siding leaving it there at 6 degrees
+    const elements = [
+      way(10, { railway: 'rail' }, [[-190, 0, 11], [21.3, 0, 13]]),
+      way(11, { railway: 'rail' }, [[21.3, 0, 13], [190, 0, 12]]),
+      way(12, { railway: 'rail', service: 'siding' }, [[21.3, 0, 13], [190, 17.8, 15]]),
+    ];
+    const { doc, plan } = world(elements, (x, y) => 5 + 0.03 * x + 0.05 * y);
+    expect(plan.chains).toHaveLength(2);
+    const main = plan.chains.find((c) => c.ways.some((w) => w.id === 10))!;
+    const branch = plan.chains.find((c) => c.ways.some((w) => w.id === 12))!;
+    expect(main.ways.map((w) => w.id)).toEqual([10, 11]);
+    expect(main.length).toBeCloseTo(380, 3);
+    levelRails(doc.terrain, plan, doc.paths);
+    // The branch starts on the line at its height: one bed, no step
+    const atSwitch = Math.abs(21.3 - main.line[0].x);
+    const start = Math.hypot(branch.line[0].x - 21.3, branch.line[0].y) < 1 ? 0 : branch.length;
+    expect(profileAt(branch, start, doc.terrain)).toBeCloseTo(profileAt(main, atSwitch, doc.terrain), 3);
+    // The main line's bed is tiled through the switch without a gap
+    const beds = railPieces(plan, doc.terrain, doc.paths).filter((p) => p.source === 'track' && Math.abs(p.o.y) < 0.01).map((p) => p.o);
+    expect(beds.filter((o) => Math.abs(o.x - 21.3) < (o.asset === RAIL_ASSETS.track ? 5 : 1.25)).length).toBeGreaterThan(0);
+    // A bend too sharp for a through line (90 degrees) ends both
+    const sharp = world([
+      way(10, { railway: 'rail' }, [[-190, 0, 11], [0, 0, 13]]),
+      way(11, { railway: 'rail' }, [[0, 0, 13], [0, 190, 12]]),
+      way(12, { railway: 'rail' }, [[0, 0, 13], [0, -190, 15]]),
+    ]);
+    expect(sharp.plan.chains.map((c) => Math.round(c.length)).sort((a, b) => a - b)).toEqual([190, 380]);
+  });
+
   it('joins track ways end to end into one line, and ends lines at a switch', () => {
     // Two ways in a row, and a siding leaving the second at node 13
     const elements = [

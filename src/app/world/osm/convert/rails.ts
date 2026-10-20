@@ -3,8 +3,11 @@
  * TODO E238): the tracks joined into lines, where and how they meet the
  * roads, the ground under them and the pieces laid on it.
  *
- * Lines: track ways (TRACK_KINDS) joined end to end where just two meet; a
- * switch, a tunnel mouth or the end of the answer ends a line. A tunnel of
+ * Lines: track ways (TRACK_KINDS) joined end to end where just two meet;
+ * at a switch the two running on most nearly straight (THROUGH_COS) go on as
+ * one line, the others start there on its bed, their ends' profile brought
+ * to its (a junction reads as one bed: no line ends in the open beside
+ * another). A tunnel mouth or the end of the answer ends a line. A tunnel of
  * MIN_TUNNEL_M or more is left out and gets portals like a road's
  * (convert/tunnels.ts); a shorter one stays track.
  *
@@ -154,6 +157,11 @@ const BARRIER_OUT = 0.6;
 const MAST_SPACING = 50;
 const MAST_OFFSET = 3.2;
 const MAST_CLEAR = 2.5;
+/** Metres from another line's middle within which a line's end lies on it (a branch at a switch), and over which it comes to that line's height */
+const BRANCH_REACH = 1;
+const BRANCH_RAMP = 20;
+/** Cosine of the sharpest bend a line takes through a switch (30 degrees off straight); the other ways branch off it */
+const THROUGH_COS = Math.cos((30 * Math.PI) / 180);
 /** Width a rail tunnel's mouth counts with (the portal's opening is a road's) */
 const TUNNEL_WIDTH = 5;
 /** Metres the lines stay inside the map's edge for their tunnels' portals */
@@ -446,7 +454,7 @@ function joinChains(ways: readonly OsmWay[]): RailChain[] {
     });
   }
   const live = runs.filter((r) => r.points.length >= 2);
-  // How often a node is used: a run's end once, an inner node twice; a node used by just two ends joins them
+  // How often a node is used: a run's end once, an inner node twice
   const uses = new Map<number, number>();
   const endsAt = new Map<number, number[]>();
   live.forEach((r, k) => {
@@ -457,7 +465,35 @@ function joinChains(ways: readonly OsmWay[]): RailChain[] {
       if (end) endsAt.set(n, [...(endsAt.get(n) ?? []), k]);
     });
   });
-  const joins = (n: number | null): n is number => n !== null && uses.get(n) === 2 && endsAt.get(n)!.length === 2;
+  // Which run each run's end at a node joins: of two ends, each other; at a switch (more ends, none passing through)
+  // the two running on most nearly straight, the through line, the others branching off it
+  const partner = new Map<string, number>();
+  const key = (n: number, r: number) => `${n}:${r}`;
+  const away = (r: Run, n: number): MapPoint => {
+    const k = r.nodes[0] === n ? 1 : r.nodes.length - 2;
+    const at = r.nodes[0] === n ? 0 : r.nodes.length - 1;
+    return unit({ x: r.points[k].x - r.points[at].x, y: r.points[k].y - r.points[at].y });
+  };
+  for (const [n, ends] of endsAt) {
+    if (ends.length < 2 || uses.get(n) !== ends.length || new Set(ends).size < ends.length) continue;
+    let best: [number, number] | null = null;
+    let straightest = ends.length === 2 ? Infinity : -THROUGH_COS;
+    for (let i = 0; i < ends.length; i++) {
+      for (let j = i + 1; j < ends.length; j++) {
+        const a = away(live[ends[i]], n);
+        const b = away(live[ends[j]], n);
+        const dot = a.x * b.x + a.y * b.y;
+        if (dot < straightest) {
+          straightest = dot;
+          best = [ends[i], ends[j]];
+        }
+      }
+    }
+    if (!best) continue;
+    partner.set(key(n, best[0]), best[1]);
+    partner.set(key(n, best[1]), best[0]);
+  }
+  const joined = (n: number | null, r: number): number | undefined => (n === null ? undefined : partner.get(key(n, r)));
   const otherEnd = (r: Run, n: number | null) => (r.nodes[0] === n ? r.nodes[r.nodes.length - 1] : r.nodes[0]);
   const used = new Uint8Array(live.length);
   const chains: RailChain[] = [];
@@ -467,9 +503,9 @@ function joinChains(ways: readonly OsmWay[]): RailChain[] {
     let start = k;
     let head = live[k].nodes[0];
     const back = new Set([k]);
-    while (joins(head)) {
-      const other = endsAt.get(head)!.find((r) => !back.has(r));
-      if (other === undefined) break;
+    for (;;) {
+      const other = joined(head, start);
+      if (other === undefined || back.has(other)) break;
       back.add(other);
       start = other;
       head = otherEnd(live[other], head);
@@ -491,9 +527,8 @@ function joinChains(ways: readonly OsmWay[]): RailChain[] {
         if (line.length > 1) segWays.push(r.way);
       }
       const tail = ids[ids.length - 1];
-      if (!joins(tail)) break;
-      const next = endsAt.get(tail)!.find((n) => !used[n]);
-      if (next === undefined) break;
+      const next = joined(tail, cur);
+      if (next === undefined || used[next]) break;
       cur = next;
       from = tail;
     }
@@ -677,6 +712,28 @@ export function levelRails(terrain: MapTerrain, plan: RailPlan, paths: MapPaths,
       }
     }
     c.profile = out;
+  });
+  // A line starting or ending on another (a branch at a switch) takes that line's height there, over BRANCH_RAMP
+  const lines = new LineIndex(plan.chains);
+  const ends = plan.chains.map((c) =>
+    [0, c.length].map((s) => {
+      const on = lines.nearest(pointOn(c, s), BRANCH_REACH, c);
+      if (!on || plan.bridges.some((b) => b.chain === plan.chains.indexOf(on.chain) && on.along > b.from && on.along < b.to)) return NaN;
+      const there = profileAt(on.chain, on.along, terrain);
+      // Two ends meeting (a bend too sharp for a through line): halfway, so both come to the same height
+      return on.along < BRANCH_REACH || on.along > on.chain.length - BRANCH_REACH ? (there + profileAt(c, s, terrain)) / 2 : there;
+    }),
+  );
+  plan.chains.forEach((c, ci) => {
+    const out = c.profile!;
+    const [h0, h1] = ends[ci];
+    const d0 = h0 === h0 ? h0 - out[0] : 0;
+    const d1 = h1 === h1 ? h1 - out[out.length - 1] : 0;
+    if (!d0 && !d1) return;
+    for (let k = 0; k < out.length; k++) {
+      const s = Math.min(c.length, k * PROFILE_STEP);
+      out[k] += d0 * (1 - smooth(s / BRANCH_RAMP)) + d1 * (1 - smooth((c.length - s) / BRANCH_RAMP));
+    }
   });
   report.raisedM = Math.round(report.raisedM * 100) / 100;
   report.loweredM = Math.round(report.loweredM * 100) / 100;
@@ -1174,7 +1231,7 @@ export function onTrackBed(plan: RailPlan): (p: MapPoint) => boolean {
 
 /** The lines' segments in a grid of 16 m cells, for the nearest track to a point */
 class LineIndex {
-  private readonly cells = new Map<number, { chain: RailChain; a: MapPoint; b: MapPoint }[]>();
+  private readonly cells = new Map<number, { chain: RailChain; k: number; a: MapPoint; b: MapPoint }[]>();
   private static readonly CELL = 16;
 
   constructor(chains: readonly RailChain[]) {
@@ -1188,7 +1245,7 @@ class LineIndex {
             const key = (i + 100_000) * 200_003 + (j + 100_000);
             let list = this.cells.get(key);
             if (!list) this.cells.set(key, (list = []));
-            list.push({ chain, a, b });
+            list.push({ chain, k, a, b });
           }
         }
       }
@@ -1206,6 +1263,27 @@ class LineIndex {
       }
     }
     return false;
+  }
+
+  /** The nearest track's middle within `r` of `p` (of a line other than `except`): its line and the metres along it */
+  nearest(p: MapPoint, r: number, except: RailChain | null = null): { chain: RailChain; along: number } | null {
+    const c = LineIndex.CELL;
+    let best: { chain: RailChain; along: number } | null = null;
+    let bestD = r;
+    for (let j = Math.floor((p.y - r) / c); j <= Math.floor((p.y + r) / c); j++) {
+      for (let i = Math.floor((p.x - r) / c); i <= Math.floor((p.x + r) / c); i++) {
+        for (const s of this.cells.get((i + 100_000) * 200_003 + (j + 100_000)) ?? []) {
+          if (s.chain === except) continue;
+          const d = distance(p, s.a, s.b);
+          if (d >= bestD) continue;
+          const len = s.chain.at[s.k + 1] - s.chain.at[s.k];
+          const t = len > 0 ? Math.max(0, Math.min(len, ((p.x - s.a.x) * (s.b.x - s.a.x) + (p.y - s.a.y) * (s.b.y - s.a.y)) / len)) : 0;
+          bestD = d;
+          best = { chain: s.chain, along: s.chain.at[s.k] + t };
+        }
+      }
+    }
+    return best;
   }
 }
 
