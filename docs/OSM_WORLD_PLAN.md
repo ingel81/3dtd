@@ -1156,8 +1156,9 @@ Höhen- und Darstellungsfehler. Neu (`convert/rails.ts`, Abfrage um `railway=lev
   Ursprung auf dem Planum, gebacken wie das Gleis, ein Material) und steht wie die Brückenstücke auf dem Profil: Bett
   und Übergang stoßen Schiene an Schiene und Schotter an Schotter, die Platten reichen bis auf den Schotter (kein
   Schlitz). Auf der Straße verdeckt sie Schotter und Schwellen; neben ihr liegt der Boden unter den Platten auf
-  Straßenhöhe (die Platten liegen im Boden wie auf der Straße), dahinter fällt er auf das Planum, wo der Schotter
-  vor der Plattenkante hervorkommt (E264; vorher stand das Bett 0,54 m über den Platten, sein Schotter endete
+  Straßenhöhe (die Platten liegen im Boden wie auf der Straße), dahinter fällt das Bett auf das Planum, wo der
+  Schotter vor der Plattenkante hervorkommt; der Boden neben dem Bett fällt dort über 6 m (`FLUSH_FADE`), ohne
+  Absatz am Plattenende (E264, E269; vorher stand das Bett 0,54 m über den Platten, sein Schotter endete
   mit roher Stirnseite). Brücken
   (Betontrog mit Schotter, Gesims, Geländer) liegen in der Höhe des Profils, an jedem Ende ein Widerlager
   (`bridge-abutment`, Fuß im Boden, Flügelmauern in den Damm) 2,5 m in der Spannweite, damit es vor dem Abfall des

@@ -867,7 +867,7 @@ function levelBeds(terrain: MapTerrain, plan: RailPlan, paths: MapPaths, keep?: 
           const along = c.at[k] + t;
           target[key] = bridges.some((br) => along > br.from - 0.5 && along < br.to + 0.5)
             ? NaN
-            : profileAt(c, along, terrain) + (flush.find(([from, to]) => along > from && along < to)?.[2] ?? 0);
+            : profileAt(c, along, terrain) + lift(flush, along, d);
         }
       }
     }
@@ -893,6 +893,26 @@ function levelBeds(terrain: MapTerrain, plan: RailPlan, paths: MapPaths, keep?: 
   }
   return changed;
 }
+
+/**
+ * How far the ground at a bed sample `d` metres from the line stands over its
+ * profile: under a crossing's panels or street track (`flush`: from, to,
+ * sink) the sink, the road's level; beside the bed past their end it falls
+ * back over FLUSH_FADE, so no ledge stands where they end (the bed itself
+ * drops to the formation there, its ballast showing under their edge)
+ */
+function lift(flush: readonly (readonly [number, number, number])[], along: number, d: number): number {
+  let out = 0;
+  for (const [from, to, sink] of flush) {
+    const off = along < from ? from - along : along > to ? along - to : 0;
+    if (off === 0) return sink;
+    if (d > BED_HALF && off < FLUSH_FADE) out = Math.max(out, sink * (1 - smooth(off / FLUSH_FADE)));
+  }
+  return out;
+}
+
+/** Metres beside the bed over which the ground falls from a crossing's or street track's level to the land's past their end */
+const FLUSH_FADE = 6;
 
 /** The ground beside a bed: gravel over its foot and a strip past it, fading into the land */
 export const RAIL_GROUND = { material: 'gravel', half: BED_HALF + 0.6, soft: 1.4 } as const;
