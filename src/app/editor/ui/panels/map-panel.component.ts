@@ -152,7 +152,7 @@ import { injectT } from '../../../i18n/i18n.service';
     </div>
   `,
   styles: [
-    `.mp-warn { color: var(--td-warn-text); } .mp-file { position: relative; overflow: hidden; } .mp-file > input { position: absolute; inset: 0; opacity: 0; cursor: pointer; } .mp-version { gap: 8px; min-height: 30px; } .mp-version > .td-trunc { flex: 1 1 auto; }
+    `.mp-warn { color: var(--td-warn-text); } .mp-file { position: relative; overflow: hidden; flex: 0 0 auto; } .mp-file > input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; } .mp-version { gap: 8px; min-height: 30px; } .mp-version > .td-trunc { flex: 1 1 auto; }
      .mp-text { height: auto; padding-top: 8px; resize: vertical; } .mp-size { display: flex; align-items: flex-end; gap: 8px; }
      .mp-presets { flex-wrap: wrap; height: auto; } .mp-presets > * { flex: 1 0 30%; }`,
   ],

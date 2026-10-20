@@ -1,7 +1,7 @@
 # Mehrsprachigkeit: Englisch und Deutsch (TODO E245)
 
-Stand 2026-10-20: Phase 1 (Technik, Inventar, Glossar, Grundgerüst) gebaut, Phase 2 (Umbau der Komponenten) zum
-größten Teil: was offen ist, steht in Abschnitt 6 unter „Stand und offener Rest“.
+Stand 2026-10-20: Phase 1 (Technik, Inventar, Glossar, Grundgerüst) und Phase 2 (Umbau aller Bereiche) gebaut;
+was wo steht, sagt Abschnitt 6 unter „Stand“. Offen ist die optische Abnahme (Bilder der Layout-Prüfung, 7.4).
 
 Ziel: Das Spiel spricht Englisch und Deutsch, umschaltbar in Settings ohne Neuladen, Standard nach Browser- bzw.
 Systemsprache. Eine weitere Sprache ist danach eine Datei. Ein Build für Web und Desktop-App.
@@ -169,95 +169,70 @@ Je Paket: Texte ins Wörterbuch (en und de zugleich), Komponenten auf `t()`, bet
 Die deutschen Texte schreibe ich je Paket mit, im Ton des Glossars (8). Der User nimmt Glossar und Stichproben je
 Paket ab, nicht jeden Text.
 
-### Stand und offener Rest (2026-10-20)
+### Stand (2026-10-20): alle Pakete gebaut
 
-Neu gebaut (Branch wt/i18n): **Menüs, Welten, Globus, Laden** (Settings ganz, Haupt- und Pausemenü mit Seiten,
-Spielstände, Extras, Ortswahl, Ladeplatte mit Schritten und Tipps, Weltmenüs, Pfadleiste, Globen samt Anzeige,
-Token-Dialog, OSM-Rahmen, Update-Hinweis, Weltkarte), **Dialoge** (Forschung, Tech-Tree, Schadensmatrix, Quellen,
-Tastenkürzel, Läufe, Run-Upload) und **Coop** (Dock, Lobby, Raum-Optionen, Squad, Chats, Pings, alles, was der
-Coop-Dienst sagt). Dazu:
+Jeder Bereich ist übersetzt und vom Wächter geschlossen (7.2): kein Text des Spiels steht mehr außerhalb des
+Wörterbuchs, außer `tools/i18n/allowed.mjs` nennt ihn mit Grund. Die Baseline gibt es nicht mehr. Gebaut, zuletzt
+in dieser Reihenfolge:
 
-- Lang stehende Texte als Codes: `whyNot` (`WhyNot`), `worldLock` (`WorldLock`), Ladeschritte (Titel beim Start
-  einer Ladung), Prüfung des Kartenschlüssels (`CredentialCheck`), Ablehnungen und Weltpaket des Relays.
-- Kartennamen werden nie übersetzt: mitgelieferte Karten und Bekannte Orte zeigen in jeder Sprache ihren
-  Originalnamen, nur Beschreibung und Hinweis stehen nach Id im Wörterbuch (`maps`, `showcase`, `i18n/shipped-maps.ts`);
-  `index.json`, die Showcase-Config und die Namen, unter denen ein Ort lädt, bleiben englisch (Saves, zuletzt
-  gespielte Orte und Weltpaket halten in jeder Sprache dieselben Wörter). Ein Spec hält `en.maps` gleich `index.json`.
-- Raum-Optionen gehen nur als Werte über den Relay; ihre Wörter liegen clientseitig (`coop/room-option-words.ts`),
-  `room-options.ts` (vom Relay importiert) kennt keine Wörter mehr.
-- Zeilen mit fettem Teil sind ein String mit markiertem Teil (`format.ts`: `bold`, `splitBold`), damit die
-  Wortstellung je Sprache frei ist.
-- Kopfleiste unter 1500 px: die Wörter HQ, Credits, Welle und „Verteidigen“ weichen (für Screenreader bleiben sie),
-  Play und Edit der Pfadleiste behalten ihre Wörter ganz (DESIGN_SYSTEM.md, Kopfleiste).
+- **Menüs, Welten, Globus, Laden, Dialoge, Coop** (Settings, Haupt- und Pausemenü, Spielstände, Extras, Ortswahl,
+  Ladeplatte, Weltmenüs, Pfadleiste, Globen, Token-Dialog, OSM-Rahmen, Update-Hinweis, Was ist neu, Forschung,
+  Tech-Tree, Schadensmatrix, Quellen, Tastenkürzel, Läufe; Dock, Lobby, Raum-Optionen, Squad, Chats, Pings).
+- **Kartenprüfung, Kartendateien, OSM- und Warcraft-Import** als Codes (`MapProblem`, `MapFault`, `ImportNote`,
+  `OsmError`); Parser- und Serverdetails bleiben englisch in einem übersetzten Satz (4.8).
+- **Editor** ganz, dazu die **Namen des Katalogs**: Objekte und Materialien sind Gattungswörter („Eiche“,
+  „Laterne“, „Kopfsteinpflaster“) und stehen deutsch nach Id in `messages/catalog-de.ts` (im de-Chunk);
+  `catalog.json` bleibt englisch (Agenten, Skripte, Bots), Englisch zeigt dessen Namen (`catalogName`).
+- **HUD-Reste**: Spielstände antworten mit Codes (`SaveRefusal`, `SaveNote`), Replay-Meldungen, Entwicklermenü der
+  Quick-Actions (es steht im HUD jedes Spielers), Lade-Zeilen, Tastenhinweis. Antworten der Entwicklerkonsole
+  (`__corridor`, `__routes`) und Korridor-Trace bleiben englisch.
+- **Simulation**: Probleme der Wellenliste (`validateWaveTable`) und Hinweise einer Replay-Datei gehen als Codes
+  über den Worker; die Begründungen des Wellen-Directors bleiben englisch (Debug-Fenster und Run-Log, 4.10).
+- **Configs**: unsere eigenen Wörter in den Quellen (wofür ein Werk dient, „Original work“) übersetzt nach ihrem
+  englischen Text (`dialogs.attributions.words`), Zeilen der Lizenzgeber, Werktitel und Lizenznamen nicht.
+- **Desktop-App**: eigenes Wörterbuch `desktop/src/i18n.js` (Fehlerseite, Speichern-Dialog, Download-Hinweis,
+  Editor verlassen); das Spiel meldet seine Sprache per Preload (`setLocale`), bis dahin die Systemsprache. Der
+  LAN-Relay meldet Codes, der Coop-Dienst übersetzt sie.
+- **Ortsangaben als Daten**: „Loading...“, „Map center“, „Random Spawn“, „Unknown location“, „Dev world“ usw.
+  bleiben in Saves, zuletzt gespielten Orten und Weltpaket englisch; `i18n/place-names.ts` (`placeName`)
+  übersetzt sie beim Anzeigen (Kopfleiste, Game Over, Ladeplatte, Koop, Spurwahl).
+- **Nur das aktive Wörterbuch**: `en` liegt im Startpaket (Fallback), jede andere Sprache ist ein eigener Chunk.
+  Kein Worker des Builds trägt das Wörterbuch: ein Dokument, das kein Spieler sieht (Template-Worker,
+  Agenten-Trockenlauf), bekommt `NO_WORDS` (alle Schlüssel, leerer Text) statt `en`.
+- **I9 Layout-Prüfung** (7.4) über Globen, Weltmenüs, Menüs, Dialoge, HUD, Forschungsbaum, Tower-Panel, Koop-Dock
+  mit Raum und alle Editor-Panels samt Tour, in de und en bei 1280×720 und 1920×1080.
 
-Zahlen laut `node tools/i18n/inventory.mjs` nach dieser Runde, offen:
-
-- **Editor-Reste** (~230): Flächen-Werkzeug und -Panel, Malen, Ansehen, Spawns und HQ (Panel, Werkzeug, Schritte),
-  Zerstörungsoptionen im Regelpanel, Himmel und Wetter, Agent-Leiste und -Status, Boden- und Kartenschritte,
-  Katalog-Namen und -Kategorien (heute englisch aus catalog.json).
-- **Kartenprüfung und Import** (~410): map-repair-, map-file-, osm-, w3x-Texte, Wellen-Tabellenprüfung
-  (`validateWaveTable`); die Gründe der OSM-Ablage (`layout.ts`, kommen aus dem OSM-Worker) als Codes.
-- **HUD-Reste** (~240, darunter die Gründe von Spielständen in `save-game.service.ts`/`save-game.ts`, „Got it“ der
-  Tastenhinweise, Korridor-Schritte), **Simulation** (~60), **Configs-Reste** (~160: Quellenangaben-Erklärsätze,
-  Wellen- und Run-Plan-Notizen), **Desktop-App** (32, `desktop/src/i18n.js`).
-- Ortsnamen, die als Daten laufen („Loading...“, „Map center“, „Random Spawn“, „Unknown location“, „Dev world“):
-  heute englisch angezeigt; beim Anzeigen übersetzen, ohne sie in Saves oder Weltpaket anders abzulegen.
-- **TODO, nicht begonnen:** Wörterbuch nur für die aktive Sprache laden (heute `en.ts` als Fallback im Startpaket);
-  der Editor-Template-Worker bündelt `en.ts` über `EditorDocument.words` mit.
-- **I9 Layout-Prüfung**: gebaut für Globen, Weltmenüs, Menüs, Dialoge und Kopfleiste
-  (`e2e/tests/i18n-layout.e2e.ts`); offen für Tower-Panel, Editor-Panels, Coop-Dock mit Raum, `xx`.
-
-#### Stand davor (2026-10-19)
-
-Gebaut und auf next: I0 (Sprache vor dem ersten Bild, Sprachwahl in Settings, Pseudo-Sprache xx nur im Dev-Build,
-Wächter mit Baseline), I1 (Configs nach Id), I2 (Codes aus Worker und Relay), große Teile von I3 (HUD, Hinweise,
-Ladeprobleme, Hotkeys) und I7 (Editor-Shell, Prüfung, fast alle Panels, Werkzeuge, Dienste, Kartenanlage). Turm- und
-Gegnernamen bleiben englisch. Zahlen laut `node tools/i18n/inventory.mjs` (Texte, die der Scan noch findet):
-
-- **Menüs, Welten, Globus, Laden** (~760): Settings-Seite (bis auf die Sprachzeile), Hauptmenü und Pausemenü mit
-  Saves, Kartenliste, Ladeplatte, Weltmenüs und Pfadleiste (`world-path`: Worlds, Built Worlds, Play/Edit),
-  Globen, Token-Dialog, OSM-Rahmen, Update-Hinweis; die Knöpfe des Game-Over-Fußes (`mainMenu.editMapLabel`,
-  `restartLabel`, „All worlds“) kommen aus dem Hauptmenü-Dienst.
-- **Dialoge** (~100): Forschung, Tech-Tree, Schadensmatrix, Quellen, Hotkeys (Reste), Läufe, Run-Summary/Charts.
-- **Coop** (~310): Lobby, Raum-Optionen, Coop-Dienst, Coop-Bausteine.
-- **Editor-Reste** (~230): Flächen-Werkzeug und -Panel (neu), Malen, Ansehen, Spawns und HQ (Panel, Werkzeug,
-  Schritte), neue Zerstörungsoptionen im Regelpanel (Krater, Abnutzung, Struktur-HP), Himmel und Wetter
-  (environment-panel, WEATHERS), Agent-Leiste und -Status, Boden- und Kartenschritte (ground-commands,
-  map-operations, describe, doc-mirror), Katalog-Namen und -Kategorien (heute englisch aus catalog.json).
-- **Kartenprüfung und Import** (~420): map-repair-, map-file-, osm-, w3x-Texte (Formatprobleme behalten heute
-  englische Details), Wellen-Tabellenprüfung (`validateWaveTable`).
-- **HUD-Reste** (~270), **Simulation** (~60), **Fehler/Ablehnungen** (~30), **Configs-Reste** (~175: Wellen- und
-  Run-Plan-Notizen), **mitgelieferte Karten** (26), **Desktop-App** (32, `desktop/src/i18n.js`).
-- **TODO, nicht begonnen:** Wörterbuch nur für die aktive Sprache laden (heute `en.ts` als Fallback im Startpaket,
-  rund 107 kB roh); der Editor-Template-Worker bündelt `en.ts` über `EditorDocument.words` mit.
-- **I9 Layout-Prüfung**: E2E über Menüs, HUD, Dialoge und Editor in `de` und `xx` (7.4), Bilder zur Abnahme;
-  bekannt: „Ungepanzert“ im Wellen-Tooltip abgeschnitten.
+Bleibt bewusst englisch (4.10): Changelog-Inhalt, Debug-Fenster, Entwicklerkonsole, Bots, Benchmark, Agenten-API,
+Logs, Run-Log-Inhalt, Turm- und Gegnernamen, Karten- und Ortsnamen.
 
 ## 7. Prüfung
 
 1. **Wörterbuch-Spec** (`src/app/i18n/i18n.spec.ts`, gebaut): jede Sprache hat genau die Schlüssel des Englischen,
    jeder Eintrag dieselbe Art und Zahl der Werte, jeder liefert nicht-leeren Text; Compile-Fehler bei fehlendem,
    überzähligem oder falsch getyptem Schlüssel; Erkennung, Plural, Ziffern, Umschalten, „der letzte Wechsel gewinnt“.
-2. **Wächter gegen neue harte Texte** (gebaut, `tools/i18n/guard.spec.ts`): der Spec führt `tools/i18n/scan.mjs`
-   über die Quellen und vergleicht jeden gefundenen Text mit `tools/i18n/baseline.json` (Texte je Datei). Ein Text,
-   der dort fehlt, ist rot, mit Datei und Text. Verschwundene Texte warnen nur; nach jedem Paket schreibt
-   `node tools/i18n/baseline.mjs` die Liste neu und sie schrumpft. Entwickler- und Agenten-Bereich sind ausgenommen.
-   **Geschlossene Bereiche** (`CLOSED_AREAS` in `scan.mjs`, seit 2026-10-20: Menüs, Dialoge, Coop) haben keine
-   Baseline: jeder Text, den der Scan dort findet, ist rot, außer `tools/i18n/allowed.mjs` nennt ihn mit Grund
-   (Marken, Tastenkappen, Quellenzeilen der Lizenzgeber, Daten für Saves oder Mitspieler, Diagnosen). Ein erlaubter
-   Text, den der Scan nicht mehr findet, ist ebenfalls rot. Ein Bereich wird geschlossen, sobald seine Texte im
-   Wörterbuch stehen. Der Scan überspringt Debug-Log-Aufrufe (`appendDebugLog`) und Overpass-Abfragen.
+2. **Wächter gegen harte Texte** (gebaut, `tools/i18n/guard.spec.ts`): der Spec führt `tools/i18n/scan.mjs` über
+   die Quellen (App, mitgelieferte Karten, Desktop-App). Jeder Text, den der Scan außerhalb des Entwickler- und
+   Agenten-Bereichs findet, ist rot, außer `tools/i18n/allowed.mjs` nennt ihn mit Grund (Marken, Tastenkappen,
+   Quellenzeilen der Lizenzgeber, Daten für Saves, Simulation oder Mitspieler, Diagnosen, Antworten der
+   Entwicklerkonsole). Ein erlaubter Text, den der Scan nicht mehr findet, ist ebenfalls rot. Bis 2026-10-20
+   gab es je Bereich eine Baseline, die schrumpfte; seit alle Bereiche übersetzt sind, gibt es keine mehr. Der
+   Scan überspringt Debug-Log-Aufrufe (`appendDebugLog`), Overpass-Abfragen, CSS-Schriftstapel und Grid-Spuren
+   sowie die Wörterbücher selbst (`src/app/i18n/`, `desktop/src/i18n.js`).
    Dazu `src/app/i18n/no-language-in-the-run.spec.ts`: Simulation, Coop, Simulator, Saves, Replays und Run-Log
    lesen nie das gewählte Wörterbuch (nur `en` oder Typen), die Dateien, die der Relay importiert, gar nichts aus
    `i18n/`, Raum-Optionen gehen als Werte über den Relay.
 3. **Pseudo-Sprache** (gebaut, nur Entwickler-Build, in Settings wählbar, `src/app/i18n/pseudo.ts`): `xx` macht aus jedem englischen Text „[Ŝéttîñĝš ~~~~]“, rund 40 %
    länger. Was dann noch normal aussieht, ist nicht übersetzt; was bricht, bricht im Deutschen auch.
-4. **Layout**: deutsche Texte sind rund 30 % länger. Ein E2E-Spec geht jede Menüseite, das HUD, Tower-Panel,
-   Dialoge und die Editor-Panels in `de` und `xx` durch, meldet jedes Element mit Text, dessen `scrollWidth` über
-   `clientWidth` liegt (abgeschnitten, umgebrochen wo nicht erlaubt), und legt Vorher/Nachher-Bilder je Seite ab.
-   Die Bilder bekommt der User zur optischen Abnahme. Gebaut als `e2e/tests/i18n-layout.e2e.ts` (de und en,
-   1280×720 und 1920×1080; Bilder und `report.json` nach `tmp/i18n-shots/<Sprache>/<Größe>/`); mit Ellipse
-   gekürzte Namen meldet er getrennt, alles andere muss passen.
+4. **Layout**: deutsche Texte sind rund 30 % länger. `e2e/tests/i18n-layout.e2e.ts` geht in `de` und `en`, je bei
+   1280×720 und 1920×1080, die Globen, Weltmenüs und ihre Overlays, Start- und Pausemenü mit jeder Seite und jedem
+   Tab, die Dialoge aus Extras, HUD, Forschungsbaum, Tower-Panel, Koop-Dock mit Raum (eigener Relay,
+   `E2E_RELAY_PORT`) und den Editor (neue Karte, Tour, jedes Panel der Werkzeugspalte) durch. Er meldet jedes
+   Element mit Text, das abgeschnitten ist, aus dem Bild ragt oder als Bedienelement umbricht; was in einer
+   scrollenden Fläche liegt (Forschungsbaum), zählt nicht als abgeschnitten, mit Ellipse gekürzte Namen meldet er
+   getrennt. Bilder und `report.json` nach `tmp/i18n-shots/<Sprache>/<Größe>/` (`I18N_SHOTS_DIR`). Der Editor
+   braucht freigeschaltete eigene Karten (`custom-maps-open.ts`, lokal). Stand 2026-10-20: alle vier Läufe grün,
+   nachdem Lebensarten-Knöpfe, Höhenkarten-Import und die Kopfzeile des Editors bei 1280 px angepasst wurden
+   (darunter weichen dort Karte, Symmetrie, Ab Welle, Hilfe und „Gespeichert“; die Warnung bleibt).
 
 ## 8. Glossar EN/DE
 

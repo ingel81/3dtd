@@ -1,8 +1,10 @@
 // The layout in every language (TODO E245, docs/I18N_PLAN.md 7.4): German
 // runs about a third longer than English. The globes, the world menus and
 // their overlays, the start and pause menu with every page and tab, the
-// dialogs out of Extras and the header, once per language and size. DevWorld
-// for the game (`?devworld&bot=manual`), so no map session.
+// dialogs out of Extras and the header, the research tree, the tower panel,
+// the coop dock with a room and the editor's panels, once per language and
+// size. DevWorld for the game (`?devworld&bot=manual`), so no map session; the
+// room is on the test's own relay (E2E_RELAY_PORT).
 //
 // Every element with text is measured: clipped (its text wider than its
 // box where the box clips), off the screen, or a control (button, tab,
@@ -13,6 +15,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { credits, relayQuery, startRelay, type Relay } from '../support/game';
 
 const OUT = process.env['I18N_SHOTS_DIR'] ?? fileURLToPath(new URL('../../tmp/i18n-shots/', import.meta.url));
 const LOCALES = (process.env['I18N_LOCALES'] ?? 'de,en').split(',');
@@ -43,7 +46,13 @@ function probe(): Finding[] {
     const text = el.textContent!.replace(/\s+/g, ' ').trim().slice(0, 90);
     const why: string[] = [];
     if (el.scrollWidth > el.clientWidth + 1 && cs.overflowX !== 'visible') why.push(cs.textOverflow === 'ellipsis' ? 'ellipsis' : 'clip');
-    if (r.right > innerWidth + 1 || r.left < -1) why.push('offscreen');
+    // Inside a box that scrolls (the research tree) what lies beyond its edge is scrolled to, not lost
+    let scrolls = false;
+    for (let p = el.parentElement; p && p !== document.body && !scrolls; p = p.parentElement) {
+      const o = getComputedStyle(p);
+      scrolls = /auto|scroll/.test(o.overflowX + o.overflowY);
+    }
+    if (!scrolls && (r.right > innerWidth + 1 || r.left < -1)) why.push('offscreen');
     const control = el.closest('button, [role="tab"], [role="radio"], .td-tag');
     if (control === el) {
       const range = document.createRange();
@@ -57,7 +66,7 @@ function probe(): Finding[] {
     for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
       const pcs = getComputedStyle(p);
       if (pcs.overflowX === 'visible' && pcs.overflowY === 'visible') continue;
-      if (r.right > p.getBoundingClientRect().right + 2 && pcs.overflowX !== 'visible' && p.scrollWidth > p.clientWidth + 1) why.push('cut by a parent');
+      if (!/auto|scroll/.test(pcs.overflowX) && r.right > p.getBoundingClientRect().right + 2 && pcs.overflowX !== 'visible' && p.scrollWidth > p.clientWidth + 1) why.push('cut by a parent');
       break;
     }
     if (!why.length) continue;
@@ -113,6 +122,8 @@ for (const locale of LOCALES) {
         localStorage.setItem('td-ui-state', JSON.stringify({ ...(raw ? JSON.parse(raw) : {}), locale: loc }));
       }, locale);
       const tour = new Tour(page, join(OUT, locale, `${size.width}x${size.height}`));
+      // The room's relay runs from the start: the page looks for its lobby when it loads
+      const relay: Relay = await startRelay();
 
       // --- The globes, the world menus, the overlays ---
       await tour.step('globes', async () => {
@@ -141,7 +152,7 @@ for (const locale of LOCALES) {
       // --- The game: start menu, HUD, pause menu, pages, dialogs ---
       const menu = page.locator('app-main-menu [role="dialog"]');
       await tour.step('start menu and HUD', async () => {
-        await page.goto('/?devworld&bot=manual');
+        await page.goto(`/?devworld&bot=manual${relayQuery()}`);
         await menu.waitFor({ timeout: 90_000 });
         await tour.check('10-start-loading');
         const play = menu.locator('[data-entry="play"]');
@@ -195,6 +206,88 @@ for (const locale of LOCALES) {
         });
       }
 
+      // --- The research tree, a tower's panel, the coop dock with a room ---
+      await tour.step('research tree', async () => {
+        await page.keyboard.press('Escape');
+        await expect(menu).toBeHidden({ timeout: 5000 });
+        // The tree is open to look at without a Center: straight through the build panel
+        await page.evaluate(() => {
+          const w = window as unknown as { ng: { getComponent(el: Element | null): { openResearch(): void } } };
+          w.ng.getComponent(document.querySelector('app-sidebar-build-panel')).openResearch();
+        });
+        await expect(page.locator('mat-dialog-container')).toBeVisible({ timeout: 5000 });
+        await tour.check('16-research');
+        await page.keyboard.press('Escape');
+        await expect(page.locator('mat-dialog-container')).toHaveCount(0, { timeout: 5000 });
+      });
+      await tour.step('tower panel', async () => {
+        const before = await credits(page);
+        let at: { x: number; y: number } | null = null;
+        const cx = Math.round(size.width * 0.45);
+        const cy = Math.round(size.height * 0.55);
+        for (let r = 80; r <= 320 && !at; r += 60) {
+          for (let a = 0; a < 360 && !at; a += 45) {
+            const x = Math.round(cx + r * Math.cos((a * Math.PI) / 180));
+            const y = Math.round(cy + r * 0.8 * Math.sin((a * Math.PI) / 180));
+            await page.keyboard.press('1');
+            await page.mouse.move(x, y);
+            await page.waitForTimeout(200);
+            await page.mouse.click(x, y);
+            await page.waitForTimeout(700);
+            if ((await credits(page)) < before) at = { x, y };
+          }
+        }
+        expect(at, 'a tower was built').not.toBeNull();
+        // Out of the build mode, then the tower picked
+        await page.mouse.click(5, Math.round(size.height / 2), { button: 'right' });
+        await page.waitForTimeout(300);
+        await page.mouse.click(at!.x, at!.y);
+        await page.locator('app-sidebar-tower-panel').waitFor({ timeout: 10_000 });
+        await tour.check('17-tower-panel');
+      });
+      await tour.step('coop dock', async () => {
+        await page.locator('app-game-header').getByRole('button', { name: /^(Coop|Koop)/ }).first().click().catch(async () => {
+          await page.keyboard.press('Escape');
+          await page.locator('app-menu-home [data-entry="coop"]').click();
+        });
+        const ways = page.locator('app-coop-ways');
+        await ways.waitFor({ timeout: 10_000 });
+        const host = ways.locator('.cw-way button.td-btn-primary').first();
+        // Enabled once the lobby of the test's relay answers
+        await expect(host).toBeEnabled({ timeout: 60_000 });
+        await host.click();
+        const anyway = ways.locator('.td-actions .td-btn-primary').first();
+        if (await anyway.waitFor({ timeout: 3000 }).then(() => true, () => false)) await anyway.click();
+        await page.locator('app-coop-dock').waitFor({ timeout: 60_000 });
+        await page.waitForTimeout(1500);
+        await tour.check('18-coop-dock');
+      });
+
+      // --- The editor: a new map, then every panel of the tool column ---
+      await tour.step('editor', async () => {
+        await page.goto('/editor');
+        await page.locator('[data-test=new-map]').click({ timeout: 90_000 });
+        await page.locator('[data-test=new-name]').fill('Layout');
+        await tour.check('20-editor-new');
+        await page.locator('[data-template=""]').click();
+        await page.locator('[data-test=create-map]').click();
+        await expect(page.locator('[data-test=map-name]')).toHaveText('Layout', { timeout: 60_000 });
+        await page.waitForTimeout(1500);
+        // The editor's tour opens on a first visit: its first card, then skipped (its last button)
+        const tourCard = page.locator('[data-test=tour]');
+        if (await tourCard.waitFor({ timeout: 5000 }).then(() => true, () => false)) {
+          await tour.check('20-editor-tour');
+          await tourCard.locator('button').last().click();
+        }
+      });
+      for (const tool of ['look', 'landscape', 'terrain', 'paint', 'water', 'objects', 'life', 'surfaces', 'paths', 'markers', 'gameplay', 'environment', 'settings']) {
+        await tour.step(`editor ${tool}`, async () => {
+          await page.locator(`[data-tool="${tool}"]`).click();
+          await tour.check(`21-editor-${tool}`);
+        });
+      }
+
+      await relay.stop();
       writeFileSync(join(tour.dir, 'report.json'), JSON.stringify({ failed: tour.failed, pages: tour.report }, null, 1));
       // Cut with an ellipsis is the design's way for long names; everything else must fit
       const broken = tour.report.flatMap((r) => r.found.filter((f) => f.why !== 'ellipsis').map((f) => `${r.label}: [${f.why}] ${f.tag} "${f.text}"`));

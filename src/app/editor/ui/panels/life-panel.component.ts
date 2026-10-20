@@ -255,8 +255,8 @@ const TINTED: ReadonlySet<MapLifeKind> = new Set(['fireflies', 'fog', 'leaves', 
     </div>
   `,
   styles: [
-    `.lp-kinds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-     .lp-kinds > button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 0; padding: 0 4px; white-space: nowrap; overflow: hidden; }
+    `.lp-kinds { display: flex; flex-wrap: wrap; }
+     .lp-kinds > button { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 0 6px; white-space: nowrap; }
      .lp-row { justify-content: flex-start; gap: 8px; cursor: pointer; }
      .lp-row .td-trunc { flex: 1 1 auto; min-width: 0; } .lp-spots { flex-wrap: wrap; gap: 6px; }`,
   ],

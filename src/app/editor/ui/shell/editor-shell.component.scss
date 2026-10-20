@@ -33,11 +33,33 @@
   gap: var(--td-sp-2);
   max-width: 34vw;
   min-width: 0;
+  // What does not fit gives way inside the box, never over Play and Edit beside it
+  overflow: hidden;
 }
 
 .es-save {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Below 1500 px the small words give way, as in the game's top bar (German runs longer): Map, Symmetry, From
+// wave and Help keep their tooltips and labels for screen readers, "Saved" shows only when it is not (the
+// warning stays); the map's name and the controls stay
+@media (max-width: 1499px) {
+  .es-name .td-loc-label,
+  .es-sym > .td-caps,
+  .es-help-word,
+  .es-save:not(.is-warn) {
+    display: none;
+  }
+
+  .es-sym > .td-select {
+    max-width: 96px;
+  }
 }
 
 .es-redo td-icon {

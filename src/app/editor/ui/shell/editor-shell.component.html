@@ -52,7 +52,7 @@
     <span class="es-spacer"></span>
     <app-agent-control />
     <button class="td-btn-ghost td-btn-sm" type="button" [attr.aria-label]="t().editor.shell.help" [matTooltip]="t().editor.shell.helpTip" [attr.aria-expanded]="help()" (click)="help.set(!help())" data-test="help">
-      <td-icon name="keyboard" [size]="16" /> {{ t().editor.shell.help }}
+      <td-icon name="keyboard" [size]="16" /> <span class="es-help-word">{{ t().editor.shell.help }}</span>
     </button>
     <button class="td-btn-secondary td-btn-sm" type="button" (click)="check()" [matTooltip]="t().editor.shell.checkTip" data-test="check" data-tour="check">
       {{ t().editor.shell.check }}
