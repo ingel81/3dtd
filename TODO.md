@@ -41,17 +41,49 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Wahrzeichen auf 1024 px. Weg: Regel je Textur-Familie im Packwerkzeug (Farbe und ARM 1024, Normalen klein;
       `textureSize` gilt sonst je Modell und hübe alle Texturen), die betroffenen Modelle aus den Quellen in Blender neu
       bauen und packen (Beton in 82 Modellen, Bohlen 58, Burgmauer 50, Putz 39 …); Vorher-Nachher, Speicher und Download.
-### Zerstörung und Strecke (User 2026-10-20; E256 bis E258, E260 bis E263 und E265 gebaut, Abschnitt 2)
+### Offen nach der Runde 2026-10-20 (Gebautes in Abschnitt 2, N5 und N6)
 
-- [ ] **E259 Optik der Gebäudezerstörung** (User 2026-10-20: „da geht noch was“, eigener Punkt). Geklärt 2026-10-20:
-      (1) der Einsturz selbst (heute kippt das Oberteil als starrer Block und versinkt): Ablauf erst als animierte
-      Vorschau in zwei bis drei Varianten, der User wählt am Bild (zusammensacken wie eine Sprengung, in Stücke
-      brechen, kippen und dabei brechen mit Aufprall). Bedingungen: deterministisch für Simulation, Coop und Replay
-      (Saat aus Id oder damageSeed), im Shader ohne Kosten je Ruine, Zufall je Gebäude, damit gleiche Gebäude nicht
-      gleich zerfallen. (2) Decken und Innenwände halbzerstörter Gebäude passen nicht zur Form: beim runden Turm ragten
-      die Ecken der Etagen weit über die Außenwand (ruin-slabs.ts baut sie aus dem Grundrechteck).
-- [ ] **E264 Bahnübergang mit Lücke** (User 2026-10-20, Bild): links und rechts der Übergangsplatten klafft eine
-      Lücke zum Gleis- und Schotterbett, der Boden darunter sieht durch.
+- [ ] **E280 Erster Gebäudetreffer kurz nach dem Laden ruckelt** (Zweitrechner 2026-10-20, nach E274): OSM ready jetzt
+      20,8 s statt 30,9 s, aber ein Treffer 0,3 s nach ready baut 29 Ruinen-Programme nach, 34-61 Frames über 33 ms
+      (längster 150-300 ms, Dev-Build). Getroffene zuerst, Rest im Hintergrund, asynchron über
+      KHR_parallel_shader_compile; dazu ein langsames getUniforms beim Terrain-Programm far-hfog5. Bau beim Zweitrechner
+      nach E273.
+- [ ] **E281 Dialog „Lauf wartet in …“** (User 2026-10-20): Die Knopfzeile (Beenden und starten, … weiterspielen,
+      Abbrechen) ragt auf Deutsch links und rechts über den Rand der Platte.
+- [ ] **E282 Dialog „Karte von einem Ort“ (OSM-Rahmen)** (User 2026-10-20): Dass man das Quadrat verschieben kann, ist
+      nicht erkennbar; beim Verschieben ploppt oben etwas auf und lädt nach, die Ansicht rutscht nach unten. UX überarbeiten.
+- [ ] **E283 Fluss über Krater** (User 2026-10-20): Nach mehreren Atomschlägen auf einen Fluss bleibt die Wasserfläche auf
+      alter Höhe schwebend über dem Krater; ebenso wölbt sich der Asphaltrand eines Parkplatzes als Bogen darüber
+      (Flächen folgen dem Krater nicht). Vorschläge offen (User will „coole Lösung“): Krater läuft als Kratersee voll mit
+      Wasserfall und Überlauf (Empfehlung), Verdampfen mit Dampfsäule und trockenem Bett, Kombination.
+- [ ] **E284 Zerstörungswerkzeug: Radius für Nuke** (User 2026-10-20): Regler für den Explosionsradius im
+      Entwickler-Werkzeug „Zerstören“. Radius als optionales Feld des Debug-Treffer-Befehls durch die Sim (Krater,
+      Gebäudeschaden, Effektgröße), Befehlsprüfung im Koop mitziehen. Klein bis mittel.
+- [ ] **E285 Weinberge: Rebzeilen** (User 2026-10-20): Zeilen stehen schräg und sind in kurze Stücke zerhackt. Soll:
+      gerade, parallel, durchgehend über die Parzelle, in der Falllinie den Hang hoch, meist rechtwinklig zur
+      erschließenden Straße; auf flachem Gelände rechtwinklig zur nächsten Straße.
+- [ ] **E286 Gräben in OSM-Welten** (User 2026-10-20): waterway=drain/ditch heute 1,6/1,2 m breit, immer mit
+      Wasserfläche; intermittent=yes fällt ganz weg; width wird auf mind. 0,8 m geklemmt (land-tags.ts WATERWAYS,
+      waterwayOf). In Weinbergen sind es meist trockene, befestigte Betonrinnen, am Grund etwa 0,5 m. Vorschlag: drain als
+      schmale Betonrinne (0,5 m oder width), trocken bzw. Rinnsal; ditch als trockener Erdgraben; Wasser nur bei Bach,
+      Fluss, Kanal oder ausdrücklich nicht intermittent; intermittent=yes trocken zeichnen statt weglassen.
+- [ ] **E275 Übergang vom Laden ins Spiel** (Zweitrechner 2026-10-20, Production, V-Sync, warmes Profil): in den ersten
+      0,3 s nach ready ein Bild von 117-166 ms und einige von 33-50 ms (OSM und Ruined City). Darin erste Textur-Uploads
+      (512×512, 650×426 mit Mipmaps, vermutlich Minimap oder UI) und eine Programmabfrage von 5,5 ms. Ursache im
+      letzten Ladeschritt und den ersten Draws; ab 0,5 s nach ready kein Bild über 30 ms mehr (nach E272).
+- [ ] **E273 Karten-Shader dominieren das Laden** (Messbasis Zweitrechner 2026-10-20, mit Texturen, warmes Profil):
+      ready Ruined City 11,5 s, davon 8,7 s Karten-Shader; OSM Miltenberg 18,9 s, davon 13,8 s. Der GPU-Programmcache
+      greift dort offenbar kaum. Ursache offen. Daneben: Wellenstart in der Belagerung ohne V-Sync je Lauf ein Bild
+      von 47 ms (nach E256 noch einmal prüfen).
+      Analyse Zweitrechner 2026-10-20 (Chromium aus Playwright, D3D11/ANGLE): Der Programmcache wirkt nur innerhalb
+      eines Browser-Prozesses (zweites Laden im selben Browser 16 s → 0,5 s Karten-Shader); nach Neustart, auch mit
+      erhaltenem Profil und größerem Platten-Cache, wieder 12-14 s. Quelltexte stabil (238 von 238 bitgleich). Offen:
+      gilt das auch für normales Chrome und die Electron-App? Dann (a) GPU-Cache in Electron einschalten/vergrößern
+      (bis ~11 s OSM-Kaltstart), (b) Programmzahl senken (48 Pin-Programme, Defines zu Uniforms), (c) Nicht-Nötiges
+      nach ready im Hintergrund bauen.
+      User-Test 2026-10-20: bei ihm laden erstes Mal, F5 und nach Browser-Neustart gleich (~11 s bis spielbar), der Cache
+      greift dort also; nur das Mess-Chromium zahlt. Damit klein: Messbasis weist es aus, (b) nur für den allerersten Start.
+- [ ] **E268 Rest**: Kleinigkeiten zur Fernansicht, die der User noch schickt (Abnahme 2026-10-20).
 - Entschieden 2026-10-19: Schildgrenze 512 bleibt; Fähigkeiten, Held und Mutatoren bleiben übersetzt (nur Turm- und
   Gegnernamen englisch); Nachtlicht ohne Mond aufgehellt (gebaut).
 
@@ -137,9 +169,6 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ### Plattform
 
-- [ ] **E245 Mehrsprachigkeit Englisch und Deutsch** (User, 2026-10-18): Sprachwahl in Settings, Standard nach
-      System, weitere Sprachen später eine Datei. Phase 1, Editor und I0 (Sprachwahl, Wächter) gebaut;
-      offen: Menüs, Welten, Coop, Dialoge, Kartenprüfung, Editor-Reste, Layout in Deutsch, [docs/I18N_PLAN.md](docs/I18N_PLAN.md).
 - [ ] **E83 AppImage und AUR** (2026-09-30): gebaut 2026-10-05 (statische Laufzeit, Update-Information und `.zsync`,
       AUR-Paket `3dtd-bin` mit CI-Job). AUR ok, der Job lief im Release 0.7.0 grün. Offen beim User nur: das AppImage
       einmal auf Linux starten (PLAYTEST A3.2).
@@ -198,6 +227,21 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 - [ ] **N2 Jumper** E257 hält eine Straßenseite und dreht langsamer, E263 nimmt nur Ziele ab 3 m und 60 m³ (N5, N6).
 - [ ] **N3 Zerstörung und Optik** E261 Werkzeug „Zerstören“ in den Entwickleroptionen, E262 HP-Balken unter 100 %,
       E260 Hecken-Shader nach dem Laden gespielter Karten, E265 Farbsprung der Altstadthäuser beim Zoomen (N7 bis N10).
+- [ ] **N4 Bahn und Kartenwechsel** (2026-10-20, auf `next`): E264 Bahnübergang bündig, E269 Weichen, Hecken und
+      Zäune enden an Straße/Gleis, Gehweg-Flecken, Schranken hinter dem Gehweg, kein Erdabsatz, E267 Straßengleis,
+      E266 keine alte Route nach Kartenwechsel (auch Routenraster, World-Key, Bauverbote). Nachtest: neue OSM-Welt mit Bahn,
+      Wechsel zwischen zwei eigenen Karten.
+- [ ] **N5 Zerstörung, Fernansicht, Sprache** (2026-10-20 nachmittags, Abnahmen auf dem Board): E259 Treffer-Löcher,
+      Raketenlöcher, Abtragen bis Schutt; E270 Krater wachsen weiter, ohne Limit; E268 keine Farbsprünge, weicher
+      Schattenrand, Fenster und Solarzellen fern; E245 Menüs, Welten, Dialoge, Koop, Kartenprüfung, Editor auf Deutsch;
+      Iron Bastion dreht richtig, Ballista-Zahnräder; E272 kein Hänger 7-8 s nach dem Laden.
+- [ ] **N6 Laden, Atomschlag, Menüs, Sprache** (2026-10-20 abends, Abnahmen auf dem Board): E274 OSM lädt ~10 s
+      schneller (Ruinen-Programme nach ready, compileAhead fürs Post-Processing-Ziel); E271 Einschlagsbild 37 → 20 ms;
+      E276 erster Abschuss ohne Hänger; E270 Krater ohne Limit, wachsen weiter; E277 Mini-Globus und Zeitstempel an
+      Weiterspielen, Globen-Beschriftungen auf einer Linie, aufklappende Zeile in den Weltmenüs, Papierkorb einklappbar;
+      E245 Mehrsprachigkeit komplett (Wächter fürs ganze Spiel geschlossen, Kartennamen nie übersetzt).
+      E279 Schuss auf einen gestorbenen Luftgegner platzt in der Luft statt am Boden; E278 Ortssuche mit Art und Lage je
+      Treffer, Doppel zusammengefasst (Länder noch in Browsersprache); erster Fokus im Startmenü auf Weiterspielen.
 
 ### Nachtschicht 2026-10-18/19 (auf `origin/next`, Nachtests in PLAYTEST.md K)
 
