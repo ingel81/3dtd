@@ -44,6 +44,27 @@ export function structureHeading(dx: number, dy: number, atan2: (y: number, x: n
   return ((Math.round(turn * STRUCTURE_HEADING_STEPS) % STRUCTURE_HEADING_STEPS) + STRUCTURE_HEADING_STEPS) % STRUCTURE_HEADING_STEPS;
 }
 
+/**
+ * The holes heavy hits leave in a structure (E259): the last HOLE_SLOTS per
+ * structure, HOLE_STRIDE whole numbers each (StructureLedger.holes): the
+ * offset from its middle in map dm (x, y), the height over its ground in
+ * dm, the radius in dm, the number of the hole that made or last grew it.
+ * A hit makes one when it takes at least HOLE_LEAST_SHARE of the HP; one
+ * within HOLE_MERGE_DM of a hole there grows that one by HOLE_GROW_DM, up
+ * to HOLE_MAX_DM
+ */
+export const HOLE_SLOTS = 6;
+export const HOLE_STRIDE = 5;
+export const HOLE_LEAST_SHARE = 0.03;
+export const HOLE_MERGE_DM = 15;
+export const HOLE_GROW_DM = 6;
+export const HOLE_MAX_DM = 60;
+
+/** A hole's radius in dm for a hit of `amount` on a structure of `maxHp`: 1 m to 5 m, with the root of the share */
+export function holeRadiusDm(amount: number, maxHp: number): number {
+  return Math.min(50, Math.max(10, Math.round(10 + 60 * Math.sqrt(Math.min(1, amount / maxHp)))));
+}
+
 /** The share of its HP a structure the map damaged beforehand starts with (MapObject.damage), per stage */
 const PRESET_HP_SHARE: Record<StructureStage, number> = { 0: 1, 1: 0.6, 2: 0.2, 3: 0 };
 

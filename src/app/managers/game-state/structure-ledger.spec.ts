@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { STRUCTURE_CELL_M, StructureLedger } from './structure-ledger';
 import { MAP_METERS_PER_DEGREE as K } from '../../world/custom-map/map-document';
-import { presetHp, structureStage } from '../../configs/destruction.config';
+import { HOLE_GROW_DM, HOLE_SLOTS, HOLE_STRIDE, holeRadiusDm, presetHp, structureStage } from '../../configs/destruction.config';
 import type { RunStructure } from '../../sim/protocol/run-rules';
 
 function setup(structures: RunStructure[] = [
@@ -9,7 +9,7 @@ function setup(structures: RunStructure[] = [
   { id: 'barn', lat: 0, lon: 100 / K, radius: 5, height: 6, hp: 100 },
   { id: 'wall', lat: 0, lon: 300 / K, radius: 1, height: 2, hp: 1000 },
 ]) {
-  const sink = { structures: { setStages: vi.fn(), stage: vi.fn(), hp: vi.fn() } };
+  const sink = { structures: { setStages: vi.fn(), stage: vi.fn(), hp: vi.fn(), holes: vi.fn() } };
   const staged = vi.fn();
   const carried = vi.fn((_index: number) => false);
   const ledger = new StructureLedger(sink as never, { staged, carried });
@@ -20,7 +20,7 @@ function setup(structures: RunStructure[] = [
 describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
   it('reaches what lies within the reach plus its radius, in whole HP, through its stages to the fall', () => {
     const { sink, staged, ledger } = setup();
-    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([0, 0]), new Int16Array([-1, -1]), new Int32Array([100, 1000]));
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([0, 0]), new Int16Array([-1, -1]), new Int32Array([100, 1000]), expect.any(Int32Array));
     // Just in reach of the barn (100 + 5 + 4), and just out of it
     expect(ledger.hit(108.9, 0, 4, 20)).toBe(0);
     expect(ledger.hpList()).toEqual([80, 1000]);
@@ -64,7 +64,7 @@ describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
     ledger.restore(ledger.hpList());
     ledger.flushHp();
     expect(sink.structures.hp).toHaveBeenCalledTimes(1);
-    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([1, 0]), new Int16Array([-1, -1]), new Int32Array([75, 993]));
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([1, 0]), new Int16Array([-1, -1]), new Int32Array([75, 993]), expect.any(Int32Array));
   });
 
   it("sets a structure's stage for the destruction tool: worse by a hit from the point, better mended (E261)", () => {
@@ -145,12 +145,12 @@ describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
       { id: 'whole', lat: 0, lon: 100 / K, radius: 4, height: 6, hp: 200 },
     ]);
     expect(ledger.hpList()).toEqual([0, 120, 200]);
-    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 1, 0]), new Int16Array([-1, -1, -1]), new Int32Array([0, 120, 200]));
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 1, 0]), new Int16Array([-1, -1, -1]), new Int32Array([0, 120, 200]), expect.any(Int32Array));
     ledger.hit(100, 0, 0, 200);
     ledger.reset();
     expect(ledger.hpList()).toEqual([0, 120, 200]);
     ledger.restore([0, 10, 50]);
-    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 2, 2]), new Int16Array([-1, -1, -1]), new Int32Array([0, 10, 50]));
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 2, 2]), new Int16Array([-1, -1, -1]), new Int32Array([0, 10, 50]), expect.any(Int32Array));
     ledger.restore(undefined);
     expect(ledger.hpList()).toEqual([0, 120, 200]);
     ledger.load(null);
@@ -206,9 +206,58 @@ describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
     ledger.reset();
     expect(ledger.headingList()).toBeUndefined();
     ledger.restore(hp, [192, -1]);
-    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 0]), new Int16Array([192, -1]), new Int32Array([0, 1000]));
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(new Uint8Array([3, 0]), new Int16Array([192, -1]), new Int32Array([0, 1000]), expect.any(Int32Array));
     // A snapshot from before the headings knows none
     ledger.restore(hp);
     expect(ledger.headingList()).toBeUndefined();
+  });
+
+  it('leaves a hole where a heavy hit struck, grows one hit near it, keeps the last six, none when mended (E259)', () => {
+    const { sink, ledger } = setup([{ id: 'block', lat: 0, lon: 100 / K, radius: 10, height: 12, hp: 200000 }]);
+    // A light hit (under 3 % of the HP) leaves none
+    ledger.hit(115, 0, 10, 4000);
+    ledger.flushHp();
+    expect(ledger.holeList()).toBeUndefined();
+    expect(sink.structures.holes).not.toHaveBeenCalled();
+    // A heavy one (40 %) from 20 m east: on that side, within 90 % of the radius (9 m), 25 to 80 % of the height up
+    ledger.hit(120, 0, 15, 80000);
+    ledger.flushHp();
+    let holes = ledger.holeList()!;
+    expect(holes.slice(0, 2)).toEqual([90, 0]);
+    expect(holes[2]).toBeGreaterThanOrEqual(30);
+    expect(holes[2]).toBeLessThanOrEqual(96);
+    expect(holes[3]).toBe(holeRadiusDm(80000, 200000));
+    expect(holes[4]).toBe(1);
+    expect(sink.structures.holes).toHaveBeenLastCalledWith(new Int32Array([0, 0, ...holes.slice(0, 5)]));
+    // Again from there: the same hole grows (the height the second hit rolls, 5 m lower, lies within its reach)
+    ledger.hit(120, 0, 15, 80000);
+    holes = ledger.holeList()!;
+    expect(holes[3]).toBe(holeRadiusDm(80000, 200000) + HOLE_GROW_DM);
+    expect(holes[4]).toBe(2);
+    expect(holes.slice(5).every((v) => v === 0)).toBe(true);
+    // From six other sides: the sixth slot fills, then the oldest gives way
+    for (const [x, y] of [[80, 0], [100, 20], [100, -20], [86, 14], [114, -14], [86, -14]]) ledger.hit(x, y, 15, 6000);
+    holes = ledger.holeList()!;
+    const orders = Array.from({ length: HOLE_SLOTS }, (_, s) => holes[s * HOLE_STRIDE + 4]);
+    expect(orders.every((n) => n > 0)).toBe(true);
+    expect(orders).not.toContain(2);
+    // The same holes from the same hits on another client
+    const twin = setup([{ id: 'block', lat: 0, lon: 100 / K, radius: 10, height: 12, hp: 200000 }]).ledger;
+    for (const [x, y] of [[115, 0], [120, 0], [120, 0], [80, 0], [100, 20], [100, -20], [86, 14], [114, -14], [86, -14]]) twin.hit(x, y, 15, x === 115 ? 4000 : x === 120 ? 80000 : 6000);
+    expect(twin.holeList()).toEqual(holes);
+    expect(Array.from(twin.holeView())).toEqual(holes);
+    // From a snapshot and back; one from before the holes has none
+    ledger.reset();
+    expect(ledger.holeList()).toBeUndefined();
+    expect(ledger.holeView()).toHaveLength(0);
+    ledger.restore(twin.hpList(), undefined, holes);
+    expect(ledger.holeList()).toEqual(holes);
+    expect(sink.structures.setStages).toHaveBeenLastCalledWith(expect.any(Uint8Array), expect.any(Int16Array), expect.any(Int32Array), new Int32Array(holes));
+    ledger.restore(twin.hpList());
+    expect(ledger.holeList()).toBeUndefined();
+    // Mended: no hole left
+    ledger.restore(twin.hpList(), undefined, holes);
+    ledger.setStage(0, 0, 100, 0);
+    expect(ledger.holeList()).toBeUndefined();
   });
 });

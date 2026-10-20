@@ -62,6 +62,8 @@ export interface StateHashSource {
   structureHp(): Iterable<number>;
   /** Per structure the heading of the hit that brought its stage (StructureLedger); none while none is known */
   structureHeadings(): ArrayLike<number> & Iterable<number>;
+  /** The structures' holes (StructureLedger.holeView), empty while there is none */
+  structureHoles(): ArrayLike<number> & Iterable<number>;
   /** The craters of the run, four whole numbers each (CraterLedger); none before the first */
   craters(): ArrayLike<number> & Iterable<number>;
   waveNumber(): number;
@@ -165,6 +167,12 @@ export class StateHasher {
       for (const value of headings) this.num(value);
     }
     // Only once there is one: a run without craters hashes as before they were
+    // Only once there is one: a world never holed hashes as before the holes
+    const holes = source.structureHoles();
+    if (holes.length > 0) {
+      this.num(holes.length);
+      for (const value of holes) this.num(value);
+    }
     const craters = source.craters();
     if (craters.length > 0) {
       this.num(craters.length);

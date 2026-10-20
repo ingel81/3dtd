@@ -30,7 +30,7 @@ function setup(structures: RunStructure[]) {
   const ops: [string, ...unknown[]][] = [];
   const record = (path: string) => (...args: unknown[]) => ops.push([path, ...args]);
   const sink = {
-    structures: { setStages: record('structures.setStages'), stage: record('structures.stage') },
+    structures: { setStages: record('structures.setStages'), stage: record('structures.stage'), holes: record('structures.holes') },
     craters: { setAll: record('craters.setAll'), dig: record('craters.dig') },
     main: { structureFell: record('main.structureFell'), siegeShot: record('main.siegeShot'), siegeImpact: record('main.siegeImpact') },
   };

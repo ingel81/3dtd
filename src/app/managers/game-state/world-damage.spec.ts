@@ -15,7 +15,7 @@ function setup(structures: RunStructure[], destruction = { craters: true, wear: 
   const ops: [string, ...unknown[]][] = [];
   const record = (path: string) => (...args: unknown[]) => ops.push([path, ...args]);
   const sink = {
-    structures: { setStages: record('structures.setStages'), stage: record('structures.stage'), hp: record('structures.hp') },
+    structures: { setStages: record('structures.setStages'), stage: record('structures.stage'), hp: record('structures.hp'), holes: record('structures.holes') },
     craters: { setAll: record('craters.setAll'), dig: record('craters.dig') },
     main: { structureFell: record('main.structureFell') },
   };
@@ -90,6 +90,8 @@ describe('WorldDamage (docs/DESTRUCTION_PLAN.md)', () => {
     damage.debugSetStage(1, 2, geo(40, 0).lat, geo(40, 0).lon);
     damage.flushHp();
     expect(ops.at(-1)).toEqual(['structures.hp', new Int32Array([1, 60])]);
+    // The hit that took it there left a hole, on the side it came from (E259)
+    expect(ops.at(-2)?.[0]).toBe('structures.holes');
   });
 
   it('fells everything in the nuke radius but a house with a tower on its roof, and digs its crater', () => {

@@ -87,9 +87,9 @@ export class WorldDamage {
     this.publishCraters();
   }
 
-  /** The HP, headings and craters of a snapshot back (capture's); a snapshot without them starts the world afresh */
-  restore(hp: readonly number[] | undefined, craters: readonly number[] | undefined, headings?: readonly number[]): void {
-    this.structures.restore(hp, headings);
+  /** The HP, headings, holes and craters of a snapshot back (capture's); a snapshot without them starts the world afresh */
+  restore(hp: readonly number[] | undefined, craters: readonly number[] | undefined, headings?: readonly number[], holes?: readonly number[]): void {
+    this.structures.restore(hp, headings, holes);
     this.craters.restore(craters);
     this.rebuild();
     this.publishCraters();

@@ -1,7 +1,10 @@
 import type { SimSink } from '../../sim/core/sim-sink';
 import type { RunStructure } from '../../sim/protocol/run-rules';
 import { MAP_METERS_PER_DEGREE } from '../../world/custom-map/map-document';
-import { presetHp, structureHeading, structureStage, type StructureStage } from '../../configs/destruction.config';
+import {
+  HOLE_GROW_DM, HOLE_LEAST_SHARE, HOLE_MAX_DM, HOLE_MERGE_DM, HOLE_SLOTS, HOLE_STRIDE, holeRadiusDm, presetHp, structureHeading, structureStage,
+  type StructureStage,
+} from '../../configs/destruction.config';
 import { DetMath } from '../../utils/det-math';
 import { ringsContain } from '../../world/custom-map/object-mass';
 
@@ -21,6 +24,9 @@ const ROOF_STRIDE = 6;
 
 const ascending = (a: number, b: number) => a - b;
 const NO_HEADINGS = new Int16Array(0);
+const NO_HOLES = new Int32Array(0);
+/** Numbers per structure in StructureLedger.holes */
+const HOLES_EACH = HOLE_SLOTS * HOLE_STRIDE;
 
 /** How far from map metres (`x`, `y`) the corners of `box` reach at most (IEEE `sqrt`, the same on every engine) */
 function boxReach(box: readonly [number, number, number, number, number], x: number, y: number): number {
@@ -50,6 +56,12 @@ function boxReach(box: readonly [number, number, number, number, number], x: num
  * the way it pushed the structure, which the look lets it give way to. The
  * stages go out with the headings; snapshots and the state hash carry them
  * once one is known, so a world never hit hashes and saves as before.
+ *
+ * A heavy hit (HOLE_LEAST_SHARE of the HP or more) leaves a hole where it
+ * struck (punch, E259): the last HOLE_SLOTS per structure in whole numbers,
+ * a hit near one grows it. They go out with the HP once per packet
+ * (`structures.holes`) and whole with the stages; snapshots and the state
+ * hash carry them once there is one. A mended structure has none.
  */
 export class StructureLedger {
   private structures: readonly RunStructure[] = [];
@@ -65,6 +77,13 @@ export class StructureLedger {
   private stage = new Uint8Array(0);
   /** Per structure the heading of the hit that brought its stage, -1 for none (structureHeading) */
   private heading = new Int16Array(0);
+  /** Per structure HOLE_SLOTS holes of HOLE_STRIDE whole numbers (HOLE_STRIDE in destruction.config.ts), radius 0 for none */
+  private holes = new Int32Array(0);
+  /** Per structure the holes punched so far (each hole keeps the number that made or last grew it) */
+  private holeCount = new Int32Array(0);
+  private height = new Float64Array(0);
+  /** Holes that changed since the last packet: structure and slot */
+  private readonly holesChanged: number[] = [];
   /** Per structure whose roof carries towers its box (ROOF_STRIDE numbers), NaN for one without */
   private roof = new Float64Array(0);
   /** Per raised building its outline with the cos and sin of its turn (RunStructure.mass), null for one without */
@@ -105,6 +124,10 @@ export class StructureLedger {
     this.hp = new Int32Array(n);
     this.stage = new Uint8Array(n);
     this.heading = new Int16Array(n).fill(-1);
+    this.holes = new Int32Array(n * HOLES_EACH);
+    this.holeCount = new Int32Array(n);
+    this.height = new Float64Array(n);
+    this.holesChanged.length = 0;
     this.roof = new Float64Array(n * ROOF_STRIDE).fill(NaN);
     this.outline = list.map((s) => s.mass
       ? { x: s.mass.x, y: s.mass.y, scale: s.mass.scale, cos: DetMath.cos(s.mass.turn), sin: DetMath.sin(s.mass.turn), rings: s.mass.rings }
@@ -117,6 +140,7 @@ export class StructureLedger {
       this.x[i] = s.lon * MAP_METERS_PER_DEGREE;
       this.y[i] = s.lat * MAP_METERS_PER_DEGREE;
       this.radius[i] = s.radius;
+      this.height[i] = s.height;
       this.extent[i] = s.box ? Math.max(s.radius, boxReach(s.box, this.x[i], this.y[i])) : s.radius;
       this.maxHp[i] = Math.max(1, Math.round(s.hp));
       this.startHp[i] = Math.min(this.maxHp[i], Math.max(0, Math.round(s.start ?? s.hp)));
@@ -200,6 +224,9 @@ export class StructureLedger {
   private toStart(): void {
     this.hp.set(this.startHp);
     this.heading.fill(-1);
+    this.holes.fill(0);
+    this.holeCount.fill(0);
+    this.holesChanged.length = 0;
     this.restage();
   }
 
@@ -318,6 +345,7 @@ export class StructureLedger {
     if (!Number.isNaN(this.roof[index * ROOF_STRIDE]) && this.events.carried(index)) return false;
     this.hp[index] = Math.max(0, this.hp[index] - amount);
     this.markHp(index);
+    if (amount >= this.maxHp[index] * HOLE_LEAST_SHARE) this.punch(index, amount, x, y);
     const to = structureStage(this.hp[index], this.maxHp[index]);
     const from = this.stage[index] as StructureStage;
     if (to === from) return false;
@@ -327,6 +355,58 @@ export class StructureLedger {
     this.sink.structures.stage(index, to, this.heading[index]);
     this.events.staged(index, from, to);
     return true;
+  }
+
+  /**
+   * A hole in structure `index` where a hit of `amount` struck at map
+   * metres (`x`, `y`): on the side it came from (within 90 % of its ground
+   * radius), at a height its count rolls (25 to 80 % of its height), as
+   * large as the hit's share of the HP (holeRadiusDm). Near a hole it has,
+   * that one grows; else it takes a free slot or the oldest hole's
+   */
+  private punch(index: number, amount: number, x: number, y: number): void {
+    let dx = x - this.x[index];
+    let dy = y - this.y[index];
+    const d = Math.sqrt(dx * dx + dy * dy);
+    const most = this.radius[index] * 0.9;
+    if (d > most) {
+      dx *= most / d;
+      dy *= most / d;
+    }
+    const ox = Math.round(dx * 10);
+    const oy = Math.round(dy * 10);
+    const n = ++this.holeCount[index];
+    const roll = (Math.imul(index + 1, 0x9e3779b1) ^ Math.imul(n, 0x85ebca6b)) >>> 0;
+    const h = Math.round(this.height[index] * 10 * (0.25 + (0.55 * (roll % 1000)) / 1000));
+    const holes = this.holes;
+    const k0 = index * HOLES_EACH;
+    let merge = -1;
+    let free = -1;
+    let oldest = -1;
+    for (let s = 0; s < HOLE_SLOTS && merge < 0; s++) {
+      const k = k0 + s * HOLE_STRIDE;
+      const r = holes[k + 3];
+      if (r <= 0) {
+        if (free < 0) free = s;
+        continue;
+      }
+      const ex = holes[k] - ox;
+      const ey = holes[k + 1] - oy;
+      const eh = holes[k + 2] - h;
+      const near = HOLE_MERGE_DM + r;
+      if (ex * ex + ey * ey + eh * eh <= near * near) merge = s;
+      else if (oldest < 0 || holes[k + 4] < holes[k0 + oldest * HOLE_STRIDE + 4]) oldest = s;
+    }
+    let slot = merge;
+    if (slot >= 0) {
+      const k = k0 + slot * HOLE_STRIDE;
+      holes[k + 3] = Math.min(HOLE_MAX_DM, holes[k + 3] + HOLE_GROW_DM);
+      holes[k + 4] = n;
+    } else {
+      slot = free >= 0 ? free : oldest;
+      holes.set([ox, oy, h, holeRadiusDm(amount, this.maxHp[index]), n], k0 + slot * HOLE_STRIDE);
+    }
+    this.holesChanged.push(index, slot);
   }
 
   /**
@@ -347,6 +427,8 @@ export class StructureLedger {
     this.hp[index] = target;
     this.stage[index] = structureStage(target, this.maxHp[index]);
     this.heading[index] = -1;
+    this.holes.fill(0, index * HOLES_EACH, (index + 1) * HOLES_EACH);
+    this.holeCount[index] = 0;
     this.markHp(index);
     return true;
   }
@@ -363,6 +445,7 @@ export class StructureLedger {
    * when nothing changed
    */
   flushHp(): void {
+    this.flushHoles();
     const changed = this.hpChanged;
     if (changed.length === 0) return;
     const pairs = new Int32Array(changed.length * 2);
@@ -374,6 +457,26 @@ export class StructureLedger {
     }
     changed.length = 0;
     this.sink.structures.hp(pairs);
+  }
+
+  /**
+   * The holes that changed since the last packet in one `structures.holes`:
+   * per hole the structure, its slot and its HOLE_STRIDE numbers
+   */
+  private flushHoles(): void {
+    const changed = this.holesChanged;
+    if (changed.length === 0) return;
+    const each = 2 + HOLE_STRIDE;
+    const out = new Int32Array((changed.length / 2) * each);
+    for (let c = 0; c < changed.length; c += 2) {
+      const at = (c / 2) * each;
+      const k = changed[c] * HOLES_EACH + changed[c + 1] * HOLE_STRIDE;
+      out[at] = changed[c];
+      out[at + 1] = changed[c + 1];
+      out.set(this.holes.subarray(k, k + HOLE_STRIDE), at + 2);
+    }
+    changed.length = 0;
+    this.sink.structures.holes(out);
   }
 
   /**
@@ -434,12 +537,27 @@ export class StructureLedger {
     return this.heading.some((h) => h >= 0) ? this.heading : NO_HEADINGS;
   }
 
+  /** The holes for a snapshot; absent while there is none, so a world never holed saves as before */
+  holeList(): number[] | undefined {
+    return this.holes.some((v) => v !== 0) ? Array.from(this.holes) : undefined;
+  }
+
+  /** The holes for the state hash: empty while there is none */
+  holeView(): Int32Array {
+    return this.holes.some((v) => v !== 0) ? this.holes : NO_HOLES;
+  }
+
   /**
-   * HP and headings back from a snapshot (hpList, headingList); a snapshot
-   * without HP starts every structure as the map has it, one without
-   * headings knows none
+   * HP, headings and holes back from a snapshot (hpList, headingList,
+   * holeList); a snapshot without HP starts every structure as the map has
+   * it, one without headings knows none, one without holes (or from before
+   * them) has none
    */
-  restore(hp: readonly number[] | undefined, headings?: readonly number[]): void {
+  restore(hp: readonly number[] | undefined, headings?: readonly number[], holes?: readonly number[]): void {
+    const fits = holes?.length === this.holes.length && holes.every((v) => Number.isInteger(v));
+    this.holes.fill(0);
+    if (fits) this.holes.set(holes);
+    this.holesChanged.length = 0;
     for (let i = 0; i < this.structures.length; i++) {
       const saved = hp?.[i];
       this.hp[i] = typeof saved === 'number' && Number.isFinite(saved)
@@ -447,6 +565,9 @@ export class StructureLedger {
         : this.startHp[i];
       const h = headings?.[i];
       this.heading[i] = typeof h === 'number' && Number.isInteger(h) && h >= 0 && h < 256 ? h : -1;
+      let count = 0;
+      for (let s = 0; s < HOLE_SLOTS; s++) count = Math.max(count, this.holes[i * HOLES_EACH + s * HOLE_STRIDE + 4]);
+      this.holeCount[i] = count;
     }
     this.restage();
   }
@@ -457,12 +578,13 @@ export class StructureLedger {
     this.publish();
   }
 
-  /** Tell the main thread every structure's stage, one byte each in the run rules' order, with the headings and the HP */
+  /** Tell the main thread every structure's stage, one byte each in the run rules' order, with the headings, the HP and the holes */
   publish(): void {
     if (this.structures.length === 0) return;
     for (const i of this.hpChanged) this.hpDirty[i] = 0;
     this.hpChanged.length = 0;
-    this.sink.structures.setStages(this.stage.slice(), this.heading.slice(), this.hp.slice());
+    this.holesChanged.length = 0;
+    this.sink.structures.setStages(this.stage.slice(), this.heading.slice(), this.hp.slice(), this.holes.slice());
   }
 
   /** Every structure's stage, a view in the run rules' order */

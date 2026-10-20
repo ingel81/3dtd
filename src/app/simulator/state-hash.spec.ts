@@ -51,6 +51,7 @@ function source(
     baseHealth: () => 480,
     structureHp: () => [],
     structureHeadings: () => [],
+    structureHoles: () => [],
     craters: () => [],
     waveNumber: () => 3,
     spawner: () => (wave.running === false ? null

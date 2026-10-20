@@ -275,12 +275,14 @@ describe('SimCore in the same thread', () => {
     // and its HP once at the end of the packet
     expect(packet.ops.filter((op) => op[0].startsWith('structures.'))).toEqual([
       ['structures.stage', 0, 2, 128],
+      // A hole where it struck (E259): slot 0, 2 m east of its middle, 4.1 m up, 5 m radius (the most), the first
+      ['structures.holes', new Int32Array([0, 0, 20, 0, 41, 50, 1])],
       ['structures.hp', new Int32Array([0, 40])],
     ]);
     expect(core.gsm.stateHash()).not.toBe(hashBefore);
     drive.send({ type: 'debug:hit-structures', lat: 140 / M, lon: 22 / M, reach: 1, amount: 60 });
     packet = drive.tick();
-    expect(packet.ops.filter((op) => op[0].startsWith('structures.') || op[0] === 'main.structureFell')).toEqual([
+    expect(packet.ops.filter((op) => (op[0].startsWith('structures.') && op[0] !== 'structures.holes') || op[0] === 'main.structureFell')).toEqual([
       ['structures.stage', 0, 3, 128],
       ['main.structureFell', 0, barn.lat, barn.lon, 5, 6],
       ['structures.hp', new Int32Array([0, 0])],
@@ -295,7 +297,7 @@ describe('SimCore in the same thread', () => {
     expect(core.gsm.captureSnapshot().structures).toEqual([100]);
     expect(core.gsm.stateHash()).toBe(hashBefore);
     expect(drive.tick().ops.filter((op) => op[0] === 'structures.setStages'))
-      .toEqual([['structures.setStages', new Uint8Array([0]), new Int16Array([-1]), new Int32Array([100])]]);
+      .toEqual([['structures.setStages', new Uint8Array([0]), new Int16Array([-1]), new Int32Array([100]), new Int32Array(30)]]);
   });
 
   it("shells a destructible world's structure with the jumper's gun, the same on every run; on a world without, its gun looks ahead", () => {
@@ -530,6 +532,20 @@ describe('SimCore in the same thread', () => {
       // Another client with the same commands: the same world, bit for bit
       const b = run();
       expect(b.core.gsm.stateHash()).toBe(a.core.gsm.stateHash());
+      // The holes the hits left (E259), whole numbers in the state: the same on both, in the snapshot, back from it
+      const holes = damage.structures.holeList()!;
+      expect(holes.filter((_, k) => k % 5 === 3 && holes[k] > 0).length).toBeGreaterThanOrEqual(3);
+      expect(b.core.gsm.worldDamage.structures.holeList()).toEqual(holes);
+      const snapshot = a.core.gsm.captureSnapshot();
+      expect(snapshot.structureHoles).toEqual(holes);
+      const hash = a.core.gsm.stateHash();
+      // A save from before the holes loads without them, and hashes otherwise alike
+      a.core.gsm.restoreSnapshot({ ...snapshot, structureHoles: undefined }, 'live');
+      expect(damage.structures.holeList()).toBeUndefined();
+      expect(a.core.gsm.stateHash()).not.toBe(hash);
+      a.core.gsm.restoreSnapshot(snapshot, 'live');
+      expect(damage.structures.holeList()).toEqual(holes);
+      expect(a.core.gsm.stateHash()).toBe(hash);
 
       // The wave again from the replay file: every hash checked, no divergence
       const file = a.core.rpc('replayFile', { ...HEAD, world: TEST_WORLD_REF })!;

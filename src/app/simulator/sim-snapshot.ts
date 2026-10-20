@@ -39,6 +39,12 @@ export interface SimSnapshot {
   craters?: number[];
   /** Per structure the heading of the hit that brought its stage (StructureLedger), -1 none; absent while none is known */
   structureHeadings?: number[];
+  /**
+   * The holes heavy hits left in the structures (StructureLedger, E259):
+   * HOLE_SLOTS of HOLE_STRIDE whole numbers per structure; absent while
+   * there is none, and in a snapshot from before them (it loads without)
+   */
+  structureHoles?: number[];
   waveNumber: number;
   phase: GamePhase;
   /** A wave has started in this run (game:started went out) */

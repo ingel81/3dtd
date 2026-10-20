@@ -183,9 +183,16 @@ export interface SimSink {
      * a new run, a restore or a replay's seek: the player hands them to the
      * world's destruction, which shows each as it stands now. With them the
      * heading of each (StructureLedger), -1 where none is known, and the HP
-     * of each (the bars over the damaged ones)
+     * of each (the bars over the damaged ones) and its holes (HOLE_SLOTS of
+     * HOLE_STRIDE whole numbers each, destruction.config.ts)
      */
-    setStages(stages: Uint8Array, headings: Int16Array, hp: Int32Array): void;
+    setStages(stages: Uint8Array, headings: Int16Array, hp: Int32Array, holes: Int32Array): void;
+    /**
+     * The holes that changed since the last packet (StructureLedger.punch):
+     * per hole the structure (run rules' order), its slot and its
+     * HOLE_STRIDE numbers, once per packet
+     */
+    holes(changes: Int32Array): void;
     /** The HP that changed since the last packet: pairs of index (run rules' order) and HP, once per packet */
     hp(changes: Int32Array): void;
     /**

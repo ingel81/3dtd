@@ -462,6 +462,7 @@ export class GameStateManager {
     baseHealth: () => this.baseHealth(),
     structureHp: () => this.worldDamage.structures.hpView(),
     structureHeadings: () => this.worldDamage.structures.headingView(),
+    structureHoles: () => this.worldDamage.structures.holeView(),
     craters: () => this.worldDamage.craters.view(),
     waveNumber: () => this.waveManager.waveNumber(),
     spawner: () => this.waveManager.spawnerProgress(),
