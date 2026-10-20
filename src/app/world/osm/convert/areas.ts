@@ -29,6 +29,8 @@ import { SCENE_BUDGET } from '../../custom-map/render/objects/scene-cost';
 import { courtOf, fitMarking, insideRing, insideSurface, MARKING_FILL, markingPoint, MAX_SURFACE_MATERIALS, minAreaRect, parkingRows, signedArea, STALL, surfaceArea } from '../../custom-map/map-surfaces';
 import { areaLookOf, availableMaterial, MATERIAL_FALLBACK, PARKED_CARS, PLAYGROUND_DEVICES, PLAYGROUND_SETS, type AreaKind, type AreaLook } from '../area-tags';
 import type { OsmArea, OsmFeatures, OsmPoint } from '../osm-parse';
+import { LineClearance } from './line-clear';
+import type { RailPlan } from './rails';
 import { fillRings, sampleGrid, stampLine, distanceField, type RasterGrid } from './raster';
 
 /** Metres a cell of the buildings' index */
@@ -98,6 +100,8 @@ export interface AreaOptions {
   budget?: number;
   /** The routes from the spawns to the HQ (spawnRoutes), worked out once for the import; found here when missing */
   routes?: readonly (readonly MapPoint[])[];
+  /** The railway: the fences and hedges stop at its beds */
+  rails?: RailPlan;
 }
 
 export interface AreaReport {
@@ -128,6 +132,8 @@ interface Candidate {
   source: string;
   /** Lower goes first when the budget runs short */
   priority: number;
+  /** A piece of a fence or hedge: metres it reaches along model X either side of its middle */
+  reach?: number;
 }
 
 /** One surface to lay, before its material is settled */
@@ -227,9 +233,10 @@ export function layAreas(doc: CustomMapDocument, features: OsmFeatures, water: W
   // Cemeteries: gravel paths across the middle (surfaces of their own), rows of graves along them, a hedge round
   const extra: MapSurface[] = [];
   const candidates: Candidate[] = [];
-  const add = (o: Omit<MapObject, 'id'>, source: string, priority: number) => candidates.push({ o: { ...o, x: round2(o.x), y: round2(o.y), rotation: round3(o.rotation), scale: round2(o.scale) }, source, priority });
+  const add = (o: Omit<MapObject, 'id'>, source: string, priority: number, reach?: number) =>
+    candidates.push({ o: { ...o, x: round2(o.x), y: round2(o.y), rotation: round3(o.rotation), scale: round2(o.scale) }, source, priority, reach });
   // The objects of an area carry its group, as its surface does: the editor picks and moves them together
-  const into = (group: string | undefined): Add => (o, source, priority) => add(group ? { ...o, group } : o, source, priority);
+  const into = (group: string | undefined): Add => (o, source, priority, reach) => add(group ? { ...o, group } : o, source, priority, reach);
   for (const c of cemeteries) cemetery(c, extra, into(c.surface.group), options.hasMaterial ?? null);
   for (const a of allotments) allotmentPlots(a, buildings, into(a.surface.group));
   for (const s of seating) outdoorSeating(s, into(s.surface.group));
@@ -308,7 +315,9 @@ export function layAreas(doc: CustomMapDocument, features: OsmFeatures, water: W
 
   // The objects: off roads, water, buildings and clearings, models the catalogue has, then the budget by priority
   const clearings = [{ ...doc.hq, r: HQ_CLEAR }, ...doc.spawns.map((sp) => ({ x: sp.x, y: sp.y, r: SPAWN_CLEAR }))];
-  const why = (p: MapPoint): keyof AreaReport['dropped'] | 'outside' | null => {
+  // A fence's or hedge's piece stops at the roads, paths and track beds with all its length
+  const clearance = new LineClearance(doc.paths, options.rails ?? null, { roadClear: ROAD_CLEAR, pavements: false });
+  const why = (p: MapPoint, reach?: number): keyof AreaReport['dropped'] | 'outside' | null => {
     if (Math.abs(p.x) > half - 1 || Math.abs(p.y) > half - 1) return 'outside';
     const k = cell(p);
     if (k < 0) return 'outside';
@@ -317,6 +326,7 @@ export function layAreas(doc: CustomMapDocument, features: OsmFeatures, water: W
     if (clearings.some((c) => Math.hypot(c.x - p.x, c.y - p.y) < c.r)) return 'clearing';
     const hit = roads.nearest(p, 16);
     if (hit && hit.dist < hit.edge.width / 2 + ROAD_CLEAR) return 'road';
+    if (reach !== undefined && !clearance.fits(p as MapObject, reach)) return 'road';
     return null;
   };
   const budget = options.budget ?? AREA_BUDGET_SHARE * SCENE_BUDGET;
@@ -327,7 +337,7 @@ export function layAreas(doc: CustomMapDocument, features: OsmFeatures, water: W
   let cost = 0;
   for (const c of candidates) {
     if (options.hasAsset && !options.hasAsset(c.o.asset)) continue;
-    const no = why(c.o);
+    const no = why(c.o, c.reach);
     if (no === 'outside') continue;
     if (no) {
       report.dropped[no]++;
@@ -459,7 +469,7 @@ function segmentDistance(p: MapPoint, a: MapPoint, b: MapPoint): number {
   return Math.hypot(a.x + t * dx - p.x, a.y + t * dy - p.y);
 }
 
-type Add = (o: Omit<MapObject, 'id'>, source: string, priority: number) => void;
+type Add = (o: Omit<MapObject, 'id'>, source: string, priority: number, reach?: number) => void;
 
 const place = (asset: string, p: MapPoint, rotation: number, scale = 1): Omit<MapObject, 'id'> => ({ asset, x: p.x, y: p.y, z: 0, rotation, scale });
 
@@ -532,7 +542,7 @@ function line(a: MapPoint, b: MapPoint, asset: string, spacing: number, add: Add
   const rotation = Math.atan2(b.y - a.y, b.x - a.x);
   for (let k = 0; k < count; k++) {
     const f = (k + 0.5) / count;
-    add(place(asset, { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f }, rotation), source, priority);
+    add(place(asset, { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f }, rotation), source, priority, spacing / 2);
   }
 }
 

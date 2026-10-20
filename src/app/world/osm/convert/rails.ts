@@ -1224,9 +1224,9 @@ const distance = (p: MapPoint, a: MapPoint, b: MapPoint): number => {
 };
 
 /** Whether `p` lies on a track bed of `plan` (within its levelled width): other furniture keeps off */
-export function onTrackBed(plan: RailPlan): (p: MapPoint) => boolean {
+export function onTrackBed(plan: RailPlan, reach = BED_HALF): (p: MapPoint) => boolean {
   const index = new LineIndex(plan.chains);
-  return (p) => index.near(p, BED_HALF);
+  return (p) => index.near(p, reach);
 }
 
 /** The lines' segments in a grid of 16 m cells, for the nearest track to a point */

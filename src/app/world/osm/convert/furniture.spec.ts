@@ -42,16 +42,17 @@ describe('OSM furniture', () => {
     expect(pointAsset({ railway: 'buffer_stop' })).toBe('buffer-stop');
   });
 
-  it('puts fence pieces along the line, turned across it, none on the road', () => {
+  it('puts fence pieces along the line, turned across it, stopping at the road', () => {
     // A fence from south of the road to north of it, crossing it
     const { doc, features, water } = world([way(1, { barrier: 'fence' }, [{ x: -20, y: -40 }, { x: -20, y: 40 }])]);
     const report = placeFurniture(doc, features, water, { costOf });
     const fence = doc.objects.filter((o) => o.asset === 'fence-wood');
     expect(fence.length).toBeGreaterThan(15);
-    expect(report.dropped.road).toBeGreaterThan(0);
+    expect(report.placed['fence']).toBe(fence.length);
     for (const o of fence) {
       expect(o.x).toBeCloseTo(-20, 5);
-      expect(Math.abs(o.y)).toBeGreaterThan(3.4);
+      // The line stops at the road: no piece reaches onto it with its length (1.9 m either side)
+      expect(Math.abs(o.y) - 1.9).toBeGreaterThan(3.4 - 1e-6);
       // The line runs north, the piece's length (model X) along it: a quarter turn
       expect(Math.abs(Math.cos(o.rotation))).toBeLessThan(1e-3);
     }

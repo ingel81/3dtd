@@ -396,6 +396,24 @@ describe('OSM railway', () => {
     expect(sharp.plan.chains.map((c) => Math.round(c.length)).sort((a, b) => a - b)).toEqual([190, 380]);
   });
 
+  it('stops a hedge OSM maps across the line at the bed and its gravel and at the road', () => {
+    const elements = [...crossingElements({ railway: 'level_crossing' }), way(20, { barrier: 'hedge' }, [[-40, -30, 21], [-40, 30, 22]]), way(21, { barrier: 'hedge' }, [[-20, 10, 23], [20, 10, 24]])];
+    const { doc, features, plan } = world(elements);
+    placeFurniture(doc, features, noWater(doc), { costOf, rails: plan });
+    const hedges = of(doc, 'hedge-long');
+    expect(hedges.filter((o) => Math.abs(o.x + 40) < 0.01).length).toBeGreaterThan(6);
+    expect(hedges.filter((o) => Math.abs(o.y - 10) < 0.01).length).toBeGreaterThan(3);
+    // No piece reaches over the bed and its gravel, or onto the road (4.5 m half width), with its length (3 m either side)
+    for (const o of hedges) {
+      for (const f of [-1, -0.5, 0, 0.5, 1]) {
+        const x = o.x + Math.cos(o.rotation) * 3 * f;
+        const y = o.y + Math.sin(o.rotation) * 3 * f;
+        expect(Math.abs(y)).toBeGreaterThanOrEqual(RAIL_GROUND.half - 0.01);
+        expect(Math.abs(x)).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
   it('joins track ways end to end into one line, and ends lines at a switch', () => {
     // Two ways in a row, and a siding leaving the second at node 13
     const elements = [

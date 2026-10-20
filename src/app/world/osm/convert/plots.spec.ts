@@ -4,6 +4,7 @@ import type { CustomMapDocument } from '../../custom-map/map-document';
 import { readWeights } from '../../../map-ops/paint-ops';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
 import { BACK_MATERIAL, DRIVE_MATERIAL, FRONT_MATERIAL, layPlots } from './plots';
+import { RAIL_GROUND, type RailPlan } from './rails';
 
 const square = (id: number, x0: number, y0: number, x1: number, y1: number, tags: Record<string, string>): OsmArea => ({
   id,
@@ -84,6 +85,24 @@ describe('layPlots', () => {
     const tight = street([house(1, -12), house(2, 12)]);
     const capped = layPlots(tight.doc, tight.features, { costOf: () => 1, budget: 2 });
     expect(capped.hedges + capped.fences).toBeLessThanOrEqual(2);
+  });
+
+  it('keeps the plots and their hedges off a track bed behind the gardens', () => {
+    const { doc, features } = street([house(1, -12), house(2, 12)]);
+    // A track east to west 35 m north of the street, within the plots' reach of the houses (to y = 43)
+    const rails = {
+      chains: [{ line: [{ x: -100, y: 35 }, { x: 100, y: 35 }], at: [0, 200], length: 200, nodes: [null, null], ways: [], profile: null }],
+      crossings: [], bridges: [], overpasses: [], streets: [], tunnels: [], mouths: [],
+    } as unknown as RailPlan;
+    const report = layPlots(doc, features, { costOf: () => 1, rails });
+    expect(report.hedges).toBeGreaterThan(0);
+    // No piece reaches onto the bed or its gravel with its length (3 m either side of its middle)
+    for (const o of doc.objects.filter((o) => o.asset === 'hedge-long')) {
+      for (const f of [-1, 0, 1]) expect(Math.abs(o.y + Math.sin(o.rotation) * 3 * f - 35)).toBeGreaterThanOrEqual(RAIL_GROUND.half - 0.01);
+    }
+    // No garden over the track
+    expect(weightAt(doc, BACK_MATERIAL, 0, 35)).toBe(0);
+    expect(weightAt(doc, BACK_MATERIAL, 0, 30)).toBeGreaterThan(0.5);
   });
 
   it('leaves blocks of flats, sheds and buildings across the street out', () => {

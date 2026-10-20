@@ -9,7 +9,9 @@
  *
  * Every piece keeps off the roads (its middle outside the road's half width
  * plus a margin), the water, the building footprints and the HQ and
- * spawns, and all but the railway's own off the track beds. A crossing's
+ * spawns, and all but the railway's own off the track beds; a barrier's
+ * line stops where it meets a road, a path or a track bed, none of its
+ * pieces reaching into one (convert/line-clear.ts). A crossing's
  * panels lie on the road and a bridge spans road and water by design, a
  * track bed runs under a road bridge. A bus stop or lamp mapped on the road
  * moves to its edge. The pieces of one line share a group (`osm-w<way id>`),
@@ -26,6 +28,7 @@ import { SCENE_BUDGET } from '../../custom-map/render/objects/scene-cost';
 import { runs, type OsmFeatures, type OsmWay } from '../osm-parse';
 import { fillRings, sampleGrid } from './raster';
 import type { WaterResult } from './water';
+import { LineClearance } from './line-clear';
 import { onTrackBed, planRails, railPieces, RAIL_ASSET_IDS, TRACK_KINDS, type RailPlan } from './rails';
 
 /** Share of the scene budget the furniture may take (plants 50 %, buildings for now without a cap) */
@@ -231,8 +234,9 @@ export function placeFurniture(doc: CustomMapDocument, features: OsmFeatures, wa
     consider(piece.o, piece.source, 1, piece.group, true, { road: piece.onRoad ? 'all' : 'bridges', water: piece.overWater });
   }
 
-  // Lines: barriers, city walls
+  // Lines: barriers, city walls. A barrier stops at the roads, paths and track beds it meets (LineClearance)
   const across = { ...DEFAULT_LINE, turn: 'across' as const };
+  const clearance = new LineClearance(doc.paths, rails, { roadClear: ROAD_CLEAR, pavements: false });
   for (const w of features.ways) {
     const piece = barrierPiece(w.tags);
     const cityWall = w.tags['barrier'] === 'city_wall';
@@ -248,7 +252,12 @@ export function placeFurniture(doc: CustomMapDocument, features: OsmFeatures, wa
         // A retaining wall's low side is on the right of its way (OSM): its face turns there
         const line = piece === PIECES.retaining ? [...raw].reverse() : raw;
         const source = w.tags['barrier'] === 'jersey_barrier' ? 'barrier' : w.tags['barrier'];
-        keep(objectsAlong(line, piece.asset, { ...across, spacing: piece.spacing }, ids, still), source, 0, group);
+        for (const run of clearance.runs(line)) {
+          const pieces = objectsAlong(run, piece.asset, { ...across, spacing: piece.spacing }, ids, still);
+          const fit = pieces.filter((o) => clearance.fits(o, piece.spacing / 2));
+          report.dropped.road += pieces.length - fit.length;
+          keep(fit, source, 0, group);
+        }
       }
     }
   }

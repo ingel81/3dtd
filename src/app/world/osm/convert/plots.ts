@@ -6,13 +6,16 @@ import { fitSplatMaps, type CustomMapDocument, type MapObject, type MapPoint } f
 import { SCENE_BUDGET } from '../../custom-map/render/objects/scene-cost';
 import { isGroundBuilding } from '../building-tags';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
+import { LineClearance } from './line-clear';
+import { RAIL_GROUND, type RailPlan } from './rails';
 import { fillRings, stampLine, type RasterGrid } from './raster';
 
 /**
  * The plots of an OSM world's houses (report-vterrain 4: between the houses
  * lay one even lawn): every house's plot grows from its footprint over a
  * grid of a metre, up to REACH, kept off the streets with their pavements,
- * the other buildings, the surfaces of squares and car parks and the water;
+ * the track beds with their gravel, the other buildings, the surfaces of
+ * squares and car parks and the water;
  * where two plots meet runs their boundary. Of each plot
  * - the front garden, the part before the house's front towards its street,
  *   is mown lawn (FRONT_MATERIAL), the garden behind leafier grass
@@ -22,7 +25,8 @@ import { fillRings, stampLine, type RasterGrid } from './raster';
  *   no way is mapped there already;
  * - hedges stand on the boundaries at the sides and the back, a picket fence
  *   along some front gardens, thinned by a hash and held to PLOTS_BUDGET_SHARE
- *   of the scene budget.
+ *   of the scene budget; none reaches over a road, a path or a track bed
+ *   (convert/line-clear.ts).
  * After the plants: the trees OSM maps in the gardens and what else stands
  * there keep their place, the pieces and driveways keep off them (STANDING).
  * OSM maps plots only here and there; the houses and streets say enough.
@@ -74,6 +78,8 @@ export interface PlotOptions {
   hasMaterial?: ((material: string) => boolean) | null;
   /** Points the plots' pieces may cost, default PLOTS_BUDGET_SHARE of SCENE_BUDGET */
   budget?: number;
+  /** The railway: no plot crosses its beds */
+  rails?: RailPlan;
 }
 
 export interface PlotReport {
@@ -125,6 +131,7 @@ export function layPlots(doc: CustomMapDocument, features: OsmFeatures, options:
     else if (a.tags['natural'] === 'water' || a.tags['waterway'] === 'riverbank') fillRings([...a.outer, ...a.inner], grid, (i, j) => (label[j * n + i] = BARRIER));
   }
   for (const s of doc.surfaces ?? []) fillRings([s.outer, ...(s.holes ?? [])], grid, (i, j) => (label[j * n + i] = BARRIER));
+  for (const c of options.rails?.chains ?? []) stampLine(c.line, grid, RAIL_GROUND.half, (i, j) => (label[j * n + i] = BARRIER));
   // The houses: each its footprint as the seed of its plot
   for (const a of features.areas) {
     if (!isHouse(a) || !a.outer.length) continue;
@@ -211,6 +218,9 @@ export function layPlots(doc: CustomMapDocument, features: OsmFeatures, options:
 
   const ids = new ObjectIds(doc.objects);
   const budget = options.budget ?? PLOTS_BUDGET_SHARE * SCENE_BUDGET;
+  const clearance = new LineClearance(doc.paths, options.rails ?? null, { roadClear: 0.3, pavements: true });
+  const along = (line: MapPoint[], piece: { asset: string; spacing: number }): MapObject[] =>
+    clearance.runs(line).flatMap((run) => objectsAlong(run, piece.asset, { ...DEFAULT_LINE, turn: 'across', spacing: piece.spacing }, ids, () => 0).filter((o) => clearance.fits(o, piece.spacing / 2)));
   const placed: MapObject[] = [];
   const keep = (pieces: MapObject[], kind: 'hedges' | 'fences', group: string): void => {
     for (const o of pieces) {
@@ -232,9 +242,9 @@ export function layPlots(doc: CustomMapDocument, features: OsmFeatures, options:
     const pick = hashCell(run.points[0][0], run.points[0][1], seed);
     const group = `plot-b${run.points[0][0]}-${run.points[0][1]}`;
     if (run.front) {
-      if (pick < FENCE_SHARE) keep(objectsAlong(line, FENCE.asset, { ...DEFAULT_LINE, turn: 'across', spacing: FENCE.spacing }, ids, () => 0), 'fences', group);
+      if (pick < FENCE_SHARE) keep(along(line, FENCE), 'fences', group);
     } else if (pick < HEDGE_SHARE) {
-      keep(objectsAlong(line, HEDGE.asset, { ...DEFAULT_LINE, turn: 'across', spacing: HEDGE.spacing }, ids, () => 0), 'hedges', group);
+      keep(along(line, HEDGE), 'hedges', group);
     }
   }
   doc.objects.push(...placed);

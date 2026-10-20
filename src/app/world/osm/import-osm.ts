@@ -226,7 +226,7 @@ export function convertOsm(
   const materials = options.materials && new Set(options.materials);
   // The costs know every asset of the catalogue the areas may place: one missing is left out
   const costs = options.costs;
-  const areas = layAreas(doc, features, water, { costOf, routes, hasMaterial: materials ? (m) => materials.has(m) : null, hasAsset: costs ? (a) => a in costs : null });
+  const areas = layAreas(doc, features, water, { costOf, routes, hasMaterial: materials ? (m) => materials.has(m) : null, hasAsset: costs ? (a) => a in costs : null, rails });
   step('areas');
 
   // After the HQ (they keep clear of it) and the water; their pads cut the ground the roads levelled, never the roads
@@ -247,7 +247,7 @@ export function convertOsm(
   const plants = growVegetation(doc, features, ground.land, water, { costOf, routes, keepOff: areas.keepOff, onShare: onShare && ((share) => onShare('plants', share)) });
   // The houses' plots after the plants: the trees OSM maps in the gardens stand, hedges and driveways keep off them.
   // Front gardens and gardens painted, driveways, hedges and fences in their own share
-  const plots = layPlots(doc, features, { costOf, hasMaterial: materials ? (m) => materials.has(m) : null });
+  const plots = layPlots(doc, features, { costOf, hasMaterial: materials ? (m) => materials.has(m) : null, rails });
   step('plants');
 
   // Boats, birds, the bell and the intro flight from the place's data, as life areas and an intro of any map

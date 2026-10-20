@@ -197,7 +197,7 @@ Code in `src/app/world/osm/` ohne Angular und DOM (Worker, Node, Specs), wie `wo
 | `convert/ground.ts` | Landnutzung zu höchstens 8 Schichten, Vorrang bei Überlappung |
 | `convert/vegetation.ts` | Wald, Gebüsch, Parks, Einzelbäume, Baumreihen, im Objektbudget |
 | `convert/buildings.ts` | Grundriss zu Katalog-Modell(en), Art raten, ausrichten, auf den Hang setzen |
-| `convert/plots.ts` | Grundstücke der Wohnhäuser (Raster 1 m, bis 20 m vom Haus, Straßen mit Gehweg, andere Gebäude, Flächen und Wasser als Sperre): Vorgarten als Rasen (`grass-lush`), Garten dahinter (`grass-leafy`, wenn eine Schicht frei ist), Einfahrt aus `pavers` als Fläche, wo kein Weg gemappt ist, Hecken an Seiten und hinten, manche Vorgärten mit Staketenzaun; 5 % des Szenenbudgets. Läuft im Schritt `buildings` |
+| `convert/plots.ts` | Grundstücke der Wohnhäuser (Raster 1 m, bis 20 m vom Haus, Straßen mit Gehweg, Gleisbetten mit Schotterstreifen, andere Gebäude, Flächen und Wasser als Sperre; keine Hecke reicht über Straße, Weg oder Gleis): Vorgarten als Rasen (`grass-lush`), Garten dahinter (`grass-leafy`, wenn eine Schicht frei ist), Einfahrt aus `pavers` als Fläche, wo kein Weg gemappt ist, Hecken an Seiten und hinten, manche Vorgärten mit Staketenzaun; 5 % des Szenenbudgets. Läuft im Schritt `buildings` |
 | `convert/furniture.ts` | Zäune, Mauern, Hecken, Laternen, Kleinkram, Strommasten (gebaut O5) |
 | `convert/rails.ts` | Bahn: Linien, Bahnübergänge, Bahnbrücken, Straßenbrücken über der Bahn, Bahntunnel, Gleisbett, Stücke (E238) |
 | `convert/layout.ts` | HQ und Spawns (`StreetRouter` auf `mapStreetNetwork`), Kartenrahmen |
@@ -965,7 +965,10 @@ Fall in `import-osm.spec.ts` auf der eingefrorenen Probe (Ausstattung im Anteil,
   Lattenzaun `fence-rail`, Staketen `fence-picket`), Mauer `wall-stone` (`wall=dry_stone`: `wall-dry-stone`),
   Stützmauer `retaining-wall` mit der Front zur rechten Seite des Wegs (OSM zeichnet die tiefe Seite rechts), Hecke
   `hedge-long`, `jersey_barrier` als `road-barrier`. Die Stücke stehen mit `objectsAlong` quer zur Linie (ihre Länge
-  ist Modell-X), im Abstand etwas unter ihrer Länge. `barrier=city_wall` baut die Burgmauer (`wallAlong`, Blöcke an
+  ist Modell-X), im Abstand etwas unter ihrer Länge. Eine Linie endet, wo sie auf eine Straße, einen Weg oder ein
+  Gleisbett samt Schotterstreifen trifft, und kein Stück reicht mit seiner Länge hinein (`convert/line-clear.ts`,
+  E269; vorher prüfte nur die Mitte jedes Stücks, eine 6-m-Hecke lief so über Gleis und Fahrbahn). Dieselbe Regel gilt
+  für die Hecken und Zäune der Grundstücke und der Flächen (Friedhof, Kleingärten, Sportplätze). `barrier=city_wall` baut die Burgmauer (`wallAlong`, Blöcke an
   den Ecken), sie darf in Gebäude reichen (Tore, Türme sind dort oft Gebäude). **Leitplanken** (`guard_rail`) bleiben
   weg: der Betonblock ist keine Leitplanke und kostet 526 Punkte je 1,5 m (Erlenbach: rund 1 070 Stück); ein Modell
   „Leitplanke“ fehlt. Bordsteine, Tore, Schranken, Kabelsperren bleiben weg.
