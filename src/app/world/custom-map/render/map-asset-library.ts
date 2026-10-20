@@ -24,7 +24,7 @@ import { mapInFront, onMapInFront } from '../map-in-front';
 import { KEEP_LEASES, onGpuReset, onLeaseBegin } from '../../../three-engine/renderer-host';
 import { shareGpu, unshareGpu } from '../../../three-engine/shared-gpu';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { hexToRgb, parseCatalog, type AssetCatalog, type CatalogMaterial, type CatalogObject } from './asset-catalog';
+import { hexToRgb, parseCatalog, type AssetCatalog, type CatalogMaterial, type CatalogObject, type StageTone } from './asset-catalog';
 
 /**
  * Loads the asset catalogue, ground material pixels and object models once
@@ -75,6 +75,13 @@ export interface ObjectModel {
   /** Height of the model's bounding box in metres */
   height: number;
   placeholder: boolean;
+}
+
+/** A lower detail model of an asset, where it takes over (screen share) and its colours' tone (CatalogObject `lod`) */
+export interface LodModel {
+  model: ObjectModel;
+  screen: number;
+  tone?: StageTone;
 }
 
 export interface ImagePixels {
@@ -256,7 +263,7 @@ export class MapAssetLibrary {
    * with that one (sharedMaterials): a tree's far copy shares the model's
    * materials and programs (its textures are the model's shared files).
    */
-  async lodModels(id: string): Promise<{ model: ObjectModel; screen: number }[]> {
+  async lodModels(id: string): Promise<LodModel[]> {
     const entry = await this.objectEntry(id);
     if (!entry?.lod) return [];
     // All of them at once, nearest (the largest screen share) first in the answer
@@ -274,7 +281,7 @@ export class MapAssetLibrary {
         }
         try {
           const model = await p;
-          return model.parts.length ? { model, screen: lod.screen } : null;
+          return model.parts.length ? { model, screen: lod.screen, ...(lod.tone ? { tone: lod.tone } : {}) } : null;
         } catch (error) {
           console.warn(`[MapAssetLibrary] LOD ${lod.file} of ${id} not loaded`, error);
           return null;

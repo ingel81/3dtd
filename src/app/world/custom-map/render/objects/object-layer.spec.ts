@@ -233,6 +233,25 @@ describe('MapObjectLayer levels of detail', () => {
     layer.dispose();
   });
 
+  it("multiplies a LOD model's colours by its tone, the full model's not (catalogue lod[].tone, E268)", async () => {
+    const toned: AssetCatalog = { ...catalog, objects: [{ ...catalog.objects[0], lod: [{ ...catalog.objects[0].lod![0], tone: [0.5, 0.8, 1.2] }] }] };
+    const lib = new MapAssetLibrary('base/', {
+      fetch: (() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(toned) } as Response)) as typeof fetch,
+      loadModel: (url) => {
+        const root = new Group();
+        root.add(new Mesh(new BoxGeometry(1, url.includes('far') ? 2 : 10, 1), new MeshStandardMaterial({ color: 0xffffff })));
+        return Promise.resolve(root);
+      },
+    });
+    const los = new Group();
+    const layer = new MapObjectLayer(field(), lib, los);
+    await layer.setObjects([post(0, 0)]);
+    const color = (name: string) => (meshes(los, name)[0].material as MeshStandardMaterial).color.toArray();
+    expect(color('post')).toEqual([1, 1, 1]);
+    expect(color('post-lod1')).toEqual([0.5, 0.8, 1.2]);
+    layer.dispose();
+  });
+
   it('merges the plain-coloured parts of a model into one draw', async () => {
     const lib = new MapAssetLibrary('base/', {
       fetch: (() =>

@@ -42,7 +42,7 @@ import { NIGHT_WINDOW_UNIFORMS } from './night-windows';
 /** Pixels per atlas tile and tiles per atlas row, as bake_far_boxes.mjs writes them */
 export const FAR_TILE = 64;
 export const FAR_COLUMNS = 16;
-/** Texels per asset row of the parameter texture: box, span, nine heights */
+/** Texels per asset row of the parameter texture: box, span, nine heights and the tone (catalogue `far.tone`) */
 const ROW_TEXELS = 5;
 
 /** GLSL of the box: where a template vertex lies for its asset's row (farBoxLocal), and its place in the atlas (farBoxUv) */
@@ -157,7 +157,7 @@ export const FAR_BLOCKING = 'blocking';
 export const FAR_OPEN = 'open';
 
 export class FarBoxes implements SharedDraws {
-  /** Per asset: its box and atlas tile, 5 texels a row (box, span, nine heights) */
+  /** Per asset: its box and atlas tile, 5 texels a row (box, span, nine heights, tone) */
   private params: DataTexture;
   private readonly rows = new Map<string, number>();
   private readonly template = boxTemplate();
@@ -186,15 +186,18 @@ export class FarBoxes implements SharedDraws {
     m.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, this.uniforms, NIGHT_WINDOW_UNIFORMS);
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', `#include <common>\n${FAR_BOX_GLSL}\n${FAR_UV_GLSL}\nvarying vec3 vFarWorld;`)
+        .replace('#include <common>', `#include <common>\n${FAR_BOX_GLSL}\n${FAR_UV_GLSL}\nvarying vec3 vFarWorld;\nvarying vec3 vFarTone;`)
         .replace(
           '#include <begin_vertex>',
           /* glsl */ `vec3 transformed = farBoxLocal(position);
           vMapUv = farBoxUv(position, uv.x, transformed.y);
-          vFarWorld = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;`,
+          vFarWorld = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
+          vFarTone = farParam(4).yzw;`,
         );
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nvarying vec3 vFarWorld;\nuniform float uNightWindows;')
+        .replace('#include <common>', '#include <common>\nvarying vec3 vFarWorld;\nvarying vec3 vFarTone;\nuniform float uNightWindows;')
+        // The asset's tone (catalogue `far.tone`): the box as bright as its model in the same light
+        .replace('#include <map_fragment>', '#include <map_fragment>\ndiffuseColor.rgb *= vFarTone;')
         .replace(
           '#include <emissivemap_fragment>',
           /* glsl */ `#include <emissivemap_fragment>
@@ -248,7 +251,7 @@ export class FarBoxes implements SharedDraws {
     const data = this.params.image.data as Float32Array;
     const at = r * ROW_TEXELS * 4;
     const [cx, cz, hw, hd, y0, top] = far.box;
-    data.set([cx, cz, hw, hd, y0, top, far.tile, 0, ...far.top, 0, 0, 0], at);
+    data.set([cx, cz, hw, hd, y0, top, far.tile, 0, ...far.top, ...(far.tone ?? [1, 1, 1])], at);
     this.params.needsUpdate = true;
     return r;
   }

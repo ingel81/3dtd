@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, posix } from 'node:path';
+import { LOD_BAND } from '../../world/custom-map/render/objects/lod-fade';
 import { ktx2Opaque } from './model-loader';
 
 /**
@@ -54,7 +55,7 @@ describe('map models', () => {
   const textures = join(MAP_ASSETS, 'textures');
   const named = new Set<string>();
   const catalog = JSON.parse(readFileSync(join(MAP_ASSETS, 'catalog.json'), 'utf8')) as {
-    objects: { id: string; file: string; textures?: string[]; lod?: { file: string; textures?: string[] }[] }[];
+    objects: { id: string; file: string; textures?: string[]; lod?: { file: string; screen: number; textures?: string[]; tone?: number[] }[]; far?: { screen: number; tone?: number[] } }[];
   };
   const imagesOf = (file: string): string[] =>
     (glbJson(join(MAP_ASSETS, file)).images ?? []).map((image) => posix.normalize(posix.join(posix.dirname(file), image.uri ?? '<embedded>')));
@@ -109,6 +110,18 @@ describe('map models', () => {
       }
     }
     expect(unmatched).toEqual([]);
+  });
+
+  it('give every detail stage that shows a tone measured against its full model (stage_tones.mjs)', () => {
+    // Without one a stage keeps the brightness of its own build: a LOD house 20 to 60 % brighter than its model, a
+    // hedge's box half as bright (E268). A LOD whose switch lies within a band's width (LOD_BAND, 12 %) of the far
+    // box's never shows alone, and one past it never shows at all: neither is measured
+    const missing: string[] = [];
+    for (const o of catalog.objects) {
+      for (const l of o.lod ?? []) if (!l.tone && !(o.far && l.screen <= (o.far.screen * (1 + LOD_BAND / 2)) / (1 - LOD_BAND / 2))) missing.push(`${o.id} ${l.file}`);
+      if (o.far && !o.far.tone) missing.push(`${o.id} far`);
+    }
+    expect(missing).toEqual([]);
   });
 
   it('tell from their data format whether they carry alpha (the enemy bake and foliage read it)', () => {

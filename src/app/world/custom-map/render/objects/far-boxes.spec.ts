@@ -59,6 +59,9 @@ describe('far boxes', () => {
     // The box carries its asset's row and draws in the line of sight with the same shape
     expect(boxes.geometry.getAttribute('aFarRow').array[0]).toBe(0);
     expect(boxes.userData['losVertex'].vertex).toContain('farBoxLocal');
+    // Its tone in the row's fifth texel after the ninth height (catalogue far.tone), 1 without one
+    const params = () => boxes.userData['losVertex'].uniforms.uFarParams.value.image.data as Float32Array;
+    expect([...params().subarray(17, 20)]).toEqual([1, 1, 1]);
     // Moving over: the far house comes near, the near one goes far
     camera.position.set(-600, 5, 0);
     camera.updateMatrixWorld();
@@ -68,6 +71,35 @@ describe('far boxes', () => {
     expect(boxes.instanceMatrix.array[12]).toBeCloseTo(0);
     layer.removeObjects(['a']);
     expect(boxes.count).toBe(0);
+    layer.dispose();
+  });
+
+  it("tints a box with its asset's tone, in the material's colour after the atlas (E268)", async () => {
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
+    const toned = { ...house, far: { ...house.far!, tone: [2, 1.5, 0.5] as [number, number, number] } };
+    const lib = new MapAssetLibrary('base/', {
+      fetch: (() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ...catalog, objects: [toned] }) } as Response)) as typeof fetch,
+      loadModel: () => {
+        const root = new Group();
+        root.add(new Mesh(new BoxGeometry(8, 10, 6).translate(0, 5, 0), new MeshStandardMaterial()));
+        return Promise.resolve(root);
+      },
+      loadTexture: () => Promise.resolve(new Texture({ width: 1024, height: 64 })),
+    });
+    const los = new Group();
+    const layer = new MapObjectLayer(field, lib, los);
+    await layer.setObjects([{ id: 'b', asset: 'house', x: 600, y: 0, z: 0, rotation: 0, scale: 1 }]);
+    const camera = new PerspectiveCamera(60);
+    camera.position.set(0, 5, 0);
+    camera.updateMatrixWorld();
+    layer.update(0.016, camera);
+    const boxes = los.children.find((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === 'far-boxes')!;
+    expect([...(boxes.userData['losVertex'].uniforms.uFarParams.value.image.data as Float32Array).subarray(17, 20)]).toEqual([2, 1.5, 0.5]);
+    const material = boxes.material as MeshStandardMaterial;
+    const shader = { uniforms: {}, vertexShader: '#include <common>\n#include <begin_vertex>', fragmentShader: '#include <common>\n#include <map_fragment>\n#include <emissivemap_fragment>' };
+    material.onBeforeCompile(shader as never, undefined as never);
+    expect(shader.fragmentShader).toContain('diffuseColor.rgb *= vFarTone;');
+    expect(shader.vertexShader).toContain('vFarTone = farParam(4).yzw;');
     layer.dispose();
   });
 

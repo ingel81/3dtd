@@ -253,9 +253,12 @@ export interface CatalogObject {
    * Lower detail models, each taking over where the object fills less than
    * `screen` of the view's height (its bounding radius over the half height
    * of the view at its distance, LOD_TAN_HALF_FOV): a small object switches
-   * nearer than a big one (object-layer.ts)
+   * nearer than a big one (object-layer.ts). `tone`: what its colours are
+   * multiplied by to look like the full model in the game's light (the
+   * model's occlusion, grime and normal maps the flat copy lacks), measured
+   * by tools/map-assets/stage_tones.mjs
    */
-  lod?: { file: string; screen: number; triangles?: number; textures?: string[] }[];
+  lod?: { file: string; screen: number; triangles?: number; textures?: string[]; tone?: StageTone }[];
   /**
    * Buildings: the far stage, a box of 24 triangles textured from the
    * model (objects/far-boxes.ts, tools/map-assets/bake_far_boxes.mjs),
@@ -263,9 +266,9 @@ export interface CatalogObject {
    * height. `tile`: its five tiles in the atlas from tile * 5; `box`: middle
    * x and z, half width and depth, the foundation's bottom and the views'
    * top at scale 1; `top`: the heights of its top's 3 x 3 grid, rows from
-   * -z to +z, each from -x to +x
+   * -z to +z, each from -x to +x; `tone` as a LOD model's
    */
-  far?: { screen: number; tile: number; box: [number, number, number, number, number, number]; top: number[] };
+  far?: { screen: number; tile: number; box: [number, number, number, number, number, number]; top: number[]; tone?: StageTone };
   /** Where an object's `sign` is written on the model (render/objects/sign-text.ts) */
   signPanel?: CatalogSignPanel;
 }
@@ -296,6 +299,9 @@ export function objectRadius(entry: Pick<CatalogObject, 'footprint' | 'height'>)
 }
 
 /** The camera distance at which an object of radius `radius` fills `screen` of the view's height */
+/** Red, green and blue factors of a detail stage's colours (CatalogObject `lod`, `far`) */
+export type StageTone = [number, number, number];
+
 export function screenDistance(radius: number, screen: number): number {
   return radius / (screen * LOD_TAN_HALF_FOV);
 }

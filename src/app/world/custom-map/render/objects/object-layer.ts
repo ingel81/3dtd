@@ -22,9 +22,9 @@ import {
   type MeshStandardMaterial,
 } from 'three';
 import type { MapObject } from '../../map-document';
-import { LOD_TAN_HALF_FOV, screenDistance, type AssetCatalog, type CatalogObject } from '../asset-catalog';
+import { LOD_TAN_HALF_FOV, screenDistance, type AssetCatalog, type CatalogObject, type StageTone } from '../asset-catalog';
 import type { HeightField } from '../height-field';
-import type { MapAssetLibrary, ModelPart, ObjectModel } from '../map-asset-library';
+import type { LodModel, MapAssetLibrary, ModelPart, ObjectModel } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
 import { WIND_GLSL, WIND_UNIFORMS, windSwayAtTop } from '../environment/wind';
 import { mapToScene } from '../map-coords';
@@ -105,6 +105,8 @@ function distance(xyz: Float32Array, at: number, p: Vector3): number {
 }
 
 /** An object outside every band (AssetBatch.nextOf) */
+/** Scratch colour for a detail stage's tone (objectMaterial) */
+const STAGE_TONE = new Color();
 const NO_NEXT = -2;
 /** Milliseconds of batches built before setObjects gives the page a frame: a town's assets were built in one */
 const BUILD_SLICE_MS = 8;
@@ -145,7 +147,7 @@ interface AssetBatch {
   entry: CatalogObject;
   model: ObjectModel;
   /** The detail models it was built with, for its ruin batch */
-  lods: { model: ObjectModel; screen: number }[];
+  lods: LodModel[];
   blocksLos: boolean;
   /** The asset's damaged objects (setDamage): damage in the shader, both sides drawn */
   ruin: boolean;
@@ -892,16 +894,16 @@ export class MapObjectLayer {
    * Detail levels of an asset: its model, the catalogue's LOD models (each
    * from where an object fills its screen share), an impostor for far trees
    */
-  private levelsFor(model: ObjectModel, lods: { model: ObjectModel; screen: number }[], blocks: boolean, ruin = false): Level[] {
+  private levelsFor(model: ObjectModel, lods: LodModel[], blocks: boolean, ruin = false): Level[] {
     const entry = model.entry;
-    const drawn = (m: ObjectModel) =>
+    const drawn = (m: ObjectModel, tone?: StageTone) =>
       mergedParts(m).map((p) => ({
         geometry: p.geometry,
-        material: this.objectMaterial(p.material, entry, ruin),
+        material: this.objectMaterial(p.material, entry, ruin, tone),
         depthMaterial: ruin ? this.ruinDepthMaterial() : isRotor(p.material) ? this.rotorShadow(entry) : undefined,
       }));
     const levels: Level[] = [{ from: 0, parts: drawn(model) }];
-    for (const lod of lods) levels.push({ from: screenDistance(1, lod.screen), parts: drawn(lod.model) });
+    for (const lod of lods) levels.push({ from: screenDistance(1, lod.screen), parts: drawn(lod.model, lod.tone) });
     // A ruin keeps its models to its draw distance: no impostor or far box shows the damage
     if (ruin) return levels;
     const slot = this.options.impostors?.get(model);
@@ -929,7 +931,7 @@ export class MapObjectLayer {
     return levels;
   }
 
-  private buildBatch(model: ObjectModel, lods: { model: ObjectModel; screen: number }[], blocksLos: boolean, objects: MapObject[], ruin = false): AssetBatch {
+  private buildBatch(model: ObjectModel, lods: LodModel[], blocksLos: boolean, objects: MapObject[], ruin = false): AssetBatch {
     const entry = model.entry;
     const n = objects.length;
     const capacity = listCapacity(n);
@@ -1387,7 +1389,8 @@ export class MapObjectLayer {
    * for flames (foliage cards that glow). The per-asset numbers are
    * uniforms, so all of them share a handful of shader programs.
    */
-  private objectMaterial(source: Material, entry: CatalogObject, ruin = false): Material {
+  /** An object's material as the layer draws it; `tone` multiplies a detail stage's colour (CatalogObject `lod`) */
+  private objectMaterial(source: Material, entry: CatalogObject, ruin = false, tone?: StageTone): Material {
     const m0 = source as MeshStandardMaterial;
     const card = m0.name.startsWith('foliage-');
     const waterfall = m0.name.startsWith('foliage-waterfall');
@@ -1406,12 +1409,13 @@ export class MapObjectLayer {
     const bob = !!entry.float && entry.category !== 'structure';
     // Several looks in one atlas (a herd of several breeds): only for objects that stay where they are
     const variants = !card && !bob && (entry.variants ?? 1) > 1 ? entry.variants! : 1;
-    const key = `${source.uuid}|${entry.grime ? 1 : 0}|${crownWarp ? 1 : 0}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin || rotor ? period : 0}|${rotor ? 1 : 0}|${variants}|${ruin ? 1 : 0}`;
+    const key = `${source.uuid}|${entry.grime ? 1 : 0}|${crownWarp ? 1 : 0}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin || rotor ? period : 0}|${rotor ? 1 : 0}|${variants}|${ruin ? 1 : 0}|${tone ? tone.join(',') : ''}`;
     const cached = this.materials.get(key);
     if (cached) return cached;
     // Always an own copy: the library's material is shared (other views, the editor's thumbnails)
     // and is never changed or disposed here. Copies of one source share its textures and programs
     const m = source.clone() as MeshStandardMaterial;
+    if (tone) m.color.multiply(STAGE_TONE.setRGB(tone[0], tone[1], tone[2]));
     if (!card && m.emissive) {
       // Glowing surfaces (lava, crystals, windows) stay under a cap: at night a full glow
       // reads as a flat bright disc instead of a lit surface

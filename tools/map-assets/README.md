@@ -75,6 +75,13 @@ node tools/map-assets/bake_far_boxes.mjs public/maps/assets
 # einzelner Ids) behalten Fußabdruck, Höhe und LOD aus dem bisherigen catalog.json. Neue LODs: match_lods.py
 # braucht ihren Katalogeintrag, also update_catalog.py, match_lods.py, update_catalog.py
 python -I tools/map-assets/update_catalog.py $DL/glb-raw public/maps/assets
+
+# Ton der Detailstufen (LOD-Modell, Fernkasten): jede Stufe gegen das volle Modell im Licht des Spiels gemessen
+# (/map-preview, ein laufender Dev-Server), Faktor je Kanal in stage-tones.json und per stage_tones.py in den Katalog
+# (`lod[].tone`, `far.tone`; update_catalog.py übernimmt ihn). Nach jedem neuen oder geänderten LOD-Modell und
+# Fernkasten (match_lods.py, bake_far_boxes.mjs), zweimal (der zweite Lauf verfeinert); --report misst nur.
+# packed-models.spec.ts meldet Stufen ohne Ton
+node tools/map-assets/stage_tones.mjs --url http://localhost:<port> [--report] [<id> ...]
 ```
 
 Aufteilung der Blender-Skripte: `build_models.py` (Einstieg, Register, Grundbestand), `build_nature.py` (Bäume,

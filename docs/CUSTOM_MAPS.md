@@ -597,6 +597,19 @@ bekommt keinen und behält sein LOD-Modell. 76 von 104 Gebäuden haben einen, da
 Block; ihre Lücken im Atlas als Schatten im Laub): Oberbergen, Spielansicht High 7,1 → 1,6 M Dreiecke, 391 → 155 Draws.
 101 Modelle ohne LOD (über 1500 Dreiecke, Mauern ab 150) haben eine Fernkopie aus `make_far_lods.mjs`
 (meshoptimizer, flach schattiert, Farbe aus `match_lods.py`); Stützmauern 176 → 38 Dreiecke.
+**Ton der Stufen (E268, Katalog `lod[].tone`, `far.tone`):** die LOD-Modelle tragen das Mittel jeder Textur, aber
+nicht die gebackene Verdeckung des Modells, seinen Schmutz (`grime`), Normalen und raue und glatte Stellen; der
+Fernkasten ist die unbeleuchtete Farbe des Modells auf einem flach schattierten Kasten. Im Licht des Spiels stand so
+ein LOD-Haus 20 bis 60 % heller als sein Modell, eine Hecke als Kasten halb so hell, und beim Stufenwechsel sprangen
+Dächer und Wände in der Farbe. Je Stufe ein Faktor für Rot, Grün und Blau gleicht das aus: `object-layer.ts`
+multipliziert die Farbe der Materialien des LOD-Modells damit (eigene Materialkopie je Ton), `far-boxes.ts` die des
+Kastens im Shader (in der freien Zeile der Datentextur, kein Draw mehr). Gemessen von
+`tools/map-assets/stage_tones.mjs`: jedes Objekt allein auf Schwarz in `/map-preview`, jede Stufe an derselben Kamera
+erzwungen, 55° von oben aus den vier Diagonalen wie die Spielkamera; der Ton ist das lineare Mittel des vollen
+Modells durch das der Stufe, je Kanal, mal dem bisherigen Ton (ein zweiter Lauf verfeinert). `stage-tones.json`,
+`stage_tones.py` schreibt ihn in den Katalog (`update_catalog.py` ebenso). Wo eine Stufe anders gebaut ist als ihr
+Modell (Formen, die die Dezimierung verliert, offene Bauten als voller Kasten), bleibt der Ton ein Mittel, keine
+Gleichheit: er hält die Helligkeit des Ganzen, nicht jedes Teils.
 **Schaden (Zerstörung, [DESTRUCTION_PLAN.md](DESTRUCTION_PLAN.md), Z2):** ein beschädigtes Gebäude verlässt den Batch
 seines Assets für dessen Ruinen-Batch (`setDamage`, beidseitig, der Schaden im Shader); intakte Instanzen und Fern-Kästen
 tragen keinen Schaden und behalten ihre Programme.

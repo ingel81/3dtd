@@ -9,7 +9,8 @@ footprint and height come from the measured bounds in <glb-raw-dir>/report.json
 (pack_models.py) unless objects.json sets them; the underside of rocks (`base`)
 from bases.json (measure_bases.mjs), the ground rectangle of buildings and walls
 (`box`) from boxes.json (measure_boxes.mjs), the top surface of what carries a tower (`roof`) from roofs.json
-(measure_roofs.mjs), the far stage of buildings (`far`) from farboxes.json (bake_far_boxes.mjs); the triangle counts from the packed models
+(measure_roofs.mjs), the far stage of buildings (`far`) from farboxes.json (bake_far_boxes.mjs), the detail stages'
+tones (`lod[].tone`, `far.tone`) from stage-tones.json (stage_tones.mjs); the triangle counts from the packed models
 (count_triangles.py). Objects <glb-raw-dir> has not measured (a build of a few
 models) keep their measured fields from the current catalog.json.
 First it runs tools/model-pack/pack-map-models.mjs over all models (a model
@@ -27,6 +28,9 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+
+import stage_tones  # noqa: E402
 PACK = os.path.join(HERE, '..', 'model-pack')
 
 DEFAULTS = {
@@ -145,6 +149,8 @@ def main():
         if o['id'] in taken:
             raise SystemExit(f'{o["id"]}: id used twice (materials and objects share one id space)')
         taken.add(o['id'])
+    # The detail stages' tones (stage_tones.mjs): measured on the stages as they are, kept across a rebuild
+    stage_tones.apply(objects, stage_tones.load())
     catalog['objects'] = objects
     with open(path, 'w', encoding='utf8', newline='\n') as f:
         json.dump(catalog, f, indent=2, ensure_ascii=False)

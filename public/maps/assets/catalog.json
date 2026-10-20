@@ -2685,6 +2685,11 @@
             "textures/bark_brown_02_diff_1k-ea7f773dfba905bf.ktx2",
             "textures/bark_brown_02_nor_gl_1k-138ac9d90f928646.ktx2",
             "textures/leaves-oak-a1ee17d8b7375ea6.ktx2"
+          ],
+          "tone": [
+            0.978,
+            0.968,
+            0.916
           ]
         }
       ],
@@ -2727,6 +2732,11 @@
             "textures/bark_platanus_diff_1k-x1.50-1.50-1.45-6d48464485c311b4.ktx2",
             "textures/bark_platanus_nor_gl_1k-bd65d3db3b4e86e5.ktx2",
             "textures/leaves-birch-c7998c49baddd67e.ktx2"
+          ],
+          "tone": [
+            0.914,
+            0.935,
+            0.905
           ]
         }
       ],
@@ -2771,6 +2781,11 @@
             "textures/knotted_pine_bark_diff_1k-914f0538a79f4c83.ktx2",
             "textures/knotted_pine_bark_nor_gl_1k-849935499a6eafbd.ktx2",
             "textures/leaves-conifer-6a03cdc20b24d7c8.ktx2"
+          ],
+          "tone": [
+            0.926,
+            0.955,
+            0.828
           ]
         }
       ],
@@ -2815,6 +2830,11 @@
             "textures/knotted_pine_bark_diff_1k-914f0538a79f4c83.ktx2",
             "textures/knotted_pine_bark_nor_gl_1k-849935499a6eafbd.ktx2",
             "textures/leaves-conifer-6a03cdc20b24d7c8.ktx2"
+          ],
+          "tone": [
+            0.952,
+            0.974,
+            0.854
           ]
         }
       ],
@@ -3088,7 +3108,12 @@
         {
           "file": "models/rock-large-lod1.glb",
           "screen": 0.0089,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.067,
+            1.057,
+            1.068
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_02"
@@ -3163,7 +3188,12 @@
         {
           "file": "models/house-lod1.glb",
           "screen": 0.0594,
-          "triangles": 1084
+          "triangles": 1084,
+          "tone": [
+            0.92,
+            0.938,
+            0.926
+          ]
         }
       ],
       "far": {
@@ -3187,6 +3217,11 @@
           3.11,
           3.07,
           2.99
+        ],
+        "tone": [
+          1.019,
+          1.01,
+          0.994
         ]
       },
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/clay_plaster, medieval_wood, clay_roof_tiles_02, castle_wall_slates"
@@ -3261,7 +3296,12 @@
         {
           "file": "models/house-large-lod1.glb",
           "screen": 0.0817,
-          "triangles": 1742
+          "triangles": 1742,
+          "tone": [
+            0.847,
+            0.84,
+            0.802
+          ]
         }
       ],
       "far": {
@@ -3285,6 +3325,11 @@
           6,
           5.97,
           5.91
+        ],
+        "tone": [
+          0.978,
+          0.986,
+          0.988
         ]
       },
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/grey_plaster_02, medieval_wood, grey_roof_tiles, castle_wall_slates"
@@ -3343,7 +3388,12 @@
         {
           "file": "models/barn-lod1.glb",
           "screen": 0.0804,
-          "triangles": 660
+          "triangles": 660,
+          "tone": [
+            0.889,
+            0.891,
+            0.863
+          ]
         }
       ],
       "far": {
@@ -3367,6 +3417,11 @@
           3.68,
           3.68,
           3.68
+        ],
+        "tone": [
+          0.927,
+          0.945,
+          0.93
         ]
       },
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/brown_planks_07, grey_roof_tiles, castle_wall_slates"
@@ -3456,7 +3511,12 @@
         {
           "file": "models/wall-stone-lod1.glb",
           "screen": 0.0099,
-          "triangles": 156
+          "triangles": 156,
+          "tone": [
+            0.847,
+            0.821,
+            0.774
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/stacked_stone_wall"
@@ -3497,7 +3557,12 @@
         {
           "file": "models/fence-wood-lod1.glb",
           "screen": 0.0108,
-          "triangles": 108
+          "triangles": 108,
+          "tone": [
+            1.139,
+            1.127,
+            1.111
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/rough_wood"
@@ -3794,6 +3859,11 @@
             "textures/bark_brown_02_diff_1k-ea7f773dfba905bf.ktx2",
             "textures/bark_brown_02_nor_gl_1k-138ac9d90f928646.ktx2",
             "textures/leaves-oak-autumn-da29122de1ae3074.ktx2"
+          ],
+          "tone": [
+            0.975,
+            0.969,
+            0.909
           ]
         }
       ],
@@ -3837,6 +3907,11 @@
             "textures/bark_brown_02_diff_1k-ea7f773dfba905bf.ktx2",
             "textures/bark_brown_02_nor_gl_1k-138ac9d90f928646.ktx2",
             "textures/leaves-oak-a1ee17d8b7375ea6.ktx2"
+          ],
+          "tone": [
+            1.075,
+            1.05,
+            1.016
           ]
         }
       ],
@@ -3879,6 +3954,11 @@
             "textures/bark_brown_01_diff_1k-63b044329094e136.ktx2",
             "textures/bark_brown_01_nor_gl_1k-1986ed1aca831a0a.ktx2",
             "textures/leaves-maple-47035128d418ace1.ktx2"
+          ],
+          "tone": [
+            0.925,
+            0.93,
+            0.837
           ]
         }
       ],
@@ -3921,6 +4001,11 @@
             "textures/bark_brown_01_diff_1k-63b044329094e136.ktx2",
             "textures/bark_brown_01_nor_gl_1k-1986ed1aca831a0a.ktx2",
             "textures/leaves-maple-autumn-f227e54843ab6be8.ktx2"
+          ],
+          "tone": [
+            0.936,
+            0.943,
+            0.873
           ]
         }
       ],
@@ -3964,6 +4049,11 @@
             "textures/bark_brown_01_diff_1k-63b044329094e136.ktx2",
             "textures/bark_brown_01_nor_gl_1k-1986ed1aca831a0a.ktx2",
             "textures/leaves-maple-autumn-f227e54843ab6be8.ktx2"
+          ],
+          "tone": [
+            0.989,
+            0.984,
+            0.945
           ]
         }
       ],
@@ -4006,6 +4096,11 @@
             "textures/bark_platanus_diff_1k-x1.50-1.50-1.45-6d48464485c311b4.ktx2",
             "textures/bark_platanus_nor_gl_1k-bd65d3db3b4e86e5.ktx2",
             "textures/leaves-birch-autumn-efc80574e561bfc6.ktx2"
+          ],
+          "tone": [
+            0.919,
+            0.936,
+            0.892
           ]
         }
       ],
@@ -4078,6 +4173,11 @@
             "textures/bark_willow_diff_1k-cbbee8c5061bacb0.ktx2",
             "textures/bark_willow_nor_gl_1k-9a40350c52d0367f.ktx2",
             "textures/leaves-swamp-3011250d97327fad.ktx2"
+          ],
+          "tone": [
+            0.866,
+            0.879,
+            0.757
           ]
         }
       ],
@@ -4179,6 +4279,11 @@
             "textures/knotted_pine_bark_diff_1k-914f0538a79f4c83.ktx2",
             "textures/knotted_pine_bark_nor_gl_1k-849935499a6eafbd.ktx2",
             "textures/leaves-conifer-snow-5030dc4e140d3195.ktx2"
+          ],
+          "tone": [
+            1.113,
+            1.102,
+            1.151
           ]
         }
       ],
@@ -4223,6 +4328,11 @@
             "textures/knotted_pine_bark_diff_1k-914f0538a79f4c83.ktx2",
             "textures/knotted_pine_bark_nor_gl_1k-849935499a6eafbd.ktx2",
             "textures/leaves-conifer-snow-5030dc4e140d3195.ktx2"
+          ],
+          "tone": [
+            1.142,
+            1.129,
+            1.173
           ]
         }
       ],
@@ -4267,6 +4377,11 @@
             "textures/knotted_pine_bark_diff_1k-914f0538a79f4c83.ktx2",
             "textures/knotted_pine_bark_nor_gl_1k-849935499a6eafbd.ktx2",
             "textures/leaves-conifer-6a03cdc20b24d7c8.ktx2"
+          ],
+          "tone": [
+            0.946,
+            0.952,
+            0.842
           ]
         }
       ],
@@ -4310,6 +4425,11 @@
             "textures/knotted_pine_bark_diff_1k-914f0538a79f4c83.ktx2",
             "textures/knotted_pine_bark_nor_gl_1k-849935499a6eafbd.ktx2",
             "textures/leaves-conifer-snow-5030dc4e140d3195.ktx2"
+          ],
+          "tone": [
+            1.149,
+            1.133,
+            1.16
           ]
         }
       ],
@@ -4508,7 +4628,12 @@
         {
           "file": "models/tree-quiver-lod1.glb",
           "screen": 0.0148,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            0.69,
+            0.758,
+            0.674
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/quiver_tree_01"
@@ -4542,7 +4667,12 @@
         {
           "file": "models/tree-quiver-small-lod1.glb",
           "screen": 0.0089,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            0.776,
+            0.794,
+            0.737
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/quiver_tree_02"
@@ -4576,7 +4706,12 @@
         {
           "file": "models/tree-quiver-dead-lod1.glb",
           "screen": 0.0095,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            0.923,
+            0.943,
+            0.973
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/dead_quiver_trunk"
@@ -4639,7 +4774,12 @@
         {
           "file": "models/desert-tree-lod1.glb",
           "screen": 0.0101,
-          "triangles": 399
+          "triangles": 399,
+          "tone": [
+            1.744,
+            1.86,
+            1.81
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/searsia_lucida"
@@ -4673,7 +4813,12 @@
         {
           "file": "models/succulent-lod1.glb",
           "screen": 0.0043,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            0.769,
+            0.762,
+            0.752
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/cheiridopsis_succulent"
@@ -4708,7 +4853,12 @@
         {
           "file": "models/iceplant-lod1.glb",
           "screen": 0.0043,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            1.46,
+            1.496,
+            1.179
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/crystalline_iceplant"
@@ -4743,7 +4893,12 @@
         {
           "file": "models/flower-gazania-lod1.glb",
           "screen": 0.0035,
-          "triangles": 399
+          "triangles": 399,
+          "tone": [
+            0.793,
+            1.45,
+            1.618
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/flower_gazania"
@@ -4777,7 +4932,12 @@
         {
           "file": "models/flower-ursinia-lod1.glb",
           "screen": 0.0043,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            1.923,
+            1.738,
+            2.033
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/flower_ursinia"
@@ -4956,6 +5116,11 @@
           1.33,
           1.33,
           1.36
+        ],
+        "tone": [
+          1.893,
+          1.996,
+          2.252
         ]
       },
       "source": "procedural (tools/map-assets/build_nature.py); Blätter https://ambientcg.com/view?id=LeafSet002"
@@ -5011,6 +5176,11 @@
           1.28,
           1.35,
           1.34
+        ],
+        "tone": [
+          1.949,
+          2.032,
+          2.313
         ]
       },
       "source": "procedural (tools/map-assets/build_nature.py); Blätter https://ambientcg.com/view?id=LeafSet002"
@@ -5046,7 +5216,12 @@
         {
           "file": "models/nettles-lod1.glb",
           "screen": 0.0061,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            1.611,
+            2.015,
+            1.464
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/nettle_plant"
@@ -5082,7 +5257,12 @@
         {
           "file": "models/periwinkle-lod1.glb",
           "screen": 0.0035,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            2.272,
+            2.5,
+            1.752
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/periwinkle_plant"
@@ -5552,7 +5732,12 @@
         {
           "file": "models/stump-old-lod1.glb",
           "screen": 0.0043,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            1.094,
+            1.107,
+            1.083
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/tree_stump_01"
@@ -5588,7 +5773,12 @@
         {
           "file": "models/stump-mossy-lod1.glb",
           "screen": 0.0043,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            1.087,
+            1.08,
+            1.049
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/tree_stump_02"
@@ -5624,7 +5814,12 @@
         {
           "file": "models/log-fallen-lod1.glb",
           "screen": 0.0087,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            0.989,
+            1.048,
+            1.067
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/dead_tree_trunk_02"
@@ -5660,7 +5855,12 @@
         {
           "file": "models/roots-lod1.glb",
           "screen": 0.0087,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            1.237,
+            1.233,
+            1.229
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/pine_roots"
@@ -5697,7 +5897,12 @@
         {
           "file": "models/branches-lod1.glb",
           "screen": 0.0087,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            1.202,
+            1.228,
+            1.196
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/dry_branches_medium_01"
@@ -5739,7 +5944,12 @@
         {
           "file": "models/boulder-lod1.glb",
           "screen": 0.006,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.017,
+            1.004,
+            0.976
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/boulder_01"
@@ -5779,7 +5989,12 @@
         {
           "file": "models/rock-granite-lod1.glb",
           "screen": 0.0097,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            0.4,
+            0.4,
+            0.4
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/rock_07"
@@ -5820,7 +6035,12 @@
         {
           "file": "models/rock-granite-flat-lod1.glb",
           "screen": 0.013,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            0.876,
+            0.975,
+            1.194
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/rock_09"
@@ -5861,7 +6081,12 @@
         {
           "file": "models/rock-round-lod1.glb",
           "screen": 0.0043,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            0.875,
+            0.793,
+            0.654
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/stone_01"
@@ -5900,7 +6125,12 @@
         {
           "file": "models/rock-desert-lod1.glb",
           "screen": 0.0092,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.377,
+            1.598,
+            2.029
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_03"
@@ -5939,7 +6169,12 @@
         {
           "file": "models/rock-desert-large-lod1.glb",
           "screen": 0.0134,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.116,
+            1.159,
+            1.245
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_06"
@@ -5979,7 +6214,12 @@
         {
           "file": "models/rock-sandstone-lod1.glb",
           "screen": 0.0141,
-          "triangles": 299
+          "triangles": 299,
+          "tone": [
+            0.938,
+            0.961,
+            0.978
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_05 (getönt)"
@@ -6018,7 +6258,12 @@
         {
           "file": "models/rock-sandstone-large-lod1.glb",
           "screen": 0.0223,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.129,
+            1.135,
+            1.186
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_02 (getönt)"
@@ -6059,7 +6304,12 @@
         {
           "file": "models/rock-basalt-lod1.glb",
           "screen": 0.0081,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.246,
+            1.423,
+            1.49
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_03 (getönt)"
@@ -6100,7 +6350,12 @@
         {
           "file": "models/rock-basalt-large-lod1.glb",
           "screen": 0.0135,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            0.944,
+            1.136,
+            1.277
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_06 (getönt)"
@@ -6141,7 +6396,12 @@
         {
           "file": "models/rock-snow-lod1.glb",
           "screen": 0.0124,
-          "triangles": 299
+          "triangles": 299,
+          "tone": [
+            0.943,
+            0.942,
+            0.954
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_05 (aufgehellt)"
@@ -6181,7 +6441,12 @@
         {
           "file": "models/rock-volcanic-lod1.glb",
           "screen": 0.0054,
-          "triangles": 299
+          "triangles": 299,
+          "tone": [
+            0.988,
+            1.06,
+            0.858
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_03 (getönt)"
@@ -6221,7 +6486,12 @@
         {
           "file": "models/rock-volcanic-large-lod1.glb",
           "screen": 0.0078,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.029,
+            1.093,
+            0.83
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_05 (getönt)"
@@ -6261,7 +6531,12 @@
         {
           "file": "models/rock-pumice-lod1.glb",
           "screen": 0.0054,
-          "triangles": 299
+          "triangles": 299,
+          "tone": [
+            0.918,
+            0.94,
+            0.879
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_01 (getönt)"
@@ -6302,7 +6577,12 @@
         {
           "file": "models/rock-mossy-a-lod1.glb",
           "screen": 0.0081,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.561,
+            1.456,
+            0.905
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/rock_moss_set_01"
@@ -6343,7 +6623,12 @@
         {
           "file": "models/rock-mossy-b-lod1.glb",
           "screen": 0.0055,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.565,
+            1.469,
+            0.901
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/rock_moss_set_01"
@@ -6384,7 +6669,12 @@
         {
           "file": "models/rock-mossy-c-lod1.glb",
           "screen": 0.0076,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            2.034,
+            2.024,
+            1.162
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/rock_moss_set_01"
@@ -6424,7 +6714,12 @@
         {
           "file": "models/rock-mossy-flat-lod1.glb",
           "screen": 0.0054,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.129,
+            1.154,
+            1.316
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/rock_moss_set_02"
@@ -6467,7 +6762,12 @@
         {
           "file": "models/stones-lod1.glb",
           "screen": 0.0329,
-          "triangles": 299
+          "triangles": 299,
+          "tone": [
+            0.981,
+            0.991,
+            0.985
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_stones_01"
@@ -6502,7 +6802,12 @@
         {
           "file": "models/rock-coast-lod1.glb",
           "screen": 0.1451,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.126,
+            1.126,
+            1.095
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/coast_rocks_01"
@@ -6536,7 +6841,12 @@
         {
           "file": "models/cliff-face-lod1.glb",
           "screen": 0.0247,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.117,
+            1.081,
+            1.007
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/rock_face_01"
@@ -6570,7 +6880,12 @@
         {
           "file": "models/cliff-face-b-lod1.glb",
           "screen": 0.0246,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.135,
+            1.12,
+            1.17
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/rock_face_02"
@@ -6604,7 +6919,12 @@
         {
           "file": "models/cliff-wall-lod1.glb",
           "screen": 0.0371,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.073,
+            1.072,
+            1.133
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_cliff_01"
@@ -6638,7 +6958,12 @@
         {
           "file": "models/cliff-wall-b-lod1.glb",
           "screen": 0.0752,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.264,
+            1.217,
+            1.174
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_cliff_02"
@@ -6672,7 +6997,12 @@
         {
           "file": "models/cliff-wall-sandstone-lod1.glb",
           "screen": 0.0371,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.055,
+            1.092,
+            1.046
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_cliff_01 (getönt)"
@@ -6708,7 +7038,12 @@
         {
           "file": "models/cliff-wall-basalt-lod1.glb",
           "screen": 0.0752,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            0.993,
+            1.111,
+            1.145
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_cliff_02 (getönt)"
@@ -6742,7 +7077,12 @@
         {
           "file": "models/cliff-coast-lod1.glb",
           "screen": 0.0911,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.442,
+            1.393,
+            1.245
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/coastal_cliff_02"
@@ -6778,7 +7118,12 @@
         {
           "file": "models/cliff-face-red-lod1.glb",
           "screen": 0.0246,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.111,
+            1.103,
+            1.029
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/rock_face_02 (getönt)"
@@ -6817,7 +7162,12 @@
         {
           "file": "models/sandstone-pillar-lod1.glb",
           "screen": 0.0309,
-          "triangles": 1178
+          "triangles": 1178,
+          "tone": [
+            1.075,
+            1.076,
+            1.117
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side"
@@ -6856,7 +7206,12 @@
         {
           "file": "models/sandstone-pillar-tall-lod1.glb",
           "screen": 0.0558,
-          "triangles": 1178
+          "triangles": 1178,
+          "tone": [
+            1.125,
+            1.13,
+            1.21
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side"
@@ -6890,7 +7245,12 @@
         {
           "file": "models/mesa-lod1.glb",
           "screen": 0.1094,
-          "triangles": 676
+          "triangles": 676,
+          "tone": [
+            1.083,
+            1.09,
+            1.125
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side"
@@ -6926,7 +7286,12 @@
         {
           "file": "models/rock-arch-lod1.glb",
           "screen": 0.0465,
-          "triangles": 894
+          "triangles": 894,
+          "tone": [
+            1.096,
+            1.079,
+            1.081
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/cliff_side"
@@ -6962,7 +7327,12 @@
         {
           "file": "models/rock-arch-large-lod1.glb",
           "screen": 0.0861,
-          "triangles": 834
+          "triangles": 834,
+          "tone": [
+            0.957,
+            0.965,
+            1.077
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/cliff_side"
@@ -7228,7 +7598,12 @@
         {
           "file": "models/lava-pool-lod1.glb",
           "screen": 0.0228,
-          "triangles": 399
+          "triangles": 399,
+          "tone": [
+            0.977,
+            0.977,
+            0.978
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_nature.py); https://polyhaven.com/a/dark_rock_02"
@@ -7279,7 +7654,12 @@
         {
           "file": "models/castle-wall-lod1.glb",
           "screen": 0.0249,
-          "triangles": 260
+          "triangles": 260,
+          "tone": [
+            0.923,
+            0.89,
+            0.817
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
@@ -7330,7 +7710,12 @@
         {
           "file": "models/castle-wall-half-lod1.glb",
           "screen": 0.0249,
-          "triangles": 120
+          "triangles": 120,
+          "tone": [
+            0.91,
+            0.877,
+            0.803
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
@@ -7381,7 +7766,12 @@
         {
           "file": "models/castle-wall-short-lod1.glb",
           "screen": 0.0249,
-          "triangles": 120
+          "triangles": 120,
+          "tone": [
+            0.926,
+            0.893,
+            0.821
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
@@ -7432,7 +7822,12 @@
         {
           "file": "models/castle-wall-corner-lod1.glb",
           "screen": 0.0294,
-          "triangles": 120
+          "triangles": 120,
+          "tone": [
+            0.838,
+            0.811,
+            0.734
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
@@ -7483,7 +7878,12 @@
         {
           "file": "models/castle-wall-end-lod1.glb",
           "screen": 0.0294,
-          "triangles": 120
+          "triangles": 120,
+          "tone": [
+            0.846,
+            0.819,
+            0.743
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
@@ -7534,7 +7934,12 @@
         {
           "file": "models/castle-wall-ruined-lod1.glb",
           "screen": 0.0208,
-          "triangles": 390
+          "triangles": 390,
+          "tone": [
+            1.082,
+            1.085,
+            1.037
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall"
@@ -7585,7 +7990,12 @@
         {
           "file": "models/castle-wall-ruined-b-lod1.glb",
           "screen": 0.0193,
-          "triangles": 416
+          "triangles": 416,
+          "tone": [
+            1.112,
+            1.111,
+            1.083
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall"
@@ -7635,7 +8045,12 @@
         {
           "file": "models/castle-tower-lod1.glb",
           "screen": 0.1047,
-          "triangles": 634
+          "triangles": 634,
+          "tone": [
+            0.889,
+            0.875,
+            0.821
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
@@ -7688,7 +8103,12 @@
         {
           "file": "models/castle-tower-roof-lod1.glb",
           "screen": 0.1447,
-          "triangles": 680
+          "triangles": 680,
+          "tone": [
+            0.981,
+            0.976,
+            0.95
+          ]
         }
       ],
       "far": {
@@ -7712,6 +8132,11 @@
           13.19,
           13.42,
           13.19
+        ],
+        "tone": [
+          1.022,
+          1.013,
+          1.008
         ]
       },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02"
@@ -7761,7 +8186,12 @@
         {
           "file": "models/castle-tower-ruined-lod1.glb",
           "screen": 0.0675,
-          "triangles": 558
+          "triangles": 558,
+          "tone": [
+            1.06,
+            1.047,
+            1.025
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall"
@@ -7816,7 +8246,12 @@
         {
           "file": "models/castle-gate-lod1.glb",
           "screen": 0.0903,
-          "triangles": 734
+          "triangles": 734,
+          "tone": [
+            0.909,
+            0.883,
+            0.815
+          ]
         }
       ],
       "far": {
@@ -7840,6 +8275,11 @@
           11.92,
           9.79,
           11.92
+        ],
+        "tone": [
+          0.941,
+          0.92,
+          0.876
         ]
       },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_planks"
@@ -7892,7 +8332,12 @@
         {
           "file": "models/castle-keep-lod1.glb",
           "screen": 0.1648,
-          "triangles": 1416
+          "triangles": 1416,
+          "tone": [
+            0.919,
+            0.902,
+            0.864
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02"
@@ -7943,7 +8388,12 @@
         {
           "file": "models/castle-stairs-lod1.glb",
           "screen": 0.0208,
-          "triangles": 240
+          "triangles": 240,
+          "tone": [
+            0.81,
+            0.793,
+            0.734
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
@@ -8043,6 +8493,11 @@
           2.51,
           2.43,
           2.35
+        ],
+        "tone": [
+          0.992,
+          0.963,
+          0.919
         ]
       },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/reed_roof_04; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates"
@@ -8118,7 +8573,12 @@
         {
           "file": "models/house-stone-lod1.glb",
           "screen": 0.0557,
-          "triangles": 908
+          "triangles": 908,
+          "tone": [
+            0.966,
+            0.974,
+            0.947
+          ]
         }
       ],
       "far": {
@@ -8142,6 +8602,11 @@
           3.73,
           3.7,
           3.64
+        ],
+        "tone": [
+          1.021,
+          1.006,
+          1.002
         ]
       },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/castle_wall_slates"
@@ -8216,7 +8681,12 @@
         {
           "file": "models/house-tall-lod1.glb",
           "screen": 0.0854,
-          "triangles": 1698
+          "triangles": 1698,
+          "tone": [
+            0.947,
+            0.937,
+            0.888
+          ]
         }
       ],
       "far": {
@@ -8240,6 +8710,11 @@
           7.57,
           7.52,
           7.45
+        ],
+        "tone": [
+          0.99,
+          0.932,
+          0.879
         ]
       },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/clay_roof_tiles_02; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates"
@@ -8342,6 +8817,11 @@
           3.01,
           2.97,
           2.9
+        ],
+        "tone": [
+          0.995,
+          1.005,
+          0.993
         ]
       },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/grey_plaster_02; https://polyhaven.com/a/grey_roof_tiles; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates"
@@ -8421,7 +8901,12 @@
         {
           "file": "models/house-stone-snow-lod1.glb",
           "screen": 0.0557,
-          "triangles": 1012
+          "triangles": 1012,
+          "tone": [
+            0.972,
+            0.996,
+            0.974
+          ]
         }
       ],
       "far": {
@@ -8445,6 +8930,11 @@
           3.6,
           3.57,
           3.48
+        ],
+        "tone": [
+          1.023,
+          1.027,
+          1.017
         ]
       },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/castle_wall_slates"
@@ -8545,6 +9035,11 @@
           2.91,
           2.87,
           2.79
+        ],
+        "tone": [
+          1.064,
+          1.088,
+          1.085
         ]
       },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/wood_trunk_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/castle_wall_slates"
@@ -8648,6 +9143,11 @@
           2.79,
           2.79,
           2.66
+        ],
+        "tone": [
+          0.971,
+          0.991,
+          0.988
         ]
       },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/wood_trunk_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/castle_wall_slates"
@@ -8710,7 +9210,12 @@
         {
           "file": "models/barn-snow-lod1.glb",
           "screen": 0.068,
-          "triangles": 764
+          "triangles": 764,
+          "tone": [
+            0.969,
+            0.999,
+            0.979
+          ]
         }
       ],
       "far": {
@@ -8734,6 +9239,11 @@
           3.6,
           3.6,
           3.6
+        ],
+        "tone": [
+          0.996,
+          1.021,
+          1.024
         ]
       },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/brown_planks_07; https://polyhaven.com/a/grey_roof_tiles; https://polyhaven.com/a/castle_wall_slates"
@@ -8810,7 +9320,12 @@
         {
           "file": "models/watermill-lod1.glb",
           "screen": 0.0586,
-          "triangles": 3768
+          "triangles": 3768,
+          "tone": [
+            0.96,
+            0.968,
+            0.94
+          ]
         }
       ],
       "far": {
@@ -8834,6 +9349,11 @@
           3.96,
           3.91,
           3.86
+        ],
+        "tone": [
+          0.997,
+          0.987,
+          0.971
         ]
       },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/dark_planks"
@@ -8896,7 +9416,12 @@
         {
           "file": "models/windmill-lod1.glb",
           "screen": 0.1277,
-          "triangles": 2584
+          "triangles": 2584,
+          "tone": [
+            0.976,
+            0.947,
+            0.899
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/reed_roof_04; https://polyhaven.com/a/hessian_230; https://polyhaven.com/a/dark_planks"
@@ -8954,7 +9479,12 @@
         {
           "file": "models/chapel-lod1.glb",
           "screen": 0.1485,
-          "triangles": 1048
+          "triangles": 1048,
+          "tone": [
+            0.947,
+            0.952,
+            0.924
+          ]
         }
       ],
       "far": {
@@ -8978,6 +9508,11 @@
           7.31,
           20,
           7.31
+        ],
+        "tone": [
+          1.012,
+          0.991,
+          0.967
         ]
       },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/white_sandstone_bricks; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/dark_planks"
@@ -9052,6 +9587,11 @@
           10.41,
           10.21,
           10.41
+        ],
+        "tone": [
+          1.08,
+          0.923,
+          0.895
         ]
       },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/roof_planks"
@@ -9112,7 +9652,12 @@
         {
           "file": "models/lighthouse-lod1.glb",
           "screen": 0.1752,
-          "triangles": 676
+          "triangles": 676,
+          "tone": [
+            0.952,
+            0.91,
+            0.918
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/whitewashed_brick; https://polyhaven.com/a/castle_wall_slates"
@@ -9187,6 +9732,11 @@
           2.34,
           1.97,
           2.34
+        ],
+        "tone": [
+          1.154,
+          1.133,
+          1.106
         ]
       },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow; https://polyhaven.com/a/reed_roof_04"
@@ -9258,6 +9808,11 @@
           2.02,
           2.55,
           2.02
+        ],
+        "tone": [
+          1.021,
+          1.003,
+          1.001
         ]
       },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/clay_plaster; https://polyhaven.com/a/reed_roof_04"
@@ -9330,6 +9885,11 @@
           3.29,
           3.15,
           3.29
+        ],
+        "tone": [
+          0.885,
+          0.815,
+          0.794
         ]
       },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/patterned_clay_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/hessian_230"
@@ -9402,6 +9962,11 @@
           4.1,
           2.69,
           2.67
+        ],
+        "tone": [
+          0.892,
+          0.826,
+          0.793
         ]
       },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/patterned_clay_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/hessian_230"
@@ -9578,7 +10143,12 @@
         {
           "file": "models/bridge-stone-lod1.glb",
           "screen": 0.0445,
-          "triangles": 1056
+          "triangles": 1056,
+          "tone": [
+            0.91,
+            0.892,
+            0.825
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/castle_wall_slates"
@@ -9718,7 +10288,12 @@
         {
           "file": "models/pier-lod1.glb",
           "screen": 0.0074,
-          "triangles": 2294
+          "triangles": 2294,
+          "tone": [
+            0.628,
+            0.61,
+            0.592
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/modular_wooden_pier"
@@ -9757,7 +10332,12 @@
         {
           "file": "models/pier-end-lod1.glb",
           "screen": 0.0086,
-          "triangles": 1927
+          "triangles": 1927,
+          "tone": [
+            0.682,
+            0.656,
+            0.621
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/modular_wooden_pier"
@@ -9803,7 +10383,12 @@
         {
           "file": "models/palisade-lod1.glb",
           "screen": 0.0137,
-          "triangles": 108
+          "triangles": 108,
+          "tone": [
+            1.03,
+            0.933,
+            0.82
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/bark_brown_02; https://polyhaven.com/a/dark_planks"
@@ -9850,7 +10435,12 @@
         {
           "file": "models/palisade-gate-lod1.glb",
           "screen": 0.0178,
-          "triangles": 228
+          "triangles": 228,
+          "tone": [
+            0.789,
+            0.815,
+            0.818
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/bark_brown_02; https://polyhaven.com/a/dark_planks"
@@ -9892,7 +10482,12 @@
         {
           "file": "models/fence-picket-lod1.glb",
           "screen": 0.0103,
-          "triangles": 335
+          "triangles": 335,
+          "tone": [
+            0.894,
+            0.895,
+            0.878
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/wood_planks_grey"
@@ -9935,7 +10530,12 @@
         {
           "file": "models/fence-rail-lod1.glb",
           "screen": 0.0103,
-          "triangles": 42
+          "triangles": 42,
+          "tone": [
+            1.049,
+            1.009,
+            0.824
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/bark_brown_02"
@@ -9977,7 +10577,12 @@
         {
           "file": "models/gate-farm-lod1.glb",
           "screen": 0.0092,
-          "triangles": 98
+          "triangles": 98,
+          "tone": [
+            0.937,
+            0.926,
+            0.931
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/rough_wood"
@@ -10020,7 +10625,12 @@
         {
           "file": "models/wall-dry-stone-lod1.glb",
           "screen": 0.0139,
-          "triangles": 536
+          "triangles": 536,
+          "tone": [
+            0.915,
+            0.89,
+            0.834
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/rock_wall_10"
@@ -10063,7 +10673,12 @@
         {
           "file": "models/wall-dry-stone-ruined-lod1.glb",
           "screen": 0.0139,
-          "triangles": 200
+          "triangles": 200,
+          "tone": [
+            0.816,
+            0.805,
+            0.772
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/rock_wall_10"
@@ -10117,7 +10732,12 @@
         {
           "file": "models/fort-wall-lod1.glb",
           "screen": 0.0327,
-          "triangles": 584
+          "triangles": 584,
+          "tone": [
+            1.027,
+            1.033,
+            1.007
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/modular_fort_01"
@@ -10170,7 +10790,12 @@
         {
           "file": "models/fort-tower-lod1.glb",
           "screen": 0.1002,
-          "triangles": 1192
+          "triangles": 1192,
+          "tone": [
+            0.975,
+            0.98,
+            0.962
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/modular_fort_01"
@@ -10211,7 +10836,12 @@
         {
           "file": "models/iron-gate-lod1.glb",
           "screen": 0.0086,
-          "triangles": 478
+          "triangles": 478,
+          "tone": [
+            0.948,
+            1.006,
+            1.084
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/large_iron_gate"
@@ -10245,7 +10875,12 @@
         {
           "file": "models/castle-door-lod1.glb",
           "screen": 0.0089,
-          "triangles": 680
+          "triangles": 680,
+          "tone": [
+            1.227,
+            1.23,
+            1.241
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/large_castle_door"
@@ -10297,7 +10932,12 @@
         {
           "file": "models/ruin-wall-lod1.glb",
           "screen": 0.0557,
-          "triangles": 454
+          "triangles": 454,
+          "tone": [
+            1.122,
+            1.122,
+            1.073
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall"
@@ -10352,7 +10992,12 @@
         {
           "file": "models/ruin-columns-lod1.glb",
           "screen": 0.0705,
-          "triangles": 604
+          "triangles": 604,
+          "tone": [
+            0.929,
+            0.912,
+            0.901
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/white_sandstone_bricks; https://polyhaven.com/a/sandstone_cracks"
@@ -10405,7 +11050,12 @@
         {
           "file": "models/ruin-arch-lod1.glb",
           "screen": 0.0557,
-          "triangles": 464
+          "triangles": 464,
+          "tone": [
+            1.033,
+            1.039,
+            1.021
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall"
@@ -10547,7 +11197,12 @@
         {
           "file": "models/statue-horse-lod1.glb",
           "screen": 0.0107,
-          "triangles": 1816
+          "triangles": 1816,
+          "tone": [
+            1.01,
+            1.058,
+            1.061
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/horse_statue_01; Sockel procedural (tools/map-assets/build_structures.py)"
@@ -10589,6 +11244,11 @@
             "textures/cow-colour-31276de4a36753fb.ktx2",
             "textures/cow-normal-39385c976fed5fde.ktx2",
             "textures/cow-orm-b5474ef28b8d5739.ktx2"
+          ],
+          "tone": [
+            1.011,
+            1.012,
+            1.013
           ]
         }
       ],
@@ -10631,6 +11291,11 @@
             "textures/cow-grazing-colour-8a4a143598cac959.ktx2",
             "textures/cow-grazing-normal-3fe1250dc578693a.ktx2",
             "textures/cow-grazing-orm-45c12047f52dd609.ktx2"
+          ],
+          "tone": [
+            1.019,
+            1.016,
+            1.015
           ]
         }
       ],
@@ -10673,6 +11338,11 @@
             "textures/cow-lying-colour-f5063a2209284477.ktx2",
             "textures/cow-lying-normal-af3d87e971d55cb7.ktx2",
             "textures/cow-lying-orm-cf0f732fbf4bb79e.ktx2"
+          ],
+          "tone": [
+            1.056,
+            1.064,
+            1.054
           ]
         }
       ],
@@ -10836,7 +11506,12 @@
         {
           "file": "models/statue-knight-lod1.glb",
           "screen": 0.0113,
-          "triangles": 1475
+          "triangles": 1475,
+          "tone": [
+            1.431,
+            1.444,
+            1.5
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/gothic_statue; Sockel procedural (tools/map-assets/build_structures.py)"
@@ -11126,7 +11801,12 @@
         {
           "file": "models/cart-lod1.glb",
           "screen": 0.0147,
-          "triangles": 536
+          "triangles": 536,
+          "tone": [
+            0.748,
+            0.758,
+            0.804
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/dark_planks"
@@ -11512,7 +12192,12 @@
         {
           "file": "models/barrels-broken-lod1.glb",
           "screen": 0.0173,
-          "triangles": 577
+          "triangles": 577,
+          "tone": [
+            1.247,
+            1.253,
+            1.325
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/wooden_barrels_01"
@@ -11696,7 +12381,12 @@
         {
           "file": "models/cannon-lod1.glb",
           "screen": 0.0049,
-          "triangles": 951
+          "triangles": 951,
+          "tone": [
+            1.33,
+            1.506,
+            1.553
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/cannon_01"
@@ -11732,7 +12422,12 @@
         {
           "file": "models/treasure-chest-lod1.glb",
           "screen": 0.0043,
-          "triangles": 681
+          "triangles": 681,
+          "tone": [
+            1.441,
+            1.336,
+            1.161
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/treasure_chest"
@@ -11825,7 +12520,12 @@
         {
           "file": "models/spinning-wheel-lod1.glb",
           "screen": 0.0087,
-          "triangles": 701
+          "triangles": 701,
+          "tone": [
+            1.044,
+            0.992,
+            0.92
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/spinning_wheel_01"
@@ -11964,7 +12664,12 @@
         {
           "file": "models/ship-lod1.glb",
           "screen": 0.1648,
-          "triangles": 3559
+          "triangles": 3559,
+          "tone": [
+            1.055,
+            1.032,
+            1.021
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/dutch_ship_medium"
@@ -12023,7 +12728,12 @@
         {
           "file": "models/apartment-block-lod1.glb",
           "screen": 0.1128,
-          "triangles": 3735
+          "triangles": 3735,
+          "tone": [
+            0.929,
+            0.882,
+            0.831
+          ]
         }
       ],
       "far": {
@@ -12047,6 +12757,11 @@
           11.45,
           10.68,
           11.75
+        ],
+        "tone": [
+          0.857,
+          0.813,
+          0.759
         ]
       },
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete"
@@ -12105,7 +12820,12 @@
         {
           "file": "models/apartment-block-tall-lod1.glb",
           "screen": 0.202,
-          "triangles": 1926
+          "triangles": 1926,
+          "tone": [
+            0.965,
+            0.901,
+            0.827
+          ]
         }
       ],
       "far": {
@@ -12129,6 +12849,11 @@
           24.79,
           24.77,
           24.96
+        ],
+        "tone": [
+          0.865,
+          0.811,
+          0.749
         ]
       },
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_block_wall; https://polyhaven.com/a/brushed_concrete"
@@ -12181,7 +12906,12 @@
         {
           "file": "models/apartment-block-ruined-lod1.glb",
           "screen": 0.1158,
-          "triangles": 2918
+          "triangles": 2918,
+          "tone": [
+            0.978,
+            0.936,
+            0.914
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete"
@@ -12241,7 +12971,12 @@
         {
           "file": "models/brick-block-lod1.glb",
           "screen": 0.1202,
-          "triangles": 2553
+          "triangles": 2553,
+          "tone": [
+            0.973,
+            0.949,
+            0.906
+          ]
         }
       ],
       "far": {
@@ -12265,6 +13000,11 @@
           10.85,
           10.46,
           10.99
+        ],
+        "tone": [
+          0.914,
+          0.881,
+          0.826
         ]
       },
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/hessian_230"
@@ -12324,7 +13064,12 @@
         {
           "file": "models/brick-house-lod1.glb",
           "screen": 0.0958,
-          "triangles": 1937
+          "triangles": 1937,
+          "tone": [
+            0.99,
+            0.969,
+            0.93
+          ]
         }
       ],
       "far": {
@@ -12348,6 +13093,11 @@
           7.55,
           6.99,
           7.77
+        ],
+        "tone": [
+          0.889,
+          0.854,
+          0.807
         ]
       },
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete"
@@ -12400,7 +13150,12 @@
         {
           "file": "models/brick-block-ruined-lod1.glb",
           "screen": 0.0802,
-          "triangles": 1934
+          "triangles": 1934,
+          "tone": [
+            0.993,
+            0.972,
+            0.936
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete"
@@ -12453,7 +13208,12 @@
         {
           "file": "models/tower-stump-lod1.glb",
           "screen": 0.2457,
-          "triangles": 986
+          "triangles": 986,
+          "tone": [
+            1.038,
+            1.03,
+            0.999
+          ]
         }
       ],
       "far": {
@@ -12477,6 +13237,11 @@
           24.34,
           21.34,
           5.31
+        ],
+        "tone": [
+          0.844,
+          0.839,
+          0.868
         ]
       },
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_floor_damaged_01; https://polyhaven.com/a/rectangular_facade_tiles"
@@ -12535,7 +13300,12 @@
         {
           "file": "models/shop-lod1.glb",
           "screen": 0.0713,
-          "triangles": 827
+          "triangles": 827,
+          "tone": [
+            0.992,
+            0.973,
+            0.944
+          ]
         }
       ],
       "far": {
@@ -12559,6 +13329,11 @@
           4.16,
           3.64,
           4.56
+        ],
+        "tone": [
+          0.945,
+          0.91,
+          0.863
         ]
       },
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/brushed_concrete"
@@ -12614,7 +13389,12 @@
         {
           "file": "models/warehouse-lod1.glb",
           "screen": 0.104,
-          "triangles": 472
+          "triangles": 472,
+          "tone": [
+            0.993,
+            0.995,
+            0.979
+          ]
         }
       ],
       "far": {
@@ -12638,6 +13418,11 @@
           5.99,
           6,
           5.99
+        ],
+        "tone": [
+          0.954,
+          0.936,
+          0.912
         ]
       },
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/brushed_concrete"
@@ -12693,7 +13478,12 @@
         {
           "file": "models/warehouse-rusty-lod1.glb",
           "screen": 0.104,
-          "triangles": 479
+          "triangles": 479,
+          "tone": [
+            1.008,
+            0.986,
+            0.959
+          ]
         }
       ],
       "far": {
@@ -12717,6 +13507,11 @@
           6,
           6,
           5.99
+        ],
+        "tone": [
+          1.026,
+          1.008,
+          1.004
         ]
       },
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/rusty_metal_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/brushed_concrete"
@@ -12860,7 +13655,12 @@
         {
           "file": "models/car-red-lod1.glb",
           "screen": 0.0114,
-          "triangles": 708
+          "triangles": 708,
+          "tone": [
+            0.971,
+            0.83,
+            0.862
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py)"
@@ -12892,7 +13692,12 @@
         {
           "file": "models/car-blue-lod1.glb",
           "screen": 0.0114,
-          "triangles": 708
+          "triangles": 708,
+          "tone": [
+            0.841,
+            0.915,
+            0.937
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py)"
@@ -12924,7 +13729,12 @@
         {
           "file": "models/car-white-lod1.glb",
           "screen": 0.0114,
-          "triangles": 708
+          "triangles": 708,
+          "tone": [
+            0.964,
+            0.966,
+            0.967
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py)"
@@ -12956,7 +13766,12 @@
         {
           "file": "models/car-grey-lod1.glb",
           "screen": 0.0114,
-          "triangles": 708
+          "triangles": 708,
+          "tone": [
+            0.953,
+            0.945,
+            0.95
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py)"
@@ -12991,7 +13806,12 @@
         {
           "file": "models/car-wreck-lod1.glb",
           "screen": 0.0119,
-          "triangles": 656
+          "triangles": 656,
+          "tone": [
+            0.941,
+            0.899,
+            0.872
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03"
@@ -13026,7 +13846,12 @@
         {
           "file": "models/car-wreck-b-lod1.glb",
           "screen": 0.0119,
-          "triangles": 646
+          "triangles": 646,
+          "tone": [
+            0.9,
+            0.906,
+            0.87
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03"
@@ -13090,7 +13915,12 @@
         {
           "file": "models/bus-wreck-lod1.glb",
           "screen": 0.0257,
-          "triangles": 1036
+          "triangles": 1036,
+          "tone": [
+            0.913,
+            0.904,
+            0.853
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03"
@@ -13124,7 +13954,12 @@
         {
           "file": "models/pickup-lod1.glb",
           "screen": 0.0119,
-          "triangles": 802
+          "triangles": 802,
+          "tone": [
+            0.716,
+            0.784,
+            0.774
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py)"
@@ -13160,7 +13995,12 @@
         {
           "file": "models/pickup-wreck-lod1.glb",
           "screen": 0.0124,
-          "triangles": 754
+          "triangles": 754,
+          "tone": [
+            0.855,
+            0.861,
+            0.826
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03"
@@ -13192,7 +14032,12 @@
         {
           "file": "models/truck-lod1.glb",
           "screen": 0.0163,
-          "triangles": 994
+          "triangles": 994,
+          "tone": [
+            0.971,
+            0.96,
+            0.962
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py)"
@@ -13227,7 +14072,12 @@
         {
           "file": "models/truck-wreck-lod1.glb",
           "screen": 0.0173,
-          "triangles": 930
+          "triangles": 930,
+          "tone": [
+            0.68,
+            0.675,
+            0.705
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03"
@@ -13259,7 +14109,12 @@
         {
           "file": "models/bus-lod1.glb",
           "screen": 0.0252,
-          "triangles": 1088
+          "triangles": 1088,
+          "tone": [
+            0.993,
+            0.97,
+            0.748
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py)"
@@ -13295,7 +14150,12 @@
         {
           "file": "models/bus-burnt-lod1.glb",
           "screen": 0.0257,
-          "triangles": 838
+          "triangles": 838,
+          "tone": [
+            1.051,
+            1.074,
+            0.968
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03"
@@ -13387,7 +14247,12 @@
         {
           "file": "models/car-covered-lod1.glb",
           "screen": 0.0108,
-          "triangles": 708
+          "triangles": 708,
+          "tone": [
+            0.695,
+            0.812,
+            0.711
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/covered_car"
@@ -13455,7 +14320,12 @@
         {
           "file": "models/street-lamp-lod1.glb",
           "screen": 0.0116,
-          "triangles": 1156
+          "triangles": 1156,
+          "tone": [
+            0.4,
+            0.435,
+            0.47
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/street_lamp_01"
@@ -13628,7 +14498,12 @@
         {
           "file": "models/road-barrier-lod1.glb",
           "screen": 0.0038,
-          "triangles": 423
+          "triangles": 423,
+          "tone": [
+            1.258,
+            1.263,
+            1.215
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/concrete_road_barrier"
@@ -13669,7 +14544,12 @@
         {
           "file": "models/road-barrier-tall-lod1.glb",
           "screen": 0.0038,
-          "triangles": 495
+          "triangles": 495,
+          "tone": [
+            1.033,
+            1.067,
+            1.097
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/concrete_road_barrier_02"
@@ -13806,7 +14686,12 @@
         {
           "file": "models/power-pole-lod1.glb",
           "screen": 0.0181,
-          "triangles": 863
+          "triangles": 863,
+          "tone": [
+            1.179,
+            1.194,
+            1.235
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/modular_electricity_poles"
@@ -13843,7 +14728,12 @@
         {
           "file": "models/power-pole-fallen-lod1.glb",
           "screen": 0.0139,
-          "triangles": 997
+          "triangles": 997,
+          "tone": [
+            1.444,
+            1.525,
+            1.635
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/modular_electricity_poles"
@@ -13962,7 +14852,12 @@
         {
           "file": "models/barbed-wire-lod1.glb",
           "screen": 0.0166,
-          "triangles": 426
+          "triangles": 426,
+          "tone": [
+            1.622,
+            1.53,
+            1.407
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/dark_planks"
@@ -14003,7 +14898,12 @@
         {
           "file": "models/sandbags-lod1.glb",
           "screen": 0.0103,
-          "triangles": 234
+          "triangles": 234,
+          "tone": [
+            1.003,
+            1.018,
+            0.975
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/hessian_230"
@@ -14049,7 +14949,12 @@
         {
           "file": "models/barricade-lod1.glb",
           "screen": 0.0103,
-          "triangles": 248
+          "triangles": 248,
+          "tone": [
+            1.041,
+            1.075,
+            1.169
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/hessian_230; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/rusty_metal_03"
@@ -14332,7 +15237,12 @@
         {
           "file": "models/supply-crates-lod1.glb",
           "screen": 0.0087,
-          "triangles": 474
+          "triangles": 474,
+          "tone": [
+            1.33,
+            1.26,
+            1.229
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/old_military_crate"
@@ -14388,7 +15298,12 @@
         {
           "file": "models/base-module-lod1.glb",
           "screen": 0.0569,
-          "triangles": 709
+          "triangles": 709,
+          "tone": [
+            0.981,
+            0.965,
+            0.961
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_space.py)"
@@ -14442,7 +15357,12 @@
         {
           "file": "models/base-hub-lod1.glb",
           "screen": 0.0631,
-          "triangles": 728
+          "triangles": 728,
+          "tone": [
+            0.96,
+            0.938,
+            0.937
+          ]
         }
       ],
       "far": {
@@ -14466,6 +15386,11 @@
           0,
           4.27,
           0
+        ],
+        "tone": [
+          1.066,
+          1.061,
+          1.035
         ]
       },
       "source": "procedural (tools/map-assets/build_space.py)"
@@ -14539,7 +15464,12 @@
         {
           "file": "models/dome-white-lod1.glb",
           "screen": 0.0767,
-          "triangles": 926
+          "triangles": 926,
+          "tone": [
+            0.949,
+            0.932,
+            0.931
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_space.py)"
@@ -14587,7 +15517,12 @@
         {
           "file": "models/dome-glass-lod1.glb",
           "screen": 0.0767,
-          "triangles": 1024
+          "triangles": 1024,
+          "tone": [
+            0.97,
+            0.949,
+            0.936
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_space.py)"
@@ -14634,7 +15569,12 @@
         {
           "file": "models/greenhouse-dome-lod1.glb",
           "screen": 0.0878,
-          "triangles": 1196
+          "triangles": 1196,
+          "tone": [
+            1.251,
+            1.227,
+            1.269
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_space.py)"
@@ -14755,7 +15695,12 @@
         {
           "file": "models/mars-lander-lod1.glb",
           "screen": 0.033,
-          "triangles": 692
+          "triangles": 692,
+          "tone": [
+            0.908,
+            0.904,
+            0.885
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_extras.py); Rost https://polyhaven.com/a/rusty_metal_03"
@@ -14789,7 +15734,12 @@
         {
           "file": "models/rover-lod1.glb",
           "screen": 0.0092,
-          "triangles": 686
+          "triangles": 686,
+          "tone": [
+            1.023,
+            0.991,
+            0.97
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_space.py); Solarzellen gezeichnet"
@@ -14912,7 +15862,12 @@
         {
           "file": "models/crater-rim-lod1.glb",
           "screen": 0.0622,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            1.065,
+            1.037,
+            1.077
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_space.py); https://polyhaven.com/a/moon_01"
@@ -14946,7 +15901,12 @@
         {
           "file": "models/mars-crater-rim-lod1.glb",
           "screen": 0.0612,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            1.038,
+            1.016,
+            1.085
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_space.py); https://polyhaven.com/a/moon_01"
@@ -14985,7 +15945,12 @@
         {
           "file": "models/moon-boulder-lod1.glb",
           "screen": 0.0084,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            0.946,
+            0.985,
+            0.997
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_05"
@@ -15024,7 +15989,12 @@
         {
           "file": "models/moon-rock-lod1.glb",
           "screen": 0.006,
-          "triangles": 299
+          "triangles": 299,
+          "tone": [
+            0.966,
+            1.013,
+            1.019
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_03"
@@ -15063,7 +16033,12 @@
         {
           "file": "models/moon-rocks-small-lod1.glb",
           "screen": 0.0043,
-          "triangles": 299
+          "triangles": 299,
+          "tone": [
+            0.887,
+            0.944,
+            0.956
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_01"
@@ -15102,7 +16077,12 @@
         {
           "file": "models/mars-boulder-lod1.glb",
           "screen": 0.0078,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            0.982,
+            0.983,
+            0.971
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/moon_rock_05 (getönt)"
@@ -15141,7 +16121,12 @@
         {
           "file": "models/mars-stone-lod1.glb",
           "screen": 0.0081,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.47,
+            1.475,
+            1.442
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_03 (getönt)"
@@ -15180,7 +16165,12 @@
         {
           "file": "models/mars-rock-large-lod1.glb",
           "screen": 0.0134,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.124,
+            1.138,
+            1.226
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_boulder_06 (getönt)"
@@ -15214,7 +16204,12 @@
         {
           "file": "models/mars-cliff-lod1.glb",
           "screen": 0.0752,
-          "triangles": 300
+          "triangles": 300,
+          "tone": [
+            1.208,
+            1.15,
+            0.977
+          ]
         }
       ],
       "source": "https://polyhaven.com/a/namaqualand_cliff_02 (getönt)"
@@ -15327,6 +16322,11 @@
           4.9,
           4.94,
           5
+        ],
+        "tone": [
+          0.548,
+          0.6,
+          0.628
         ]
       },
       "source": "procedural (tools/map-assets/build_extreme.py)"
@@ -15388,7 +16388,12 @@
         {
           "file": "models/ice-floe-lod1.glb",
           "screen": 0.0211,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            1.012,
+            1.015,
+            1.007
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py)"
@@ -15450,7 +16455,12 @@
         {
           "file": "models/iceberg-lod1.glb",
           "screen": 0.0465,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            1.263,
+            1.2,
+            1.106
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py)"
@@ -15518,7 +16528,12 @@
         {
           "file": "models/snow-drift-mound-lod1.glb",
           "screen": 0.0206,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            1.011,
+            1.006,
+            1.018
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/snow_02"
@@ -15647,7 +16662,12 @@
         {
           "file": "models/thorns-lod1.glb",
           "screen": 0.0094,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            1.256,
+            1.243,
+            1.208
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py)"
@@ -15686,7 +16706,12 @@
         {
           "file": "models/chains-lod1.glb",
           "screen": 0.0173,
-          "triangles": 274
+          "triangles": 274,
+          "tone": [
+            2.5,
+            2.049,
+            1.417
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py)"
@@ -15754,7 +16779,12 @@
         {
           "file": "models/hell-gate-lod1.glb",
           "screen": 0.1292,
-          "triangles": 1462
+          "triangles": 1462,
+          "tone": [
+            0.921,
+            0.935,
+            0.932
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02; https://polyhaven.com/a/beige_wall_001"
@@ -15831,7 +16861,12 @@
         {
           "file": "models/bone-pile-lod1.glb",
           "screen": 0.0087,
-          "triangles": 462
+          "triangles": 462,
+          "tone": [
+            0.914,
+            0.936,
+            0.891
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/beige_wall_001"
@@ -15879,7 +16914,12 @@
         {
           "file": "models/lava-rock-lod1.glb",
           "screen": 0.0087,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            0.487,
+            0.456,
+            0.454
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02"
@@ -15927,7 +16967,12 @@
         {
           "file": "models/lava-rock-large-lod1.glb",
           "screen": 0.0173,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            0.4,
+            0.4,
+            0.4
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02"
@@ -16033,7 +17078,12 @@
         {
           "file": "models/rope-bridge-lod1.glb",
           "screen": 0.0465,
-          "triangles": 998
+          "triangles": 998,
+          "tone": [
+            1.228,
+            1.164,
+            1.025
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/weathered_planks"
@@ -16112,7 +17162,12 @@
         {
           "file": "models/alpine-hut-lod1.glb",
           "screen": 0.0557,
-          "triangles": 1170
+          "triangles": 1170,
+          "tone": [
+            0.99,
+            0.95,
+            0.869
+          ]
         }
       ],
       "far": {
@@ -16136,6 +17191,11 @@
           3.63,
           3.68,
           3.53
+        ],
+        "tone": [
+          1.123,
+          1.108,
+          1.076
         ]
       },
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_brown_02"
@@ -16217,7 +17277,12 @@
         {
           "file": "models/alpine-hut-snow-lod1.glb",
           "screen": 0.0557,
-          "triangles": 1280
+          "triangles": 1280,
+          "tone": [
+            0.909,
+            0.922,
+            0.884
+          ]
         }
       ],
       "far": {
@@ -16241,6 +17306,11 @@
           3.43,
           3.45,
           3.37
+        ],
+        "tone": [
+          0.921,
+          0.95,
+          0.941
         ]
       },
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_brown_02"
@@ -16279,7 +17349,12 @@
         {
           "file": "models/rock-needle-lod1.glb",
           "screen": 0.0591,
-          "triangles": 570
+          "triangles": 570,
+          "tone": [
+            1.459,
+            1.523,
+            1.451
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/rock_face"
@@ -16320,7 +17395,12 @@
         {
           "file": "models/cairn-lod1.glb",
           "screen": 0.0082,
-          "triangles": 399
+          "triangles": 399,
+          "tone": [
+            0.996,
+            1.013,
+            0.959
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/rock_face"
@@ -16383,7 +17463,12 @@
         {
           "file": "models/oasis-pool-lod1.glb",
           "screen": 0.0218,
-          "triangles": 400
+          "triangles": 400,
+          "tone": [
+            1.005,
+            0.987,
+            0.988
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/sandstone_cracks"
@@ -16437,7 +17522,12 @@
         {
           "file": "models/desert-temple-lod1.glb",
           "screen": 0.1002,
-          "triangles": 672
+          "triangles": 672,
+          "tone": [
+            0.969,
+            0.955,
+            0.97
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/sandstone_cracks"
@@ -16547,7 +17637,12 @@
         {
           "file": "models/house-stone-balcony-lod1.glb",
           "screen": 0.072,
-          "triangles": 2104
+          "triangles": 2104,
+          "tone": [
+            0.974,
+            0.958,
+            0.942
+          ]
         }
       ],
       "far": {
@@ -16571,6 +17666,11 @@
           4.21,
           3.69,
           4.11
+        ],
+        "tone": [
+          1.108,
+          1.069,
+          1.087
         ]
       },
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/castle_wall_slates"
@@ -16652,7 +17752,12 @@
         {
           "file": "models/house-stone-balcony-snow-lod1.glb",
           "screen": 0.072,
-          "triangles": 2234
+          "triangles": 2234,
+          "tone": [
+            0.955,
+            0.981,
+            0.959
+          ]
         }
       ],
       "far": {
@@ -16676,6 +17781,11 @@
           4.72,
           4.36,
           4.51
+        ],
+        "tone": [
+          1.047,
+          1.068,
+          1.068
         ]
       },
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/snow_02"
@@ -16741,7 +17851,12 @@
         {
           "file": "models/chapel-mountain-lod1.glb",
           "screen": 0.075,
-          "triangles": 1060
+          "triangles": 1060,
+          "tone": [
+            0.972,
+            0.977,
+            0.953
+          ]
         }
       ],
       "far": {
@@ -16765,6 +17880,11 @@
           4.08,
           3.68,
           3.3
+        ],
+        "tone": [
+          1.054,
+          1.056,
+          1.062
         ]
       },
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/weathered_planks"
@@ -16833,7 +17953,12 @@
         {
           "file": "models/chapel-mountain-snow-lod1.glb",
           "screen": 0.075,
-          "triangles": 1068
+          "triangles": 1068,
+          "tone": [
+            1.033,
+            1.032,
+            0.994
+          ]
         }
       ],
       "far": {
@@ -16857,6 +17982,11 @@
           4.14,
           3.83,
           3.45
+        ],
+        "tone": [
+          1.101,
+          1.119,
+          1.066
         ]
       },
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/snow_02"
@@ -16901,7 +18031,12 @@
         {
           "file": "models/retaining-wall-lod1.glb",
           "screen": 0.0134,
-          "triangles": 60
+          "triangles": 60,
+          "tone": [
+            0.916,
+            0.906,
+            0.865
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/rock_wall_10; https://polyhaven.com/a/castle_wall_slates"
@@ -16956,7 +18091,12 @@
         {
           "file": "models/retaining-wall-curve-lod1.glb",
           "screen": 0.0148,
-          "triangles": 376
+          "triangles": 376,
+          "tone": [
+            0.909,
+            0.903,
+            0.865
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/rock_wall_10; https://polyhaven.com/a/castle_wall_slates"
@@ -17013,7 +18153,12 @@
         {
           "file": "models/cablecar-station-lod1.glb",
           "screen": 0.1559,
-          "triangles": 722
+          "triangles": 722,
+          "tone": [
+            0.98,
+            0.995,
+            0.979
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/roof_slates_02"
@@ -17282,6 +18427,11 @@
           2.84,
           3.02,
           3.04
+        ],
+        "tone": [
+          1.198,
+          1.214,
+          1.134
         ]
       },
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow; https://polyhaven.com/a/reed_roof_04; https://polyhaven.com/a/stacked_stone_wall"
@@ -17427,6 +18577,11 @@
             "textures/fishing-boat-colour-8c1110bc06c420cb.ktx2",
             "textures/fishing-boat-normal-a2cbd54bee23ea8c.ktx2",
             "textures/fishing-boat-orm-9d89ef74d305e5f3.ktx2"
+          ],
+          "tone": [
+            1.444,
+            1.597,
+            1.592
           ]
         }
       ],
@@ -17481,7 +18636,12 @@
         {
           "file": "models/temple-ruin-lod1.glb",
           "screen": 0.1039,
-          "triangles": 1060
+          "triangles": 1060,
+          "tone": [
+            0.957,
+            0.928,
+            0.919
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/sandstone_cracks"
@@ -17716,7 +18876,12 @@
         {
           "file": "models/jetty-lod1.glb",
           "screen": 0.0267,
-          "triangles": 532
+          "triangles": 532,
+          "tone": [
+            1.043,
+            0.977,
+            0.932
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow"
@@ -17914,7 +19079,12 @@
         {
           "file": "models/dog-sled-lod1.glb",
           "screen": 0.0189,
-          "triangles": 1100
+          "triangles": 1100,
+          "tone": [
+            0.904,
+            0.902,
+            0.93
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_extras.py)"
@@ -18159,6 +19329,11 @@
           3.15,
           3.12,
           3.15
+        ],
+        "tone": [
+          0.954,
+          0.892,
+          0.656
         ]
       },
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/roof_planks"
@@ -18305,7 +19480,12 @@
         {
           "file": "models/gate-ruin-lod1.glb",
           "screen": 0.0891,
-          "triangles": 598
+          "triangles": 598,
+          "tone": [
+            1.047,
+            1.055,
+            1.03
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/mossy_stone_wall"
@@ -18378,6 +19558,11 @@
             "textures/bark_platanus_diff_1k-d4b4fc5e92ba09a1.ktx2",
             "textures/bark_platanus_nor_gl_1k-bd65d3db3b4e86e5.ktx2",
             "textures/leaves-maple-47035128d418ace1.ktx2"
+          ],
+          "tone": [
+            0.895,
+            0.894,
+            0.771
           ]
         }
       ],
@@ -18437,7 +19622,12 @@
         {
           "file": "models/office-tower-lod1.glb",
           "screen": 0.291,
-          "triangles": 2531
+          "triangles": 2531,
+          "tone": [
+            0.969,
+            0.899,
+            0.813
+          ]
         }
       ],
       "far": {
@@ -18461,6 +19651,11 @@
           34.85,
           29.71,
           35.19
+        ],
+        "tone": [
+          0.979,
+          0.898,
+          0.812
         ]
       },
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/gravel_floor_02"
@@ -18545,7 +19740,12 @@
         {
           "file": "models/fence-broken-lod1.glb",
           "screen": 0.0103,
-          "triangles": 230
+          "triangles": 230,
+          "tone": [
+            0.929,
+            0.887,
+            0.879
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/weathered_planks"
@@ -18672,7 +19872,12 @@
         {
           "file": "models/pebbles-scatter-lod1.glb",
           "screen": 0.0202,
-          "triangles": 544
+          "triangles": 544,
+          "tone": [
+            1.046,
+            1.049,
+            0.995
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_props.py); https://polyhaven.com/a/namaqualand_stones_01"
@@ -18870,7 +20075,12 @@
         {
           "file": "models/tunnel-portal-lod1.glb",
           "screen": 0.1024,
-          "triangles": 544
+          "triangles": 544,
+          "tone": [
+            1.061,
+            1.054,
+            1.023
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/rock_face"
@@ -18924,7 +20134,12 @@
         {
           "file": "models/tunnel-portal-concrete-lod1.glb",
           "screen": 0.0668,
-          "triangles": 854
+          "triangles": 854,
+          "tone": [
+            0.994,
+            0.964,
+            0.948
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete"
@@ -18982,6 +20197,11 @@
           "triangles": 1407,
           "textures": [
             "textures/ivy-wall-bb38da7616f88fae.ktx2"
+          ],
+          "tone": [
+            1.001,
+            1.027,
+            1.01
           ]
         }
       ],
@@ -19020,7 +20240,12 @@
         {
           "file": "models/glacier-lod1.glb",
           "screen": 0.2143,
-          "triangles": 1237
+          "triangles": 1237,
+          "tone": [
+            1.805,
+            1.803,
+            1.755
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/snow_02; https://polyhaven.com/a/rock_face"
@@ -19204,7 +20429,12 @@
         {
           "file": "models/shipwreck-lod1.glb",
           "screen": 0.0609,
-          "triangles": 1181
+          "triangles": 1181,
+          "tone": [
+            1.022,
+            0.964,
+            0.949
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/dark_planks"
@@ -19255,7 +20485,12 @@
         {
           "file": "models/rocket-lod1.glb",
           "screen": 0.2545,
-          "triangles": 1038
+          "triangles": 1038,
+          "tone": [
+            0.996,
+            0.933,
+            0.939
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete"
@@ -19419,7 +20654,12 @@
         {
           "file": "models/bell-tower-lod1.glb",
           "screen": 0.1968,
-          "triangles": 712
+          "triangles": 712,
+          "tone": [
+            1.013,
+            1.022,
+            1.002
+          ]
         }
       ],
       "far": {
@@ -19443,6 +20683,11 @@
           19.85,
           19.15,
           19.85
+        ],
+        "tone": [
+          0.983,
+          0.989,
+          1.005
         ]
       },
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02"
@@ -19503,7 +20748,12 @@
         {
           "file": "models/bell-tower-snow-lod1.glb",
           "screen": 0.1968,
-          "triangles": 708
+          "triangles": 708,
+          "tone": [
+            1.095,
+            1.08,
+            1.019
+          ]
         }
       ],
       "far": {
@@ -19527,6 +20777,11 @@
           19.95,
           19.25,
           19.95
+        ],
+        "tone": [
+          1.053,
+          1.091,
+          1.107
         ]
       },
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/snow_02"
@@ -19575,7 +20830,12 @@
         {
           "file": "models/stone-circle-lod1.glb",
           "screen": 0.0371,
-          "triangles": 504
+          "triangles": 504,
+          "tone": [
+            1.006,
+            1.004,
+            0.991
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/rock_boulder_dry; https://polyhaven.com/a/mossy_stone_wall"
@@ -19615,7 +20875,12 @@
         {
           "file": "models/trebuchet-lod1.glb",
           "screen": 0.0257,
-          "triangles": 867
+          "triangles": 867,
+          "tone": [
+            0.961,
+            0.949,
+            0.925
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/castle_wall_slates"
@@ -19671,7 +20936,12 @@
         {
           "file": "models/siege-tower-lod1.glb",
           "screen": 0.0988,
-          "triangles": 1176
+          "triangles": 1176,
+          "tone": [
+            1.215,
+            1.199,
+            1.166
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_extras.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/hessian_230"
@@ -19719,7 +20989,12 @@
         {
           "file": "models/highway-collapsed-lod1.glb",
           "screen": 0.1133,
-          "triangles": 1170
+          "triangles": 1170,
+          "tone": [
+            0.953,
+            0.978,
+            0.906
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/asphalt_02"
@@ -20195,7 +21470,12 @@
         {
           "file": "models/house-modern-lod1.glb",
           "screen": 0.0713,
-          "triangles": 773
+          "triangles": 773,
+          "tone": [
+            0.81,
+            0.815,
+            0.832
+          ]
         }
       ],
       "far": {
@@ -20219,6 +21499,11 @@
           5.79,
           5.89,
           5.79
+        ],
+        "tone": [
+          0.848,
+          0.815,
+          0.8
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
@@ -20275,7 +21560,12 @@
         {
           "file": "models/house-modern-red-lod1.glb",
           "screen": 0.0795,
-          "triangles": 829
+          "triangles": 829,
+          "tone": [
+            0.913,
+            0.859,
+            0.809
+          ]
         }
       ],
       "far": {
@@ -20299,6 +21589,11 @@
           5.7,
           5.69,
           5.69
+        ],
+        "tone": [
+          0.855,
+          0.677,
+          0.598
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
@@ -20356,7 +21651,12 @@
         {
           "file": "models/house-semi-lod1.glb",
           "screen": 0.0865,
-          "triangles": 792
+          "triangles": 792,
+          "tone": [
+            0.94,
+            0.93,
+            0.899
+          ]
         }
       ],
       "far": {
@@ -20380,6 +21680,11 @@
           5.78,
           5.78,
           5.78
+        ],
+        "tone": [
+          0.918,
+          0.829,
+          0.788
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
@@ -20436,7 +21741,12 @@
         {
           "file": "models/house-terrace-lod1.glb",
           "screen": 0.0742,
-          "triangles": 668
+          "triangles": 668,
+          "tone": [
+            0.836,
+            0.849,
+            0.848
+          ]
         }
       ],
       "far": {
@@ -20460,6 +21770,11 @@
           5.87,
           5.86,
           5.87
+        ],
+        "tone": [
+          0.916,
+          0.888,
+          0.888
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
@@ -20516,7 +21831,12 @@
         {
           "file": "models/house-terrace-end-w-lod1.glb",
           "screen": 0.0742,
-          "triangles": 605
+          "triangles": 605,
+          "tone": [
+            0.83,
+            0.837,
+            0.833
+          ]
         }
       ],
       "far": {
@@ -20540,6 +21860,11 @@
           5.9,
           5.85,
           5.87
+        ],
+        "tone": [
+          0.901,
+          0.865,
+          0.855
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
@@ -20596,7 +21921,12 @@
         {
           "file": "models/house-terrace-end-e-lod1.glb",
           "screen": 0.0742,
-          "triangles": 603
+          "triangles": 603,
+          "tone": [
+            0.804,
+            0.815,
+            0.82
+          ]
         }
       ],
       "far": {
@@ -20620,6 +21950,11 @@
           5.87,
           5.85,
           5.9
+        ],
+        "tone": [
+          0.841,
+          0.813,
+          0.818
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
@@ -20676,7 +22011,12 @@
         {
           "file": "models/house-terrace-ends-lod1.glb",
           "screen": 0.0742,
-          "triangles": 577
+          "triangles": 577,
+          "tone": [
+            0.815,
+            0.817,
+            0.809
+          ]
         }
       ],
       "far": {
@@ -20700,6 +22040,11 @@
           5.91,
           5.84,
           5.91
+        ],
+        "tone": [
+          0.821,
+          0.788,
+          0.782
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
@@ -20760,7 +22105,12 @@
         {
           "file": "models/oldtown-gable-3-lod1.glb",
           "screen": 0.118,
-          "triangles": 1338
+          "triangles": 1338,
+          "tone": [
+            0.788,
+            0.73,
+            0.655
+          ]
         }
       ],
       "far": {
@@ -20784,6 +22134,11 @@
           8.32,
           14.83,
           8.31
+        ],
+        "tone": [
+          0.832,
+          0.687,
+          0.54
         ]
       },
       "source": "procedural (tools/map-assets/build_oldtown.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/clay_roof_tiles_02"
@@ -20844,7 +22199,12 @@
         {
           "file": "models/oldtown-gable-4-lod1.glb",
           "screen": 0.147,
-          "triangles": 1692
+          "triangles": 1692,
+          "tone": [
+            0.785,
+            0.714,
+            0.624
+          ]
         }
       ],
       "far": {
@@ -20868,6 +22228,11 @@
           11.05,
           18.68,
           11.06
+        ],
+        "tone": [
+          0.803,
+          0.654,
+          0.527
         ]
       },
       "source": "procedural (tools/map-assets/build_oldtown.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/clay_roof_tiles_02"
@@ -20928,7 +22293,12 @@
         {
           "file": "models/oldtown-gable-2-lod1.glb",
           "screen": 0.0833,
-          "triangles": 1396
+          "triangles": 1396,
+          "tone": [
+            0.777,
+            0.768,
+            0.735
+          ]
         }
       ],
       "far": {
@@ -20952,6 +22322,11 @@
           5.57,
           9.94,
           5.56
+        ],
+        "tone": [
+          0.861,
+          0.81,
+          0.741
         ]
       },
       "source": "procedural (tools/map-assets/build_oldtown.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/clay_roof_tiles_02"
@@ -21012,7 +22387,12 @@
         {
           "file": "models/oldtown-eave-3-lod1.glb",
           "screen": 0.1323,
-          "triangles": 1652
+          "triangles": 1652,
+          "tone": [
+            0.801,
+            0.718,
+            0.63
+          ]
         }
       ],
       "far": {
@@ -21036,6 +22416,11 @@
           8.34,
           8.54,
           8.36
+        ],
+        "tone": [
+          0.85,
+          0.679,
+          0.54
         ]
       },
       "source": "procedural (tools/map-assets/build_oldtown.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/clay_roof_tiles_02"
@@ -21096,7 +22481,12 @@
         {
           "file": "models/oldtown-eave-2-lod1.glb",
           "screen": 0.0943,
-          "triangles": 1536
+          "triangles": 1536,
+          "tone": [
+            0.81,
+            0.78,
+            0.729
+          ]
         }
       ],
       "far": {
@@ -21120,6 +22510,11 @@
           5.39,
           5.71,
           5.36
+        ],
+        "tone": [
+          0.881,
+          0.786,
+          0.694
         ]
       },
       "source": "procedural (tools/map-assets/build_oldtown.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/clay_roof_tiles_02"
@@ -21179,7 +22574,12 @@
         {
           "file": "models/house-terrace-row-lod1.glb",
           "screen": 0.1422,
-          "triangles": 1444
+          "triangles": 1444,
+          "tone": [
+            0.735,
+            0.736,
+            0.76
+          ]
         }
       ],
       "far": {
@@ -21203,6 +22603,11 @@
           5.86,
           5.86,
           5.86
+        ],
+        "tone": [
+          0.863,
+          0.828,
+          0.851
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
@@ -21284,6 +22689,11 @@
           2.7,
           2.7,
           2.7
+        ],
+        "tone": [
+          0.919,
+          0.904,
+          0.927
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -21340,7 +22750,12 @@
         {
           "file": "models/garage-row-lod1.glb",
           "screen": 0.0843,
-          "triangles": 672
+          "triangles": 672,
+          "tone": [
+            0.846,
+            0.82,
+            0.807
+          ]
         }
       ],
       "far": {
@@ -21364,6 +22779,11 @@
           2.7,
           2.7,
           2.7
+        ],
+        "tone": [
+          0.774,
+          0.759,
+          0.78
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -21449,6 +22869,11 @@
           1.9,
           2.87,
           1.9
+        ],
+        "tone": [
+          0.774,
+          0.712,
+          0.724
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/wood_planks_grey; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/bitumen"
@@ -21525,6 +22950,11 @@
           2.68,
           2.67,
           2.68
+        ],
+        "tone": [
+          1.108,
+          1.08,
+          1.026
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete"
@@ -21601,6 +23031,11 @@
           2.67,
           2.67,
           2.67
+        ],
+        "tone": [
+          1.121,
+          1.088,
+          1.032
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete"
@@ -21650,7 +23085,12 @@
         {
           "file": "models/station-canopy-lod1.glb",
           "screen": 0.1225,
-          "triangles": 700
+          "triangles": 700,
+          "tone": [
+            0.995,
+            0.987,
+            1.017
+          ]
         }
       ],
       "far": {
@@ -21674,6 +23114,11 @@
           6.12,
           6.12,
           6.12
+        ],
+        "tone": [
+          1.129,
+          1.168,
+          1.174
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
@@ -21731,7 +23176,12 @@
         {
           "file": "models/block-row-4-lod1.glb",
           "screen": 0.1477,
-          "triangles": 1381
+          "triangles": 1381,
+          "tone": [
+            0.938,
+            0.91,
+            0.898
+          ]
         }
       ],
       "far": {
@@ -21755,6 +23205,11 @@
           13.92,
           14.09,
           13.92
+        ],
+        "tone": [
+          0.858,
+          0.777,
+          0.762
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
@@ -21812,7 +23267,12 @@
         {
           "file": "models/block-row-4-end-w-lod1.glb",
           "screen": 0.1477,
-          "triangles": 1333
+          "triangles": 1333,
+          "tone": [
+            0.966,
+            0.978,
+            0.986
+          ]
         }
       ],
       "far": {
@@ -21836,6 +23296,11 @@
           13.96,
           14.08,
           13.92
+        ],
+        "tone": [
+          0.856,
+          0.766,
+          0.741
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
@@ -21893,7 +23358,12 @@
         {
           "file": "models/block-row-4-end-e-lod1.glb",
           "screen": 0.1477,
-          "triangles": 1332
+          "triangles": 1332,
+          "tone": [
+            0.922,
+            0.927,
+            0.947
+          ]
         }
       ],
       "far": {
@@ -21917,6 +23387,11 @@
           13.92,
           14.08,
           13.96
+        ],
+        "tone": [
+          0.821,
+          0.725,
+          0.706
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
@@ -21974,7 +23449,12 @@
         {
           "file": "models/block-row-4-ends-lod1.glb",
           "screen": 0.1477,
-          "triangles": 1354
+          "triangles": 1354,
+          "tone": [
+            0.903,
+            0.899,
+            0.91
+          ]
         }
       ],
       "far": {
@@ -21998,6 +23478,11 @@
           13.96,
           14.07,
           13.96
+        ],
+        "tone": [
+          0.806,
+          0.695,
+          0.669
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
@@ -22056,7 +23541,12 @@
         {
           "file": "models/block-row-6-lod1.glb",
           "screen": 0.176,
-          "triangles": 1645
+          "triangles": 1645,
+          "tone": [
+            0.94,
+            0.945,
+            0.891
+          ]
         }
       ],
       "far": {
@@ -22080,6 +23570,11 @@
           21.19,
           21.19,
           21.19
+        ],
+        "tone": [
+          0.81,
+          0.809,
+          0.79
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -22138,7 +23633,12 @@
         {
           "file": "models/block-row-6-end-w-lod1.glb",
           "screen": 0.176,
-          "triangles": 1740
+          "triangles": 1740,
+          "tone": [
+            1.133,
+            1.1,
+            0.996
+          ]
         }
       ],
       "far": {
@@ -22162,6 +23662,11 @@
           21.19,
           21.19,
           21.19
+        ],
+        "tone": [
+          0.795,
+          0.792,
+          0.766
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -22220,7 +23725,12 @@
         {
           "file": "models/block-row-6-end-e-lod1.glb",
           "screen": 0.176,
-          "triangles": 1733
+          "triangles": 1733,
+          "tone": [
+            0.899,
+            0.913,
+            0.869
+          ]
         }
       ],
       "far": {
@@ -22244,6 +23754,11 @@
           21.19,
           21.19,
           21.19
+        ],
+        "tone": [
+          0.768,
+          0.765,
+          0.741
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -22302,7 +23817,12 @@
         {
           "file": "models/block-row-6-ends-lod1.glb",
           "screen": 0.176,
-          "triangles": 2147
+          "triangles": 2147,
+          "tone": [
+            0.862,
+            0.861,
+            0.796
+          ]
         }
       ],
       "far": {
@@ -22326,6 +23846,11 @@
           21.19,
           21.19,
           21.19
+        ],
+        "tone": [
+          0.768,
+          0.759,
+          0.727
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -22383,7 +23908,12 @@
         {
           "file": "models/block-corner-4-lod1.glb",
           "screen": 0.1477,
-          "triangles": 1426
+          "triangles": 1426,
+          "tone": [
+            0.931,
+            0.889,
+            0.831
+          ]
         }
       ],
       "far": {
@@ -22407,6 +23937,11 @@
           15.08,
           14.44,
           15.08
+        ],
+        "tone": [
+          0.916,
+          0.826,
+          0.777
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
@@ -22465,7 +24000,12 @@
         {
           "file": "models/block-corner-6-lod1.glb",
           "screen": 0.176,
-          "triangles": 1736
+          "triangles": 1736,
+          "tone": [
+            0.977,
+            0.969,
+            0.923
+          ]
         }
       ],
       "far": {
@@ -22489,6 +24029,11 @@
           21.31,
           21.38,
           21.31
+        ],
+        "tone": [
+          0.828,
+          0.842,
+          0.829
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -22546,7 +24091,12 @@
         {
           "file": "models/office-mid-lod1.glb",
           "screen": 0.1678,
-          "triangles": 674
+          "triangles": 674,
+          "tone": [
+            0.789,
+            0.769,
+            0.717
+          ]
         }
       ],
       "far": {
@@ -22570,6 +24120,11 @@
           19.69,
           19.73,
           19.99
+        ],
+        "tone": [
+          1.038,
+          1.02,
+          1.012
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -22629,7 +24184,12 @@
         {
           "file": "models/office-high-lod1.glb",
           "screen": 0.2457,
-          "triangles": 850
+          "triangles": 850,
+          "tone": [
+            0.756,
+            0.719,
+            0.664
+          ]
         }
       ],
       "far": {
@@ -22653,6 +24213,11 @@
           30.33,
           30.32,
           30.61
+        ],
+        "tone": [
+          1.004,
+          0.962,
+          0.912
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -22712,7 +24277,12 @@
         {
           "file": "models/supermarket-lod1.glb",
           "screen": 0.224,
-          "triangles": 586
+          "triangles": 586,
+          "tone": [
+            0.933,
+            0.899,
+            0.871
+          ]
         }
       ],
       "far": {
@@ -22736,6 +24306,11 @@
           5.47,
           5.49,
           5.47
+        ],
+        "tone": [
+          1.182,
+          1.163,
+          1.147
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/exterior_wall_cladding_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -22795,7 +24370,12 @@
         {
           "file": "models/hall-flat-lod1.glb",
           "screen": 0.1683,
-          "triangles": 508
+          "triangles": 508,
+          "tone": [
+            0.842,
+            0.811,
+            0.796
+          ]
         }
       ],
       "far": {
@@ -22819,6 +24399,11 @@
           6.79,
           6.77,
           6.79
+        ],
+        "tone": [
+          1.111,
+          1.067,
+          1.069
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/exterior_wall_cladding_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -22882,7 +24467,12 @@
         {
           "file": "models/industrial-hall-lod1.glb",
           "screen": 0.3923,
-          "triangles": 803
+          "triangles": 803,
+          "tone": [
+            1.042,
+            1.039,
+            1.004
+          ]
         }
       ],
       "far": {
@@ -22906,6 +24496,11 @@
           8.94,
           8.94,
           8.94
+        ],
+        "tone": [
+          1.13,
+          1.153,
+          1.215
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/box_profile_metal_sheet; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/brushed_concrete"
@@ -22964,7 +24559,12 @@
         {
           "file": "models/school-lod1.glb",
           "screen": 0.2585,
-          "triangles": 1823
+          "triangles": 1823,
+          "tone": [
+            0.74,
+            0.738,
+            0.707
+          ]
         }
       ],
       "far": {
@@ -22988,6 +24588,11 @@
           11.33,
           11.27,
           11.36
+        ],
+        "tone": [
+          1.022,
+          1.029,
+          1.038
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -23045,7 +24650,12 @@
         {
           "file": "models/town-hall-lod1.glb",
           "screen": 0.172,
-          "triangles": 1585
+          "triangles": 1585,
+          "tone": [
+            0.592,
+            0.604,
+            0.601
+          ]
         }
       ],
       "far": {
@@ -23069,6 +24679,11 @@
           12.54,
           12.62,
           12.54
+        ],
+        "tone": [
+          0.835,
+          0.811,
+          0.758
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
@@ -23126,7 +24741,12 @@
         {
           "file": "models/town-church-lod1.glb",
           "screen": 0.3712,
-          "triangles": 1126
+          "triangles": 1126,
+          "tone": [
+            0.881,
+            0.875,
+            0.862
+          ]
         }
       ],
       "far": {
@@ -23150,6 +24770,11 @@
           9.26,
           11.11,
           10.91
+        ],
+        "tone": [
+          0.861,
+          0.855,
+          0.833
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/white_sandstone_bricks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/roof_slates_02"
@@ -23207,7 +24832,12 @@
         {
           "file": "models/station-lod1.glb",
           "screen": 0.162,
-          "triangles": 938
+          "triangles": 938,
+          "tone": [
+            0.602,
+            0.632,
+            0.648
+          ]
         }
       ],
       "far": {
@@ -23231,6 +24861,11 @@
           8.26,
           8.6,
           8.26
+        ],
+        "tone": [
+          0.808,
+          0.682,
+          0.629
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
@@ -23291,7 +24926,12 @@
         {
           "file": "models/parking-garage-lod1.glb",
           "screen": 0.3018,
-          "triangles": 966
+          "triangles": 966,
+          "tone": [
+            0.883,
+            0.884,
+            0.83
+          ]
         }
       ],
       "far": {
@@ -23315,6 +24955,11 @@
           10.93,
           11.63,
           11.62
+        ],
+        "tone": [
+          0.913,
+          0.923,
+          0.912
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/asphalt_02; https://polyhaven.com/a/painted_plaster_wall"
@@ -23366,7 +25011,12 @@
         {
           "file": "models/greenhouse-lod1.glb",
           "screen": 0.0668,
-          "triangles": 236
+          "triangles": 236,
+          "tone": [
+            0.971,
+            0.958,
+            0.951
+          ]
         }
       ],
       "far": {
@@ -23390,6 +25040,11 @@
           2.18,
           3.81,
           2.18
+        ],
+        "tone": [
+          0.654,
+          0.66,
+          0.706
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brick_wall_07"
@@ -23467,6 +25122,11 @@
           2.65,
           2.11,
           3
+        ],
+        "tone": [
+          0.484,
+          0.517,
+          0.565
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/brushed_concrete"
@@ -23542,6 +25202,11 @@
           2.75,
           2.75,
           2.75
+        ],
+        "tone": [
+          0.973,
+          0.964,
+          0.964
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
@@ -23609,7 +25274,12 @@
         {
           "file": "models/shop-small-lod1.glb",
           "screen": 0.0583,
-          "triangles": 390
+          "triangles": 390,
+          "tone": [
+            0.87,
+            0.846,
+            0.853
+          ]
         }
       ],
       "far": {
@@ -23633,6 +25303,11 @@
           4.56,
           4.36,
           4.57
+        ],
+        "tone": [
+          0.991,
+          0.998,
+          1.021
         ]
       },
       "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -23693,7 +25368,12 @@
         {
           "file": "models/barn-modern-lod1.glb",
           "screen": 0.12,
-          "triangles": 607
+          "triangles": 607,
+          "tone": [
+            1.123,
+            1.101,
+            1.035
+          ]
         }
       ],
       "far": {
@@ -23717,6 +25397,11 @@
           4.57,
           6.82,
           4.57
+        ],
+        "tone": [
+          0.945,
+          0.974,
+          0.96
         ]
       },
       "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/brown_planks_07; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete"
@@ -23804,6 +25489,11 @@
           2.76,
           2.76,
           2.76
+        ],
+        "tone": [
+          0.934,
+          0.98,
+          1.003
         ]
       },
       "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/wood_planks_grey; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/bark_brown_01; https://polyhaven.com/a/brushed_concrete"
@@ -23889,6 +25579,11 @@
           2.34,
           3.78,
           2.34
+        ],
+        "tone": [
+          1.247,
+          1.129,
+          1.104
         ]
       },
       "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/brushed_concrete"
@@ -23970,6 +25665,11 @@
           2.94,
           2.94,
           2.95
+        ],
+        "tone": [
+          0.927,
+          0.918,
+          0.878
         ]
       },
       "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete"
@@ -24030,7 +25730,12 @@
         {
           "file": "models/office-ribbon-lod1.glb",
           "screen": 0.3185,
-          "triangles": 1583
+          "triangles": 1583,
+          "tone": [
+            0.79,
+            0.773,
+            0.721
+          ]
         }
       ],
       "far": {
@@ -24054,6 +25759,11 @@
           37.34,
           38.04,
           37.54
+        ],
+        "tone": [
+          0.915,
+          0.87,
+          0.811
         ]
       },
       "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -24124,7 +25834,12 @@
         {
           "file": "models/shop-office-lod1.glb",
           "screen": 0.135,
-          "triangles": 912
+          "triangles": 912,
+          "tone": [
+            0.816,
+            0.806,
+            0.783
+          ]
         }
       ],
       "far": {
@@ -24148,6 +25863,11 @@
           15.34,
           14.99,
           15.92
+        ],
+        "tone": [
+          0.915,
+          0.934,
+          0.945
         ]
       },
       "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -24247,6 +25967,11 @@
             "textures/rail-track-colour-4b4ab160c20f5def.ktx2",
             "textures/rail-track-normal-14b8e8715d324c24.ktx2",
             "textures/rail-track-orm-d805a6d2591b2df9.ktx2"
+          ],
+          "tone": [
+            1.06,
+            1.078,
+            1.11
           ]
         }
       ],
@@ -24293,6 +26018,11 @@
             "textures/rail-track-short-colour-233175ab84ff35be.ktx2",
             "textures/rail-track-short-normal-10f6723cf9af482e.ktx2",
             "textures/rail-track-short-orm-cd50188605998612.ktx2"
+          ],
+          "tone": [
+            1.052,
+            1.083,
+            1.119
           ]
         }
       ],
@@ -24339,6 +26069,11 @@
             "textures/rail-track-wood-colour-47f65cc8bd4c0deb.ktx2",
             "textures/rail-track-wood-normal-1df817516c11caa4.ktx2",
             "textures/rail-track-wood-orm-a81908d653b100e5.ktx2"
+          ],
+          "tone": [
+            0.992,
+            1.009,
+            1.034
           ]
         }
       ],
@@ -24385,6 +26120,11 @@
             "textures/rail-track-wood-short-colour-1082c8ec98cba647.ktx2",
             "textures/rail-track-wood-short-normal-1222f2ff3c6d7888.ktx2",
             "textures/rail-track-wood-short-orm-1e7a0534f4803697.ktx2"
+          ],
+          "tone": [
+            1.024,
+            1.051,
+            1.08
           ]
         }
       ],
@@ -24426,7 +26166,12 @@
             "textures/rail-crossing-normal-38937d136a7eb8e0.ktx2",
             "textures/rail-crossing-orm-839e9ebbf59eafa8.ktx2"
           ],
-          "triangles": 70
+          "triangles": 70,
+          "tone": [
+            1.069,
+            1.079,
+            1.092
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete"
@@ -24467,7 +26212,12 @@
             "textures/rail-street-normal-d9291b8a033b511e.ktx2",
             "textures/rail-street-orm-a79b5cdf543acbf2.ktx2"
           ],
-          "triangles": 74
+          "triangles": 74,
+          "tone": [
+            1,
+            1,
+            1
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/asphalt_02; https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete"
@@ -24503,7 +26253,12 @@
         {
           "file": "models/crossing-saltire-lod1.glb",
           "screen": 0.0104,
-          "triangles": 91
+          "triangles": 91,
+          "tone": [
+            0.911,
+            0.994,
+            0.924
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
@@ -24539,7 +26294,12 @@
         {
           "file": "models/crossing-signal-lod1.glb",
           "screen": 0.0134,
-          "triangles": 170
+          "triangles": 170,
+          "tone": [
+            0.953,
+            0.973,
+            0.921
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
@@ -24575,7 +26335,12 @@
         {
           "file": "models/crossing-barrier-lod1.glb",
           "screen": 0.02,
-          "triangles": 117
+          "triangles": 117,
+          "tone": [
+            1.041,
+            0.994,
+            0.981
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
@@ -24616,6 +26381,11 @@
             "textures/rail-bridge-colour-28e809b1ded5f66f.ktx2",
             "textures/rail-bridge-normal-bcd5a6ffefb68235.ktx2",
             "textures/rail-bridge-orm-d45793917bfeebf0.ktx2"
+          ],
+          "tone": [
+            1.163,
+            1.21,
+            1.311
           ]
         }
       ],
@@ -24657,6 +26427,11 @@
             "textures/rail-bridge-short-colour-75e7f6ff0ea61256.ktx2",
             "textures/rail-bridge-short-normal-b165addc8aaf1c22.ktx2",
             "textures/rail-bridge-short-orm-44c4e447e2d92af4.ktx2"
+          ],
+          "tone": [
+            1.177,
+            1.217,
+            1.292
           ]
         }
       ],
@@ -24697,7 +26472,12 @@
         {
           "file": "models/bridge-abutment-lod1.glb",
           "screen": 0.03,
-          "triangles": 120
+          "triangles": 120,
+          "tone": [
+            0.967,
+            0.945,
+            0.925
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/brushed_concrete"
@@ -24737,7 +26517,12 @@
         {
           "file": "models/bridge-pier-lod1.glb",
           "screen": 0.0356,
-          "triangles": 160
+          "triangles": 160,
+          "tone": [
+            0.974,
+            0.953,
+            0.97
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/brushed_concrete"
@@ -24843,7 +26628,12 @@
         {
           "file": "models/buffer-stop-lod1.glb",
           "screen": 0.0097,
-          "triangles": 84
+          "triangles": 84,
+          "tone": [
+            0.987,
+            0.869,
+            0.838
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/dark_planks"
@@ -24889,7 +26679,12 @@
         {
           "file": "models/power-pylon-lod1.glb",
           "screen": 0.1396,
-          "triangles": 1004
+          "triangles": 1004,
+          "tone": [
+            1.373,
+            1.326,
+            1.304
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
@@ -24945,6 +26740,11 @@
           1.09,
           1.58,
           1.37
+        ],
+        "tone": [
+          1.806,
+          1.984,
+          2.5
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/bark_brown_01; Blätter https://ambientcg.com/view?id=LeafSet029"
@@ -24987,6 +26787,11 @@
             "textures/bark_brown_01_diff_1k-63b044329094e136.ktx2",
             "textures/bark_brown_01_nor_gl_1k-1986ed1aca831a0a.ktx2",
             "textures/leaves-bush-21b0815e9faaecfb.ktx2"
+          ],
+          "tone": [
+            1.065,
+            1.055,
+            1.056
           ]
         }
       ],
@@ -25052,7 +26857,12 @@
         {
           "file": "models/playground-slide-lod1.glb",
           "screen": 0.0188,
-          "triangles": 159
+          "triangles": 159,
+          "tone": [
+            1.042,
+            1.006,
+            0.983
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/rough_wood"
@@ -25156,6 +26966,11 @@
           "triangles": 197,
           "textures": [
             "textures/net-hoop-9391a9d8e73803e5.ktx2"
+          ],
+          "tone": [
+            0.955,
+            0.933,
+            0.929
           ]
         }
       ],
@@ -25221,6 +27036,11 @@
           "triangles": 246,
           "textures": [
             "textures/net-volley-1d14d70480b5b77b.ktx2"
+          ],
+          "tone": [
+            1.711,
+            1.488,
+            1.268
           ]
         }
       ],
@@ -25314,6 +27134,11 @@
           "triangles": 300,
           "textures": [
             "textures/net-goal-ba544a2d72f17c3b.ktx2"
+          ],
+          "tone": [
+            1.385,
+            1.245,
+            2.365
           ]
         }
       ],
@@ -25382,6 +27207,11 @@
           "triangles": 229,
           "textures": [
             "textures/net-rope-10de694369be184a.ktx2"
+          ],
+          "tone": [
+            1.308,
+            1.177,
+            1.1
           ]
         }
       ],
@@ -25418,7 +27248,12 @@
         {
           "file": "models/seesaw-lod1.glb",
           "screen": 0.0173,
-          "triangles": 229
+          "triangles": 229,
+          "tone": [
+            0.875,
+            0.872,
+            0.855
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/rough_wood"
@@ -25451,7 +27286,12 @@
         {
           "file": "models/spring-rider-lod1.glb",
           "screen": 0.0095,
-          "triangles": 298
+          "triangles": 298,
+          "tone": [
+            0.976,
+            0.968,
+            0.948
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_poi.py)"
@@ -25487,7 +27327,12 @@
         {
           "file": "models/sandbox-lod1.glb",
           "screen": 0.0152,
-          "triangles": 144
+          "triangles": 144,
+          "tone": [
+            0.987,
+            0.98,
+            0.967
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_poi.py); https://polyhaven.com/a/rough_wood"
@@ -25519,7 +27364,12 @@
         {
           "file": "models/bike-rack-lod1.glb",
           "screen": 0.013,
-          "triangles": 220
+          "triangles": 220,
+          "tone": [
+            1.239,
+            1.208,
+            1.166
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_poi.py)"
@@ -25552,7 +27402,12 @@
         {
           "file": "models/advertising-column-lod1.glb",
           "screen": 0.0134,
-          "triangles": 180
+          "triangles": 180,
+          "tone": [
+            0.977,
+            1.006,
+            0.996
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_poi.py)"
@@ -25733,7 +27588,12 @@
         {
           "file": "models/cafe-set-lod1.glb",
           "screen": 0.0115,
-          "triangles": 174
+          "triangles": 174,
+          "tone": [
+            0.945,
+            0.944,
+            0.943
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_poi.py)"
@@ -25940,7 +27800,12 @@
         {
           "file": "models/sign-bracket-lod1.glb",
           "screen": 0.0071,
-          "triangles": 252
+          "triangles": 252,
+          "tone": [
+            0.876,
+            0.857,
+            0.838
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_poi.py)"
@@ -25981,6 +27846,11 @@
             "textures/river-barge-colour-d0261cb5f56e729a.ktx2",
             "textures/river-barge-normal-828ce25becb090c7.ktx2",
             "textures/river-barge-orm-f94b03214d701399.ktx2"
+          ],
+          "tone": [
+            0.962,
+            0.995,
+            1.13
           ]
         }
       ],
@@ -26127,7 +27997,12 @@
         {
           "file": "models/playground-roundabout-lod1.glb",
           "screen": 0.0097,
-          "triangles": 221
+          "triangles": 221,
+          "tone": [
+            0.973,
+            0.969,
+            0.97
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_poi.py)"
