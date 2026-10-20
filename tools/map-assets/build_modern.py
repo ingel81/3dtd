@@ -15,7 +15,7 @@ import random
 import bmesh
 from mathutils import Vector
 
-from blender_kit import (Nodes, Part, bake_surface, box, card, card_material, clear_scene, export_lod, finish, flat_material, hexa,
+from blender_kit import (CITY_FACADES, Nodes, Part, bake_surface, box, card, card_material, clear_scene, export_lod, finish, flat_material, hexa,
                          net_material, pbr_material, tilt, tube)
 from blender_kit import export as export_plain
 from build_city import Face, glass
@@ -77,11 +77,12 @@ GRIME = {
 }
 
 
-def export(name, objects, lod=None):
-    """Baked AO (weathering too for the buildings of GRIME), then a flat-coloured copy with `lod` triangles for distance"""
+def export(name, objects, lod=None, facades=None):
+    """Baked AO (weathering too for the buildings of GRIME), then a flat-coloured copy with `lod` triangles for distance,
+    or with its facades drawn flat (`facades`, blender_kit.facade_lod)"""
     obj = finish(name, objects, grime=name in GRIME)
     if lod:
-        export_lod(name, obj, ratio=min(1.0, lod / max(1, len(obj.data.polygons))))
+        export_lod(name, obj, ratio=min(1.0, lod / max(1, len(obj.data.polygons))), facades=facades)
     return obj
 
 
@@ -688,7 +689,7 @@ def city_house(name, w, d, floors, tint, roof='gable', street=(0,), blank=(1, 3)
                 window(kit, face, u, zb, ow, zt - zb, reveal=0.1)
         box(kit.metal, 0, 0, eave + 2.85, aw + 0.6, ad + 0.6, 0.25)
         box(flat, 0, 0, eave + 3.1, aw, ad, 0.05)
-    export(name, kit.objects(name), lod=lod)
+    export(name, kit.objects(name), lod=lod, facades=CITY_FACADES)
 
 
 def roof_plant(kit, w, d, z, rnd, units=3):

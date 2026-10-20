@@ -60,6 +60,14 @@ node tools/map-assets/measure_bases.mjs public/maps/assets
 node tools/map-assets/measure_boxes.mjs public/maps/assets
 node tools/map-assets/measure_roofs.mjs public/maps/assets
 
+# Fernkopie der Stadthäuser (city_house in build_modern.py) neu aus dem gepackten Modell, wenn dessen Quellen fehlen:
+# jede Fassade eine Fläche, Fenster und Türen als Rechtecke darauf (blender_kit.facade_lod; der Bau macht dasselbe über
+# export_lod(..., facades=CITY_FACADES)). Braucht `npm install` in tools/model-pack; danach meshopt, match_lods.py,
+# count_triangles.py, stage_tones.mjs
+node tools/map-assets/unpack_glb.mjs public/maps/assets/models/<id>.glb $TMP/<id>.glb
+blender --background --factory-startup --python tools/map-assets/relod_facades.py -- $TMP public/maps/assets/models <id> [<id> ...]
+npx -y @gltf-transform/cli@4.5.1 meshopt $TMP/<id>-lod1.glb public/maps/assets/models/<id>-lod1.glb
+
 # Fernkopien (-lod1) für Modelle ohne LOD: über 1500 Dreiecke und Mauern ab 150 (meshoptimizer, flach schattiert, Farben
 # danach aus match_lods.py); komprimieren, dann update_catalog.py, match_lods.py <ids>, update_catalog.py
 node tools/map-assets/make_far_lods.mjs public/maps/assets [<id> ...]

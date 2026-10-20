@@ -597,6 +597,11 @@ bekommt keinen und behält sein LOD-Modell. 76 von 104 Gebäuden haben einen, da
 Block; ihre Lücken im Atlas als Schatten im Laub): Oberbergen, Spielansicht High 7,1 → 1,6 M Dreiecke, 391 → 155 Draws.
 101 Modelle ohne LOD (über 1500 Dreiecke, Mauern ab 150) haben eine Fernkopie aus `make_far_lods.mjs`
 (meshoptimizer, flach schattiert, Farbe aus `match_lods.py`); Stützmauern 176 → 38 Dreiecke.
+Die Stadthäuser (Blockrand `block-row-4/6`, Ecken `block-corner-4/6`) dezimieren ihre Fassaden nicht mehr (E268): das
+Zusammenfallen der Kanten machte aus Fensterlöchern und Rahmen Dreiecke. `blender_kit.facade_lod` zeichnet jede
+Wandebene als eine Fläche je Material (die Hülle ihrer Teile, eine zurückgesetzte Dachetage und Balkonbrüstungen eine
+eigene), Fenster, Türen, Rahmen und Bänke als Rechtecke knapp davor, und dezimiert nur den Rest (Dach, Balkone,
+Gauben). Die Fernkopien haben damit 2 bis 48 % weniger Dreiecke (`block-row-4` 1381 → 791).
 **Ton der Stufen (E268, Katalog `lod[].tone`, `far.tone`):** die LOD-Modelle tragen das Mittel jeder Textur, aber
 nicht die gebackene Verdeckung des Modells, seinen Schmutz (`grime`), Normalen und raue und glatte Stellen; der
 Fernkasten ist die unbeleuchtete Farbe des Modells auf einem flach schattierten Kasten. Im Licht des Spiels stand so

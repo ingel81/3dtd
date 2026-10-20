@@ -978,10 +978,12 @@ def flat_copy(material):
     return flat
 
 
-def export_lod(name, obj, ratio=0.3, suffix='-lod1', textured=False):
+def export_lod(name, obj, ratio=0.3, suffix='-lod1', textured=False, facades=None):
     """A decimated copy for distant views (catalogue `lod`), exported next to the model. Textured
     materials become their average colour, so the LOD file carries no second copy of the textures;
-    `textured` keeps a baked surface (bake_surface) with its UVs: its paint and markings are the look"""
+    `textured` keeps a baked surface (bake_surface) with its UVs: its paint and markings are the look;
+    `facades` (walls, openings, details by material prefix, CITY_FACADES) draws a box-built house's facades
+    flat instead of decimating them (facade_lod)"""
     lod = obj.copy()
     lod.data = obj.data.copy()
     bpy.context.collection.objects.link(lod)
@@ -991,7 +993,10 @@ def export_lod(name, obj, ratio=0.3, suffix='-lod1', textured=False):
             # Object-level slot: the shared mesh data keeps the textured materials for the full model
             slot.link = 'OBJECT'
             slot.material = flat_copy(source)
-    decimate_keeping(lod, ratio, name)
+    if facades:
+        facade_lod(lod, *facades, rest=ratio)
+    else:
+        decimate_keeping(lod, ratio, name)
     while len(lod.data.uv_layers) and not textured:
         lod.data.uv_layers.remove(lod.data.uv_layers[0])
     export(name + suffix, [lod])
@@ -1018,7 +1023,7 @@ def _delete_faces(obj, keep):
     bm.free()
 
 
-def decimate_keeping(obj, ratio, name=''):
+def decimate_keeping(obj, ratio, name='', check=True):
     """Collapse-decimates `obj` to about `ratio` of its faces, leaving the materials of LOD_KEEP_FACES faces or
     fewer whole: a roof of four big quads is most of what a distant view sees, and the collapse took such
     parts away entirely (the industrial hall, the town hall and the station stood without a roof past their
@@ -1054,8 +1059,202 @@ def decimate_keeping(obj, ratio, name=''):
     # Collapsed edges can leave duplicate faces behind (box-built parts)
     obj.data.validate()
     lost = sorted(before - _faces_by_material(obj))
-    if lost:
+    if lost and check:
         raise RuntimeError('%s: the distance copy lost every face of %s' % (name or obj.name, ', '.join(lost)))
+
+
+# A facade's skin: reveals, recessed glass and window frames lie this far behind its plane at most, m
+FACADE_SKIN = 0.6
+# A wall plane needs this much area facing one way, m2 (less is a ledge's edge)
+FACADE_MIN_AREA = 1.0
+# The materials of the city houses' facades by prefix (build_modern.py Kit): walls, openings, details (facade_lod)
+CITY_FACADES = (('plaster', 'plinth'), ('window-glass', 'door'), ('frame', 'sill', 'shutter'))
+
+
+def facade_lod(obj, walls, openings, details, rest=1.0):
+    """The facades of a box-built house as a distance copy draws them (E268): each outer wall plane one hole-free
+    polygon per wall material (the convex hull of its faces there; a set-back storey's walls a plane of their
+    own), the openings (`openings`: glass, doors) and the front faces of the details (`details`: frames, sills,
+    shutters) laid flat on it as rectangles, a little in front (one per touching group: a window's frame bars one
+    rim behind its glass, its panes one), the reveals and the sides of frames gone. Collapse-decimating such a wall turned its window holes and frames into
+    triangles (block-row-4); this keeps every window a rectangle with far fewer triangles. Materials are named by
+    prefix; faces of other materials and faces away from the outer planes (roofs, dormers, balconies) are
+    collapse-decimated to `rest` of their count, their small materials whole (decimate_keeping). Works on Blender's
+    Z-up axes, outer planes facing +-X and +-Y"""
+    from mathutils import geometry
+    before = _faces_by_material(obj)
+    names = [s.material.name if s.material else '' for s in obj.material_slots]
+    kind = [('wall' if n.startswith(walls) else 'opening' if n.startswith(openings) else 'detail' if n.startswith(details) else '')
+            for n in names]
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.faces.ensure_lookup_table()
+    dirs = [Vector((1, 0, 0)), Vector((-1, 0, 0)), Vector((0, 1, 0)), Vector((0, -1, 0))]
+    planes = []
+    for d in dirs:
+        # The walls' area facing that way by offset
+        area = {}
+        for f in bm.faces:
+            if kind[f.material_index] == 'wall' and f.normal.dot(d) > 0.95:
+                key = round(f.calc_center_median().dot(d) * 50) / 50
+                area[key] = area.get(key, 0) + f.calc_area()
+        if not area:
+            continue
+        # Every plane with some wall facing that way, the largest first (a set-back top storey, a balcony's parapet
+        # have their own), but none within the skin of a larger one it overlaps (a cornice, the backs of recesses)
+        side = Vector((0, 0, 1)).cross(d)
+        taken = []
+        for at in sorted((k for k, a in area.items() if a >= FACADE_MIN_AREA), key=lambda k: -area[k]):
+            pts = [v.co for f in bm.faces if kind[f.material_index] == 'wall' and f.normal.dot(d) > 0.95
+                   and abs(f.calc_center_median().dot(d) - at) < 0.02 for v in f.verts]
+            box = (min(p.dot(side) for p in pts), max(p.dot(side) for p in pts), min(p.z for p in pts), max(p.z for p in pts))
+            if any(abs(t - at) <= FACADE_SKIN and b[0] < box[1] and box[0] < b[1] and b[2] < box[3] and box[2] < b[3] for t, b in taken):
+                continue
+            taken.append((at, box))
+            planes.append((d, at, box))
+    drop = set()
+    hulls = []
+    rects = {}
+    made = set()
+    for f in bm.faces:
+        k = kind[f.material_index]
+        if not k:
+            continue
+        c = f.calc_center_median()
+        # Its facade: a plane it faces, else one it lies behind, the nearest, within the skin and the plane's box
+        home = None
+        for d, at, (s0, s1, z0, z1) in planes:
+            depth = at - c.dot(d)
+            u = c.dot(Vector((0, 0, 1)).cross(d))
+            if depth < -0.05 or depth > FACADE_SKIN or not (s0 - 0.05 <= u <= s1 + 0.05 and z0 - 0.05 <= c.z <= z1 + 0.05):
+                continue
+            facing = f.normal.dot(d) > 0.95
+            if home is None or (not facing, depth) < (not home[3], home[2]):
+                home = (d, at, depth, facing)
+        if home is None:
+            continue
+        d, at, depth, facing = home
+        if k == 'wall':
+            if facing and abs(depth) < 0.02:
+                hulls.append((d, at, f.material_index, [v.co.copy() for v in f.verts]))
+            drop.add(f)
+        elif facing:
+            # Flat on the wall as rectangles: a window's frame bars, its panes, a sill each become one
+            side = Vector((0, 0, 1)).cross(d)
+            us = [v.co.dot(side) for v in f.verts]
+            zs = [v.co.z for v in f.verts]
+            rects.setdefault((tuple(d), at, f.material_index, k), []).append([min(us), max(us), min(zs), max(zs)])
+            drop.add(f)
+        else:
+            drop.add(f)
+    bmesh.ops.delete(bm, geom=list(drop), context='FACES')
+    for (dt, at, mat, k), boxes in rects.items():
+        d = Vector(dt)
+        side = Vector((0, 0, 1)).cross(d)
+        # Details just in front of the wall, openings over them: the frame shows as a rim round the glass
+        lift = 0.02 if k == 'opening' else 0.01
+        for u0, u1, z0, z1 in _merge_touching(boxes, 0.03):
+            corners = [(u0, z0), (u1, z0), (u1, z1), (u0, z1)]
+            face = bm.faces.new([bm.verts.new(side * u + Vector((0, 0, z)) + d * (at + lift)) for u, z in corners])
+            face.material_index = mat
+            made.add(face)
+            face.normal_update()
+            if face.normal.dot(d) < 0:
+                face.normal_flip()
+    # One polygon per plane, wall material and connected piece (a wall, each balcony's parapet), the hull of its faces
+    groups = {}
+    for d, at, mat, pts in hulls:
+        groups.setdefault((tuple(d), at, mat), []).append(pts)
+    pieces = []
+    for key, faces in groups.items():
+        for piece in _connected(faces):
+            pieces.append((key, piece))
+    for (dt, at, mat), pts in pieces:
+        d = Vector(dt)
+        side = Vector((0, 0, 1)).cross(d)
+        flat = [(p.dot(side), p.z) for p in pts]
+        order = geometry.convex_hull_2d(flat)
+        verts = [bm.verts.new(side * flat[i][0] + Vector((0, 0, flat[i][1])) + d * at) for i in order]
+        face = bm.faces.new(verts)
+        face.material_index = mat
+        made.add(face)
+        face.normal_update()
+        if face.normal.dot(d) < 0:
+            face.normal_flip()
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
+    bm.faces.ensure_lookup_table()
+    flat = {f.index for f in bm.faces if f in made}
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.validate()
+    if rest < 1.0:
+        # The rest decimated on its own, the facades as drawn: split, decimate, join
+        whole = obj.copy()
+        whole.data = obj.data.copy()
+        bpy.context.collection.objects.link(whole)
+        _delete_faces_where(whole, lambda poly: poly.index not in flat)
+        _delete_faces_where(obj, lambda poly: poly.index in flat)
+        decimate_keeping(obj, rest, check=False)
+        bpy.ops.object.select_all(action='DESELECT')
+        whole.select_set(True)
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.join()
+    lost = sorted(before - _faces_by_material(obj))
+    if lost:
+        raise RuntimeError('%s: the distance copy lost every face of %s' % (obj.name, ', '.join(lost)))
+
+
+def _delete_faces_where(obj, gone):
+    """Deletes the faces of `obj` for which `gone(polygon)` holds (by the mesh's polygons, before any change)"""
+    indices = {p.index for p in obj.data.polygons if gone(p)}
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.faces.ensure_lookup_table()
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.index in indices], context='FACES')
+    bm.to_mesh(obj.data)
+    bm.free()
+
+
+def _connected(faces):
+    """Faces (lists of corner points) that share a corner, joined: the points of each connected piece"""
+    key = lambda p: (round(p.x, 3), round(p.y, 3), round(p.z, 3))
+    parent = list(range(len(faces)))
+
+    def root(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    owner = {}
+    for i, pts in enumerate(faces):
+        for p in pts:
+            j = owner.setdefault(key(p), i)
+            parent[root(i)] = root(j)
+    pieces = {}
+    for i, pts in enumerate(faces):
+        pieces.setdefault(root(i), []).extend(pts)
+    return list(pieces.values())
+
+
+def _merge_touching(boxes, gap):
+    """Rectangles [u0, u1, z0, z1] that overlap or come within `gap` of each other, merged into their bounds"""
+    boxes = [list(b) for b in boxes]
+    merged = True
+    while merged:
+        merged = False
+        out = []
+        for b in boxes:
+            for o in out:
+                if b[0] <= o[1] + gap and o[0] <= b[1] + gap and b[2] <= o[3] + gap and o[2] <= b[3] + gap:
+                    o[0], o[1], o[2], o[3] = min(o[0], b[0]), max(o[1], b[1]), min(o[2], b[2]), max(o[3], b[3])
+                    merged = True
+                    break
+            else:
+                out.append(b)
+        boxes = out
+    return boxes
 
 
 def box_uv(obj, metres):

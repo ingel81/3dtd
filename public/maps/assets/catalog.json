@@ -23176,11 +23176,11 @@
         {
           "file": "models/block-row-4-lod1.glb",
           "screen": 0.1477,
-          "triangles": 1381,
+          "triangles": 791,
           "tone": [
-            0.938,
-            0.91,
-            0.898
+            0.928,
+            0.937,
+            0.967
           ]
         }
       ],
@@ -23207,9 +23207,9 @@
           13.92
         ],
         "tone": [
-          0.858,
-          0.777,
-          0.762
+          0.857,
+          0.775,
+          0.763
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
@@ -23267,11 +23267,11 @@
         {
           "file": "models/block-row-4-end-w-lod1.glb",
           "screen": 0.1477,
-          "triangles": 1333,
+          "triangles": 1013,
           "tone": [
-            0.966,
-            0.978,
-            0.986
+            0.919,
+            0.927,
+            0.952
           ]
         }
       ],
@@ -23298,8 +23298,8 @@
           13.92
         ],
         "tone": [
-          0.856,
-          0.766,
+          0.854,
+          0.763,
           0.741
         ]
       },
@@ -23358,11 +23358,11 @@
         {
           "file": "models/block-row-4-end-e-lod1.glb",
           "screen": 0.1477,
-          "triangles": 1332,
+          "triangles": 1007,
           "tone": [
-            0.922,
-            0.927,
-            0.947
+            0.899,
+            0.908,
+            0.941
           ]
         }
       ],
@@ -23389,8 +23389,8 @@
           13.96
         ],
         "tone": [
-          0.821,
-          0.725,
+          0.818,
+          0.722,
           0.706
         ]
       },
@@ -23449,10 +23449,10 @@
         {
           "file": "models/block-row-4-ends-lod1.glb",
           "screen": 0.1477,
-          "triangles": 1354,
+          "triangles": 1258,
           "tone": [
-            0.903,
-            0.899,
+            0.889,
+            0.888,
             0.91
           ]
         }
@@ -23482,7 +23482,7 @@
         "tone": [
           0.806,
           0.695,
-          0.669
+          0.668
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
@@ -23541,11 +23541,11 @@
         {
           "file": "models/block-row-6-lod1.glb",
           "screen": 0.176,
-          "triangles": 1645,
+          "triangles": 1357,
           "tone": [
-            0.94,
-            0.945,
-            0.891
+            0.91,
+            0.89,
+            0.852
           ]
         }
       ],
@@ -23572,9 +23572,9 @@
           21.19
         ],
         "tone": [
-          0.81,
-          0.809,
-          0.79
+          0.805,
+          0.806,
+          0.792
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -23633,11 +23633,11 @@
         {
           "file": "models/block-row-6-end-w-lod1.glb",
           "screen": 0.176,
-          "triangles": 1740,
+          "triangles": 1699,
           "tone": [
-            1.133,
-            1.1,
-            0.996
+            0.916,
+            0.892,
+            0.836
           ]
         }
       ],
@@ -23664,9 +23664,9 @@
           21.19
         ],
         "tone": [
-          0.795,
-          0.792,
-          0.766
+          0.79,
+          0.788,
+          0.769
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -23725,11 +23725,11 @@
         {
           "file": "models/block-row-6-end-e-lod1.glb",
           "screen": 0.176,
-          "triangles": 1733,
+          "triangles": 1699,
           "tone": [
-            0.899,
-            0.913,
-            0.869
+            0.887,
+            0.869,
+            0.823
           ]
         }
       ],
@@ -23756,9 +23756,9 @@
           21.19
         ],
         "tone": [
-          0.768,
-          0.765,
-          0.741
+          0.762,
+          0.761,
+          0.745
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -23817,11 +23817,11 @@
         {
           "file": "models/block-row-6-ends-lod1.glb",
           "screen": 0.176,
-          "triangles": 2147,
+          "triangles": 2041,
           "tone": [
-            0.862,
-            0.861,
-            0.796
+            0.889,
+            0.863,
+            0.807
           ]
         }
       ],
@@ -23848,9 +23848,9 @@
           21.19
         ],
         "tone": [
-          0.768,
-          0.759,
-          0.727
+          0.761,
+          0.755,
+          0.73
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
@@ -23908,11 +23908,11 @@
         {
           "file": "models/block-corner-4-lod1.glb",
           "screen": 0.1477,
-          "triangles": 1426,
+          "triangles": 745,
           "tone": [
-            0.931,
-            0.889,
-            0.831
+            0.943,
+            0.901,
+            0.849
           ]
         }
       ],
@@ -23939,9 +23939,9 @@
           15.08
         ],
         "tone": [
-          0.916,
-          0.826,
-          0.777
+          0.913,
+          0.823,
+          0.775
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
@@ -24000,11 +24000,11 @@
         {
           "file": "models/block-corner-6-lod1.glb",
           "screen": 0.176,
-          "triangles": 1736,
+          "triangles": 1051,
           "tone": [
-            0.977,
-            0.969,
-            0.923
+            0.972,
+            0.957,
+            0.92
           ]
         }
       ],
@@ -24031,9 +24031,9 @@
           21.31
         ],
         "tone": [
-          0.828,
-          0.842,
-          0.829
+          0.825,
+          0.84,
+          0.83
         ]
       },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
