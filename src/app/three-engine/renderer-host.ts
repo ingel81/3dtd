@@ -5,6 +5,10 @@ import { deferPendingProgramDeletes } from './pending-program-deletes';
 import type { ProgramPins } from './program-pins';
 import { DrawLedger } from './draw-ledger';
 import { isSharedGpu } from './shared-gpu';
+import { installShadowEdgeFade } from './shadow-edge-fade';
+
+// Before any renderer builds a program: shadows fade out at their map's border (shadow-edge-fade.ts)
+installShadowEdgeFade();
 
 /**
  * Leases whose pinned programs and shader ids stay after they end: the

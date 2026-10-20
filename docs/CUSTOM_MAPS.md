@@ -642,6 +642,17 @@ hat damit eine Hysterese von einer Bandbreite.
 Kosten: Demo-Tal 151 → 160 Calls in der Spielansicht, beim Schwenk 155 → 171 bis 180; die GPU-Zeit bleibt im
 Rauschen des geteilten Messrechners (Spielansicht 1,01 bis 1,06 ms).
 
+**Rand der Schattenbox (E268, `three-engine/shadow-edge-fade.ts`):** der Schatten der Sonne blendet auf den letzten
+30 % der halben Breite seiner Karte aus, statt an ihrem Rand abzubrechen (three's `getShadow` für alle Empfänger,
+einmal vor dem ersten Programm, `renderer-host.ts`). Von hoher Kamera ist die Box gedeckelt und ihr Rand liegt im
+Bild; rastete sie beim Zoomen um, bekamen oder verloren die Gebäude am Rand ihren Schatten auf einen Schlag. Jetzt
+wandert ein weicher Übergang mit: OSM-Probe Miltenberg, Raste aus der gedeckelten Höhe, Pixel mit einem Sprung über
+30 (von 255) zwischen alter und neuer Box 2965 → 1075, das 99,9-%-Quantil 59 → 36. Ganz weg ist der Wechsel nicht,
+dafür müsste die alte Karte in die neue überblenden (zwei Karten in jedem Empfänger). Renderzeit (render plus
+`gl.finish`, Median, gleiche Kamera) vorher 1,13 ms, danach 1,24 und 1,28 ms; näher gezoomt vorher 1,29, danach
+1,21 ms: im Rauschen des geteilten Rechners. Der Preis: wo der Rand der Box im Bild liegt (zur fernen Seite hin, wo
+ihre Reichweite endet), sind die Schatten auf den letzten 30 % davor schwächer; die Bildmitte bleibt gleich.
+
 Impostor (`impostor.ts`, oktaedrisch): das Modell aus 8 x 8 Richtungen über der oberen Halbkugel (hemi-oktaedrisches
 Raster) in zwei Atlanten gerendert (mit 4x MSAA gezeichnet, in ein Ziel ohne MSAA kopiert, im Farbatlas leere
 Pixel aus den belegten derselben Ansicht aufgefüllt, damit Mipmaps zur Kronenfarbe mischen; im Normalatlas nicht, dort
