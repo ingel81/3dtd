@@ -139,7 +139,7 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
     nimmt den Bauwerksschaden des Typs (1200) in seinem Splash plus 1 m plus Radius und gräbt einen Krater; Ziel ist
     das nächste Bauwerk in Reichweite ohne Tower auf dem Dach (`StructureLedger.nearestTarget`). Seine Werte gehen in
     den Weltschlüssel (`destructionKeyParts`). Ablauf in [ENEMY_CREATION.md](ENEMY_CREATION.md#geschützturm-und-belagerung-jumper).
-  - Debug: `debug:hit-structures` (im Koop ein Cheat).
+  - Debug: `debug:hit-structures` (im Koop ein Cheat) und das Zerstörungs-Werkzeug (siehe „Werkzeug für Entwickler“).
 - **Dach mit Tower:** ein Bauwerk mit `roof` nimmt keinen Schaden, solange ein Tower auf seinem Dach steht: in seinem
   Grundriss-Rechteck und bei einem Bau aus dem Grundriss (`MapObject.mass`, `RunStructure.mass`) in dessen Umriss, ein
   Innenhof zählt nicht (`ringsContain`, nur `+ - * /`). Ein Tower am Boden kann dort nicht stehen, der Grundriss
@@ -148,9 +148,11 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   Welt zielt (`TowerPlacementService.onRoof`, auch der Bot). Ist das Gebäude unter diesem Dach gefallen, wenn der Befehl
   wirkt, setzt die Simulation keinen Tower (`WorldDamage.roofFallen`); in der Reihenfolge der Befehle des Ticks, auf
   jedem Client gleich. Ein Tower, der zuerst steht, hält sein Gebäude.
-- **Ops:** `structures.setStages(Uint8Array, Int16Array)` nach Laden, Neustart, Restore und Sprung (ein Byte je
-  Bauwerk, dazu die Richtungen); `structures.stage(index, stufe, richtung)` je Stufenwechsel (höchstens drei je Bauwerk
-  und Lauf); `main.structureFell` im Moment des Falls (flüchtig).
+- **Ops:** `structures.setStages(Uint8Array, Int16Array, Int32Array)` nach Laden, Neustart, Restore und Sprung (ein
+  Byte je Bauwerk, dazu die Richtungen und die HP); `structures.stage(index, stufe, richtung)` je Stufenwechsel
+  (höchstens drei je Bauwerk und Lauf); `structures.hp(Int32Array)` einmal je Paket mit den Paaren aus Index und HP
+  der Bauwerke, deren HP sich darin änderten (`StructureLedger.flushHp`, von `SimCore` vor dem Abholen der Ops
+  gerufen; keiner, solange nichts getroffen wird); `main.structureFell` im Moment des Falls (flüchtig).
 - **Richtung:** jede Stufe, die ein Treffer auslöst, merkt sich dessen Richtung vom Einschlag zur Mitte des Bauwerks
   (`structureHeading`, 256 Schritte je Umdrehung aus `DetMath.atan2`, -1 ohne: Vorschaden, Treffer genau auf die
   Mitte). Spielstand (`structureHeadings`) und Prüfsumme tragen sie, sobald eine bekannt ist; eine Welt ohne Treffer
@@ -268,6 +270,42 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
 - **Verdeckung und Krümmung:** der Ground-Worker des Spiels bekommt die geänderten Höhen als Patch, bevor er sie schattiert
   (`GroundWorker.heightsChanged`).
 - Wasser, Brücken, Objektsitze, Straßenbänder und Gras folgen dem Rechteck von `updateHeights`.
+
+**Lebensbalken über Bauwerken** (gebaut, E262)
+
+- Über jedem Bauwerk, das steht und weniger als volle HP hat, ein Balken über dem Dach (Boden plus Höhe plus 1,5 m),
+  so breit wie der Grund (1,2 mal Radius, 6 bis 12 m), ein Sechstel davon hoch; voll und gefallen ohne Balken.
+- Dieselben Balken wie bei den Gegnern (`HealthBarInstanceManager`, dieselben Programme, Farbe grün, gelb, rot nach
+  Anteil), als eigene Instanz `engine.structureBars` (`StructureHealthBars`), nur auf zerstörbaren Welten; ein Draw
+  Call für alle, jeder Balken mit Tiefentest (ohne den Vordergrund-Durchgang der Gegner), so verdeckt ein Haus davor ihn.
+- Der `WorldDamagePresenter` spiegelt die HP (`setStages` mit den HP, `structures.hp` als Deltas) und setzt einen
+  Balken nur, wenn sich dessen HP ändern; je Bild dreht nur die Kamera die Balken (zwei Uniforms), keine Arbeit je
+  Bauwerk.
+- Ein- und ausgeschaltet mit den Lebensbalken der Gegner: dieselbe Option (Einstellungen, Display) und Alt zum
+  Umkehren, solange gehalten (`DebugFacadeService.applyHealthBars`).
+
+**Werkzeug für Entwickler** (gebaut, E261)
+
+- Fenster „Destruction“ in den Entwickleroptionen (Kachel „Destroy“ unter „Waves & Inspect“, nur auf einer
+  zerstörbaren Welt). Zwei Modi; solange einer an ist, geht ein Linksklick auf die Karte ans Werkzeug, nicht ans Spiel
+  (`DestructionToolService`, `InputHandlerService.setDestructionToolCallbacks`):
+  - **Blast:** Kanone, Rakete oder Atomschlag am Klickpunkt, über dieselben Funktionen wie der echte Treffer
+    (`WorldDamage.debugBlast`: der Einschlag des Projektiltyps am Boden, der Atomschlag über `ability`), mit dessen
+    Darstellung (`vfx:projectile-impact`, beim Atomschlag `ability:impact` mit Strike-Id -1). Gegner nehmen keinen
+    Schaden.
+  - **Pick:** wählt das Bauwerk unter dem Klick (im Grundriss, sonst im Kreis; `WorldDamagePresenter.structureAt`) und
+    zeigt Id, HP (aktuell, höchste, Prozent) und Stufe aus dem Spiegel; die Stufe 0 bis 3 setzen, „Fell now“ (Stufe 3)
+    und „Mend“ (Stufe 0).
+- **Stufe setzen** (`debug:set-structure-stage`, `StructureLedger.setStage`): die HP in die Mitte der Stufe
+  (`presetHp`, gefallen 0, intakt voll). Schlechter geht als Treffer vom Klickpunkt (Richtung, Stufen-Op, Fall, Schutt,
+  Sichtlinien; ein Tower auf dem Dach hält das Gebäude wie gegen jeden Treffer), besser als Reparatur: HP gesetzt,
+  Richtung vergessen, Schutt aus dem Stempelraster, alle Stufen neu an den Hauptthread (`setStages`, derselbe Weg wie
+  nach einem Restore). Der Klickpunkt der Wahl bleibt, so fällt „Mend, Fell now“ jedes Mal in dieselbe Richtung (für
+  den Vergleich der Einsturzvarianten).
+- Beide sind Befehle im Befehlslog (`debug:*`, im Koop Cheats nach der Raumregel): der Partner sieht dasselbe, ein
+  Replay spielt sie nach, ein Spielstand trägt das Ergebnis (HP und Krater). Spec: zwei Simulationen mit denselben
+  Befehlen kommen auf dieselbe Prüfsumme, die Welle läuft im Replay ohne Abweichung (`sim-core.spec.ts`).
+- In DevTools dazu `__worldDamage.blast(lat, lon, blast)`, `.setStage(index, stufe)`, `.hp(index)`.
 
 **Schutt und Effekte** (gebaut, Z3, Ton offen)
 
