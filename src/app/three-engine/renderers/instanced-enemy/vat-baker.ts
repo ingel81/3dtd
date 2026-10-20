@@ -17,6 +17,7 @@ import type { EnemyTurret, EnemyTypeConfig } from '../../../configs/enemy-types.
 import { clipFrom, DEFAULT_BAKE_FPS, vatClipRegistry, vatClips, type VATAnimationEntry, type VATClip } from './vat-clips';
 import {
   createPositionTexture,
+  positionTextureSteps,
   emptyBounds,
   growBounds,
   modelHeightRange,
@@ -111,6 +112,13 @@ export async function bakeEnemyVATSliced(
 
 /** Main-thread time a sliced bake takes before it gives the thread back, ms */
 export const BAKE_SLICE_MS = 4;
+
+/**
+ * Vertices a bake skins or transforms before it may give the thread back: one
+ * sampled frame of a large model took 20 to 28 ms at once, past the slice
+ * (E272)
+ */
+const VERTICES_PER_STEP = 4096;
 
 /** A bake's steps: each yield is a point where it may give the thread back (a sampled frame) */
 type BakeSteps<T> = Generator<void, T, void>;
@@ -210,7 +218,7 @@ function* bakeVATSteps(
 
   const tempVec = new Vector3();
   const skinning = skins.map((skin) => new SkinningBake(skin.mesh, skin.meshToRoot));
-  const baked = yield* bakeClips(modelRoot, animations, clips, fps, totalVertices, grounded, (scratch) => {
+  const baked = yield* bakeClips(modelRoot, animations, clips, fps, totalVertices, grounded, function* (scratch) {
     // Bake vertices from ALL skinned meshes
     for (let s = 0; s < skins.length; s++) {
       const skin = skins[s];
@@ -219,6 +227,7 @@ function* bakeVATSteps(
       for (let v = 0; v < skin.vertexCount; v++) {
         bake.vertex(v, tempVec);
         scratch.set(skin.vertexOffset + v, tempVec);
+        if (v % VERTICES_PER_STEP === VERTICES_PER_STEP - 1) yield;
       }
     }
   });
@@ -229,10 +238,12 @@ function* bakeVATSteps(
   const { data, bounds, texWidth, texHeight, rowsPerFrame, animEntries, totalFrames } = baked;
 
   const encoding = vatEncoding(bounds, worldScale);
-  const positionTexture = createPositionTexture(data, texWidth, texHeight, encoding);
+  const positionTexture = yield* positionTextureSteps(data, texWidth, texHeight, encoding);
+  yield;
 
   // Merged rest-pose geometry with per-vertex material info
   const merged = mergeBakedMeshes(skins, totalVertices, undefined, pixels);
+  yield;
 
   return {
     positionTexture,
@@ -328,7 +339,7 @@ function* bakeObjectAnimVATSteps(
   const rootInverse = new Matrix4();
   const setMarker = (scratch: FrameScratch) => (i: number, p: Vector3) => scratch.set(totalVertices + i, p);
   const texels = totalVertices + (rig ? TURRET_MARKERS : 0);
-  const baked = yield* bakeClips(modelRoot, animations, clips, fps, texels, grounded, (scratch) => {
+  const baked = yield* bakeClips(modelRoot, animations, clips, fps, texels, grounded, function* (scratch) {
     rootInverse.copy(modelRoot.matrixWorld).invert();
     // Bake vertices from all meshes with current-frame transforms
     for (const info of meshInfos) {
@@ -338,6 +349,7 @@ function* bakeObjectAnimVATSteps(
         tempVec.fromBufferAttribute(posAttr, v);
         tempVec.applyMatrix4(meshToRoot);
         scratch.set(info.vertexOffset + v, tempVec);
+        if (v % VERTICES_PER_STEP === VERTICES_PER_STEP - 1) yield;
       }
     }
     rig?.markers(rootInverse, setMarker(scratch));
@@ -349,7 +361,8 @@ function* bakeObjectAnimVATSteps(
   const { data, bounds, texWidth, texHeight, rowsPerFrame, animEntries, totalFrames } = baked;
 
   const encoding = vatEncoding(bounds, worldScale);
-  const positionTexture = createPositionTexture(data, texWidth, texHeight, encoding);
+  const positionTexture = yield* positionTextureSteps(data, texWidth, texHeight, encoding);
+  yield;
 
   // Compute rest-pose transforms for geometry merging
   modelRoot.updateMatrixWorld(true);
@@ -362,6 +375,7 @@ function* bakeObjectAnimVATSteps(
   // Build merged geometry (rest-pose positions)
   const merged = mergeBakedMeshes(parts, totalVertices, undefined, pixels);
   if (rig) merged.geometry.setAttribute('aTurretPart', rig.partAttribute(meshInfos, totalVertices));
+  yield;
 
   return {
     positionTexture,
@@ -436,23 +450,22 @@ function* bakeClips(
   fps: number,
   vertices: number,
   grounded: boolean,
-  fill: (scratch: FrameScratch) => void,
+  fill: (scratch: FrameScratch) => BakeSteps<void>,
 ): BakeSteps<BakedClips | null> {
   const scratch = new FrameScratch(vertices);
   // A clip on a mixer of its own while `use` samples it (steps: the bake may give the thread back in between)
-  function* withClip(clip: AnimationClip, use: (sample: (time: number) => void) => BakeSteps<void> | void): BakeSteps<void> {
+  function* withClip(clip: AnimationClip, use: (sample: (time: number) => BakeSteps<void>) => BakeSteps<void>): BakeSteps<void> {
     const mixer = new AnimationMixer(modelRoot);
     const action = mixer.clipAction(clip);
     action.setLoop(LoopOnce, 1);
     action.clampWhenFinished = true;
     action.play();
     try {
-      const steps = use((time) => {
+      yield* use(function* (time) {
         mixer.setTime(time);
         modelRoot.updateMatrixWorld(true);
-        fill(scratch);
+        yield* fill(scratch);
       });
-      if (steps) yield* steps;
     } finally {
       action.stop();
       mixer.stopAllAction();
@@ -464,14 +477,19 @@ function* bakeClips(
   const asked = vatClipRegistry(animations, clips, fps);
   if (!asked) return null;
   // How long each loop runs on past its end to come back to its start
-  const measured = asked.validClips.map((vatClip) => {
-    if (vatClip.seconds !== Infinity || vatClip.from) return vatClip;
+  const measured: VATClip[] = [];
+  for (const vatClip of asked.validClips) {
+    if (vatClip.seconds !== Infinity || vatClip.from) {
+      measured.push(vatClip);
+      continue;
+    }
     let tail = 0;
-    runBake(withClip(asked.clipMap.get(vatClip.name)!, (sample) => {
-      tail = loopTail(sample, scratch, asked.clipMap.get(vatClip.name)!.duration, fps);
-    }));
-    return tail > 0 ? { ...vatClip, tail } : vatClip;
-  });
+    const clip = asked.clipMap.get(vatClip.name)!;
+    yield* withClip(clip, function* (sample) {
+      tail = yield* loopTail(sample, scratch, clip.duration, fps);
+    });
+    measured.push(tail > 0 ? { ...vatClip, tail } : vatClip);
+  }
   const { clipMap, validClips, animEntries, totalFrames } = vatClipRegistry(animations, measured, fps)!;
 
   // Compute tiled texture dimensions (cap width to GPU-safe limit)
@@ -491,15 +509,15 @@ function* bakeClips(
       let end: Float64Array | null = null;
       let start: Float64Array | null = null;
       if (tail > 0) {
-        sample(clip.duration - END_EPSILON);
+        yield* sample(clip.duration - END_EPSILON);
         end = scratch.copy();
-        sample(from);
+        yield* sample(from);
         start = scratch.copy();
       }
       for (let frame = 0; frame < entry.frameCount; frame++) {
         const time = from + frame / fps;
         if (end && start && time > clip.duration) scratch.blend(end, start, Math.min(1, (time - clip.duration) / tail));
-        else sample(Math.min(time, clip.duration - END_EPSILON));
+        else yield* sample(Math.min(time, clip.duration - END_EPSILON));
         scratch.write(data, entry.frameStart + frame, texWidth, rowsPerFrame, grounded, bounds);
         yield;
       }
@@ -517,16 +535,16 @@ function* bakeClips(
  * it the bake skipped that last step and the loop jumped at its seam. A
  * seam wider than MAX_TAIL_FRAMES is left as it is.
  */
-function loopTail(sample: (time: number) => void, scratch: FrameScratch, duration: number, fps: number): number {
+function* loopTail(sample: (time: number) => BakeSteps<void>, scratch: FrameScratch, duration: number, fps: number): BakeSteps<number> {
   const step = 1 / fps;
   if (duration <= 2 * step) return 0;
-  sample(0);
+  yield* sample(0);
   const first = scratch.copy();
-  sample(step);
+  yield* sample(step);
   const second = scratch.copy();
-  sample(duration - step);
+  yield* sample(duration - step);
   const beforeEnd = scratch.copy();
-  sample(duration - END_EPSILON);
+  yield* sample(duration - END_EPSILON);
   const end = scratch.copy();
   const motion = (poseDistance(first, second) + poseDistance(beforeEnd, end)) / 2;
   if (motion <= 0) return 0;

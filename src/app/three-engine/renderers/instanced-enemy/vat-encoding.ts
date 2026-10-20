@@ -105,8 +105,24 @@ export function toHalfFloatRounded(value: number): number {
 
 const HALF_FLOAT_ONE = 0x3c00;
 
+/** Texels a step of positionTextureSteps encodes before it may give the thread back */
+const TEXELS_PER_STEP = 16384;
+
 /** The VAT texture for positions baked into `data` (xyz + padding per texel), stored as `encoding` says. */
 export function createPositionTexture(data: Float32Array, width: number, height: number, encoding: VATEncoding): DataTexture {
+  const steps = positionTextureSteps(data, width, height, encoding);
+  for (;;) {
+    const next = steps.next();
+    if (next.done) return next.value;
+  }
+}
+
+/**
+ * createPositionTexture in steps: each yield is a point where a sliced bake
+ * may give the thread back (the half floats of a large VAT took 14 to 18 ms
+ * at once, E272). The same texture.
+ */
+export function* positionTextureSteps(data: Float32Array, width: number, height: number, encoding: VATEncoding): Generator<void, DataTexture, void> {
   let texture: DataTexture;
   if (encoding.type === HalfFloatType) {
     const [ox, oy, oz] = encoding.origin;
@@ -119,6 +135,7 @@ export function createPositionTexture(data: Float32Array, width: number, height:
       texels[i + 1] = toHalfFloatRounded(MathUtils.clamp((data[i + 1] - oy) / ey, -1, 1));
       texels[i + 2] = toHalfFloatRounded(MathUtils.clamp((data[i + 2] - oz) / ez, -1, 1));
       texels[i + 3] = HALF_FLOAT_ONE;
+      if ((i / 4) % TEXELS_PER_STEP === TEXELS_PER_STEP - 1) yield;
     }
     texture = new DataTexture(texels, width, height, RGBAFormat, HalfFloatType);
   } else {

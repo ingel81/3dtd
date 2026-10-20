@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import {
   AnimationClip,
   Bone,
@@ -14,9 +14,10 @@ import {
   Uint16BufferAttribute,
   VectorKeyframeTrack,
 } from 'three';
-import { bakeVAT, type VATData } from './vat-baker';
+import { bakeEnemyVAT, bakeEnemyVATSliced, bakeVAT, type VATData } from './vat-baker';
 import { deathPlaybackSpeed, vatClipFrameCount, vatClips, vatDeathSeconds, vatFrameCount } from './vat-clips';
-import { toHalfFloatRounded, VAT_HALF_FLOAT_MAX_ERROR, vatEncoding } from './vat-encoding';
+import { createPositionTexture, positionTextureSteps, toHalfFloatRounded, VAT_HALF_FLOAT_MAX_ERROR, vatEncoding } from './vat-encoding';
+import type { EnemyTypeConfig } from '../../../configs/enemy-types.config';
 import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import { TIMING } from '../../../configs/timing.config';
 
@@ -315,5 +316,62 @@ describe('bakeVAT', () => {
     const data = vat.positionTexture.image.data as Float32Array;
     // Walk frame 15: the bone has moved half a unit along x.
     expect(data[15 * vat.texWidth * 4]).toBe(Math.fround(0.5));
+  });
+});
+
+describe('a bake in slices (E272)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** `count` vertices skinned to one bone that walks a unit along x in a second */
+  function skinnedCloud(count: number): { root: Group; walk: AnimationClip } {
+    const bone = new Bone();
+    bone.name = 'root';
+    const positions: number[] = [];
+    for (let i = 0; i < count; i++) positions.push(i % 7, (i % 13) / 13, (i % 5) / 5);
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('skinIndex', new Uint16BufferAttribute(new Array(count * 4).fill(0), 4));
+    geometry.setAttribute('skinWeight', new Float32BufferAttribute(Array.from({ length: count * 4 }, (_, k) => (k % 4 === 0 ? 1 : 0)), 4));
+    const mesh = new SkinnedMesh(geometry, new MeshBasicMaterial());
+    const root = new Group();
+    root.add(bone, mesh);
+    root.updateMatrixWorld(true);
+    mesh.bind(new Skeleton([bone]));
+    return { root, walk: new AnimationClip('walk', 1, [new VectorKeyframeTrack('root.position', [0, 1], [0, 0, 0, 1, 0, 0])]) };
+  }
+
+  const config = { id: 'cloud', hasAnimations: true, walkAnimation: 'walk', animationSpeed: 1, scale: 1 } as unknown as EnemyTypeConfig;
+
+  it('gives the thread back inside a sampled frame of a large model, with the same VAT as at once', async () => {
+    // Each task the sliced bake waits for is a message on a channel of its own
+    let tasks = 0;
+    const Channel = globalThis.MessageChannel;
+    vi.stubGlobal('MessageChannel', class extends Channel {
+      constructor() {
+        super();
+        tasks++;
+      }
+    });
+    const vertices = 10_000;
+    const whole = bakeEnemyVAT(config, skinnedCloud(vertices).root, [skinnedCloud(vertices).walk])!;
+    const { root, walk } = skinnedCloud(vertices);
+    // No time at all per slice: a task after every step
+    const sliced = (await bakeEnemyVATSliced(config, root, [walk], undefined, 0))!;
+
+    expect(sliced.positionTexture.image.data).toEqual(whole.positionTexture.image.data);
+    expect(sliced.geometry.getAttribute('position').array).toEqual(whole.geometry.getAttribute('position').array);
+    // More than one step per sampled frame: a frame's 10 000 vertices go in steps of at most 4096
+    expect(tasks).toBeGreaterThan(2 * whole.totalFrames);
+  });
+
+  it('encodes the position texture in steps, the same texture as at once', () => {
+    const data = new Float32Array(4 * 40_000).map((_, i) => (i % 4 === 3 ? 1 : Math.sin(i)));
+    const encoding = vatEncoding({ min: [-1, -1, -1], max: [1, 1, 1] }, 1);
+    const steps = positionTextureSteps(data, 200, 200, encoding);
+    let yields = 0;
+    let next = steps.next();
+    for (; !next.done; next = steps.next()) yields++;
+    expect(next.value.image.data).toEqual(createPositionTexture(data, 200, 200, encoding).image.data);
+    expect(yields).toBe(encoding.type === HalfFloatType ? 2 : 0);
   });
 });
