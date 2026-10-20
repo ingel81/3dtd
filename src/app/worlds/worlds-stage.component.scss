@@ -141,7 +141,7 @@
   grid-auto-flow: column;
   grid-template-rows: repeat(4, auto);
   justify-content: center;
-  gap: var(--td-sp-1) clamp(24px, 3vw, 64px);
+  gap: var(--td-sp-1) clamp(20px, 2vw, 64px);
   width: 100%;
 }
 

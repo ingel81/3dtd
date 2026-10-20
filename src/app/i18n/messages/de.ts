@@ -1415,7 +1415,7 @@ export const de: Messages = {
     allWorlds: 'Alle Welten',
     backEsc: 'Zurück (Esc)',
     cardSub: {
-      real: 'Fotorealistische 3D-Tiles, braucht einen Cesium- oder Google-Maps-Key',
+      real: '3D-Tiles, braucht Cesium-/Google-Key',
       osm: 'Karten aus OpenStreetMap',
       mapsNone: 'Mitgelieferte und eigene Karten',
       maps: (shipped, own) => `${f.int(shipped)} mitgelieferte, ${f.int(own)} eigene Karten`,

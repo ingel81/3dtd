@@ -1633,7 +1633,7 @@ export const en = {
     allWorlds: 'All worlds',
     backEsc: 'Back (Esc)',
     cardSub: {
-      real: 'Photorealistic 3D tiles, needs a Cesium or Google Maps key',
+      real: '3D tiles, needs a Cesium or Google key',
       osm: 'Maps made from OpenStreetMap',
       mapsNone: 'Shipped maps and your own',
       maps: (shipped: number, own: number) => `${f.int(shipped)} shipped maps, ${f.int(own)} of yours`,
