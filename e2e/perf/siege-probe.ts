@@ -61,7 +61,7 @@ if (argument('block', '')) {
   await page.route((url) => block.test(url.href), (route) => route.abort());
 }
 if (process.argv.includes('--reduced-motion')) await page.emulateMedia({ reducedMotion: 'reduce' });
-const LOG = new RegExp(argument('log', '\[Warmup\]|warm-up|Warm-up|DBG'), 'i');
+const LOG = new RegExp(argument('log', '\\[Warmup\\]|warm-up|Warm-up|DBG'), 'i');
 page.on('console', (m) => {
   if (LOG.test(m.text())) console.log('console', m.text());
 });
@@ -510,7 +510,7 @@ if (layerCdp) {
         node = 'gone';
       }
     }
-    let reasons = '';
+    let reasons: string;
     try {
       const r = (await layerCdp.send('LayerTree.compositingReasons', { layerId: id })) as { compositingReasonIds?: string[] };
       reasons = (r.compositingReasonIds ?? []).join(',');
