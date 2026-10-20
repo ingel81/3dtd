@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, injec
 import { TdIconComponent } from '../icon/icon.component';
 import { CoopService } from '../../services/coop.service';
 import { chatView } from '../coop-ui/chat-view';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * The chat of the coop room in the dock, its own column and the only thing
@@ -17,6 +18,7 @@ import { chatView } from '../coop-ui/chat-view';
   styleUrl: './coop-lobby-chat.component.scss',
 })
 export class CoopLobbyChatComponent {
+  protected readonly t = injectT();
   readonly coop = inject(CoopService);
   private readonly box = viewChild<ElementRef<HTMLElement>>('box');
 

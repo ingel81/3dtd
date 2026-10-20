@@ -5,20 +5,21 @@ import type { ClientInfo } from '../../coop/client-info';
 import type { LaneStat } from '../../coop/lane-stats';
 import { laneCss } from '../../coop/lane-color';
 import { formatClock } from '../../utils/format-clock';
+import type { Messages } from '../../i18n/messages/en';
+import { splitBold } from '../../i18n/format';
 
 /**
  * What the coop dock shows, as pure functions of the room and the service's
  * state (docs/archive/COOP_UI_REWORK_PLAN.md, P5): the joining steps, the status
  * line, why Start is off, the table of lanes and players, the banners. The
- * components only bind them.
+ * components only bind them; the words are the player's language's
+ * (`coop.dock`).
  */
 
 /** What a player's client is doing, in their row (User, 2026-09-25); 'ready' says nothing */
-const STATUS_TEXT: Partial<Record<PlayerStatus, string>> = {
-  key: 'Entering their map key…',
-  loading: 'Loading the map…',
-  reloading: 'Reloading for the new place…',
-};
+function statusText(t: Messages, status: PlayerStatus): string | null {
+  return status === 'ready' ? null : t.coop.dock.doing[status];
+}
 
 // ── Joining ──────────────────────────────────────────────────────────
 
@@ -51,15 +52,16 @@ export function transferPercent(t: { done: number; total: number }): number {
   return t.total > 0 ? Math.round((t.done / t.total) * 100) : 0;
 }
 
-export function joinSteps(i: JoinInput): JoinStep[] {
+export function joinSteps(t: Messages, i: JoinInput): JoinStep[] {
+  const w = t.coop.dock.join;
   const step = (kind: JoinStepKind, label: string, meta: string, done: boolean, now: boolean): JoinStep =>
     ({ kind, label, meta, state: done ? 'done' : now ? 'now' : 'todo' });
-  const mapMeta = i.mapReceived ? `receiving ${transferPercent(i.mapReceived)} %` : i.mapPercent === null ? '' : `${i.mapPercent} %`;
+  const mapMeta = i.mapReceived ? w.receiving(transferPercent(i.mapReceived)) : i.mapPercent === null ? '' : t.units.percent(i.mapPercent);
   return [
-    step('server', 'Connected to server', i.relay, !!i.room || i.status === 'lobby', i.status === 'connecting'),
-    step('room', 'Room found', i.room ? `${i.room.players.length}/${MAX_PLAYERS} players` : '', !!i.room, false),
-    step('map', "Loading the host's map", mapMeta, i.worldReady, i.status === 'loading-world' || !!i.mapReceived),
-    step('seat', 'Taking a seat', '', !!i.mySpawn, i.worldReady),
+    step('server', w.server, i.relay, !!i.room || i.status === 'lobby', i.status === 'connecting'),
+    step('room', w.room, i.room ? w.players(i.room.players.length, MAX_PLAYERS) : '', !!i.room, false),
+    step('map', w.map, mapMeta, i.worldReady, i.status === 'loading-world' || !!i.mapReceived),
+    step('seat', w.seat, '', !!i.mySpawn, i.worldReady),
   ];
 }
 
@@ -93,40 +95,33 @@ export function guestsReady(room: CoopRoomInfo): boolean {
 }
 
 /** The status line: who we wait on, or that all are ready */
-export function roomStatus(i: StatusInput): RoomStatus | null {
+export function roomStatus(t: Messages, i: StatusInput): RoomStatus | null {
   const room = i.room;
   if (!room) return null;
-  const line = (lead: string, bold: string, text: string, go = false) => ({ go, segments, lead, bold, text });
+  const w = t.coop.dock.status;
+  const line = (words: string, go = false) => ({ go, segments, ...splitBold(words) });
   const ready = room.players.filter((p) => p.id === room.hostId || p.ready).length;
   const segments = room.players.map((p) => p.id === room.hostId || p.ready);
-  if (room.players.length < 2) {
-    return { ...line('', '', 'Waiting for a second player | share the code'), segments: [...segments, false] };
-  }
-  if (i.isHost && i.mapSending) return line('', 'Sending the map', ` to the room: ${transferPercent(i.mapSending)} %`);
-  if (!i.worldReady) return line('', '', i.isHost ? 'Sending the map…' : "Waiting for the host's map…");
+  if (room.players.length < 2) return { ...line(w.alone), segments: [...segments, false] };
+  if (i.isHost && i.mapSending) return line(w.sendingMap(transferPercent(i.mapSending)));
+  if (!i.worldReady) return line(i.isHost ? w.sending : w.waitingMap);
   const busy = room.players.find((p) => p.id !== i.myId && (p.status === 'key' || p.status === 'loading' || p.status === 'reloading'));
-  if (busy) {
-    const what = busy.status === 'key' ? ' to enter their map key' : busy.status === 'reloading' ? ' to reload' : ' to load the map';
-    return line('Waiting for ', busy.name, what);
-  }
+  if (busy) return line(busy.status === 'key' ? w.waitKey(busy.name) : busy.status === 'reloading' ? w.waitReload(busy.name) : w.waitLoad(busy.name));
   const noLane = room.players.find((p) => p.spawnIds.length === 0);
-  if (noLane) return line('Waiting for ', noLane.name, ' to take a lane');
+  if (noLane) return line(w.waitLane(noLane.name));
   // Every lane needs a player (docs/WAVE_SYSTEM.md (Spuren), L4); anyone may take one more
   const free = room.spawnIds.findIndex((id) => !room.players.some((p) => p.spawnIds.includes(id)));
-  if (free >= 0 && !i.vacant) return line('', `Spawn ${free + 1}`, ' has nobody yet | anyone can take it');
-  if (guestsReady(room)) {
-    return i.isHost
-      ? line('', 'Everyone is ready.', ' Start when you like.', true)
-      : line('', "You're ready.", ` Waiting for ${i.hostName} to start.`, true);
-  }
+  if (free >= 0 && !i.vacant) return line(w.freeLane(t.coop.dock.spawn(free + 1)));
+  if (guestsReady(room)) return line(i.isHost ? w.allReady : w.youReady(i.hostName), true);
   const me = room.players.find((p) => p.id === i.myId);
-  if (!i.isHost && !me?.ready) return line('Pick a lane, then ', 'ready up', '');
+  if (!i.isHost && !me?.ready) return line(w.pickLane);
   const waiting = room.players.find((p) => p.id !== room.hostId && !p.ready)!;
-  return line('Waiting for ', waiting.name, ` to ready up (${ready}/${room.players.length})`);
+  return line(w.waitReady(waiting.name, ready, room.players.length));
 }
 
 /** Why Start is off, for its tooltip; null when it can start */
 export function startBlocked(
+  t: Messages,
   room: CoopRoomInfo | null,
   worldReady: boolean,
   /** Lanes a player took that have no route to the base (TODO E34, point 7) */
@@ -134,15 +129,16 @@ export function startBlocked(
   /** The map's rule for lanes nobody holds (TODO E130); null: every lane needs a player */
   vacant: VacantLanes | null = null,
 ): string | null {
-  if (!room) return 'No room';
-  if (room.players.length < 2) return 'Needs a second player';
-  if (!worldReady) return 'The map is still being sent';
+  const w = t.coop.dock.blocked;
+  if (!room) return w.noRoom;
+  if (room.players.length < 2) return w.alone;
+  if (!worldReady) return w.mapSending;
   const lost = room.spawnIds.findIndex((id) => routeless.includes(id));
-  if (lost >= 0) return `Spawn ${lost + 1} has no route`;
+  if (lost >= 0) return w.noRoute(t.coop.dock.spawn(lost + 1));
   const free = room.spawnIds.findIndex((id) => !room.players.some((p) => p.spawnIds.includes(id)));
-  if (free >= 0 && vacant === null) return `Spawn ${free + 1} has nobody`;
+  if (free >= 0 && vacant === null) return w.nobody(t.coop.dock.spawn(free + 1));
   const waiting = room.players.find((p) => p.spawnIds.length === 0 || (p.id !== room.hostId && !p.ready));
-  return waiting ? `Waiting for ${waiting.name}` : null;
+  return waiting ? w.waitingFor(waiting.name) : null;
 }
 
 // ── Lanes and players, one table ─────────────────────────────────────
@@ -189,7 +185,7 @@ export interface TableInput {
  * One row per lane with its player (plan U4): the lane showed its owner and
  * the player their lane, twice the same. Players without a lane come after.
  */
-export function roomTable(i: TableInput): { lanes: LaneRow[]; seatless: SeatPlayer[] } {
+export function roomTable(t: Messages, i: TableInput): { lanes: LaneRow[]; seatless: SeatPlayer[] } {
   const { room } = i;
   const seat = (p: CoopRoomInfo['players'][number]): SeatPlayer => ({
     id: p.id,
@@ -197,7 +193,7 @@ export function roomTable(i: TableInput): { lanes: LaneRow[]; seatless: SeatPlay
     me: p.id === i.myId,
     host: p.id === room.hostId,
     ready: p.id === room.hostId || p.ready,
-    doing: p.status ? STATUS_TEXT[p.status] ?? null : null,
+    doing: p.status ? statusText(t, p.status) : null,
     client: p.client,
     latency: i.latencyOf(p.id),
     lagging: i.laggingOf(p.id),
@@ -209,10 +205,10 @@ export function roomTable(i: TableInput): { lanes: LaneRow[]; seatless: SeatPlay
     return {
       spawnId,
       index,
-      label: `Spawn ${index + 1}`,
+      label: t.coop.dock.spawn(index + 1),
       color: laneCss(index),
       share: stat?.share ?? 0,
-      length: stat ? `${stat.meters} m | ${formatClock(stat.seconds * 1000)}` : '',
+      length: stat ? t.coop.dock.laneLength(stat.meters, formatClock(stat.seconds * 1000)) : '',
       player: owner ? seat(owner) : null,
     };
   });
@@ -236,26 +232,17 @@ export interface BannerInput {
 }
 
 /** What the dock warns about, the worst first; the dock shows the first and folds the rest (plan G7) */
-export function dockBanners(i: BannerInput): DockBanner[] {
+export function dockBanners(t: Messages, i: BannerInput): DockBanner[] {
   const banners: DockBanner[] = [];
   if (i.desync) banners.push({ kind: 'desync', warn: true, text: i.desync });
-  if (i.mixedEngines) {
-    banners.push({
-      kind: 'engines',
-      warn: true,
-      text: 'Not everyone plays on the same engine (Chrome and Firefox, say). They compute the game slightly differently and drift apart after a while.',
-    });
-  }
-  if (i.hostChangingMap) banners.push({ kind: 'map', warn: false, text: 'The host is changing the map; it loads here once it stands…' });
+  if (i.mixedEngines) banners.push({ kind: 'engines', warn: true, text: t.coop.dock.engines });
+  if (i.hostChangingMap) banners.push({ kind: 'map', warn: false, text: t.coop.dock.hostChangingMap });
   return banners;
 }
 
 /** "Bob's game ran apart from the others at game second 94: …" */
-export function desyncText(outOfStep: readonly string[], second: string, myId: string | null, nameOf: (id: string) => string): string {
-  const who = myId !== null && outOfStep.includes(myId)
-    ? 'Your game ran apart from the others'
-    : outOfStep.length
-      ? `${outOfStep.map(nameOf).join(' and ')}'s game ran apart from the others`
-      : 'The games ran apart';
-  return `${who} at game second ${second}: from there on, what you see may differ from what the others see.`;
+export function desyncText(t: Messages, outOfStep: readonly string[], second: string, myId: string | null, nameOf: (id: string) => string): string {
+  const w = t.coop.dock.desync;
+  const who = myId !== null && outOfStep.includes(myId) ? w.mine : outOfStep.length ? w.theirs(t.coop.and(outOfStep.map(nameOf))) : w.all;
+  return w.at(who, second);
 }

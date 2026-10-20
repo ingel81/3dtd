@@ -5,6 +5,7 @@ import { EngineInitializationService } from '../../services/infrastructure/engin
 import { LocationManagementService } from '../../services/location/location-management.service';
 import { relayLabel } from '../../coop/relay-address';
 import { joinSteps, transferPercent } from './coop-dock-view';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * Joining a coop room as a guest, step by step: connected, room found, the
@@ -20,6 +21,7 @@ import { joinSteps, transferPercent } from './coop-dock-view';
   styleUrl: './coop-join-steps.component.scss',
 })
 export class CoopJoinStepsComponent {
+  protected readonly t = injectT();
   readonly coop = inject(CoopService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly locationMgmt = inject(LocationManagementService);
@@ -36,7 +38,7 @@ export class CoopJoinStepsComponent {
   readonly steps = computed(() => {
     const room = this.coop.room();
     const relay = this.coop.relay();
-    return joinSteps({
+    return joinSteps(this.t(), {
       status: this.coop.status(),
       room,
       relay: relay ? relayLabel(relay.url) : '',

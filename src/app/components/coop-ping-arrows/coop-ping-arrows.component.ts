@@ -7,6 +7,7 @@ import { CoopService, type CoopPing } from '../../services/coop.service';
 import { OffscreenClusterer } from '../../utils/offscreen-indicators';
 import { ABILITY_BAR_EDGE_PX } from '../ability-bar/ability-button';
 import { TdIconComponent } from '../icon/icon.component';
+import { injectT } from '../../i18n/i18n.service';
 
 /** Update interval, as the enemy arrows */
 const TICK_MS = 125;
@@ -36,7 +37,7 @@ interface PingArrow {
   template: `
     @for (arrow of arrows(); track arrow.id) {
       <button type="button" class="arrow td-marker-btn" [style.left.px]="arrow.x" [style.top.px]="arrow.y"
-              [style.--td-mark]="arrow.color" [attr.aria-label]="'Camera to ' + arrow.name + '’s mark'"
+              [style.--td-mark]="arrow.color" [attr.aria-label]="t().coop.cameraTo(arrow.name)"
               (click)="goTo(arrow.id)">
         <span class="td-overlay td-marker">
           <td-icon name="caretR" [size]="16"
@@ -79,6 +80,7 @@ interface PingArrow {
   `,
 })
 export class CoopPingArrowsComponent {
+  protected readonly t = injectT();
   private readonly coop = inject(CoopService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly cameraControl = inject(CameraControlService);

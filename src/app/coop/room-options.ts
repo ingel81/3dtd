@@ -2,7 +2,8 @@
  * The options of a coop room (docs/COOP_PLAN.md, D38): the host sets them in
  * the lobby, the relay keeps them and enforces pause and cheats, every
  * client reads the same values from the start message. Pure, no Angular:
- * the relay (coop-server/) imports it too.
+ * the relay (coop-server/) imports it too, so it knows nothing of the
+ * game's words (room-option-words.ts has them).
  */
 
 /** Who may use the dev tools' cheats: nobody, the host, or everyone (only where the relay allows cheats) */
@@ -23,21 +24,16 @@ export const DEFAULT_ROOM_OPTIONS: CoopRoomOptions = { cheats: 'off', pause: 'ho
 
 export type RoomOptionKey = keyof CoopRoomOptions;
 
-/** The options as the lobby lists them, in order: label and the choices with theirs */
-export const ROOM_OPTION_CHOICES: readonly {
-  key: RoomOptionKey;
-  label: string;
-  choices: readonly { value: string; label: string }[];
-}[] = [
-  { key: 'cheats', label: 'Cheats', choices: [{ value: 'off', label: 'Off' }, { value: 'host', label: 'Host only' }, { value: 'all', label: 'Everyone' }] },
-  { key: 'wave', label: 'Next wave', choices: [{ value: 'all', label: 'All ready' }, { value: 'host', label: 'Host starts' }, { value: 'auto', label: 'Auto 10 s' }] },
-  { key: 'pause', label: 'Pause', choices: [{ value: 'host', label: 'Host only' }, { value: 'all', label: 'Anyone' }, { value: 'off', label: 'Off' }] },
+/**
+ * The options as the lobby lists them, in order, with their values. Their
+ * words are each client's own, in its language (the game's `coop.options`):
+ * only the values go over the relay.
+ */
+export const ROOM_OPTION_CHOICES: readonly { key: RoomOptionKey; choices: readonly { value: string }[] }[] = [
+  { key: 'cheats', choices: [{ value: 'off' }, { value: 'host' }, { value: 'all' }] },
+  { key: 'wave', choices: [{ value: 'all' }, { value: 'host' }, { value: 'auto' }] },
+  { key: 'pause', choices: [{ value: 'host' }, { value: 'all' }, { value: 'off' }] },
 ];
-
-/** The label of `value` for option `key`, as the lobby shows it */
-export function optionLabel(key: RoomOptionKey, value: string): string {
-  return ROOM_OPTION_CHOICES.find((o) => o.key === key)?.choices.find((c) => c.value === value)?.label ?? value;
-}
 
 /** `options` if every value is one of its choices, else null (the relay refuses what a client made up) */
 export function validOptions(options: unknown): CoopRoomOptions | null {

@@ -9,6 +9,8 @@ import { CoopService } from '../../services/coop.service';
 import { GameStore } from '../../store/game.store';
 import { laneCss } from '../../coop/lane-color';
 import { openResearchDialog } from '../research-dialog/open-research-dialog';
+import { splitBold } from '../../i18n/format';
+import { injectT } from '../../i18n/i18n.service';
 
 /** What the gold menu offers to send */
 const GIFT_AMOUNTS = [50, 100, 250, 500];
@@ -39,6 +41,7 @@ const KICK_ARM_MS = 3000;
   styleUrl: './coop-squad.component.scss',
 })
 export class CoopSquadComponent {
+  protected readonly t = injectT();
   readonly coop = inject(CoopService);
   protected readonly left = ABILITY_BAR_EDGE_PX + ABILITY_BAR_PX.clear;
   private readonly gameStore = inject(GameStore);
@@ -71,7 +74,7 @@ export class CoopSquadComponent {
         name: p.name,
         me: p.id === me,
         host: p.id === hostId,
-        lane: index < 0 ? null : `Spawn ${index + 1}`,
+        lane: index < 0 ? null : this.t().coop.dock.spawn(index + 1),
         color: laneCss(index),
         ready: ready.has(p.id),
         leaks: this.coop.waveLeaks().get(p.id) ?? 0,
@@ -89,60 +92,58 @@ export class CoopSquadComponent {
 
   /** Something is wrong: shown in the header, and collapsed as "Issue" with a warning icon; the CSS sets the caps */
   readonly issue = computed(() => {
-    if (this.coop.lostInGame()) return 'Offline';
-    if (this.coop.desync()) return 'Out of sync';
+    const w = this.t().coop.squad;
+    if (this.coop.lostInGame()) return w.offline;
+    if (this.coop.desync()) return w.outOfSyncShort;
     const rows = this.rows();
     const gone = rows.filter((r) => r.state === 'left').length;
-    if (gone > 0) return `${gone} lane${gone === 1 ? '' : 's'} unmanned`;
+    if (gone > 0) return w.unmanned(gone);
     return null;
   });
 
   /** The footer: what is wrong first, else who the next wave waits on */
   readonly footer = computed<{ lead: string; bold: string; text: string; key: boolean; alert: boolean } | null>(() => {
     const rows = this.rows();
-    const line = (lead: string, bold = '', text = '', alert = false, key = false) => ({ lead, bold, text, key, alert });
-    if (this.coop.lostInGame()) return line('The game stands still until you go on alone, or reload to leave.', '', '', true);
+    const w = this.t().coop.squad.foot;
+    const line = (words: string, alert = false, key = false) => ({ ...splitBold(words), key, alert });
+    if (this.coop.lostInGame()) return line(w.standsStill, true);
     const waiting = this.coop.waitingFor();
-    if (waiting) {
-      return waiting === this.coop.playerId()
-        ? line('The others wait for ', 'your game', ' to catch up.', true)
-        : line('Waiting for ', this.coop.nameOf(waiting), ' to catch up.', true);
-    }
+    if (waiting) return line(waiting === this.coop.playerId() ? w.othersWait : w.waitingFor(this.coop.nameOf(waiting)), true);
     const lagging = rows.find((r) => !r.me && r.state === 'lag');
-    if (lagging) return line('', lagging.name, ' has a slow connection. Their actions may arrive late.', true);
+    if (lagging) return line(w.slow(lagging.name), true);
     const gone = rows.find((r) => r.state === 'left');
-    if (gone) return line('', gone.lane ?? gone.name, ' has no defender.', true);
+    if (gone) return line(w.noDefender(gone.lane ?? gone.name), true);
     if (this.waveActive()) return null;
     const rule = this.coop.options().wave;
     const seconds = this.gameStore.autoWaveSecondsLeft();
     if (rule === 'host') {
-      return this.coop.isHost()
-        ? line('Start the next wave when you like.', '', '', false, true)
-        : line('', this.coop.nameOf(this.coop.room()?.hostId ?? ''), ' starts the next wave.');
+      return this.coop.isHost() ? line(w.startWhenYouLike, false, true) : line(w.hostStarts(this.coop.nameOf(this.coop.room()?.hostId ?? '')));
     }
-    const auto = rule === 'auto' && seconds !== null ? ` Next wave in ${seconds} s.` : '';
+    const auto = rule === 'auto' && seconds !== null ? w.nextIn(seconds) : '';
     const notReady = this.present().filter((r) => !r.ready);
-    if (notReady.length === 0) return line('Everyone is ready.', '', auto);
+    if (notReady.length === 0) return line(w.allReady(auto));
     if (!this.myReady()) {
       const others = this.present().filter((r) => !r.me && r.ready).map((r) => r.name);
-      return line(others.length ? `${others.join(', ')} ready | ` : '', 'Ready up for the next wave', auto, false, true);
+      return line(w.readyUp(others.join(', '), auto), false, true);
     }
-    return line('Waiting for ', notReady.map((r) => r.name).join(', '), auto);
+    return line(w.waitingForAll(notReady.map((r) => r.name).join(', '), auto));
   });
 
   /** Lane and state under the name; the CSS sets the caps */
   subLine(row: { lane: string | null; ready: boolean; leaks: number; state: RowState }): string {
-    const lane = row.lane ?? 'No lane';
-    if (row.state === 'left') return 'Left the match';
-    if (row.state === 'lag') return `${lane} | lagging`;
-    if (row.state === 'slow') return `${lane} | catching up`;
-    if (this.waveActive()) return row.leaks > 0 ? `${lane} | ${row.leaks} through` : lane;
-    return `${lane} | ${row.ready ? 'ready' : 'building'}`;
+    const w = this.t().coop.squad.sub;
+    const lane = row.lane ?? this.t().coop.table.noLane;
+    if (row.state === 'left') return w.left;
+    if (row.state === 'lag') return w.lagging(lane);
+    if (row.state === 'slow') return w.catchingUp(lane);
+    if (this.waveActive()) return row.leaks > 0 ? w.through(lane, row.leaks) : lane;
+    return row.ready ? w.ready(lane) : w.building(lane);
   }
 
   /** "3 enemies got through Bob's lane this wave" */
   leaksTip(row: { me: boolean; name: string; leaks: number }): string {
-    return row.leaks > 0 ? `${row.leaks} enemies got through ${row.me ? 'your' : `${row.name}'s`} lane this wave` : '';
+    if (row.leaks === 0) return '';
+    return row.me ? this.t().coop.squad.leaksMine(row.leaks) : this.t().coop.squad.leaksTheirs(row.leaks, row.name);
   }
 
   nameOf(playerId: string): string {
@@ -170,7 +171,7 @@ export class CoopSquadComponent {
   }
 
   researchTip(name: string): string {
-    return `${name}'s research`;
+    return this.t().coop.squad.research(name);
   }
 
   toggleGift(playerId: string): void {

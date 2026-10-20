@@ -41,7 +41,6 @@ import {
   changedOptions,
   mayCheat,
   mayPause,
-  optionLabel,
   validOptions,
   type CoopRoomOptions,
 } from '../../src/app/coop/room-options.ts';
@@ -608,7 +607,7 @@ export class Room {
         this.options = options;
         // A change is asked again: every guest says ready anew (D38)
         for (const p of this.players) if (p.id !== this.hostId) p.ready = false;
-        this.noisy(playerId, `options: ${changed.map((key) => `${key} ${optionLabel(key, options[key])}`).join(', ')}`);
+        this.noisy(playerId, `options: ${changed.map((key) => `${key} ${options[key]}`).join(', ')}`);
         return this.broadcastRoom();
       }
       case 'status': {

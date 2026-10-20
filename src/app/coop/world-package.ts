@@ -3,6 +3,7 @@ import type { WaveSourceId } from '../director/wave-source';
 import type { SpawnPoint } from '../managers/wave.manager';
 import { legacyWorldRef, worldRefShape, type WorldRef } from '../world/world-ref';
 import { spawnsWithRoutes } from '../utils/spawn-lanes';
+import type { Messages } from '../i18n/messages/en';
 
 /** Bumped whenever the shape changes; another version is refused. */
 export const WORLD_PACKAGE_VERSION = 1;
@@ -160,14 +161,8 @@ function worldShapeOk(data: WorldPackage): boolean {
 }
 
 /** What the player reads when a room's world does not load. */
-export function worldPackageRefusalText(refusal: WorldPackageRefusal | 'other-world'): string {
-  switch (refusal) {
-    case 'not-a-world': return 'The host sent no 3DTD world.';
-    case 'version': return 'The host runs another version of the coop world format.';
-    case 'other-game': return 'The host runs another version of the game. Both need the same one.';
-    case 'other-balance': return 'The host plays with other tower or enemy values.';
-    case 'other-world': return 'The world built here came out different from the host\'s.';
-  }
+export function worldPackageRefusalText(t: Messages, refusal: WorldPackageRefusal | 'other-world'): string {
+  return t.coop.worldRefusals[refusal];
 }
 
 /** The routes of a package as the spawn id map the game keeps. */

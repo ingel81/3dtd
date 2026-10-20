@@ -1,15 +1,16 @@
+@let w = t().coop.roomOptions;
 <button class="sec-toggle td-section" type="button" (click)="open.set(!open())" [attr.aria-expanded]="open()">
-  Mode and options
+  {{ w.title }}
   <small class="toggle-label td-tag is-caps">
-    {{ open() ? 'Hide' : canEdit() ? 'Edit' : 'Show all' }}
+    {{ open() ? w.hide : canEdit() ? w.edit : w.showAll }}
     <td-icon [name]="open() ? 'caretU' : 'caret'" [size]="12"></td-icon>
   </small>
 </button>
 <div class="td-setting set">
-  <span>Game mode</span>
+  <span>{{ w.mode }}</span>
   <span class="td-seg is-compact">
-    <button type="button" class="is-on" matTooltip="Defend one HQ together">PvE coop</button>
-    <button type="button" aria-disabled="true" matTooltip="Send waves at each other (coming later)">Versus <i class="td-tag is-caps">Soon</i></button>
+    <button type="button" class="is-on" [matTooltip]="w.pveTip">{{ w.pve }}</button>
+    <button type="button" aria-disabled="true" [matTooltip]="w.versusTip">{{ w.versus }} <i class="td-tag is-caps">{{ w.soon }}</i></button>
   </span>
 </div>
 @if (!open()) {
@@ -22,29 +23,29 @@
   <div class="td-stack sets">
     @for (option of options; track option.key) {
       <div class="td-setting set">
-        <span>{{ option.label }}</span>
+        <span>{{ t().coop.options[option.key].label }}</span>
         @if (canEdit()) {
-          <span class="td-seg is-compact" role="radiogroup" tdRovingGroup [attr.aria-label]="option.label">
+          <span class="td-seg is-compact" role="radiogroup" tdRovingGroup [attr.aria-label]="t().coop.options[option.key].label">
             @for (choice of option.choices; track choice.value) {
               <button type="button" role="radio" [class.is-on]="value(option.key) === choice.value"
                       [class.is-warn]="option.key === 'cheats' && choice.value !== 'off'"
                       [attr.aria-checked]="value(option.key) === choice.value"
                       [attr.aria-disabled]="cheatsImpossible(option.key, choice.value) || null"
-                      [matTooltip]="cheatsImpossible(option.key, choice.value) ? 'This coop server allows no cheats' : ''"
-                      (click)="choose(option.key, choice.value)">{{ choice.label }}</button>
+                      [matTooltip]="cheatsImpossible(option.key, choice.value) ? w.noCheats : ''"
+                      (click)="choose(option.key, choice.value)">{{ label(option.key, choice.value) }}</button>
             }
           </span>
         } @else {
           <span class="td-tag" [class.is-warn]="option.key === 'cheats' && value('cheats') !== 'off'">
-            {{ optionLabel(option.key, value(option.key)) }}
+            {{ label(option.key, value(option.key)) }}
           </span>
         }
       </div>
     }
     @if (canEdit()) {
-      <p class="td-note">Changing a setting resets everyone's ready state.</p>
+      <p class="td-note">{{ w.resetsReady }}</p>
     } @else {
-      <p class="td-note td-inline"><td-icon name="lock" [size]="13"></td-icon>Only the host can change these{{ started() ? ', before the start' : '' }}.</p>
+      <p class="td-note td-inline"><td-icon name="lock" [size]="13"></td-icon>{{ w.onlyHost(started()) }}</p>
     }
   </div>
 }

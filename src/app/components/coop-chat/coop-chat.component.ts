@@ -4,6 +4,7 @@ import { CoopService } from '../../services/coop.service';
 import { UIStore } from '../../store/ui.store';
 import { controlTakesKey, ownsKey, pointerUsedYet, trackFocusOrigin } from '../../utils/keyboard-target';
 import { chatView } from '../coop-ui/chat-view';
+import { injectT } from '../../i18n/i18n.service';
 
 /** Lines shown at most */
 const MAX_LINES = 6;
@@ -31,6 +32,7 @@ const SHOWN_MS = 60_000;
   styleUrl: './coop-chat.component.scss',
 })
 export class CoopChatComponent {
+  protected readonly t = injectT();
   readonly coop = inject(CoopService);
   private readonly uiStore = inject(UIStore);
   private readonly dialog = inject(MatDialog);

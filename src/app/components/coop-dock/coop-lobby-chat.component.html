@@ -1,5 +1,5 @@
-<h3 class="td-section sec">Chat</h3>
-<div #box class="chat" role="log" aria-live="polite" aria-label="Coop chat">
+<h3 class="td-section sec">{{ t().coop.chat.title }}</h3>
+<div #box class="chat" role="log" aria-live="polite" [attr.aria-label]="t().coop.chat.log">
   @for (line of chat(); track line.id) {
     @if (line.system) {
       <p class="sys td-note" [class.is-warn]="line.warn"><i class="td-diamond is-sm" aria-hidden="true"></i>{{ line.text }}</p>
@@ -14,9 +14,9 @@
   }
 </div>
 <div class="composer">
-  <input class="td-input" type="text" maxlength="200" placeholder="Say something, Enter sends" aria-label="Chat message"
+  <input class="td-input" type="text" maxlength="200" [placeholder]="t().coop.chat.placeholderLobby" [attr.aria-label]="t().coop.chat.message"
          [value]="line()" (input)="line.set($any($event.target).value)" (keydown.enter)="send()" />
-  <button class="td-icon-btn send" type="button" (click)="send()" aria-label="Send">
+  <button class="td-icon-btn send" type="button" (click)="send()" [attr.aria-label]="t().coop.squad.send">
     <td-icon name="send" [size]="16"></td-icon>
   </button>
 </div>

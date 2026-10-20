@@ -4,11 +4,13 @@ import {
   changedOptions,
   mayCheat,
   mayPause,
-  optionLabel,
   startsWhenAllReady,
   validOptions,
   waveButtonAction,
 } from './room-options';
+import { optionLabel } from './room-option-words';
+import { en } from '../i18n/messages/en';
+import { de } from '../i18n/messages/de';
 
 describe('room options (docs/COOP_PLAN.md, D38)', () => {
   it('starts with cheats off, pause for the host, the wave once all are ready', () => {
@@ -48,7 +50,9 @@ describe('room options (docs/COOP_PLAN.md, D38)', () => {
     expect(validOptions({ cheats: 'all', pause: 'off', wave: 'auto', extra: 1 })).toEqual({ cheats: 'all', pause: 'off', wave: 'auto' });
     expect(validOptions({ ...DEFAULT_ROOM_OPTIONS, wave: 'soon' })).toBeNull();
     expect(validOptions(null)).toBeNull();
-    expect(optionLabel('wave', 'auto')).toBe('Auto 10 s');
+    expect(optionLabel(en, 'wave', 'auto')).toBe('Auto 10 s');
+    expect(optionLabel(de, 'pause', 'host')).toBe('Nur Host');
+    expect(optionLabel(en, 'pause', 'label')).toBe('label');
     expect(changedOptions(DEFAULT_ROOM_OPTIONS, { ...DEFAULT_ROOM_OPTIONS, pause: 'all', wave: 'host' })).toEqual(['wave', 'pause']);
   });
 });

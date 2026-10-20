@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { injectT } from '../../i18n/i18n.service';
 
 /** Four bars below these round trips, three, two, else one (docs/COOP_PLAN.md, C8), ms */
 const BAR_LIMITS_MS = [40, 90, 160];
@@ -20,7 +21,7 @@ export function pingBarCount(ms: number | null): number {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class.is-warn]': 'warn()',
-    '[attr.aria-label]': "ms() === null ? 'No ping' : ms() + ' ms'",
+    '[attr.aria-label]': 'ms() === null ? t().coop.noPing : t().coop.pingMs(ms()!)',
     role: 'img',
   },
   template: `
@@ -68,6 +69,7 @@ export function pingBarCount(ms: number | null): number {
   `,
 })
 export class PingBarsComponent {
+  protected readonly t = injectT();
   /** Round trip, ms; null while unknown */
   readonly ms = input<number | null>(null);
   readonly warn = input(false);

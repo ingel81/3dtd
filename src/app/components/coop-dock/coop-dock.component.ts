@@ -15,6 +15,7 @@ import { ABILITY_BAR_EDGE_PX, ABILITY_BAR_PX } from '../ability-bar/ability-butt
 import { desyncText, dockBanners, roomStatus, startBlocked } from './coop-dock-view';
 import { ownsKey } from '../../utils/keyboard-target';
 import { FocusOnShowDirective } from '../focus-on-show.directive';
+import { injectT } from '../../i18n/i18n.service';
 
 /** How long "Copied" stays on a copy button, ms */
 const COPIED_MS = 1200;
@@ -55,6 +56,7 @@ const COPIED_MS = 1200;
   styleUrl: './coop-dock.component.scss',
 })
 export class CoopDockComponent {
+  protected readonly t = injectT();
   readonly coop = inject(CoopService);
   private readonly uiStore = inject(UIStore);
   private readonly gameStore = inject(GameStore);
@@ -87,7 +89,7 @@ export class CoopDockComponent {
     return !!this.room() && !this.coop.isHost() && (!this.coop.worldReady() || (this.me()?.spawnIds.length ?? 0) === 0);
   });
 
-  readonly status = computed(() => roomStatus({
+  readonly status = computed(() => roomStatus(this.t(), {
     room: this.room(),
     isHost: this.coop.isHost(),
     myId: this.coop.playerId(),
@@ -97,14 +99,14 @@ export class CoopDockComponent {
     mapSending: this.coop.mapTransfer()?.sending ? this.coop.mapTransfer() : null,
   }));
   readonly startBlocked = computed(() =>
-    startBlocked(this.room(), this.coop.worldReady(), this.coop.lanesWithoutRoute(), this.coop.vacantRule()));
+    startBlocked(this.t(), this.room(), this.coop.worldReady(), this.coop.lanesWithoutRoute(), this.coop.vacantRule()));
 
   /** Desync, mixed engines, a map change: the worst first (plan G7) */
   readonly banners = computed(() => {
     const desync = this.coop.desync();
-    return dockBanners({
+    return dockBanners(this.t(), {
       desync: desync
-        ? desyncText(desync.outOfStep, gameSecond(desync.tick), this.coop.playerId(), (id) => this.coop.nameOf(id))
+        ? desyncText(this.t(), desync.outOfStep, gameSecond(desync.tick), this.coop.playerId(), (id) => this.coop.nameOf(id))
         : null,
       hostChangingMap: this.coop.hostChangingMap(),
       mixedEngines: this.coop.mixedEngines(),

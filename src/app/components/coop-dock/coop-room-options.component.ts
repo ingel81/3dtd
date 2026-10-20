@@ -3,7 +3,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RovingGroupDirective } from '../roving-group.directive';
 import { TdIconComponent } from '../icon/icon.component';
 import { CoopService } from '../../services/coop.service';
-import { ROOM_OPTION_CHOICES, optionLabel, type RoomOptionKey } from '../../coop/room-options';
+import { ROOM_OPTION_CHOICES, type RoomOptionKey } from '../../coop/room-options';
+import { optionLabel } from '../../coop/room-option-words';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * Mode and options of the coop room (D38): folded, one chip per option;
@@ -21,8 +23,13 @@ import { ROOM_OPTION_CHOICES, optionLabel, type RoomOptionKey } from '../../coop
 export class CoopRoomOptionsComponent {
   readonly coop = inject(CoopService);
 
+  protected readonly t = injectT();
   protected readonly options = ROOM_OPTION_CHOICES;
-  protected readonly optionLabel = optionLabel;
+
+  /** A value of an option in the player's words */
+  protected label(key: RoomOptionKey, value: string): string {
+    return optionLabel(this.t(), key, value);
+  }
 
   /** Open for the host from the start, who sets them (PLAYTEST T58) */
   readonly open = signal(this.coop.isHost());
@@ -32,7 +39,7 @@ export class CoopRoomOptionsComponent {
     const values = this.coop.options();
     return ROOM_OPTION_CHOICES.map((o) => ({
       key: o.key,
-      text: `${o.label} ${optionLabel(o.key, values[o.key])}`,
+      text: `${this.t().coop.options[o.key].label} ${this.label(o.key, values[o.key])}`,
       warn: o.key === 'cheats' && values.cheats !== 'off',
     }));
   });

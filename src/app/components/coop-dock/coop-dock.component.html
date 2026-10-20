@@ -1,18 +1,19 @@
+@let w = t().coop.panel;
 <header class="head td-dlg-head">
   <div class="title td-stack">
     @if (joining()) {
-      <h2 class="td-dlg-title" id="td-coop-dock-title">Joining {{ room()?.code ?? coop.roomFromUrl ?? '' }}</h2>
-      <p class="td-note td-trunc">{{ room() ? 'Host: ' + hostName() : 'Finding the room' }}</p>
+      <h2 class="td-dlg-title" id="td-coop-dock-title">{{ w.joining(room()?.code ?? coop.roomFromUrl ?? '') }}</h2>
+      <p class="td-note td-trunc">{{ room() ? w.hostIs(hostName()) : w.finding }}</p>
     } @else if (room(); as r) {
-      <h2 class="td-dlg-title" id="td-coop-dock-title">Coop room</h2>
-      <p class="td-note td-trunc">PvE coop, {{ placeName() }}, {{ r.spawnIds.length }} lane{{ r.spawnIds.length === 1 ? '' : 's' }}</p>
+      <h2 class="td-dlg-title" id="td-coop-dock-title">{{ w.room }}</h2>
+      <p class="td-note td-trunc">{{ w.about(placeName(), r.spawnIds.length) }}</p>
     } @else {
-      <h2 class="td-dlg-title" id="td-coop-dock-title">Coop</h2>
-      <p class="td-note td-trunc">Not in a room</p>
+      <h2 class="td-dlg-title" id="td-coop-dock-title">{{ w.coop }}</h2>
+      <p class="td-note td-trunc">{{ w.notInRoom }}</p>
     }
   </div>
   <button class="td-close" type="button" (click)="close()"
-          [matTooltip]="room() ? 'Close (the room stays open), Tab or Esc' : 'Close, Tab or Esc'" aria-label="Close the coop dock">
+          [matTooltip]="room() ? w.closeRoomStays : w.close" [attr.aria-label]="w.closeLabel">
     <td-icon name="close" [size]="12"></td-icon>
   </button>
 </header>
@@ -27,18 +28,18 @@
         <section class="td-group blk">
           <div class="code-row">
             <div class="code td-stack">
-              <span class="td-caps">Room code</span>
+              <span class="td-caps">{{ t().coop.ways.roomCode }}</span>
               <b class="td-code">{{ r.code }}</b>
             </div>
             <div class="td-actions acts">
-              <button class="td-btn-secondary td-btn-sm" type="button" (click)="copy('code')" aria-label="Copy the room code">
+              <button class="td-btn-secondary td-btn-sm" type="button" (click)="copy('code')" [attr.aria-label]="w.copyCode">
                 <td-icon [name]="copied() === 'code' ? 'check' : 'copy'" [size]="14"></td-icon>
-                {{ copied() === 'code' ? 'Copied' : 'Code' }}
+                {{ copied() === 'code' ? t().settings.copied : w.code }}
               </button>
               @if (!r.started && !coop.lanAvailable) {
-                <button class="td-btn-secondary td-btn-sm" type="button" (click)="copy('link')" aria-label="Copy the invite link">
+                <button class="td-btn-secondary td-btn-sm" type="button" (click)="copy('link')" [attr.aria-label]="w.copyLink">
                   <td-icon [name]="copied() === 'link' ? 'check' : 'link'" [size]="14"></td-icon>
-                  {{ copied() === 'link' ? 'Copied' : 'Invite link' }}
+                  {{ copied() === 'link' ? t().settings.copied : w.link }}
                 </button>
               }
             </div>
@@ -47,15 +48,15 @@
             @if (coop.lanAddresses().length) {
               <span [matTooltip]="lanAddressText()">LAN <b>{{ coop.lanAddresses()[0].address }}</b></span>
             } @else if (coop.reachedVia(); as via) {
-              <span>{{ via === 'LAN' ? 'Over' : 'Online,' }} <b>{{ via }}</b></span>
+              <span>{{ via === 'LAN' ? w.over : w.online }} <b>{{ via }}</b></span>
             }
             @if (coop.isHost() && !r.started) {
               <button class="td-check toggle" type="button" [attr.aria-pressed]="!r.locked"
                       (click)="coop.setLocked(!r.locked)">
-                <span class="td-switch" aria-hidden="true"></span>Open to new players
+                <span class="td-switch" aria-hidden="true"></span>{{ w.openToNew }}
               </button>
             } @else {
-              <span class="meta-end">Host <b>{{ hostName() }}</b></span>
+              <span class="meta-end">{{ t().coop.table.host }} <b>{{ hostName() }}</b></span>
             }
           </div>
         </section>
@@ -66,13 +67,13 @@
             <div class="td-inline listing-row">
               <button class="td-check toggle" type="button" [attr.aria-pressed]="r.listing.public"
                       (click)="coop.setListing({ public: !r.listing.public })">
-                <span class="td-switch" aria-hidden="true"></span>In the public list
+                <span class="td-switch" aria-hidden="true"></span>{{ w.publicList }}
               </button>
-              <input class="td-input is-sm title-in" type="text" maxlength="32" [value]="r.listing.title" aria-label="Room title"
+              <input class="td-input is-sm title-in" type="text" maxlength="32" [value]="r.listing.title" [attr.aria-label]="w.roomTitle"
                      (change)="coop.setListing({ title: $any($event.target).value })" (keydown.enter)="$any($event.target).blur()" />
             </div>
             @if (r.listing.public) {
-              <p class="td-note">Players you don't know see this room and, once in it, this place. If this is your home, pick another place for public rooms.</p>
+              <p class="td-note">{{ w.publicWarn }}</p>
             }
           </section>
         }
@@ -93,7 +94,7 @@
               <span>{{ banner.text }}</span>
               @if (first && banners().length > 1) {
                 <button class="td-btn-secondary td-btn-sm" type="button" (click)="allBanners.set(!allBanners())" [attr.aria-expanded]="allBanners()">
-                  {{ allBanners() ? 'Less' : '+' + (banners().length - 1) }}
+                  {{ allBanners() ? w.less : '+' + (banners().length - 1) }}
                 </button>
               }
             </p>
@@ -113,37 +114,37 @@
 
 @if (room() || joining()) {
   <footer class="foot td-dlg-foot td-line-top">
-    <button class="td-btn-danger" type="button" (click)="leave()">{{ joining() ? 'Cancel' : 'Leave' }}</button>
+    <button class="td-btn-danger" type="button" (click)="leave()">{{ joining() ? t().common.cancel : w.leave }}</button>
     <span class="spacer"></span>
     @if (room(); as r) {
       @if (!r.started && !joining()) {
         @if (coop.isHost()) {
           <div class="more" #more>
             <button class="td-icon-btn" type="button" (click)="moreOpen.set(!moreOpen())" [attr.aria-expanded]="moreOpen()"
-                    matTooltip="More" aria-label="More">
+                    [matTooltip]="w.more" [attr.aria-label]="w.more">
               <td-icon name="more" [size]="16"></td-icon>
             </button>
             @if (moreOpen()) {
               <div class="more-menu td-popup td-rows">
-                <button class="td-row" type="button" (click)="resendMap()">Resend map to the players</button>
+                <button class="td-row" type="button" (click)="resendMap()">{{ w.resend }}</button>
               </div>
             }
           </div>
           @if (confirmStart()) {
-            <span class="td-note is-warn" role="alert">This ends your solo run (wave {{ soloRunWave() }}).</span>
-            <button class="td-btn-secondary" type="button" (click)="confirmStart.set(false)">Cancel</button>
-            <button class="td-btn-primary" type="button" (click)="start()" tdFocusOnShow>Start anyway</button>
+            <span class="td-note is-warn" role="alert">{{ w.endsSolo(soloRunWave()) }}</span>
+            <button class="td-btn-secondary" type="button" (click)="confirmStart.set(false)">{{ t().common.cancel }}</button>
+            <button class="td-btn-primary" type="button" (click)="start()" tdFocusOnShow>{{ w.startAnyway }}</button>
           } @else {
             <button class="td-btn-primary" type="button" (click)="start()"
-                    [attr.aria-disabled]="startBlocked() !== null || null" [matTooltip]="startBlocked() ?? ''">Start match</button>
+                    [attr.aria-disabled]="startBlocked() !== null || null" [matTooltip]="startBlocked() ?? ''">{{ w.start }}</button>
           }
         } @else if (me()?.ready) {
           <button class="td-btn-secondary is-on" type="button" (click)="coop.setLobbyReady(false)">
-            <td-icon name="check" [size]="16"></td-icon>Ready, undo
+            <td-icon name="check" [size]="16"></td-icon>{{ w.readyUndo }}
           </button>
         } @else {
           <button class="td-btn-primary" type="button" (click)="readyUp()"
-                  [attr.aria-disabled]="!me()?.spawnIds?.length || null" [matTooltip]="me()?.spawnIds?.length ? '' : 'Take a lane first'">Ready up</button>
+                  [attr.aria-disabled]="!me()?.spawnIds?.length || null" [matTooltip]="me()?.spawnIds?.length ? '' : w.laneFirst">{{ w.readyUp }}</button>
         }
       }
     }

@@ -24,7 +24,7 @@ import { ResyncDriver, resyncPartParam } from '../coop/resync';
 import type { WaveSourceId } from '../director/wave-source';
 import { newRunSeed } from '../utils/game-rng';
 import { coordKey } from '../utils/geo-utils';
-import { CoopRefusedError, CoopSession, SILENCE_MS, type CoopCloseReason, type CoopStart } from '../coop/coop-session';
+import { CoopRefusedError, CoopSession, SILENCE_MS, type CoopStart } from '../coop/coop-session';
 import { HASH_PARTS, hashEveryParam, type HashedEntities, type HashPart } from '../coop/hash-check';
 import {
   buildWorldPackage,
@@ -33,7 +33,7 @@ import {
   worldPackageRefusalText,
   type WorldPackage,
 } from '../coop/world-package';
-import { MAX_MAP_BYTES, type CoopRoomInfo, type PlayerStatus, type PublicRoom, type RefusalReason, type RoomListing, type RunLogRefusal } from '../coop/protocol';
+import { MAX_MAP_BYTES, type CoopRoomInfo, type PlayerStatus, type PublicRoom, type RoomListing, type RunLogRefusal } from '../coop/protocol';
 import { clientInfoFrom, mixedEngines } from '../coop/client-info';
 import { laneStats, type LaneStat } from '../coop/lane-stats';
 import { InputHandlerService } from './input-handler.service';
@@ -55,6 +55,7 @@ import { packageWorldRef } from '../coop/world-package';
 import { MapAssembler, PacedMapSend, splitMapFile, type MapPart } from '../coop/map-transfer';
 import { hasMapHere, packMapOffThread, storeSharedMap } from '../world/custom-map/map-share';
 import { openedCustomMap } from '../world/custom-map/custom-map-start';
+import type { Messages } from '../i18n/messages/en';
 
 /** Pause between two pieces of a map the host sends: the relay takes some 4 MB a second from one connection */
 /** How long a guest on the host's map waits for its own start to stand or fail before it reloads into the map */
@@ -66,13 +67,13 @@ import {
   changedOptions,
   mayCheat,
   mayPause,
-  optionLabel,
   ROOM_OPTION_CHOICES,
   startsWhenAllReady,
   type CoopRoomOptions,
   type RoomOptionKey,
 } from '../coop/room-options';
-import { readCoopName, writeCoopName } from '../coop/coop-name';
+import { optionLabel } from '../coop/room-option-words';
+import { PLAYER_NAME_FALLBACK, readCoopName, writeCoopName } from '../coop/coop-name';
 import { MatDialog } from '@angular/material/dialog';
 import { askRunUpload, RUN_UPLOAD_AFTER_GAME_OVER_MS } from '../components/run-upload-dialog/run-upload-dialog.component';
 import { packRunLog, readRunUploadConsent, writeRunUploadConsent } from '../run-log/run-upload';
@@ -134,33 +135,13 @@ export interface CoopChatLine {
 /** Largest run log to send, base64 characters: under the relay's 1 MB message limit (TODO E38) */
 const MAX_RUN_LOG_CHARS = 1000 * 1024;
 
-/** A player's status as the chat tells the room */
-const STATUS_LINE: Record<PlayerStatus, (name: string) => string> = {
-  key: (name) => `${name} enters their map key`,
-  loading: (name) => `${name} is loading the map`,
-  reloading: (name) => `${name} reloads for the new place, back in a moment`,
-  ready: (name) => `${name}'s map stands`,
-};
-
-/** What the coop panel says when the connection to the relay closed, by why */
 /** A relay's answer to a run log in words: its code's, or an older relay's own sentence */
 function runLogRefusal(texts: Readonly<Record<RunLogRefusal, string>>, reason: string | null): string {
   return reason !== null && Object.hasOwn(texts, reason) ? texts[reason as RunLogRefusal] : reason ?? texts.failed;
 }
 
-const CLOSED_TEXT: Record<NonNullable<CoopCloseReason> | 'lost', string> = {
-  restart: 'The coop server restarts. Try again in a moment.',
-  'too-fast': 'The coop server closed the connection: this game sent too many messages. Reload to join again.',
-  silent: `No word from the coop server for ${SILENCE_MS / 1000} s: the connection is gone (a network switch or standby?).`,
-  lost: 'The connection to the coop server closed.',
-};
-/** The same as the head of the in-game notice */
-const CLOSED_HEAD: Record<NonNullable<CoopCloseReason> | 'lost', string> = {
-  restart: 'The coop server restarts',
-  'too-fast': 'The coop server closed the connection, this game sent too many messages',
-  silent: `No word from the coop server for ${SILENCE_MS / 1000} s`,
-  lost: 'Connection to the coop server lost',
-};
+/** The seconds of silence after which the connection counts as gone, as the player reads them */
+const SILENCE_S = SILENCE_MS / 1000;
 
 /** Chat lines kept at most */
 const MAX_CHAT_LINES = 100;
@@ -174,21 +155,6 @@ const LANE_WALK_SPEED_MPS = ENEMY_TYPES['zombie'].baseSpeed;
 /** Host: how long a changed map waits before it checks that the rebuild is done, ms */
 const SHARE_SETTLE_MS = 400;
 
-const REFUSAL_TEXT: Record<RefusalReason, string> = {
-  protocol: 'The relay speaks another version of the coop protocol.',
-  version: 'The host runs another version of the game. Both need the same one.',
-  balance: 'The host plays with other tower or enemy values.',
-  'no-room': 'There is no room with that code.',
-  full: 'The room is full (four players).',
-  started: 'The game in that room has started already.',
-  'not-host': 'Only the host can do that.',
-  'lane-taken': 'Someone else has that lane.',
-  'not-ready': 'Not everyone has a lane and is ready yet.',
-  alone: 'A coop game needs a second player.',
-  busy: 'The coop server is full right now. Try again in a while.',
-  kicked: 'The host took you out of the room.',
-  locked: 'The host closed the room to new players.',
-};
 
 /**
  * Coop in the game (docs/COOP_PLAN.md, C4): the session to the relay and
@@ -258,6 +224,8 @@ export class CoopService {
   private readonly gameStore = inject(GameStore);
   private readonly uiStore = inject(UIStore);
   private readonly i18n = inject(I18n);
+  /** The service's own lines in the player's language, read when they are said */
+  private readonly w = () => this.i18n.t().coop.notes;
   private readonly engineInit = inject(EngineInitializationService);
   private readonly inputHandler = inject(InputHandlerService);
   private readonly runLog = inject(RunLogFacade);
@@ -585,7 +553,7 @@ export class CoopService {
         this.startResetPending = false;
         return;
       }
-      this.notify(this.isHost() ? 'New run started' : 'The host started a new run');
+      this.notify(this.isHost() ? this.w().newRun : this.w().hostNewRun);
     }));
     this.subs.add(bus.on('wave:started', () => {
       this.readyNow = false;
@@ -598,7 +566,7 @@ export class CoopService {
       if (event.ready) next.add(event.playerId);
       else next.delete(event.playerId);
       this.readyIds.set(next);
-      if (event.ready) this.notify(`${this.nameOf(event.playerId)} is ready for the next wave`);
+      if (event.ready) this.notify(this.w().readyForWave(this.nameOf(event.playerId)));
     }));
     this.subs.add(bus.onLive('coop:player-left', (event) => {
       if (this.inGame()) this.leftIds.set(new Set(this.leftIds()).add(event.playerId));
@@ -617,7 +585,7 @@ export class CoopService {
     });
     this.subs.add(new EventSubscription(offFrame));
     this.subs.add(bus.onLive('coop:credits-given', (event) => {
-      if (event.toLocal) this.notify(`${this.nameOf(event.from)} sent you ${event.amount} gold`);
+      if (event.toLocal) this.notify(this.w().sentYou(this.nameOf(event.from), event.amount));
       this.runCounts.giftGiven(event.from, event.amount);
     }));
 
@@ -781,7 +749,7 @@ export class CoopService {
   }
 
   get name(): string {
-    return this.sessionName ?? readCoopName() ?? 'Player';
+    return this.sessionName ?? readCoopName() ?? PLAYER_NAME_FALLBACK;
   }
 
   set name(value: string) {
@@ -889,7 +857,7 @@ export class CoopService {
   shareWorld(): void {
     const source = this.world.source();
     if (!this.session || !source) {
-      this.error.set('The place is not loaded yet.');
+      this.error.set(this.w().placeNotLoaded);
       return;
     }
     const world = buildWorldPackage(source, this.head());
@@ -963,7 +931,7 @@ export class CoopService {
     try {
       const added = await this.locationFacade.addRandomSpawn();
       if (added && this.session) this.shareWorld();
-      else if (!added) this.error.set('Found no street for another spawn: add one with the + button.');
+      else if (!added) this.error.set(this.w().noStreetForSpawn);
     } finally {
       this.filling = false;
     }
@@ -1089,7 +1057,7 @@ export class CoopService {
     this.los.setRole('render');
     this.sim.configure({ playersLeft: this.mirror.scalars.players.filter((id) => id !== me) });
     this.leave();
-    this.uiStore.notice.set({ text: 'The coop game goes on as a single player game.', tone: 'warn' });
+    this.uiStore.notice.set({ text: this.w().goesOnAlone, tone: 'warn' });
   }
 
   /**
@@ -1130,7 +1098,7 @@ export class CoopService {
     if (consent !== 'yes' || this.session !== session) return;
     const gz = await packRunLog(toJsonl(run.records));
     if (gz.length > MAX_RUN_LOG_CHARS) {
-      this.notify('The run log is too large to send', 'warn');
+      this.notify(this.w().runLogTooLarge, 'warn');
       return;
     }
     session.sendRunLog(gz);
@@ -1176,7 +1144,7 @@ export class CoopService {
     const audio = engine.spatialAudio;
     if (!audio.getSoundConfig(tone.id)) audio.registerSound(tone.id, toneWavDataUrl(tone.notes), { volume: tone.volume });
     audio.playGlobal(tone.id).catch(() => undefined);
-    if (from !== this.playerId()) this.notify(`${this.nameOf(from)} marked a place on the map`);
+    if (from !== this.playerId()) this.notify(this.w().marked(this.nameOf(from)));
   }
 
   /** A player's lane colour as CSS, the secondary text colour without a lane */
@@ -1201,7 +1169,7 @@ export class CoopService {
   private sayWhoseTower(towerId: string): void {
     const owner = this.mirror.tower(towerId)?.ownerId;
     if (!owner || owner === this.playerId()) return;
-    this.ngZone.run(() => this.notify(`That is ${this.nameOf(owner)}'s tower`));
+    this.ngZone.run(() => this.notify(this.w().theirTower(this.nameOf(owner))));
   }
 
   /** Host, lobby: take a player out of the room (review R9) */
@@ -1261,9 +1229,7 @@ export class CoopService {
   private async closeFreeLanes(free: readonly string[]): Promise<void> {
     const open = this.world.spawnPoints.map((s) => s.id).filter((id) => !free.includes(id));
     const closed = await this.locationFacade.setOpenLanes(open, true);
-    this.notify(closed
-      ? `${free.length === 1 ? 'The free lane is' : `${free.length} free lanes are`} closed. Start once everyone is ready again.`
-      : 'The free lanes could not be closed.', closed ? 'info' : 'warn');
+    this.notify(closed ? this.w().lanesClosed(free.length) : this.w().lanesNotClosed, closed ? 'info' : 'warn');
   }
 
   /** Host: game speed, 0 pauses. */
@@ -1379,7 +1345,7 @@ export class CoopService {
       (bytes) => {
         const parts = splitMapFile(bytes, ref.mapId, map.contentHash);
         if (!parts) {
-          this.notify(`This map is too big to send over the relay (${Math.round(bytes.length / 2 ** 20)} MB of at most ${MAX_MAP_BYTES / 2 ** 20}): only players who have it can join`, 'warn');
+          this.notify(this.w().mapTooBig(Math.round(bytes.length / 2 ** 20), MAX_MAP_BYTES / 2 ** 20), 'warn');
           return null;
         }
         return parts;
@@ -1388,7 +1354,7 @@ export class CoopService {
         // Not sent: the next share tries again, packing anew
         if (this.sentMapKey === key) this.sentMapKey = null;
         if (this.packedMap === packing) this.packedMap = null;
-        this.notify(`The map could not be packed for the room (${(e as Error).message}): only players who have it can join`, 'warn');
+        this.notify(this.w().mapNotPacked((e as Error).message), 'warn');
         return null;
       },
     );
@@ -1451,7 +1417,7 @@ export class CoopService {
     this.wantedMapHash = null;
     this.mapTransfer.set(null);
     if (this.status() === 'loading-world') this.status.set('lobby');
-    this.notify('The map did not arrive: the host left before it was through. The new host sends theirs.', 'warn');
+    this.notify(this.w().mapNotArrived, 'warn');
   }
 
   /** Guest: the host's map into the store, then this page on it (takeMapPart) */
@@ -1459,7 +1425,7 @@ export class CoopService {
     const generation = this.generation;
     // Whatever goes wrong is said: the guest would wait on 'loading-world' for good
     const problem = await storeSharedMap(bytes, { mapId: piece.mapId, hash: piece.hash })
-      .catch((error: unknown) => `The host's map could not be kept here (${error instanceof Error ? error.message : String(error)}).`);
+      .catch((error: unknown) => this.w().mapNotKept(error instanceof Error ? error.message : String(error)));
     if (generation !== this.generation) return;
     if (problem) {
       this.ngZone.run(() => this.error.set(problem));
@@ -1543,7 +1509,7 @@ export class CoopService {
     const reached = await this.reachRelay(this.name, undefined, { source: 'lobby', urls: [url] });
     if ('error' in reached) return reached.lobbyDown ? { ok: false, text: reached.error, down: true } : { ok: false, text: reached.error };
     reached.session.close();
-    return { ok: true, text: 'This lobby answers.' };
+    return { ok: true, text: this.w().lobbyAnswers };
   }
 
   /**
@@ -1585,22 +1551,22 @@ export class CoopService {
       } catch (err) {
         attempt.onClosed = null;
         attempt.close();
-        if (err instanceof CoopRefusedError) return { error: refusalText(err) };
+        if (err instanceof CoopRefusedError) return { error: refusalText(this.i18n.t(), err) };
         console.warn(`[Coop] no relay at ${url}`, err);
       }
     }
     const tried = candidates.urls.join(', ');
     switch (candidates.source) {
       case 'lan':
-        return { error: `Can't reach that LAN game (tried ${tried}). The host's firewall may block it, or the room just closed.` };
+        return { error: this.w().lanUnreachable(tried) };
       case 'lobby': {
-        const name = this.lobbies().find((l) => l.url === candidates.urls[0])?.name ?? 'The lobby';
-        return { error: `${name} is offline right now.`, lobbyDown: name };
+        const name = this.lobbies().find((l) => l.url === candidates.urls[0])?.name ?? this.w().theLobby;
+        return { error: this.w().lobbyOffline(name), lobbyDown: name };
       }
       case 'auto':
-        return { error: 'No online lobby is set up. Add one under Online.' };
+        return { error: this.w().noLobby };
       default:
-        return { error: "Can't reach the host's lobby from the invite link. It may be down." };
+        return { error: this.w().inviteLobbyDown };
     }
   }
 
@@ -1608,7 +1574,7 @@ export class CoopService {
     try {
       await run();
     } catch (err) {
-      this.error.set(err instanceof CoopRefusedError ? refusalText(err) : String(err));
+      this.error.set(err instanceof CoopRefusedError ? refusalText(this.i18n.t(), err) : String(err));
       this.leave();
     }
   }
@@ -1619,21 +1585,21 @@ export class CoopService {
     session.onRoom = inZone((room) => {
       const before = this.room();
       this.room.set(room);
-      if (!before) this.notify(`Room ${room.code} ${room.hostId === this.playerId() ? 'opened' : 'joined'}`);
+      if (!before) this.notify(room.hostId === this.playerId() ? this.w().roomOpened(room.code) : this.w().roomJoined(room.code));
       if (before && !room.started) {
         for (const p of room.players) {
-          if (p.id !== this.playerId() && !before.players.some((b) => b.id === p.id)) this.notify(`${p.name} joined`);
+          if (p.id !== this.playerId() && !before.players.some((b) => b.id === p.id)) this.notify(this.w().joined(p.name));
         }
         // What the others' clients do (User, 2026-09-25)
         for (const p of room.players) {
           const was = before.players.find((b) => b.id === p.id)?.status ?? null;
-          if (p.id !== this.playerId() && p.status !== null && p.status !== was) this.notify(STATUS_LINE[p.status](p.name));
+          if (p.id !== this.playerId() && p.status !== null && p.status !== was) this.notify(this.w().status[p.status](p.name));
         }
-        // The host changed an option: everyone reads it in the chat (D38)
+        // The host changed an option: everyone reads it in the chat, each in their own language (D38)
         const host = this.nameOf(room.hostId);
+        const options = this.i18n.t().coop.options;
         for (const key of changedOptions(before.options, room.options)) {
-          const label = ROOM_OPTION_CHOICES.find((o) => o.key === key)!.label;
-          this.notify(`${host} set ${label}: ${optionLabel(key, room.options[key])}`);
+          this.notify(this.w().optionSet(host, options[key].label, optionLabel(this.i18n.t(), key, room.options[key])));
         }
       }
       if (this.autoPicking !== null && room.players.some((p) => p.id === this.playerId() && p.spawnIds.length > 0)) {
@@ -1646,7 +1612,7 @@ export class CoopService {
       // Reloading for a new place: said already, and back in a moment
       if (this.room()?.players.find((p) => p.id === playerId)?.status === 'reloading' && !this.inGame()) return;
       const name = this.nameOf(playerId);
-      this.notify(this.inGame() ? `${name} left the game, their lane closes` : `${name} left`, 'warn');
+      this.notify(this.inGame() ? this.w().leftGame(name) : this.w().left(name), 'warn');
     });
     session.onWorld = inZone((world) => void this.takeWorld(world));
     session.onMap = inZone((piece) => this.takeMapPart(piece));
@@ -1661,20 +1627,18 @@ export class CoopService {
     session.onPing = inZone((from, lat, lon, height) => this.showPing(from, lat, lon, height));
     session.onMoving = inZone(() => {
       this.hostChangingMap.set(true);
-      this.notify(`${this.nameOf(this.room()?.hostId ?? '')} is changing the map, it comes here next`);
+      this.notify(this.w().changingMap(this.nameOf(this.room()?.hostId ?? '')));
     });
     session.onWaiting = inZone((playerId) => {
       this.waitingFor.set(playerId);
       if (playerId) {
-        this.notify(playerId === this.playerId()
-          ? 'The others wait for your game to catch up'
-          : `Waiting for ${this.nameOf(playerId)} to catch up`);
+        this.notify(playerId === this.playerId() ? this.w().othersWait : this.w().waitingFor(this.nameOf(playerId)));
       }
     });
     session.onHost = inZone((hostId) => {
       if (this.room()) this.room.set({ ...this.room()!, hostId });
       if (hostId === this.playerId() && this.inGame()) this.los.setRole('render');
-      this.notify(hostId === this.playerId() ? 'You are the host now' : `${this.nameOf(hostId)} is the host now`);
+      this.notify(hostId === this.playerId() ? this.w().youHost : this.w().newHost(this.nameOf(hostId)));
     });
     session.onChat = inZone((from, text) => this.addChatLine(from, text));
     session.onRunLog = inZone((ok, reason) => {
@@ -1685,7 +1649,7 @@ export class CoopService {
     session.onRefused = inZone((reason) => {
       // Taken out of the room: this player is out of it here too
       if (reason === 'kicked') this.leave();
-      this.error.set(REFUSAL_TEXT[reason]);
+      this.error.set(this.i18n.t().coop.refusals[reason]);
     });
     session.onDesync = inZone((tick, hashes, outOfStep, parts) => {
       this.desync.set({ tick, hashes, outOfStep });
@@ -1693,26 +1657,26 @@ export class CoopService {
         console.warn(`[Coop] out of step at tick ${tick}: ${hashes.map(([id, h]) => `${id} ${(h >>> 0).toString(16)}`).join(', ')}; here now ${own.toString(16)}`);
       });
       void this.reportDesyncDetail(session, tick, parts);
-      this.notify(desyncText(outOfStep, this.playerId(), (id) => this.nameOf(id)), 'warn');
+      this.notify(desyncText(this.i18n.t(), outOfStep, this.playerId(), (id) => this.nameOf(id)), 'warn');
     });
     // Resync (C5b): the room holds, the host's state replaces the guests'
     session.onResync = inZone((tick) => {
       this.resync.hold(tick);
       this.startResyncPolling();
-      this.notify(this.isHost() ? 'Sending your game state to the others to bring them back in step' : "Loading the host's game state to get back in step", 'info');
+      this.notify(this.isHost() ? this.w().resyncSending : this.w().resyncLoading, 'info');
     });
     session.onResyncState = inZone((tick, gz, part, parts) => this.resync.state(tick, gz, part, parts));
     session.onResyncDone = inZone((_tick, ok) => {
       this.resync.done();
       this.stopResyncPolling();
       if (ok) this.desync.set(null);
-      this.notify(ok ? 'Back in step with the host' : 'The games could not be brought back in step: what you see may differ', ok ? 'info' : 'warn');
+      this.notify(ok ? this.w().resyncDone : this.w().resyncFailed, ok ? 'info' : 'warn');
     });
     session.onClosed = inZone((reason) => {
       if (this.session !== session) return;
-      this.error.set(CLOSED_TEXT[reason ?? 'lost']);
+      this.error.set(this.w().closed[reason ?? 'lost'](SILENCE_S));
       if (this.inGame()) {
-        this.notify(`${CLOSED_HEAD[reason ?? 'lost']}: the game stands still. Go on alone, or reload to leave`, 'warn');
+        this.notify(this.w().standsStill(this.w().closedHead[reason ?? 'lost'](SILENCE_S)), 'warn');
       }
       this.status.set('closed');
     });
@@ -1757,7 +1721,7 @@ export class CoopService {
     this.hostChangingMap.set(false);
     const read = readWorldPackage(JSON.stringify(data), this.head());
     if (!read.world) {
-      this.error.set(worldPackageRefusalText(read.refusal));
+      this.error.set(worldPackageRefusalText(this.i18n.t(), read.refusal));
       return;
     }
     // The host's world must be this page's: DevWorld with the same settings, the same map
@@ -1792,7 +1756,7 @@ export class CoopService {
       return;
     }
     if (otherWorld) {
-      this.error.set(`The host's game: ${otherWorld}`);
+      this.error.set(this.w().hostGame(otherWorld));
       return;
     }
     // The host decides the wave source: play it from the next run on; leave() gives this seat its own back
@@ -1806,7 +1770,7 @@ export class CoopService {
     // The place loaded here first (an invite link joins while it loads)
     this.status.set('loading-world');
     if (!(await this.placeLoaded())) {
-      this.error.set("The host's map did not finish loading. Reload the page to try again.");
+      this.error.set(this.w().mapNotLoaded);
       return;
     }
     // Same HQ, other spawns (the host added, moved or took one away): set
@@ -1856,7 +1820,7 @@ export class CoopService {
     this.lanes.set(laneStats(packagePaths(world), LANE_WALK_SPEED_MPS));
     const key = this.loader.adopt(world);
     if (key !== world.worldKey) {
-      this.error.set(worldPackageRefusalText('other-world'));
+      this.error.set(worldPackageRefusalText(this.i18n.t(), 'other-world'));
       console.warn(`[Coop] world key ${key}, host ${world.worldKey}`);
       this.status.set('lobby');
       return;
@@ -1936,20 +1900,18 @@ export class CoopService {
 }
 
 /** Why the relay refused, for the player; another version names both and says what to do (D60) */
-export function refusalText(err: CoopRefusedError): string {
-  if (err.reason === 'version' && err.hostVersion) {
-    const update = readDesktopBridge() ? ' Update the app: it updates by itself on the next start.' : ' Reload the page.';
-    return `The host plays ${err.hostVersion}, you play ${BUILD_VERSION}. Both need the same version.${update}`;
-  }
-  return REFUSAL_TEXT[err.reason];
+export function refusalText(t: Messages, err: CoopRefusedError): string {
+  if (err.reason === 'version' && err.hostVersion) return t.coop.notes.otherVersion(err.hostVersion, BUILD_VERSION, !!readDesktopBridge());
+  return t.coop.refusals[err.reason];
 }
 
 /**
  * What a player hears when the games ran apart: with a majority (three
  * players or more, S3) whose game it is, else that they did.
  */
-export function desyncText(outOfStep: readonly string[], me: string | null, nameOf: (id: string) => string): string {
-  if (me !== null && outOfStep.includes(me)) return 'Your game ran apart from the others: what you see may differ from theirs';
-  if (outOfStep.length) return `${outOfStep.map(nameOf).join(' and ')}'s game ran apart from the others`;
-  return 'The games ran apart: what you see may differ from the others';
+export function desyncText(t: Messages, outOfStep: readonly string[], me: string | null, nameOf: (id: string) => string): string {
+  const w = t.coop.notes;
+  if (me !== null && outOfStep.includes(me)) return w.desyncMine;
+  if (outOfStep.length) return w.desyncTheirs(t.coop.and(outOfStep.map(nameOf)));
+  return w.desyncAll;
 }

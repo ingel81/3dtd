@@ -9,6 +9,7 @@ import { CameraControlService } from '../../services/camera-control.service';
 import { MAX_PLAYERS } from '../../coop/protocol';
 import { clientLabel } from '../../coop/client-info';
 import { roomTable, type LaneRow } from './coop-dock-view';
+import { injectT } from '../../i18n/i18n.service';
 
 /**
  * Lanes and players of the coop room as one table (docs/archive/COOP_UI_REWORK_PLAN.md,
@@ -26,6 +27,7 @@ import { roomTable, type LaneRow } from './coop-dock-view';
   styleUrl: './coop-room-table.component.scss',
 })
 export class CoopRoomTableComponent {
+  protected readonly t = injectT();
   readonly coop = inject(CoopService);
   private readonly store = inject(TowerDefenseStore);
   private readonly camera = inject(CameraControlService);
@@ -42,7 +44,7 @@ export class CoopRoomTableComponent {
   readonly table = computed(() => {
     const room = this.room();
     if (!room) return { lanes: [], seatless: [] };
-    return roomTable({
+    return roomTable(this.t(), {
       room,
       myId: this.coop.playerId(),
       lanes: this.coop.lanes(),

@@ -20,8 +20,8 @@
 </section>
 <section class="blk">
   @if (coop.needsKey()) {
-    <p class="td-note">Enter your map key first (every player needs one of their own); then the host's map loads and you join by yourself.</p>
+    <p class="td-note">{{ t().coop.dock.join.keyFirst }}</p>
   } @else {
-    <p class="td-note">{{ placeName() }}. You'll land in the lobby as soon as the map stands.</p>
+    <p class="td-note">{{ t().coop.dock.join.landing(placeName()) }}</p>
   }
 </section>

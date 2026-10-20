@@ -1,13 +1,14 @@
+@let w = t().coop.squad;
 @if (coop.roster().length > 0) {
-  <section class="squad td-overlay" [class.is-error]="coop.lostInGame()" aria-label="Squad">
+  <section class="squad td-overlay" [class.is-error]="coop.lostInGame()" [attr.aria-label]="w.title">
     <header class="sq-head td-section td-hairline-bottom">
-      Squad
+      {{ w.title }}
       @if (collapsed()) {
         <small class="td-note">
           @if (issue()) {
-            <span class="td-note is-warn issue"><td-icon name="warn" [size]="11"></td-icon>Issue</span>
+            <span class="td-note is-warn issue"><td-icon name="warn" [size]="11"></td-icon>{{ w.issue }}</span>
           } @else {
-            {{ readyCount() }}/{{ rows().length }} ready
+            {{ w.readyOf(readyCount(), rows().length) }}
           }
         </small>
       } @else {
@@ -15,24 +16,24 @@
           @if (issue(); as text) {
             <span class="td-note" [class.is-error]="coop.lostInGame()" [class.is-warn]="!coop.lostInGame()">{{ text }}</span>
           } @else {
-            PvE coop, {{ coop.room()?.code }}
+            {{ w.mode(coop.room()?.code ?? '') }}
           }
         </small>
         @if (coop.cheatsOn()) {
-          <span class="chip td-tag is-caps is-warn" [matTooltip]="'Cheats allowed: ' + (coop.options().cheats === 'host' ? 'host only' : 'everyone')">Cheats on</span>
+          <span class="chip td-tag is-caps is-warn" [matTooltip]="w.cheatsTip(coop.options().cheats === 'host')">{{ w.cheatsOn }}</span>
         }
       }
       <button class="td-tool is-sm toggle" type="button" (click)="collapsed.set(!collapsed())"
-              [attr.aria-expanded]="!collapsed()" [attr.aria-label]="collapsed() ? 'Expand the squad' : 'Collapse the squad'">
+              [attr.aria-expanded]="!collapsed()" [attr.aria-label]="collapsed() ? w.expand : w.collapse">
         <td-icon [name]="collapsed() ? 'plus' : 'minus'" [size]="14"></td-icon>
       </button>
     </header>
 
     @if (!collapsed()) {
       @if (coop.lostInGame()) {
-        <p class="td-banner is-error sq-banner" role="alert"><b>Connection to the coop server lost.</b> The game stands still.</p>
+        <p class="td-banner is-error sq-banner" role="alert"><b>{{ w.lost.bold }}</b> {{ w.lost.text }}</p>
       } @else if (coop.desync()) {
-        <p class="td-banner is-warn sq-banner" role="alert"><b>Out of sync.</b> What you see may differ from what the others see.</p>
+        <p class="td-banner is-warn sq-banner" role="alert"><b>{{ w.outOfSync.bold }}</b> {{ w.outOfSync.text }}</p>
       }
 
       <ul class="td-rows sq-rows">
@@ -43,21 +44,21 @@
             <div class="who">
               <b>
                 <span class="td-name name">{{ row.name }}</span>
-                @if (row.me) { <i class="td-tag is-caps is-ok">You</i> }
-                @if (row.host) { <i class="td-tag is-caps is-brass">Host</i> }
+                @if (row.me) { <i class="td-tag is-caps is-ok">{{ t().coop.table.you }}</i> }
+                @if (row.host) { <i class="td-tag is-caps is-brass">{{ t().coop.table.host }}</i> }
               </b>
               <small class="td-note" [class.is-warn]="row.state !== 'ok' || row.leaks > 0" [matTooltip]="leaksTip(row)">{{ subLine(row) }}</small>
             </div>
             <span class="credits td-figure">
-              @if (row.state !== 'left') { <i class="td-diamond" aria-hidden="true"></i><span class="td-sr-only">Credits </span>{{ row.gold }} }
+              @if (row.state !== 'left') { <i class="td-diamond" aria-hidden="true"></i><span class="td-sr-only">{{ w.credits }} </span>{{ row.gold }} }
             </span>
             <app-ping-bars [ms]="row.state === 'left' || coop.lostInGame() ? null : row.latency" [warn]="row.state === 'lag' || row.state === 'slow'"
-                           [matTooltip]="row.me ? 'Your round trip to the coop server' : 'To them and back over the coop server, about'" />
+                           [matTooltip]="row.me ? t().coop.table.pingMine : t().coop.table.pingTheirs" />
             @if (row.me) {
               <button class="td-icon-btn is-sm check" type="button" [disabled]="waveActive()"
                       (click)="coop.toggleReady()" [attr.aria-pressed]="row.ready"
-                      [matTooltip]="row.ready ? 'Ready for the next wave, Space undoes' : 'Ready for the next wave, Space'"
-                      aria-label="Ready for the next wave">
+                      [matTooltip]="row.ready ? w.readyUndo : w.readyTip"
+                      [attr.aria-label]="w.readyLabel">
                 <td-icon name="check" [size]="13"></td-icon>
               </button>
             } @else if (row.state !== 'left') {
@@ -67,15 +68,15 @@
                   <td-icon name="flask" [size]="14"></td-icon>
                 </button>
                 <button class="td-tool is-sm" type="button" (click)="toggleGift(row.id)"
-                        [matTooltip]="'Send ' + row.name + ' credits'" [attr.aria-label]="'Send ' + row.name + ' credits'"
+                        [matTooltip]="w.sendTo(row.name)" [attr.aria-label]="w.sendTo(row.name)"
                         [attr.aria-expanded]="giftTo() === row.id">
                   <td-icon name="coin" [size]="14"></td-icon>
                 </button>
                 @if (coop.isHost()) {
                   <!-- Two clicks: a player who holds everyone up goes, their lane closes (relay review M4) -->
                   <button class="td-tool is-sm" type="button" (click)="kick(row.id)" [class.is-armed]="armedKick() === row.id"
-                          [matTooltip]="armedKick() === row.id ? 'Click again to take ' + row.name + ' out of the game' : 'Take ' + row.name + ' out of the game'"
-                          [attr.aria-label]="armedKick() === row.id ? 'Click again to take ' + row.name + ' out of the game' : 'Take ' + row.name + ' out of the game'">
+                          [matTooltip]="armedKick() === row.id ? w.kickAgain(row.name) : w.kick(row.name)"
+                          [attr.aria-label]="armedKick() === row.id ? w.kickAgain(row.name) : w.kick(row.name)">
                     <td-icon name="cross" [size]="14"></td-icon>
                   </button>
                 }
@@ -88,17 +89,17 @@
       </ul>
 
       @if (giftTo(); as to) {
-        <div class="gift td-inline" role="group" [attr.aria-label]="'Send ' + nameOf(to) + ' credits'">
-          <span class="td-note">To {{ nameOf(to) }}</span>
+        <div class="gift td-inline" role="group" [attr.aria-label]="w.sendTo(nameOf(to))">
+          <span class="td-note">{{ w.to(nameOf(to)) }}</span>
           @for (amount of amounts; track amount) {
             <button class="td-btn-secondary td-btn-sm" type="button" [disabled]="amount > myGold()" (click)="give(to, amount)">{{ amount }}</button>
           }
           <!-- Any amount (TODO E36) -->
           <form class="gift-any" (submit)="$event.preventDefault(); giveAny(to)">
             <input class="td-input is-sm gift-input" type="number" min="1" [max]="myGold()" step="1" inputmode="numeric"
-                   aria-label="Credits to send" placeholder="Amount"
+                   [attr.aria-label]="w.amountLabel" [placeholder]="w.amount"
                    [value]="anyAmount() ?? ''" (input)="setAnyAmount($any($event.target).value)">
-            <button class="td-btn-secondary td-btn-sm" type="submit" [disabled]="!canGiveAny()">Send</button>
+            <button class="td-btn-secondary td-btn-sm" type="submit" [disabled]="!canGiveAny()">{{ w.send }}</button>
           </form>
         </div>
       }
@@ -108,9 +109,9 @@
         @if (footer(); as f) {
           <span>{{ f.lead }}<b>{{ f.bold }}</b>{{ f.text }}</span>
           @if (coop.lostInGame()) {
-            <button class="td-btn-primary td-btn-sm" type="button" (click)="coop.continueAlone()">Continue alone</button>
+            <button class="td-btn-primary td-btn-sm" type="button" (click)="coop.continueAlone()">{{ w.continueAlone }}</button>
           } @else if (f.key) {
-            <kbd class="td-kbd">Space</kbd>
+            <kbd class="td-kbd">{{ t().onboarding.caps.space }}</kbd>
           }
         }
       </footer>
