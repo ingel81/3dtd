@@ -2048,6 +2048,9 @@ export const de: Messages = {
       layers: 'Ebenen',
       resetCamera: 'Kamera zurücksetzen',
       developer: 'Entwickleroptionen',
+      destruction: 'Zerstörung',
+      destructionTile: 'Zerstören',
+      destructionTip: 'Zerstörung: Explosionen per Klick, HP und Stufe eines Bauwerks',
     },
     losFilter: {
       both: 'Beide Ebenen',

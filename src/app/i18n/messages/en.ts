@@ -2178,6 +2178,9 @@ export const en = {
       layers: 'Layers',
       resetCamera: 'Reset camera',
       developer: 'Developer options',
+      destruction: 'Destruction',
+      destructionTile: 'Destroy',
+      destructionTip: "Destruction: blasts by click, a structure's HP and stage",
     },
     losFilter: {
       both: 'Both layers',

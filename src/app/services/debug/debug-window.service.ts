@@ -18,7 +18,7 @@ export interface DebugWindowState {
   size: WindowSize;
 }
 
-export type DebugWindowId = 'camera' | 'wave' | 'sound' | 'events' | 'devworld' | 'bots' | 'tower' | 'enemy' | 'display' | 'performance' | 'los';
+export type DebugWindowId = 'camera' | 'wave' | 'sound' | 'events' | 'devworld' | 'bots' | 'tower' | 'enemy' | 'display' | 'performance' | 'los' | 'destruction';
 
 /** Shared lower bound for every debug panel, used by CSS, resize and storage. */
 export const DEBUG_PANEL_MIN_SIZE: Readonly<WindowSize> = { width: 300, height: 200 };
@@ -39,6 +39,7 @@ const DEFAULT_POSITIONS: Record<DebugWindowId, WindowPosition> = {
   display: { x: 20, y: 300 },
   performance: { x: 380, y: 80 },
   los: { x: 340, y: 80 },
+  destruction: { x: 340, y: 120 },
 };
 
 // Sized so the content fits without horizontal scrolling, including room
@@ -55,6 +56,7 @@ const DEFAULT_SIZES: Record<DebugWindowId, WindowSize> = {
   display: { width: 300, height: 520 },
   performance: { width: 320, height: 700 },
   los: { width: 460, height: 540 },
+  destruction: { width: 340, height: 360 },
 };
 
 /**
@@ -92,6 +94,7 @@ export class DebugWindowService {
   readonly displayWindow = computed(() => this.windowStates()['display']);
   readonly performanceWindow = computed(() => this.windowStates()['performance']);
   readonly losWindow = computed(() => this.windowStates()['los']);
+  readonly destructionWindow = computed(() => this.windowStates()['destruction']);
 
   // Check if any window is open
   readonly hasOpenWindows = computed(() =>

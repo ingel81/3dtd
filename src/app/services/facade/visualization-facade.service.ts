@@ -47,6 +47,7 @@ import { CorridorConsole } from '../debug/corridor-console';
 import { CorridorLodProbe } from '../debug/corridor-lod-probe';
 import { TilesConsole } from '../debug/tiles-console';
 import { CellReportService } from '../debug/cell-report.service';
+import { DestructionToolService } from '../debug/destruction-tool.service';
 import { CorridorSnapshotService } from '../debug/corridor-snapshot.service';
 import { CorridorSnapshotReader } from '../debug/corridor-snapshot-reader';
 import { TowerTargetConsole } from '../debug/tower-target-console';
@@ -118,6 +119,7 @@ export class VisualizationFacadeService {
   private readonly engineStore = inject(EngineStore);
   private readonly relocationStatus = inject(RelocationStatusService);
   private readonly cellReport = inject(CellReportService);
+  private readonly destructionTool = inject(DestructionToolService);
   private readonly corridorSnapshot = inject(CorridorSnapshotService);
   private readonly sim = inject(SimClient);
   private readonly gridViz = inject(RouteGridVizService);
@@ -517,6 +519,11 @@ export class VisualizationFacadeService {
       drag: (rect) => this.cellReport.box.set(rect),
       select: (rect) => this.cellReport.select(rect),
       end: () => this.cellReport.stop(),
+    });
+
+    this.inputHandler.setDestructionToolCallbacks({
+      active: () => this.destructionTool.active(),
+      click: (lat: number, lon: number, height: number) => this.destructionTool.click(lat, lon, height),
     });
 
     this.inputHandler.initKeyboard({

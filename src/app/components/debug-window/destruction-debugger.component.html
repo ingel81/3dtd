@@ -1,0 +1,94 @@
+@if (windowService.destructionWindow().isOpen) {
+  <app-draggable-debug-panel
+    windowId="destruction"
+    title="Destruction"
+    icon="burst"
+    [position]="windowService.destructionWindow().position"
+    [zIndex]="windowService.destructionWindow().zIndex"
+    (closed)="windowService.close('destruction')"
+    (positionChange)="windowService.updatePosition('destruction', $event)"
+    (focused)="windowService.bringToFront('destruction')"
+  >
+    <div class="destruction-debug-content">
+      <!-- Blast: a click on the map sets it off -->
+      <div class="td-group">
+        <div class="td-section td-inline">Blast</div>
+        <div class="tool-row">
+          <div class="td-seg is-sm" role="radiogroup" aria-label="Blast" tdRovingGroup data-test="destruction-blast">
+            @for (blast of blasts; track blast) {
+              <button type="button" role="radio" [attr.aria-checked]="tool.blast() === blast" (click)="tool.blast.set(blast)">
+                {{ blastNames[blast] }}
+              </button>
+            }
+          </div>
+          <button class="td-btn-secondary td-btn-sm"
+                  [class.is-on]="tool.mode() === 'blast'"
+                  [attr.aria-pressed]="tool.mode() === 'blast'"
+                  (click)="tool.setMode('blast')"
+                  title="Click the map to set it off" aria-label="Set off blasts by click"
+                  data-test="destruction-blast-mode">
+            <td-icon [name]="tool.mode() === 'blast' ? 'cross' : 'burst'" [size]="14"></td-icon>
+          </button>
+        </div>
+        @if (tool.mode() === 'blast') {
+          <div class="td-note">Click the map: damage and crater as the real hit</div>
+        }
+      </div>
+
+      <!-- Structure: pick one, read its HP, set its stage -->
+      <div class="td-group">
+        <div class="td-section td-inline">Structure</div>
+        <div class="tool-row">
+          <span class="td-note pick-label">
+            @if (tool.picked(); as picked) {
+              {{ picked.hp?.id ?? '#' + picked.index }}
+            } @else {
+              None picked
+            }
+          </span>
+          <button class="td-btn-secondary td-btn-sm"
+                  [class.is-on]="tool.mode() === 'pick'"
+                  [attr.aria-pressed]="tool.mode() === 'pick'"
+                  (click)="tool.setMode('pick')"
+                  title="Click a structure to pick it" aria-label="Pick a structure by click"
+                  data-test="destruction-pick-mode">
+            <td-icon [name]="tool.mode() === 'pick' ? 'cross' : 'target'" [size]="14"></td-icon>
+          </button>
+        </div>
+        @if (tool.missed()) {
+          <div class="td-note">No structure there</div>
+        } @else if (tool.mode() === 'pick' && !tool.picked()) {
+          <div class="td-note">Click a building, wall or structure</div>
+        }
+
+        @if (tool.picked()?.hp; as hp) {
+          <div class="td-kv" data-test="destruction-hp">
+            <span>HP</span>
+            <b class="td-num">{{ hp.hp }} / {{ hp.max }} ({{ percent(hp.hp, hp.max) }} %)</b>
+          </div>
+          <div class="td-kv">
+            <span>Stage</span>
+            <b>{{ hp.stage }} {{ stageNames[hp.stage] }}</b>
+          </div>
+          <div class="td-seg is-sm" role="radiogroup" aria-label="Stage" tdRovingGroup data-test="destruction-stage">
+            @for (stage of stages; track stage) {
+              <button type="button" role="radio" [attr.aria-checked]="hp.stage === stage" (click)="tool.setStage(stage)">
+                {{ stageNames[stage] }}
+              </button>
+            }
+          </div>
+          <div class="tool-row">
+            <button class="td-btn-danger td-btn-sm" (click)="tool.setStage(3)" data-test="destruction-fell">
+              <td-icon name="skull" [size]="14"></td-icon>
+              Fell now
+            </button>
+            <button class="td-btn-secondary td-btn-sm" (click)="tool.setStage(0)" data-test="destruction-mend">
+              <td-icon name="undo" [size]="14"></td-icon>
+              Mend
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+  </app-draggable-debug-panel>
+}

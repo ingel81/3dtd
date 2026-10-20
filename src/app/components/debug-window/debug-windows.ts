@@ -17,3 +17,4 @@ export { EnemyDebuggerComponent } from './enemy-debugger.component';
 export { DisplayOptionsComponent } from './display-options.component';
 export { PerformanceDebuggerComponent } from './performance-debugger.component';
 export { LosDebuggerComponent } from './los-debugger.component';
+export { DestructionDebuggerComponent } from './destruction-debugger.component';

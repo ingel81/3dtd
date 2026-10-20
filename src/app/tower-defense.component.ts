@@ -42,6 +42,7 @@ import {
   DisplayOptionsComponent,
   PerformanceDebuggerComponent,
   LosDebuggerComponent,
+  DestructionDebuggerComponent,
 } from './components/debug-window/debug-windows';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
 import { DEBUG_CREDITS_STEPS, DEBUG_HEALTH_STEPS, debugCheatAmount } from './components/quick-actions/debug-cheat-amount';
@@ -184,6 +185,7 @@ import { tipFor } from './services/onboarding/onboarding';
     DisplayOptionsComponent,
     PerformanceDebuggerComponent,
     LosDebuggerComponent,
+    DestructionDebuggerComponent,
     QuickActionsComponent,
     InfoOverlayComponent,
     ContextHintComponent,

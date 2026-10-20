@@ -308,6 +308,18 @@
         <td-icon name="share" [size]="18"></td-icon>
         <span class="td-caps">Events</span>
       </button>
+      <!-- Destruction: blasts by click, a structure's HP and stage (only where structures fall) -->
+      @if (worldContext.provider()?.capabilities?.destructible) {
+        <button class="td-icon-btn qa-tile"
+                [class.is-on]="debugWindows.destructionWindow().isOpen"
+                (click)="debugWindows.toggle('destruction')"
+                [matTooltip]="t().hud.quick.destructionTip"
+                matTooltipPosition="left"
+                [attr.aria-label]="t().hud.quick.destruction" [attr.aria-pressed]="debugWindows.destructionWindow().isOpen">
+          <td-icon name="burst" [size]="18"></td-icon>
+          <span class="td-caps">{{ t().hud.quick.destructionTile }}</span>
+        </button>
+      }
       <!-- Cell report: grid cells by click or Shift drag, as JSON to the clipboard -->
       <button class="td-icon-btn qa-tile"
               [class.is-on]="cellReport.active()"

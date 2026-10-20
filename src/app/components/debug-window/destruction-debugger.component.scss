@@ -1,0 +1,21 @@
+// Layout of the destruction window: the blast and its mode button on one
+// row, the picked structure with its HP, its stage and the two quick buttons.
+
+.destruction-debug-content {
+  min-width: 300px;
+}
+
+.tool-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+
+  .td-seg {
+    flex: 1;
+  }
+}
+
+.pick-label {
+  flex: 1;
+  min-width: 0;
+}

@@ -75,6 +75,7 @@ import { EnemyDebugService } from '../debug/enemy-debug.service';
 import { TowerDebugService } from '../debug/tower-debug.service';
 import { DebugFacadeService } from '../debug/debug-facade.service';
 import { CellReportService } from '../debug/cell-report.service';
+import { DestructionToolService } from '../debug/destruction-tool.service';
 import { CorridorSnapshotService } from '../debug/corridor-snapshot.service';
 import { LosDebugService } from '../debug/los-debug.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
@@ -259,6 +260,7 @@ describe('VisualizationFacadeService', () => {
     initKeyboard: vi.fn(),
     armPick: vi.fn(),
     setCellReportCallbacks: vi.fn(),
+    setDestructionToolCallbacks: vi.fn(),
     dispose: vi.fn(),
   };
   const cellReport = {
@@ -411,6 +413,7 @@ describe('VisualizationFacadeService', () => {
         { provide: EngineStore, useValue: engineStore },
         { provide: RelocationStatusService, useValue: relocationStatus },
         { provide: CellReportService, useValue: cellReport },
+        { provide: DestructionToolService, useValue: { active: () => false, click: vi.fn() } },
         { provide: CorridorSnapshotService, useValue: corridorSnapshot },
       ],
     });

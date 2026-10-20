@@ -55,6 +55,14 @@ export interface CellReportInputCallbacks {
   end: () => void;
 }
 
+/** What a left click does while the dev tools' destruction tool is on (DestructionToolService) */
+export interface DestructionToolInputCallbacks {
+  /** A mode is on: a left click on the ground goes to the tool */
+  active: () => boolean;
+  /** A left click on the ground (or a roof) at geo (`lat`, `lon`, `height`) */
+  click: (lat: number, lon: number, height: number) => void;
+}
+
 /**
  * InputHandlerService
  *
@@ -139,6 +147,8 @@ export class InputHandlerService {
 
   /** The cell report: its clicks and its Shift drag (CellReportService) */
   private cellReport: CellReportInputCallbacks | null = null;
+  /** The destruction tool: its clicks (DestructionToolService) */
+  private destructionTool: DestructionToolInputCallbacks | null = null;
   /** Where the cell report's Shift drag went down, null while none runs */
   private reportDragStart: { x: number; y: number } | null = null;
 
@@ -264,6 +274,14 @@ export class InputHandlerService {
    */
   setCellReportCallbacks(callbacks: CellReportInputCallbacks): void {
     this.cellReport = callbacks;
+  }
+
+  /**
+   * Set up the destruction tool's clicks: while one of its modes is on, a
+   * left click on the ground goes to it, no selection, no building
+   */
+  setDestructionToolCallbacks(callbacks: DestructionToolInputCallbacks): void {
+    this.destructionTool = callbacks;
   }
 
   /**
@@ -418,6 +436,15 @@ export class InputHandlerService {
     if (this.cellReport?.active()) {
       const hit = this.engine.picker.raycastTerrain(event.clientX, event.clientY);
       if (hit) this.cellReport.click(hit);
+      return;
+    }
+
+    // So does the destruction tool: a blast there, or the structure there picked
+    if (this.destructionTool?.active()) {
+      const hit = this.engine.picker.raycastTerrain(event.clientX, event.clientY);
+      if (!hit) return;
+      const at = this.engine.sync.localToGeo(hit);
+      this.destructionTool.click(at.lat, at.lon, at.height);
       return;
     }
 
