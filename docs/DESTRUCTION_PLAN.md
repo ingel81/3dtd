@@ -204,26 +204,63 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   Ruine zeigt ihr Modell bis zur Sichtweite, ohne Impostor oder Fern-Kasten. Gebäude aus dem eigenen Grundriss
   (`mass-layer.ts`) gehen ebenso: ihre Instanzen schrumpfen im intakten Batch auf null, die Ruinen werden als kleiner
   eigener Batch neu gebaut (eine Handvoll Gebäude, nicht die Karte); eine Wand eines Gefallenen wird an der Bruchkante in
-  Stumpf und Oberteil geteilt.
-- **Je Instanz drei vec4** (`aDamage`: Stufe, Fallstart, Richtung, Bruchhöhe; `aDamageB`: Mitte und Radius des Bisses;
-  `aDamageC`: Mitte, Abstand zur Kippkante, Falldauer), im Rahmen der Gruppe, für Modelle und Wände gleich. Die Form
-  würfelt `ruinShape` auf der CPU aus der Id (oder `damageSeed`) und dem Grundrechteck: Richtung, Stumpf 1,5 bis 4 m
-  (höchstens 55 % der Höhe), Biss in der oberen Ecke zur Kipprichtung, Falldauer 1,2 bis 2,5 s. Jeder Partner und jedes
-  Replay sieht dieselbe Ruine. Die Richtung ist die des Treffers, der die Stufe ausgelöst hat (siehe „Richtung“),
+  Stumpf und Oberteil geteilt, und an den Höhen, an denen die Einsturzvarianten den Oberteil quer teilen
+  (`collapseCuts`), so liegt jedes Wandstück in einem Teil.
+- **Je Instanz vier vec4** (`aDamage`: Stufe, Fallstart, Richtung, Bruchhöhe; `aDamageB`: Mitte und Radius des Bisses;
+  `aDamageC`: Mitte, Abstand zur Kippkante, Falldauer; `aDamageD`: Wurf 0 bis 1, Sitz, Oberkante), im Rahmen der
+  Gruppe, für Modelle und Wände gleich. Die Form würfelt `ruinShape` auf der CPU aus der Id (oder `damageSeed`) und dem
+  Grundrechteck: Richtung, Stumpf 1,5 bis 4 m (höchstens 55 % der Höhe), Biss in der oberen Ecke zur Kipprichtung,
+  Falldauer 1,2 bis 2,5 s, dazu der Wurf, aus dem der Shader die Varianten je Gebäude streut (`collapseRoll`: Wurf mal
+  Faktor plus k mal 0,618, der Bruchteil; einfache Rechnung, so kommen Float und Double auf dieselben Schnitthöhen).
+  Jeder Partner und jedes Replay sieht dieselbe Ruine; in der Simulation kommt nichts dazu. Die Richtung ist die des Treffers, der die Stufe ausgelöst hat (siehe „Richtung“),
   die Saat würfelt sie nur, wo keiner bekannt ist.
 - **Stufe 1:** Risse aus einer gezeichneten Kachel (`crack-texture.ts`: Linien, die laufen und knicken, rot Haarrisse,
   grün lange Risse; im Code gezeichnet, kein Rauschen) von drei Seiten in Metern, dichter zur Kipprichtung; Ruß in
   Flecken, matt; Nachtfenster aus.
 - **Stufe 2:** der Biss aus der Ecke, Kante gezackt nach Winkel und Höhe, verkohlt, an wenigen Stellen glühend; innen
-  die Wand gedimmt (Rückseiten). Decken je Stockwerk (3 m) über dem Grundrechteck und Innenwände, je eine quer zu
-  jeder Seite, die für zwei Räume lang genug ist (über 5 m), bis unter die Traufe (62 % der Höhe), aus der Saat versetzt
-  (`ruin-slabs.ts`, ein Draw Call für alle Ruinen, Haus und Grundriss-Gebäude gleich), mit kleinerem Biss, so ragen sie
-  ins Loch.
-- **Stufe 3:** was über der gezackten Bruchkante steht, kippt starr um den Fuß der Seite, zu der es fällt, und sinkt
-  dabei (im Vertex-Shader aus Fallstart und Uhr, keine CPU je Bild); die Dreiecke über der Kante gehen während des Falls,
-  danach ist der Teil über der Kante weg. Der Stumpf bleibt mit den Decken, die ganz darin liegen; der Schutthaufen
+  die Wand gedimmt (Rückseiten). Decken je Stockwerk (3 m) und Innenwände, je eine quer zu jeder Seite, die für zwei
+  Räume lang genug ist (über 5 m), bis unter die Traufe (62 % der Höhe, höchstens 92 % der niedrigsten Höhe über
+  ihrer Linie), aus der Saat versetzt (`ruin-slabs.ts`, ein Draw Call für alle Ruinen, Haus und Grundriss-Gebäude
+  gleich), mit kleinerem Biss, so ragen sie ins Loch. Sie folgen dem Grund des Gebäudes (E259), nicht seinem
+  Rechteck: eine Decke ist eine Handvoll Kästen über den Zellen des Dachrasters (`roof` im Katalog, `massRoof` beim
+  Grundriss-Gebäude), über denen das Gebäude mindestens 0,6 m höher steht (`footprintRects`: Läufe je Zeile, gleiche
+  Läufe zu einem Kasten, Enden in der Mitte der letzten Zelle, im Grundrechteck); eine Innenwand der Lauf auf ihrer
+  Linie, der der Mitte am nächsten liegt (`wallSpan`). Bei einem Modell zählt dazu sein waagrechter Schnitt 0,5 m über
+  der Decke (`ruin-section.ts`, einmal je Modell und Höhe): das Raster sieht von oben, ein Zinnenkranz oder eine Traufe
+  reicht über die Wand darunter hinaus. Der Schnitt nimmt je Zeile die Spanne vom ersten bis zum letzten Schnittpunkt,
+  0,3 m Wand weniger, so teilen Treppen, Balken oder Schutt drinnen keine Zeile. Der Rundturm hat so runde Decken in
+  seiner Wand (vorher ragten die Ecken des Quadrats als Simse heraus), ein offenes Hochhaus keine, wo es offen ist; ohne
+  Raster das Rechteck wie bisher.
+- **Stufe 3:** was über der gezackten Bruchkante steht, fällt (im Vertex-Shader aus Fallstart, den Zahlen der Instanz und
+  der Uhr, keine CPU je Bild); danach ist der Teil über der Kante weg. Wie es fällt, ist eine von vier Varianten (E259,
+  noch zur Wahl, siehe „Einsturzvarianten“); Standard ist `tip`: es kippt starr um den Fuß der Seite, zu der es fällt,
+  und sinkt dabei, die Dreiecke über der Kante gehen während des Falls. Der Stumpf bleibt mit den Decken, die ganz darin liegen; der Schutthaufen
   (Z3) liegt darin. Ein Gefallener sperrt nicht mehr das Bauen (`CustomMapSurface.setObjectCatalog`), `FALLEN_SCALE`
   bleibt nur für Objekte, die ein Wellen-Ereignis verbirgt.
+- **Einsturzvarianten** (E259, zur Wahl; `COLLAPSE_VARIANTS`, ein Uniform `uCollapse`, also keine weiteren Programme
+  und Umschalten mitten im Fall): ein Stück wird je Dreieck nach seinem Anker gewählt (`aDamageAnchor`): bei Modellen die
+  Mitte des Dreiecks (der Ruinen-Batch zeichnet das Modell mit eigenen Ecken je Dreieck, `ruinGeometry`, einmal je
+  Geometrie), bei Wänden, Dächern, Simsen und Decken die Mitte der Instanz; so bleibt ein Dreieck ganz, die Bruchlinien
+  folgen dem Netz.
+  - `tip` (bisher): starr um den Fuß, sinkt.
+  - `sag`: kommt Stockwerk um Stockwerk von oben in sich zusammen, jedes ein kurzer Ruck und ein Halt, schneller werdend,
+    die Seite, zu der es sich neigt, zuerst; was unten ist, wird gestaucht, beult nach außen und sinkt am Ende in den
+    Stumpf. Jeder Punkt für sich (stetig), so bleiben die Wände ganz und knicken; 1,25 mal die Falldauer.
+  - `chunks`: der Oberteil zerbricht an einem Schnitt quer zur Richtung und einem längs in Stücke, die nacheinander
+    kippen, eines dreht stärker, sein oberes Stück bricht vorher ab; die Rückwand steht einen Moment länger und fällt
+    ins Loch. Die Stücke landen (Fall auf den Boden, ein Stoß) und zerbröseln (Fragment nach Korn, verkohlt am Rand).
+    1,9 mal die Falldauer.
+  - `tip-break`: kippt wie `tip`, bricht aber in zwei oder drei Bänder (`collapseCuts`), die nachhängen (die Fuge öffnet
+    vorn), liegt flach, die Bänder auseinander gerutscht, setzt auf und zerbröselt. 1,9 mal die Falldauer.
+  - In `chunks` und `tip-break` geht ein Dreieck über der Bruchkante ganz mit der Seite seines Ankers, statt zu
+    verschwinden (Stützen eines Gerippes fallen mit), was eines stehenden darüber reicht, geht.
+  - Umschalten: Fenster „Destruction“, Zeile „Collapse“ (Tip, Sag, Chunks, Tip+break), in der Adresse `?collapse=sag`,
+    in DevTools `__worldDamage.collapse('chunks')`. Vergleich: `e2e/perf/collapse-probe.ts` lässt dieselben Gebäude in
+    jeder Variante aus derselben Richtung fallen und nimmt je Fall einen Clip auf.
+  - Gemessen (Ruined City, Chrome, 60 Hz): kein Bild über 16,7 ms während eines Falls in jeder Variante, ohne Aufnahme;
+    keine neuen Programme, die Draw Calls je Asset und Stufe wie vorher (keine neuen Meshes). Kosten: größerer Vertex-Shader der Ruinen
+    (nur Ruinen zeichnen ihn), ein vec4 und ein vec3 mehr je Ecke bzw. Instanz, die Ruinen-Modelle ohne Index
+    (bis dreimal so viele Ecken, nur in den Ruinen-Batches).
 - **Glutnester** (`EffectLayer.setRuinEmbers`): Glut und eine dünne Rauchfahne in den zwölf neuesten Ruinen ab Stufe 2,
   tief im Biss, bei einem Gefallenen im Stumpf.
 - **Sichtlinie und Schatten:** was weg ist, sperrt die Sicht der Tower nicht (`LosVertexPatch` mit Fragment-Teil und
@@ -232,7 +269,10 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   (`CustomMapViewOptions.standingGround`); ein Stumpf bleibt, wo das Haus stand.
 - **Vorab übersetzt:** die Ruinen-Batches zerstörbarer Assets entstehen leer mit der Karte, die Grundriss-Gebäude bekommen
   verborgene Ruinen je Fassade und Dachdeckung, die Decken und Glutnester je einen verborgenen Platzhalter; das
-  Warm-up zeigt sie und baut ihre Programme.
+  Warm-up zeigt sie und baut ihre Programme, auch die des Schattens: es zeigt dazu auch die Sichtblocker, die `attach`
+  neben die Gruppe hebt (dort warten die Ruinen der Grundriss-Gebäude), und gibt den eigenen Tiefenmaterialien der Ruinen
+  Seite und Karten, wie der Schattendurchgang es tut (`asShadowPass`). Vorher baute der erste Fall eines
+  Grundriss-Gebäudes drei Schattenprogramme im Bild (67 ms, mit den größeren Shadern der Varianten 180 bis 270 ms).
 - **Uhr:** `DAMAGE_UNIFORMS.uDamageTime` läuft mit der Ansicht; ein Fall `now` beginnt jetzt, Stufen nach Laden, Sprung
   oder Restore liegen schon (`FELL_LONG_AGO`).
 - **Später:** Bewehrungsstäbe an der Kante, springendes Glas.

@@ -7,6 +7,7 @@ import type { Tower } from '../entities/tower.entity';
 import type { TowerChange } from '../sim/client/mirror/sim-mirror';
 import { MAP_METERS_PER_DEGREE } from '../world/custom-map/map-document';
 import { RUBBLE_COLOURS, type RubbleMaterial } from '../world/custom-map/rubble-material';
+import { collapseVariant, setCollapseVariant, type CollapseVariant } from '../world/custom-map/render/objects/ruin-damage';
 import { DESTRUCTION_SOUNDS } from '../configs/audio.config';
 import type { RunStructure } from '../sim/protocol/run-rules';
 import type { DebugBlast, StructureStage } from '../configs/destruction.config';
@@ -134,6 +135,11 @@ export class WorldDamagePresenter {
         if (s) bus.emit({ type: 'debug:set-structure-stage', index, stage, lat: s.lat, lon: s.lon });
       },
       hp: (index: number) => this.hpOf(index),
+      // How buildings fall from now on (E259): 'tip', 'sag', 'chunks', 'tip-break'
+      collapse: (v?: CollapseVariant) => {
+        if (v) setCollapseVariant(v);
+        return collapseVariant();
+      },
     };
   }
 

@@ -1,4 +1,4 @@
-import { BoxGeometry, Group, InstancedMesh, Mesh, MeshStandardMaterial, PlaneGeometry, type Material } from 'three';
+import { BoxGeometry, CylinderGeometry, Group, InstancedMesh, Mesh, MeshStandardMaterial, PlaneGeometry, type Material } from 'three';
 import { describe, expect, it } from 'vitest';
 import { MASS_ASSET, type MapMass, type MapObject } from '../../map-document';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
@@ -7,9 +7,14 @@ import { MapAssetLibrary } from '../map-asset-library';
 import { CRACK_SIZE, crackTexels } from './crack-texture';
 import { massShape, splitWalls } from './mass-layer';
 import { MapObjectLayer } from './object-layer';
-import { RuinSlabs } from './ruin-slabs';
+import { footprintRects, RuinSlabs, type FootprintRect, type RuinFootprint } from './ruin-slabs';
+import { modelSection } from './ruin-section';
+import type { CatalogRoof } from '../../object-roof';
 import { CustomMapDestruction } from '../../custom-map-destruction';
-import { DAMAGE_LOS, FELL_LONG_AGO, ruinSeed, ruinShape, sceneHeading, structureSeed } from './ruin-damage';
+import {
+  COLLAPSE_VARIANTS, collapseCuts, collapseRoll, collapseSeconds, collapseVariant, DAMAGE_ATTRIBUTES, DAMAGE_LOS, DAMAGE_UNIFORMS, damageArrays, FELL_LONG_AGO,
+  readDamage, ruinGeometry, ruinSeed, ruinShape, sceneHeading, setCollapseVariant, structureSeed, writeDamage, type DamageArrays,
+} from './ruin-damage';
 
 const entry = (id: string, category: CatalogObject['category'], file: string, extra: Partial<CatalogObject> = {}): CatalogObject => ({
   id,
@@ -236,10 +241,12 @@ describe('ruin damage: raised buildings', () => {
     expect(ruins.reduce((n, m) => n + m.count, 0)).toBe(perBuilding);
     expect((ruins[0].geometry.getAttribute('aDamage').array as Float32Array)[0]).toBe(2);
 
-    // Fallen: the four facades split at the break line
+    // Fallen: the four facades split at the break line and where the collapse variants cut it across
     layer.setDamage([{ id: 'm2', stage: 3, fallStart: 4 }]);
     ruins = massMeshes(los, true).filter((m) => m.visible);
-    expect(ruins.reduce((n, m) => n + m.count, 0)).toBe(perBuilding + 4);
+    const fallen = readDamage(DAMAGE_ATTRIBUTES.map((a) => ruins[0].geometry.getAttribute(a).array) as unknown as DamageArrays, 0);
+    expect(collapseCuts(fallen).length).toBeGreaterThan(0);
+    expect(ruins.reduce((n, m) => n + m.count, 0)).toBe(perBuilding + 4 * (1 + collapseCuts(fallen).length));
 
     // Whole again (a new run): everything built anew, no ruins shown
     layer.setDamage([{ id: 'm2', stage: 0, fallStart: FELL_LONG_AGO }]);
@@ -341,5 +348,138 @@ describe('ruin damage: floors and inner walls', () => {
     // The block (20 x 12 m, 12 m high): three floors, two inner walls; the house (6 x 4 m, 8 m high): two floors, one wall
     expect(slabs.count).toBe(5 + 3);
     layer.dispose();
+  });
+});
+
+describe('ruin damage: the collapse variants', () => {
+  const frame = { cx: 10, cz: -4, ax: 6, az: 0, bx: 0, bz: 4, seatY: 5, height: 18 };
+
+  it('rolls the same numbers for the same id on every partner, another building others', () => {
+    const a = ruinShape(structureSeed('b1'), frame, 1.2);
+    expect(ruinShape(structureSeed('b1'), frame, 1.2)).toEqual(a);
+    expect(a.roll).toBe(Math.fround(a.roll));
+    expect(a.roll).toBeGreaterThanOrEqual(0);
+    expect(a.roll).toBeLessThan(1);
+    expect([a.seatY, a.topY]).toEqual([5, 23]);
+    const rolls = new Set(Array.from({ length: 50 }, (_, k) => ruinShape(structureSeed(`b${k}`), frame, 1.2).roll));
+    expect(rolls.size).toBe(50);
+  });
+
+  it('writes the roll, seat and top into the fourth attribute and reads them back', () => {
+    const s = ruinShape(structureSeed('b1'), frame);
+    const arrays = damageArrays(2);
+    writeDamage(arrays, 1, 3, 7, s);
+    expect(readDamage(arrays, 1)).toEqual(Object.fromEntries(Object.entries(s).map(([k, v]) => [k, Math.fround(v)])));
+    expect(DAMAGE_ATTRIBUTES).toHaveLength(arrays.length);
+  });
+
+  it('cuts the upper part across between the break line and the top, the same heights from the same roll', () => {
+    for (let k = 0; k < 100; k++) {
+      const s = ruinShape(structureSeed(`c${k}`), frame);
+      const cuts = collapseCuts(s);
+      expect(collapseCuts({ ...s })).toEqual(cuts);
+      // Three for a building over 9 m above its break line, rising, each inside the upper part
+      expect(cuts).toHaveLength(3);
+      for (let i = 0; i < cuts.length; i++) {
+        expect(cuts[i]).toBeGreaterThan(s.breakY);
+        expect(cuts[i]).toBeLessThan(s.topY);
+        if (i) expect(cuts[i]).toBeGreaterThanOrEqual(cuts[i - 1]);
+      }
+      // The shader's rolls: the roll times its multiplier plus k times 0.618, its fraction
+      expect(collapseRoll(s.roll, 1)).toBeCloseTo((s.roll * 7 + 0.618) % 1, 9);
+    }
+    // A low shed: one cut only
+    expect(collapseCuts(ruinShape(structureSeed('shed'), { ...frame, height: 5 }))).toHaveLength(1);
+  });
+
+  it('switches the variant every ruin draws by one uniform, as the window does', () => {
+    expect(COLLAPSE_VARIANTS).toEqual(['tip', 'sag', 'chunks', 'tip-break']);
+    setCollapseVariant('chunks');
+    expect(DAMAGE_UNIFORMS.uCollapse.value).toBe(2);
+    expect(collapseVariant()).toBe('chunks');
+    expect(collapseSeconds(2)).toBeCloseTo(3.8);
+    setCollapseVariant('tip');
+    expect(collapseSeconds(2)).toBe(2);
+  });
+
+  it('gives a model ruin its triangles on corners of their own, each carrying its middle', () => {
+    const source = new BoxGeometry(2, 4, 2);
+    const g = ruinGeometry(source);
+    expect(ruinGeometry(source)).toBe(g);
+    const p = g.getAttribute('position');
+    const a = g.getAttribute('aDamageAnchor');
+    expect(g.index).toBeNull();
+    expect(p.count).toBe(source.index!.count);
+    for (let t = 0; t < p.count; t += 3) {
+      for (let axis = 0; axis < 3; axis++) {
+        const mid = (p.getComponent(t, axis) + p.getComponent(t + 1, axis) + p.getComponent(t + 2, axis)) / 3;
+        for (let v = 0; v < 3; v++) expect(a.getComponent(t + v, axis)).toBeCloseTo(mid);
+      }
+    }
+    source.dispose();
+  });
+});
+
+describe('ruin damage: floors inside the footprint', () => {
+  /** A round tower's top grid: 16 x 16 cells of 0.5 m, 10 m high within 4 m of the middle (its battlement) */
+  const round = (): CatalogRoof => {
+    const columns = 16;
+    let bytes = '';
+    for (let j = 0; j < columns; j++) {
+      for (let i = 0; i < columns; i++) {
+        const r = Math.hypot(-4 + (i + 0.5) * 0.5, -4 + (j + 0.5) * 0.5);
+        bytes += String.fromCharCode(r < 4 ? 100 : 0);
+      }
+    }
+    return { x: -4, z: -4, cell: 0.5, columns, rows: columns, step: 0.1, heights: btoa(bytes) };
+  };
+  const square: FootprintRect = { x0: -4, x1: 4, z0: -4, z1: 4 };
+  const corners = (r: FootprintRect) => [[r.x0, r.z0], [r.x1, r.z0], [r.x0, r.z1], [r.x1, r.z1]];
+
+  it("lays a round tower's floors as boxes inside its circle, not over its ground square", () => {
+    const rects = footprintRects(round(), 3.6, square);
+    expect(rects.length).toBeGreaterThan(4);
+    for (const r of rects) for (const [x, z] of corners(r)) expect(Math.hypot(x, z)).toBeLessThan(4 + 0.25);
+    // They cover most of the circle and none overlap
+    const area = rects.reduce((sum, r) => sum + (r.x1 - r.x0) * (r.z1 - r.z0), 0);
+    expect(area / (Math.PI * 16)).toBeGreaterThan(0.75);
+    for (const a of rects) for (const b of rects) if (a !== b) expect(a.x1 <= b.x0 || b.x1 <= a.x0 || a.z1 <= b.z0 || b.z1 <= a.z0).toBe(true);
+    // None where the building is lower than the floor
+    expect(footprintRects(round(), 11, square)).toEqual([]);
+  });
+
+  it("keeps a round tower's floors inside its wall where the battlement reaches out past it", () => {
+    // A shaft of 3 m radius, 10 m high; the grid's battlement reaches 4 m
+    const shaft = new CylinderGeometry(3, 3, 10, 24, 1, true).translate(0, 5, 0);
+    const rects = footprintRects(round(), 3.6, square, modelSection([shaft], round(), 3.5));
+    expect(rects.length).toBeGreaterThan(0);
+    for (const r of rects) for (const [x, z] of corners(r)) expect(Math.hypot(x, z)).toBeLessThan(3);
+  });
+
+  it('builds the slabs and inner walls of a round building inside its circle, in the group frame', () => {
+    const slabs = new RuinSlabs();
+    const frame = { cx: 20, cz: 0, ax: 4, az: 0, bx: 0, bz: 4, seatY: 0, height: 10 };
+    const footprint: RuinFootprint = { roof: round(), box: [0, 0, 4, 4], ox: 20, oz: 0, ux: 1, uz: 0, vx: 0, vz: 1, sy: 1 };
+    slabs.set('t', frame, ruinShape(structureSeed('t'), frame), 2, FELL_LONG_AGO, 'stone', footprint);
+    const m = slabs.mesh.instanceMatrix.array;
+    const all = Array.from({ length: slabs.mesh.count }, (_, k) => k * 16);
+    // A floor is thin: the corners of its box within the circle round (20, 0)
+    const floors = all.filter((at) => m[at + 5] < 0.3);
+    expect(floors.length).toBeGreaterThan(4);
+    for (const at of floors) {
+      for (const [sx, sz] of [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]]) {
+        const x = m[at + 12] + m[at] * sx + m[at + 8] * sz;
+        const z = m[at + 14] + m[at + 2] * sx + m[at + 10] * sz;
+        expect(Math.hypot(x - 20, z)).toBeLessThan(4.25);
+      }
+    }
+    // The inner walls end inside it too, below the eaves
+    const walls = all.filter((at) => m[at + 5] >= 0.3);
+    expect(walls.length).toBeGreaterThan(0);
+    for (const at of walls) {
+      for (const end of [-0.5, 0.5]) expect(Math.hypot(m[at + 12] + m[at + 8] * end - 20, m[at + 14] + m[at + 10] * end)).toBeLessThan(4.25);
+      expect(m[at + 5]).toBeLessThanOrEqual(10 * 0.62 + 1e-6);
+    }
+    slabs.dispose();
   });
 });

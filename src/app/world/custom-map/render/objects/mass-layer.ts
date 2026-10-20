@@ -20,7 +20,7 @@ import {
   type Texture,
 } from 'three';
 import { MAP_MASS_FACADES, MASS_ASSET, type MapMass, type MapMassFacade, type MapObject } from '../../map-document';
-import { MASS_PARAPET, massBounds, massContains, massInset, massPitched, massRadius, massTop } from '../../object-mass';
+import { MASS_PARAPET, massBounds, massContains, massInset, massPitched, massRadius, massRoof, massTop } from '../../object-mass';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary, ObjectModel } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
@@ -28,8 +28,8 @@ import { mapToScene } from '../map-coords';
 import { NIGHT_WINDOW_UNIFORMS } from './night-windows';
 import { seatHeight, type ObjectFooting } from './object-seat';
 import { rubbleMaterialOf } from '../../rubble-material';
-import type { RuinSlabs } from './ruin-slabs';
-import { addDamage, DAMAGE_LOS, damageDepthMaterial, emberPoint, FELL_LONG_AGO, ruinSeed, ruinShape, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
+import type { RuinFootprint, RuinSlabs } from './ruin-slabs';
+import { addDamage, anchoredGeometry, collapseCuts, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, FELL_LONG_AGO, ruinSeed, ruinShape, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
 
 /**
  * The buildings a map raises from their own footprint (MapObject.mass,
@@ -635,16 +635,22 @@ export class MassLayer {
     const ruins = new Map<MapObject, { shape: RuinShape; stage: number; fallStart: number }>();
     const wallsOf = (o: MapObject, shape: MassShape): readonly WallPiece[] => {
       const r = ruins.get(o);
-      return r && r.stage >= 3 ? splitWalls(shape.walls, (r.shape.breakY - this.seatOf(o)) / (o.scale || 1), SPLIT_GAP / (o.scale || 1)) : shape.walls;
+      if (!r || r.stage < 3) return shape.walls;
+      // At the break line, and where the collapse variants part the upper part across (collapseCuts)
+      const seat = this.seatOf(o);
+      const scale = o.scale || 1;
+      let walls = shape.walls;
+      for (const y of [r.shape.breakY, ...collapseCuts(r.shape)]) walls = splitWalls(walls, (y - seat) / scale, SPLIT_GAP / scale);
+      return walls;
     };
     if (ruin) {
       for (const o of objects) {
         const d = this.damaged.get(o.id);
-        const { frame, shape } = this.ruinOf(o, d?.heading ?? null);
+        const { frame, shape, footprint } = this.ruinOf(o, d?.heading ?? null);
         ruins.set(o, { shape, stage: d?.stage ?? 0, fallStart: d?.fallStart ?? FELL_LONG_AGO });
         if (!d) continue;
         this.ruinShapes.set(o.id, { shape, seat: frame.seatY });
-        this.damageOptions.slabs?.set(o.id, frame, shape, d.stage, d.fallStart, rubbleMaterialOf(o));
+        this.damageOptions.slabs?.set(o.id, frame, shape, d.stage, d.fallStart, rubbleMaterialOf(o), footprint);
       }
     }
     // Count the instances per batch first: one allocation each
@@ -660,18 +666,16 @@ export class MassLayer {
     /** A ruin batch's damage attributes, four floats per instance each */
     const damageOf = (mesh: InstancedMesh, count: number): DamageArrays | null => {
       if (!ruin) return null;
-      const arrays: DamageArrays = [new Float32Array(count * 4), new Float32Array(count * 4), new Float32Array(count * 4)];
-      mesh.geometry.setAttribute('aDamage', new InstancedBufferAttribute(arrays[0], 4));
-      mesh.geometry.setAttribute('aDamageB', new InstancedBufferAttribute(arrays[1], 4));
-      mesh.geometry.setAttribute('aDamageC', new InstancedBufferAttribute(arrays[2], 4));
+      const arrays = damageArrays(count);
+      DAMAGE_ATTRIBUTES.forEach((name, k) => mesh.geometry.setAttribute(name, new InstancedBufferAttribute(arrays[k], 4)));
       return arrays;
     };
     const walls = new Map<MapMassFacade, { batch: Batch; a: Float32Array; b: Float32Array; damage: DamageArrays | null; n: number }>();
     for (const [facade, count] of wallCount) {
       const surface = surfaces.get(FACADE_SURFACE[facade]);
       if (!surface || !count) continue;
-      // Own geometry per mesh: its instance attributes ride on it
-      const geometry = UNIT_QUAD.clone();
+      // Own geometry per mesh: its instance attributes ride on it; a ruin's wall goes whole with its piece
+      const geometry = ruin ? anchoredGeometry(UNIT_QUAD, 0.5, 0.5, 0) : UNIT_QUAD.clone();
       const a = new Float32Array(count * 4);
       const b = new Float32Array(count * 4);
       geometry.setAttribute('aWall', new InstancedBufferAttribute(a, 4));
@@ -685,7 +689,7 @@ export class MassLayer {
     for (const [covering, count] of roofCount) {
       const surface = surfaces.get(`mass-roof-${covering}`);
       if (!surface || !count) continue;
-      const geometry = UNIT_TRIANGLE.clone();
+      const geometry = ruin ? anchoredGeometry(UNIT_TRIANGLE, 1 / 3, 0, 1 / 3) : UNIT_TRIANGLE.clone();
       geometry.userData['owned'] = true;
       const mesh = new InstancedMesh(geometry, this.roofMaterial(covering, surface, ruin), count);
       if (ruin) mesh.customDepthMaterial = this.ruinDepthMaterial();
@@ -696,7 +700,7 @@ export class MassLayer {
     let caps: { batch: Batch; damage: DamageArrays | null; n: number } | null = null;
     if (plinth && capCount) {
       // A ruin's caps have attributes of their own: their geometry is a copy
-      const geometry = ruin ? UNIT_FLAT.clone() : UNIT_FLAT;
+      const geometry = ruin ? anchoredGeometry(UNIT_FLAT, 0.5, 0, 0.5) : UNIT_FLAT;
       if (ruin) geometry.userData['owned'] = true;
       const mesh = new InstancedMesh(geometry, this.capMaterial(plinth, ruin), capCount);
       if (ruin) mesh.customDepthMaterial = this.ruinDepthMaterial();
@@ -819,8 +823,12 @@ export class MassLayer {
     return all;
   }
 
-  /** A raised building's ruin: its outline's rectangle in the frame `build` set up (this.m), rolled from its id */
-  private ruinOf(o: MapObject, heading: number | null): { frame: RuinFrame; shape: RuinShape } {
+  /**
+   * A raised building's ruin: its outline's rectangle in the frame `build`
+   * set up (this.m), rolled from its id, and its outline's top grid for the
+   * floors inside (massRoof)
+   */
+  private ruinOf(o: MapObject, heading: number | null): { frame: RuinFrame; shape: RuinShape; footprint: RuinFootprint } {
     const mass = o.mass!;
     const scale = o.scale || 1;
     mapToScene(o.x, o.y, this.seatOf(o), this.v);
@@ -842,7 +850,8 @@ export class MassLayer {
       seatY: e[13],
       height: massTop(mass) * scale,
     };
-    return { frame, shape: ruinShape(ruinSeed(o), frame, heading) };
+    const footprint: RuinFootprint = { roof: massRoof(mass), box: [mx, mz, hx, hz], ox: e[12], oz: e[14], ux: e[0], uz: e[2], vx: e[8], vz: e[10], sy: scale };
+    return { frame, shape: ruinShape(ruinSeed(o), frame, heading), footprint };
   }
 
   /** The sun's shadow of ruined roofs and copings */
@@ -960,8 +969,9 @@ function disposeBatch(b: Batch): void {
 /**
  * A fallen building's walls: each that crosses the break line `at` (over
  * the seat, the building's units) as its stump and the piece above, a
- * `gap` apart, so each piece lies wholly on one side of it. Gables stay
- * whole: they rise from the eaves, above any break line but a low hut's
+ * `gap` apart, so each piece lies wholly on one side of it; the same for a
+ * cut above it (collapseCuts). Gables stay whole: they rise from the
+ * eaves, above any break line but a low hut's
  */
 export function splitWalls(walls: readonly WallPiece[], at: number, gap: number): WallPiece[] {
   const out: WallPiece[] = [];
@@ -971,7 +981,7 @@ export function splitWalls(walls: readonly WallPiece[], at: number, gap: number)
       continue;
     }
     // Both keep the wall's top for its storeys and cornice; the upper one's metres start at its bottom
-    out.push({ ...p, top: at - gap / 2, wallTop: p.top }, { ...p, bottom: at + gap / 2, wallTop: p.top, lift: -(at + gap / 2) });
+    out.push({ ...p, top: at - gap / 2, wallTop: p.wallTop ?? p.top }, { ...p, bottom: at + gap / 2, wallTop: p.wallTop ?? p.top, lift: -(at + gap / 2) });
   }
   return out;
 }

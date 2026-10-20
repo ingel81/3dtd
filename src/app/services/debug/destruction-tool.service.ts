@@ -3,6 +3,7 @@ import { SimClient } from '../../sim/client/sim-client.service';
 import { PresentationService } from '../../presentation/presentation.service';
 import type { StructureHp } from '../../presentation/world-damage-presenter';
 import type { DebugBlast, StructureStage } from '../../configs/destruction.config';
+import { COLLAPSE_VARIANTS, collapseVariant, setCollapseVariant, type CollapseVariant } from '../../world/custom-map/render/objects/ruin-damage';
 
 /** What a click on the map does while the tool is on: set off a blast there, or pick the structure there */
 export type DestructionToolMode = 'blast' | 'pick';
@@ -41,9 +42,22 @@ export class DestructionToolService {
   readonly picked = signal<PickedStructure | null>(null);
   /** The pick missed: no structure under the click */
   readonly missed = signal(false);
+  /** How a building falls (E259, to choose from): every view draws it, `?collapse=sag` in the address starts with one */
+  readonly collapse = signal<CollapseVariant>(collapseVariant());
 
   private unsubscribe: (() => void) | null = null;
   private presenter: unknown = null;
+
+  constructor() {
+    const asked = new URLSearchParams(globalThis.location?.search ?? '').get('collapse');
+    if (asked && (COLLAPSE_VARIANTS as readonly string[]).includes(asked)) this.setCollapse(asked as CollapseVariant);
+  }
+
+  /** The collapse variant of every fall from now on, the one under way too: a uniform, no program changes */
+  setCollapse(v: CollapseVariant): void {
+    setCollapseVariant(v);
+    this.collapse.set(v);
+  }
 
   /** The tool takes the clicks */
   active(): boolean {

@@ -46,8 +46,10 @@ import type { SharedDraws } from './shared-draws';
 import { nextFrameOrTimeout } from '../../../../utils/next-frame';
 import { DESTRUCTIBLE_CATEGORIES } from '../../custom-map-destruction';
 import { rubbleMaterialOf } from '../../rubble-material';
-import { RuinSlabs } from './ruin-slabs';
-import { addDamage, DAMAGE_LOS, damageDepthMaterial, emberPoint, FELL_LONG_AGO, readDamage, RUIN_EMBERS, ruinSeed, ruinShape, writeDamage, type DamageArrays } from './ruin-damage';
+import { RuinSlabs, type RuinFootprint } from './ruin-slabs';
+import { modelSection } from './ruin-section';
+import type { CatalogRoof } from '../../object-roof';
+import { addDamage, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, FELL_LONG_AGO, readDamage, RUIN_EMBERS, ruinGeometry, ruinSeed, ruinShape, writeDamage, type DamageArrays } from './ruin-damage';
 
 /**
  * The placed objects of a map, drawn instanced: per asset, detail level and
@@ -814,7 +816,8 @@ export class MapObjectLayer {
     const entry = model.entry;
     const drawn = (m: ObjectModel) =>
       mergedParts(m).map((p) => ({
-        geometry: p.geometry,
+        // A ruin's triangles each on their own corners, which know the triangle's middle (the collapse's pieces)
+        geometry: ruin ? ruinGeometry(p.geometry) : p.geometry,
         material: this.objectMaterial(p.material, entry, ruin),
         depthMaterial: ruin ? this.ruinDepthMaterial() : isRotor(p.material) ? this.rotorShadow(entry) : undefined,
       }));
@@ -853,7 +856,7 @@ export class MapObjectLayer {
     const capacity = listCapacity(n);
     const vegetation = entry.category === 'tree' || entry.category === 'plant';
     const tinted = vegetation || objects.some((o) => o.tint);
-    const damage: DamageArrays | null = ruin ? [new Float32Array(capacity * 4), new Float32Array(capacity * 4), new Float32Array(capacity * 4)] : null;
+    const damage: DamageArrays | null = ruin ? damageArrays(capacity) : null;
     const b: AssetBatch = {
       entry,
       model,
@@ -884,16 +887,12 @@ export class MapObjectLayer {
   /** The list and part meshes of one level, empty: the next pass fills them */
   private buildDraw(b: AssetBatch, level: Level, li: number): LevelDraw {
     if (level.shared) return this.sharedDraw(b, level, li);
-    const list = new InstanceList(b.capacity, !!b.source.colors, b.ruin ? [4, 4, 4] : []);
+    const list = new InstanceList(b.capacity, !!b.source.colors, b.ruin ? DAMAGE_ATTRIBUTES.map(() => 4) : []);
     const parent = b.blocksLos ? this.losGroup : this.group;
     const meshes = level.parts.map((part) => {
       // Made empty: the level's list brings the instances (three's own would be thrown away at once)
       const geometry = fadeGeometry(part.geometry, list.fades);
-      if (b.ruin) {
-        geometry.setAttribute('aDamage', list.extras[0]);
-        geometry.setAttribute('aDamageB', list.extras[1]);
-        geometry.setAttribute('aDamageC', list.extras[2]);
-      }
+      if (b.ruin) DAMAGE_ATTRIBUTES.forEach((name, k) => geometry.setAttribute(name, list.extras[k]));
       const mesh = new InstancedMesh(geometry, part.material, 0);
       if (part.depthMaterial) mesh.customDepthMaterial = part.depthMaterial;
       // What is gone of a ruin does not block the towers' sight
@@ -1000,7 +999,7 @@ export class MapObjectLayer {
     b.source.matrices = keep(b.source.matrices, 16, 0);
     if (b.source.colors) b.source.colors = keep(b.source.colors, 3, 1);
     if (b.damage) {
-      b.damage = [keep(b.damage[0], 4, 0), keep(b.damage[1], 4, 0), keep(b.damage[2], 4, 0)];
+      b.damage = [keep(b.damage[0], 4, 0), keep(b.damage[1], 4, 0), keep(b.damage[2], 4, 0), keep(b.damage[3], 4, 0)];
       b.source.extras = b.damage;
     }
     b.spheres = keep(b.spheres, 4, 0);
@@ -1250,8 +1249,17 @@ export class MapObjectLayer {
     const stage = d?.stage ?? 0;
     const fallStart = d?.fallStart ?? FELL_LONG_AGO;
     writeDamage(b.damage!, i, stage, fallStart, shape);
-    // Floors inside a building, not a wall's
-    if (b.entry.category === 'building') this.slabs?.set(o.id, frame, shape, stage, fallStart, rubbleMaterialOf(o, b.entry.tags));
+    // Floors inside a building, not a wall's, over its top grid where the catalogue has one
+    if (b.entry.category !== 'building' || !this.slabs) return;
+    const roof = b.entry.roof;
+    const footprint: RuinFootprint | null = roof
+      ? {
+        roof, box: [mx, mz, hx, hz], ox: m[at + 12], oz: m[at + 14], ux: m[at], uz: m[at + 2], vx: m[at + 8], vz: m[at + 10],
+        sy: Math.hypot(m[at + 4], m[at + 5], m[at + 6]),
+        section: (y) => sectionOf(b.model, roof, y),
+      }
+      : null;
+    this.slabs.set(o.id, frame, shape, stage, fallStart, rubbleMaterialOf(o, b.entry.tags), footprint);
   }
 
   /** The shadow pass's material for an asset's rotor parts, shared by assets turning as fast */
@@ -1553,6 +1561,18 @@ function addGrime(m: Material): void {
 function addWindowGlow(m: Material, source: Material): void {
   if (m.userData['nightGlow']) addNightWindows(m, true);
   else if (isWindowGlass(source.name)) addNightWindows(m, false);
+}
+
+const sections = new WeakMap<ObjectModel, Map<number, Uint8Array>>();
+
+/** A model's section at a model height on its top grid (ruin-section.ts), once per model and height (to the centimetre) */
+function sectionOf(model: ObjectModel, roof: CatalogRoof, y: number): Uint8Array {
+  let byHeight = sections.get(model);
+  if (!byHeight) sections.set(model, (byHeight = new Map()));
+  const key = Math.round(y * 100);
+  let mask = byHeight.get(key);
+  if (!mask) byHeight.set(key, (mask = modelSection(model.parts.map((p) => p.geometry), roof, key / 100)));
+  return mask;
 }
 
 const merged = new WeakMap<ObjectModel, ModelPart[]>();

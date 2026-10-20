@@ -35,6 +35,18 @@
         }
       </div>
 
+      <!-- Collapse: how a building falls, for every fall from now on (E259) -->
+      <div class="td-group">
+        <div class="td-section td-inline">Collapse</div>
+        <div class="td-seg is-sm" role="radiogroup" aria-label="Collapse" tdRovingGroup data-test="destruction-collapse">
+          @for (collapse of collapses; track collapse) {
+            <button type="button" role="radio" [attr.aria-checked]="tool.collapse() === collapse" (click)="tool.setCollapse(collapse)">
+              {{ collapseNames[collapse] }}
+            </button>
+          }
+        </div>
+      </div>
+
       <!-- Structure: pick one, read its HP, set its stage -->
       <div class="td-group">
         <div class="td-section td-inline">Structure</div>
