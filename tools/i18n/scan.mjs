@@ -268,7 +268,7 @@ const UNGUARDED = new Set(['dev', 'agent']);
  * text the scan finds there fails the guard unless tools/i18n/allowed.mjs
  * names it with why. An area joins once its texts are in the dictionary.
  */
-export const CLOSED_AREAS = new Set(['menus', 'dialogs', 'coop', 'mapops', 'editor', 'hud']);
+export const CLOSED_AREAS = new Set(['menus', 'dialogs', 'coop', 'mapops', 'editor', 'hud', 'sim']);
 
 /** Texts by file, sorted and unique, of the areas `keep` lets through */
 function textsBy(root, keep) {

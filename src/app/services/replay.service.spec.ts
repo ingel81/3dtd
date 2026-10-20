@@ -295,7 +295,7 @@ describe('ReplayService.enter gate', () => {
 
   it('switches the wave of a loaded file without letting go of the file', async () => {
     rpc.mockImplementation(async (method: string, wave?: number) => {
-      if (method === 'loadReplayFile') return { refusal: null, note: null, waves: [1, 2] };
+      if (method === 'loadReplayFile') return { refusal: null, notes: [], waves: [1, 2] };
       return method === 'replayEnter' ? { wave, startStep: 0, lengthInSteps: 100, waves: [1, 2], markers: [] } : null;
     });
     await service.loadFile(new Blob(['{}']));
@@ -310,7 +310,7 @@ describe('ReplayService.enter gate', () => {
 
   it('lets the simulation drop a loaded file that could not be entered', async () => {
     rpc.mockImplementation(async (method: string) =>
-      (method === 'loadReplayFile' ? { refusal: null, note: 'other version', waves: [1] } : null));
+      (method === 'loadReplayFile' ? { refusal: null, notes: [{ key: 'oldChecksums' }], waves: [1] } : null));
     introActive.set(true);
 
     await service.loadFile(new Blob(['{}']));
@@ -327,8 +327,8 @@ describe('ReplayService.enter gate', () => {
     rpc.mockImplementation(async (method: string, wave?: number) => {
       if (method === 'loadReplayFile') {
         return here === place.world.worldKey
-          ? { refusal: null, note: null, waves: [1], place: null }
-          : { refusal: 'other-world', note: null, waves: [], place };
+          ? { refusal: null, notes: [], waves: [1], place: null }
+          : { refusal: 'other-world', notes: [], waves: [], place };
       }
       return method === 'replayEnter' ? { wave, startStep: 0, lengthInSteps: 100, waves: [1], markers: [] } : null;
     });
@@ -351,7 +351,7 @@ describe('ReplayService.enter gate', () => {
   it('does not offer to go to a place of another world, and says why the file does not load', async () => {
     const place = { name: 'Witch Marsh', world: { worldKey: 'w-marsh', hq: { lat: 0, lon: 0 }, spawns: [] } };
     rpc.mockImplementation(async (method: string) =>
-      (method === 'loadReplayFile' ? { refusal: 'other-world', note: null, waves: [], place } : null));
+      (method === 'loadReplayFile' ? { refusal: 'other-world', notes: [], waves: [], place } : null));
     loader.worldHere.mockReturnValue('It plays the map "Witch Marsh", which is not open here. Open that map first.');
 
     await service.loadFile(new Blob(['{}']));

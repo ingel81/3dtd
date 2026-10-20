@@ -302,9 +302,9 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     // Another game version loads, with a note that it may differ
     const other = readReplayFile(text, { world: TEST_WORLD_REF, worldKey: head.worldKey, configHash: 'balance', gameVersion: 'v0.5.0' });
     expect(other.refusal).toBeNull();
-    expect(other.refusal === null && other.note).toContain('v0.4.0');
+    expect(other.refusal === null && other.notes).toEqual([{ key: 'version', v: { saved: 'v0.4.0', here: 'v0.5.0' } }]);
     const same = readReplayFile(text, { world: TEST_WORLD_REF, worldKey: head.worldKey, configHash: 'balance', gameVersion: 'v0.4.0' });
-    expect(same.refusal === null && same.note).toBeNull();
+    expect(same.refusal === null && same.notes).toEqual([]);
     expect(same.file!.waves[0].hashes.length).toBeGreaterThan(0);
   });
 
@@ -319,7 +319,7 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     old.waves[0].hashes = old.waves[0].hashes.map((hash) => hash ^ 1);
     const read = readReplayFile(JSON.stringify(old), { world: TEST_WORLD_REF, worldKey: head.worldKey, configHash: 'balance', gameVersion: 'v0.4.0' });
     expect(read.refusal).toBeNull();
-    expect(read.refusal === null && read.note).toContain('older kind');
+    expect(read.refusal === null && read.notes).toEqual([{ key: 'oldChecksums' }]);
 
     const resim = new Resimulation(gsm.resimHost, read.file!.waves[0], read.file!.log);
     resim.start();

@@ -21,6 +21,7 @@ const KIND = 'a kind of landmark as an id; the frame words it (osm.landmarks)';
 const SIGN = 'the words on a shop sign in the world, as the place itself would write them';
 const NOTE = 'a note for the map makers in the code; no player reads it';
 const CONSOLE = 'the answer of the developer console (__corridor, __routes) or a corridor trace label, English like the debug windows (docs/I18N_PLAN.md 4.10)';
+const WHY_WAVE = "the wave source's reasons for a wave, for the wave debug window and the run log, English (docs/I18N_PLAN.md 4.10)";
 const PLACE_DATA = 'a fixed name a place or spawn carries as data (saves, the world package); the HUD words it on display (i18n/place-names.ts)';
 
 export const ALLOWED = {
@@ -180,4 +181,31 @@ export const ALLOWED = {
     'unmeasured: street width': CONSOLE, 'unmeasured: from neighbours': CONSOLE, 'low obstacle, raised behind': CONSOLE, 'dip closed': CONSOLE,
     'bulge cut': CONSOLE, 'no wall within the maximum': CONSOLE, 'wall less margin': CONSOLE, 'leg to the HQ: street width': CONSOLE,
   },
+  // Simulation (worker, director, simulator)
+  'director/sources/budget/budget-source.ts': {
+    'Run plan with budget': WHY_WAVE, ' × map difficulty {} %': WHY_WAVE, 'Run plan, row {}: {}, every {} ms.': WHY_WAVE,
+    'Budget {} s of defense damage (curve × strength {}{} × loop ×{}).': WHY_WAVE,
+    'The defense has about {} s while the wave is on the route: {} s are sent (that time × the loop, leaks included).': WHY_WAVE,
+    'At their limit (time under fire): {}.': WHY_WAVE, 'Boss floor ({}× the toughest escort, at least {}× its base): {}.': WHY_WAVE,
+    "The defense cannot hurt {}: HP × the row's strength {}.": WHY_WAVE, 'Blood moon: {}': WHY_WAVE,
+  },
+  'director/sources/table/table-source.ts': {
+    'Wave table': WHY_WAVE, 'Wave list, row {}: {}.': WHY_WAVE, 'Past the list (last row W{}): row {} runs again, round {}.': WHY_WAVE,
+    ' (row ×{}, grown {} round(s))': WHY_WAVE, 'Spawn every {} ms, so the wave takes about ': WHY_WAVE,
+    'Written down, not sized against the defense: the same wave number is always the same wave.': WHY_WAVE,
+  },
+  'director/wave-explanation.ts': {
+    ' (its lowest)': WHY_WAVE, ' (its highest)': WHY_WAVE, 'Still counting: {} of {} waves measured, the first wave is skipped.': WHY_WAVE,
+    'The budget stays at {} until then.': WHY_WAVE, '; the last wave alone {}': WHY_WAVE, 'The last waves cost {} of the HP on average, the target is {}{}.': WHY_WAVE,
+    'Too easy: the budget goes up {} to {}{}.': WHY_WAVE, 'Too hard: the budget goes down {} to {}{}.': WHY_WAVE,
+    'Too easy, but every enemy type was already at its limit, so more budget would not make the wave harder: it stays at {}{}.': WHY_WAVE,
+    'Close enough to the target: the budget stays at {}{}.': WHY_WAVE,
+  },
+  'managers/audio/spatial-audio-playback.ts': { 'distance {}m exceeds max {}m': DIAG, 'projectile budget {}/{}': DIAG, 'play() silent fail': DIAG },
+  'sim/client/sim-client.service.ts': { 'the simulation did not start: {}': DETAIL },
+  'sim/client/transport.ts': {
+    'worker: a message from the simulation could not be read': DETAIL, 'simulation worker stopped': DETAIL, 'simulation stopped: {}': DETAIL,
+  },
+  'sim/core/sim-core.ts': { Simulation: DIAG },
+  'sim/worker/sim.worker.ts': { 'simulation worker: a message from the main thread could not be read': DETAIL },
 };

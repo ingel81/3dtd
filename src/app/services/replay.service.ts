@@ -36,6 +36,7 @@ import { SimClient } from '../sim/client/sim-client.service';
 import { TowerSelectionService } from './tower-selection.service';
 import type { ReplayEntered } from '../sim/protocol/messages';
 import { injectT } from '../i18n/i18n.service';
+import { say } from '../i18n/said';
 
 /** Wall-clock ms between two updates of the replay bar while it plays */
 const BAR_REFRESH_MS = 50;
@@ -477,7 +478,7 @@ export class ReplayService {
       }
       this.fileProblem.set(null);
       // Another version loads; the bar says it may differ
-      this.fileNote.set(read.note);
+      this.fileNote.set(read.notes.length ? read.notes.map((n) => say(this.t().hud.replay.note, n)).join(' ') : null);
       this.file = true;
       this.fromFile.set(true);
       await this.enterAny(read.waves[0]);

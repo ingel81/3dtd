@@ -11,7 +11,7 @@ import type { SimFramePacket } from './packet';
 import type { ReplayMarker } from '../../replay/replay-bar-view';
 import type { WireFrame } from './wire';
 import type { WorldRef } from '../../world/world-ref';
-import type { ReplayPlace } from '../../simulator/replay-file';
+import type { ReplayNote, ReplayPlace } from '../../simulator/replay-file';
 import type { RunRules } from './run-rules';
 import type { WaveTable } from '../../director/sources/table/wave-table';
 
@@ -172,7 +172,7 @@ export interface SimRpc {
   /** The run's (or the loaded file's) replayable waves as a replay file's text; null when there is none */
   replayFile(head: { configHash: string; gameVersion: string; commit: string; world: WorldRef; place?: ReplayPlace }): { text: string; waves: number[] } | null;
   /** `place`: where a file refused as of another world was played, when it says (version 4 on) */
-  loadReplayFile(text: string, here: { configHash: string; gameVersion: string; world: WorldRef }): { refusal: string | null; note: string | null; waves: number[]; place: ReplayPlace | null };
+  loadReplayFile(text: string, here: { configHash: string; gameVersion: string; world: WorldRef }): { refusal: string | null; notes: ReplayNote[]; waves: number[]; place: ReplayPlace | null };
   /**
    * Keep the live state, put the simulation at the wave's start in replay
    * mode. `file`: a replay file's text read before (loadReplayFile) instead

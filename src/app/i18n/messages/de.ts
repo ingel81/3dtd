@@ -5,6 +5,7 @@ import { HERO } from '../../configs/hero.config';
 import { DATES, en, type Messages } from './en';
 import { gold, teal, tip } from '../../components/main-menu/loading/field-tips';
 import { CATALOG_DE } from './catalog-de';
+import { say } from '../said';
 
 const f = formatters('de');
 
@@ -1489,6 +1490,21 @@ export const de: Messages = {
         default: return '?';
       }
     },
+    waveTable: {
+      empty: 'die Liste ist leer',
+      hpGrowth: 'cycle.hpGrowth muss positiv sein',
+      twice: (v) => `Welle ${v.wave}: doppelt gelistet`,
+      order: (v) => `Welle ${v.wave}: falsche Reihenfolge, steht nach ${v.after}`,
+      noEnemies: (v) => `Welle ${v.wave}: keine Gegner`,
+      unknownEnemy: (v) => `Welle ${v.wave}: unbekannter Gegnertyp „${v.type}“`,
+      count: (v) => `Welle ${v.wave}: „${v.type}“ hat die Anzahl ${v.count}`,
+      hpMult: (v) => `Welle ${v.wave}: hpMult ${f.num(v.hpMult, 2)}`,
+      spawnDelay: (v) => `Welle ${v.wave}: spawnDelay ${f.int(v.delay)} liegt unter ${f.int(v.min)} ms`,
+      tooLong: (v) => `Welle ${v.wave}: ${f.int(v.total)} Gegner alle ${f.int(v.delay)} ms laufen über die Grenze von ${f.int(v.cap)} ms`,
+      variation: (v) => `Welle ${v.wave}: spawnDelayVariation ${f.num(v.variation, 2)} liegt nicht zwischen 0 und 0,5`,
+      start: (v) => `die Liste beginnt bei Welle ${v.first}, nicht bei 1`,
+      cycleFrom: (v) => `cycle.fromWave ${v.from} liegt hinter der letzten Welle ${v.last}`,
+    },
     issues: {
       mapFile: (v) => `Die Karte lässt sich nicht speichern: ${v.problem}.`,
       mapValues: (v) => `Wird beim nächsten Öffnen richtiggestellt: ${v.problem}.`,
@@ -1512,7 +1528,7 @@ export const de: Messages = {
       objectOnMover: (v) => `${v.count === 1 ? 'Ein Objekt steht' : `${v.count} Objekte stehen`} im Weg einer fahrenden Lebensroute (Rover, Karren) und würden durchfahren (${v.assets}). Objekte von der Route nehmen oder die Route drumherum legen.`,
       dangerColor: (v) => `${v.count === 1 ? 'Eine rote Pflanze steht' : `${v.count} rote Pflanzen stehen`} an einer Straße; Rot heißt dort Gefahr. Andere Farbe nehmen oder wegrücken.`,
       sceneCost: (v) => `Szenenkosten ${v.percent} %: mehr, als eine Karte flüssig zeichnet. Zuerst Gebäude, Bäume und Kleinkram ausdünnen (Kartenpanel, Budget).`,
-      waveList: (v) => `Wellenliste: ${v.problem}`,
+      waveList: (v) => `Wellenliste: ${say(de.check.waveTable, v.problem)}`,
       unknownTowers: (v) => `Unbekannte Turmarten erlaubt: ${v.list}`,
       noShootingTower: () => 'Kein schießender Turm ist erlaubt.',
       lanesMin: (v) => `Mindestens ${v.min} Wege sollen offen sein, aber die Karte hat ${v.spawns} Spawns.`,
@@ -3624,6 +3640,10 @@ export const de: Messages = {
         'other-world': 'Dieses Replay wurde auf einer anderen Karte gespielt. Lade zuerst denselben Ort.',
         'other-balance': 'Dieses Replay wurde mit anderen Tower- oder Gegnerwerten gespielt.',
         empty: 'Dieses Replay enthält keine Welle.',
+      },
+      note: {
+        version: (v) => `Gespeichert mit ${v.saved}, dies ist ${v.here}: Das Replay kann abweichen.`,
+        oldChecksums: 'Seine Prüfsummen sind von älterer Art: Es läuft ohne Prüfung auf Abweichung.',
       },
     },
     page: {

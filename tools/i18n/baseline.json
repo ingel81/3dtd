@@ -162,17 +162,6 @@
  "desktop/src/window-state.js": [
   "use strict"
  ],
- "director/sources/budget/budget-source.ts": [
-  " × map difficulty {} %",
-  "At their limit (time under fire): {}.",
-  "Blood moon: {}",
-  "Boss floor ({}× the toughest escort, at least {}× its base): {}.",
-  "Budget {} s of defense damage (curve × strength {}{} × loop ×{}).",
-  "Run plan with budget",
-  "Run plan, row {}: {}, every {} ms.",
-  "The defense cannot hurt {}: HP × the row's strength {}.",
-  "The defense has about {} s while the wave is on the route: {} s are sent (that time × the loop, leaks included)."
- ],
  "director/sources/budget/run-plan.json": [
   "Armor Gauntlet",
   "Armored Push",
@@ -227,45 +216,6 @@
   "Wraith Storm",
   "Zombie Horde"
  ],
- "director/sources/table/table-source.ts": [
-  " (row ×{}, grown {} round(s))",
-  "Past the list (last row W{}): row {} runs again, round {}.",
-  "Spawn every {} ms, so the wave takes about ",
-  "Wave list, row {}: {}.",
-  "Wave table",
-  "Written down, not sized against the defense: the same wave number is always the same wave."
- ],
- "director/sources/table/wave-table.ts": [
-  "cycle.fromWave {} is past the last wave {}",
-  "cycle.hpGrowth must be positive",
-  "the list is empty",
-  "the list starts at wave {}, not 1",
-  "{}: \"{}\" has count {}",
-  "{}: listed twice",
-  "{}: no enemies",
-  "{}: out of order, comes after {}",
-  "{}: spawnDelay {} is below {} ms",
-  "{}: spawnDelayVariation {} is outside 0 to 0.5",
-  "{}: unknown enemy type \"{}\"",
-  "{}: {} enemies every {} ms run past the {} ms cap"
- ],
- "director/wave-explanation.ts": [
-  " (its highest)",
-  " (its lowest)",
-  "; the last wave alone {}",
-  "Close enough to the target: the budget stays at {}{}.",
-  "Still counting: {} of {} waves measured, the first wave is skipped.",
-  "The budget stays at {} until then.",
-  "The last waves cost {} of the HP on average, the target is {}{}.",
-  "Too easy, but every enemy type was already at its limit, so more budget would not make the wave harder: it stays at {}{}.",
-  "Too easy: the budget goes up {} to {}{}.",
-  "Too hard: the budget goes down {} to {}{}."
- ],
- "managers/audio/spatial-audio-playback.ts": [
-  "distance {}m exceeds max {}m",
-  "play() silent fail",
-  "projectile budget {}/{}"
- ],
  "public/maps/index.json": [
   "A branching canyon through a red desert plain. Enemies walk the canyon floor, towers stand on the mesas; the HQ is a temple ruin by an oasis.",
   "A colony where two canyons meet. Enemies walk the canyon floors, towers stand on the benches and mesas above.",
@@ -296,23 +246,5 @@
  ],
  "services/infrastructure/engine-initialization.service.ts": [
   "Engine not configured. Please call configure() first."
- ],
- "sim/client/sim-client.service.ts": [
-  "the simulation did not start: {}"
- ],
- "sim/client/transport.ts": [
-  "simulation stopped: {}",
-  "simulation worker stopped",
-  "worker: a message from the simulation could not be read"
- ],
- "sim/core/sim-core.ts": [
-  "Simulation"
- ],
- "sim/worker/sim.worker.ts": [
-  "simulation worker: a message from the main thread could not be read"
- ],
- "simulator/replay-file.ts": [
-  "Its checksums are of an older kind: it plays without the divergence check.",
-  "Saved with {}, this is {}: the replay may differ."
  ]
 }

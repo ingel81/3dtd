@@ -1,3 +1,5 @@
+import { en } from '../../../i18n/messages/en';
+import { say } from '../../../i18n/said';
 import { describe, it, expect } from 'vitest';
 
 import { TableWaveSource } from './table-source';
@@ -42,7 +44,8 @@ describe('the wave list', () => {
         { wave: 2, name: 'again', enemies: { dragon_of_doom: 3 }, hpMult: 0, spawnDelay: 100 },
       ],
     };
-    const problems = validateWaveTable(broken);
+    // In English, as the console and the agents read them
+    const problems = validateWaveTable(broken).map((p) => say(en.check.waveTable, p));
 
     expect(problems).toContain('wave 2: listed twice');
     expect(problems).toContain('wave 2: unknown enemy type "dragon_of_doom"');

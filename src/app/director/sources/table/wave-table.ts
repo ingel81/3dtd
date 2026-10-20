@@ -16,6 +16,11 @@ import rawTable from './wave-table.json';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.config';
 import type { SpawnPattern } from '../../spawn-schedule-builder';
 import { DetMath } from '../../../utils/det-math';
+import type { Messages } from '../../../i18n/messages/en';
+import type { Said } from '../../../i18n/said';
+
+/** What is wrong with a wave list, as data: the editor's check words it, the console in English */
+export type WaveTableProblem = Said<Messages['check']['waveTable']>;
 
 /** Longest a row may take to spawn (count times spawn delay), 3 minutes. */
 export const MAX_WAVE_DURATION_MS = 180_000;
@@ -104,43 +109,41 @@ export function tableRowForWave(wave: number, table: WaveTable = WAVE_TABLE): Ta
  * Checked in a spec rather than at startup: a broken list is an authoring
  * mistake, and it should fail the build, not the run.
  */
-export function validateWaveTable(table: WaveTable = WAVE_TABLE): string[] {
-  const problems: string[] = [];
-  if (table.waves.length === 0) problems.push('the list is empty');
-  if (table.cycle.hpGrowth <= 0) problems.push('cycle.hpGrowth must be positive');
+export function validateWaveTable(table: WaveTable = WAVE_TABLE): WaveTableProblem[] {
+  const problems: WaveTableProblem[] = [];
+  if (table.waves.length === 0) problems.push({ key: 'empty' });
+  if (table.cycle.hpGrowth <= 0) problems.push({ key: 'hpGrowth' });
 
   const seen = new Set<number>();
   let previous = 0;
   for (const row of table.waves) {
-    const at = `wave ${row.wave}`;
-    if (seen.has(row.wave)) problems.push(`${at}: listed twice`);
-    seen.add(row.wave);
-    if (row.wave <= previous) problems.push(`${at}: out of order, comes after ${previous}`);
-    previous = row.wave;
+    const wave = row.wave;
+    if (seen.has(wave)) problems.push({ key: 'twice', v: { wave } });
+    seen.add(wave);
+    if (wave <= previous) problems.push({ key: 'order', v: { wave, after: previous } });
+    previous = wave;
 
     const counts = Object.values(row.enemies);
-    if (counts.length === 0) problems.push(`${at}: no enemies`);
+    if (counts.length === 0) problems.push({ key: 'noEnemies', v: { wave } });
     for (const [type, count] of Object.entries(row.enemies)) {
-      if (!ENEMY_TYPES[type as EnemyTypeId]) problems.push(`${at}: unknown enemy type "${type}"`);
-      if (!Number.isInteger(count) || count < 1) problems.push(`${at}: "${type}" has count ${count}`);
+      if (!ENEMY_TYPES[type as EnemyTypeId]) problems.push({ key: 'unknownEnemy', v: { wave, type } });
+      if (!Number.isInteger(count) || count < 1) problems.push({ key: 'count', v: { wave, type, count } });
     }
     const total = counts.reduce((sum, count) => sum + count, 0);
-    if (row.hpMult <= 0) problems.push(`${at}: hpMult ${row.hpMult}`);
+    if (row.hpMult <= 0) problems.push({ key: 'hpMult', v: { wave, hpMult: row.hpMult } });
     if (total > 1 && row.spawnDelay < MIN_SPAWN_DELAY_MS) {
-      problems.push(`${at}: spawnDelay ${row.spawnDelay} is below ${MIN_SPAWN_DELAY_MS} ms`);
+      problems.push({ key: 'spawnDelay', v: { wave, delay: row.spawnDelay, min: MIN_SPAWN_DELAY_MS } });
     }
     if (total * row.spawnDelay > MAX_WAVE_DURATION_MS) {
-      problems.push(`${at}: ${total} enemies every ${row.spawnDelay} ms run past the ${MAX_WAVE_DURATION_MS} ms cap`);
+      problems.push({ key: 'tooLong', v: { wave, total, delay: row.spawnDelay, cap: MAX_WAVE_DURATION_MS } });
     }
     if (row.spawnDelayVariation !== undefined && (row.spawnDelayVariation < 0 || row.spawnDelayVariation > 0.5)) {
-      problems.push(`${at}: spawnDelayVariation ${row.spawnDelayVariation} is outside 0 to 0.5`);
+      problems.push({ key: 'variation', v: { wave, variation: row.spawnDelayVariation } });
     }
   }
 
   const first = table.waves[0]?.wave;
-  if (first !== undefined && first !== 1) problems.push(`the list starts at wave ${first}, not 1`);
-  if (table.cycle.fromWave > previous) {
-    problems.push(`cycle.fromWave ${table.cycle.fromWave} is past the last wave ${previous}`);
-  }
+  if (first !== undefined && first !== 1) problems.push({ key: 'start', v: { first } });
+  if (table.cycle.fromWave > previous) problems.push({ key: 'cycleFrom', v: { from: table.cycle.fromWave, last: previous } });
   return problems;
 }

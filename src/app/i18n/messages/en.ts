@@ -25,6 +25,7 @@ import type { StampParts } from '../../editor/ops/stamp';
 import type { AmbientSoundId, WaveSoundId } from '../../world/custom-map/ambience/ambient-sounds';
 import type { LifeSpot } from '../../editor/ui/panels/life-panel.component';
 import type { CheckThing } from '../../map-ops/validation/check-text';
+import { say, type Said } from '../said';
 import type { CorridorStep } from '../../services/world/corridor-build';
 import type { TowerPlacementRefusal } from '../../utils/tower-placement-rules';
 import type { MapPlacementRefusal } from '../../services/world/map-placement.service';
@@ -629,6 +630,24 @@ const runLogRefusals: Record<RunLogRefusal, string> = {
   invalid: 'it is not a readable run log',
   'already-sent': 'it was sent already',
   failed: 'the coop server could not store it',
+};
+
+/** What is wrong with a wave list (validateWaveTable, check.waveTable); its own const, so the problem type does not loop through Messages */
+const waveTableWords = {
+  empty: 'the list is empty',
+  hpGrowth: 'cycle.hpGrowth must be positive',
+  twice: (v: { wave: number }) => `wave ${v.wave}: listed twice`,
+  order: (v: { wave: number; after: number }) => `wave ${v.wave}: out of order, comes after ${v.after}`,
+  noEnemies: (v: { wave: number }) => `wave ${v.wave}: no enemies`,
+  unknownEnemy: (v: { wave: number; type: string }) => `wave ${v.wave}: unknown enemy type "${v.type}"`,
+  count: (v: { wave: number; type: string; count: number }) => `wave ${v.wave}: "${v.type}" has count ${v.count}`,
+  hpMult: (v: { wave: number; hpMult: number }) => `wave ${v.wave}: hpMult ${v.hpMult}`,
+  spawnDelay: (v: { wave: number; delay: number; min: number }) => `wave ${v.wave}: spawnDelay ${v.delay} is below ${v.min} ms`,
+  tooLong: (v: { wave: number; total: number; delay: number; cap: number }) =>
+    `wave ${v.wave}: ${v.total} enemies every ${v.delay} ms run past the ${v.cap} ms cap`,
+  variation: (v: { wave: number; variation: number }) => `wave ${v.wave}: spawnDelayVariation ${v.variation} is outside 0 to 0.5`,
+  start: (v: { first: number }) => `the list starts at wave ${v.first}, not 1`,
+  cycleFrom: (v: { from: number; last: number }) => `cycle.fromWave ${v.from} is past the last wave ${v.last}`,
 };
 
 /**
@@ -1718,6 +1737,8 @@ export const en = {
         default: return '?';
       }
     },
+    /** What is wrong with a wave list (validateWaveTable), a problem by its code */
+    waveTable: waveTableWords,
     issues: {
       mapFile: (v: { problem: string }) => `The map cannot be saved: ${v.problem}.`,
       mapValues: (v: { problem: string }) => `Set right when the map opens next: ${v.problem}.`,
@@ -1743,7 +1764,7 @@ export const en = {
         `${v.count === 1 ? 'An object stands' : `${v.count} objects stand`} on the way of a moving life route (rovers, carts) and would be driven through (${v.assets}). Move them off the route or the route round them.`,
       dangerColor: (v: { count: number }) => `${v.count === 1 ? 'A red plant stands' : `${v.count} red plants stand`} by a road; red reads as danger there. Use another colour or move them away.`,
       sceneCost: (v: { percent: number }) => `Scene cost ${v.percent} %: more than a map draws fluidly. Thin out buildings, trees and props first (Map panel, Budget).`,
-      waveList: (v: { problem: string }) => `Wave list: ${v.problem}`,
+      waveList: (v: { problem: Said<typeof waveTableWords> }) => `Wave list: ${say(en.check.waveTable, v.problem)}`,
       unknownTowers: (v: { list: string }) => `Unknown tower types allowed: ${v.list}`,
       noShootingTower: () => 'No tower that shoots is allowed.',
       lanesMin: (v: { min: number; spawns: number }) => `At least ${v.min} lanes should be open, but the map has ${v.spawns} spawns.`,
@@ -3882,6 +3903,11 @@ export const en = {
         'other-balance': 'That replay was played with other tower or enemy values.',
         empty: 'That replay holds no wave.',
       } satisfies Record<ReplayFileRefusal, string>,
+      /** What a replay file that loads says about itself (ReplayNote) */
+      note: {
+        version: (v: { saved: string; here: string }) => `Saved with ${v.saved}, this is ${v.here}: the replay may differ.`,
+        oldChecksums: 'Its checksums are of an older kind: it plays without the divergence check.',
+      },
     },
     page: {
       reload: 'Reload',

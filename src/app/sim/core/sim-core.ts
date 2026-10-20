@@ -440,9 +440,9 @@ export class SimCore implements SimCoreApi {
     },
     loadReplayFile: (text, here) => {
       const read = readReplayFile(text, { worldKey: this.gsm.worldKey(), ...here });
-      if (read.refusal) return { refusal: read.refusal, note: null, waves: [], place: read.place ?? null };
+      if (read.refusal) return { refusal: read.refusal, notes: [], waves: [], place: read.place ?? null };
       this.file = { waves: read.file.waves, log: read.file.log };
-      return { refusal: null, note: read.note, waves: read.file.waves.map((wave) => wave.wave), place: null };
+      return { refusal: null, notes: read.notes, waves: read.file.waves.map((wave) => wave.wave), place: null };
     },
     replayEnter: (wave, fromFile) => this.enterReplay(wave, fromFile),
     replaySeek: (stepInWave) => {

@@ -6,6 +6,7 @@ import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import { GAME_BALANCE } from '../../../configs/game-balance.config';
 import { TOWER_TYPES } from '../../../configs/tower-types.config';
 import { WAVE_TABLE, validateWaveTable, type WaveTable } from '../../../director/sources/table/wave-table';
+import { say } from '../../../i18n/said';
 import { MAP_DIFFICULTY, STRUCTURE_HP_SCALE, type MapGameplay, type MapWaveRow, type MapWaveTable } from '../../../world/custom-map/map-document';
 import { SnapshotCommand } from '../../model/commands/snapshot';
 import { EditorSession } from '../editor-session.service';
@@ -56,7 +57,8 @@ export class GameplayPanelComponent {
   });
   readonly problems = computed(() => {
     const t = this.table();
-    return t ? validateWaveTable(t as unknown as WaveTable) : [];
+    const words = this.t();
+    return t ? validateWaveTable(t as unknown as WaveTable).map((p) => say(words.check.waveTable, p)) : [];
   });
 
   /** One undo step that changes the rules; empty rules are removed */

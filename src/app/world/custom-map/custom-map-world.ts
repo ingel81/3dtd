@@ -43,7 +43,8 @@ import { emptyPose, introPoseAt } from './map-intro';
 import { massRadius } from './object-mass';
 import { CUSTOM_MAP_CAPABILITIES, keepOpenedMap, type LoadedCustomMap } from './custom-map-start';
 import { MapStoreError } from './map-file-kind';
-import type { Messages } from '../../i18n/messages/en';
+import { en, type Messages } from '../../i18n/messages/en';
+import { say } from '../../i18n/said';
 
 /**
  * Roads the map draws itself into its ground: the debug street overlay and
@@ -563,7 +564,7 @@ export class CustomMapWorld implements WorldProvider {
     const table = waves.table as unknown as WaveTable;
     const problems = validateWaveTable(table);
     if (problems.length > 0) {
-      console.warn(`[CustomMap] the map's wave list is not used: ${problems.slice(0, 3).join('; ')}`);
+      console.warn(`[CustomMap] the map's wave list is not used: ${problems.slice(0, 3).map((p) => say(en.check.waveTable, p)).join('; ')}`);
       return difficulty !== 1 ? { source: null, ...scaled } : null;
     }
     return { source: 'table', table, ...scaled };

@@ -5,6 +5,11 @@ import { replayable, type WaveRecord } from './sim-recorder';
 import { STATE_HASH_VERSION } from './state-hash';
 import { worldRefShape, worldsMatch, type WorldRef } from '../world/world-ref';
 import { worldPackageShape, type WorldPackage } from '../coop/world-package';
+import type { Messages } from '../i18n/messages/en';
+import type { Said } from '../i18n/said';
+
+/** What a replay file that loads says about itself, as data: the replay bar words it (hud.replay.note) */
+export type ReplayNote = Said<Messages['hud']['replay']['note']>;
 
 /**
  * Bumped whenever the file's shape changes; another version is refused. 3 keeps each line of sight once in
@@ -194,7 +199,7 @@ function wellFormed(data: { waves: unknown[]; log: unknown[] }): boolean {
 export function readReplayFile(
   text: string,
   here: { worldKey: string; world: WorldRef; configHash: string; gameVersion: string },
-): { file: ReplayFile; refusal: null; note: string | null } | { file: null; refusal: ReplayFileRefusal; place?: ReplayPlace } {
+): { file: ReplayFile; refusal: null; notes: ReplayNote[] } | { file: null; refusal: ReplayFileRefusal; place?: ReplayPlace } {
   // UTF-16 code units, at least the bytes of any ASCII file: a cap for a file that came another way than loadFile
   if (text.length > MAX_REPLAY_FILE_BYTES) return { file: null, refusal: 'too-big' };
   let data: Partial<ReplayFile>;
@@ -221,16 +226,14 @@ export function readReplayFile(
   }
   if (data.configHash !== here.configHash) return { file: null, refusal: 'other-balance' };
   if (data.waves.length === 0) return { file: null, refusal: 'empty' };
-  const notes: string[] = [];
-  if (data.gameVersion && data.gameVersion !== here.gameVersion) {
-    notes.push(`Saved with ${data.gameVersion}, this is ${here.gameVersion}: the replay may differ.`);
-  }
+  const notes: ReplayNote[] = [];
+  if (data.gameVersion && data.gameVersion !== here.gameVersion) notes.push({ key: 'version', v: { saved: data.gameVersion, here: here.gameVersion } });
   const file = data as ReplayFile;
   if ((data.hashVersion ?? 1) !== STATE_HASH_VERSION) {
-    notes.push('Its checksums are of an older kind: it plays without the divergence check.');
+    notes.push({ key: 'oldChecksums' });
     file.waves = file.waves.map((wave) => ({ ...wave, hashes: [] }));
   }
-  return { file, refusal: null, note: notes.length > 0 ? notes.join(' ') : null };
+  return { file, refusal: null, notes };
 }
 
 /** `data` as a place with its world, null when it is none */
