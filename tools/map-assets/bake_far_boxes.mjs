@@ -5,7 +5,7 @@
 // LOD model to its draw distance.
 //
 // Writes tools/map-assets/farboxes.json (update_catalog.py puts it into the catalogue as `far`) and
-// public/maps/assets/models/far-boxes.ktx2 (tools/model-pack/encode-image.mjs: ETC1S or UASTC as the model textures,
+// public/maps/assets/models/far-boxes.ktx2 (tools/model-pack/encode-image.mjs, UASTC; each tile unsharp-masked,
 // needs KTX_TOOL). The models render in Playwright's Chromium (three's GLTFLoader with
 // the meshopt decoder, as the game loads them), unlit: the colour of their textures, vertex colours and
 // factors; the alpha of the atlas marks window glass (half alpha), which glows at night as on the model.
@@ -27,6 +27,8 @@ const TILE = 64;
 const COLUMNS = 16;
 /** Supersampling of each view before it is scaled down to its tile */
 const SUPER = 4;
+/** Strength of the unsharp mask on each building's tile (sharpen) */
+const SHARPEN = 0.8;
 /** Height samples per side of the grid the top is fitted to */
 const SAMPLES = 24;
 /** A model whose top strays further from the box's top than this share of its height on average keeps no box */
@@ -61,9 +63,12 @@ const PAGE = /* html */ `<!doctype html><html><body>
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 
-const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true });
+// The packed models name shared KTX2 textures (pack-map-models.mjs)
+const ktx2 = new KTX2Loader().setTranscoderPath('/node_modules/three/examples/jsm/libs/basis/').detectSupport(renderer);
+const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).setKTX2Loader(ktx2);
 renderer.setPixelRatio(1);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const glass = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
@@ -96,6 +101,29 @@ function views(c, hw, hd, y0, top) {
 }
 
 /** Colour into pixels nothing covers, from their covered neighbours, so the tile's edge and mips keep the wall's colour */
+/**
+ * An unsharp mask over the model's pixels (alpha 1): the scaled-down view loses the fine lines that make a panel
+ * of solar cells, a window's frame or a roof's tiles read as such, and a tile far off showed them as one blur (E268)
+ */
+function sharpen(px, amount) {
+  const src = px.slice();
+  for (let y = 0; y < ${TILE}; y++) for (let x = 0; x < ${TILE}; x++) {
+    const k = (y * ${TILE} + x) * 4;
+    if (src[k + 3] === 0) continue;
+    let r = 0, g = 0, b = 0, m = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= ${TILE} || ny >= ${TILE}) continue;
+      const j = (ny * ${TILE} + nx) * 4;
+      if (src[j + 3] === 0) continue;
+      r += src[j]; g += src[j + 1]; b += src[j + 2]; m++;
+    }
+    px[k] = src[k] + amount * (src[k] - r / m);
+    px[k + 1] = src[k + 1] + amount * (src[k + 1] - g / m);
+    px[k + 2] = src[k + 2] + amount * (src[k + 2] - b / m);
+  }
+}
+
 function dilate(px, n) {
   for (let pass = 0; pass < n; pass++) {
     const src = px.slice();
@@ -255,6 +283,7 @@ window.bake = async (list) => {
       const px = colour.data;
       // Pixels the model covers at least partly keep their (straight) colour, the others are filled from beside
       for (let q = 0; q < px.length; q += 4) px[q + 3] = px[q + 3] > 24 ? 1 : 0;
+      if (!row) sharpen(px, ${SHARPEN});
       const open = row ? px.filter((_, q) => q % 4 === 3).map((a) => 1 - a) : null;
       dilate(px, ${TILE});
       if (open) {
@@ -320,7 +349,8 @@ try {
   try {
     const png = path.join(work, 'far-boxes.png');
     writeFileSync(png, Buffer.from(image.split(',')[1], 'base64'));
-    execFileSync(process.execPath, [path.join(here, '..', 'model-pack', 'encode-image.mjs'), png, path.join(assets, 'models', 'far-boxes.ktx2')], { stdio: 'inherit' });
+    // UASTC: ETC1S smeared a tile's fine lines into its blocks (BC7 on the GPU either way, the same memory)
+    execFileSync(process.execPath, [path.join(here, '..', 'model-pack', 'encode-image.mjs'), png, path.join(assets, 'models', 'far-boxes.ktx2'), '--uastc'], { stdio: 'inherit' });
   } finally {
     rmSync(work, { recursive: true, force: true });
   }

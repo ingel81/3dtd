@@ -586,7 +586,10 @@ einmal). Der Editor pickt über die Grenzkugeln aller Objekte und testet die get
 **Fernstufe der Gebäude (`far-boxes.ts`, Katalog `far`):** ab dem Bildanteil `far.screen` (4,5 %) zeichnet jedes
 Katalog-Gebäude einen Kasten aus 24 Dreiecken: oben ein Raster aus 3 × 3 Höhen (Flachdach, Giebel in beide
 Richtungen, Walm, Pult), vier Wände bis zum Fundament, jede mit dem Modell von dieser Seite, oben von oben gesehen,
-fünf Kacheln von 64 px je Gebäude in einem Atlas (`models/far-boxes.ktx2`, ETC1S mit Alpha, im Grafikspeicher BC7 statt RGBA). Alle Kästen aller Assets sind EIN
+fünf Kacheln von 64 px je Gebäude in einem Atlas (`models/far-boxes.ktx2`, UASTC mit Alpha, im Grafikspeicher BC7 statt RGBA;
+jede Kachel nach dem Verkleinern mit einer Unschärfemaske geschärft, E268: ETC1S verschmierte feine Linien in seine
+Blöcke, Solarzellen, Fensterrahmen und Ziegel standen fern als ein Fleck; die Datei 0,4 → 1,5 MB, der Grafikspeicher
+gleich). Alle Kästen aller Assets sind EIN
 instanzierter Draw (je einer für Sichtblocker und die übrigen); die Form entsteht im Vertex-Shader aus der Vorlage,
 der Zeile des Assets in einer kleinen Datentextur und der Instanzmatrix, gleich im Material, im Schatten
 (`customDepthMaterial`) und im LOS-Würfel (`userData.losVertex`). Fensterglas (halbes Alpha im Atlas) leuchtet nachts
