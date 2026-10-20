@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { TdIconComponent } from '../components/icon/icon.component';
 import type { WorldId } from './world-rules';
-import { WorldsStageService } from './worlds-stage.service';
+import { WorldsStageService, continueLine, type StageContinue } from './worlds-stage.service';
 import { injectT } from '../i18n/i18n.service';
 
 /**
@@ -21,7 +21,7 @@ import { injectT } from '../i18n/i18n.service';
           <button type="button" class="td-row sc-main" data-stage-continue [attr.aria-disabled]="why() ? true : null"
                   [attr.title]="why()" (click)="stage.resume(it)">
             <span class="td-name">{{ it.label }}</span>
-            <span class="td-note td-num" [class.is-warn]="!!why()">{{ why() ?? it.line }}</span>
+            <span class="td-note td-num" [class.is-warn]="!!why()">{{ why() ?? line(it) }}</span>
           </button>
           @if (it.run) {
             <button type="button" class="td-tool" data-stage-discard [attr.aria-label]="t().worlds.discardLine(it.line)" [attr.title]="t().worlds.discardRun"
@@ -44,4 +44,9 @@ export class StageContinueComponent {
   readonly world = input.required<WorldId>();
   readonly item = computed(() => this.stage.continueOf(this.world()));
   readonly why = computed(() => this.stage.whyNot('play', this.world()));
+
+  /** "Heilbronn | wave 12 | today 6:42 PM" */
+  line(go: StageContinue): string {
+    return continueLine(this.t(), go);
+  }
 }

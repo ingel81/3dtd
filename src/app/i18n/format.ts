@@ -17,6 +17,17 @@ export interface Formatters {
   dateTime(at: string | number | Date): string;
   /** A time of day, hours and minutes ("2:41 PM" / "14:41") */
   time(at: string | number | Date): string;
+  /** A time of day without a leading zero ("9:05 AM" / "9:05") */
+  clock(at: string | number | Date): string;
+  /** A date in the dictionary's own fields ("Oct 18" / "18.10."); one Intl format per set of fields */
+  date(at: string | number | Date, fields: Intl.DateTimeFormatOptions): string;
+}
+
+/** How many calendar days `at` lies before `now` in local time (0 today, 1 yesterday; a moment ahead counts as today) and whether in the same year */
+export function calendarAge(at: string | number | Date, now: Date = new Date()): { days: number; sameYear: boolean } {
+  const then = new Date(at);
+  const day = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86_400_000;
+  return { days: Math.max(0, day(now) - day(then)), sameYear: then.getFullYear() === now.getFullYear() };
 }
 
 /** Where a text's bold part begins and ends: private-use characters no name or word carries */
@@ -47,6 +58,8 @@ export function formatters(locale: Locale): Formatters {
   const upTo = new Map<number, Intl.NumberFormat>();
   let moments: Intl.DateTimeFormat | null = null;
   let times: Intl.DateTimeFormat | null = null;
+  let clocks: Intl.DateTimeFormat | null = null;
+  const dates = new Map<string, Intl.DateTimeFormat>();
   f = {
     plural: (n, one, other) => (rules.select(n) === 'one' ? one : other),
     // Below a thousand no language groups digits: the HUD's counts skip Intl
@@ -68,6 +81,16 @@ export function formatters(locale: Locale): Formatters {
       return nf.format(n);
     },
     time: (at) => (times ??= new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' })).format(new Date(at)),
+    clock: (at) => (clocks ??= new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' })).format(new Date(at)),
+    date: (at, fields) => {
+      const key = JSON.stringify(fields);
+      let df = dates.get(key);
+      if (!df) {
+        df = new Intl.DateTimeFormat(locale, fields);
+        dates.set(key, df);
+      }
+      return df.format(new Date(at));
+    },
     dateTime: (at) => (moments ??= new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' })).format(new Date(at)),
   };
   made.set(locale, f);

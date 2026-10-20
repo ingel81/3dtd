@@ -47,6 +47,7 @@ import { WorldOsmComponent } from './world-osm.component';
 import { WorldRealComponent } from './world-real.component';
 import { WorldsStageComponent } from './worlds-stage.component';
 import { WorldsStageService } from './worlds-stage.service';
+import { en } from '../i18n/messages/en';
 
 const template = readFileSync(resolve('src/app/worlds/worlds-stage.component.html'), 'utf8');
 
@@ -302,12 +303,14 @@ describe('Worlds stage', () => {
     }];
     const f = await open({ key: true, slots });
     const first = el(f).querySelector<HTMLElement>('.ws-menu [role="menuitem"]')!;
-    expect(text(first)).toBe('Continue Heilbronn | wave 12');
+    expect(text(first)).toBe(`Continue Heilbronn | wave 12 | ${en.worlds.playedAt('2026-10-16T08:00:00Z')}`);
     expect(text(card(f, 'real'))).toContain('Heilbronn | wave 12 | autosave');
     expect(card(f, 'real').classList).toContain('is-hero');
 
     card(f, 'real').click();
     await settle(f);
+    // The world's first row says when it was last played too
+    expect(text(el(f).querySelector('[data-stage-continue]'))).toBe(`Continue Heilbronn | wave 12 | ${en.worlds.playedAt('2026-10-16T08:00:00Z')}`);
     el(f).querySelector<HTMLElement>('.wm-body .td-row:not([data-stage-continue])')!.click();
     await settle(f);
     el(f).querySelector<HTMLElement>('[data-stage-start]')!.click();
@@ -342,7 +345,7 @@ describe('Worlds stage', () => {
     const f = await open({ key: true, slots: [heilbronn()] });
     card(f, 'real').click();
     await settle(f);
-    expect(text(el(f).querySelector('[data-stage-continue]'))).toBe('Continue Heilbronn | wave 12');
+    expect(text(el(f).querySelector('[data-stage-continue]'))).toBe(`Continue Heilbronn | wave 12 | ${en.worlds.playedAt('2026-10-16T08:00:00Z')}`);
     el(f).querySelector<HTMLElement>('[data-stage-discard]')!.click();
     await settle(f);
     expect(text(el(f).querySelector('.ws-confirm'))).toContain('Discard Heilbronn | wave 12? It cannot be continued.');
@@ -365,7 +368,7 @@ describe('Worlds stage', () => {
     expect(text(el(f).querySelector('.ws-menu'))).not.toContain('Continue');
     await store.write({ ...heilbronn(), id: 'autosave-built', name: 'Demo Valley, wave 4', wave: 4, location: 'Demo Valley', map: { id: 'demo-valley', name: 'Demo Valley' }, world: 'maps' }, 'save');
     await settle(f);
-    expect(text(el(f).querySelector('.ws-menu [role="menuitem"]'))).toBe('Continue Demo Valley | wave 4');
+    expect(text(el(f).querySelector('.ws-menu [role="menuitem"]'))).toBe(`Continue Demo Valley | wave 4 | ${en.worlds.playedAt('2026-10-16T08:00:00Z')}`);
     expect(text(el(f).querySelector('.ws-chip'))).toBe('Demo Valley | wave 4 | autosave');
     expect(text(card(f, 'maps'))).toContain('Demo Valley | wave 4 | autosave');
     expect(card(f, 'maps').classList).toContain('is-hero');
@@ -480,7 +483,7 @@ describe('Worlds stage', () => {
     const f = await open({ key: true, slots: [heilbronn()] });
     session.park(held(true));
     await settle(f);
-    expect(text(el(f).querySelector('.ws-menu [role="menuitem"]'))).toBe('Continue Heilbronn | wave 4');
+    expect(text(el(f).querySelector('.ws-menu [role="menuitem"]'))).toBe(`Continue Heilbronn | wave 4 | ${en.worlds.playedAt('2026-10-16T08:00:00Z')}`);
     expect(text(el(f).querySelector('.ws-chip'))).toBe('Heilbronn | wave 4 | ready');
     card(f, 'real').click();
     await settle(f);

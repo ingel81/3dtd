@@ -80,6 +80,8 @@ export interface StageContinue {
   label: string;
   /** "Heilbronn | wave 12" */
   line: string;
+  /** When the run was last played, its save's time (ISO 8601); null without a save (a run held with none yet, a place held) */
+  at: string | null;
   /** The run behind it, for Discard */
   run: AutosaveRun | null;
 }
@@ -88,6 +90,11 @@ export interface StageContinue {
 export function chipLine(t: Messages, go: StageContinue): string {
   if (go.kind === 'back') return go.label;
   return t.worlds.chip(go.line, go.kind === 'ready');
+}
+
+/** A Continue's line with when it was last played: "Heilbronn | wave 12 | today 6:42 PM" (the menu and a world's first row) */
+export function continueLine(t: Messages, go: StageContinue): string {
+  return go.at ? `${go.line} | ${t.worlds.playedAt(go.at)}` : go.line;
 }
 
 /** The world last started, for the globes' order of sizes */
@@ -265,10 +272,10 @@ export class WorldsStageService {
       // The autosave of the held run is the one Discard drops with it
       const own = run && held.pick && run.pick && samePick(run.pick, held.pick) ? run : null;
       return held.run
-        ? { world, kind: 'ready', label: words.continue, line: words.runLine(held.label, held.wave), run: own ?? this.heldRun(held) }
-        : { world, kind: 'back', label: words.backTo(held.label), line: held.over ? words.stillLoadedOver : words.stillLoadedNoRun, run: null };
+        ? { world, kind: 'ready', label: words.continue, line: words.runLine(held.label, held.wave), at: own?.savedAt || null, run: own ?? this.heldRun(held) }
+        : { world, kind: 'back', label: words.backTo(held.label), line: held.over ? words.stillLoadedOver : words.stillLoadedNoRun, at: null, run: null };
     }
-    return run ? { world, kind: 'saved', label: words.continue, line: words.runLine(run.name, run.wave), run } : null;
+    return run ? { world, kind: 'saved', label: words.continue, line: words.runLine(run.name, run.wave), at: run.savedAt || null, run } : null;
   }
 
   /** A held run with no autosave of its own yet, as Discard and a start elsewhere see it */

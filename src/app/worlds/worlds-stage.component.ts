@@ -38,7 +38,7 @@ import { WorldOsmComponent } from './world-osm.component';
 import { WorldRealComponent } from './world-real.component';
 import { WORLD_IDS, type WorldId, type WorldPick } from './world-rules';
 import { injectT } from '../i18n/i18n.service';
-import { WorldsStageService, chipLine, type StageContinue } from './worlds-stage.service';
+import { WorldsStageService, chipLine, continueLine, type StageContinue } from './worlds-stage.service';
 import { placeLabel } from '../services/location/place-label';
 
 /** An entry of the menu on the globes */
@@ -149,7 +149,7 @@ export class WorldsStageComponent {
       ({ id, label, icon, sub: null, why: null, rule: false, run, ...extra });
     for (const go of this.stage.continues()) {
       items.push(item(`continue-${go.world}`, go.label, 'play', () => this.stage.resume(go), {
-        sub: go.line,
+        sub: continueLine(this.t(), go),
         why: this.stage.whyNot('play', go.world),
       }));
     }

@@ -1,4 +1,4 @@
-import { bold as b, formatters } from '../format';
+import { bold as b, calendarAge, formatters } from '../format';
 import type { TowerTypeId, UpgradeTerms } from '../../configs/tower-types.config';
 import type { TowerPathId } from '../../configs/tower-paths.config';
 import { HERO } from '../../configs/hero.config';
@@ -1334,6 +1334,12 @@ export const de: Messages = {
     continue: 'Weiterspielen',
     backTo: (label) => `Zurück zu ${label}`,
     runLine: (name, wave) => `${name} | Welle ${f.int(wave)}`,
+    playedAt: (at, now = new Date()) => {
+      const { days, sameYear } = calendarAge(at, now);
+      if (days === 0) return `heute ${f.clock(at)}`;
+      if (days === 1) return `gestern ${f.clock(at)}`;
+      return `${f.date(at, sameYear ? { day: '2-digit', month: '2-digit' } : { day: '2-digit', month: '2-digit', year: 'numeric' })} ${f.clock(at)}`;
+    },
     stillLoadedOver: 'Noch geladen, der Lauf ist vorbei',
     stillLoadedNoRun: 'Noch geladen, noch kein Lauf',
     chip: (line, ready) => `${line} | ${ready ? 'bereit' : 'Autosave'}`,

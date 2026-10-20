@@ -46,7 +46,7 @@ import type { GlobePhase } from '../../services/world/globe-director.service';
 import { gold, teal, tip, type FieldTip } from '../../components/main-menu/loading/field-tips';
 import type { WhyNot } from '../../world/why-not';
 import type { MapFilePart, MapRef, MapThing, MapThingKind, MapUnit } from '../../world/custom-map/map-text';
-import { bold as b, formatters } from '../format';
+import { bold as b, calendarAge, formatters } from '../format';
 import type { OsmStage, OsmStep } from '../../world/osm/osm-progress';
 import type { SpawnDropReason } from '../../world/osm/convert/layout';
 import type { MapSurfaceMarkingKind } from '../../world/custom-map/map-document';
@@ -1548,6 +1548,13 @@ export const en = {
     backTo: (label: string) => `Back to ${label}`,
     /** "Heilbronn | wave 12" */
     runLine: (name: string, wave: number) => `${name} | wave ${f.int(wave)}`,
+    /** When a run was last played (its save): "today 6:42 PM", "yesterday 9:10 PM", "Oct 18, 2:03 PM", "Oct 18, 2025, 2:03 PM" */
+    playedAt: (at: string, now: Date = new Date()) => {
+      const { days, sameYear } = calendarAge(at, now);
+      if (days === 0) return `today ${f.clock(at)}`;
+      if (days === 1) return `yesterday ${f.clock(at)}`;
+      return `${f.date(at, sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' })}, ${f.clock(at)}`;
+    },
     stillLoadedOver: 'Still loaded, the run is over',
     stillLoadedNoRun: 'Still loaded, no run yet',
     /** A Continue as chip and globe line: "Heilbronn | wave 12 | autosave" */
