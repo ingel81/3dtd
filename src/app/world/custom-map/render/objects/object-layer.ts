@@ -557,6 +557,23 @@ export class MapObjectLayer {
   /** When each hole of a ruin opened (`id#slot`, the damage clock): a grown one keeps it */
   private readonly holeTimes = new Map<string, number>();
 
+  /**
+   * The meshes of the ruins no building is in yet: each destructible
+   * asset's empty ruin batch, the raised buildings' hidden ones, the floors
+   * without a ruin. A map's warm-up leaves them for later (CustomMapView
+   * .warmLater): needed at a building's first hit, not to start
+   */
+  ruinStandIns(): Object3D[] {
+    const out: Object3D[] = [];
+    for (const b of this.batches) {
+      if (!b.ruin || b.objects.length > 0) continue;
+      for (const d of b.draws) out.push(...d.meshes);
+    }
+    out.push(...this.masses.warmStandIns());
+    if (this.slabs && !this.slabs.mesh.visible) out.push(this.slabs.mesh);
+    return out;
+  }
+
   /** Where and when ruin `id` comes down as it falls now (fallImpact, group frame), null for one not drawn as a ruin */
   impactOf(id: string): ReturnType<typeof fallImpact> | null {
     const raised = this.masses.ruinShapeOf(id);

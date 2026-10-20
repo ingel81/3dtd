@@ -15,6 +15,7 @@ import {
   Vector3,
   type Material,
   type MeshStandardMaterial,
+  type Object3D,
   type Ray,
   type Raycaster,
   type Texture,
@@ -608,7 +609,7 @@ export class MassLayer {
       const list = this.objects.filter((o) => (o.blocksLos ?? true) === blocks && !this.damaged.has(o.id));
       if (list.length) this.batches.push(...this.build(list, surfaces, blocks ? this.losGroup : this.group));
     }
-    if (this.damageOptions.ruins) this.batches.push(...this.warmRuins(surfaces));
+    if (this.damageOptions.ruins) this.batches.push(...(this.warmBatches = this.warmRuins(surfaces)));
     this.rebuildRuins(surfaces);
   }
 
@@ -622,6 +623,13 @@ export class MassLayer {
   ruinShapeOf(id: string): RuinShape | null {
     return this.ruinShapes.get(id)?.shape ?? null;
   }
+
+  /** The hidden ruin batches made for the warm-up (warmRuins): their meshes, never drawn */
+  warmStandIns(): Object3D[] {
+    return this.warmBatches.filter((b) => this.batches.includes(b)).map((b) => b.mesh);
+  }
+
+  private warmBatches: Batch[] = [];
 
   /** Where a ruin smoulders (emberPoint), null for one not drawn as a ruin here */
   emberOf<T extends { x: number; y: number; z: number }>(id: string, fallen: boolean, out: T): T | null {

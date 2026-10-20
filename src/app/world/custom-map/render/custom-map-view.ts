@@ -453,6 +453,10 @@ export class CustomMapView {
   ): Promise<number> {
     await Promise.all([this.ready, this.environment.envReady]);
     if (this.disposed) return 0;
+    // The ruins no building is in yet wait out of the scene: their programs are built after the game stands
+    // (warmLater), not before it (E274: 52 of the 294 programs of an OSM world's load)
+    this.warmContext = { renderer, scene, camera };
+    this.parkRuins();
     const before = renderer.info.programs?.length ?? 0;
     const previous = renderer.getRenderTarget();
     const compiled: Promise<unknown>[] = [];
@@ -797,6 +801,10 @@ export class CustomMapView {
    * (STRUCTURE_HEADING_STEPS in map space, -1 none: its id rolls one)
    */
   setObjectDamage(changes: readonly { id: string; stage: number; heading?: number; now: boolean }[]): void {
+    this.whenRuinsReady(changes.some((c) => c.stage > 0), () => this.applyDamage(changes));
+  }
+
+  private applyDamage(changes: readonly { id: string; stage: number; heading?: number; now: boolean }[]): void {
     this.objects.setDamage(changes.map((c): ObjectDamage => ({
       id: c.id,
       stage: c.stage,
@@ -819,6 +827,11 @@ export class CustomMapView {
    * (it opens from this moment), else they stand as they are
    */
   setObjectHoles(id: string, holes: Int32Array, now: boolean): void {
+    const copy = holes.slice();
+    this.whenRuinsReady(false, () => this.applyHoles(id, copy, now));
+  }
+
+  private applyHoles(id: string, holes: Int32Array, now: boolean): void {
     const was = this.holes.get(id) ?? null;
     this.holes.set(id, holes.slice());
     this.objects.setHoles(id, holes, now ? was : holes, now ? this.damageTime : FELL_LONG_AGO);
@@ -843,6 +856,100 @@ export class CustomMapView {
     if (!hit) return null;
     const p = sceneToMap({ x: hit.x, z: hit.z }, { x: 0, y: 0 });
     return { x: p.x, y: p.y, height: hit.y, length: hit.length, dx: -hit.dx, dy: hit.dz, delay: hit.delay };
+  }
+
+  /** Where the first warm-up compiled (warmUp): what the ruins' programs are built for later */
+  private warmContext: { renderer: WebGLRenderer; scene: Object3D; camera: Camera } | null = null;
+  /** The ruins' stand-ins taken out of the scene until their programs are built, with where each hung */
+  private parked: { mesh: Object3D; parent: Object3D }[] | null = null;
+
+  /** The ruins no building is in yet out of the scene (objects.ruinStandIns): a compile of the scene leaves them */
+  private parkRuins(): void {
+    if (!this.options.ruins || this.parked) return;
+    this.parked = [];
+    for (const mesh of this.objects.ruinStandIns()) {
+      if (!mesh.parent) continue;
+      this.parked.push({ mesh, parent: mesh.parent });
+      mesh.removeFromParent();
+    }
+  }
+
+  /** The ruins' stand-ins back where they hung; what waits for them goes on */
+  private unparkRuins(): void {
+    const parked = this.parked;
+    if (!parked) return;
+    this.parked = null;
+    for (const { mesh, parent } of parked) if (!mesh.parent) parent.add(mesh);
+    this.ruinsBack.resolve();
+  }
+
+  /** Resolved once the ruins' stand-ins are back (unparkRuins) */
+  private readonly ruinsBack = settles();
+  /** Resolved when a building is hit before that: the engine builds the ruins' programs by frames from then on */
+  private readonly ruinsHurry = settles();
+  /** Whether the engine took the ruins' programs over (warmLater) */
+  private ruinsClaimed = false;
+
+  /**
+   * The ruins' programs, left out of the first warm-up, for the engine to
+   * build once the game stands (WorldProvider.warmLater): the stand-ins
+   * (compiled in quiet moments, by frames once `hurry` resolves), their
+   * shadow twins, and putting them back when done. Null when nothing waits
+   */
+  warmLater(): { objects: Object3D[]; shadows: () => Promise<unknown>; done: () => void; hurry: Promise<void> } | null {
+    const parked = this.parked;
+    const at = this.warmContext;
+    if (!parked?.length || !at || this.ruinsClaimed) return null;
+    this.ruinsClaimed = true;
+    const meshes = parked.map((p) => p.mesh);
+    return {
+      objects: meshes,
+      shadows: () => this.ruinShadows(meshes),
+      done: () => this.unparkRuins(),
+      hurry: this.ruinsHurry.promise,
+    };
+  }
+
+  /** The shadow pass's programs of the ruins' stand-ins (compileShadowTwins), with the first warm-up's renderer */
+  private ruinShadows(meshes: readonly Object3D[]): Promise<unknown> {
+    const at = this.warmContext;
+    if (!at || !(at.scene instanceof Scene) || !at.renderer.shadowMap.enabled) return Promise.resolve();
+    return this.compileShadowTwins(at.renderer, at.scene, at.camera, meshes.filter((m): m is Mesh => m instanceof Mesh));
+  }
+
+  /** Damage and holes that wait for the ruins' programs, in order; null while nothing waits */
+  private damageWaits: (() => void)[] | null = null;
+
+  /**
+   * `apply` now, or after what waits for the ruins' programs. With `ruin`
+   * (a building hit) before those are built, the engine hurries them
+   * (warmLater) and the damage waits for them, under a second: a ruin
+   * drawn with programs compiled for it outside the frame's state, or still
+   * linking, held its frame for a third of a second and more. Without the
+   * engine (nothing took them) the stand-ins go back at once
+   */
+  private whenRuinsReady(ruin: boolean, apply: () => void): void {
+    if (this.damageWaits) {
+      this.damageWaits.push(apply);
+      return;
+    }
+    if (!ruin || !this.parked) {
+      apply();
+      return;
+    }
+    if (!this.ruinsClaimed) {
+      this.unparkRuins();
+      apply();
+      return;
+    }
+    this.damageWaits = [apply];
+    this.ruinsHurry.resolve();
+    void this.ruinsBack.promise.then(() => {
+      const waits = this.damageWaits ?? [];
+      this.damageWaits = null;
+      if (this.disposed) return;
+      for (const run of waits) run();
+    });
   }
 
   /** Main-thread cost of update(), smoothed, for measurements (sim-load --world, the preview) */
@@ -2056,4 +2163,11 @@ function asShadowPass(depth: MeshDepthMaterial, material: Material, type: Shadow
   depth.displacementScale = m.displacementScale ?? 1;
   depth.displacementBias = m.displacementBias ?? 0;
   return depth;
+}
+
+/** A promise and what resolves it */
+function settles(): { promise: Promise<void>; resolve: () => void } {
+  let resolve = (): void => undefined;
+  const promise = new Promise<void>((r) => (resolve = r));
+  return { promise, resolve };
 }
