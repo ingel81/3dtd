@@ -170,6 +170,30 @@ describe('FrameAhead', () => {
     expect(draws).toEqual([]);
   });
 
+  it('skips the objects that left the scene since the frame was recorded, in its compile and its draws', async () => {
+    const { renderer, compiles, draws, signal } = fakeRenderer();
+    const { scene } = world(4);
+    const meshes = scene.children.filter((o) => (o as { isMesh?: boolean }).isMesh);
+    const ahead = new FrameAhead(renderer, [{ object: scene, camera: new PerspectiveCamera(), target: null }], { scene });
+    // A batch built anew meanwhile (MapObjectLayer.resize): its old meshes go, their attributes taken away
+    meshes[1].removeFromParent();
+    meshes[3].removeFromParent();
+    await ahead.compiled;
+    while (!ahead.drawSome(100, 10)) signal();
+    const kept = [meshes[0], meshes[2]];
+    expect(compiles.flatMap((c) => c.objects)).toEqual(kept);
+    expect(draws.flatMap((d) => d.objects)).toEqual(kept);
+  });
+
+  it('compiles stand-ins that are no part of the scene (compileAhead)', async () => {
+    const { renderer, compiles } = fakeRenderer();
+    const { scene } = world(1);
+    const standIn = new Mesh(new BoxGeometry(), new MeshBasicMaterial());
+    const ahead = new FrameAhead(renderer, [{ object: scene, camera: new PerspectiveCamera(), target: null }], { scene, objects: [standIn], compileOnly: true });
+    await ahead.compiled;
+    expect(compiles.flatMap((c) => c.objects)).toEqual([standIn]);
+  });
+
   it('compiles only when asked to: no first draws though programs were built (the background)', async () => {
     const { renderer, draws } = fakeRenderer(true);
     const { scene } = world(4);

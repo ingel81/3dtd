@@ -102,6 +102,12 @@ function renderables(root: Object3D): Object3D[] {
   return out;
 }
 
+/** Whether `object` still hangs under `scene` */
+function inScene(object: Object3D, scene: Object3D): boolean {
+  for (let o = object.parent; o; o = o.parent) if (o === scene) return true;
+  return false;
+}
+
 /** Runs `run` with a single mesh's draw wearing the material it was recorded with */
 function withMaterial(draw: RecordedDraw, run: () => void): void {
   const mesh = draw.object as { material?: Material | Material[] };
@@ -164,6 +170,16 @@ export class FrameAhead {
   private objectAt = 0;
   private sliceSize = 1;
   private readonly objects: Object3D[][];
+  /**
+   * Per draw: its objects are the scene's own, taken when the frame was
+   * recorded. The work goes on over many frames, and an object that left the
+   * scene meanwhile is skipped: a map's object batch built anew (a ruin
+   * batch outgrowing its lists, a layer's objects set anew) takes its old
+   * meshes' attributes away, and compiled without normals a foliage card's
+   * program failed (no vNormal under FLAT_SHADED) and the other materials
+   * got flat programs of their own, kept for nothing
+   */
+  private readonly sceneOwned: boolean[];
   /** Every light of the scene; those shown shine (shines) */
   private readonly lights: Object3D[] = [];
   /**
@@ -191,6 +207,7 @@ export class FrameAhead {
     private readonly options: FrameAheadOptions,
   ) {
     this.objects = draws.map((d) => (d.object === options.scene ? [...(options.objects ?? renderables(d.object))] : [d.object]));
+    this.sceneOwned = draws.map((d) => d.object === options.scene && !options.objects);
     options.scene.traverse((o) => {
       if ((o as { isLight?: boolean }).isLight) this.lights.push(o);
     });
@@ -243,16 +260,19 @@ export class FrameAhead {
       while (d < this.draws.length && performance.now() - start < budget && programs() === built) {
         const draw = this.draws[d];
         const objects = this.objects[d];
-        const slice = new CompileSlice(objects.slice(at, (at += size)));
+        const live = objects.slice(at, (at += size)).filter((o) => !this.sceneOwned[d] || inScene(o, options.scene));
         const sliceStart = performance.now();
-        const previous = renderer.getRenderTarget();
-        renderer.setRenderTarget(draw.target);
-        try {
-          // A draw of a single mesh (a pass's quad) is its own scene, as in renderer.render
-          if (draw.object === options.scene) this.withLights([], () => jobs.push(renderer.compileAsync(slice, draw.camera, this.proxy)));
-          else withMaterial(draw, () => jobs.push(renderer.compileAsync(slice, draw.camera, draw.object as Scene)));
-        } finally {
-          renderer.setRenderTarget(previous);
+        if (live.length) {
+          const slice = new CompileSlice(live);
+          const previous = renderer.getRenderTarget();
+          renderer.setRenderTarget(draw.target);
+          try {
+            // A draw of a single mesh (a pass's quad) is its own scene, as in renderer.render
+            if (draw.object === options.scene) this.withLights([], () => jobs.push(renderer.compileAsync(slice, draw.camera, this.proxy)));
+            else withMaterial(draw, () => jobs.push(renderer.compileAsync(slice, draw.camera, draw.object as Scene)));
+          } finally {
+            renderer.setRenderTarget(previous);
+          }
         }
         size = nextSlice(size, performance.now() - sliceStart, budget);
         if (at >= objects.length) {
@@ -358,7 +378,12 @@ export class FrameAhead {
       // again on its first draw (ANGLE), unseen by the main thread
       let end = this.objectAt;
       const limit = Math.min(objects.length, this.objectAt + this.sliceSize);
+      const owned = this.sceneOwned[this.drawAt];
       while (end < limit) {
+        if (owned && !inScene(objects[end], scene)) {
+          end++;
+          continue;
+        }
         const fresh = this.fresh((objects[end] as { material?: Material | Material[] }).material);
         if (fresh.length && firsts > 0 && firsts + fresh.length > maxFirsts) break;
         for (const m of fresh) this.drawnMaterials.add(m);
@@ -366,19 +391,21 @@ export class FrameAhead {
         end++;
       }
       if (end === this.objectAt) break;
-      const slice = objects.slice(this.objectAt, end);
-      // Without the objects' render hooks: a water's mirror renders the scene again and its refraction copies the
-      // frame in them, for every slice (eight frames of 40 ms after a level's compile); a pixel needs neither
-      const hooks = slice.map((o) => [o.onBeforeRender, o.onAfterRender] as const);
-      for (const o of slice) {
-        o.onBeforeRender = noHook;
-        o.onAfterRender = noHook;
-      }
+      const slice = objects.slice(this.objectAt, end).filter((o) => !owned || inScene(o, scene));
       const sliceStart = performance.now();
-      try {
-        this.withLights(slice, () => renderer.render(this.proxy, draw.camera));
-      } finally {
-        slice.forEach((o, k) => ([o.onBeforeRender, o.onAfterRender] = hooks[k]));
+      if (slice.length) {
+        // Without the objects' render hooks: a water's mirror renders the scene again and its refraction copies the
+        // frame in them, for every slice (eight frames of 40 ms after a level's compile); a pixel needs neither
+        const hooks = slice.map((o) => [o.onBeforeRender, o.onAfterRender] as const);
+        for (const o of slice) {
+          o.onBeforeRender = noHook;
+          o.onAfterRender = noHook;
+        }
+        try {
+          this.withLights(slice, () => renderer.render(this.proxy, draw.camera));
+        } finally {
+          slice.forEach((o, k) => ([o.onBeforeRender, o.onAfterRender] = hooks[k]));
+        }
       }
       this.sliceSize = nextSlice(this.sliceSize, performance.now() - sliceStart, budgetMs);
       this.objectAt = end;
