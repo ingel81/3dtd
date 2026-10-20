@@ -102,6 +102,7 @@ const tmpBase = new Quaternion();
 const tmpTilt = new Quaternion();
 const tmpDir = new Vector3();
 const tmpAxis = new Vector3();
+const UP = new Vector3(0, 1, 0);
 
 /**
  * The firing motion of one tower: built with its model (ThreeTowerRenderer.create) when its config has one and its
@@ -250,15 +251,20 @@ export class TowerFiring {
       // drawTurretAim writes the pitch again next frame, over the tilt
       this.pitch.drawn = NaN;
     } else if (part.base === KickBase.Turret) {
-      // drawTurretAim sets rotation.y only: what a tilt left in x and z goes
-      node.rotation.x = 0;
-      node.rotation.z = 0;
-      tmpBase.copy(node.quaternion);
+      // drawTurretAim sets rotation.y only, so the yaw comes from there and not from the Euler's x and z: a
+      // quaternion turned more than a quarter turn reads back as (π, π - yaw, π)
+      tmpBase.setFromAxisAngle(UP, node.rotation.y);
     } else {
       tmpBase.copy(part.restQuaternion);
     }
     tmpDir.copy(this.barrel).applyQuaternion(tmpBase);
     node.position.copy(part.rest).addScaledVector(tmpDir, -part.back * x);
+    if (part.base === KickBase.Turret && x === 0) {
+      // At rest the Euler is written plainly: drawTurretAim's next rotation.y over a (π, π - yaw, π) left by the
+      // quaternion drew the turret at its mirrored heading until the next shot (playtest 2026-10-20)
+      node.rotation.set(0, node.rotation.y, 0);
+      return;
+    }
     node.quaternion.copy(tmpBase);
     if (part.tilt !== 0 && x !== 0) node.quaternion.multiply(tmpTilt.setFromAxisAngle(this.across, part.tilt * x));
   }

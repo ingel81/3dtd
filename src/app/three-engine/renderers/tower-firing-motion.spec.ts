@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { BoxGeometry, Mesh, MeshBasicMaterial, Object3D, Vector3 } from 'three';
+import { BoxGeometry, Mesh, MeshBasicMaterial, Object3D, Quaternion, Vector3 } from 'three';
 import type { TowerTypeConfig } from '../../configs/tower-types.config';
-import type { TowerAim } from '../../entities/tower-aim';
+import { headingToLocalRotation, type TowerAim } from '../../entities/tower-aim';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { towerConfigOf } from '../../configs/tower-paths.config';
 import { RELOAD_PHASES, TowerFiring, kickCurve, loadCurve, releaseCurve } from './tower-firing-motion';
@@ -119,6 +119,33 @@ describe('TowerFiring', () => {
     expect(turret.rotation.x).toBeCloseTo(0, 12);
     expect(turret.rotation.z).toBeCloseTo(0, 12);
     expect(turret.rotation.y).toBeCloseTo(yaw, 12);
+  });
+
+  it('leaves a turret turned past a quarter turn where its aim points, during the kick and once it is home', () => {
+    // Heading -0.7 turns the turret 2.27 rad in its mesh: its quaternion reads back as Euler (π, π - yaw, π)
+    const { model, turret } = bastion();
+    const aim = { current: -0.7, pitch: 0 } as TowerAim;
+    const pitch = createTurretPitch(bastionConfig, turret);
+    const firing = TowerFiring.create(bastionConfig, model, turret, pitch, aim)!;
+    const yawOff = (): number => {
+      const want = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), headingToLocalRotation(bastionConfig, 0, aim.current));
+      return turret.quaternion.angleTo(want);
+    };
+    frame(firing, bastionConfig, turret, aim, pitch, 0);
+    firing.fire(0.75);
+    for (let i = 0; i < 10; i++) {
+      aim.current -= 0.02;
+      frame(firing, bastionConfig, turret, aim, pitch, 0.016);
+      // Off by no more than the rock on its yaw
+      expect(yawOff()).toBeLessThan(0.021);
+    }
+    while (frame(firing, bastionConfig, turret, aim, pitch, 0.016));
+    // Home: the aim turns on, the turret with it (it turned to the mirrored heading, off by up to 180°)
+    for (const heading of [-0.7, -0.9, -1.2, -1.7]) {
+      aim.current = heading;
+      frame(firing, bastionConfig, turret, aim, pitch, 0.016);
+      expect(yawOff()).toBeLessThan(1e-6);
+    }
   });
 
   it('shortens the return to fit between two shots', () => {
