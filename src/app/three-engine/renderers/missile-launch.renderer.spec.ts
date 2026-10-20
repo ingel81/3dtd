@@ -392,3 +392,20 @@ describe('MissileLaunchRenderer shot light', () => {
     expect(add).not.toHaveBeenCalled();
   });
 });
+
+describe('MissileLaunchRenderer warm-up (E276)', () => {
+  it('stands in a missile body as a launch draws it, with the same material, once the silo model is there', () => {
+    const { launches, body } = setup();
+    const [standIn] = launches.warmUpObjects();
+    const materialOf = (o: Object3D) => (o.children[0] as Mesh).material;
+    launches.launch(1, startAt(), TARGET, WARNING_S);
+    // The program the first launch draws with is the stand-in's: the same material, not a copy
+    expect(materialOf(standIn)).toBe(materialOf(body()));
+    expect(standIn).not.toBe(body());
+  });
+
+  it('stands in nothing before the silo model is loaded', () => {
+    const { launches } = setup(() => null);
+    expect(launches.warmUpObjects()).toEqual([]);
+  });
+});

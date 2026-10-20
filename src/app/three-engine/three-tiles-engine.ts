@@ -1472,6 +1472,8 @@ export class ThreeTilesEngine {
       ...lineStandIns(this.portalClip),
       // The cell plates of the build preview and the selection (TowerLosViz)
       ...TowerLosLayerBuilder.warmUpObjects(this.getTowerShadowMapper().getRenderTarget()),
+      // The strike's missile, when its silo is among the first models (else with the silo, warmRest)
+      ...this.missileLaunches.warmUpObjects(),
     ]) standIns.add(o);
     if (hero) standIns.add(hero);
     standIns.scale.setScalar(1e-4);
@@ -1623,6 +1625,8 @@ export class ThreeTilesEngine {
         if (job.kind === 'tower') {
           await this.towers.preloadModels([job.type as TowerTypeId]);
           objects = this.towers.warmUpObjects([job.type as TowerTypeId], false);
+          // The missile a strike launches from this building draws as a clone of the model's node: a program of its own
+          if (job.type === ABILITIES['nuclear-strike'].launchFrom) objects.push(...this.missileLaunches.warmUpObjects());
         } else {
           await this.enemies.preloadModel(job.type as EnemyTypeId);
           objects = this.enemies.poolMeshes([job.type as EnemyTypeId]);

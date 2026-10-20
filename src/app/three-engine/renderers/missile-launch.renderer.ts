@@ -151,6 +151,21 @@ export class MissileLaunchRenderer implements ShotLightSource {
     this.smoke.seed(launch, slot);
   }
 
+  /**
+   * A stand-in of the missile's body for the warm-ups, as a launch draws it
+   * (takeBody: a clone of the silo model's node, its material shared): none
+   * before the silo's model is loaded. The first launch linked its program
+   * in its frame (getProgramInfoLog waited 102 ms, E276)
+   */
+  warmUpObjects(): Object3D[] {
+    const model = this.missileModel();
+    if (!model) return [];
+    const object = model.clone();
+    object.name = 'missile-body-warm-up';
+    object.traverse((node) => (node.frustumCulled = false));
+    return [object];
+  }
+
   /** Strike `strikeId` landed: its missile is gone, its smoke stands on. */
   land(strikeId: number): void {
     for (const launch of this.launches) {
