@@ -1,16 +1,4 @@
 {
- "components/address-autocomplete.component.html": [
-  "Clear",
-  "Clear the address",
-  "Enter an address",
-  "No results",
-  "Search error",
-  "Searching",
-  "{} more characters"
- ],
- "components/address-autocomplete.component.ts": [
-  "Search address..."
- ],
  "components/boss-intro/boss-intro.component.ts": [
   "Esc"
  ],

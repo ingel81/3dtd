@@ -420,6 +420,9 @@ Rechts HQ, Credits und Wave als `td-stat` ohne Platte, eine tiefer eingeritzte R
 Versalien (`td-caps`), Zahl `td-value` (29 px, 700). Ihre rechte Kante schließt mit dem Sidebar-Inhalt ab (rechtes
 Padding `--td-sidebar-gutter`). Jede Zahl hält Platz für so viele Ziffern, wie `header-stats.ts` sie genau zeigt
 (HQ 4, Credits 6, Wave 3, als `min-width` in `ch`), damit wachsende Werte die Nachbarn nicht verschieben.
+Unter 1500 px Fensterbreite weichen die Versalien HQ, Credits, Wave (für Screenreader bleiben sie, der Tooltip nennt
+den Wert) und das „Defend“ vor dem Ort; Play und Edit der Pfadleiste (`.wp-mode`) schrumpfen nie, auch nicht mit den
+längeren deutschen Wörtern: es weicht der Ort, dessen Ende abgeschnitten wird.
 
 | Wert | Zustände |
 |------|----------|

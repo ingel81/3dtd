@@ -81,6 +81,14 @@
   flex-shrink: 0;
 }
 
+/* Below 1500 px the words HQ, Credits and Wave give their room to the place and its tools (German runs
+   longer): the symbols and the values stay, the words stay for screen readers, the tooltips name the value */
+@media (max-width: 1499px) {
+  .header-stats .td-caps { @include ui.sr-only; }
+  /* The place keeps its name; "Defend" before it goes first */
+  .location-btn .td-loc-label { display: none; }
+}
+
 .stat-value {
   display: flex;
   align-items: baseline;

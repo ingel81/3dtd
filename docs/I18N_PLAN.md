@@ -1,7 +1,7 @@
 # Mehrsprachigkeit: Englisch und Deutsch (TODO E245)
 
-Stand 2026-10-18, Phase 1 (Technik, Inventar, Glossar, Grundgerüst). Phase 2 (Umbau der Komponenten) startet,
-sobald die Menü-Runde übernommen ist.
+Stand 2026-10-20: Phase 1 (Technik, Inventar, Glossar, Grundgerüst) gebaut, Phase 2 (Umbau der Komponenten) zum
+größten Teil: was offen ist, steht in Abschnitt 6 unter „Stand und offener Rest“.
 
 Ziel: Das Spiel spricht Englisch und Deutsch, umschaltbar in Settings ohne Neuladen, Standard nach Browser- bzw.
 Systemsprache. Eine weitere Sprache ist danach eine Datei. Ein Build für Web und Desktop-App.
@@ -169,7 +169,44 @@ Je Paket: Texte ins Wörterbuch (en und de zugleich), Komponenten auf `t()`, bet
 Die deutschen Texte schreibe ich je Paket mit, im Ton des Glossars (8). Der User nimmt Glossar und Stichproben je
 Paket ab, nicht jeden Text.
 
-### Stand und offener Rest (2026-10-19)
+### Stand und offener Rest (2026-10-20)
+
+Neu gebaut (Branch wt/i18n): **Menüs, Welten, Globus, Laden** (Settings ganz, Haupt- und Pausemenü mit Seiten,
+Spielstände, Extras, Ortswahl, Ladeplatte mit Schritten und Tipps, Weltmenüs, Pfadleiste, Globen samt Anzeige,
+Token-Dialog, OSM-Rahmen, Update-Hinweis, Weltkarte), **Dialoge** (Forschung, Tech-Tree, Schadensmatrix, Quellen,
+Tastenkürzel, Läufe, Run-Upload) und **Coop** (Dock, Lobby, Raum-Optionen, Squad, Chats, Pings, alles, was der
+Coop-Dienst sagt). Dazu:
+
+- Lang stehende Texte als Codes: `whyNot` (`WhyNot`), `worldLock` (`WorldLock`), Ladeschritte (Titel beim Start
+  einer Ladung), Prüfung des Kartenschlüssels (`CredentialCheck`), Ablehnungen und Weltpaket des Relays.
+- Mitgelieferte Karten und Bekannte Orte nach Id im Wörterbuch (`maps`, `showcase`, `i18n/shipped-maps.ts`);
+  `index.json`, die Showcase-Config und die Namen, unter denen ein Ort lädt, bleiben englisch (Saves, zuletzt
+  gespielte Orte und Weltpaket halten in jeder Sprache dieselben Wörter). Ein Spec hält `en.maps` gleich `index.json`.
+- Raum-Optionen gehen nur als Werte über den Relay; ihre Wörter liegen clientseitig (`coop/room-option-words.ts`),
+  `room-options.ts` (vom Relay importiert) kennt keine Wörter mehr.
+- Zeilen mit fettem Teil sind ein String mit markiertem Teil (`format.ts`: `bold`, `splitBold`), damit die
+  Wortstellung je Sprache frei ist.
+- Kopfleiste unter 1500 px: die Wörter HQ, Credits, Welle und „Verteidigen“ weichen (für Screenreader bleiben sie),
+  Play und Edit der Pfadleiste behalten ihre Wörter ganz (DESIGN_SYSTEM.md, Kopfleiste).
+
+Zahlen laut `node tools/i18n/inventory.mjs` nach dieser Runde, offen:
+
+- **Editor-Reste** (~230): Flächen-Werkzeug und -Panel, Malen, Ansehen, Spawns und HQ (Panel, Werkzeug, Schritte),
+  Zerstörungsoptionen im Regelpanel, Himmel und Wetter, Agent-Leiste und -Status, Boden- und Kartenschritte,
+  Katalog-Namen und -Kategorien (heute englisch aus catalog.json).
+- **Kartenprüfung und Import** (~410): map-repair-, map-file-, osm-, w3x-Texte, Wellen-Tabellenprüfung
+  (`validateWaveTable`); die Gründe der OSM-Ablage (`layout.ts`, kommen aus dem OSM-Worker) als Codes.
+- **HUD-Reste** (~240, darunter die Gründe von Spielständen in `save-game.service.ts`/`save-game.ts`, „Got it“ der
+  Tastenhinweise, Korridor-Schritte), **Simulation** (~60), **Configs-Reste** (~160: Quellenangaben-Erklärsätze,
+  Wellen- und Run-Plan-Notizen), **Desktop-App** (32, `desktop/src/i18n.js`).
+- Ortsnamen, die als Daten laufen („Loading...“, „Map center“, „Random Spawn“, „Unknown location“, „Dev world“):
+  heute englisch angezeigt; beim Anzeigen übersetzen, ohne sie in Saves oder Weltpaket anders abzulegen.
+- **TODO, nicht begonnen:** Wörterbuch nur für die aktive Sprache laden (heute `en.ts` als Fallback im Startpaket);
+  der Editor-Template-Worker bündelt `en.ts` über `EditorDocument.words` mit.
+- **I9 Layout-Prüfung**: gebaut für Globen, Weltmenüs, Menüs, Dialoge und Kopfleiste
+  (`e2e/tests/i18n-layout.e2e.ts`); offen für Tower-Panel, Editor-Panels, Coop-Dock mit Raum, `xx`.
+
+#### Stand davor (2026-10-19)
 
 Gebaut und auf next: I0 (Sprache vor dem ersten Bild, Sprachwahl in Settings, Pseudo-Sprache xx nur im Dev-Build,
 Wächter mit Baseline), I1 (Configs nach Id), I2 (Codes aus Worker und Relay), große Teile von I3 (HUD, Hinweise,
@@ -204,12 +241,22 @@ Gegnernamen bleiben englisch. Zahlen laut `node tools/i18n/inventory.mjs` (Texte
    über die Quellen und vergleicht jeden gefundenen Text mit `tools/i18n/baseline.json` (Texte je Datei). Ein Text,
    der dort fehlt, ist rot, mit Datei und Text. Verschwundene Texte warnen nur; nach jedem Paket schreibt
    `node tools/i18n/baseline.mjs` die Liste neu und sie schrumpft. Entwickler- und Agenten-Bereich sind ausgenommen.
+   **Geschlossene Bereiche** (`CLOSED_AREAS` in `scan.mjs`, seit 2026-10-20: Menüs, Dialoge, Coop) haben keine
+   Baseline: jeder Text, den der Scan dort findet, ist rot, außer `tools/i18n/allowed.mjs` nennt ihn mit Grund
+   (Marken, Tastenkappen, Quellenzeilen der Lizenzgeber, Daten für Saves oder Mitspieler, Diagnosen). Ein erlaubter
+   Text, den der Scan nicht mehr findet, ist ebenfalls rot. Ein Bereich wird geschlossen, sobald seine Texte im
+   Wörterbuch stehen. Der Scan überspringt Debug-Log-Aufrufe (`appendDebugLog`) und Overpass-Abfragen.
+   Dazu `src/app/i18n/no-language-in-the-run.spec.ts`: Simulation, Coop, Simulator, Saves, Replays und Run-Log
+   lesen nie das gewählte Wörterbuch (nur `en` oder Typen), die Dateien, die der Relay importiert, gar nichts aus
+   `i18n/`, Raum-Optionen gehen als Werte über den Relay.
 3. **Pseudo-Sprache** (gebaut, nur Entwickler-Build, in Settings wählbar, `src/app/i18n/pseudo.ts`): `xx` macht aus jedem englischen Text „[Ŝéttîñĝš ~~~~]“, rund 40 %
    länger. Was dann noch normal aussieht, ist nicht übersetzt; was bricht, bricht im Deutschen auch.
 4. **Layout**: deutsche Texte sind rund 30 % länger. Ein E2E-Spec geht jede Menüseite, das HUD, Tower-Panel,
    Dialoge und die Editor-Panels in `de` und `xx` durch, meldet jedes Element mit Text, dessen `scrollWidth` über
    `clientWidth` liegt (abgeschnitten, umgebrochen wo nicht erlaubt), und legt Vorher/Nachher-Bilder je Seite ab.
-   Die Bilder bekommt der User zur optischen Abnahme.
+   Die Bilder bekommt der User zur optischen Abnahme. Gebaut als `e2e/tests/i18n-layout.e2e.ts` (de und en,
+   1280×720 und 1920×1080; Bilder und `report.json` nach `tmp/i18n-shots/<Sprache>/<Größe>/`); mit Ellipse
+   gekürzte Namen meldet er getrennt, alles andere muss passen.
 
 ## 8. Glossar EN/DE
 

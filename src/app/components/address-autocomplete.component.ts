@@ -23,7 +23,8 @@ export class AddressAutocompleteComponent {
   protected readonly t = injectT();
 
   // Inputs
-  placeholder = input<string>('Search address...');
+  /** The field's hint and name; every caller names its own (worlds.searchPlaceholder, places.searchPlaceholder ...) */
+  placeholder = input<string>('');
   currentValue = input<{ lat: number; lon: number; name?: string; address?: NominatimAddress } | null>(null);
 
   // Outputs

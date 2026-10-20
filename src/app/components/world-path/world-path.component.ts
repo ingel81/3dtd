@@ -60,6 +60,8 @@ export type PathAction = 'worlds' | 'world' | 'play' | 'edit' | { chip: string }
     .wp-path { display: flex; align-items: center; gap: 0; white-space: nowrap; }
     .wp-sep { color: var(--td-text-disabled); }
     .wp-chip { white-space: nowrap; }
+    /* Play and Edit keep their words whole (German runs longer): what is beside them gives way, never their labels */
+    .wp-mode { flex-shrink: 0; white-space: nowrap; }
   `],
 })
 export class WorldPathComponent {

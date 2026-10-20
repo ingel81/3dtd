@@ -26,7 +26,7 @@
       </button>
     }
     @if (currentValue() && !geocoding.isLoading()) {
-      <button type="button" class="td-tool clear-btn" (mousedown)="$event.preventDefault()" (click)="clearValue($event)" title="Clear" aria-label="Clear the address">
+      <button type="button" class="td-tool clear-btn" (mousedown)="$event.preventDefault()" (click)="clearValue($event)" [title]="t().addressSearch.clear" [attr.aria-label]="t().addressSearch.clearLabel">
         <td-icon name="cross" [size]="14"></td-icon>
       </button>
     }
@@ -37,12 +37,12 @@
     <div class="status-bar">
       @switch (searchState()) {
         @case ('idle') {
-          <span class="td-note hint">Enter an address</span>
+          <span class="td-note hint">{{ t().addressSearch.enter }}</span>
         }
         @case ('too-short') {
           <span class="td-note hint">
             <td-icon name="grid" [size]="12"></td-icon>
-            {{ 3 - searchText().length }} more characters
+            {{ t().addressSearch.more(3 - searchText().length) }}
           </span>
         }
         @case ('ready') {
@@ -54,25 +54,25 @@
         @case ('searching') {
           <span class="td-note hint">
             <td-icon name="search" [size]="12"></td-icon>
-            Searching
+            {{ t().addressSearch.searching }}
           </span>
         }
         @case ('results') {
           <span class="td-note is-ok hint">
             <td-icon name="check" [size]="12"></td-icon>
-            {{ geocoding.results().length }} results
+            {{ t().addressSearch.results(geocoding.results().length) }}
           </span>
         }
         @case ('no-results') {
           <span class="td-note is-warn hint">
             <td-icon name="search" [size]="12"></td-icon>
-            No results
+            {{ t().addressSearch.none }}
           </span>
         }
         @case ('error') {
           <span class="td-note is-error hint">
             <td-icon name="warn" [size]="12"></td-icon>
-            Search error
+            {{ t().addressSearch.error }}
           </span>
         }
       }

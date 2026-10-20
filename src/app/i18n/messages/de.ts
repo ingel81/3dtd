@@ -235,6 +235,14 @@ export const de: Messages = {
     search: 'Suchen',
     searchLabel: 'Nach der Adresse suchen',
     pressEnter: 'Enter drücken, um zu suchen',
+    clear: 'Leeren',
+    clearLabel: 'Adresse leeren',
+    enter: 'Gib eine Adresse ein',
+    more: (n) => `noch ${f.int(n)} ${f.plural(n, 'Zeichen', 'Zeichen')}`,
+    searching: 'Suche',
+    results: (n) => `${f.int(n)} ${f.plural(n, 'Treffer', 'Treffer')}`,
+    none: 'Keine Treffer',
+    error: 'Fehler bei der Suche',
   },
   settings: {
     language: 'Sprache',
@@ -1052,7 +1060,7 @@ export const de: Messages = {
     mapFolderHint: 'Deine Karten als .3dtdmap-Dateien in Dokumente/3DTD/Maps; leg Dateien dorthin, um sie hinzuzufügen',
     groups: {
       recent: 'Zuletzt',
-      own: 'Deine gebauten Welten',
+      own: 'Eigene Welten',
       ownEmpty: 'Noch keine: Neue Karte fängt eine an, oder ändere eine unter OpenStreetMap gemachte Karte.',
       shared: 'Von Koop-Hosts',
       sharedEmpty: 'Karten, die ein Koop-Host mit dir gespielt hat, landen hier.',
