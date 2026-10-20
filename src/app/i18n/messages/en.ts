@@ -1626,12 +1626,12 @@ export const en = {
     allWorlds: 'All worlds',
     backEsc: 'Back (Esc)',
     cardSub: {
-      real: 'Photorealistic 3D tiles of the real world',
-      osm: 'Maps made from OpenStreetMap, no key needed',
+      real: 'Photorealistic 3D tiles, needs a Cesium or Google Maps key',
+      osm: 'Maps made from OpenStreetMap',
       mapsNone: 'Shipped maps and your own',
       maps: (shipped: number, own: number) => `${f.int(shipped)} shipped maps, ${f.int(own)} of yours`,
     },
-    miniSub: { real: '3D tiles', osm: 'No key needed', maps: 'Shipped and yours' },
+    miniSub: { real: '3D tiles, needs a key', osm: 'Maps from OpenStreetMap', maps: 'Shipped and yours' },
     lockLabel: (world: string, lock: string) => `${world}, ${lock}`,
     // The real places' menu
     noKeyBanner: 'No map key: the 3D tiles need a Cesium Ion token or a Google Maps key. You can still look around and pick a place.',
