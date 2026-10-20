@@ -1151,6 +1151,18 @@ export const en = {
   },
   /** The place picker of the menu's New game page */
   places: {
+    /** The game's own names a place or spawn carries as data (i18n/place-names.ts) */
+    fixed: {
+      loading: 'Loading...',
+      mapCenter: 'Map center',
+      randomSpawn: 'Random Spawn',
+      fallbackSpawn: 'Fallback Spawn',
+      spawn: 'Spawn',
+      unknown: 'Unknown location',
+      none: 'No location',
+      unnamedStreet: 'Unnamed Street',
+      devWorld: 'Dev world',
+    },
     runEnds: (place: string) => `The run at ${place} ends when a new place loads.`,
     kind: 'Kind of world',
     tiles: '3D city',

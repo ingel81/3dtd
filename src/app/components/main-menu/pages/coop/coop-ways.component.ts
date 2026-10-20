@@ -14,6 +14,7 @@ import { APP_DOWNLOADS } from '../../../../coop/coop-access';
 import { PLAYER_NAME_FALLBACK, readCoopName, writeCoopName } from '../../../../coop/coop-name';
 import { readCoopLan } from '../../../../core/desktop-bridge';
 import { injectT } from '../../../../i18n/i18n.service';
+import { placeName } from '../../../../i18n/place-names';
 import type { Messages } from '../../../../i18n/messages/en';
 
 /** How often the open rooms of the lobby are looked at while shown, ms */
@@ -73,7 +74,7 @@ export class CoopWaysComponent {
   readonly code = signal(this.coop?.roomFromUrl ?? '');
 
   /** The place loaded, the one a room opens on; '' before the first */
-  readonly placeName = computed(() => (this.locationMgmt.hq() ? this.locationMgmt.getLocationDisplayName() : ''));
+  readonly placeName = computed(() => (this.locationMgmt.hq() ? placeName(this.t(), this.locationMgmt.getLocationDisplayName()) : ''));
 
   /**
    * The solo run that opening a room would end ("wave 3", "your towers"),

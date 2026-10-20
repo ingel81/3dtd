@@ -157,6 +157,7 @@ import { pageSwitches } from './core/page-switches';
 import { WorldStartService } from './world/world-start';
 import { WorldSession } from './world/world-session.service';
 import { injectT } from './i18n/i18n.service';
+import { placeName } from './i18n/place-names';
 import { tipFor } from './services/onboarding/onboarding';
 
 @Component({
@@ -626,7 +627,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly controlsHintArmed = signal(false);
 
   // Location name for header display - delegates to service for consistent formatting
-  readonly currentLocationName = computed(() => this.locationMgmt.getLocationDisplayName());
+  readonly currentLocationName = computed(() => placeName(this.t(), this.locationMgmt.getLocationDisplayName()));
 
   // Tile stats polling is managed by EngineInitializationService
 

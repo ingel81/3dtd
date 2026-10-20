@@ -8,6 +8,7 @@ import { UIStore } from '../../../store/ui.store';
 import { WorldContext } from '../../../world/world-context.service';
 import { hasLaneChoice, laneLoadHint, toggledLanes } from '../../../world/custom-map/lane-choice';
 import { injectT } from '../../../i18n/i18n.service';
+import { placeName } from '../../../i18n/place-names';
 
 /** A lane as the list shows it */
 interface LaneRow {
@@ -92,7 +93,7 @@ export class LaneChoiceComponent {
           : isOpen ? says.atLeast(lanes.choice.min) : says.atMost(lanes.choice.max);
       return {
         id: lane.id,
-        name: lane.name,
+        name: placeName(this.t(), lane.name),
         color: `#${SPAWN_COLORS[lane.slot % SPAWN_COLORS.length].toString(16).padStart(6, '0')}`,
         open: isOpen,
         switchable,

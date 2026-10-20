@@ -968,6 +968,17 @@ export const de: Messages = {
     noRunYet: 'Noch kein Lauf zum Speichern.',
   },
   places: {
+    fixed: {
+      loading: 'Lädt …',
+      mapCenter: 'Kartenmitte',
+      randomSpawn: 'Zufälliger Spawn',
+      fallbackSpawn: 'Ersatz-Spawn',
+      spawn: 'Spawn',
+      unknown: 'Unbekannter Ort',
+      none: 'Kein Ort',
+      unnamedStreet: 'Straße ohne Namen',
+      devWorld: 'Dev-Welt',
+    },
     runEnds: (place) => `Der Lauf in ${place} endet, wenn ein neuer Ort lädt.`,
     kind: 'Art der Welt',
     tiles: '3D-Stadt',

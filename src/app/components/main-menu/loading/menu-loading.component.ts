@@ -12,6 +12,7 @@ import { tilesProgress, type TilesProgress } from '../../../three-engine/tile-lo
 import { onMapDataProgress, type MapDataProgress } from '../../../world/custom-map/map-data';
 import { overpassRetryText } from '../../../world/osm/overpass-client';
 import { injectT } from '../../../i18n/i18n.service';
+import { placeName } from '../../../i18n/place-names';
 
 /**
  * The loading plate of the start menu, bottom right (docs/MAIN_MENU_UI_PLAN.md,
@@ -51,9 +52,10 @@ export class MenuLoadingComponent {
   });
   readonly placeName = computed(() => {
     // A world of its own (a custom map, DevWorld) is named by its ref, not by an address
-    if (!this.world.capabilities().realPlace) return worldPlaceName(this.world.ref()) ?? this.locationMgmt.displayName();
+    const t = this.t();
+    if (!this.world.capabilities().realPlace) return placeName(t, worldPlaceName(this.world.ref()) ?? this.locationMgmt.displayName());
     const mission = this.locationMgmt.missionInfo();
-    return mission?.city || this.locationMgmt.displayName();
+    return mission?.city || placeName(t, this.locationMgmt.displayName());
   });
   readonly problem = this.menu.problem;
   /** A failed engine or a refused key: the map key may be why, on a world that needs one */

@@ -6,6 +6,7 @@ import { LocationManagementService } from '../../services/location/location-mana
 import { relayLabel } from '../../coop/relay-address';
 import { joinSteps, transferPercent } from './coop-dock-view';
 import { injectT } from '../../i18n/i18n.service';
+import { placeName } from '../../i18n/place-names';
 
 /**
  * Joining a coop room as a guest, step by step: connected, room found, the
@@ -26,7 +27,7 @@ export class CoopJoinStepsComponent {
   private readonly engineInit = inject(EngineInitializationService);
   private readonly locationMgmt = inject(LocationManagementService);
 
-  readonly placeName = computed(() => this.locationMgmt.getLocationDisplayName());
+  readonly placeName = computed(() => placeName(this.t(), this.locationMgmt.getLocationDisplayName()));
 
   /** Share of the loading screen's steps done, while the engine loads a place */
   private readonly mapPercent = computed(() => {

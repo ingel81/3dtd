@@ -16,6 +16,7 @@ import { desyncText, dockBanners, roomStatus, startBlocked } from './coop-dock-v
 import { ownsKey } from '../../utils/keyboard-target';
 import { FocusOnShowDirective } from '../focus-on-show.directive';
 import { injectT } from '../../i18n/i18n.service';
+import { placeName } from '../../i18n/place-names';
 
 /** How long "Copied" stays on a copy button, ms */
 const COPIED_MS = 1200;
@@ -79,7 +80,7 @@ export class CoopDockComponent {
   readonly room = this.coop.room;
   readonly me = computed(() => this.room()?.players.find((p) => p.id === this.coop.playerId()) ?? null);
   readonly hostName = computed(() => this.coop.nameOf(this.room()?.hostId ?? ''));
-  readonly placeName = computed(() => this.locationMgmt.getLocationDisplayName());
+  readonly placeName = computed(() => placeName(this.t(), this.locationMgmt.getLocationDisplayName()));
 
   /** Joining as a guest, until the map stands here and this player has a lane */
   readonly joining = computed(() => {
