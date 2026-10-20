@@ -5,6 +5,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { GeocodingService, GeocodingResult, NominatimAddress } from '../services/location/geocoding.service';
 import { TdIconComponent } from './icon/icon.component';
 import { injectT } from '../i18n/i18n.service';
+import { contextLines } from '../services/location/search-results';
 
 type SearchState = 'idle' | 'too-short' | 'ready' | 'searching' | 'results' | 'no-results' | 'error' | 'selected';
 
@@ -45,6 +46,8 @@ export class AddressAutocompleteComponent {
   readonly activeIndex = signal(-1);
   /** The results the dropdown lists */
   readonly shownResults = computed(() => this.geocoding.results().slice(0, 5));
+  /** Each shown hit's second line: kind and where it lies, so hits of one name differ */
+  readonly contexts = computed(() => contextLines(this.t(), this.shownResults()));
   readonly dropdownShown = computed(() => this.showDropdown() && this.shownResults().length > 0);
 
   // Computed search state for status display

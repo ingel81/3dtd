@@ -59,6 +59,20 @@ describe('GeocodingService search', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('reads the kind and the OSM object of each hit, and one place found twice is one hit (one request)', async () => {
+    const twice = [
+      { place_id: 7, display_name: 'Neustadt, Prag, Tschechien', lat: '50.077', lon: '14.425', type: 'cadastral', addresstype: 'cadastral', osm_type: 'relation', osm_id: 431323, importance: 0.4, address: { city: 'Prag', suburb: 'Neustadt', country: 'Tschechien' } },
+      { place_id: 8, display_name: 'Neustadt, Prag, Tschechien', lat: '50.079', lon: '14.426', type: 'suburb', addresstype: 'suburb', osm_type: 'node', osm_id: 297896658, importance: 0.3, address: { city: 'Prag', suburb: 'Neustadt', country: 'Tschechien' } },
+    ];
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => twice }) as unknown as Response);
+    vi.stubGlobal('fetch', fetchMock);
+    const service = new GeocodingService();
+    service.search('Neustadt');
+    await vi.waitFor(() => expect(service.results()).toHaveLength(1));
+    expect(service.results()[0]).toMatchObject({ placeId: 8, addressType: 'suburb', osm: { type: 'node', id: 297896658 } });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps a second between two requests (Nominatim allows one a second)', async () => {
     vi.useFakeTimers();
     const { service, fetchMock } = setup();

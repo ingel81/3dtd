@@ -43,3 +43,11 @@
   flex-shrink: 0;
   color: var(--td-teal);
 }
+
+// The name, and under it what the place is and where it lies
+.result-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 3px 0;
+}

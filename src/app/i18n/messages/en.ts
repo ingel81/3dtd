@@ -1,4 +1,5 @@
 import type { RunLogRefusal } from '../../coop/protocol';
+import type { PlaceKind } from '../../services/location/search-results';
 import type { LanHostError } from '../../core/desktop-bridge';
 import type { AirSubStrategy, TargetingStrategy, TowerTypeId, UpgradeTerms, UpgradeText } from '../../configs/tower-types.config';
 import type { EnemyTypeId } from '../../configs/enemy-types.config';
@@ -698,6 +699,12 @@ export const en = {
     results: (n: number) => `${f.int(n)} ${f.plural(n, 'result', 'results')}`,
     none: 'No results',
     error: 'Search error',
+    /** A hit's kind on its second line, by Nominatim's addresstype ("Municipality | Bavaria, Germany") */
+    kinds: {
+      city: 'City', town: 'Town', village: 'Village', hamlet: 'Hamlet', municipality: 'Municipality', suburb: 'Suburb',
+      quarter: 'Quarter', neighbourhood: 'Neighbourhood', city_district: 'District', borough: 'Borough', county: 'County',
+      state: 'State', region: 'Region', country: 'Country', road: 'Street', building: 'Building', house: 'House',
+    } satisfies Record<PlaceKind, string>,
   },
   settings: {
     language: 'Language',

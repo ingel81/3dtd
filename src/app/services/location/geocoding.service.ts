@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { readJson, writeJson } from '../../utils/storage';
 import { injectT } from '../../i18n/i18n.service';
+import { mergeSamePlaces } from './search-results';
 
 /** A search or reverse lookup without an answer for this long fails, ms (it showed "Searching..." until the browser gave up) */
 const GEOCODE_TIMEOUT_MS = 10_000;
@@ -15,6 +16,10 @@ export interface GeocodingResult {
   lat: number;
   lon: number;
   type: string;
+  /** What Nominatim calls the place in its address ("municipality", "city", "road"), apart from its OSM tag `type` */
+  addressType?: string;
+  /** The OSM object behind it: the same object found twice is one hit */
+  osm?: { type: string; id: number };
   importance: number;
   address?: NominatimAddress;
 }
@@ -174,13 +179,17 @@ export class GeocodingService {
 
       const data = await response.json();
 
-      const results: GeocodingResult[] = data.map(
+      // Doubles of one place (its area and its point) are one hit
+      const results: GeocodingResult[] = mergeSamePlaces(data.map(
         (item: {
           place_id: number;
           display_name: string;
           lat: string;
           lon: string;
           type: string;
+          addresstype?: string;
+          osm_type?: string;
+          osm_id?: number;
           importance: number;
           address?: NominatimAddress;
         }) => ({
@@ -189,10 +198,12 @@ export class GeocodingService {
           lat: parseFloat(item.lat),
           lon: parseFloat(item.lon),
           type: item.type,
+          addressType: item.addresstype,
+          osm: item.osm_type && item.osm_id !== undefined ? { type: item.osm_type, id: item.osm_id } : undefined,
           importance: item.importance,
           address: item.address,
         })
-      );
+      ));
 
       this.searchCache.set(key, results);
       if (this.searchCache.size > SEARCH_CACHE_SIZE) this.searchCache.delete(this.searchCache.keys().next().value!);

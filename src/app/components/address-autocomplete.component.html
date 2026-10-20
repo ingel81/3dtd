@@ -87,7 +87,12 @@
              [attr.aria-selected]="i === activeIndex()"
              (mousedown)="selectResult(result)">
           <td-icon class="result-icon" name="pin" [size]="14"></td-icon>
-          <span class="td-name result-text">{{ formatResultLine(result) }}</span>
+          <span class="result-text">
+            <span class="td-name">{{ formatResultLine(result) }}</span>
+            @if (contexts()[i]; as where) {
+              <small class="td-note">{{ where }}</small>
+            }
+          </span>
         </div>
       }
     </div>

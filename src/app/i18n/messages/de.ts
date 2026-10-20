@@ -507,6 +507,11 @@ export const de: Messages = {
     results: (n) => `${f.int(n)} ${f.plural(n, 'Treffer', 'Treffer')}`,
     none: 'Keine Treffer',
     error: 'Fehler bei der Suche',
+    kinds: {
+      city: 'Stadt', town: 'Stadt', village: 'Dorf', hamlet: 'Weiler', municipality: 'Gemeinde', suburb: 'Stadtteil',
+      quarter: 'Viertel', neighbourhood: 'Viertel', city_district: 'Stadtbezirk', borough: 'Bezirk', county: 'Landkreis',
+      state: 'Bundesland', region: 'Region', country: 'Land', road: 'Straße', building: 'Gebäude', house: 'Haus',
+    },
   },
   settings: {
     language: 'Sprache',
