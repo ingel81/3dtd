@@ -999,7 +999,7 @@ export class MapObjectLayer {
     b.source.matrices = keep(b.source.matrices, 16, 0);
     if (b.source.colors) b.source.colors = keep(b.source.colors, 3, 1);
     if (b.damage) {
-      b.damage = [keep(b.damage[0], 4, 0), keep(b.damage[1], 4, 0), keep(b.damage[2], 4, 0), keep(b.damage[3], 4, 0)];
+      b.damage = [keep(b.damage[0], 4, 0), keep(b.damage[1], 4, 0), keep(b.damage[2], 4, 0)];
       b.source.extras = b.damage;
     }
     b.spheres = keep(b.spheres, 4, 0);

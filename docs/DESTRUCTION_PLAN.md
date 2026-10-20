@@ -206,9 +206,13 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   eigener Batch neu gebaut (eine Handvoll Gebäude, nicht die Karte); eine Wand eines Gefallenen wird an der Bruchkante in
   Stumpf und Oberteil geteilt, und an den Höhen, an denen die Einsturzvarianten den Oberteil quer teilen
   (`collapseCuts`), so liegt jedes Wandstück in einem Teil.
-- **Je Instanz vier vec4** (`aDamage`: Stufe, Fallstart, Richtung, Bruchhöhe; `aDamageB`: Mitte und Radius des Bisses;
-  `aDamageC`: Mitte, Abstand zur Kippkante, Falldauer; `aDamageD`: Wurf 0 bis 1, Sitz, Oberkante), im Rahmen der
-  Gruppe, für Modelle und Wände gleich. Die Form würfelt `ruinShape` auf der CPU aus der Id (oder `damageSeed`) und dem
+- **Je Instanz drei vec4** (`aDamage`: Stufe plus ein Viertel des Wurfs, Fallstart, Richtung, Bruchhöhe; `aDamageB`:
+  Mitte des Bisses, sein Radius plus 8 mal der Stumpf in 1/64 m; `aDamageC`: Mitte, Abstand zur Kippkante, Oberkante;
+  die Falldauer folgt aus der Höhe, `fallSeconds`), im Rahmen der Gruppe, für Modelle und Wände gleich. Nicht mehr:
+  ein Vertex-Shader hat 16 Attributplätze, und ein Ruinen-Material eines zusammengelegten Hauses braucht schon Position,
+  Normale, zwei uv, Vertexfarbe, roughMetal, Instanzmatrix (vier), Instanzfarbe und `lodFade`. Ein vierter vec4 und ein
+  eigener Anker brachten es auf 18, das Programm band nicht („Too many attributes“, OSM-Welten); jetzt 15, die Spec
+  `ruin-attributes.spec.ts` zählt jedes Objekt-Material, intakt und als Ruine, samt Schatten. Die Form würfelt `ruinShape` auf der CPU aus der Id (oder `damageSeed`) und dem
   Grundrechteck: Richtung, Stumpf 1,5 bis 4 m (höchstens 55 % der Höhe), Biss in der oberen Ecke zur Kipprichtung,
   Falldauer 1,2 bis 2,5 s, dazu der Wurf, aus dem der Shader die Varianten je Gebäude streut (`collapseRoll`: Wurf mal
   Faktor plus k mal 0,618, der Bruchteil; einfache Rechnung, so kommen Float und Double auf dieselben Schnitthöhen).
@@ -238,10 +242,12 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   (Z3) liegt darin. Ein Gefallener sperrt nicht mehr das Bauen (`CustomMapSurface.setObjectCatalog`), `FALLEN_SCALE`
   bleibt nur für Objekte, die ein Wellen-Ereignis verbirgt.
 - **Einsturzvarianten** (E259, zur Wahl; `COLLAPSE_VARIANTS`, ein Uniform `uCollapse`, also keine weiteren Programme
-  und Umschalten mitten im Fall): ein Stück wird je Dreieck nach seinem Anker gewählt (`aDamageAnchor`): bei Modellen die
-  Mitte des Dreiecks (der Ruinen-Batch zeichnet das Modell mit eigenen Ecken je Dreieck, `ruinGeometry`, einmal je
-  Geometrie), bei Wänden, Dächern, Simsen und Decken die Mitte der Instanz; so bleibt ein Dreieck ganz, die Bruchlinien
-  folgen dem Netz.
+  und Umschalten mitten im Fall): ein Stück wird je Dreieck nach seinem Anker gewählt: bei Modellen die Mitte des
+  Dreiecks (der Ruinen-Batch zeichnet das Modell mit eigenen Ecken je Dreieck, `ruinGeometry`, einmal je Geometrie), in
+  eine Zahl gepackt (`anchorCode`, 0,4-m-Schritte), die bei zusammengelegten Teilen als dritter Wert in `roughMetal`
+  reist (kein Platz mehr) und sonst in `aDamageAnchor`; bei Wänden, Dächern, Simsen und Decken die Mitte der Instanz,
+  eine Konstante ihres Materials. So bleibt ein Dreieck ganz, die Bruchlinien folgen dem Netz. Die Nachtfenster einer
+  Ruine sind aus, ihr Material liest `nightGlow` nicht.
   - `tip` (bisher): starr um den Fuß, sinkt.
   - `sag`: kommt Stockwerk um Stockwerk von oben in sich zusammen, jedes ein kurzer Ruck und ein Halt, schneller werdend,
     die Seite, zu der es sich neigt, zuerst; was unten ist, wird gestaucht, beult nach außen und sinkt am Ende in den
@@ -259,8 +265,8 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
     jeder Variante aus derselben Richtung fallen und nimmt je Fall einen Clip auf.
   - Gemessen (Ruined City, Chrome, 60 Hz): kein Bild über 16,7 ms während eines Falls in jeder Variante, ohne Aufnahme;
     keine neuen Programme, die Draw Calls je Asset und Stufe wie vorher (keine neuen Meshes). Kosten: größerer Vertex-Shader der Ruinen
-    (nur Ruinen zeichnen ihn), ein vec4 und ein vec3 mehr je Ecke bzw. Instanz, die Ruinen-Modelle ohne Index
-    (bis dreimal so viele Ecken, nur in den Ruinen-Batches).
+    (nur Ruinen zeichnen ihn), eine Zahl je Ecke der Ruinen-Modelle, die ohne Index gezeichnet werden (bis dreimal so
+    viele Ecken, nur in den Ruinen-Batches); kein Attributplatz mehr als vor E259.
 - **Glutnester** (`EffectLayer.setRuinEmbers`): Glut und eine dünne Rauchfahne in den zwölf neuesten Ruinen ab Stufe 2,
   tief im Biss, bei einem Gefallenen im Stumpf.
 - **Sichtlinie und Schatten:** was weg ist, sperrt die Sicht der Tower nicht (`LosVertexPatch` mit Fragment-Teil und

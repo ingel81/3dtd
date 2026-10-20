@@ -11,6 +11,7 @@
 //        [--variants tip,sag,chunks,tip-break] [--distance 70] [--up 38] [--headed] [--no-video]
 //        [--shots <dir>: a still of each building at stage 2 and fallen, for the floors inside] [--scan <dir>]
 //        [--cpu: a CPU profile of each fall's first second] [--list-damage: the ruins' shadow programs and meshes]
+//        [--attribs: the programs' attribute slots against the GPU's limit]
 import { chromium } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -233,6 +234,26 @@ for (const spec of IDS) {
     await call('stage', id, 0);
     await page.waitForTimeout(1200);
   }
+}
+// --attribs: the attribute slots of the programs three built (each mat4 four), the most first, against the GPU's limit
+if (process.argv.includes('--attribs')) {
+  console.log(await page.evaluate(() => {
+    interface P { name: string; cacheKey: string; program: WebGLProgram }
+    const g = globalThis as unknown as { ng: { getComponent(e: Element): { engine: { getRenderer(): { getContext(): WebGL2RenderingContext; info: { programs: P[] | null } } } } } };
+    const renderer = g.ng.getComponent(document.querySelector('app-tower-defense')!).engine.getRenderer();
+    const gl = renderer.getContext();
+    const rows = (renderer.info.programs ?? []).map((p) => {
+      const n = gl.getProgramParameter(p.program, gl.ACTIVE_ATTRIBUTES) as number;
+      let used = 0;
+      for (let k = 0; k < n; k++) {
+        const a = gl.getActiveAttrib(p.program, k)!;
+        used += (a.type === gl.FLOAT_MAT4 ? 4 : a.type === gl.FLOAT_MAT3 ? 3 : 1) * a.size;
+      }
+      return { used, name: p.name || p.cacheKey.slice(-50) };
+    });
+    rows.sort((x, y) => y.used - x.used);
+    return `max attribs ${gl.getParameter(gl.MAX_VERTEX_ATTRIBS)}; most used: ${rows.slice(0, 6).map((r) => `${r.used} ${r.name}`).join(' | ')}`;
+  }));
 }
 const programsAfter = await call('programs');
 const added = programsAfter.filter((p) => !programsBefore.includes(p));

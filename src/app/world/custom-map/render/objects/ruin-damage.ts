@@ -23,8 +23,10 @@ import { CRACK_TILE_M, crackTexture } from './crack-texture';
  *   about the foot of the side it gives way to and sinks; `sag` comes down
  *   storey by storey into itself; `chunks` breaks into pieces that tip
  *   apart, the back wall last; `tip-break` tips and breaks in bands that
- *   part and land. A piece is chosen per triangle from its anchor
- *   (aDamageAnchor, ruinGeometry), so a triangle goes whole with one piece.
+ *   part and land. A piece is chosen per triangle from its anchor (a
+ *   model's triangle middle packed into one float, ruinGeometry; an
+ *   instance's middle for the raised walls, roofs and slabs, a constant of
+ *   their material), so a triangle goes whole with one piece.
  *   The triangles that cross the break line go while it falls, the dust
  *   hides it
  *
@@ -162,13 +164,20 @@ export function ruinShape(seed: number, f: RuinFrame, heading: number | null = n
     cx: f.cx,
     cz: f.cz,
     reach: Math.abs(da) + Math.abs(db),
-    fallS: Math.min(2.5, Math.max(1.2, 1.2 + h * 0.06)),
+    fallS: fallSeconds(h),
     seatY: f.seatY,
     topY: f.seatY + h,
-    // As the attribute holds it: the shader and collapseCuts read the same number
-    roll: Math.fround(roll(seed, 4)),
+    // As aDamage holds it (writeDamage): the shader and collapseCuts read the same number
+    roll: Math.floor(roll(seed, 4) * ROLL_STEPS) / ROLL_STEPS,
   };
 }
+
+/** The roll in steps of 1/4096: in aDamage.x past the stage, a quarter of it, without a bit lost */
+const ROLL_STEPS = 4096;
+
+/** The stump in aDamageB.w over the bite's radius (under 8 m): steps of 1/64 m, times 8 */
+const STUMP_STEPS = 64;
+const BITE_SPAN = 8;
 
 /** Multipliers of a ruin's roll, one per collapse roll (dmgRoll in the shader) */
 const COLLAPSE_PRIMES = [1, 7, 13, 29, 41, 53, 67, 79, 97];
@@ -197,40 +206,48 @@ export function collapseCuts(s: RuinShape): number[] {
   return out.sort((a, b) => a - b);
 }
 
-/** The four instance attributes of the damage, four floats per object each */
-export type DamageArrays = readonly [Float32Array, Float32Array, Float32Array, Float32Array];
+/**
+ * The three instance attributes of the damage, four floats per object each.
+ * Three, not more: a ruin's material with merged parts (roughness and
+ * metalness per vertex, vertex colours, a second uv for the occlusion)
+ * draws instanced with fading levels, and a vertex shader has 16 attribute
+ * slots (ruin-attributes.spec.ts counts them)
+ */
+export type DamageArrays = readonly [Float32Array, Float32Array, Float32Array];
 
 /** The damage attributes' names, in the order of DamageArrays */
-export const DAMAGE_ATTRIBUTES = ['aDamage', 'aDamageB', 'aDamageC', 'aDamageD'] as const;
+export const DAMAGE_ATTRIBUTES = ['aDamage', 'aDamageB', 'aDamageC'] as const;
 
 /** Empty damage arrays for `n` objects */
 export function damageArrays(n: number): DamageArrays {
-  return [new Float32Array(n * 4), new Float32Array(n * 4), new Float32Array(n * 4), new Float32Array(n * 4)];
+  return [new Float32Array(n * 4), new Float32Array(n * 4), new Float32Array(n * 4)];
 }
 
 /**
- * One object's damage at `i`: aDamage (stage, fall start, heading, break
- * height), aDamageB (bite centre, radius), aDamageC (middle x, z, reach,
- * fall seconds), aDamageD (roll, seat, top)
+ * One object's damage at `i`: aDamage (stage plus a quarter of the roll,
+ * fall start, heading, break height), aDamageB (bite centre; its radius
+ * plus 8 times the stump in 1/64 m), aDamageC (middle x, z, reach, top).
+ * The fall's seconds come from the height (ruinShape, dmgFallS)
  */
-export function writeDamage([a, b, c, d]: DamageArrays, i: number, stage: number, fallStart: number, s: RuinShape): void {
+export function writeDamage([a, b, c]: DamageArrays, i: number, stage: number, fallStart: number, s: RuinShape): void {
   const at = i * 4;
-  a[at] = stage;
+  a[at] = stage + s.roll / 4;
   a[at + 1] = fallStart;
   a[at + 2] = s.heading;
   a[at + 3] = s.breakY;
   b[at] = s.biteX;
   b[at + 1] = s.biteY;
   b[at + 2] = s.biteZ;
-  b[at + 3] = s.biteR;
+  b[at + 3] = Math.min(s.biteR, BITE_SPAN - 0.01) + BITE_SPAN * Math.round(Math.max(0, s.breakY - s.seatY) * STUMP_STEPS);
   c[at] = s.cx;
   c[at + 1] = s.cz;
   c[at + 2] = s.reach;
-  c[at + 3] = s.fallS;
-  d[at] = s.roll;
-  d[at + 1] = s.seatY;
-  d[at + 2] = s.topY;
-  d[at + 3] = 0;
+  c[at + 3] = s.topY;
+}
+
+/** A fall's seconds from a building's height (ruinShape; dmgFallS in the shader) */
+export function fallSeconds(height: number): number {
+  return Math.min(2.5, Math.max(1.2, 1.2 + height * 0.06));
 }
 
 /** Smouldering nests at once, the newest ruins' (docs/DESTRUCTION_PLAN.md) */
@@ -245,62 +262,78 @@ export function emberPoint<T extends { x: number; y: number; z: number }>(s: Rui
   return out;
 }
 
-/** A ruin's shape back from its damage attributes at `i` (writeDamage) */
-export function readDamage([a, b, c, d]: DamageArrays, i: number): RuinShape {
+/** A ruin's shape back from its damage attributes at `i` (writeDamage), the packed numbers as the shader reads them */
+export function readDamage([a, b, c]: DamageArrays, i: number): RuinShape {
   const at = i * 4;
+  const breakY = a[at + 3];
+  const seatY = breakY - Math.floor(b[at + 3] / BITE_SPAN) / STUMP_STEPS;
   return {
     heading: a[at + 2],
-    breakY: a[at + 3],
+    breakY,
     biteX: b[at],
     biteY: b[at + 1],
     biteZ: b[at + 2],
-    biteR: b[at + 3],
+    biteR: b[at + 3] % BITE_SPAN,
     cx: c[at],
     cz: c[at + 1],
     reach: c[at + 2],
-    fallS: c[at + 3],
-    roll: d[at],
-    seatY: d[at + 1],
-    topY: d[at + 2],
+    fallS: fallSeconds(c[at + 3] - seatY),
+    roll: (a[at] - Math.floor(a[at])) * 4,
+    seatY,
+    topY: c[at + 3],
   };
+}
+
+/** A model triangle's middle packed into one float (anchorCode): 0.4 m steps from (-51.2, -10, -51.2), 256 a side */
+const ANCHOR_STEP = 0.4;
+const ANCHOR_ORIGIN = [-51.2, -10, -51.2] as const;
+
+/** A point of a model (its own metres) as one float, x + 256 y + 65536 z steps: exact in a float's 24 bits */
+export function anchorCode(x: number, y: number, z: number): number {
+  const step = (v: number, k: number) => Math.min(255, Math.max(0, Math.floor((v - ANCHOR_ORIGIN[k]) / ANCHOR_STEP)));
+  return step(x, 0) + 256 * step(y, 1) + 65536 * step(z, 2);
+}
+
+/** The middle of the step of a point anchorCode packed (dmgAnchorLocal in the shader) */
+export function anchorPoint(code: number): [number, number, number] {
+  const z = Math.floor(code / 65536);
+  const y = Math.floor((code - z * 65536) / 256);
+  const x = code - z * 65536 - y * 256;
+  return [x, y, z].map((v, k) => ANCHOR_ORIGIN[k] + (v + 0.5) * ANCHOR_STEP) as [number, number, number];
 }
 
 const anchored = new WeakMap<BufferGeometry, BufferGeometry>();
 
 /**
  * A model's geometry as a ruin draws it: each triangle on corners of its
- * own, which carry its middle (aDamageAnchor), so a collapse variant moves
- * the triangle whole with the piece its middle lies in. Made once per
- * geometry, freed with it
+ * own, which carry its middle (anchorCode), so a collapse variant moves the
+ * triangle whole with the piece its middle lies in. The middle rides as a
+ * third value of `roughMetal` where the part has one (merged parts: its
+ * material reads that, no attribute slot more) and in `aDamageAnchor` (the
+ * shadow's depth material reads that). Made once per geometry, freed with it
  */
 export function ruinGeometry(source: BufferGeometry): BufferGeometry {
   const known = anchored.get(source);
   if (known) return known;
   const g = source.index ? source.toNonIndexed() : source.clone();
   const p = g.getAttribute('position');
-  const anchor = new Float32Array(p.count * 3);
+  const codes = new Float32Array(p.count);
   for (let v = 0; v + 2 < p.count; v += 3) {
-    for (let axis = 0; axis < 3; axis++) {
-      const m = (p.getComponent(v, axis) + p.getComponent(v + 1, axis) + p.getComponent(v + 2, axis)) / 3;
-      anchor[v * 3 + axis] = anchor[(v + 1) * 3 + axis] = anchor[(v + 2) * 3 + axis] = m;
-    }
+    const mid = (axis: number) => (p.getComponent(v, axis) + p.getComponent(v + 1, axis) + p.getComponent(v + 2, axis)) / 3;
+    codes[v] = codes[v + 1] = codes[v + 2] = anchorCode(mid(0), mid(1), mid(2));
   }
-  g.setAttribute('aDamageAnchor', new BufferAttribute(anchor, 3));
+  g.setAttribute('aDamageAnchor', new BufferAttribute(codes, 1));
+  const rm = g.getAttribute('roughMetal');
+  if (rm) {
+    const packed = new Float32Array(rm.count * 3);
+    for (let v = 0; v < rm.count; v++) packed.set([rm.getX(v), rm.getY(v), codes[v]], v * 3);
+    g.setAttribute('roughMetal', new BufferAttribute(packed, 3));
+  }
   anchored.set(source, g);
   source.addEventListener('dispose', () => {
     g.dispose();
     anchored.delete(source);
   });
-  return g;
-}
-
-/** A unit geometry of a ruin's instances, every corner anchored at (`x`, `y`, `z`): each instance goes whole */
-export function anchoredGeometry(source: BufferGeometry, x: number, y: number, z: number): BufferGeometry {
-  const g = source.clone();
-  const n = g.getAttribute('position').count;
-  const anchor = new Float32Array(n * 3);
-  for (let v = 0; v < n; v++) anchor.set([x, y, z], v * 3);
-  g.setAttribute('aDamageAnchor', new BufferAttribute(anchor, 3));
   return g;
 }
 
@@ -319,6 +352,20 @@ uniform float uCollapse;
 float damageSeconds(float fallS) {
   return fallS * (uCollapse < 0.5 ? 1.0 : uCollapse < 1.5 ? 1.25 : 1.9);
 }
+// What writeDamage packs: the roll past the stage, the stump over the bite's radius, the top in place of the seconds
+float dmgRollOf(vec4 a) {
+  return fract(a.x) * 4.0;
+}
+float dmgBiteR(vec4 b) {
+  return mod(b.w, ${BITE_SPAN.toFixed(1)});
+}
+float dmgSeat(vec4 a, vec4 b) {
+  return a.w - floor(b.w / ${BITE_SPAN.toFixed(1)}) / ${STUMP_STEPS.toFixed(1)};
+}
+// fallSeconds
+float dmgFallS(vec4 a, vec4 b, vec4 c) {
+  return clamp(1.2 + (c.w - dmgSeat(a, b)) * 0.06, 1.2, 2.5);
+}
 `;
 
 /** Attributes, the fall in each collapse variant and what the fragment needs */
@@ -326,14 +373,20 @@ const DAMAGE_VERTEX_PARS = /* glsl */ `
 attribute vec4 aDamage;
 attribute vec4 aDamageB;
 attribute vec4 aDamageC;
-attribute vec4 aDamageD;
-attribute vec3 aDamageAnchor;
 uniform float uDamageTime;
 ${COLLAPSE_PARS}
 ${VARYINGS}
+// A model triangle's middle back from its code (anchorPoint)
+vec3 dmgAnchorLocal(float code) {
+  float z = floor((code + 0.5) / 65536.0);
+  float r = code - z * 65536.0;
+  float y = floor((r + 0.5) / 256.0);
+  float x = r - y * 256.0;
+  return vec3(${ANCHOR_ORIGIN[0].toFixed(1)}, ${ANCHOR_ORIGIN[1].toFixed(1)}, ${ANCHOR_ORIGIN[2].toFixed(1)}) + (vec3(x, y, z) + 0.5) * ${ANCHOR_STEP.toFixed(1)};
+}
 // A roll of the ruin, 0 to 1 (collapseRoll: k and its multiplier)
 float dmgRoll(float prime, float k) {
-  return fract(aDamageD.x * prime + k * 0.618);
+  return fract(dmgRollOf(aDamage) * prime + k * 0.618);
 }
 vec3 dmgHash3(vec3 p) {
   p = fract(p * vec3(0.1031, 0.1030, 0.0973));
@@ -401,7 +454,7 @@ mat4 dmgFallTip(float t) {
 // bulges out and goes into the stump at the end. Each point on its own: the walls stay whole as they crumple
 vec3 dmgSag(vec3 p, float t) {
   float base = aDamage.w;
-  float top = max(aDamageD.z, base + 1.0);
+  float top = max(aDamageC.w, base + 1.0);
   float hu = top - base;
   vec2 c = aDamageC.xy;
   vec2 lean = dmgTurn(vec2(cos(aDamage.z), sin(aDamage.z)), (dmgRoll(41.0, 4.0) - 0.5) * 2.0);
@@ -430,8 +483,8 @@ vec3 dmgChunks(vec3 p, vec3 anchor, float s) {
   vec2 c = aDamageC.xy;
   float reach = max(aDamageC.z, 1.0);
   float base = aDamage.w;
-  float seat = aDamageD.y;
-  float hu = max(aDamageD.z - base, 1.0);
+  float seat = dmgSeat(aDamage, aDamageB);
+  float hu = max(aDamageC.w - base, 1.0);
   vec2 q = anchor.xz - c;
   float along = dot(q, d);
   float across = dot(q, vec2(-d.y, d.x));
@@ -480,9 +533,9 @@ vec3 dmgTipBreak(vec3 p, vec3 anchor, float s) {
   vec2 c = aDamageC.xy;
   float reach = max(aDamageC.z, 1.0);
   float base = aDamage.w;
-  float hu = max(aDamageD.z - base, 1.0);
+  float hu = max(aDamageC.w - base, 1.0);
   float maxTh = 1.52;
-  vec2 f = dmgTopple(s, 1.2 * clamp(10.0 / hu, 0.5, 1.6), maxTh, base - aDamageD.y);
+  vec2 f = dmgTopple(s, 1.2 * clamp(10.0 / hu, 0.5, 1.6), maxTh, base - dmgSeat(aDamage, aDamageB));
   float lie = clamp(f.x / maxTh, 0.0, 1.0);
   float kink = sin(3.14159 * lie);
   vec2 back = c - d * reach;
@@ -507,7 +560,7 @@ vec3 dmgTipBreak(vec3 p, vec3 anchor, float s) {
 vec3 damageMove(vec3 p, vec3 anchor) {
   if (aDamage.x < 2.5 || (uCollapse > 1.5 ? anchor.y : p.y) < aDamage.w) return p;
   float s = uDamageTime - aDamage.y;
-  float dur = damageSeconds(aDamageC.w);
+  float dur = damageSeconds(dmgFallS(aDamage, aDamageB, aDamageC));
   if (s <= 0.0 || s >= dur) return p;
   if (uCollapse < 0.5) return (dmgFallTip(s / dur) * vec4(p, 1.0)).xyz;
   if (uCollapse < 1.5) return dmgSag(p, s / dur);
@@ -526,7 +579,7 @@ void damageVaryings(vec3 rest, vec3 anchor) {
 /** project_vertex with the fall between the instance and the model matrix (and the rest position for the fragment) */
 const DAMAGE_PROJECT_VERTEX = /* glsl */ `
 vec4 dmgRest = instanceMatrix * vec4(transformed, 1.0);
-vec3 dmgAnchor = (instanceMatrix * vec4(aDamageAnchor, 1.0)).xyz;
+vec3 dmgAnchor = (instanceMatrix * vec4(DMG_ANCHOR, 1.0)).xyz;
 damageVaryings(dmgRest.xyz, dmgAnchor);
 vec4 dmgMoved = vec4(damageMove(dmgRest.xyz, dmgAnchor), 1.0);
 vec4 mvPosition = modelViewMatrix * dmgMoved;
@@ -562,19 +615,19 @@ float damageBite(vec3 p) {
   vec3 q = p - vDmgB.xyz;
   float a = atan(q.z, q.x);
   float jag = dmgNoise(vec2(a * 2.6, q.y * 0.9) + vDmg.z * 3.0) * 0.55 + dmgNoise(vec2(a * 9.0, q.y * 3.1)) * 0.25;
-  return length(q) - vDmgB.w * (0.7 + jag);
+  return length(q) - dmgBiteR(vDmgB) * (0.7 + jag);
 }
 // Metres to the nearest broken edge (bite or cut), large where there is none
 float damageEdge() {
   float e = 1e3;
   if (vDmg.x > 1.5) e = damageBite(vDmgP);
-  if (vDmg.x > 2.5 && (uDamageTime - vDmg.y) >= damageSeconds(vDmgC.w)) e = min(e, damageCut(vDmgP) - vDmgP.y);
+  if (vDmg.x > 2.5 && (uDamageTime - vDmg.y) >= damageSeconds(dmgFallS(vDmg, vDmgB, vDmgC))) e = min(e, damageCut(vDmgP) - vDmgP.y);
   return e;
 }
 // How far a falling piece has crumbled into dust, 0 to 1 and past (chunks and tip-break, once it has landed)
 float damageCrumble() {
   if (vDmg.x < 2.5 || uCollapse < 1.5 || vDmgSide < 0.5) return 0.0;
-  float t = (uDamageTime - vDmg.y) / damageSeconds(vDmgC.w);
+  float t = (uDamageTime - vDmg.y) / damageSeconds(dmgFallS(vDmg, vDmgB, vDmgC));
   return t < 1.0 ? smoothstep(0.62, 0.97, t) * 1.05 : 0.0;
 }
 // The grain it crumbles by, on the surface at rest
@@ -588,7 +641,7 @@ void damageClip() {
   if (vDmg.x < 1.5) return;
   if (damageBite(vDmgP) < 0.0) discard;
   if (vDmg.x > 2.5) {
-    if ((uDamageTime - vDmg.y) < damageSeconds(vDmgC.w)) {
+    if ((uDamageTime - vDmg.y) < damageSeconds(dmgFallS(vDmg, vDmgB, vDmgC))) {
       // tip: the triangles across the line go; sag moves each point on its own, they stay whole; in chunks and
       // tip-break one goes whole with the side its anchor is on, what of one left standing reaches above goes
       if (uCollapse < 0.5 && vDmgSide > 0.002 && vDmgSide < 0.998) discard;
@@ -643,16 +696,38 @@ if (vDmg.x > 0.5) {
 }
 `;
 
-/** Shader GLSL for a material of a damaged building's mesh; wraps what compiles it so far */
-export function addDamage(material: Material): void {
+/**
+ * Where a vertex shader takes a piece's anchor from (DMG_ANCHOR, model
+ * space): `fixed`, one point for every corner (an instance of a unit quad
+ * goes whole); else a model triangle's code (ruinGeometry), from
+ * `roughMetal` where the material reads that attribute already
+ */
+function anchorPars(vertexShader: string, fixed?: readonly [number, number, number]): { shader: string; pars: string } {
+  // A ruin's windows are dark (DAMAGE_EMISSIVE_FRAGMENT): a merged part's glass share takes no attribute slot
+  vertexShader = vertexShader.replace('attribute float nightGlow;', '#define nightGlow 0.0');
+  if (fixed) return { shader: vertexShader, pars: `#define DMG_ANCHOR vec3(${fixed.map((v) => v.toFixed(4)).join(', ')})` };
+  if (vertexShader.includes('attribute vec2 roughMetal;')) {
+    const shader = vertexShader.replace('attribute vec2 roughMetal;', 'attribute vec3 roughMetal;').replace('vRoughMetal = roughMetal;', 'vRoughMetal = roughMetal.xy;');
+    return { shader, pars: '#define DMG_ANCHOR dmgAnchorLocal(roughMetal.z)' };
+  }
+  return { shader: vertexShader, pars: 'attribute float aDamageAnchor;\n#define DMG_ANCHOR dmgAnchorLocal(aDamageAnchor)' };
+}
+
+/**
+ * Shader GLSL for a material of a damaged building's mesh; wraps what
+ * compiles it so far. `anchor`: the one anchor of a unit geometry's
+ * instances (anchorPars)
+ */
+export function addDamage(material: Material, anchor?: readonly [number, number, number]): void {
   const prev = material.onBeforeCompile;
   const prevKey = material.customProgramCacheKey;
   DAMAGE_UNIFORMS.uCrackMap.value ??= crackTexture();
   material.onBeforeCompile = (shader, renderer) => {
     prev.call(material, shader, renderer);
     Object.assign(shader.uniforms, DAMAGE_UNIFORMS);
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', `#include <common>\n${DAMAGE_VERTEX_PARS}`)
+    const { shader: vertex, pars } = anchorPars(shader.vertexShader, anchor);
+    shader.vertexShader = vertex
+      .replace('#include <common>', `#include <common>\n${DAMAGE_VERTEX_PARS}\n${pars}`)
       .replace('#include <project_vertex>', DAMAGE_PROJECT_VERTEX)
       .replace('#include <worldpos_vertex>', DAMAGE_WORLDPOS_VERTEX);
     shader.fragmentShader = shader.fragmentShader
@@ -666,14 +741,15 @@ export function addDamage(material: Material): void {
 
 /**
  * The sun's shadow of a damaged building: falls and discards as it does.
- * `vertex` runs first in begin_vertex (a raised wall's gable)
+ * `vertex` runs first in begin_vertex (a raised wall's gable); `anchor` as
+ * addDamage's
  */
-export function damageDepthMaterial(key: string, pars = '', vertex = ''): MeshDepthMaterial {
+export function damageDepthMaterial(key: string, pars = '', vertex = '', anchor?: readonly [number, number, number]): MeshDepthMaterial {
   const m = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
   m.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, DAMAGE_UNIFORMS);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', `#include <common>\n${pars}\n${DAMAGE_VERTEX_PARS}`)
+      .replace('#include <common>', `#include <common>\n${pars}\n${DAMAGE_VERTEX_PARS}\n${anchorPars('', anchor).pars}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>\n${vertex}`)
       .replace('#include <project_vertex>', DAMAGE_PROJECT_VERTEX);
     shader.fragmentShader = shader.fragmentShader

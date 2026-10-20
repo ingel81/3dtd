@@ -29,7 +29,7 @@ import { NIGHT_WINDOW_UNIFORMS } from './night-windows';
 import { seatHeight, type ObjectFooting } from './object-seat';
 import { rubbleMaterialOf } from '../../rubble-material';
 import type { RuinFootprint, RuinSlabs } from './ruin-slabs';
-import { addDamage, anchoredGeometry, collapseCuts, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, FELL_LONG_AGO, ruinSeed, ruinShape, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
+import { addDamage, collapseCuts, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, FELL_LONG_AGO, ruinSeed, ruinShape, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
 
 /**
  * The buildings a map raises from their own footprint (MapObject.mass,
@@ -377,7 +377,8 @@ export class MassLayer {
   private readonly damaged = new Map<string, { stage: number; fallStart: number; heading: number | null }>();
   /** The ruins as last built, with their seats */
   private readonly ruinShapes = new Map<string, { shape: RuinShape; seat: number }>();
-  private ruinDepth: MeshDepthMaterial | null = null;
+  private ruinRoofDepth: MeshDepthMaterial | null = null;
+  private ruinCapDepth: MeshDepthMaterial | null = null;
   private ruinWallDepth: MeshDepthMaterial | null = null;
   private surfaces: Map<string, Surface> | null = null;
   private loading: Promise<Map<string, Surface> | null> | null = null;
@@ -542,7 +543,8 @@ export class MassLayer {
     for (const m of this.materials.values()) m.dispose();
     this.materials.clear();
     this.depthMaterial.dispose();
-    this.ruinDepth?.dispose();
+    this.ruinRoofDepth?.dispose();
+    this.ruinCapDepth?.dispose();
     this.ruinWallDepth?.dispose();
     this.group.removeFromParent();
   }
@@ -674,25 +676,25 @@ export class MassLayer {
     for (const [facade, count] of wallCount) {
       const surface = surfaces.get(FACADE_SURFACE[facade]);
       if (!surface || !count) continue;
-      // Own geometry per mesh: its instance attributes ride on it; a ruin's wall goes whole with its piece
-      const geometry = ruin ? anchoredGeometry(UNIT_QUAD, 0.5, 0.5, 0) : UNIT_QUAD.clone();
+      // Own geometry per mesh: its instance attributes ride on it
+      const geometry = UNIT_QUAD.clone();
       const a = new Float32Array(count * 4);
       const b = new Float32Array(count * 4);
       geometry.setAttribute('aWall', new InstancedBufferAttribute(a, 4));
       geometry.setAttribute('aWallB', new InstancedBufferAttribute(b, 4));
       geometry.userData['owned'] = true;
       const mesh = new InstancedMesh(geometry, this.wallMaterial(facade, surface, surfaces.get('mass-plinth'), ruin), count);
-      mesh.customDepthMaterial = ruin ? (this.ruinWallDepth ??= damageDepthMaterial('mass-wall', 'attribute vec4 aWallB;', GABLE_GLSL)) : this.depthMaterial;
+      mesh.customDepthMaterial = ruin ? (this.ruinWallDepth ??= damageDepthMaterial('mass-wall', 'attribute vec4 aWallB;', GABLE_GLSL, WALL_ANCHOR)) : this.depthMaterial;
       walls.set(facade, { batch: { mesh, owners: [] }, a, b, damage: damageOf(mesh, count), n: 0 });
     }
     const roofs = new Map<Covering, { batch: Batch; uv: Float32Array; damage: DamageArrays | null; n: number }>();
     for (const [covering, count] of roofCount) {
       const surface = surfaces.get(`mass-roof-${covering}`);
       if (!surface || !count) continue;
-      const geometry = ruin ? anchoredGeometry(UNIT_TRIANGLE, 1 / 3, 0, 1 / 3) : UNIT_TRIANGLE.clone();
+      const geometry = UNIT_TRIANGLE.clone();
       geometry.userData['owned'] = true;
       const mesh = new InstancedMesh(geometry, this.roofMaterial(covering, surface, ruin), count);
-      if (ruin) mesh.customDepthMaterial = this.ruinDepthMaterial();
+      if (ruin) mesh.customDepthMaterial = this.ruinRoofDepth ??= damageDepthMaterial('mass-roof', '', '', ROOF_ANCHOR);
       const uv = new Float32Array(count * 6);
       roofs.set(covering, { batch: { mesh, owners: [] }, uv, damage: damageOf(mesh, count), n: 0 });
     }
@@ -700,10 +702,10 @@ export class MassLayer {
     let caps: { batch: Batch; damage: DamageArrays | null; n: number } | null = null;
     if (plinth && capCount) {
       // A ruin's caps have attributes of their own: their geometry is a copy
-      const geometry = ruin ? anchoredGeometry(UNIT_FLAT, 0.5, 0, 0.5) : UNIT_FLAT;
+      const geometry = ruin ? UNIT_FLAT.clone() : UNIT_FLAT;
       if (ruin) geometry.userData['owned'] = true;
       const mesh = new InstancedMesh(geometry, this.capMaterial(plinth, ruin), capCount);
-      if (ruin) mesh.customDepthMaterial = this.ruinDepthMaterial();
+      if (ruin) mesh.customDepthMaterial = this.ruinCapDepth ??= damageDepthMaterial('mass-cap', '', '', CAP_ANCHOR);
       caps = { batch: { mesh, owners: [] }, damage: damageOf(mesh, capCount), n: 0 };
     }
     const color = new Color();
@@ -854,11 +856,6 @@ export class MassLayer {
     return { frame, shape: ruinShape(ruinSeed(o), frame, heading), footprint };
   }
 
-  /** The sun's shadow of ruined roofs and copings */
-  private ruinDepthMaterial(): MeshDepthMaterial {
-    return (this.ruinDepth ??= damageDepthMaterial('mass'));
-  }
-
   /** The walls of one facade: its surface in metres, the plinth's below, the windows from the shader */
   private wallMaterial(facade: MapMassFacade, surface: Surface, plinth: Surface | undefined, ruin = false): Material {
     const key = `wall-${facade}${ruin ? '-ruin' : ''}`;
@@ -887,7 +884,7 @@ export class MassLayer {
     };
     m.customProgramCacheKey = () => `mass-wall-${facade}`;
     addHeightFog(m);
-    if (ruin) asRuin(m);
+    if (ruin) asRuin(m, WALL_ANCHOR);
     this.materials.set(key, m);
     return m;
   }
@@ -910,7 +907,7 @@ export class MassLayer {
     };
     m.customProgramCacheKey = () => `mass-roof-${covering}`;
     addHeightFog(m);
-    if (ruin) asRuin(m);
+    if (ruin) asRuin(m, ROOF_ANCHOR);
     this.materials.set(key, m);
     return m;
   }
@@ -948,15 +945,20 @@ export class MassLayer {
     };
     m.customProgramCacheKey = () => 'mass-cap';
     addHeightFog(m);
-    if (ruin) asRuin(m);
+    if (ruin) asRuin(m, CAP_ANCHOR);
     this.materials.set(key, m);
     return m;
   }
 }
 
-/** A ruin's material: the damage in its shader, its inside drawn (ruin-damage.ts) */
-function asRuin(m: Material): void {
-  addDamage(m);
+/** The middles of the unit wall, roof triangle and coping: a ruin's instance goes whole with the piece its middle is in */
+const WALL_ANCHOR = [0.5, 0.5, 0] as const;
+const ROOF_ANCHOR = [1 / 3, 0, 1 / 3] as const;
+const CAP_ANCHOR = [0.5, 0, 0.5] as const;
+
+/** A ruin's material: the damage in its shader, its inside drawn (ruin-damage.ts), its instances anchored at `anchor` */
+function asRuin(m: Material, anchor: readonly [number, number, number]): void {
+  addDamage(m, anchor);
   m.side = DoubleSide;
 }
 

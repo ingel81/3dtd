@@ -1,7 +1,7 @@
 import { BoxGeometry, DoubleSide, InstancedBufferAttribute, InstancedMesh, Matrix4, MeshStandardMaterial } from 'three';
 import { roofHeights, type CatalogRoof } from '../../object-roof';
 import type { RubbleMaterial } from '../../rubble-material';
-import { addDamage, anchoredGeometry, DAMAGE_ATTRIBUTES, damageArrays, damageDepthMaterial, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
+import { addDamage, DAMAGE_ATTRIBUTES, damageArrays, damageDepthMaterial, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
 
 /**
  * The insides of the ruins (docs/DESTRUCTION_PLAN.md, Z2): a floor slab
@@ -186,11 +186,11 @@ export class RuinSlabs {
   constructor() {
     // Inside, out of the sky's light: little of the environment
     const material = new MeshStandardMaterial({ roughness: 0.95, metalness: 0, side: DoubleSide, envMapIntensity: 0.3 });
-    addDamage(material);
     // Each box goes whole with the piece its middle is in
-    this.mesh = new InstancedMesh(anchoredGeometry(new BoxGeometry(1, 1, 1), 0, 0, 0), material, 1);
+    addDamage(material, [0, 0, 0]);
+    this.mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), material, 1);
     this.mesh.name = 'ruin-slabs';
-    this.mesh.customDepthMaterial = damageDepthMaterial('slab');
+    this.mesh.customDepthMaterial = damageDepthMaterial('slab', '', '', [0, 0, 0]);
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
     this.mesh.frustumCulled = false;

@@ -1,4 +1,4 @@
-import { BoxGeometry, CylinderGeometry, Group, InstancedMesh, Mesh, MeshStandardMaterial, PlaneGeometry, type Material } from 'three';
+import { BoxGeometry, BufferAttribute, CylinderGeometry, Group, InstancedMesh, Mesh, MeshStandardMaterial, PlaneGeometry, type Material } from 'three';
 import { describe, expect, it } from 'vitest';
 import { MASS_ASSET, type MapMass, type MapObject } from '../../map-document';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
@@ -12,7 +12,7 @@ import { modelSection } from './ruin-section';
 import type { CatalogRoof } from '../../object-roof';
 import { CustomMapDestruction } from '../../custom-map-destruction';
 import {
-  COLLAPSE_VARIANTS, collapseCuts, collapseRoll, collapseSeconds, collapseVariant, DAMAGE_ATTRIBUTES, DAMAGE_LOS, DAMAGE_UNIFORMS, damageArrays, FELL_LONG_AGO,
+  anchorCode, anchorPoint, COLLAPSE_VARIANTS, collapseCuts, collapseRoll, collapseSeconds, collapseVariant, DAMAGE_ATTRIBUTES, DAMAGE_LOS, DAMAGE_UNIFORMS, damageArrays, FELL_LONG_AGO,
   readDamage, ruinGeometry, ruinSeed, ruinShape, sceneHeading, setCollapseVariant, structureSeed, writeDamage, type DamageArrays,
 } from './ruin-damage';
 
@@ -173,7 +173,7 @@ describe('ruin damage: the object layer', () => {
     expect(ruins[0].count).toBe(1);
     expect(named(los, 'house')[0].count).toBe(1);
     const damage = ruins[0].geometry.getAttribute('aDamage').array as Float32Array;
-    expect([damage[0], damage[1]]).toEqual([3, 12.5]);
+    expect([Math.floor(damage[0]), damage[1]]).toEqual([3, 12.5]);
     // Its middle where the house stands (scene x is minus map x), the break line 1.5 to 4 m up
     const c = ruins[0].geometry.getAttribute('aDamageC').array as Float32Array;
     expect(c[0]).toBeCloseTo(-30);
@@ -239,7 +239,7 @@ describe('ruin damage: raised buildings', () => {
     expect(intact.reduce((n, m) => n + zeroed(m), 0)).toBe(perBuilding);
     let ruins = massMeshes(los, true).filter((m) => m.visible);
     expect(ruins.reduce((n, m) => n + m.count, 0)).toBe(perBuilding);
-    expect((ruins[0].geometry.getAttribute('aDamage').array as Float32Array)[0]).toBe(2);
+    expect(Math.floor((ruins[0].geometry.getAttribute('aDamage').array as Float32Array)[0])).toBe(2);
 
     // Fallen: the four facades split at the break line and where the collapse variants cut it across
     layer.setDamage([{ id: 'm2', stage: 3, fallStart: 4 }]);
@@ -265,7 +265,7 @@ describe('ruin damage: from the state, not from the events', () => {
     const stages = new Map<number, number>();
     const a = ruin.geometry.getAttribute('aDamageC').array as Float32Array;
     const d = ruin.geometry.getAttribute('aDamage').array as Float32Array;
-    for (let i = 0; i < ruin.count; i++) stages.set(Math.round(-a[i * 4] / 30), d[i * 4]);
+    for (let i = 0; i < ruin.count; i++) stages.set(Math.round(-a[i * 4] / 30), Math.floor(d[i * 4]));
     return [0, 1, 2].map((k) => stages.get(k) ?? 0);
   };
   /** A layer fed by the structures' stages as the world feeds its view (CustomMapWorld.damageChanged) */
@@ -328,8 +328,9 @@ describe('ruin damage: floors and inner walls', () => {
     expect(m[32 + 5]).toBeCloseTo(6.2);
     expect(Math.abs(m[32])).toBeCloseTo(0.18);
     // The insides take a smaller bite than the walls: they jut into the hole
-    const b = slabs.mesh.geometry.getAttribute('aDamageB').array as Float32Array;
-    expect(b[3]).toBeLessThan(shape.biteR);
+    const g = slabs.mesh.geometry;
+    const inside = readDamage(DAMAGE_ATTRIBUTES.map((a) => g.getAttribute(a).array) as unknown as DamageArrays, 0);
+    expect(inside.biteR).toBeLessThan(shape.biteR);
     // Fallen: only the floors well inside the stump stay, the walls the cut trims
     slabs.set('h', frame, shape, 3, FELL_LONG_AGO, 'brick');
     expect(slabs.mesh.count).toBe(Math.floor((shape.breakY - 1) / 3) + 1);
@@ -365,12 +366,25 @@ describe('ruin damage: the collapse variants', () => {
     expect(rolls.size).toBe(50);
   });
 
-  it('writes the roll, seat and top into the fourth attribute and reads them back', () => {
-    const s = ruinShape(structureSeed('b1'), frame);
-    const arrays = damageArrays(2);
-    writeDamage(arrays, 1, 3, 7, s);
-    expect(readDamage(arrays, 1)).toEqual(Object.fromEntries(Object.entries(s).map(([k, v]) => [k, Math.fround(v)])));
-    expect(DAMAGE_ATTRIBUTES).toHaveLength(arrays.length);
+  it('packs the roll, seat and top into the three attributes and reads them back as the shader does', () => {
+    expect(DAMAGE_ATTRIBUTES).toHaveLength(3);
+    for (let k = 0; k < 50; k++) {
+      const s = ruinShape(structureSeed(`p${k}`), frame);
+      const arrays = damageArrays(2);
+      for (const stage of [1, 2, 3]) {
+        writeDamage(arrays, 1, stage, 7, s);
+        const back = readDamage(arrays, 1);
+        // The stage stays where the shader's tests look (over n - 0.5, under n + 0.5), the roll exactly
+        expect(arrays[0][4]).toBeGreaterThanOrEqual(stage);
+        expect(arrays[0][4]).toBeLessThan(stage + 0.5);
+        expect(back.roll).toBe(s.roll);
+        expect(back.topY).toBeCloseTo(s.topY, 4);
+        expect(back.seatY).toBeCloseTo(s.seatY, 1);
+        expect(back.biteR).toBeCloseTo(s.biteR, 2);
+        expect(back.fallS).toBeCloseTo(s.fallS, 2);
+        expect([back.heading, back.breakY, back.cx, back.reach]).toEqual([s.heading, s.breakY, s.cx, s.reach].map(Math.fround));
+      }
+    }
   });
 
   it('cuts the upper part across between the break line and the top, the same heights from the same roll', () => {
@@ -410,12 +424,30 @@ describe('ruin damage: the collapse variants', () => {
     const a = g.getAttribute('aDamageAnchor');
     expect(g.index).toBeNull();
     expect(p.count).toBe(source.index!.count);
+    expect(a.itemSize).toBe(1);
     for (let t = 0; t < p.count; t += 3) {
+      // One code for the triangle's three corners, within a step of its middle
+      expect(a.getX(t + 1)).toBe(a.getX(t));
+      expect(a.getX(t + 2)).toBe(a.getX(t));
+      expect(Math.fround(a.getX(t))).toBe(a.getX(t));
+      const back = anchorPoint(a.getX(t));
       for (let axis = 0; axis < 3; axis++) {
         const mid = (p.getComponent(t, axis) + p.getComponent(t + 1, axis) + p.getComponent(t + 2, axis)) / 3;
-        for (let v = 0; v < 3; v++) expect(a.getComponent(t + v, axis)).toBeCloseTo(mid);
+        expect(Math.abs(back[axis] - mid)).toBeLessThanOrEqual(0.2 + 1e-6);
       }
     }
+    source.dispose();
+  });
+
+  it('rides the anchor as a third value of roughMetal where a merged part has one, no attribute more for its material', () => {
+    const source = new BoxGeometry(2, 2, 2);
+    const n = source.getAttribute('position').count;
+    source.setAttribute('roughMetal', new BufferAttribute(new Float32Array(n * 2).fill(0.5), 2));
+    const g = ruinGeometry(source);
+    const rm = g.getAttribute('roughMetal');
+    expect(rm.itemSize).toBe(3);
+    for (let v = 0; v < rm.count; v++) expect([rm.getX(v), rm.getY(v), rm.getZ(v)]).toEqual([0.5, 0.5, g.getAttribute('aDamageAnchor').getX(v)]);
+    expect(anchorPoint(anchorCode(-51.2, -10, -51.2))).toEqual([-51, -9.8, -51].map((v) => expect.closeTo(v, 5)));
     source.dispose();
   });
 });
