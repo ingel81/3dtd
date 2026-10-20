@@ -44,12 +44,22 @@ const CHROME_TRACE = argument('chrome-trace', '');
 // --trace view.updateHeights,...: every call of these, with its arguments, time and length
 const TRACE = argument('trace', '') ? argument('trace', '').split(',') : [];
 
-const browser = await chromium.launch({
-  headless: !HEADED,
-  args: ['--window-size=1600,1000', '--enable-gpu', '--ignore-gpu-blocklist', '--disable-gpu-vsync', '--disable-frame-rate-limit'],
-});
-const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
+const LAUNCH_ARGS = ['--window-size=1600,1000', '--enable-gpu', '--ignore-gpu-blocklist', '--disable-gpu-vsync', '--disable-frame-rate-limit'];
+// --user-data <dir>: a browser profile kept between runs, as a player's: its shader caches (GrShaderCache, the
+// GPU program cache) hold what earlier runs compiled. A fresh profile compiles every Skia and WebGL program anew
+// each run. No --chrome-trace with it (a persistent context has no browser to trace)
+const USER_DATA = argument('user-data', '');
+const persistent = USER_DATA
+  ? await chromium.launchPersistentContext(USER_DATA, { headless: !HEADED, args: LAUNCH_ARGS, viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 })
+  : null;
+const browser = persistent ? null! : await chromium.launch({ headless: !HEADED, args: LAUNCH_ARGS });
+const page = persistent ? (persistent.pages()[0] ?? (await persistent.newPage())) : await browser.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
 page.on('pageerror', (e) => console.log('pageerror', e.message));
+// --block <regex>: requests whose URL matches fail (an asset left out, to see what it costs)
+if (argument('block', '')) {
+  const block = new RegExp(argument('block', ''));
+  await page.route((url) => block.test(url.href), (route) => route.abort());
+}
 if (process.argv.includes('--reduced-motion')) await page.emulateMedia({ reducedMotion: 'reduce' });
 const LOG = new RegExp(argument('log', '\[Warmup\]|warm-up|Warm-up|DBG'), 'i');
 page.on('console', (m) => {
@@ -76,6 +86,24 @@ for (let i = 0; i < 10 && (await skip.count()); i++) {
   await page.waitForTimeout(700);
 }
 await page.waitForTimeout(SETTLE_MS);
+// --overflow: the elements reaching past the window (the root layer grows with them, and paints them)
+if (process.argv.includes('--overflow')) {
+  const out = await page.evaluate(() => {
+    const w = document.documentElement.clientWidth;
+    const h = document.documentElement.clientHeight;
+    const list: string[] = [];
+    for (const e of Array.from(document.querySelectorAll('*'))) {
+      const b = e.getBoundingClientRect();
+      if ((b.right > w + 1 || b.bottom > h + 1) && b.width > 0 && b.height > 0) {
+        const cls = typeof e.className === 'string' ? e.className.trim().split(/\s+/).join('.') : '';
+        list.push(`${e.localName}${cls ? '.' + cls : ''} ${Math.round(b.left)}..${Math.round(b.right)} x ${Math.round(b.top)}..${Math.round(b.bottom)}`);
+      }
+    }
+    const root = document.scrollingElement!;
+    return { viewport: `${w}x${h}`, scroll: `${root.scrollWidth}x${root.scrollHeight}`, list: list.slice(0, 40) };
+  });
+  console.log('OVERFLOW ' + JSON.stringify(out, null, 1));
+}
 // --css "<rules>": a style sheet over the game's, to try a change of the UI's look on the frames
 if (argument('css', '')) await page.addStyleTag({ content: argument('css', '') });
 
@@ -91,13 +119,53 @@ if (START === 'wave') {
   await page.waitForTimeout(PICK_MS);
 }
 
+// --layers: the compositor's layers painted in the window (CDP LayerTree): per layer how often, how much area,
+// its element, in the first 600 ms and after
+interface LayerInfo { layerId: string; backendNodeId?: number; width: number; height: number; drawsContent: boolean; compositingReasons?: string[] }
+const layerCdp = process.argv.includes('--layers') ? await page.context().newCDPSession(page) : null;
+const layerPaints: { layerId: string; at: number; area: number; clip: string }[] = [];
+const layersSeen = new Map<string, LayerInfo>();
+let layerT0 = 0;
+if (layerCdp) {
+  await layerCdp.send('DOM.enable');
+  await layerCdp.send('LayerTree.enable');
+  layerCdp.on('LayerTree.layerTreeDidChange', (e: { layers?: LayerInfo[] }) => {
+    for (const l of e.layers ?? []) layersSeen.set(l.layerId, l);
+  });
+  layerCdp.on('LayerTree.layerPainted', (e: { layerId: string; clip: { x: number; y: number; width: number; height: number } }) => {
+    const c = e.clip;
+    layerPaints.push({ layerId: e.layerId, at: Date.now() - layerT0, area: c.width * c.height, clip: `${c.width}x${c.height}+${c.x}+${c.y}` });
+  });
+}
+
 const profiler = process.argv.includes('--profile') ? await FrameProfiler.attach(page, LONG_MS) : null;
 await profiler?.start();
 if (CHROME_TRACE) {
   await browser.startTracing(page, {
     path: CHROME_TRACE,
-    categories: process.argv.includes('--trace-gpu') ? ['devtools.timeline', 'toplevel', 'v8.execute', 'gpu', '__metadata'] : ['devtools.timeline', 'toplevel', 'v8.execute', 'disabled-by-default-v8.gc'],
+    categories: process.argv.includes('--trace-paint')
+      ? ['devtools.timeline', 'disabled-by-default-devtools.timeline', 'disabled-by-default-devtools.timeline.invalidationTracking']
+      : process.argv.includes('--trace-gpu') ? ['devtools.timeline', 'toplevel', 'v8.execute', 'gpu', '__metadata'] : ['devtools.timeline', 'toplevel', 'v8.execute', 'disabled-by-default-v8.gc'],
   });
+}
+layerT0 = Date.now();
+// --flash <dir>: Chrome's paint flashing on, screenshots 30, 60 and 120 ms into the window (green: repainted)
+if (argument('flash', '')) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('DOM.enable');
+  await cdp.send('Overlay.enable');
+  await cdp.send('Overlay.setShowPaintRects', { result: true });
+  const dir = argument('flash', '');
+  for (const ms of [30, 60, 120]) void page.waitForTimeout(ms).then(() => page.screenshot({ path: `${dir}/flash-${ms}.png` }));
+}
+// --at x,y: the element at a point of the page, 300 ms into the window (what a layer's paints cover)
+if (argument('at', '')) {
+  const [ax, ay] = argument('at', '').split(',').map(Number);
+  void page.waitForTimeout(300).then(() => page.evaluate(([x, y]) => {
+    const chain: string[] = [];
+    for (let e: Element | null = document.elementFromPoint(x, y); e && chain.length < 8; e = e.parentElement) chain.push(`${e.localName}${e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/).join('.') : ''}`);
+    return chain.join(' < ');
+  }, [ax, ay])).then((chain) => console.log(`AT ${chain}`));
 }
 // The button's click comes from outside the page, as the player's: started once the page records its frames
 const clicked = START === 'button' ? page.waitForTimeout(300).then(() => page.locator('.td-wave-btn').click()) : Promise.resolve();
@@ -362,6 +430,101 @@ const result = await page.evaluate(
 );
 await clicked;
 if (CHROME_TRACE) await browser.stopTracing();
+// --paints (with --chrome-trace and --trace-paint): what the page painted in the window, by element and area
+if (CHROME_TRACE && process.argv.includes('--paints')) {
+  const { readFileSync } = await import('node:fs');
+  interface Ev { name: string; ph: string; ts: number; dur?: number; args?: { data?: { nodeId?: number; clip?: number[]; layerId?: number } } }
+  const raw = JSON.parse(readFileSync(CHROME_TRACE, 'utf8')) as { traceEvents: Ev[] } | Ev[];
+  const events = Array.isArray(raw) ? raw : raw.traceEvents;
+  const paints = events.filter((e) => e.name === 'Paint' && e.args?.data?.clip);
+  const t0 = Math.min(...paints.map((e) => e.ts));
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('DOM.getDocument', { depth: 0 });
+  const names = new Map<number, string>();
+  const nameOf = async (id: number | undefined): Promise<string> => {
+    if (!id) return '?';
+    if (names.has(id)) return names.get(id)!;
+    let n = 'gone';
+    try {
+      const d = (await cdp.send('DOM.describeNode', { backendNodeId: id })) as { node: { localName: string; attributes?: string[] } };
+      const a = d.node.attributes ?? [];
+      n = `${d.node.localName}${a.includes('class') ? '.' + a[a.indexOf('class') + 1].trim().split(/\s+/).join('.') : ''}`;
+    } catch { /* gone */ }
+    names.set(id, n);
+    return n;
+  };
+  const by = new Map<string, { n: number; area: number; ms: number; first: number }>();
+  for (const e of paints) {
+    const c = e.args!.data!.clip!;
+    const xs = [c[0], c[2], c[4], c[6]];
+    const ys = [c[1], c[3], c[5], c[7]];
+    const area = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
+    const key = `${await nameOf(e.args!.data!.nodeId)} layer ${e.args!.data!.layerId}`;
+    const v = by.get(key) ?? { n: 0, area: 0, ms: 0, first: (e.ts - t0) / 1000 };
+    v.n++;
+    v.area += area;
+    v.ms += (e.dur ?? 0) / 1000;
+    by.set(key, v);
+  }
+  for (const [k, v] of [...by.entries()].sort((a, b) => b[1].area - a[1].area).slice(0, 20)) {
+    console.log(`PAINT ${k}: ${v.n}x, ${Math.round(v.area / 1000)}k px, ${v.ms.toFixed(1)} ms, first at ${v.first.toFixed(0)} ms`);
+  }
+  // The tiles rastered, by layer (RasterTask on the tile workers), in the first 200 ms and after
+  const raster = new Map<string, { early: number; late: number; n: number }>();
+  for (const e of events) {
+    if (e.name !== 'RasterTask' || e.dur === undefined) continue;
+    const tile = (e.args as { tileData?: { layerId?: number } } | undefined)?.tileData;
+    const key = String(tile?.layerId ?? '?');
+    const v = raster.get(key) ?? { early: 0, late: 0, n: 0 };
+    if ((e.ts - t0) / 1000 < 200) v.early += e.dur / 1000;
+    else v.late += e.dur / 1000;
+    v.n++;
+    raster.set(key, v);
+  }
+  for (const [k, v] of [...raster.entries()].sort((a, b) => b[1].early - a[1].early).slice(0, 10)) {
+    const l = layersSeen.get(k);
+    let node = '';
+    if (l?.backendNodeId) node = await nameOf(l.backendNodeId);
+    console.log(`RASTER layer ${k} ${node} ${l ? `${Math.round(l.width)}x${Math.round(l.height)}` : ''}: ${v.n} tiles, ${v.early.toFixed(1)} ms in 200 ms, ${v.late.toFixed(1)} ms after`);
+  }
+}
+if (layerCdp) {
+  const per = new Map<string, { early: number; late: number; area: number }>();
+  for (const p of layerPaints) {
+    const e = per.get(p.layerId) ?? { early: 0, late: 0, area: 0 };
+    if (p.at < 600) e.early++;
+    else e.late++;
+    e.area += p.area;
+    per.set(p.layerId, e);
+  }
+  for (const [id, e] of [...per.entries()].sort((a, b) => b[1].area - a[1].area).slice(0, 15)) {
+    const l = layersSeen.get(id);
+    let node = '?';
+    if (l?.backendNodeId) {
+      try {
+        const d = (await layerCdp.send('DOM.describeNode', { backendNodeId: l.backendNodeId })) as { node: { localName: string; attributes?: string[] } };
+        const attrs = d.node.attributes ?? [];
+        const cls = attrs[attrs.indexOf('class') + 1];
+        node = `${d.node.localName}${attrs.includes('class') ? '.' + cls.split(' ').join('.') : ''}`;
+      } catch {
+        node = 'gone';
+      }
+    }
+    let reasons = '';
+    try {
+      const r = (await layerCdp.send('LayerTree.compositingReasons', { layerId: id })) as { compositingReasonIds?: string[] };
+      reasons = (r.compositingReasonIds ?? []).join(',');
+    } catch {
+      reasons = '-';
+    }
+    const clips = new Map<string, number>();
+    for (const p of layerPaints) if (p.layerId === id) clips.set(p.clip, (clips.get(p.clip) ?? 0) + 1);
+    const full = layerPaints.filter((p) => p.layerId === id && p.area > 1e6).map((p) => `${p.clip}@${p.at}ms`);
+    if (full.length) console.log(`LAYER-BIG ${full.join(' ')}`);
+    const top = [...clips.entries()].sort((x, y) => y[1] - x[1]).slice(0, 4).map(([c, n]) => `${c}*${n}`).join(' ');
+    console.log(`LAYER ${node} ${l ? `${Math.round(l.width)}x${Math.round(l.height)}` : ''} paints early ${e.early} late ${e.late}, area ${Math.round(e.area / 1000)}k px [${reasons}] clips ${top}`);
+  }
+}
 const { long, moments, traced, sides, newKeys, depthBefore, ...summary } = result;
 if (process.argv.includes('--depth-keys')) for (const key of depthBefore) console.log('DEPTHKEY ' + key);
 for (const key of newKeys) console.log('NEWKEY ' + key);
@@ -371,4 +534,4 @@ console.log('SUMMARY ' + JSON.stringify(summary));
 for (const m of moments) console.log('MOMENT ' + JSON.stringify(m));
 for (const f of long) console.log('LONG ' + JSON.stringify(f));
 if (profiler) console.log(await profiler.stop(Number(argument('lines', '22')), process.argv.includes('--total')));
-await browser.close();
+await (persistent ?? browser).close();
