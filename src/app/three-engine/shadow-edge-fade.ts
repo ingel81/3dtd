@@ -3,7 +3,8 @@ import { ShaderChunk } from 'three';
 /** Share of the shadow map's half width at its border over which a shadow fades out (E268) */
 export const SHADOW_EDGE_FADE = 0.3;
 
-const RETURN = 'return mix( 1.0, shadow, shadowIntensity );';
+/** The last line of three's getShadow (a pattern: GLSL, no text for the i18n guard) */
+const RETURN = /return mix\( 1\.0, shadow, shadowIntensity \);/g;
 
 /**
  * Fades a light's shadow out towards the border of its shadow map instead of
@@ -14,7 +15,7 @@ const RETURN = 'return mix( 1.0, shadow, shadowIntensity );';
  * high camera: there its border lay in the picture, and each time the box
  * moved on a zoom, the buildings at its border lost or took their shadow at
  * once. A shader-only change, a few instructions per receiver fragment.
- * Installed once before any program is built (renderer-host.ts); three keys
+ * Installed when the first renderer is made (renderer-host.ts); three keys
  * programs by their parameters, not by the chunk's text, so a later install
  * would leave programs built before it as they were.
  */
@@ -25,8 +26,8 @@ export function installShadowEdgeFade(): void {
   const split = chunk.indexOf('getPointShadow');
   const head = split < 0 ? chunk : chunk.slice(0, split);
   const tail = split < 0 ? '' : chunk.slice(split);
-  if (!head.includes(RETURN)) throw new Error('shadow-edge-fade: three\'s getShadow changed, the fade found no return');
-  const faded = head.replaceAll(
+  if (!head.match(RETURN)) throw new Error('shadow-edge-fade: three\'s getShadow changed, the fade found no return');
+  const faded = head.replace(
     RETURN,
     `float shadowEdgeFade = 1.0 - smoothstep( ${(1 - SHADOW_EDGE_FADE).toFixed(3)}, 1.0, 2.0 * max( abs( shadowCoord.x - 0.5 ), abs( shadowCoord.y - 0.5 ) ) );
 			return mix( 1.0, shadow, shadowIntensity * shadowEdgeFade );`,

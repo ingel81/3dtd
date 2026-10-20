@@ -7,9 +7,6 @@ import { DrawLedger } from './draw-ledger';
 import { isSharedGpu } from './shared-gpu';
 import { installShadowEdgeFade } from './shadow-edge-fade';
 
-// Before any renderer builds a program: shadows fade out at their map's border (shadow-edge-fade.ts)
-installShadowEdgeFade();
-
 /**
  * Leases whose pinned programs and shader ids stay after they end: the
  * lease that ended last and the one before it. Switching between the editor
@@ -120,8 +117,11 @@ export class RendererHost {
   private ledger: DrawLedger | null = null;
 
   constructor(
-    private readonly make: (msaa: boolean) => WebGLRenderer = (msaa) =>
-      new WebGLRenderer({ ...CANVAS_RENDERER_OPTIONS, antialias: msaa }),
+    private readonly make: (msaa: boolean) => WebGLRenderer = (msaa) => {
+      // Before the renderer builds a program: shadows fade out at their map's border (shadow-edge-fade.ts)
+      installShadowEdgeFade();
+      return new WebGLRenderer({ ...CANVAS_RENDERER_OPTIONS, antialias: msaa });
+    },
   ) {}
 
   /** The renderer, while one lives (diagnostics, the editor's next step) */
