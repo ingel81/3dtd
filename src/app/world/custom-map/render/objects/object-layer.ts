@@ -47,9 +47,10 @@ import { nextFrameOrTimeout } from '../../../../utils/next-frame';
 import { DESTRUCTIBLE_CATEGORIES } from '../../custom-map-destruction';
 import { rubbleMaterialOf } from '../../rubble-material';
 import { RuinSlabs, type RuinFootprint } from './ruin-slabs';
+import { HOLE_SLOTS, HOLE_STRIDE } from '../../../../configs/destruction.config';
 import { modelSection } from './ruin-section';
 import type { CatalogRoof } from '../../object-roof';
-import { addDamage, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, fallImpact, FELL_LONG_AGO, readDamage, RUIN_EMBERS, ruinSeed, ruinShape, writeDamage, type DamageArrays } from './ruin-damage';
+import { addDamage, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, fallImpact, FELL_LONG_AGO, readDamage, RUIN_EMBERS, RUIN_HOLES, ruinSeed, structureSeed, ruinShape, writeDamage, type DamageArrays } from './ruin-damage';
 
 /**
  * The placed objects of a map, drawn instanced: per asset, detail level and
@@ -500,6 +501,51 @@ export class MapObjectLayer {
   }
 
   /** Where the newest ruins from stage 2 smoulder, a dozen at most (group space) */
+  /**
+   * Object `id`'s holes (HOLE_SLOTS of HOLE_STRIDE whole numbers, as the
+   * simulation keeps them: offset from its point in map dm, height over its
+   * seat in dm, radius in dm, order) into RUIN_HOLES in the group frame;
+   * one new or grown since `was` opens at `now` (the damage clock), the
+   * others keep their time
+   */
+  setHoles(id: string, holes: Int32Array, was: Int32Array | null, now: number): void {
+    for (let s = 0; s < HOLE_SLOTS; s++) {
+      const k = s * HOLE_STRIDE;
+      const same = was !== null && was[k + 3] > 0 && was[k] === holes[k] && was[k + 1] === holes[k + 1] && was[k + 2] === holes[k + 2];
+      if (!same || !this.holeTimes.has(`${id}#${s}`)) this.holeTimes.set(`${id}#${s}`, same ? FELL_LONG_AGO : now);
+    }
+    this.holeSets.set(id, holes);
+    this.placeHoles(id);
+  }
+
+  /** Object `id`'s holes into RUIN_HOLES where it stands now; one not built yet waits for writeDamageOf */
+  private placeHoles(id: string): void {
+    const holes = this.holeSets.get(id);
+    if (!holes) return;
+    let at: { x: number; y: number; seat: number } | null = this.masses.holeFrame(id);
+    if (!at) {
+      const slot = this.byId.get(id);
+      if (!slot) return;
+      const o = slot.batch.objects[slot.index];
+      at = { x: o.x, y: o.y, seat: slot.batch.source.matrices[slot.index * 16 + 13] };
+    }
+    const rim = (structureSeed(id) % 97) * 0.37;
+    const list: [number, number, number, number, number, number][] = [];
+    for (let s = 0; s < HOLE_SLOTS; s++) {
+      const k = s * HOLE_STRIDE;
+      if (holes[k + 3] <= 0) continue;
+      const opened = this.holeTimes.get(`${id}#${s}`) ?? FELL_LONG_AGO;
+      list.push([-(at.x + holes[k] / 10), at.seat + holes[k + 2] / 10, at.y + holes[k + 1] / 10, holes[k + 3] / 10, opened, rim + s * 3.1]);
+    }
+    RUIN_HOLES.set(id, list);
+  }
+
+  /** Each object's holes as last set (setHoles) */
+  private readonly holeSets = new Map<string, Int32Array>();
+
+  /** When each hole of a ruin opened (`id#slot`, the damage clock): a grown one keeps it */
+  private readonly holeTimes = new Map<string, number>();
+
   /** Where and when ruin `id` comes down as it falls now (fallImpact, group frame), null for one not drawn as a ruin */
   impactOf(id: string): ReturnType<typeof fallImpact> | null {
     const raised = this.masses.ruinShapeOf(id);
@@ -1265,6 +1311,8 @@ export class MapObjectLayer {
       height: b.model.height * Math.hypot(m[at + 4], m[at + 5], m[at + 6]),
     };
     const shape = ruinShape(ruinSeed(o), frame, d?.heading ?? null);
+    if (d) shape.holeRow = RUIN_HOLES.rowOf(o.id);
+    if (d) this.placeHoles(o.id);
     const stage = d?.stage ?? 0;
     const fallStart = d?.fallStart ?? FELL_LONG_AGO;
     writeDamage(b.damage!, i, stage, fallStart, shape);

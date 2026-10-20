@@ -148,10 +148,11 @@ export class WorldDamagePresenter {
     };
   }
 
-  /** Every structure's stage (op `structures.setStages`), with the heading of the hit that brought it and the HP */
-  setStages(stages: Uint8Array, headings?: Int16Array, hp?: Int32Array): void {
+  /** Every structure's stage (op `structures.setStages`), with the heading of the hit that brought it, the HP and the holes */
+  setStages(stages: Uint8Array, headings?: Int16Array, hp?: Int32Array, holes?: Int32Array): void {
     this.stages = stages.slice();
     this.destruction?.setStages(stages, headings);
+    this.destruction?.setHoles?.(holes ?? new Int32Array(0));
     this.rebuild();
     if (hp) {
       this.hp = hp.slice();
@@ -159,6 +160,11 @@ export class WorldDamagePresenter {
       for (let i = 0; i < this.hp.length; i++) this.showBar(i);
     }
     this.hpChanged();
+  }
+
+  /** The holes hits made or grew just now (op `structures.holes`): per hole the structure, its slot and its numbers */
+  setHoles(changes: Int32Array): void {
+    this.destruction?.changeHoles?.(changes);
   }
 
   /** The HP that changed, pairs of index and HP (op `structures.hp`) */

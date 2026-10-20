@@ -1,6 +1,6 @@
 import type { FallImpactAt, WorldDestruction, WorldGroundDamage, WorldStructure } from '../world-provider';
 import { RUN_STRUCTURE_ROUNDING, type RunStructure } from '../../sim/protocol/run-rules';
-import { presetHp, type StructureStage } from '../../configs/destruction.config';
+import { HOLE_SLOTS, HOLE_STRIDE, presetHp, type StructureStage } from '../../configs/destruction.config';
 import { type CustomMapDocument, type MapObject, MAP_METERS_PER_DEGREE, STRUCTURE_HP_SCALE } from './map-document';
 import type { GroundBox } from './object-ground';
 import type { CatalogRoof } from './object-roof';
@@ -111,7 +111,39 @@ export class CustomMapDestruction implements WorldDestruction {
     private readonly damaged: (changes: readonly StageChange[], now: boolean) => void = () => undefined,
     /** Where and when the object of id hits the ground as it falls now (the view's ruin), null where it does not */
     private readonly impact: (id: string) => FallImpactAt | null = () => null,
+    /** Hears a structure's holes change: all of them (HOLE_SLOTS of HOLE_STRIDE), `now` when a hit made one just now */
+    private readonly holed: (object: MapObject, holes: Int32Array, now: boolean) => void = () => undefined,
   ) {}
+
+  /** Every structure's holes, HOLE_SLOTS of HOLE_STRIDE whole numbers each (StructureLedger) */
+  private holes = new Int32Array(0);
+
+  /** Every structure's holes anew (with the stages: a load, a new run, a restore, a seek); they stand as they are */
+  setHoles(holes: Int32Array): void {
+    const each = HOLE_SLOTS * HOLE_STRIDE;
+    const was = this.holes;
+    this.holes = new Int32Array(this.list.length * each);
+    this.holes.set(holes.subarray(0, this.holes.length));
+    for (let i = 0; i < this.list.length; i++) {
+      const mine = this.holes.subarray(i * each, (i + 1) * each);
+      const before = was.length === this.holes.length ? was.subarray(i * each, (i + 1) * each) : null;
+      if (mine.some((v) => v !== 0) || before?.some((v) => v !== 0)) this.holed(this.list[i].object, mine.slice(), false);
+    }
+  }
+
+  /** The holes a hit made or grew just now: per hole the structure, its slot and its HOLE_STRIDE numbers */
+  changeHoles(changes: Int32Array): void {
+    const each = HOLE_SLOTS * HOLE_STRIDE;
+    if (this.holes.length !== this.list.length * each) this.holes = new Int32Array(this.list.length * each);
+    const touched = new Set<number>();
+    for (let k = 0; k + 2 + HOLE_STRIDE <= changes.length; k += 2 + HOLE_STRIDE) {
+      const i = changes[k];
+      if (i < 0 || i >= this.list.length) continue;
+      this.holes.set(changes.subarray(k + 2, k + 2 + HOLE_STRIDE), i * each + changes[k + 1] * HOLE_STRIDE);
+      touched.add(i);
+    }
+    for (const i of touched) this.holed(this.list[i].object, this.holes.slice(i * each, (i + 1) * each), true);
+  }
 
   /** The catalogue's entries: from now on the map's buildings, walls and structures take damage */
   setCatalog(entries: readonly StructureEntry[]): void {

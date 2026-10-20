@@ -29,7 +29,7 @@ import { NIGHT_WINDOW_UNIFORMS } from './night-windows';
 import { seatHeight, type ObjectFooting } from './object-seat';
 import { rubbleMaterialOf } from '../../rubble-material';
 import type { RuinFootprint, RuinSlabs } from './ruin-slabs';
-import { addDamage, collapseCuts, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, FELL_LONG_AGO, ruinSeed, ruinShape, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
+import { addDamage, collapseCuts, RUIN_HOLES, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, FELL_LONG_AGO, ruinSeed, ruinShape, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
 
 /**
  * The buildings a map raises from their own footprint (MapObject.mass,
@@ -612,6 +612,12 @@ export class MassLayer {
     this.rebuildRuins(surfaces);
   }
 
+  /** Where raised building `id` stands for its holes: its map point and its seat (scene y), null for one not here */
+  holeFrame(id: string): { x: number; y: number; seat: number } | null {
+    const o = this.objects.find((m) => m.id === id);
+    return o ? { x: o.x, y: o.y, seat: this.seatOf(o) } : null;
+  }
+
   /** A ruin's shape as drawn here (ruinOf), null for one not drawn as a ruin here */
   ruinShapeOf(id: string): RuinShape | null {
     return this.ruinShapes.get(id)?.shape ?? null;
@@ -679,6 +685,7 @@ export class MassLayer {
       for (const o of objects) {
         const d = this.damaged.get(o.id);
         const { frame, shape, footprint } = this.ruinOf(o, d?.heading ?? null);
+        if (d) shape.holeRow = RUIN_HOLES.rowOf(o.id);
         ruins.set(o, { shape, stage: d?.stage ?? 0, fallStart: d?.fallStart ?? FELL_LONG_AGO });
         if (!d) continue;
         this.ruinShapes.set(o.id, { shape, seat: frame.seatY });

@@ -513,6 +513,10 @@ export interface WorldDestruction {
   setStage(index: number, stage: StructureStage, heading?: number): void;
   /** Where and when structure `index`, falling just now, comes down; null where the world does not draw it */
   impactOf?(index: number): FallImpactAt | null;
+  /** Every structure's holes (HOLE_SLOTS of HOLE_STRIDE whole numbers each, StructureLedger), with the stages */
+  setHoles?(holes: Int32Array): void;
+  /** The holes a hit made or grew just now: per hole the structure, its slot and its HOLE_STRIDE numbers */
+  changeHoles?(changes: Int32Array): void;
   /** Hears each falling structure come down, on the clock its fall is drawn by (its dust); the unsubscribe */
   onImpact?(listener: (index: number, hit: FallImpactAt) => void): () => void;
   /** The ground that takes the craters and the rubble, drawn; null where the world's ground stays as built */

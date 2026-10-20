@@ -382,7 +382,10 @@ describe('ruin damage: the collapse variants', () => {
         expect(back.seatY).toBeCloseTo(s.seatY, 1);
         expect(back.biteR).toBeCloseTo(s.biteR, 2);
         expect(back.fallS).toBeCloseTo(s.fallS, 2);
-        expect([back.heading, back.breakY, back.cx, back.reach]).toEqual([s.heading, s.breakY, s.cx, s.reach].map(Math.fround));
+        expect([back.breakY, back.cx, back.reach]).toEqual([s.breakY, s.cx, s.reach].map(Math.fround));
+        expect(Math.cos(back.heading)).toBeCloseTo(Math.cos(s.heading), 5);
+        expect(Math.sin(back.heading)).toBeCloseTo(Math.sin(s.heading), 5);
+        expect(back.holeRow).toBe(-1);
       }
     }
   });
@@ -418,6 +421,19 @@ describe('ruin damage: the collapse variants', () => {
     expect(fallsAsTower(s)).toBe(false);
     setCollapseVariant('auto');
     expect(fallsAsTower(s)).toBe(s.tower);
+  });
+
+  it('carries its row of holes in the heading, the heading kept to a thousandth of its sine and cosine (row 400)', () => {
+    const arrays = damageArrays(1);
+    for (const row of [-1, 0, 7, 400]) {
+      for (const heading of [-Math.PI, -1, 0, 2.5, Math.PI]) {
+        writeDamage(arrays, 0, 2, 0, { ...ruinShape(structureSeed('r'), frame, heading), holeRow: row });
+        const back = readDamage(arrays, 0);
+        expect(back.holeRow).toBe(row);
+        expect(Math.cos(back.heading)).toBeCloseTo(Math.cos(heading), 3);
+        expect(Math.sin(back.heading)).toBeCloseTo(Math.sin(heading), 3);
+      }
+    }
   });
 
   it('tips a slender tower, caves in every other building, and keeps which in the reach of its attributes', () => {

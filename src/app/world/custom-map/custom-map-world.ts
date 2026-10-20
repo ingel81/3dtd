@@ -153,6 +153,8 @@ export class CustomMapWorld implements WorldProvider {
   private readonly fallenNow = (id: string): boolean => this.stages.get(id)?.stage === 3;
   /** What the craters wiped out or gave back since the last frame, for the view: taken out in the next (update) */
   private readonly goneLater = new Map<string, boolean>();
+  /** The structures' holes as the simulation has them, for a view to come */
+  private readonly holes = new Map<string, Int32Array>();
   private eventHidden = new Set<string>();
   /** The scale an object out of the picture had, to stand it up again */
   private readonly outScale = new Map<string, number>();
@@ -219,7 +221,8 @@ export class CustomMapWorld implements WorldProvider {
       : null;
     this.groundDamage = ground;
     this.destruction = damaged
-      ? new CustomMapDestruction(() => this.doc, (fallen) => this.fell(fallen), (risen) => this.rose(risen), destructible, ground, (changes, now) => this.damageChanged(changes, now), (id) => this.view?.impactOf(id) ?? null)
+      ? new CustomMapDestruction(() => this.doc, (fallen) => this.fell(fallen), (risen) => this.rose(risen), destructible, ground, (changes, now) => this.damageChanged(changes, now), (id) => this.view?.impactOf(id) ?? null,
+        (object, holes, now) => this.holed(object.id, holes, now))
       : null;
     this.sync = new EllipsoidSync(origin.lat, origin.lon, origin.height);
     this.frame.setOrigin(origin.lat, origin.lon);
@@ -261,6 +264,7 @@ export class CustomMapWorld implements WorldProvider {
     // Stages that came before the view: the ruins as they lie
     if (this.stages.size) view.setObjectDamage([...this.stages].map(([id, s]) => ({ id, stage: s.stage, heading: s.heading, now: false })));
     view.setGone(this.obliteration.goneIds(), []);
+    for (const [id, holes] of this.holes) view.setObjectHoles(id, holes, false);
     if (this.quality) view.applyQuality(this.quality);
     this.placeView();
     const before = new Set(ctx.scene.children);
@@ -786,6 +790,12 @@ export class CustomMapWorld implements WorldProvider {
   }
 
   /** The structures' stages to the view's buildings (docs/DESTRUCTION_PLAN.md, Z2): `now` falls as it happens */
+  /** A structure's holes changed (CustomMapDestruction): kept, and on the view */
+  private holed(id: string, holes: Int32Array, now: boolean): void {
+    this.holes.set(id, holes);
+    this.view?.setObjectHoles(id, holes, now);
+  }
+
   private damageChanged(changes: readonly { object: MapObject; stage: number; heading: number }[], now: boolean): void {
     for (const c of changes) {
       if (c.stage > 0) this.stages.set(c.object.id, { stage: c.stage, heading: c.heading });

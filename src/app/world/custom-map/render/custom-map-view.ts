@@ -44,7 +44,7 @@ import { CoverMap } from './environment/cover-map';
 import { setPlantSway, WIND_UNIFORMS } from './environment/wind';
 import { prepareNoiseTextures } from './noise-textures';
 import { MapObjectLayer, type ObjectDamage, type ObjectHit } from './objects/object-layer';
-import { DAMAGE_UNIFORMS, FELL_LONG_AGO, sceneHeading } from './objects/ruin-damage';
+import { DAMAGE_UNIFORMS, FELL_LONG_AGO, RUIN_HOLES, sceneHeading } from './objects/ruin-damage';
 import { fontsReady, SignLayer } from './objects/sign-text';
 import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
@@ -313,6 +313,8 @@ export class CustomMapView {
     private readonly options: CustomMapViewOptions = {},
   ) {
     assets.retain(doc.meta.id);
+    // A row per ruin of this map from here on (one destructible world at a time)
+    if (options.ruins) RUIN_HOLES.clear();
     const t = doc.terrain;
     this.env = doc.environment;
     this.heights = new HeightField(t.grid, t.width, t.depth);
@@ -810,6 +812,20 @@ export class CustomMapView {
       if (hit) this.landing.push({ id: c.id, at: this.damageTime + hit.delay, hit });
     }
   }
+
+  /**
+   * Object `id`'s holes as the simulation keeps them (HOLE_SLOTS of
+   * HOLE_STRIDE whole numbers): `now` when a hit made or grew one just now
+   * (it opens from this moment), else they stand as they are
+   */
+  setObjectHoles(id: string, holes: Int32Array, now: boolean): void {
+    const was = this.holes.get(id) ?? null;
+    this.holes.set(id, holes.slice());
+    this.objects.setHoles(id, holes, now ? was : holes, now ? this.damageTime : FELL_LONG_AGO);
+  }
+
+  /** The holes as last set, per object: what a new hole is told from */
+  private readonly holes = new Map<string, Int32Array>();
 
   /** Falls on their way down: when each comes down (damageTime) and where */
   private readonly landing: { id: string; at: number; hit: FallImpactAt }[] = [];

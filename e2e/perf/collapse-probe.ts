@@ -12,6 +12,8 @@
 //        [--shots <dir>: a still of each building at stage 2 and fallen, for the floors inside] [--scan <dir>]
 //        [--cpu: a CPU profile of each fall's first second] [--list-damage: the ruins' shadow programs and meshes]
 //        [--attribs: the programs' attribute slots against the GPU's limit]
+//        [--hits n [--blast rocket|hit]: n blasts (hit: debug hits of an eighth of its HP) at each from the camera's side
+//        first, holes then the fall, one clip] [--many n: the n nearest structures holed, the frames before and after]
 //   A baseline (perf-run.ts): --no-vsync (default: the display's rate), --user-data <dir>, --json <file>: each fall's
 //   frames (with --no-video: the screencast costs frames)
 import { chromium } from '@playwright/test';
@@ -155,6 +157,23 @@ await page.evaluate(() => {
       rig.setLocalPosition(at.x + distance * Math.cos(side), y + up, at.z + distance * Math.sin(side), at.x, y + s.height * 0.45, at.z);
     },
     stage: (id: string, stage: number) => g.__worldDamage.setStage(g.__worldDamage.structures().findIndex((s) => s.id === id), stage),
+    // A rocket at the structure from a side (turns, scene: the camera's side) at its radius and a little more
+    blast: (id: string, side: number, blast: string) => {
+      const list = g.__worldDamage.structures();
+      const s = list.find((x) => x.id === id)!;
+      const at = s.radius + 1;
+      // Scene x is map -x: from the camera's side in the scene is (-cos, sin) on the map
+      const dx = -Math.cos(side) * at;
+      const dy = Math.sin(side) * at;
+      const api = g.__worldDamage as unknown as {
+        blast(lat: number, lon: number, blast: string): void;
+        hit(lat: number, lon: number, reach: number, amount: number): void;
+        hp(index: number): { max: number } | null;
+      };
+      // 'hit': a debug hit of an eighth of its HP there (a heavy shell's), else the blast as the real one
+      if (blast === 'hit') api.hit(s.lat + dy / 111320, s.lon + dx / 111320, 2, Math.round((api.hp(list.indexOf(s))?.max ?? 1000) / 8));
+      else api.blast(s.lat + dy / 111320, s.lon + dx / 111320, blast);
+    },
     collapse: (v: string) => g.__worldDamage.collapse?.(v) ?? 'tip',
     mark: () => frames.length,
     frames: (from: number) => frames.slice(from),
@@ -166,6 +185,7 @@ interface Probe {
   index(id: string): number;
   look(id: string, distance: number, up: number, side: number): void;
   stage(id: string, stage: number): void;
+  blast(id: string, side: number, blast: string): void;
   collapse(v: string): string;
   mark(): number;
   frames(from: number): number[];
@@ -234,6 +254,70 @@ for (const spec of IDS) {
     await page.screenshot({ path: join(SHOTS, `${id}-fallen.png`) });
     await call('stage', id, 0);
     await page.waitForTimeout(1500);
+  }
+  // --many n: the n structures nearest it holed (three debug hits of an eighth of their HP each, from three sides),
+  // then six seconds of frames at this camera: what the holes cost with many ruins in view
+  const many = Number(argument('many', '0'));
+  if (many > 0) {
+    const before = await call('mark');
+    await page.waitForTimeout(3000);
+    const calm = await call('frames', before);
+    // The main thread's cost of each hit's holes (WorldDamagePresenter.setHoles: the layers, RUIN_HOLES)
+    await page.evaluate(() => {
+      const g = globalThis as unknown as { ng: { getComponent(e: Element): { presentation: { host: { worldDamage: Record<string, unknown> } } } }; __holeMs: number[] };
+      const presenter = g.ng.getComponent(document.querySelector('app-tower-defense')!).presentation.host.worldDamage;
+      const set = presenter['setHoles'] as (c: Int32Array) => void;
+      g.__holeMs = [];
+      presenter['setHoles'] = (c: Int32Array) => {
+        const t = performance.now();
+        set.call(presenter, c);
+        g.__holeMs.push(performance.now() - t);
+      };
+    });
+    await page.evaluate(([target, n]) => {
+      const g = globalThis as unknown as { __worldDamage: {
+        structures(): { id: string; lat: number; lon: number; radius: number }[];
+        hit(lat: number, lon: number, reach: number, amount: number): void;
+        hp(index: number): { max: number } | null;
+      } };
+      const list = g.__worldDamage.structures();
+      const c = list.find((x) => x.id === target)!;
+      const near = list.map((s, i) => ({ s, i, d: (s.lat - c.lat) ** 2 + (s.lon - c.lon) ** 2 })).sort((a, b) => a.d - b.d).slice(0, n);
+      for (const { s, i } of near) {
+        const max = g.__worldDamage.hp(i)?.max ?? 1000;
+        for (const turn of [0, 2.1, 4.2]) {
+          const at = s.radius + 1;
+          g.__worldDamage.hit(s.lat + (Math.sin(turn) * at) / 111320, s.lon + (Math.cos(turn) * at) / 111320, 2, Math.round(max / 8));
+        }
+      }
+    }, [id, many] as const);
+    await page.waitForTimeout(2000);
+    const mark = await call('mark');
+    await page.waitForTimeout(6000);
+    const holed = await call('frames', mark);
+    const mean = (f: number[]) => f.reduce((a, b) => a + b, 0) / Math.max(1, f.length);
+    const holeMs = await page.evaluate(() => (globalThis as unknown as { __holeMs: number[] }).__holeMs);
+    console.log(`holes on the main thread: ${holeMs.length} packets, longest ${Math.max(...holeMs).toFixed(3)} ms, mean ${(holeMs.reduce((a, b) => a + b, 0) / Math.max(1, holeMs.length)).toFixed(3)} ms`);
+    console.log(`${id} many ${many}: before ${calm.length} frames mean ${mean(calm).toFixed(2)} ms longest ${Math.max(...calm).toFixed(1)}; holed ${holed.length} frames mean ${mean(holed).toFixed(2)} ms longest ${Math.max(...holed).toFixed(1)}`);
+    await page.screenshot({ path: join(OUT, `${id}-many.png`) });
+  }
+  // --hits n: n rockets at it from about the camera's side, a second apart, then it falls: holes that grow, the cave-in
+  // from them (E259). One clip of all of it
+  const hits = Number(argument('hits', '0'));
+  if (hits > 0) {
+    const stop = await record(`${id}-hits`);
+    const mark = await call('mark');
+    for (let k = 0; k < hits; k++) {
+      await call('blast', id, side + (k % 3 - 1) * 0.35, argument('blast', 'rocket'));
+      await page.waitForTimeout(1200);
+    }
+    await call('stage', id, 3);
+    await page.waitForTimeout(FALL_MS);
+    const frames = await call('frames', mark);
+    console.log(`${id} hits: ${frames.length} frames, longest ${Math.max(...frames).toFixed(1)} ms, over ${LONG_MS} ms: ${frames.filter((f) => f > LONG_MS).length}`);
+    await stop();
+    await call('stage', id, 0);
+    await page.waitForTimeout(1200);
   }
   for (const v of VARIANTS) {
     await call('collapse', v);

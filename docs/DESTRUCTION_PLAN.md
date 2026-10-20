@@ -121,6 +121,15 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
 
 - **Stufen aus HP, kein neuer Zustand:** Stufe 0 intakt (über 75 %), 1 angeschlagen (bis 40 %), 2 schwer (unter
   40 %), 3 gefallen (0), `structureStage` mit ganzen Zahlen. Snapshot und Hash tragen nur die HP.
+- **Löcher** (E259, `StructureLedger.punch`): ein Treffer, der mindestens 3 % der HP nimmt, hinterlässt ein Loch, wo er
+  einschlug: je Bauwerk die letzten sechs, je fünf ganze Zahlen (Versatz zur Mitte in dm, auf der Seite des Treffers
+  und höchstens 90 % des Radius weit; Höhe über dem Grund in dm, aus Bauwerk und Lochzähler gewürfelt, 25 bis 80 % der
+  Höhe; Radius in dm, 1 bis 5 m nach der Wurzel des HP-Anteils; die Nummer des Lochs). Ein Treffer innerhalb 1,5 m plus
+  Radius eines Lochs vergrößert es um 0,6 m (höchstens 6 m), sonst nimmt er einen freien Platz oder den des ältesten.
+  Sie gehen einmal je Paket als `structures.holes` an den Hauptthread und ganz mit den Stufen (`setStages`); Snapshot
+  und Hash tragen sie, sobald es eines gibt (`structureHoles`, wie die Richtungen: ein Spielstand von davor lädt ohne
+  Löcher, ohne neue Formatversion). Instandsetzen nimmt sie. Spec: gleiche Löcher und Prüfsumme auf zwei Clients, im
+  Replay ohne Abweichung, aus dem Snapshot zurück (`sim-core.spec.ts`, `structure-ledger.spec.ts`).
 - **Typisierte Felder und Raster:** Ort, Radius, HP, Stufe je Bauwerk in Typed Arrays, dazu ein Raster aus 16-m-Feldern
   (CSR, jedes Bauwerk in den Feldern, die sein Kreis deckt). Ein Treffer prüft die Bauwerke der Felder in seiner
   Reichweite und wendet den Schaden in Reihenfolge der Laufregeln an (sortiert), damit Fälle und Sichtanfragen auf
@@ -264,7 +273,19 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
     (Kamera seitlich zum Fall mit `auto`/`autor`, `--continue` lädt einen Spielstand mit Ruinen).
   - Gemessen (Ruined City, Chrome, 60 Hz, ein Browser, während der Aufnahme): kein Bild über 16,7 ms in einem Fall;
     keine neuen Programme, Draw Calls wie vorher.
-  - Als Nächstes (Runde 3, Schritt 2): Löcher an den Treffpunkten, die sich ansammeln; der Einsturz beginnt dort.
+- **Löcher im Bild** (E259, `ruin-holes.ts`): eine Float-Textur mit einer Zeile je beschädigtem Bauwerk und zwei Texeln
+  je Loch (Mitte im Rahmen der Gruppe und Radius; wann es aufging oder wuchs, eine Zahl für den Rand). Die Zeile reist im
+  Richtungswert von `aDamage` (Richtung plus 8 mal Zeile plus eins): kein Attribut mehr. Ab Stufe 1 schneidet das
+  Fragment die Löcher aus, ein wenig breiter als hoch, der Rand gezackt nach Winkel und Höhe, verkohlt und glühend wie
+  der Biss (den zeigt nur noch eine Ruine ohne Löcher, etwa aus einem alten Spielstand); ein neues Loch geht in 0,3 s
+  auf, ein gewachsenes behält seine Zeit. Über einem großen Loch (ab 2,2 m) sackt eine gezackte Säule (0,8 seines
+  Radius, von 0,4 bis 2,6 Radien über ihm) auf die Decke darunter und ist weg (dieselben Regeln wie beim Einsturz).
+  Beim Fall senkt sich die Bruchkante zu den Löchern: der Einsturz beginnt, wo getroffen wurde. Die Sichtlinie sieht
+  durch die Löcher (der LOS-Patch liest dieselbe Textur), wenn sie das nächste Mal gerechnet wird; ein Loch allein
+  fordert sie nicht neu an.
+  - Gemessen (Ruined City, Chrome 60 Hz): 60 Bauwerke mit je drei Löchern im Bild, die Bilder vorher und nachher im
+    Mittel 16,67 ms, keines länger (vsync-begrenzt, die GPU dieses Rechners hat Luft). Hauptthread je Paket mit 180
+    neuen Löchern 0,8 ms (Textur, Layer), also rund 0,01 ms je Bauwerk. Attributplätze unverändert (höchstens 15).
 - **Glutnester** (`EffectLayer.setRuinEmbers`): Glut und eine dünne Rauchfahne in den zwölf neuesten Ruinen ab Stufe 2,
   tief im Biss, bei einem Gefallenen im Stumpf.
 - **Sichtlinie und Schatten:** was weg ist, sperrt die Sicht der Tower nicht (`LosVertexPatch` mit Fragment-Teil und
