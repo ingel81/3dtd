@@ -48,6 +48,10 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       (längster 150-300 ms, Dev-Build). Getroffene zuerst, Rest im Hintergrund, asynchron über
       KHR_parallel_shader_compile; dazu ein langsames getUniforms beim Terrain-Programm far-hfog5. Bau beim Zweitrechner
       nach E273.
+      Befund 2026-10-20 abends: Ruckeln nur bei kaltem GPU-Programmcache (erster Start und nach jedem Update), jedes
+      Ruinen-Programm kostet dort einen langen Frame im GPU-Prozess, Pacing allein hilft nicht. Entschieden: Ruinen-
+      Programme stark zusammenlegen (gemeinsames Material, Unterschiede über Uniforms/Attribute), dann wieder in die
+      Ladezeit; nach ready kompiliert nichts mehr.
 - [ ] **E281 Dialog „Lauf wartet in …“** (User 2026-10-20): Die Knopfzeile (Beenden und starten, … weiterspielen,
       Abbrechen) ragt auf Deutsch links und rechts über den Rand der Platte.
 - [ ] **E282 Dialog „Karte von einem Ort“ (OSM-Rahmen)** (User 2026-10-20): Dass man das Quadrat verschieben kann, ist
@@ -419,6 +423,13 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
 ---
 
 ## 3. Später und Ideen
+
+- [ ] **E287 Karte bearbeiten während eines Laufs** (User 2026-10-20: zurückgestellt, noch nicht entschieden): Wechselt man aus einem
+      laufenden Spiel (Wellen gespielt, Türme gebaut) in den Editor dieser Karte, ändert sie und kehrt zurück, passt
+      der Lauf nicht mehr (Türme schweben über geändertem Gelände usw.). Wege: (1) Bearbeiten beendet den Lauf, mit
+      Hinweis vorher („Bearbeiten beendet den Lauf auf Welle N“); (2) Bearbeiten als Kopie, der Lauf bleibt auf der
+      alten Fassung; (3) Lauf gehört zur Kartenfassung (Hash): nach Änderungen wählt man beim Zurückkehren zwischen
+      „alte Fassung weiterspielen“ und „neu starten“. Vorschlag: (1) mit (2) als Ausweg im selben Hinweis.
 
 - [ ] **E230 BVH für Google-Tiles**: Strahltests (Boss-Intro, Säulen, Pick) mit `three-mesh-bvh` je Tile, im Worker.
       Nur Echtwelt; erst wenn nach dem Zeitbudget noch Spitzen bleiben.
