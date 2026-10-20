@@ -267,28 +267,16 @@ export function inventory(files) {
 const UNGUARDED = new Set(['dev', 'agent']);
 
 /**
- * Areas done (docs/I18N_PLAN.md 6): no baseline holds texts for them, every
- * text the scan finds there fails the guard unless tools/i18n/allowed.mjs
- * names it with why. An area joins once its texts are in the dictionary.
+ * The texts the guard holds (docs/I18N_PLAN.md 7.2), by file, sorted and
+ * unique: every area but the developer and agent ones. Each must be in
+ * tools/i18n/allowed.mjs with why; any other is a text that belongs in the
+ * dictionary.
  */
-export const CLOSED_AREAS = new Set(['menus', 'dialogs', 'coop', 'mapops', 'editor', 'hud', 'sim', 'configs', 'desktop']);
-
-/** Texts by file, sorted and unique, of the areas `keep` lets through */
-function textsBy(root, keep) {
+export function guardedTexts(root) {
   const out = {};
   for (const f of scanSources(root)) {
-    if (!keep(areaOf(f.file).id) || !f.texts.length) continue;
+    if (UNGUARDED.has(areaOf(f.file).id) || !f.texts.length) continue;
     out[f.file] = [...new Set(f.texts)].sort();
   }
   return Object.fromEntries(Object.entries(out).sort(([a], [b]) => a.localeCompare(b)));
-}
-
-/** The texts the guard holds against its baseline: without the developer and agent areas and the closed ones */
-export function guardedTexts(root) {
-  return textsBy(root, (area) => !UNGUARDED.has(area) && !CLOSED_AREAS.has(area));
-}
-
-/** The texts the scan finds in the closed areas, by file */
-export function closedTexts(root) {
-  return textsBy(root, (area) => CLOSED_AREAS.has(area));
 }

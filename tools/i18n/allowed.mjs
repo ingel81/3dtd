@@ -1,7 +1,7 @@
 /**
- * Texts the scan finds in a closed area that rightly stay as they are (TODO
- * E245, docs/I18N_PLAN.md 7.2), by file, each with why. A closed area has no
- * baseline: every other text the scan finds there fails the guard. What
+ * Texts the scan finds that rightly stay as they are (TODO E245,
+ * docs/I18N_PLAN.md 7.2), by file, each with why. Every other text the scan
+ * finds outside the developer and agent areas fails the guard. What
  * belongs here: names (brands, fonts, key caps), the licensors' own credit
  * lines, data that goes into saves, the simulation or to the other players
  * (it must read the same in every language), and texts no player reads
@@ -25,6 +25,8 @@ const WHY_WAVE = "the wave source's reasons for a wave, for the wave debug windo
 const OURS = 'our own words in the credits, the English key the dialog words them by (dialogs.attributions.words)';
 const WAVE_NAME = "a wave's name as the run plan and the run log keep it; the HUD words it by it (hud.wave.names)";
 const PLACE_NAME = "a place's own name, never translated (decision E245); its description is worded by id";
+const MAP_NAME = "a shipped map's own name, never translated (decision E245)";
+const MAP_DESCRIPTION = "the English source of a shipped map's description; the lists word it by the map's id (maps.<id>)";
 const PLACE_DATA = 'a fixed name a place or spawn carries as data (saves, the world package); the HUD words it on display (i18n/place-names.ts)';
 
 export const ALLOWED = {
@@ -269,4 +271,35 @@ export const ALLOWED = {
     'The editor gave no answer': AGENT,
     'The map editor is not open. Ask the player to open a map in the editor (main menu, Map editor).': AGENT,
   },
+  // Shipped maps: names never translated, descriptions by id (i18n/shipped-maps.ts)
+  'public/maps/index.json': {
+    'Archipelago': MAP_NAME,
+    'Autumn Keep': MAP_NAME,
+    'Demo Valley': MAP_NAME,
+    'Ember Crater': MAP_NAME,
+    'Frost Hamlet': MAP_NAME,
+    'Harbor Town': MAP_NAME,
+    'Mars Canyon': MAP_NAME,
+    'Moon Base': MAP_NAME,
+    'Mountain Pass': MAP_NAME,
+    'Red Canyon': MAP_NAME,
+    'Ruined City': MAP_NAME,
+    'Twin Gates': MAP_NAME,
+    'Witch Marsh': MAP_NAME,
+    'A branching canyon through a red desert plain. Enemies walk the canyon floor, towers stand on the mesas; the HQ is a temple ruin by an oasis.': MAP_DESCRIPTION,
+    'A colony where two canyons meet. Enemies walk the canyon floors, towers stand on the benches and mesas above.': MAP_DESCRIPTION,
+    "A downtown after the end: three columns come down the avenues to the survivors' barricaded crossroads. Build on the corners and in the fallen blocks.": MAP_DESCRIPTION,
+    'A mirrored coop map at dusk: two castles, two lanes each through the bailey, one shared HQ in the middle. Four spawns.': MAP_DESCRIPTION,
+    'A port on a bay at dusk. Three columns come down the streets to the HQ on the waterfront, between quay, cranes and the container yard.': MAP_DESCRIPTION,
+    'A research station in a crater on the Moon. Rover tracks wind between the craters from three landing zones; build on the rims.': MAP_DESCRIPTION,
+    "A road spirals down a volcano's crater to the HQ on an obsidian island in a lava lake. Three spawns on the outer slopes join the spiral.": MAP_DESCRIPTION,
+    'A ruined castle on a hill above red and golden woods. Three roads meet before the gatehouse; the HQ stands in the bailey.': MAP_DESCRIPTION,
+    'A snowed-in village by a frozen lake on a winter evening. One road runs round the lake, the other straight over the ice.': MAP_DESCRIPTION,
+    "Boardwalks over a swamp at night, islands with stilt huts and the witch's glowing hut by the HQ. Two spawns come out of the fog.": MAP_DESCRIPTION,
+    'Five islands in a clear sea, linked by wooden bridges and a ford. A harbour with a quay, crane and lighthouse below the HQ.': MAP_DESCRIPTION,
+    'Hairpins up to a stone village on the pass, a waterfall into a mountain lake, a cable car over the valley. Two spawns meet at the first bend.': MAP_DESCRIPTION,
+    'River valley with a village, woods, a bridge and cliffs; two roads lead to the HQ.': MAP_DESCRIPTION,
+  },
+  'components/intro-skip/intro-skip.component.ts': { Esc: KEY },
+  'services/infrastructure/engine-initialization.service.ts': { 'Engine not configured. Please call configure() first.': DIAG },
 };

@@ -721,6 +721,14 @@ export const de: Messages = {
     mapData: (done, of, mb) => `Kartendaten ${f.int(done)} von ${f.int(of)} Dateien, ${mb < 10 ? f.fixed(mb, 1) : f.int(Math.round(mb))} MB`,
   },
   dialogs: {
+    whatsNew: {
+      title: 'Was ist neu',
+      none: 'Keine Notizen zu dieser Version.',
+      earlier: 'Frühere Versionen',
+      full: 'Ganzer Changelog',
+      gotIt: 'Verstanden',
+      thisVersion: 'Diese Version',
+    },
     research: {
       title: 'Forschung',
       researched: 'Erforscht',

@@ -923,6 +923,15 @@ export const en = {
   },
   /** The dialogs: research, damage matrix, credits, keys, runs */
   dialogs: {
+    /** What's new: the dialog's own words; the notes stay as CHANGELOG.md has them (docs/I18N_PLAN.md 4.10) */
+    whatsNew: {
+      title: "What's new",
+      none: 'No notes for this version.',
+      earlier: 'Earlier versions',
+      full: 'Full changelog',
+      gotIt: 'Got it',
+      thisVersion: 'This version',
+    },
     research: {
       title: 'Research',
       researched: 'Researched',

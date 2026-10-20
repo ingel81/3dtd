@@ -4,6 +4,7 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { TdIconComponent } from '../icon/icon.component';
 import { CHANGELOG_RELEASES } from '../../configs/changelog.config';
 import { BUILD_VERSION } from '../../configs/build-info.config';
+import { injectT } from '../../i18n/i18n.service';
 import { WHATS_NEW_TITLE_ID, type WhatsNewDialogData } from './open-whats-new-dialog';
 
 /** The full changelog on GitHub, for everything before the releases the game carries. */
@@ -25,6 +26,7 @@ const CHANGELOG_URL = 'https://github.com/ingel81/3dtd/blob/main/CHANGELOG.md';
 })
 export class WhatsNewDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<WhatsNewDialogComponent>);
+  protected readonly t = injectT();
   /** After an update the releases new to the player, otherwise every one. */
   readonly releases =
     inject<WhatsNewDialogData | null>(MAT_DIALOG_DATA, { optional: true })?.fresh ?? CHANGELOG_RELEASES;
