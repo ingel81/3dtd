@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, InjectionToken, OnDestr
 import { TdIconComponent } from '../icon/icon.component';
 import { BrickWallComponent } from '../brick-wall/brick-wall.component';
 import type { MapSummary } from '../../world/custom-map/map-store';
-import { sketchMapPicture } from '../../world/custom-map/map-sketch';
+import { pictureColours, type MapPictureColours } from '../../map-ops/map-picture';
 import { MAP_STORE } from '../../world/world-choice.service';
 import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library';
 import type { CatalogObject } from '../../world/custom-map/render/asset-catalog';
@@ -433,7 +433,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     try {
       const names = osmMapNames(this.place());
       const id = await this.store.freeId(names.id);
-      const { objects: catalog, materials } = await catalogEntries();
+      const { objects: catalog, materials, colours } = await catalogEntries();
       const made = await this.session.make(
         this.spawns(),
         {
@@ -441,15 +441,14 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
           destructible: this.destructible(),
           materials,
         },
+        colours,
         (p) => this.hear(p),
         signal,
       );
       if (signal.aborted) throw new Error(OSM_CANCELLED);
       this.hear({ step: 'save' });
-      // A picture for the lists until the editor renders its own (docs/WORLDS_STATE_PLAN.md, 6); the worker drew it
-      // and worked out the content hash, so the page only stores (a sketch here only where the worker had no canvas)
-      const preview = made.preview ?? (await sketchMapPicture(made.doc).catch(() => null));
-      const summary = await this.store.save(made.doc, preview, made.file, { contentHash: made.hash });
+      // The worker drew the list picture (map-ops/map-picture.ts) and worked out the content hash: the page only stores
+      const summary = await this.store.save(made.doc, made.preview, made.file, { contentHash: made.hash });
       this.hear({ step: 'save', state: 'done' });
       console.warn(`[OSM world] ${summary.id}: made in ${made.convertMs} ms`, { download: this.frame()?.download, report: made.report });
       if (this.destroyed) return;
@@ -493,14 +492,19 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
 
 /**
  * The renderer's catalogue objects for the plants' scene costs and the
- * buildings' models; none where it cannot be read (the import then counts
- * plants dear and places every building model without a budget)
+ * buildings' models, and the ground materials' colours for the list
+ * picture; none where it cannot be read (the import then counts plants dear
+ * and places every building model without a budget, the picture is grey)
  */
-async function catalogEntries(): Promise<{ objects?: readonly CatalogObject[]; materials?: string[] }> {
+async function catalogEntries(): Promise<{ objects?: readonly CatalogObject[]; materials?: string[]; colours: MapPictureColours }> {
   try {
     const catalog = await MapAssetLibrary.shared().catalog();
-    return { objects: catalog.objects.length ? catalog.objects : undefined, materials: catalog.materials.length ? catalog.materials.map((m) => m.id) : undefined };
+    return {
+      objects: catalog.objects.length ? catalog.objects : undefined,
+      materials: catalog.materials.length ? catalog.materials.map((m) => m.id) : undefined,
+      colours: pictureColours(catalog.materials),
+    };
   } catch {
-    return {};
+    return { colours: {} };
   }
 }

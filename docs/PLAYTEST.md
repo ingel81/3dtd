@@ -526,6 +526,20 @@ Gemessen ist alles per Probe (e2e/perf); hier zählt das Gefühl im echten Spiel
   *Bei 5 m fällt nur, was direkt getroffen ist, kleiner Krater und kleine Wolke; bei 100 m fällt ein ganzes Viertel,
   Krater und Wolke entsprechend groß. Bei Kanone und Rakete kein Regler.*
 
+## O Listenbilder der Karten (2026-10-21, E289)
+
+Ein Bild wie bei den mitgelieferten Karten: Boden in seinen Farben, Wasser, Bäume, Wege hell, Spawns rot, HQ gelb,
+Norden oben.
+
+- **O1 Alte Karte ohne Bild:** Globen › Built Worlds, eine eigene Karte, die bisher ein leeres Feld hatte (z. B.
+  „Editor Testworld1“), in Zuletzt und Eigene Welten. *Nach einem Augenblick erscheint ihr Bild in beiden Zeilen,
+  nach einem Neuladen sofort.*
+- **O2 Autosave:** die Karte › Edit, einen Spawn versetzen oder einen Weg ziehen, warten bis „Saved“ (kein Strg+S),
+  über die Globen zurück nach Built Worlds. *Das Bild zeigt die Änderung; kein Ruckeln beim Autosave.*
+- **O3 Neu, Import, OSM:** New map anlegen und einmal ändern; eine `.w3x` oder fremde `.3dtdmap` importieren; eine
+  neue OSM-Welt bauen. *Alle drei mit Bild; die OSM-Welt mit Norden oben wie im Spiel (vorher stand ihr Bild auf dem
+  Kopf).*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo

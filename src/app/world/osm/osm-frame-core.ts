@@ -8,7 +8,7 @@
  */
 import { newMapUid } from '../custom-map/map-create';
 import { contentHash, packMapFile } from '../custom-map/map-file';
-import { sketchMapPicture } from '../custom-map/map-sketch';
+import { mapPicturePng, type MapPictureColours } from '../../map-ops/map-picture';
 import type { MapPoint } from '../custom-map/map-document';
 import type { DemDecoder } from './dem-tiles';
 import type { OsmFrameStore } from './osm-frame-store';
@@ -102,8 +102,8 @@ export interface OsmMade extends OsmImportResult {
   file: Uint8Array;
   /** MapStore.save takes it (SaveOptions.contentHash) instead of working it out on the page */
   hash: string;
-  /** The sketch for the lists (map-sketch.ts), null where there is no 2D canvas */
-  preview: Uint8Array | null;
+  /** The picture for the lists (map-ops/map-picture.ts) */
+  preview: Uint8Array;
   convertMs: number;
 }
 
@@ -211,8 +211,11 @@ export class OsmFrameCore {
     return 'reason' in laid ? laid : this.geo(laid);
   }
 
-  /** The map with the spawns at `spawnsAt`, packed, with its content hash and sketch (the page only stores them) */
-  async make(spawnsAt: readonly GeoPoint[], options: OsmImportOptions, onProgress?: (progress: OsmProgress) => void): Promise<OsmMade> {
+  /**
+   * The map with the spawns at `spawnsAt`, packed, with its content hash and its list picture in the
+   * ground materials' `colours` (the page only stores them)
+   */
+  async make(spawnsAt: readonly GeoPoint[], options: OsmImportOptions, colours: MapPictureColours, onProgress?: (progress: OsmProgress) => void): Promise<OsmMade> {
     const input = this.input;
     if (!input) throw new OsmError({ key: 'notLoaded' });
     const start = performance.now();
@@ -223,7 +226,8 @@ export class OsmFrameCore {
     result.doc.meta.uid = newMapUid();
     const file = packMapFile(result.doc);
     onProgress?.({ step: 'pack', share: 0.8, detail: { key: 'picture' } });
-    const [hash, preview] = await Promise.all([contentHash(result.doc), sketchMapPicture(result.doc).catch(() => null)]);
+    const preview = mapPicturePng(result.doc, colours);
+    const hash = await contentHash(result.doc);
     return { ...result, file, hash, preview, convertMs: Math.round(performance.now() - start) };
   }
 

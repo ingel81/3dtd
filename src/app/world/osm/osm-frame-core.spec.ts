@@ -56,15 +56,17 @@ describe('OSM world frame (frozen probe Miltenberg)', () => {
     const chosen = frame.spawns.slice(0, 2);
     const steps: string[] = [];
     const shares: string[] = [];
-    const made = await core.make(chosen, { ...options, id: 'osm-test' }, (p) => {
+    const made = await core.make(chosen, { ...options, id: 'osm-test' }, {}, (p) => {
       steps.push(p.step);
       if (p.share !== undefined) shares.push(p.step);
     });
     // The long loops say how far they are: the footprints, the plants by land class, the packing
     expect(new Set(shares)).toEqual(new Set(['buildings', 'plants', 'pack']));
-    // Each step reports its beginning in the order of the making (OSM_MAKE_STEPS); packing twice, the file then hash and sketch
+    // Each step reports its beginning in the order of the making (OSM_MAKE_STEPS); packing twice, the file then picture and hash
     expect([...new Set(steps)]).toEqual(['parse', 'terrain', 'roads', 'water', 'level', 'ground', 'shores', 'paint', 'layout', 'areas', 'buildings', 'furniture', 'pois', 'plants', 'life', 'pack']);
     expect(made.hash).toBe(await contentHash(made.doc));
+    // The list picture beside it, a PNG drawn without a canvas
+    expect(String.fromCharCode(...made.preview.subarray(1, 4))).toBe('PNG');
     const { doc } = made;
     expect(doc.meta.id).toBe('osm-test');
     expect(doc.spawns.map((s) => s.name)).toEqual(chosen.map((s) => s.name));
@@ -96,7 +98,7 @@ describe('OSM world frame (frozen probe Miltenberg)', () => {
     // The HQ stays by the place, not by the square's middle
     const hq = geo.point(moved.hq!);
     expect(Math.hypot(hq.x, hq.y)).toBeLessThanOrEqual(Math.hypot(geo.point(first.hq!).x, geo.point(first.hq!).y) + 1);
-    const made = await core.make(moved.spawns, options);
+    const made = await core.make(moved.spawns, options, {});
     expect(made.doc.terrain.width).toBe(1000);
     expect(made.doc.meta.source).toMatchObject({ kind: 'osm', sideM: 1000, lat: area.lat, lon: area.lon });
     // The map's HQ is the place's, in the map's own metres round the square's middle
@@ -119,8 +121,8 @@ describe('OSM world frame (frozen probe Miltenberg)', () => {
     expect(more.length).toBeLessThanOrEqual(1);
     const cancel = new AbortController();
     cancel.abort();
-    await expect(session.make(frame.spawns, options, undefined, cancel.signal)).rejects.toThrow('Cancelled');
-    const made = await session.make(frame.spawns, options);
+    await expect(session.make(frame.spawns, options, {}, undefined, cancel.signal)).rejects.toThrow('Cancelled');
+    const made = await session.make(frame.spawns, options, {});
     expect(made.doc.spawns.length).toBe(frame.spawns.length);
   });
 });

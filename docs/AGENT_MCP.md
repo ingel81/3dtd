@@ -51,7 +51,7 @@ Desktop-App: die Webversion hat weder Server noch Schalter, Agent-Knopf und Band
 | `read_map` | liest | Zusammenfassung, Höhen oder Objekte einer beliebigen Karte, ohne sie zu öffnen |
 | `open_map` | öffnet | eine Karte im Editor; eine mitgelieferte als eigene Kopie; die offene wird vorher gespeichert |
 | `create_map` | legt an | neue eigene Karte (Name, Breite, Tiefe 64 bis 8192 m, Vorlage oder Generator mit Seed und Stärke) und öffnet sie |
-| `save_map`, `close_map` | speichert | jetzt speichern (mit Vorschaubild); speichern und zurück zur Kartenliste |
+| `save_map`, `close_map` | speichert | jetzt speichern; speichern und zurück zur Kartenliste (jedes Speichern legt das Listenbild mit ab) |
 | `run_script` | ändert | Skript gegen die offene Karte, ein Undo-Schritt, animiert abgespielt |
 | `move_marker` | ändert | HQ (`hq`) oder einen Spawn (Id oder Name) versetzen |
 | `place_object`, `move_object`, `delete_objects` | ändert | einzelne Objekte; eine Straßen-Id in `delete_objects` verweist auf `map.removeRoads` |

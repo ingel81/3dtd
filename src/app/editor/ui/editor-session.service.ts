@@ -124,7 +124,6 @@ export class EditorSession implements OnDestroy {
         readOnly: () => this.maps.readOnly(),
         busyReason,
         blocked,
-        thumbnail: () => this.pictures.thumbnail(),
         pack: async (options, hash) => {
           const packed = await this.core.run('pack', { options, hash });
           if (!packed) throw new Error('The map closed while it was packed');

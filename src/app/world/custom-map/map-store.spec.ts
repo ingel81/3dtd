@@ -20,7 +20,8 @@ describe('MapStore', () => {
   const doc = () => createMapDocument({ id: 'valley', name: 'Valley', width: 32, depth: 32, now: new Date(0) });
 
   it('saves, lists, loads and deletes own maps', async () => {
-    const store = new MapStore({ backend: new MemoryMapBackend(), fetch: shippedFetch({ maps: [] }, {}).fetcher, baseUrl: 'http://x/game/' });
+    const backend = new MemoryMapBackend();
+    const store = new MapStore({ backend, fetch: shippedFetch({ maps: [] }, {}).fetcher, baseUrl: 'http://x/game/' });
     const summary = await store.save(doc(), new Uint8Array([1, 2]));
     expect(summary).toMatchObject({ id: 'valley', name: 'Valley', origin: 'own', spawns: 1 });
     expect(summary.contentHash).toBe(await contentHash(doc()));
@@ -34,11 +35,28 @@ describe('MapStore', () => {
     // Saving again without a preview keeps the old one
     await store.save(doc());
     expect(await store.previewOf('valley')).toEqual(new Uint8Array([1, 2]));
-    await store.setPreview('valley', new Uint8Array([3]));
+    await backend.setPreview('valley', new Uint8Array([3]));
     expect(await store.previewOf('valley')).toEqual(new Uint8Array([3]));
     await store.delete('valley');
     expect(await store.listOwn()).toEqual([]);
     await expect(store.load('valley')).rejects.toBeInstanceOf(MapStoreError);
+  });
+
+  it('draws and keeps the picture of a stored map that has none, and leaves one it has', async () => {
+    const backend = new MemoryMapBackend();
+    const store = new MapStore({ backend, fetch: shippedFetch({ maps: [] }, {}).fetcher, baseUrl: 'http://x/game/' });
+    // An import that brought no picture, a coop host's map with none
+    await store.save(doc());
+    await store.saveShared(createMapDocument({ id: 'hosted', name: 'Hosted', width: 32, depth: 32 }), null, packMapFile(createMapDocument({ id: 'hosted', name: 'Hosted', width: 32, depth: 32 })));
+    for (const id of ['valley', 'hosted']) {
+      expect(await store.previewOf(id)).toBeNull();
+      const picture = await store.drawPreview(id, { grass: '#5b672e' });
+      expect(String.fromCharCode(...picture!.subarray(1, 4))).toBe('PNG');
+      expect(await store.previewOf(id)).toEqual(picture);
+    }
+    await backend.setPreview('valley', new Uint8Array([7]));
+    expect(await store.drawPreview('valley', { grass: '#5b672e' })).toEqual(new Uint8Array([7]));
+    expect(await store.drawPreview('gone', { grass: '#5b672e' })).toBeNull();
   });
 
   it('leaves the hash out at an autosave and fills it in on loading; a broken summary does not empty the list', async () => {

@@ -262,7 +262,7 @@ Entschieden (User, 2026-10-16): alle zwölf Empfehlungen unten übernommen.
   OpenStreetMap „Recent worlds“ = Karten mit `generated`, höchstens 10, ältere in den Papierkorb (`overflowWorlds`,
   `WorldChoiceService.trashMap`); Built Worlds mit Recent (5, `td_recent_maps_v1`, aufgezeichnet von
   `MainMenuService`), eigenen Karten mit Abzeichen (from OpenStreetMap, copy of …), Coop, mitgelieferten.
-  Jede Kartenzeile mit Bild; „Make the map“ speichert eine Skizze (`map-sketch.ts`: Relief, Wasser, Wege).
+  Jede Kartenzeile mit Bild (seit E289 für alle Karten dieselbe Zeichnung, siehe 8).
 - **Editor:** eine mitgelieferte oder Coop-Karte öffnet wie sie ist, die erste Speicherung mit Änderung legt die
   Kopie an (`MapStore.makeCopy`, Sperre zieht mit); die erste Speicherung mit Änderung nimmt `generated` weg.
 - **Halten (Punkt 7):** Worlds, All worlds, World menu und Make map halten das Spiel hinter den Globen
@@ -353,3 +353,26 @@ Messung (Dev-Build, Chrome headless mit SwiftShader, Demo Valley, Globus-Stufe L
 
 Back to brauchte 447 ms bis das Spiel stand (Klick bis Globen weg). Der Dev-Build taugt für den Heap nur grob
 (siehe WORLDS_NAVIGATION_PLAN Phase 2); GPU-Speicher ist nicht gemessen.
+
+## 8. Listenbilder der Karten (E289, 2026-10-21)
+
+Eigene Karten zeigten in Built Worlds oft nur ein leeres Feld: der Editor renderte sein Bild (WebGL von oben) nur bei
+Strg+S und beim Schließen über Close, nicht beim Autosave und nicht beim Verlassen über die Globen; Importe ohne Bild,
+Karten von Coop-Hosts und ältere Stände hatten nie eins. Jetzt gibt es eine Zeichnung für jede Karte,
+`map-ops/map-picture.ts` (Boden in den Durchschnittsfarben des Katalogs mit Schummerung, Wasser, Bäume, Wege,
+Spawns, HQ, Norden oben; ohne WebGL und Canvas, PNG über `map-ops/png.ts`):
+
+- **Mitgelieferte Karten:** `npm run maps:bake` zeichnet sie mit 256 px (`tools/maps/map-picture.ts` liest nur den
+  Katalog); die Bilder blieben beim Umzug Byte für Byte gleich.
+- **Editor:** jedes Speichern, auch der Autosave, zeichnet das Bild im Editor-Worker neben dem Packen aus dessen
+  Spiegel (`packForSave` mit `picture`), vom selben Stand wie Datei und Zusammenfassung; `MapStore.save` legt es ab.
+  Das WebGL-Bild für die Liste ist weg (kein zweites System, kein Rendern und Zurücklesen auf dem Hauptthread).
+- **OpenStreetMap:** der OSM-Worker zeichnet es beim Bau der Karte (ersetzt `map-sketch.ts`), die Farben gibt die
+  Seite mit (`catalogEntries`).
+- **Ohne Bild gespeicherte Karten** (Import ohne Bild, Coop-Host, älterer Stand): `WorldChoiceService.listMaps`
+  listet sie zuerst ohne, zeichnet das Bild dahinter nacheinander im Entpack-Worker (`MapStore.drawPreview`,
+  `unpackOffThread` mit `picture`), legt es ab und liest die Liste neu. Ohne Katalog (offline vor der ersten Karte)
+  wird nichts gezeichnet, die nächste Liste versucht es wieder; eine Datei, die nicht liest, erst auf der nächsten Seite.
+
+Größe: 128 px breit (die Listen zeigen 48 px). Gemessen an den 13 mitgelieferten Karten in Node: 11 bis 35 KB PNG,
+5 bis 17 ms Zeichnen und Packen je Bild, in Workern also ohne Hauptthread; große OSM-Welten sind nicht gemessen.

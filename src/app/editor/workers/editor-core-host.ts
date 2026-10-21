@@ -17,6 +17,7 @@ import { assetCosts } from '../../map-ops/validation/map-budget';
 import { validateMap } from '../../map-ops/validation/map-validation';
 import type { CustomMapDocument } from '../../world/custom-map/map-document';
 import { packErrorReply, packForSave } from '../../world/custom-map/map-pack';
+import { pictureColours, type MapPictureColours } from '../../map-ops/map-picture';
 import { DocMirror } from '../model/doc-mirror';
 import type { CoreInput, CoreJobKind, CoreOutput, CoreReply, CoreRequest, TerrainStream } from './editor-core-protocol';
 import { erodeJob, runTerrainJob, transferList, type TerrainJob, type TerrainJobMessage } from './terrain-job';
@@ -30,6 +31,8 @@ import { contourLines } from '../ops/contours';
 interface CoreContext {
   mirror: DocMirror;
   catalog: CatalogIndex;
+  /** The ground materials' colours for the list picture drawn with every save (map-ops/map-picture.ts) */
+  colours: MapPictureColours;
   /** Where towers may stand, as judged last (the check reads them) */
   buildAreas: BuildAreas | null;
   pathMask: PathMaskState;
@@ -70,8 +73,9 @@ const JOBS: { [K in CoreJobKind]: JobDef<K> } = {
   pack: {
     now: true,
     priority: 100,
-    run: (ctx, input) => packForSave({ doc: ctx.mirror.doc, options: input.options, hash: input.hash }),
-    transfer: (packed) => [packed.file.buffer as ArrayBuffer],
+    // The list picture beside the file, of the very copy packed: every save keeps the map's picture as it is
+    run: (ctx, input) => packForSave({ doc: ctx.mirror.doc, options: input.options, hash: input.hash, picture: ctx.colours }),
+    transfer: (packed) => [packed.file.buffer as ArrayBuffer, ...(packed.picture ? [packed.picture.buffer as ArrayBuffer] : [])],
   },
   check: {
     priority: 50,
@@ -157,7 +161,7 @@ interface Waiting {
 }
 
 export class EditorCoreHost {
-  private readonly ctx: CoreContext = { mirror: new DocMirror(), catalog: new CatalogIndex(EMPTY_CATALOG), buildAreas: null, pathMask: new PathMaskState(), shape: {}, minimap: new MinimapMarks() };
+  private readonly ctx: CoreContext = { mirror: new DocMirror(), catalog: new CatalogIndex(EMPTY_CATALOG), colours: {}, buildAreas: null, pathMask: new PathMaskState(), shape: {}, minimap: new MinimapMarks() };
   private readonly waiting = new Map<CoreJobKind, Waiting>();
   private draining = false;
   /** Terrain jobs under way, by id: true once told to stop */
@@ -172,6 +176,7 @@ export class EditorCoreHost {
   receive(msg: CoreRequest): void {
     if (msg.type === 'start') {
       this.ctx.catalog = new CatalogIndex(msg.catalog);
+      this.ctx.colours = pictureColours(msg.catalog.materials);
       return;
     }
     if (msg.type === 'stop') {

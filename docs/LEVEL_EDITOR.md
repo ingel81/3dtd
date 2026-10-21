@@ -97,7 +97,7 @@ ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die al
 | ? | Übersicht aller Tasten; unter „Your keys“ lassen sich die Einzeltasten (Werkzeuge, F, T, C, B, P, V, M) umlegen, gespeichert in `3dtd-editor-keys`. Die Übersicht liest die umlegbaren Tasten aus derselben Belegung, die die Tasten auswertet. Die festen Tasten der Werkzeuge (W E R L Q, Q H, S X J, R; `EditorTool.fixedKeys`) nimmt keine Aktion: die Statuszeile sagt, wem die Taste gehört; eine früher so gespeicherte Belegung fällt beim Laden weg. Ein Tausch mit einer anderen Aktion steht ebenfalls in der Statuszeile |
 | [ und ], Strg+Mausrad | Pinsel kleiner, größer; { und } Stärke |
 | Strg+Z, Strg+Y (Strg+Shift+Z) | Rückgängig, Wiederholen |
-| Strg+S | Speichern mit neuem Vorschaubild |
+| Strg+S | Sofort speichern (mit Inhalts-Hash) |
 | V | Prüfen (außer im Objektwerkzeug) |
 | Esc | Halbfertiges abbrechen, Auswahl aufheben; ist beides nicht da, zurück zu Look |
 
@@ -682,8 +682,10 @@ Szenenkosten.
 ## Speichern und Dateien
 
 - Autosave schreibt zwei Sekunden nach der letzten Änderung in IndexedDB; die Kopfzeile zeigt „Unsaved changes“,
-  „Saving“ oder „Saved“. Strg+S speichert sofort mit neuem Vorschaubild; beim Verlassen der Karte wird das Bild
-  ebenfalls erneuert. Prüfen, Packen und der Fingerabdruck für den Verlauf laufen im Editor-Worker auf seinem Spiegel
+  „Saving“ oder „Saved“. Strg+S speichert sofort. Jedes Speichern, auch der Autosave, legt das Listenbild des
+  gespeicherten Stands mit ab: der Editor-Worker zeichnet es neben dem Packen aus seinem Spiegel
+  (`map-ops/map-picture.ts`, dieselbe Zeichnung wie bei den mitgelieferten Karten, 128 px breit, 11 bis 35 KB bei den mitgelieferten Karten),
+  ohne WebGL und ohne Hauptthread. Prüfen, Packen und der Fingerabdruck für den Verlauf laufen im Editor-Worker auf seinem Spiegel
   der Karte (siehe „Editor-Worker“ unter Architektur): vorher kostete jedes Speichern auf einer 512-m-Karte ein Bild von
   60 bis 140 ms, mit einem Pack-Worker je Speichern noch die Kopie der ganzen Karte (1025² mit 50 000 Objekten in Node
   rund 40 ms), jetzt nur die geänderten Kacheln und Objekte (0,3 ms ohne Änderung, eine Strichkachel und ein
@@ -871,7 +873,7 @@ Bildschleife; die Arbeit machen seine Teile in `view/`:
 | `ViewPicker` | Strahl zum Boden, was ein Klick nähme (HQ, Spawn, Knoten, Objekt per Modell, Straße), Gizmo-Griff, Karte zu Bildschirm |
 | `ChangeApplier` | sammelt die `DocChange` eines Bilds und reicht sie gebündelt weiter (nur berührte Chunks); Himmel, Leben und Wasser höchstens alle 100 bzw. 120 ms, das Nachlegen des Overlays auf bewegtem Boden höchstens alle 200 ms (eine `Throttle`); das Ziel (`ChangeTarget`) und die Uhr sind übergeben, getestet ohne WebGL |
 | `ProgramWarmup` | Shader vorab (siehe unten) |
-| `TopDownRenderer` | die Karte von oben (Minikarte, PNG, Vorschaubilder) |
+| `TopDownRenderer` | die Karte von oben (Minikarte, PNG-Download, Stempelbilder, Bild für den Agenten) |
 | `ViewExtras` | Probewelle (`TrialWave`), Ton der Karte (`MapSound`), Intro-Vorschau (`IntroPreview`), Spielansicht (`GameView`) |
 
 `ViewHost` (`services/view-host.ts`) hält als einzige Stelle den Viewport und reicht der Seite nur `EditorViewPort`.

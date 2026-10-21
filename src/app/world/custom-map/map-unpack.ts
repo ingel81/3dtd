@@ -6,8 +6,10 @@
  * `unpackOffThread` (map-store.ts load, imports, the map folder, a coop
  * host's map, a kept version); a worker of its own per call reads it and
  * hands the document's arrays back without a copy; inline where there are
- * no workers (tests).
+ * no workers (tests). Asked for, it draws the map's list picture too
+ * (map-ops/map-picture.ts), for a stored map that has none yet.
  */
+import type { MapPictureColours } from '../../map-ops/map-picture';
 import { documentTransferables } from './map-document';
 import type { UnpackedMap } from './map-file';
 import { packReplyError, type PackError } from './map-pack';
@@ -16,6 +18,8 @@ export interface UnpackRequest {
   bytes: Uint8Array;
   /** Work out the content hash too */
   hash?: boolean;
+  /** Draw the list picture too, in these ground colours */
+  picture?: MapPictureColours;
 }
 
 export interface UnpackedFile extends UnpackedMap {
@@ -24,12 +28,16 @@ export interface UnpackedFile extends UnpackedMap {
    * (a stored hash is then the uncorrected map's); empty otherwise
    */
   contentHash: string;
+  /** The list picture as PNG, when asked for (UnpackRequest.picture) */
+  picture?: Uint8Array;
 }
 
 export type UnpackReply = UnpackedFile | PackError;
 
 export interface UnpackOptions {
   hash?: boolean;
+  /** Draw the list picture too, in these ground colours (UnpackedFile.picture) */
+  picture?: MapPictureColours;
   /** Hand `bytes` to the worker instead of copying them: the caller is done with them */
   transfer?: boolean;
 }
@@ -39,15 +47,16 @@ export async function unpackForLoad(request: UnpackRequest): Promise<UnpackedFil
   const { contentHash, unpackMapFile } = await import('./map-file');
   const unpacked = unpackMapFile(request.bytes);
   const hash = request.hash || unpacked.repaired.length ? await contentHash(unpacked.doc) : '';
-  return { ...unpacked, contentHash: hash };
+  const picture = request.picture ? (await import('../../map-ops/map-picture')).mapPicturePng(unpacked.doc, request.picture) : undefined;
+  return { ...unpacked, contentHash: hash, ...(picture ? { picture } : {}) };
 }
 
 /** The buffers of a read map that leave the worker without a copy */
 export function unpackedTransferables(unpacked: UnpackedFile): ArrayBuffer[] {
   const buffers = documentTransferables(unpacked.doc);
-  const preview = unpacked.preview?.buffer;
-  if (preview && Object.prototype.toString.call(preview) === '[object ArrayBuffer]' && !buffers.includes(preview as ArrayBuffer)) {
-    buffers.push(preview as ArrayBuffer);
+  for (const bytes of [unpacked.preview, unpacked.picture]) {
+    const buffer = bytes?.buffer;
+    if (buffer && Object.prototype.toString.call(buffer) === '[object ArrayBuffer]' && !buffers.includes(buffer as ArrayBuffer)) buffers.push(buffer as ArrayBuffer);
   }
   return buffers;
 }
@@ -55,7 +64,8 @@ export function unpackedTransferables(unpacked: UnpackedFile): ArrayBuffer[] {
 /** A `.3dtdmap` file read into a document; rejects as unpackMapFile throws (no map, a broken one) */
 export function unpackOffThread(bytes: Uint8Array, options: UnpackOptions = {}): Promise<UnpackedFile> {
   const hash = options.hash ?? false;
-  if (typeof Worker === 'undefined') return unpackForLoad({ bytes, hash });
+  const request: UnpackRequest = { bytes, hash, ...(options.picture ? { picture: options.picture } : {}) };
+  if (typeof Worker === 'undefined') return unpackForLoad(request);
   return new Promise((resolve, reject) => {
     const worker = new Worker(new URL('./map-unpack.worker', import.meta.url), { type: 'module' });
     worker.onmessage = (e: MessageEvent<UnpackReply>) => {
@@ -69,6 +79,6 @@ export function unpackOffThread(bytes: Uint8Array, options: UnpackOptions = {}):
     };
     // A view into a larger buffer is copied either way: only a whole buffer is handed over
     const whole = options.transfer && bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength && bytes.buffer instanceof ArrayBuffer;
-    worker.postMessage({ bytes, hash } satisfies UnpackRequest, whole ? [bytes.buffer as ArrayBuffer] : []);
+    worker.postMessage(request, whole ? [bytes.buffer as ArrayBuffer] : []);
   });
 }

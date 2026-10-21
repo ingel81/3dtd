@@ -12,6 +12,7 @@ import { MapFileError } from './map-file-kind';
 import type { MapFault, MapProblem } from './map-text';
 import type { MapSummary } from './map-store';
 import { summarize } from './map-summary';
+import type { MapPictureColours } from '../../map-ops/map-picture';
 
 export interface PackedMap {
   file: Uint8Array;
@@ -23,6 +24,8 @@ export interface PackedMap {
    * never mix two states of a map the editor went on changing
    */
   summary: MapSummary;
+  /** The list picture of the very copy packed (map-ops/map-picture.ts), when asked for (PackRequest.picture) */
+  picture?: Uint8Array;
 }
 
 export interface PackRequest {
@@ -30,6 +33,8 @@ export interface PackRequest {
   options: PackOptions;
   /** Work out the content hash too (a manual save; an autosave leaves it for loading) */
   hash?: boolean;
+  /** Draw the list picture too, in these ground colours */
+  picture?: MapPictureColours;
 }
 
 /** A failed pack as data: an invalid map keeps why and its list of problems across the worker's edge */
@@ -65,11 +70,12 @@ export function fingerprint(bytes: Uint8Array): number {
  */
 export async function packForSave(request: PackRequest): Promise<PackedMap> {
   const { doc } = request;
-  const { contentHash, packMapFile } = await import('./map-file');
+  const [{ contentHash, packMapFile }, { mapPicturePng }] = await Promise.all([import('./map-file'), import('../../map-ops/map-picture')]);
   const file = packMapFile(doc, request.options);
   const summary = summarize(doc, 'own', '');
+  const picture = request.picture ? mapPicturePng(doc, request.picture) : undefined;
   const hash = request.hash ? contentHash(doc) : null;
-  return { file, sum: fingerprint(file), summary: { ...summary, contentHash: hash ? await hash : '' } };
+  return { file, sum: fingerprint(file), summary: { ...summary, contentHash: hash ? await hash : '' }, ...(picture ? { picture } : {}) };
 }
 
 /** The packed file of `doc`, its fingerprint and summary; rejects as packMapFile throws (an invalid map) */

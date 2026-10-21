@@ -182,15 +182,9 @@ export class MapLifecycle {
     const editor = this.current;
     if (editor && !this.readOnly() && p.blocked(p.notices.t().editor.session.leaving)) return false;
     if (editor && !this.readOnly()) {
-      if (p.saves.dirty() || p.saves.running) {
-        if (!(await p.saves.save(true)) || p.saves.dirty()) {
-          p.notices.flash(p.notices.t().editor.session.saveFailedStays);
-          return false;
-        }
-      } else {
-        // The list shows the map as it was left
-        const preview = await p.pictures.thumbnail();
-        if (preview) await p.library.store.setPreview(editor.doc.meta.id, preview).catch(() => undefined);
+      if ((p.saves.dirty() || p.saves.running) && (!(await p.saves.save(true)) || p.saves.dirty())) {
+        p.notices.flash(p.notices.t().editor.session.saveFailedStays);
+        return false;
       }
     }
     this.leaveView(false);

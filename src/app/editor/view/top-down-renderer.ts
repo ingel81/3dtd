@@ -1,6 +1,7 @@
 /**
- * The map from straight above into a canvas: the minimap, the PNG preview
- * and the thumbnails, drawn by the view's renderer into a target of its own.
+ * The map from straight above into a canvas: the minimap, the PNG download,
+ * stamps and the agent's picture, drawn by the view's renderer into a target
+ * of its own.
  */
 import { OrthographicCamera, SRGBColorSpace, WebGLRenderTarget, type Group, type Scene, type WebGLRenderer } from 'three';
 import type { MapTerrain } from '../../world/custom-map/map-document';
@@ -30,7 +31,7 @@ export class TopDownRenderer {
    * built (ProgramWarmup.topDownReady); the pixels come back without
    * waiting for the GPU (readRenderTargetPixelsAsync): a synchronous read
    * held the main thread 65 to 140 ms until the whole map was drawn, after
-   * every stroke (the minimap) and every autosave (the thumbnail)
+   * every stroke (the minimap)
    */
   async render(width: number, height = width, overlay = false, area?: { x0: number; y0: number; x1: number; y1: number }): Promise<HTMLCanvasElement> {
     const h = this.host;

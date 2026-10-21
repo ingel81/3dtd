@@ -18,6 +18,7 @@ import { unpackOffThread } from './map-unpack';
 import { newMapUid, slugMapId } from './map-create';
 import { summarize } from './map-summary';
 import type { MapProblem } from './map-text';
+import type { MapPictureColours } from '../../map-ops/map-picture';
 
 /**
  * Where a map came from: made or imported here ('own'), shipped with the
@@ -348,9 +349,21 @@ export class MapStore {
     return { before: stored.file, created };
   }
 
-  /** A new thumbnail for an own map, its content untouched */
-  async setPreview(id: string, preview: Uint8Array): Promise<void> {
-    await this.backend.setPreview(id, preview);
+  /**
+   * Draws and keeps the list picture of a stored map that has none (an
+   * import that brought none, a coop host's map, a map saved before the
+   * editor drew one with every save), in the ground materials' `colours`;
+   * its file is read off the page's thread. Returns the picture, the stored
+   * one where there is one, null for a map not stored
+   */
+  async drawPreview(id: string, colours: MapPictureColours): Promise<Uint8Array | null> {
+    const stored = await this.backend.get(id);
+    if (!stored || stored.summary.origin === 'trashed') return null;
+    if (stored.preview) return stored.preview;
+    const { picture } = await unpackOffThread(stored.file, { picture: colours });
+    if (!picture) return null;
+    await this.backend.setPreview(id, picture);
+    return picture;
   }
 
   /** Removes a map for good (an own map: use trash; this is for the trash and coop maps) */

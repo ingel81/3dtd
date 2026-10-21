@@ -92,6 +92,21 @@ describe('editor session opening', () => {
   });
 });
 
+describe('editor session pictures', () => {
+  it("keeps the list's picture of the state saved with every save, an autosave too, drawn beside the file", async () => {
+    const { s, backend } = session();
+    s.editMeta({ description: 'Changed' });
+    expect(await s.saves.save(false)).toBe(true);
+    const first = (await backend.get('m'))!.preview!;
+    expect(String.fromCharCode(...first.subarray(1, 4))).toBe('PNG');
+    // The spawn moved: the next autosave's picture shows it there
+    s['execute'](SnapshotCommand.record(s.doc!, 'Spawn', ['spawns'], (d) => (d.spawns = [{ ...d.spawns[0], x: 0, y: 28 }])));
+    expect(await s.saves.save(false)).toBe(true);
+    expect((await backend.get('m'))!.preview).not.toEqual(first);
+    s.ngOnDestroy();
+  });
+});
+
 describe('editor session and copies', () => {
   it('an OpenStreetMap map leaves its world with the first save that changes it (decision 5)', async () => {
     const { s } = session();

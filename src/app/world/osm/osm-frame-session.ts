@@ -16,6 +16,7 @@ import type { OverpassRetry } from './overpass-client';
 import { OsmError } from './osm-error';
 import type { SpawnDropReason } from './convert/layout';
 import { MapFileError } from '../custom-map/map-file-kind';
+import type { MapPictureColours } from '../../map-ops/map-picture';
 
 /**
  * A call that sends nothing for this long is ended (the Overpass limits are 105 s to the headers and 60 s for the
@@ -91,8 +92,15 @@ export class OsmFrameSession {
     return (r as Extract<OsmWorkerResponse, { kind: 'dropped' }>).spawn;
   }
 
-  async make(spawnsAt: GeoPoint[], options: OsmImportOptions, onProgress?: (progress: OsmProgress) => void, signal?: AbortSignal): Promise<OsmMade> {
-    const r = await this.callLoaded({ kind: 'make', spawnsAt, options }, onProgress, signal);
+  /** The map made with the spawns at `spawnsAt`; `colours` paint its list picture (map-picture.ts) */
+  async make(
+    spawnsAt: GeoPoint[],
+    options: OsmImportOptions,
+    colours: MapPictureColours,
+    onProgress?: (progress: OsmProgress) => void,
+    signal?: AbortSignal,
+  ): Promise<OsmMade> {
+    const r = await this.callLoaded({ kind: 'make', spawnsAt, options, colours }, onProgress, signal);
     return (r as Extract<OsmWorkerResponse, { kind: 'made' }>).made;
   }
 
@@ -193,7 +201,7 @@ export class OsmFrameSession {
       case 'drop':
         return { id, kind: 'dropped', spawn: core.drop(call.at) };
       case 'make':
-        return { id, kind: 'made', made: await core.make(call.spawnsAt, call.options, onProgress) };
+        return { id, kind: 'made', made: await core.make(call.spawnsAt, call.options, call.colours, onProgress) };
     }
   }
 }

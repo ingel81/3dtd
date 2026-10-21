@@ -1,8 +1,9 @@
 /**
  * Pictures the editor shows or keeps: the palettes' pictures of objects,
  * materials and biomes (a small renderer of their own, one picture per idle
- * moment, a drawn symbol until it is ready), and the map from above for the
- * list, a stamp, the download and the AI agent.
+ * moment, a drawn symbol until it is ready), and the map from above for a
+ * stamp, the download and the AI agent. The list's picture of a map is drawn
+ * with every save in the editor's worker (map-ops/map-picture.ts).
  */
 import { signal, type NgZone } from '@angular/core';
 import type { CatalogIndex, GroundMaterialEntry, ObjectAssetEntry } from '../../map-ops/asset-catalog';
@@ -14,9 +15,6 @@ import { shadeRelief } from '../agent/relief-shade';
 import { ThumbnailRenderer } from '../view/thumbnail-renderer';
 import { biomeThumbnail, materialThumbnail, objectThumbnail } from '../view/thumbnails';
 import type { ViewHost } from './view-host';
-
-/** Side of the list's picture of a map */
-const THUMBNAIL_SIZE = 256;
 
 export class EditorPictures {
   /** Bumps when a rendered palette picture is ready */
@@ -56,18 +54,6 @@ export class EditorPictures {
   dispose(): void {
     this.renderer?.dispose();
     this.renderer = null;
-  }
-
-  /** The list's picture of the map as PNG, null without a view */
-  async thumbnail(): Promise<Uint8Array | null> {
-    if (!this.view.shown) return null;
-    try {
-      const canvas = await this.view.renderTopDown(THUMBNAIL_SIZE, THUMBNAIL_SIZE, false);
-      const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/png'));
-      return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
-    } catch {
-      return null;
-    }
   }
 
   /** A stamp's picture of its rectangle, 96 px on its longer side; null without a view */

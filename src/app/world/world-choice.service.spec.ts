@@ -3,7 +3,9 @@ import { ConfigService } from '../core/services/config.service';
 import { createMapDocument } from './custom-map/map-create';
 import { MapStore, MemoryMapBackend, type ShippedMapIndex } from './custom-map/map-store';
 import { parseOwnTilesets } from './tileset/own-tileset';
-import { MAP_STORE, WorldChoiceService } from './world-choice.service';
+import { MAP_PICTURE_COLOURS, MAP_STORE, WorldChoiceService } from './world-choice.service';
+import type { MapPictureColours } from '../map-ops/map-picture';
+import { packMapFile } from './custom-map/map-file';
 import { AppScreen } from './app-screen.service';
 import { WorldContext } from './world-context.service';
 import type { WorldRef } from './world-ref';
@@ -28,8 +30,11 @@ describe('WorldChoiceService', () => {
   let stage: { leaveGame: ReturnType<typeof vi.fn> };
   let current: ReturnType<typeof signal<WorldRef>>;
   let store: MapStore;
+  /** The catalogue's colours the missing pictures are drawn in; empty: the catalogue did not load */
+  let colours: MapPictureColours;
 
   beforeEach(() => {
+    colours = { grass: '#5b672e' };
     screens = new AppScreen();
     opened = [];
     stage = { leaveGame: vi.fn() };
@@ -42,6 +47,7 @@ describe('WorldChoiceService', () => {
     const injector = Injector.create({
       providers: [
         { provide: MAP_STORE, useValue: store },
+        { provide: MAP_PICTURE_COLOURS, useValue: async () => colours },
         { provide: AppScreen, useValue: screens },
         { provide: WorldSession, useValue: { open: (order: WorldStart) => opened.push(order), parked: () => null } },
         { provide: WorldsStageService, useValue: stage },
@@ -68,6 +74,25 @@ describe('WorldChoiceService', () => {
     expect(maps.own[0].summary).toMatchObject({ width: 64, depth: 32, spawns: 1, biome: 'temperate' });
     expect(maps.shipped.map((m) => [m.summary.id, m.picture])).toEqual([['demo-valley', 'http://x/game/maps/demo-valley.png']]);
     expect(maps.shipped[0].summary).toMatchObject({ author: '3DTD', spawns: 2, biome: 'temperate' });
+  });
+
+  it('draws the missing picture of a stored map behind the list, keeps it and says so; without the catalogue it tries again', async () => {
+    const hosted = createMapDocument({ id: 'hosted', name: "Ann's map", width: 64, depth: 64 });
+    await store.saveShared(hosted, null, packMapFile(hosted));
+    colours = {};
+    let heard = 0;
+    expect((await service.listMaps(() => heard++)).shared[0].picture).toBeNull();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(await store.previewOf('hosted')).toBeNull();
+    expect(heard).toBe(0);
+    colours = { grass: '#5b672e' };
+    expect((await service.listMaps(() => heard++)).shared[0].picture).toBeNull();
+    await vi.waitFor(() => expect(heard).toBe(1));
+    const picture = await store.previewOf('hosted');
+    expect(String.fromCharCode(...picture!.subarray(1, 4))).toBe('PNG');
+    // Listed again, the map shows its kept picture and nothing is drawn anew
+    expect((await service.listMaps(() => heard++)).shared[0].picture).toBe('blob:picture');
+    expect(heard).toBe(1);
   });
 
   it('opens the chosen map or set in the page and plays it once it stands', () => {
@@ -113,6 +138,7 @@ describe('WorldChoiceService', () => {
       const injector = Injector.create({
         providers: [
           { provide: MAP_STORE, useValue: store },
+          { provide: MAP_PICTURE_COLOURS, useValue: async () => colours },
           { provide: AppScreen, useValue: screens },
           { provide: WorldSession, useValue: { open: (order: WorldStart) => opened.push(order), parked: () => null } },
           { provide: ConfigService, useValue: { ownTilesets: signal([]) } },

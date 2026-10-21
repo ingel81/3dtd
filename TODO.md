@@ -68,9 +68,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       dunkle Naht dazwischen, Ufer und Vegetation mitten im Wasser. Ebenso zwei Striche, die sich berühren oder kreuzen
       (User erwartet bei genauem Kreuzen ein Gesamtgewässer als Kreuz; testet das noch im Editor). Soll: eine
       gemeinsame Wasserfläche. Plan: docs/WATER_NETWORK_PLAN.md (mit E283).
-- [ ] **E289 Eigene Welten ohne Vorschaubild** (User 2026-10-21): Im Menü „Gebaute Welten“ zeigen selbst gebaute Karten
-      (Zuletzt und Eigene Welten, z. B. „Editor Testworld1“) nur ein leeres dunkles Feld, mitgelieferte wie Mountain Pass
-      ein Bildchen. Soll: auch eigene Karten bekommen ein Vorschaubild (z. B. beim Speichern im Editor erzeugt).
 - [ ] **E285 Weinberge: Rebzeilen** (User 2026-10-20): Zeilen stehen schräg und sind in kurze Stücke zerhackt. Soll:
       gerade, parallel, durchgehend über die Parzelle, in der Falllinie den Hang hoch, meist rechtwinklig zur
       erschließenden Straße; auf flachem Gelände rechtwinklig zur nächsten Straße.
@@ -231,6 +228,11 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 ---
 
 ## 2. Gebaut, wartet auf Test
+
+### 2026-10-21 (Branch `e289-own-world-previews`, Nachtests in PLAYTEST.md O)
+
+- [ ] **E289 Listenbilder eigener Karten**: eine Zeichnung für alle Karten (wie die mitgelieferten), bei jedem Speichern
+      im Editor-Worker, beim OSM-Bau im OSM-Worker, für Karten ohne Bild nachträglich beim Listen (O1 bis O3).
 
 ### Runde 2026-10-20 (auf `next`, Nachtests in PLAYTEST.md N)
 

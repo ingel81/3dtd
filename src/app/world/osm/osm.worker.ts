@@ -40,10 +40,10 @@ addEventListener('message', (event: MessageEvent<OsmWorkerRequest>) => {
           send({ id, kind: 'dropped', spawn: core.drop(request.at) });
           break;
         case 'make': {
-          const made = await core.make(request.spawnsAt, request.options, onProgress);
+          const made = await core.make(request.spawnsAt, request.options, request.colours, onProgress);
           const buffers = documentTransferables(made.doc);
           if (made.file.buffer instanceof ArrayBuffer) buffers.push(made.file.buffer);
-          if (made.preview?.buffer instanceof ArrayBuffer) buffers.push(made.preview.buffer);
+          if (made.preview.buffer instanceof ArrayBuffer) buffers.push(made.preview.buffer);
           send({ id, kind: 'made', made }, buffers);
           break;
         }

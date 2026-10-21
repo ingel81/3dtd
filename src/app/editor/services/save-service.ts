@@ -1,6 +1,7 @@
 /**
  * Keeping the open map: autosave two seconds after the last edit, Ctrl+S at
- * once with a fresh picture for the list, a kept version per save, the first
+ * once, each with the list's picture of the state saved (drawn in the
+ * editor's worker beside the file, map-ops/map-picture.ts), a kept version per save, the first
  * save of a shipped map as an own copy, how safe the browser keeps the maps
  * and the reminder to download after long work where it may clear them.
  */
@@ -33,14 +34,12 @@ export interface SaveHost {
   busyReason(): string | null;
   /** The same with a line in the status bar */
   blocked(what: string): boolean;
-  /** The picture of the map for the list, null without a view */
-  thumbnail(): Promise<Uint8Array | null>;
   /** A shipped map's own copy was stored under `id`: the tab's lock follows it */
   copied(id: string): void;
   /**
    * The open map packed off the page's thread (the editor's worker, which
-   * mirrors it): the file, its fingerprint and the store's summary of the
-   * very state packed, with the content hash when `hash`
+   * mirrors it): the file, its fingerprint, the store's summary and the
+   * list's picture of the very state packed, with the content hash when `hash`
    */
   pack(options: PackOptions, hash: boolean): Promise<PackedMap>;
   /** The map file did not take the map: the check lists each problem */
@@ -112,7 +111,8 @@ export class SaveService {
   }
 
   /**
-   * Stores the map in the browser; `manual` also renders a new thumbnail.
+   * Stores the map in the browser with its picture for the list; `manual`
+   * also works out the content hash and packs tighter.
    * A save asked for while one runs waits for it (Ctrl+S during an
    * autosave is not lost); an autosave with nothing new does nothing.
    */
@@ -146,10 +146,8 @@ export class SaveService {
       const copyOf = this.copyOf;
       // A shipped map unchanged: nothing of one's own to keep
       if (copyOf && !changed) return true;
-      // Ctrl+S on a map stored and kept as a version as it is: only the list's picture is new, no second version
+      // Ctrl+S on a map stored and kept as a version as it is: nothing new to keep, no second version
       if (manual && !changed && this.versionedState === state) {
-        const preview = await this.host.thumbnail();
-        if (preview) await store.setPreview(doc.meta.id, preview);
         this.notices.flash(this.notices.t().editor.session.saved);
         return true;
       }
@@ -165,12 +163,11 @@ export class SaveService {
       if (changed) doc.meta.updatedAt = new Date().toISOString();
       // The identity first: the copy packed below must carry it (the store would pack the live map again)
       doc.meta.uid ??= newMapUid();
-      const preview = manual ? await this.host.thumbnail() : null;
       // An autosave packs fast and leaves the hash for when the game asks for it; packed in the editor's worker
-      // from its mirror of the map, so a save costs the view no frame. File, hash and summary are of one state
-      const { file, sum, summary } = await this.host.pack({ level: manual ? 6 : 1 }, manual);
+      // from its mirror of the map, so a save costs the view no frame. File, hash, summary and picture are of one state
+      const { file, sum, summary, picture } = await this.host.pack({ level: manual ? 6 : 1 }, manual);
       // Kept in the game either way; a map folder that refuses the file is said, the next save writes it again
-      const folderRefused = await store.save(doc, preview, file, { summary }).then(
+      const folderRefused = await store.save(doc, picture ?? null, file, { summary }).then(
         () => null,
         (e: unknown) => {
           if (e instanceof FolderWriteError) return e;

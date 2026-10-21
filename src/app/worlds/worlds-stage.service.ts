@@ -814,7 +814,7 @@ export class WorldsStageService {
 
   /** Read the maps again (own ones change in the editor) and the trash, and put an OpenStreetMap map's pick in its world */
   async refreshMaps(): Promise<void> {
-    const [choices, trash] = await Promise.all([this.worlds.listMaps().catch(() => null), this.worlds.listTrash()]);
+    const [choices, trash] = await Promise.all([this.worlds.listMaps(() => void this.refreshMaps()).catch(() => null), this.worlds.listTrash()]);
     this.trash.set(trash);
     if (!choices) return;
     const of = (choice: MapChoice): StageMap => ({

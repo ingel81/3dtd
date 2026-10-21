@@ -5,13 +5,14 @@ import type { OverpassRetry } from './overpass-client';
 import type { OsmErrorText } from './osm-error';
 import type { SpawnDropReason } from './convert/layout';
 import type { MapFault, MapProblem } from '../custom-map/map-text';
+import type { MapPictureColours } from '../../map-ops/map-picture';
 
 /** A call of the frame on the OSM worker (OsmFrameCore's methods) */
 export type OsmWorkerRequest =
   | { id: number; kind: 'open'; request: OsmOpenRequest }
   | { id: number; kind: 'draw'; count: number; keep: GeoPoint[] }
   | { id: number; kind: 'drop'; at: GeoPoint }
-  | { id: number; kind: 'make'; spawnsAt: GeoPoint[]; options: OsmImportOptions };
+  | { id: number; kind: 'make'; spawnsAt: GeoPoint[]; options: OsmImportOptions; colours: MapPictureColours };
 
 export type OsmWorkerResponse =
   | { id: number; kind: 'progress'; progress: OsmProgress }

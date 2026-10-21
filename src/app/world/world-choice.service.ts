@@ -4,6 +4,7 @@ import { readDesktopBridge } from '../core/desktop-bridge';
 import { MapStore, type MapSummary } from './custom-map/map-store';
 import { MAP_FILE_EXTENSION } from './custom-map/map-file-kind';
 import { downloadBlob } from '../utils/download';
+import { pictureColours, type MapPictureColours } from '../map-ops/map-picture';
 import type { OwnTileset } from './tileset/own-tileset';
 import type { WorldRef } from './world-ref';
 import { PLAIN_START } from './world-start';
@@ -16,6 +17,18 @@ export const FIRST_MAP_ID = 'mountain-pass';
 /** The map store the menu lists from (IndexedDB and the shipped maps); a spec hands in its own */
 export const MAP_STORE = new InjectionToken<MapStore>('MAP_STORE', { providedIn: 'root', factory: () => new MapStore() });
 
+
+/**
+ * The ground materials' colours the list pictures are drawn in, from the
+ * renderer's catalogue (read once a page); empty without it. A spec hands in its own
+ */
+export const MAP_PICTURE_COLOURS = new InjectionToken<() => Promise<MapPictureColours>>('MAP_PICTURE_COLOURS', {
+  providedIn: 'root',
+  factory: () => async () => {
+    const { MapAssetLibrary } = await import('./custom-map/render/map-asset-library');
+    return pictureColours((await MapAssetLibrary.shared().catalog().catch(() => null))?.materials ?? []);
+  },
+});
 
 /** A map as the menu lists it: its summary and a picture */
 export interface MapChoice {
@@ -43,22 +56,35 @@ export interface MapChoices {
 @Injectable({ providedIn: 'root' })
 export class WorldChoiceService {
   private readonly store = inject(MAP_STORE);
+  private readonly colours = inject(MAP_PICTURE_COLOURS);
   private readonly screens = inject(AppScreen);
   private readonly config = inject(ConfigService);
   private readonly session = inject(WorldSession);
   /** Object URLs of own maps' pictures, given back with the next list */
   private pictureUrls: string[] = [];
+  /** Stored maps whose missing picture was drawn (or tried) in this page's life */
+  private readonly pictured = new Set<string>();
 
   /** The own tilesets the config lists */
   readonly tilesets = computed<readonly OwnTileset[]>(() => this.config.ownTilesets());
 
-  /** Own, received and shipped maps with their pictures; a stored list that does not load is empty */
-  async listMaps(): Promise<MapChoices> {
+  /**
+   * Own, received and shipped maps with their pictures; a stored list that
+   * does not load is empty. A stored map without a picture (an import that
+   * brought none, a coop host's map, one saved before the editor drew one
+   * with every save) lists without, its picture is drawn behind and kept;
+   * `pictured` hears when some were, to list again
+   */
+  async listMaps(pictured?: () => void): Promise<MapChoices> {
     const [own, shipped] = await Promise.all([this.store.listOwn().catch(() => []), this.store.listShipped().catch(() => [])]);
     for (const url of this.pictureUrls.splice(0)) URL.revokeObjectURL(url);
+    const missing: string[] = [];
     const stored = await Promise.all(own.map(async (summary) => {
       const bytes = await this.store.previewOf(summary.id).catch(() => null);
-      if (!bytes) return { summary, picture: null };
+      if (!bytes) {
+        missing.push(summary.id);
+        return { summary, picture: null };
+      }
       const url = URL.createObjectURL(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'image/png' }));
       this.pictureUrls.push(url);
       return { summary, picture: url };
@@ -69,11 +95,35 @@ export class WorldChoiceService {
       summary,
       picture: await this.store.shippedPreviewUrl(summary.id).catch(() => null),
     })));
+    this.drawPictures(missing, pictured);
     return {
       own: stored.filter((m) => m.summary.origin !== 'shared'),
       shared: stored.filter((m) => m.summary.origin === 'shared'),
       shipped: shippedChoices,
     };
+  }
+
+  /**
+   * The pictures of stored maps that have none, drawn one after another off
+   * the page's thread (MapStore.drawPreview) in the catalogue's colours;
+   * without the catalogue (offline before any map loaded) none is drawn, the
+   * next list tries again. A file that does not read is not tried again
+   * before the next page
+   */
+  private drawPictures(ids: readonly string[], drawn?: () => void): void {
+    const wanted = ids.filter((id) => !this.pictured.has(id));
+    if (!wanted.length) return;
+    for (const id of wanted) this.pictured.add(id);
+    void (async () => {
+      const colours = await this.colours().catch(() => ({}));
+      if (!Object.keys(colours).length) {
+        for (const id of wanted) this.pictured.delete(id);
+        return;
+      }
+      let any = false;
+      for (const id of wanted) if (await this.store.drawPreview(id, colours).catch(() => null)) any = true;
+      if (any) drawn?.();
+    })();
   }
 
   /** Play a custom map: the game shows once it stands */
