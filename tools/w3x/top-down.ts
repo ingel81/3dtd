@@ -2,12 +2,12 @@
  * A top-down picture of an imported map for checking by eye: ground layers
  * in flat colours with hill shading, water, objects as dots by category,
  * roads as lines in their width, spawns (red) and the HQ (yellow).
- * Writes PNG bytes with a tiny encoder over fflate's zlib.
+ * Writes PNG bytes with the maps' PNG writer (map-ops/png.ts).
  */
 
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { zlibSync } from 'fflate';
+import { encodePngRgb } from '../../src/app/map-ops/png';
 import type { CustomMapDocument } from '../../src/app/world/custom-map/map-document';
 
 const LAYER_COLOURS: Record<string, [number, number, number]> = {
@@ -71,42 +71,6 @@ const OBJECT_COLOURS: [RegExp, [number, number, number]][] = [
   [/^wall|fence/, [90, 60, 30]],
   [/./, [230, 150, 30]],
 ];
-
-function crc32(bytes: Uint8Array): number {
-  let c = ~0;
-  for (const b of bytes) {
-    c ^= b;
-    for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
-  }
-  return ~c >>> 0;
-}
-
-export function encodePng(rgb: Uint8Array, width: number, height: number): Uint8Array {
-  const raw = new Uint8Array((width * 3 + 1) * height);
-  for (let y = 0; y < height; y++) raw.set(rgb.subarray(y * width * 3, (y + 1) * width * 3), y * (width * 3 + 1) + 1);
-  const chunk = (type: string, data: Uint8Array): Uint8Array => {
-    const out = new Uint8Array(12 + data.length);
-    const v = new DataView(out.buffer);
-    v.setUint32(0, data.length);
-    for (let i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i);
-    out.set(data, 8);
-    v.setUint32(8 + data.length, crc32(out.subarray(4, 8 + data.length)));
-    return out;
-  };
-  const ihdr = new Uint8Array(13);
-  const hv = new DataView(ihdr.buffer);
-  hv.setUint32(0, width);
-  hv.setUint32(4, height);
-  ihdr.set([8, 2, 0, 0, 0], 8);
-  const parts = [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', zlibSync(raw)), chunk('IEND', new Uint8Array())];
-  const out = new Uint8Array(parts.reduce((s, p) => s + p.length, 0));
-  let at = 0;
-  for (const p of parts) {
-    out.set(p, at);
-    at += p.length;
-  }
-  return out;
-}
 
 /** Renders `pixelsPerMetre` pixels per metre (north up) */
 export function renderTopDown(doc: CustomMapDocument, pixelsPerMetre = 2): { png: Uint8Array; width: number; height: number } {
@@ -209,5 +173,5 @@ export function renderTopDown(doc: CustomMapDocument, pixelsPerMetre = 2): { png
   for (const n of doc.paths.nodes) dot(...toPx(n.x, n.y), 2, [255, 255, 255]);
   for (const s of doc.spawns) dot(...toPx(s.x, s.y), 6, [220, 0, 0]);
   dot(...toPx(doc.hq.x, doc.hq.y), 8, [255, 220, 0]);
-  return { png: encodePng(rgb, W, H), width: W, height: H };
+  return { png: encodePngRgb(rgb, W, H), width: W, height: H };
 }
