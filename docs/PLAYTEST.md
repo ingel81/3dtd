@@ -649,6 +649,8 @@ Ob ein Krater einen Fluss schneidet, wie hoch der See steht und wohin er überl�
 - **U2 Lava:** wie U1 auf Ember Crater an einem Lavastrom. *Die Lava füllt die Grube langsamer, mit Kruste; ihr
   Überlauf erstarrt, wo er auf Wasser trifft.*
 - **U3 Spielen:** die Karte aus U1 speichern und spielen. *Der See steht von Anfang an voll da, mit Fall und Überlauf.*
+- **U4 Skript:** Editor, neue Karte, im Agenten-Skript `map.river([{x:0,y:-120},{x:0,y:120}])` und
+  `map.form('crater',{x:0,y:0},{radius:40,strength:1},4)`. *Der See füllt sich wie beim Pinsel; gespielt steht er voll.*
 
 ## V Tunnel unter Gebäuden (2026-10-21, E299)
 

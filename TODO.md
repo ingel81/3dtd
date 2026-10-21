@@ -216,7 +216,8 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 - [ ] **E294 Kratersee im Editor**: der Krater-Pinsel trägt den Krater in die Karte ein (`terrain.craters`); Wasser und
       Lava tun im Editor, was sie im Spiel tun (Fall, See, Überlauf), dreimal so schnell; gespielt steht der See voll da
-      (U1 bis U3). Doku: WATER_NETWORK_PLAN.md.
+      Map-Kit, Agent und Level-Skripte tragen ihre Krater ebenso ein (U1 bis U4). Doku:
+      WATER_NETWORK_PLAN.md.
 - [ ] **E299 Tunnel unter Gebäuden**: ein Tunnel, der zur Hälfte oder mehr unter Grundrissen liegt, ist ein Durchgang
       (covered) ohne Portal und Hügel; eine Tiefgarage behält nur ihre Einfahrten als Rampe bis zur Wand, ihre Gänge
       fallen weg. Portale nur noch für Tunnel durch Gelände (V1 bis V3). Öffnung in der Wand folgt mit dem
