@@ -26,7 +26,7 @@
       "spawns": 2,
       "biome": "mountain",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "f329ec03617094b5a7358fd75c4fcff6accbde18bc1e1a050e2d079bb509932f"
+      "contentHash": "ea3b0f475d196ec9205bd9e2faa635c32c32df6fb4c30a82bcd2d92f2acf505e"
     },
     {
       "id": "witch-marsh",
@@ -40,7 +40,7 @@
       "spawns": 2,
       "biome": "swamp",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "96f626167a08b19696150a929968ea0b556a7a5a67921483b492283fb4b3ea23"
+      "contentHash": "95379f3cf16fbdfac154fd7459e130406acd6d18415998fad8fed81310b9d1c0"
     },
     {
       "id": "autumn-keep",
@@ -68,7 +68,7 @@
       "spawns": 2,
       "biome": "desert",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "e1d75f106ad0d8c0d2ca612222ee9df779aeec5fb0b6fa81746b7dee4019f52c"
+      "contentHash": "2ec6cac614b4b9bfcac4ffb5085a77d9440f07edc1cb8f0c486e37ebba6fc65a"
     },
     {
       "id": "archipelago",
@@ -82,7 +82,7 @@
       "spawns": 2,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "e07c044d778301ec1da9fdca048f1a121475ea4e2552fec1363275e5d5f17dcb"
+      "contentHash": "39f5d8f98d11cf5323080f4878c402a933f549fc7e1cd1617756d96a0dfb3403"
     },
     {
       "id": "frost-hamlet",
@@ -96,7 +96,7 @@
       "spawns": 2,
       "biome": "arctic",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "87e505a2380d2987845f898e1c26ca5700540c60a0e54b95709232e7a98e533d"
+      "contentHash": "b067a92a8ccef7f8c6e8022050076587de8c6055002158a2bd7d1fe24a29620a"
     },
     {
       "id": "ember-crater",
@@ -110,7 +110,7 @@
       "spawns": 3,
       "biome": "hell",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "8b8994c7be0ea60efaa6ac94cfd3551d700929e295a41a5159fce671a87bb610"
+      "contentHash": "72412f7b20ecdd5f605d909ab6e1277415120182d4ba69965c0fe54ed6369e92"
     },
     {
       "id": "twin-gates",
@@ -152,7 +152,7 @@
       "spawns": 3,
       "biome": "mars",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "ccfe100597f7b14074b328d00c0ce2fe9f3d19f98e4ec51d8efd59ecd8510ec0"
+      "contentHash": "45dbbf3014a9113d352c8d4cf870f45eb49e91eccaf2aacdacec8a33c8b7cca0"
     },
     {
       "id": "ruined-city",
@@ -166,7 +166,7 @@
       "spawns": 3,
       "biome": "apocalypse",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "8ebcfc1bb716e403e56e3cbd0b3467275a8d85ad389f2abaa03b27d090c20206"
+      "contentHash": "53e498152348585fd082c6b9bf5f810839abf306e8885c2d6c622ef049f76186"
     },
     {
       "id": "harbor-town",
@@ -180,7 +180,7 @@
       "spawns": 3,
       "biome": "city",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "9b3f8da781e797b02dde4ae41ce5fce8a5a5bb3a0734122ce5c4202474a1546c"
+      "contentHash": "4ffa89ae885f93f4f85de8624a5e400ee16a20ac62ad25c1db4983b3e7dc926b"
     }
   ]
 }
