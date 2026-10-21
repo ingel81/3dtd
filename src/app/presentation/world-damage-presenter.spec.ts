@@ -127,6 +127,33 @@ describe('WorldDamagePresenter (docs/DESTRUCTION_PLAN.md)', () => {
     presenter.destroy();
   });
 
+  it('throws water up where a crater is dug into it, steam over the crater of a nuclear strike, sparks out of lava; a crater dug now is told so (E283)', () => {
+    const { engine, presenter } = setup(true);
+    const ground = { crater: vi.fn(), dug: vi.fn(), waterAt: vi.fn((x: number) => (x < 0 ? 'lava' : x > 500 ? 'water' : null)) };
+    Object.assign(engine.world.destruction, { ground });
+    Object.assign(engine.effects, { spawnWaterSpray: vi.fn(), spawnSteam: vi.fn() });
+    const fresh = new WorldDamagePresenter(engine as never, createMainEventBus(), null);
+    const fx = engine.effects as typeof engine.effects & { spawnWaterSpray: ReturnType<typeof vi.fn>; spawnSteam: ReturnType<typeof vi.fn> };
+    // Dry ground: nothing thrown up; the crater is stamped and told as dug now
+    fresh.dig(0, 100, 100, 25, 30);
+    expect(ground.dug).toHaveBeenCalledWith(100, 100);
+    expect(fx.spawnWaterSpray).not.toHaveBeenCalled();
+    // A rocket's crater (2.5 m) in water: spray, no steam
+    fresh.dig(1, 1000, 100, 25, 30);
+    expect(fx.spawnWaterSpray).toHaveBeenCalledTimes(1);
+    expect(fx.spawnWaterSpray.mock.calls[0][3]).toBeCloseTo(2.5);
+    expect(fx.spawnSteam).not.toHaveBeenCalled();
+    // A nuclear strike's (25 m): steam too
+    fresh.dig(2, 2000, 100, 250, 400);
+    expect(fx.spawnSteam).toHaveBeenCalledTimes(1);
+    // Into lava: glowing sparks, no water
+    fresh.dig(3, -1000, 100, 25, 30);
+    expect(fx.spawnWaterSpray).toHaveBeenCalledTimes(2);
+    expect(engine.effects.spawnBurstAtGeo).toHaveBeenCalledTimes(1);
+    fresh.destroy();
+    presenter.destroy();
+  });
+
   it('keeps a bar over each damaged structure that stands: none while full, none once fallen, set as the HP change (E262)', () => {
     const shed: RunStructure = { id: 'shed', lat: 50 / M, lon: 0, radius: 3, height: 4, hp: 60, box: [0, 50, 4, 2, 0] };
     const { engine, presenter } = setup(true);

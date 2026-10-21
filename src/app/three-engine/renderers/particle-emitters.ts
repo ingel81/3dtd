@@ -1,6 +1,6 @@
 import type { Color, Vector3 } from 'three';
 import type { TrailParticleConfig } from '../../configs/projectile-types.config';
-import { EXPLOSION_LOOK, FIRING_DUST_LOOK, type BurstPalette, type MuzzleFlashProfile } from '../../configs/visual-effects.config';
+import { EXPLOSION_LOOK, FIRING_DUST_LOOK, STEAM_LOOK, WATER_SPRAY_LOOK, type BurstPalette, type MuzzleFlashProfile } from '../../configs/visual-effects.config';
 import type { ParticlePoolManager } from './particle-pool-manager';
 
 /**
@@ -331,6 +331,68 @@ export function emitGroundDust(
     particle.totalFrames = totalAtlasFrames;
     const shade = look.shadeMin + Math.random() * (look.shadeMax - look.shadeMin);
     particle.color.setRGB(look.color.r * shade, look.color.g * shade, look.color.b * shade);
+  }
+}
+
+/**
+ * A hit into water at a local position (WATER_SPRAY_LOOK): a column of water
+ * thrown up over the hit, a ring of spray rolling out over the surface
+ */
+export function emitWaterSpray(pools: ParticlePoolManager, localX: number, localY: number, localZ: number, radius: number): void {
+  const look = WATER_SPRAY_LOOK;
+  const totalAtlasFrames = pools.ATLAS_COLS * pools.ATLAS_ROWS;
+  const rise = Math.min(look.riseMax, look.riseMin + look.risePerM * radius);
+  const size = look.sizeMin + look.sizePerM * radius;
+  const column = Math.round(look.columnPuffs + look.columnPerM * radius);
+  const ring = Math.round(look.ringPuffs + look.ringPerM * radius);
+  for (let i = 0; i < column + ring; i++) {
+    const particle = pools.getInactiveParticle('trailNormal');
+    if (!particle) break;
+    const angle = Math.random() * Math.PI * 2;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    if (i < column) {
+      // Up over the hit, narrow, the fastest in the middle
+      const r = radius * 0.3 * Math.random();
+      particle.position.set(localX + cos * r, localY, localZ + sin * r);
+      particle.velocity.set(cos * rise * 0.08, rise * (0.4 + Math.random() * 0.6), sin * rise * 0.08);
+    } else {
+      // Out over the surface from the hit's edge
+      particle.position.set(localX + cos * radius * 0.8, localY + 0.2, localZ + sin * radius * 0.8);
+      const out = rise * (0.25 + Math.random() * 0.2);
+      particle.velocity.set(cos * out, rise * 0.06 * Math.random(), sin * out);
+    }
+    particle.life = 1;
+    particle.maxLife = look.lifeMin + Math.random() * (look.lifeMax - look.lifeMin);
+    particle.size = size * (0.7 + Math.random() * 0.6);
+    particle.sizeStart = look.sizeStart;
+    particle.sizeEnd = look.sizeEnd;
+    particle.frameIndex = 0;
+    particle.totalFrames = totalAtlasFrames;
+    particle.color.setRGB(look.color.r, look.color.g, look.color.b);
+  }
+}
+
+/** Steam rising over water a nuclear strike hit at a local position (STEAM_LOOK), its crater `radius` wide */
+export function emitSteam(pools: ParticlePoolManager, localX: number, localY: number, localZ: number, radius: number): void {
+  const look = STEAM_LOOK;
+  const totalAtlasFrames = pools.ATLAS_COLS * pools.ATLAS_ROWS;
+  for (let i = 0; i < look.puffs; i++) {
+    const particle = pools.getInactiveParticle('trailNormal');
+    if (!particle) break;
+    const angle = Math.random() * Math.PI * 2;
+    const r = radius * 0.6 * Math.sqrt(Math.random());
+    particle.position.set(localX + Math.cos(angle) * r, localY + Math.random() * 2, localZ + Math.sin(angle) * r);
+    const rise = look.riseMin + Math.random() * (look.riseMax - look.riseMin);
+    particle.velocity.set(Math.cos(angle) * look.spread, rise, Math.sin(angle) * look.spread);
+    particle.life = 1;
+    particle.maxLife = look.lifeMin + Math.random() * (look.lifeMax - look.lifeMin);
+    particle.size = radius * look.sizeShare * (0.7 + Math.random() * 0.6);
+    particle.sizeStart = look.sizeStart;
+    particle.sizeEnd = look.sizeEnd;
+    particle.frameIndex = 0;
+    particle.totalFrames = totalAtlasFrames;
+    particle.color.setRGB(look.color.r, look.color.g, look.color.b);
   }
 }
 

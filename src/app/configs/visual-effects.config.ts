@@ -323,6 +323,49 @@ export const ABILITY_DEATH_BLOOD_CAP = 24;
  * puffs in the normal pool, low and earthy, pushed out along the ground by the blast and fading as they billow.
  * The tower's entry sets how many, how far out they start and how fast they leave.
  */
+/**
+ * A hit into water (WorldDamagePresenter.splash): a column of water thrown up
+ * and a ring of spray rolling out over the surface, as white as the smoke
+ * atlas allows; bigger with the crater's radius
+ */
+export const WATER_SPRAY_LOOK = {
+  /** Puffs of the column and of the ring, per metre of crater radius (at least the first) */
+  columnPuffs: 10,
+  columnPerM: 3,
+  ringPuffs: 12,
+  ringPerM: 4,
+  /** How fast the column shoots up, m/s per metre of radius, at least and at most */
+  riseMin: 6,
+  risePerM: 2.5,
+  riseMax: 40,
+  /** Lifetime, s */
+  lifeMin: 0.7,
+  lifeMax: 1.4,
+  /** Sprite size, m, per metre of radius on top of the least */
+  sizeMin: 1.2,
+  sizePerM: 0.5,
+  sizeStart: 0.4,
+  sizeEnd: 1,
+  /** White with a touch of the water's blue, over the atlas's grey */
+  color: { r: 1.6, g: 1.7, b: 1.8 },
+} as const;
+
+/** Steam over water a nuclear strike hit: a slow white column, long lived and wide */
+export const STEAM_LOOK = {
+  puffs: 40,
+  /** m/s up, and the spread out */
+  riseMin: 2,
+  riseMax: 6,
+  spread: 0.6,
+  lifeMin: 3,
+  lifeMax: 6,
+  /** Sprite size as a share of the crater's radius */
+  sizeShare: 0.35,
+  sizeStart: 0.3,
+  sizeEnd: 1,
+  color: { r: 1.7, g: 1.7, b: 1.75 },
+} as const;
+
 export const FIRING_DUST_LOOK = {
   /** Lifetime, s */
   lifeMin: 0.5,

@@ -307,6 +307,16 @@ export class ThreeEffectsRenderer {
     this.particleEffects.spawnGroundDust(localX, localY, localZ, puffs, radius, speed);
   }
 
+  /** Water thrown up by a hit into it, see ParticleEffectsRenderer.spawnWaterSpray */
+  spawnWaterSpray(localX: number, localY: number, localZ: number, radius: number): void {
+    this.particleEffects.spawnWaterSpray(localX, localY, localZ, radius);
+  }
+
+  /** Steam over water a nuclear strike hit, see ParticleEffectsRenderer.spawnSteam */
+  spawnSteam(localX: number, localY: number, localZ: number, radius: number): void {
+    this.particleEffects.spawnSteam(localX, localY, localZ, radius);
+  }
+
   /** Spawn a brief fire flash that fades away (HQ damage indicator, HP > 50%). */
   spawnFireFlash(lat: number, lon: number, localY: number): void {
     this.environment.spawnFireFlash(lat, lon, localY);

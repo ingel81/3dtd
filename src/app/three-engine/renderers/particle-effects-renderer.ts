@@ -19,6 +19,8 @@ import {
   emitExplosion,
   emitFlameParticle,
   emitGroundDust,
+  emitSteam,
+  emitWaterSpray,
   emitMuzzleFlash,
   emitPortalSparks,
 } from './particle-emitters';
@@ -281,6 +283,18 @@ export class ParticleEffectsRenderer {
   spawnGroundDust(localX: number, localY: number, localZ: number, puffs: number, radius: number, speed: number): void {
     if (!this.impacts) return;
     emitGroundDust(this.pools, localX, localY, localZ, puffs, radius, speed);
+  }
+
+  /** Water thrown up by a hit into it at a local position (WATER_SPRAY_LOOK), its crater `radius` wide */
+  spawnWaterSpray(localX: number, localY: number, localZ: number, radius: number): void {
+    if (!this.impacts) return;
+    emitWaterSpray(this.pools, localX, localY, localZ, radius);
+  }
+
+  /** Steam over water a nuclear strike hit at a local position (STEAM_LOOK) */
+  spawnSteam(localX: number, localY: number, localZ: number, radius: number): void {
+    if (!this.impacts) return;
+    emitSteam(this.pools, localX, localY, localZ, radius);
   }
 
   /**

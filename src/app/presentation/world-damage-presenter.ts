@@ -26,6 +26,11 @@ export interface StructureHp {
   stage: StructureStage;
 }
 
+/** A crater this wide (m) is a nuclear strike's: steam rises where it hits water */
+const SPLASH_STEAM_FROM_M = 10;
+/** Molten rock thrown up by a hit into lava */
+const LAVA_SPLASH = [{ r: 1, g: 0.35, b: 0.05 }, { r: 1, g: 0.6, b: 0.1 }, { r: 0.4, g: 0.1, b: 0.02 }] as const;
+
 /** How far over its roof a structure's bar floats, m */
 const BAR_OVER_ROOF_M = 1.5;
 
@@ -277,7 +282,11 @@ export class WorldDamagePresenter {
     }
     this.craters.set([x, y, radius, depth], k);
     field?.crater(craterStampOf(x, y, radius, depth, this.toLocal), 1);
+    // A hit into water throws it up (before the crater takes it out of the reckoning)
+    const wet = this.drawn?.waterAt?.(x, y) ?? null;
     this.drawn?.crater(x, y, radius, depth, 1);
+    this.drawn?.dug?.(x, y);
+    if (wet) this.splash(y / 10 / MAP_METERS_PER_DEGREE, x / 10 / MAP_METERS_PER_DEGREE, radius / 10, wet);
     if (this.destruction) this.playAt(DESTRUCTION_SOUNDS.crater.id, y / MAP_METERS_PER_DEGREE, x / MAP_METERS_PER_DEGREE);
   }
 
@@ -349,6 +358,24 @@ export class WorldDamagePresenter {
   private playAt(sound: string, lat: number, lon: number): void {
     const height = this.engine.getTerrainHeightAtGeo(lat, lon) ?? 0;
     this.bus.emit({ type: 'audio:play', sound, lat, lon, height });
+  }
+
+  /**
+   * A hit into water at map degrees (`lat`, `lon`), its crater `radius` m
+   * wide: a column of water and spray (WATER_SPRAY_LOOK); from a crater as
+   * wide as a nuclear strike's (SPLASH_STEAM_FROM_M) steam rising over it;
+   * into lava the spray of molten rock as sparks
+   */
+  private splash(lat: number, lon: number, radius: number, kind: 'water' | 'lava'): void {
+    const effects = this.engine.effects;
+    const height = this.engine.getTerrainHeightAtGeo(lat, lon) ?? 0;
+    const at = this.engine.sync.geoToLocalSimple(lat, lon, 0);
+    if (kind === 'lava') {
+      effects.spawnBurstAtGeo(lat, lon, height + 0.5, Math.round(20 + radius * 6), LAVA_SPLASH);
+      return;
+    }
+    effects.spawnWaterSpray(at.x, height + 0.3, at.z, radius);
+    if (radius >= SPLASH_STEAM_FROM_M) effects.spawnSteam(at.x, height + 1, at.z, radius);
   }
 
   /** The craters as the simulation said them last, CRATER_STRIDE numbers each */

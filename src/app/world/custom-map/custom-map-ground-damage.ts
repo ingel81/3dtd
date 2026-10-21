@@ -124,6 +124,10 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     private readonly throwDebris: (x: number, y: number, radius: number, height: number, colour: readonly [number, number, number], count: number, seed: number) => void = () => undefined,
     /** A crater came, deepened or went in this rectangle (map metres): what stands in it may be gone (crater-obliteration.ts) */
     private readonly cratersChanged: (rect: GroundRect) => void = () => undefined,
+    /** The game's clock, seconds: when a crater was dug (dug) */
+    private readonly now: () => number = () => 0,
+    /** What stands at map metres (x, y) before a hit (waterAt) */
+    private readonly waterAtMap: (x: number, y: number) => 'water' | 'lava' | null = () => null,
   ) {
     this.standing = { ...grid, heights: grid.heights.slice() };
     this.columns = grid.columns;
@@ -133,6 +137,32 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     this.originY = -depth / 2;
     this.tilesX = Math.ceil(this.columns / GROUND_TILE);
     this.changed = new Int32Array(this.tilesX * Math.ceil(this.rows / GROUND_TILE) * 4);
+  }
+
+  /** The craters as stamped now, by their middle (map dm): middle and radius in map metres */
+  private readonly craterList = new Map<string, { x: number; y: number; radius: number; depthCm: number }>();
+  /** Craters dug in the run since the last restore, by their middle: the game second they were dug */
+  private readonly fresh = new Map<string, number>();
+  /** Counts every change of the craters: who reads them sees whether they changed */
+  craterVersion = 0;
+
+  /** The craters as stamped now, by their middle */
+  craters(): ReadonlyMap<string, { x: number; y: number; radius: number; depthCm: number }> {
+    return this.craterList;
+  }
+
+  /** The game second crater `key` was dug, null for one known before (a restore: long ago) */
+  dugAt(key: string): number | null {
+    return this.fresh.get(key) ?? null;
+  }
+
+  dug(xDm: number, yDm: number): void {
+    this.fresh.set(`c${xDm},${yDm}`, this.now());
+    this.craterVersion++;
+  }
+
+  waterAt(xDm: number, yDm: number): 'water' | 'lava' | null {
+    return this.waterAtMap(xDm / 10, yDm / 10);
   }
 
   /** Tiles waiting to be written */
@@ -152,6 +182,9 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     }, true);
     this.cratersChanged({ minX: x - reach, minY: y - reach, maxX: x + reach, maxY: y + reach });
     const key = `c${xDm},${yDm}`;
+    if (sign < 0) this.craterList.delete(key);
+    else this.craterList.set(key, { x, y, radius: r, depthCm });
+    this.craterVersion++;
     if (sign < 0) this.marks.delete(key);
     else {
       const seed = ((xDm * 0.618 + yDm * 0.414) % 97) + 3;
@@ -196,6 +229,9 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     this.frozen!.fill(0);
     this.towers.clear();
     this.marks.clear();
+    this.craterList.clear();
+    this.fresh.clear();
+    this.craterVersion++;
     this.marksChanged = true;
     this.cratersChanged({ minX: this.originX, minY: this.originY, maxX: this.originX + (this.columns - 1) * this.cell, maxY: this.originY + (this.rows - 1) * this.cell });
   }

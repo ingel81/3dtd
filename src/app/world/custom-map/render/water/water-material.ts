@@ -56,6 +56,9 @@ import type { WaterReflection } from './water-reflection';
 
 export const KIND_ID: Record<MapWaterKind, number> = { water: 0, lava: 1, ice: 2, sea: 3, swamp: 4 };
 
+/** Craters a river can carry at once (crater-water.ts): the uniform slots of its material */
+export const CRATER_SLOTS = 4;
+
 
 export interface WaterMaterialOptions {
   kind: MapWaterKind;
@@ -102,6 +105,7 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
     defines: {
       KIND: KIND_ID[o.kind] ?? 0,
       RIVER: o.river ? 1 : 0,
+      CRATER_SLOTS,
       ...(shore ? { SHORE_DENSITY: shore.density.toFixed(3), SHORE_SPEED: shore.speed.toFixed(3), SHORE_REACH: shore.reach.toFixed(1) } : {}),
     },
     vertexShader: WATER_VERTEX,
@@ -117,6 +121,11 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
   else if (o.kind !== 'ice') material.uniforms['uFoam'].value = foamNoiseTexture();
   // Shared objects (merge above copied them): fog and terrain heights follow their owners
   Object.assign(material.uniforms, HEIGHT_FOG_UNIFORMS, LAMP_LIGHT_UNIFORMS, SHOT_LIGHT_UNIFORMS, o.heights.uniforms, GROUND_COLOR_UNIFORMS);
+  if (o.river) {
+    // Per material: merged uniforms would share the vectors of an array
+    material.uniforms['uCraterDry'] = { value: Array.from({ length: CRATER_SLOTS }, () => new Vector4()) };
+    material.uniforms['uCraterGone'] = { value: Array.from({ length: CRATER_SLOTS }, () => new Vector2()) };
+  }
   material.name = `custom-map-water-${o.kind}`;
   setWaterColor(material, o.kind, o.color);
   return material;
@@ -273,9 +282,14 @@ attribute float aAcross;
 // Where rivers meet (river-network.ts riverCover): how far other water draws here instead (x), how far the water
 // this one draws over goes on past its side (y), so its edge stays open
 attribute vec2 aJoin;
+// Metres along the river, and what craters do to it (crater-water.ts): per crater the stretch through the bowl,
+// gone (x to y), and the bed below it that runs dry (from x, dry out to x + y, filled again to x + z, sunk w metres)
+attribute float aAlong;
+uniform vec4 uCraterDry[CRATER_SLOTS];
 varying vec2 vFlow;
 varying float vAcross;
 varying vec2 vJoin;
+varying float vAlong;
 #endif
 varying float vApronDepth;
 varying vec3 vWorldPos;
@@ -288,8 +302,23 @@ void main() {
   vFlow = aFlow;
   vAcross = aAcross;
   vJoin = aJoin;
+  vAlong = aAlong;
 #endif
   vec3 surface = position;
+#if RIVER == 1
+  // A crater's bed downstream runs dry: the water sinks into its channel and draws back to its deepest line,
+  // the stretch filled again behind the front coming down from the crater
+  float sunk = 0.0;
+  for (int i = 0; i < CRATER_SLOTS; i++) {
+    vec4 d = uCraterDry[i];
+    if (d.w <= 0.0) continue;
+    float from = d.x + d.z;
+    float to = d.x + d.y;
+    sunk = max(sunk, d.w * smoothstep(from, from + 6.0, aAlong) * (1.0 - smoothstep(to - 6.0, to, aAlong)));
+  }
+  surface.y -= sunk;
+  vMapPos.y -= sunk;
+#endif
 #ifdef SEA_WAVES
   // A swell on the open sea, flat towards the shore (the depth under the vertex)
   // and gone some hundreds of metres out, where the vertices lie farther apart than its waves (the rings beyond the
@@ -368,6 +397,8 @@ varying vec3 vMapPos;
 varying vec2 vFlow;
 varying float vAcross;
 varying vec2 vJoin;
+varying float vAlong;
+uniform vec2 uCraterGone[CRATER_SLOTS];
 #endif
 
 // The gradient of a value over the surface, per metre in the scene's x/z plane: its screen derivatives solved
@@ -495,6 +526,11 @@ void main() {
   // (the receiving river, a body, the earlier stretch) this one gives way
   edge *= 1.0 - smoothstep(0.82, 1.0, abs(vAcross)) * (1.0 - vJoin.y);
   edge *= 1.0 - vJoin.x;
+  // The stretch a crater blew away: its lake stands there instead
+  for (int i = 0; i < CRATER_SLOTS; i++) {
+    vec2 g = uCraterGone[i];
+    if (g.y > g.x && vAlong > g.x && vAlong < g.y) discard;
+  }
   // The river's current per vertex: its patterns move downstream at half of it in two cross-faded phases (see
   // flowNormal). Time times the vertex's velocity would shear them without end wherever the speed or heading
   // changes from row to row: after some minutes they read as stripes across the river

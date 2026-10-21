@@ -152,6 +152,8 @@ export class ThreeTilesEngine {
 
   // Game speed multiplier for animations (turret rotation etc.)
   private gameTimescale = 1.0;
+  /** Game seconds since the world's last update: the updates run them up, render() hands them on */
+  private worldGameSeconds = 0;
   /** Phase 5.14: headless mode, skips all per-frame rendering work. */
   private _renderingEnabled = true;
 
@@ -862,7 +864,8 @@ export class ThreeTilesEngine {
     // Stream the ground and keep the overlay on it
     const traversalsBefore = bench ? this.tilesTraversalCount() : 0;
     const tilesStart = bench ? performance.now() : 0;
-    world.update(this.camera, this.overlayGroup);
+    world.update(this.camera, this.overlayGroup, this.worldGameSeconds);
+    this.worldGameSeconds = 0;
     const tilesMs = bench ? performance.now() - tilesStart : 0;
 
     // Under the menu globe nothing shows, and while a new quality level's programs compile the
@@ -979,6 +982,7 @@ export class ThreeTilesEngine {
 
     const realDeltaSeconds = deltaTime / 1000;
     const gameDeltaSeconds = realDeltaSeconds * this.gameTimescale;
+    this.worldGameSeconds += gameDeltaSeconds;
 
     // Enemy animation walks at game-time → feet stay synced with ground speed
     this.enemies.updateAnimations(gameDeltaSeconds, this.camera);

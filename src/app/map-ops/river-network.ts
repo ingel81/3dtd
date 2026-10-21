@@ -36,6 +36,9 @@ export function waterClass(kind: MapWaterKind | undefined): WaterClass | null {
   return kind === 'lava' ? 'lava' : kind === 'ice' ? null : 'water';
 }
 
+/** What of a terrain the network reads: its rivers, its bodies and the ground under them */
+export type RiverGround = Pick<MapTerrain, 'rivers' | 'water' | 'waterBodies' | 'grid' | 'width' | 'depth'>;
+
 /** Metres between the samples of a line, as the renderer draws its ribbon (river-line.ts) */
 const STEP = 2;
 /** Metres a level may differ before it is set: below this the rounding of a stored height */
@@ -108,7 +111,7 @@ interface SampleIndex {
 }
 
 /** The network of the terrain's rivers and bodies as they stand */
-export function riverNetwork(t: MapTerrain): RiverNetwork {
+export function riverNetwork(t: RiverGround): RiverNetwork {
   const rivers = t.rivers ?? [];
   const lines = rivers.map((r) => riverLine(r));
   const bodies = [t.water, ...(t.waterBodies ?? [])];
@@ -313,7 +316,7 @@ function eachNear(index: SampleIndex, x: number, y: number, reach: number, visit
 }
 
 /** The body of class `cls` whose water stands at map (x, y) (its mask set, its level over the ground), -1 none */
-function bodyAt(t: MapTerrain, bodies: readonly (MapWater | null)[], cls: WaterClass, x: number, y: number): number {
+function bodyAt(t: RiverGround, bodies: readonly (MapWater | null)[], cls: WaterClass, x: number, y: number): number {
   const g = t.grid;
   const i = Math.round((x + t.width / 2) / g.cellSize);
   const j = Math.round((y + t.depth / 2) / g.cellSize);
@@ -463,7 +466,7 @@ function fallOff(a: number, b: number, u: number): number {
  * sample's current as map (x, y) in m/s.
  */
 export function riverCover(
-  t: MapTerrain,
+  t: RiverGround,
   network: RiverNetwork,
   r: number,
   k: number,
@@ -518,7 +521,7 @@ export function riverCover(
 }
 
 /** A body's water at map (x, y), 0 to 1 over a cell (its mask and level against the ground, bilinear) */
-function bodyCover(t: MapTerrain, body: MapWater, x: number, y: number): number {
+function bodyCover(t: RiverGround, body: MapWater, x: number, y: number): number {
   const g = t.grid;
   const fi = (x + t.width / 2) / g.cellSize;
   const fj = (y + t.depth / 2) / g.cellSize;

@@ -1,7 +1,7 @@
 # Wassernetz: Zusammenfluss, Krater im Fluss, Überlauf (Plan)
 
 Stand 2026-10-21, abgestimmt (Entscheidungen unten). Betrifft TODO E283 (Fluss über Krater) und E288 (gemalte Flüsse
-vereinigen sich nicht). Schritt 1 (Netz, E288) gebaut, Schritte 2 und 3 offen.
+vereinigen sich nicht). Schritte 1 (Netz, E288) und 2 (Krater im Fluss, E283) gebaut, Schritt 3 offen.
 
 ## Befund
 
@@ -69,9 +69,40 @@ Gleichartiges; trifft Lava auf Wasser, erstarrt sie (F5).
 - **Kreuzen sich zwei Flüsse:** Gesamtgewässer als Kreuz, der höhere speist, die tieferen Arme laufen ab (F1).
 - Nur Gleichartiges verbindet sich (Wasser mit Wasser, Lava mit Lava; Eis mit nichts).
 
-### 2. Krater im Fluss (E283)
+### 2. Krater im Fluss (E283, gebaut)
 
-Abgeleitet je Krater, der ein Flussband schneidet (Hauptthread, aus Kraterliste + Höhenraster):
+Gebaut so (2026-10-21): `map-ops/crater-water.ts` rechnet je Krater auf dem Boden, wie er jetzt ist (rein, ohne
+three), `render/water/crater-water.ts` zeichnet es, `CustomMapWorld` verbindet beides. Abweichungen und Ergänzungen
+zum Vorschlag darunter:
+
+- **Nur wenn der Krater über das Wasser hinausreicht.** Ein Krater ganz unter Wasser (eine Rakete im Flussbett, 35 cm)
+  vertieft nur das Bett, es gibt nichts zu zeigen.
+- **Kratersee als Scheibe**, nicht als Flächengewässer: ein Netz über den Krater bis über seinen Wall, das Gelände
+  schneidet das Ufer (Tiefe im Shader wie beim Fluss). Kein Masken-Bake, kein Worker nötig; die Höhe wird beim
+  Füllen in die Ecken geschrieben.
+- **Endspiegel:** Überlaufpunkt per Priority-Flood aus der Kratermitte (tiefster Weg hinaus), höchstens der Zufluss;
+  liegt der Überlauf im eigenen Bett stromab, steigt der See bis zum Fluss dort (das Bett ist nach dem Überlauf
+  wieder voll). Füllzeit aus dem Volumen: 10 s (50 m³) bis 20 s (50 000 m³, ein Nuke), logarithmisch, Lava dreimal.
+- **Fluss:** das Stück durch den Krater verschwindet (Shader, Strecke längs des Laufs); stromab sinkt das Wasser in
+  seinen Graben und zieht sich zurück, der trockene Abschnitt wächst mit 3 m/s, nach dem Überlauf läuft es mit 2 m/s
+  wieder voll (Lava ein Drittel). Der Wasserfall an der Lippe wird kürzer, während der See steigt.
+- **Überlauf woanders (F3):** steilster Abstieg vom Überlaufpunkt, Mulden füllen sich bis zu ihrer tiefsten Kante,
+  bis Wasser, Kartenrand oder 1,5 km; ein schmaler Bach (halbe Breite des Zuflusses, 2 bis 8 m), seine Front läuft nach
+  dem Füllen hinab. Das alte Bett bleibt trocken.
+- **Kette:** ein Krater unter einem anderen bekommt Wasser erst, wenn der obere überläuft und es bei ihm ankommt;
+  unter einem, der woanders überläuft, keines.
+- **Zeit (Variante b, Lead 2026-10-21):** die Spielzeit des Hauptthreads (Pause hält an, 2x/4x schneller), keine Wanduhr
+  und keine Änderung an Ledger, Snapshot oder Prüfsumme. Ein Krater, der im Lauf gegraben wird (`craters.dig`), füllt
+  sich; nach `craters.setAll` (Laden, Replay-Sprung, Koop-Beitritt) stehen alle voll. Exakt wäre nur eine Grabzeit im
+  Ledger (Variante a), falls je gewünscht.
+- **Einschlag ins Wasser (F4):** Rakete eine Wassersäule mit Gischtring, ab 10 m Kraterradius (Nuke) dazu Dampf; in
+  Lava glühende Funken.
+- **Lava trifft Wasser (F5):** läuft ein Lavasee über und erreicht sein Abfluss Wasser, erstarrt die Lava dort zu
+  dunklem Gestein, Dampf steigt auf, sobald die Front ankommt.
+- **Krater in Flächengewässern:** geprüft, der Spiegel bleibt, der Krater zeigt sich als tiefere Stelle.
+- **Editor:** noch nicht; ein Kratersee im Editor (Pinsel und Vorschau ohne Spielzeit) ist ein eigener Schritt.
+
+Der Vorschlag, wie er abgestimmt war:
 
 - **Schnitt:** der Fluss zerfällt am Krater in ein Stück stromauf und eins stromab.
 - **Einlauf:** das Stück stromauf läuft bis zum Kraterrand und fällt hinein. Ist der Fall steil genug, kommt der
@@ -100,6 +131,10 @@ Kratern, statt ihre alte Form zu behalten. Eigener kleiner Schritt, unabhängig 
   ganzen Karte), ein kleiner See (Maske im Krater-Rechteck), ggf. ein Wasserfall. Ziel unter 2 ms im Bild wie die
   übrigen Kraterarbeiten (DESTRUCTION_PLAN, Messungen), Flow-Bake des Sees im vorhandenen Worker.
 - Füllen ist nur eine Uniform (Spiegelhöhe) je See und eine Schnittstelle am Band stromab, kein Neubau je Bild.
+- Gemessen (Dev-Build, 2026-10-21): je Krater, der einen Fluss schneidet, einmalig 1,5 ms Rechnung und 1,3 ms Aufbau,
+  in zwei Bildern; danach je Bild 0,06 ms im Mittel, 0,34 ms höchstens. Die Programme der Fälle (Wasser und Lava), des
+  Gesteins und des Dampfs werden auf Karten mit Flüssen und Kratern beim Laden gebaut (sonst 167 bis 233 ms im
+  ersten Krater im Fluss).
 
 ## Entscheidungen (User 2026-10-21)
 

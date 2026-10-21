@@ -59,6 +59,7 @@ import { ApronField, EDGE_TREE_BAND, edgeTreeObjects } from './objects/edge-tree
 import { NIGHT_WINDOW_UNIFORMS } from './objects/night-windows';
 import type { HeightTexture } from './terrain/height-texture';
 import { RiverSurface } from './water/river-surface';
+import { CraterWaterLayer, type CraterWaterEntry } from './water/crater-water';
 import { riverNetwork } from '../../../map-ops/river-network';
 import { lavaSamples, type GroundBaker } from './terrain/ground-shape';
 import { GroundWorker } from './terrain/ground-worker';
@@ -188,6 +189,12 @@ export interface CustomMapViewOptions {
    */
   ruins?: boolean;
   standingGround?: MapHeightGrid;
+  /**
+   * Craters may cut the map's rivers (crater-water.ts): the lakes' and the
+   * falls' programs are built with the map's, so the first crater in a river
+   * does not link them in its frame (a 167 to 233 ms frame in a dev build)
+   */
+  craterWater?: boolean;
 }
 
 export class CustomMapView {
@@ -209,6 +216,12 @@ export class CustomMapView {
   /** Main water body first (null without one), then the further bodies */
   private readonly waters: (WaterSurface | null)[] = [];
   private rivers: RiverSurface[] = [];
+  /** The drawn rivers by their index in the terrain's list */
+  private readonly riverByIndex = new Map<number, RiverSurface>();
+  /** Lakes in craters that cut rivers, made with the first (setCraterWater) */
+  private craterWater: CraterWaterLayer | null = null;
+  /** The game's clock, seconds (setGameTime): what runs on it (a crater filling) stands while the game is paused */
+  private gameNow = 0;
   private readonly objects: MapObjectLayer;
   /** The border's trees mirrored onto the apron (edge-trees.ts) */
   private readonly edgeTrees: MapObjectLayer;
@@ -342,6 +355,7 @@ export class CustomMapView {
     this.terrain.grass.setCover(this.cover);
     this.environment.setFogBase(lowGround(t.grid.heights, t.water?.level));
     this.updateWater();
+    if (options.craterWater) this.craterLayer();
     // One bake per asset for both object layers, all of them in the view's texture arrays (impostor-array.ts); the
     // tone probe measures under the map's own sun, sky, ambient and environment map, once that is filled
     this.impostors = options.renderer
@@ -999,6 +1013,7 @@ export class CustomMapView {
     const clock = this.animationPaused ? 0 : dtSeconds;
     for (const w of this.waters) w?.update(clock);
     for (const r of this.rivers) r.update(clock);
+    this.craterWater?.update(this.gameNow, clock, (k) => this.riverByIndex.get(k));
     camera.getWorldPosition(this.camPos);
     this.group.worldToLocal(this.camPos);
     // focusPoint is in the group's frame (the map's): the game moves the group so that its HQ sits at
@@ -1247,9 +1262,13 @@ export class CustomMapView {
     // Rivers: rebuilt from their lines each time (cheap: a ribbon per river), joined where they meet
     for (const r of this.rivers) r.dispose();
     const network = riverNetwork(this.doc.terrain);
-    this.rivers = (this.doc.terrain.rivers ?? []).flatMap((r, k) =>
-      r.points.length >= 2 ? [new RiverSurface(this.heights, this.terrain.heightTexture, r, this.doc.terrain, network, k)] : [],
-    );
+    this.riverByIndex.clear();
+    this.rivers = (this.doc.terrain.rivers ?? []).flatMap((r, k) => {
+      if (r.points.length < 2) return [];
+      const surface = new RiverSurface(this.heights, this.terrain.heightTexture, r, this.doc.terrain, network, k);
+      this.riverByIndex.set(k, surface);
+      return [surface];
+    });
     for (const r of this.rivers) this.group.add(r.mesh);
     // The constructor sets up the water before the effects exist and lights the lava after
     if (this.effects) this.refreshLava();
@@ -1984,6 +2003,7 @@ export class CustomMapView {
     const e = this.environment;
     for (const w of this.waters) w?.setSky(e.skyDome.uniforms, e.sun.intensity, e.darkness);
     for (const r of this.rivers) r.setSky(e.skyDome.uniforms, e.sun.intensity, e.darkness);
+    this.craterWater?.setSky(e.skyDome.uniforms, e.sun.intensity, e.darkness);
     this.applyEffects();
   }
 
@@ -2049,6 +2069,33 @@ export class CustomMapView {
     for (const w of this.waters) w?.setEffects(this.mapEffects, this.sceneCopy, this.reflection);
     const rivers = this.doc.terrain.rivers?.filter((r) => r.points.length >= 2) ?? [];
     this.rivers.forEach((r, k) => r.setEffects(this.mapEffects, this.sceneCopy, rivers[k]?.kind ?? 'water'));
+    this.craterWater?.setEffects(this.mapEffects, this.sceneCopy);
+  }
+
+  /** The game's clock now, seconds: a crater's lake fills on it */
+  setGameTime(seconds: number): void {
+    this.gameNow = seconds;
+  }
+
+  /** The craters that cut rivers as they stand now (crater-water.ts): their lakes, falls and dry beds */
+  setCraterWater(entries: readonly CraterWaterEntry[]): void {
+    if (!this.craterWater && !entries.length) return;
+    const layer = this.craterLayer();
+    layer.set(entries);
+    const e = this.environment;
+    layer.setSky(e.skyDome.uniforms, e.sun.intensity, e.darkness);
+    layer.setEffects(this.mapEffects, this.sceneCopy);
+  }
+
+  /** The craters' lakes and falls, made with the first or with the map (options.craterWater) */
+  private craterLayer(): CraterWaterLayer {
+    if (!this.craterWater) {
+      const f = this.heights;
+      const t = this.doc.terrain;
+      this.craterWater = new CraterWaterLayer(this.terrain.heightTexture, new Vector2(((f.columns - 1) * f.cellSize) / 2, ((f.rows - 1) * f.cellSize) / 2), f, { grid: t.grid, width: t.width, depth: t.depth });
+      this.group.add(this.craterWater.group);
+    }
+    return this.craterWater;
   }
 
   dispose(): void {
@@ -2059,6 +2106,7 @@ export class CustomMapView {
     this.terrain.dispose();
     for (const w of this.waters) w?.dispose();
     for (const r of this.rivers) r.dispose();
+    this.craterWater?.dispose();
     this.options.lights?.removeSteadySource(this.effects);
     this.effects.dispose();
     this.signs.dispose();

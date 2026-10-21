@@ -20,6 +20,30 @@ function setup() {
 const BARN: RunStructure = { id: 'barn', lat: 40 / K, lon: -20 / K, radius: 5, height: 9, hp: 100, box: [-20, 40, 4, 3, 0.4] };
 
 describe('CustomMapGroundDamage (docs/DESTRUCTION_PLAN.md, Z4)', () => {
+  it('keeps the craters as stamped and when each was dug in the run; a restore forgets the times (E283)', () => {
+    const grid: MapHeightGrid = { columns: 129, rows: 129, cellSize: 2, heights: new Float32Array(129 * 129).fill(5) };
+    let clock = 7;
+    const ground = new CustomMapGroundDamage(grid, 256, 256, () => undefined, undefined, undefined, undefined, undefined, undefined, () => clock, (x) => (x > 0 ? 'water' : null));
+    const v0 = ground.craterVersion;
+    ground.crater(100, 200, 25, 40, 1);
+    expect(ground.craterVersion).toBeGreaterThan(v0);
+    expect([...ground.craters()]).toEqual([['c100,200', { x: 10, y: 20, radius: 2.5, depthCm: 40 }]]);
+    // Known, not dug in the run (a restore stamps them so): no time
+    expect(ground.dugAt('c100,200')).toBeNull();
+    clock = 12.5;
+    ground.dug(100, 200);
+    expect(ground.dugAt('c100,200')).toBe(12.5);
+    expect(ground.waterAt(100, 0)).toBe('water');
+    expect(ground.waterAt(-100, 0)).toBeNull();
+    // Deepened: out and in again with its new depth
+    ground.crater(100, 200, 25, 40, -1);
+    ground.crater(100, 200, 25, 80, 1);
+    expect(ground.craters().get('c100,200')?.depthCm).toBe(80);
+    ground.clear();
+    expect(ground.craters().size).toBe(0);
+    expect(ground.dugAt('c100,200')).toBeNull();
+  });
+
   it('stamps a crater into the run\'s heights with the shape of the simulation, a few tiles a frame', () => {
     const { ground, applied, at, drain } = setup();
     ground.crater(100, 200, 25, 40, 1);

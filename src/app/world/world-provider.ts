@@ -373,8 +373,12 @@ export interface WorldProvider {
   withAllShown?<T>(run: () => T): T;
   /** A new origin (a change of place) */
   setOrigin(lat: number, lon: number, height: number): void;
-  /** Each drawn frame after the camera moved, before the draw: stream the ground, keep the overlay on it */
-  update(camera: PerspectiveCamera, overlay: Group): void;
+  /**
+   * Each drawn frame after the camera moved, before the draw: stream the ground, keep the overlay on it.
+   * `gameSeconds`: the game time since the last call (paused 0, faster at 2x and 4x), for what runs on the
+   * game's clock (a crater filling with water)
+   */
+  update(camera: PerspectiveCamera, overlay: Group, gameSeconds?: number): void;
   /** The drawing buffer changed size */
   resize(camera: PerspectiveCamera, renderer: WebGLRenderer): void;
   /** The menu globe covers the canvas or no longer does */
@@ -555,6 +559,13 @@ export interface WorldDestruction {
  */
 export interface WorldGroundDamage {
   crater(xDm: number, yDm: number, rDm: number, depthCm: number, sign: 1 | -1): void;
+  /**
+   * The crater just stamped was dug or deepened now, in the run (op `craters.dig`), not brought back with
+   * the rest (a restore, a replay's jump): what water it cuts comes in over the next seconds
+   */
+  dug?(xDm: number, yDm: number): void;
+  /** What stands at map dm (`xDm`, `yDm`) before a hit there: water, lava or nothing (a hit's splash) */
+  waterAt?(xDm: number, yDm: number): 'water' | 'lava' | null;
   rubble(structure: RunStructure, sign: 1 | -1): void;
   /** Every stamp off, every hold let go */
   clear(): void;

@@ -1,9 +1,9 @@
-import { BufferAttribute, BufferGeometry, Mesh, Vector2, type ShaderMaterial } from 'three';
-import type { MapRiver, MapRiverPoint, MapTerrain } from '../../map-document';
-import { riverCover, type CoverAt, type RiverNetwork } from '../../../../map-ops/river-network';
+import { BufferAttribute, BufferGeometry, Mesh, Vector2, Vector4, type ShaderMaterial } from 'three';
+import type { MapRiver, MapRiverPoint } from '../../map-document';
+import { riverCover, type CoverAt, type RiverGround, type RiverNetwork } from '../../../../map-ops/river-network';
 import type { HeightField } from '../height-field';
 import type { HeightTexture } from '../terrain/height-texture';
-import { createWaterMaterial, setWaterEffects, setWaterSky } from './water-material';
+import { CRATER_SLOTS, createWaterMaterial, setWaterEffects, setWaterSky } from './water-material';
 import type { MapEffects } from '../map-effects';
 import type { SceneCopy } from './scene-copy';
 import { setHeatHaze } from './heat-haze';
@@ -29,7 +29,7 @@ export class RiverSurface {
     heights: HeightTexture,
     river: MapRiver,
     /** The network of the map's rivers (riverNetwork) and this river's index in it */
-    terrain: MapTerrain,
+    terrain: RiverGround,
     network: RiverNetwork,
     index: number,
   ) {
@@ -59,6 +59,22 @@ export class RiverSurface {
     setHeatHaze(this.mesh, on.lavaGlow && kind === 'lava' ? copy : null);
   }
 
+  /**
+   * What craters do to it now (crater-water.ts), at most CRATER_SLOTS: per
+   * crater the stretch through its bowl that is gone (metres along), and the
+   * bed below it running dry: from `from`, dry out to `from + dry`, filled
+   * again to `from + filled`, the water sunk `sink` metres there
+   */
+  setCraters(craters: readonly { gone: readonly [number, number]; from: number; dry: number; filled: number; sink: number }[]): void {
+    const gone = this.mesh.material.uniforms['uCraterGone'].value as Vector2[];
+    const dry = this.mesh.material.uniforms['uCraterDry'].value as Vector4[];
+    for (let i = 0; i < CRATER_SLOTS; i++) {
+      const c = craters[i];
+      gone[i].set(c ? c.gone[0] : 0, c ? c.gone[1] : 0);
+      dry[i].set(c ? c.from : 0, c ? c.dry : 0, c ? c.filled : 0, c ? c.sink : 0);
+    }
+  }
+
   update(dt: number): void {
     this.mesh.material.uniforms['uTime'].value += dt;
   }
@@ -84,13 +100,15 @@ function currentAt(line: readonly MapRiverPoint[], r: number, kind: MapRiver['ki
   return [((b.x - a.x) / len) * speed, ((b.y - a.y) / len) * speed];
 }
 
-function buildRiver(river: MapRiver, terrain: MapTerrain, network: RiverNetwork, own: number): BufferGeometry {
+function buildRiver(river: MapRiver, terrain: RiverGround, network: RiverNetwork, own: number): BufferGeometry {
   const line = network.lines[own]?.samples ?? [];
   const rows = line.length;
   const pos = new Float32Array(rows * (ACROSS + 1) * 3);
   const flow = new Float32Array(rows * (ACROSS + 1) * 2);
   const across = new Float32Array(rows * (ACROSS + 1));
   const join = new Float32Array(rows * (ACROSS + 1) * 2);
+  const along = new Float32Array(rows * (ACROSS + 1));
+  const alongLine = network.lines[own]?.along;
   const depth = new Float32Array(rows * (ACROSS + 1)).fill(1);
   const rivers = terrain.rivers ?? [];
   const otherCurrent = (r2: number, k2: number) => currentAt(network.lines[r2]!.samples, k2, rivers[r2].kind);
@@ -114,6 +132,7 @@ function buildRiver(river: MapRiver, terrain: MapTerrain, network: RiverNetwork,
       // The current, mixed with the one drawn under it at a junction; scene direction of map (x, y) is (-x, y)
       flow.set([-(fx + (at.flowX - fx) * at.mix), fy + (at.flowY - fy) * at.mix], k * 2);
       across[k] = u;
+      along[k] = alongLine?.[r] ?? 0;
       join.set([at.cover, at.open], k * 2);
     }
   }
@@ -130,6 +149,7 @@ function buildRiver(river: MapRiver, terrain: MapTerrain, network: RiverNetwork,
   g.setAttribute('position', new BufferAttribute(pos, 3));
   g.setAttribute('aFlow', new BufferAttribute(flow, 2));
   g.setAttribute('aAcross', new BufferAttribute(across, 1));
+  g.setAttribute('aAlong', new BufferAttribute(along, 1));
   g.setAttribute('aJoin', new BufferAttribute(join, 2));
   g.setAttribute('aDepth', new BufferAttribute(depth, 1));
   g.setIndex(index);
