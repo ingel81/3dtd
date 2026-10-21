@@ -224,6 +224,74 @@ Abgleich mit dem ganzen Spiel (`e2e/perf/render-bench.ts`, Production, High, mit
 Ruined City Spielansicht 1,25 ms GPU, nah 1,90 ms, Kreis 1,46 ms, oben 0,99 ms; Würzburg 2,05 / 2,47 / 2,12 / 1,65 ms;
 Hauptthread (Update und Bild) Würzburg 1,6 bis 4,1 ms. Die Vorschau trifft also die Größenordnung des Spiels.
 
+### 2.8 Die ganze Würzburg-Karte: Budget und Sichtweite (E304, 2026-10-21)
+
+Die Würzburg-Welt oben hatte OSM-Daten nur für 1,6 × 1,0 km des 2,4-km-Quadrats (die Rohdaten aus E297), daher 10 899
+Objekte. Nachgemessen auf der **ganzen** Welt: eine Overpass-Abfrage (`osmWorldQuery`, 2,4 km um 49.7932, 9.9312 plus
+100 m Rand, 17 MB, 28 131 Elemente), gebaut mit `tools/osm/osm-world.spec.ts` auf dem Stand von `53b9f5d69`, flach
+(ohne Höhendaten, wie oben). Ergebnis: **47 677 Objekte**, Szenenkosten 4,53 Mio. von 12 Mio. (38 %). Neu in der Probe
+die Ansicht `station`: das Gleisfeld des Hauptbahnhofs aus 200 m Höhe von Süden.
+
+**Wo das Budget bindet: im Anteil der Möblierung, nicht im Szenenbudget.** Der Import hält Teilbudgets: Möblierung
+(Linien, Gleise, Punkte) 15 % = 1,8 Mio., Pflanzen 50 %, Flächen (Parkplätze, Friedhöfe, Sportplätze) 10 %, Gebäude
+ohne Deckel. Auf der ganzen Karte ist die Möblierung voll (1 799 999 von 1 800 000) und lässt **8 371 Stücke** weg
+(neu im Bericht: `overBudget` je Quelle):
+
+| Quelle | gelegt | wegen Budget weggelassen |
+|---|---|---|
+| Gleise (Gleis, Brücke, Bahnübergang, Oberleitung, Widerlager) | 7 895 | 0 (kommen seit E303 zuerst, ganz) |
+| Mauern (`wall`) | 2 144 | 3 406 (61 %) |
+| Stützmauern | 2 432 | 1 134 (32 %) |
+| Zäune | 1 692 | 853 (34 %) |
+| Hecken | 160 | 383 (71 %) |
+| Stadtmauer | 356 | 191 (35 %) |
+| Lampen an beleuchteten Straßen / kartierte Lampen | 0 | 880 / 452 |
+| Bänke, Mülleimer, Poller, Haltestellen, Hydranten, Brunnen, Prellböcke, Masten | 0 | 1 072 |
+
+Alle anderen Teilbudgets binden nicht: Pflanzen 0,45 von 6 Mio., Flächen 1,11 von 1,2 Mio. (nichts weggelassen),
+Läden und Schilder 0,06 von 0,72 Mio. Wohin die 4,53 Mio. Punkte gehen: Katalog-Kategorie `wall` (Mauern, Zäune, Hecken
+aus Möblierung, Flächen und Gärten) 1,11 Mio., Bauwerke (fast nur Gleise) 0,96 Mio., Props 1,15 Mio. (davon **3 128 Autos auf Parkplätzen 1,01 Mio.**, 324 Punkte je Auto), Gebäude-
+Modelle 0,67 Mio., Gebäude aus dem Grundriss 0,20 Mio., Bäume 0,32 Mio., Pflanzen 0,13 Mio. Der E303-Befund bestätigt
+sich also in anderer Form: die Gleise scheitern nicht mehr am Budget, aber hinter ihnen fehlt der Stadt mehr als die
+Hälfte ihrer Mauern, Zäune und Hecken und jede Lampe und Bank, während das Szenenbudget zu 62 % frei ist.
+
+**Was die feste Sichtweite weglässt** (Stufe High, jenseits `drawDistance`, von allen platzierten):
+
+| Ansicht | Linien (Mauern, Zäune, Hecken) | Gleise | Props | Pflanzen | Bäume | Bauwerke |
+|---|---|---|---|---|---|---|
+| start | 3 978 / 11 986 | 1 068 / 7 843 | 4 247 / 5 182 | 5 348 / 6 646 | 0 / 8 808 | 14 / 80 |
+| game | 3 671 / 11 986 | 814 / 7 843 | 3 771 / 5 182 | 5 053 / 6 646 | 0 / 8 808 | 10 / 80 |
+| low | 3 494 / 11 986 | 1 503 / 7 843 | 4 035 / 5 182 | 4 741 / 6 646 | 0 / 8 808 | 15 / 80 |
+| top | 10 283 / 11 986 | 7 011 / 7 843 | 5 182 / 5 182 | 6 646 / 6 646 | 175 / 8 808 | 50 / 80 |
+| street | 3 386 / 11 986 | 730 / 7 843 | 3 523 / 5 182 | 4 620 / 6 646 | 0 / 8 808 | 12 / 80 |
+| station | 5 553 / 11 986 | 671 / 7 843 | 3 918 / 5 182 | 6 400 / 6 646 | 0 / 8 808 | 0 / 80 |
+
+Gebäude (4 229 Modelle, 2 903 aus dem Grundriss) fehlen nirgends. Aus der Spielansicht fehlen ein Drittel der Linien und
+ein Zehntel der Gleisstücke, von oben fast alle.
+
+**Kosten je Ansicht** (High, Spalten wie in 2.2; „Sichtkegel“ und „ohne Verdeckte“ gemessen wie dort):
+
+| Ansicht | Calls | Dreiecke (Mio.) | Instanzen | GPU ms | nur Sichtkegel ms | + ohne Verdeckte ms | Schatten-Neubau +ms | Abgabe `render` ms | LOD-CPU ms Mittel / Max | Ansicht-Update ms |
+|---|---|---|---|---|---|---|---|---|---|---|
+| start | 208 | 4,12 | 113 611 | 2,25 | 1,98 | 1,90 | 0,70 | 0,92 | 0,36 / 1,48 | 0,74 |
+| game | 328 | 5,60 | 116 208 | 3,39 | 3,06 | 2,94 | 1,55 | 3,48 | 0,47 / 1,82 | 0,98 |
+| low | 421 | 6,59 | 116 059 | 4,15 | 3,92 | 3,61 | 1,51 | 6,84 | 0,53 / 1,93 | 1,08 |
+| top | 277 | 2,98 | 97 294 | 2,98 | 2,98 | 2,98 | 0,44 | 0,86 | 0,26 / 1,46 | 0,46 |
+| street | 344 | 6,39 | 117 909 | 3,35 | 3,45 | 2,77 | 1,69 | 3,29 | 0,44 / 1,80 | 0,79 |
+| station | 239 | 4,51 | 112 629 | 3,28 | 2,86 | 2,85 | 0,94 | 2,78 | 0,40 / 1,46 | 0,84 |
+
+Gegen den Ausschnitt (2.2): 3- bis 4-mal so viele Instanzen, GPU 3,3 bis 4,2 ms statt 2,3 bis 2,6, die Abgabe des Bildes
+an den Treiber bis 6,8 ms (flach über die Stadt, 421 Calls), die Stufenwahl 0,4 bis 0,5 ms im Mittel und knapp 2 ms
+Spitze. Von den Objekt-Dreiecken liegen in `start`, `game`, `street` und `station` **65 bis 77 % außerhalb des
+Sichtkegels** (Ausschnitt: 44 bis 69 %), flach und in der Straße 23 bis 26 % hinter Gebäuden. Weitere Befunde: die
+Brückendecks (`path-bridges.ts`, 2 355 Stücke, ohne LOD und ohne Sichtweite) bringen in jeder Ansicht 0,6 bis
+0,7 Mio. Dreiecke; die größten Einzelposten in `game` sind `wall-stone` (0,43 Mio.), Gleise (0,28 + 0,21 Mio.), das
+Altstadthaus `oldtown-gable-3` (0,27 Mio.) und die Autos (vier Farben, zusammen 0,64 Mio.).
+
+**Folgerung für (b):** die Kostenrechnung entscheidet in OSM-Städten über das Bild, nicht die GPU: auf der ganzen Karte
+bleibt die GPU unter 4,2 ms, aber das Möblierungsbudget lässt Tausende Stücke gar nicht erst auf die Karte. Was (b)
+an der Rechnung ändert, ändert also, was der Import legt (Abschnitt 2.9).
+
 ## 3. Wie andere es machen (belegt)
 
 - **Cities: Skylines (2015)**: zwei Detailstufen je Asset, die ferne etwa ein Fünftel der Dreiecke; die
@@ -611,6 +679,9 @@ Fixes; der Branch zieht `next` regelmäßig nach und kommt erst auf Zuruf des Us
 - `e2e/perf/render-density.ts`: die Ausgangsmessung (oben). Beispiel:
   `node e2e/perf/render-density.ts --maps ruined-city,autumn-keep --own tmp/osm-out/osm-wuerzburgwelt.3dtdmap --json tmp/render-density.json --shots tmp/rd-shots`;
   `--only game,low`, `--quality ultra`, `--maps big:1201:80000` (Lastkarte), `--serve` (nur der Server).
-  Eine OSM-Welt entsteht mit `tools/osm/osm-world.spec.ts` (`OSM_RAW`, `OSM_PLACES`).
+  Eine OSM-Welt entsteht mit `tools/osm/osm-world.spec.ts` (`OSM_RAW`, `OSM_PLACES`). Die ganze Würzburg-Welt (2.8):
+  die Abfrage von `osmWorldQuery(osmQueryBox(49.7932, 9.9312, 2400, 100))` einmal an Overpass, die Antwort als
+  `<OSM_RAW>/wuerzburgwelt.json`, dann `OSM_PLACES="wuerzburgwelt:49.7932,9.9312"`; die Probe kennt für
+  `osm-wuerzburgwelt` die Ansichten `street` und `station` (`VIEWS`).
 - `e2e/perf/tsl-probe.ts` mit `e2e/perf/tsl-probe/index.html`: ein Shader in TSL auf beiden Backends (Abschnitt 9).
 - Für das ganze Spiel (mit Post-Processing, ohne Kamerawahl) bleibt `e2e/perf/render-bench.ts` (BENCHMARKS.md).

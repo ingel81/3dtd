@@ -159,6 +159,8 @@ export interface FurnitureReport {
   objects: number;
   /** Pieces left out: on a road, in water or a building, by the HQ or a spawn, past the budget */
   dropped: { road: number; water: number; building: number; clearing: number; budget: number };
+  /** The pieces past the budget by source, as `placed` */
+  overBudget: Record<string, number>;
   cost: number;
   budget: number;
 }
@@ -180,7 +182,7 @@ export function placeFurniture(doc: CustomMapDocument, features: OsmFeatures, wa
   const grid = sampleGrid(t.width, t.grid.cellSize);
   const n = grid.n;
   const seed = Math.round(features.frame.lat * 1e4) ^ Math.round(features.frame.lon * 1e4);
-  const report: FurnitureReport = { placed: {}, objects: 0, dropped: { road: 0, water: 0, building: 0, clearing: 0, budget: 0 }, cost: 0, budget: 0 };
+  const report: FurnitureReport = { placed: {}, objects: 0, dropped: { road: 0, water: 0, building: 0, clearing: 0, budget: 0 }, overBudget: {}, cost: 0, budget: 0 };
   const cell = (p: MapPoint) => {
     const i = Math.round((p.x - grid.origin) / grid.step);
     const j = Math.round((p.y - grid.origin) / grid.step);
@@ -342,6 +344,7 @@ export function placeFurniture(doc: CustomMapDocument, features: OsmFeatures, wa
     const add = options.costOf(c.o.asset);
     if (cost + add > budget) {
       report.dropped.budget++;
+      report.overBudget[c.source] = (report.overBudget[c.source] ?? 0) + 1;
       continue;
     }
     cost += add;

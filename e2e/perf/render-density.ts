@@ -22,7 +22,7 @@
 // Cameras per map, relative to the HQ unless a map lists its own: `start` the game's start view (400 m up, 145 m
 // south, 60 degrees, three-engine/camera-rig.ts), `game` zoomed in as one plays (90 m up, 110 m back), `low`
 // a low oblique look across the map (35 m up, 600 m ahead), `top` the whole map from its south edge, `street` at eye
-// height where a map lists one (STREET).
+// height and the other views a map lists (VIEWS).
 import { chromium, type Page } from '@playwright/test';
 import { createServer } from 'node:http';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -50,11 +50,15 @@ const HEIGHT = 900;
 
 /** A camera in map metres: eye x, y, height over the ground there, target x, y, height */
 type Cam = [number, number, number, number, number, number];
-/** Eye-height views in a street, per map id (map metres, as map-preview's `cam`) */
-const STREET: Record<string, Cam> = {
-  'osm-wuerzburgwelt': [-188, -62, 4, -160, -54, 2],
-  'ruined-city': [-6, -60, 3, 0, 0, 2],
-  'autumn-keep': [40, -40, 3, 0, 0, 4],
+/**
+ * Views a map lists of its own, per map id (map metres, as map-preview's `cam`): `street` at eye height in a
+ * street, `station` the main station's field of tracks of Würzburg (its full 2.4 km world) from 200 m up, south
+ * of it, as one looks there in the game (E303 found tracks missing there)
+ */
+const VIEWS: Record<string, Record<string, Cam>> = {
+  'osm-wuerzburgwelt': { street: [-188, -62, 4, -160, -54, 2], station: [337, 650, 200, 337, 997, 0] },
+  'ruined-city': { street: [-6, -60, 3, 0, 0, 2] },
+  'autumn-keep': { street: [40, -40, 3, 0, 0, 4] },
 };
 
 if (PORT < 4440 || PORT > 4449) throw new Error('--port must lie in 4440-4449');
@@ -699,9 +703,9 @@ if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 for (const map of maps) {
   const cams: (Cam | string)[] = ['start', 'game', 'low', 'top'];
   const names = ['start', 'game', 'low', 'top'];
-  if (STREET[map.id]) {
-    cams.push(STREET[map.id]);
-    names.push('street');
+  for (const [name, cam] of Object.entries(VIEWS[map.id] ?? {})) {
+    cams.push(cam);
+    names.push(name);
   }
   for (const [i, cam] of cams.entries()) {
     if (ONLY.length && !ONLY.includes(names[i])) continue;

@@ -141,5 +141,6 @@ describe('OSM furniture', () => {
     const report = placeFurniture(tight.doc, tight.features, tight.water, { costOf, budget: (track + 1) * 100 });
     expect(tight.doc.objects.filter((o) => o.asset.startsWith('rail-track')).length).toBe(track);
     expect(report.dropped.budget).toBeGreaterThan(0);
+    expect(report.overBudget).toEqual({ fence: report.dropped.budget });
   });
 });
