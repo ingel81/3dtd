@@ -489,6 +489,33 @@ beginnt und im Grundriss blind endet. Der Gebäudeschritt findet so jede Einfahr
 weitere Kante, im Grundriss) und schneidet dort die dunkle Öffnung: Breite aus der Kante, Unterkante auf der Rampe an
 der Wand. Bis dahin endet die Rampe an der geschlossenen Wand; ein eigenes Öffnungsmodell gibt es bewusst nicht.
 
+### Unterführungen unter Gleisfeldern und ihre Abgänge (2026-10-21)
+
+Code: `roads.ts underpasses()` und `convert/subway-descents.ts` (`findDescents` in `buildRoads`, `placeDescents` in
+`import-osm.ts` nach `seatPortals`). Specs: `roads.spec.ts`, `subway-descents.spec.ts`.
+
+- **Unterführung:** ein Fußweg- oder Pfadtunnel unter mindestens drei Gleisen (ein Bahnhof, kein einzelnes Gleis) bleibt
+  Tunnelkante, mit allen Pfadtunneln, die an ihm hängen (Treppen, Abzweige): nicht gezeichnet, nicht eingeebnet, kein
+  Portal. Gegner meiden sie (`Street.underpass`, Gewicht 1000), solange es einen anderen Weg gibt.
+- **Abgang:** an jedem Ende einer Unterführung, an dem ein Pfad beginnt, der keine ist, führt dieser Pfad hoch. Treppen
+  (`highway=steps`) gehen vor; ein Pfad unter 16 m bekommt die Treppe (`subway-stairs`, 7,9 m, 3 m tief, Podest),
+  ein längerer bis 26 m die Rampe (`subway-ramp`, 20 m). Der Pfad wird Teil des Tunnels. Das Modell läuft vom Ende des
+  Pfads am Boden entlang des Pfads nach unten, am Fuß der Eingang (`subway-entrance`, Kopfwand mit Öffnung, innen
+  gekachelt und dunkel), Stahlgeländer auf beiden Wandkronen und quer über der Kopfwand.
+- **Boden:** das Höhenfeld (2 m) trägt keine 3 m breite Grube. Der Boden behält seine Höhe und wird um den Abgang auf die
+  Höhe am Treppenkopf eingeebnet; Treppe und Rampe blenden ihn über sich aus (`groundCut`, `terrain-cuts.ts`, wie beim
+  Tunnelportal; die Modelle laufen dafür entlang Modell -z). Wandkronen und Kopfwand stehen 18 cm über dem Boden.
+- **Ausgelassen:** Pfade unter 2 m (Anbindung eines Aufzugs, `level=-1;0`), Pfade drinnen, die keine Treppe sind (in die
+  Bahnhofshalle), Abgänge in einem Gebäude (ein Bahnsteigdach `building=roof` und ein Carport zählen nicht), Rampen
+  über 26 m.
+- **Drinnen erfasst:** die Personenunterführung eines Bahnhofs steht in OSM oft mit `indoor=yes` und `layer=-1`, ihre
+  Treppen auch; `roadTags` verwirft Wege drinnen. Solche Wege unter Grund finden Unterführungen und Abgänge, kommen aber
+  nicht in den Wegegraph: als Tunnelkanten unter den Bahnsteigen verdrängten sie die Bahnsteigdächer (der
+  Gebäudeschritt nimmt einen Tunnel für eine Straße).
+
+Würzburg (2,4 km um 49.7932, 9.9312): 8 Treppen (5 auf den Bahnsteigen, beide Enden der Fußgängerunterführung westlich
+des Gleisfelds, der Posttunnel), 5 Mündungen ohne Abgang (Aufzüge), Objekte 49800 → 49868.
+
 ### Offen nach L2
 
 - Aussparung der Durchgänge (Torbogen zum Durchsehen, Entscheidung 2): heute laufen die Gegner unsichtbar durch die
