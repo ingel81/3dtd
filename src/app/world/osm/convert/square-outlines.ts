@@ -150,7 +150,7 @@ function pulledOff(p: MapPoint, clear: number, solids: SolidIndex): MapPoint | n
 }
 
 /** The ground buildings of the features in a grid of cells by their bounds */
-class SolidIndex {
+export class SolidIndex {
   private readonly cells = new Map<number, Solid[]>();
 
   constructor(features: OsmFeatures) {

@@ -15,7 +15,9 @@
  * footway or path through one stays a path (the portal is a road's).
  * A passage through a building (`tunnel=building_passage`, `covered=yes`)
  * is a road with `covered`: the building stands over it, the routes run
- * under cover. A square's outline (`area=yes`) is pulled off the walls of
+ * under cover. So is a tunnel that lies mostly under buildings, and an
+ * underground car park keeps only its entrances, ramps down to the wall
+ * (convert/underground.ts): only tunnels through the ground get portals. A square's outline (`area=yes`) is pulled off the walls of
  * the houses round it (square-outlines.ts).
  */
 import { flattenUnderPaths } from '../../../map-ops/path-terrain';
@@ -25,6 +27,7 @@ import type { OsmFeatures } from '../osm-parse';
 import { bridgeStyle, roadTags, sidewalkTag, type RoadSurface } from '../osm-tags';
 import { roadPaintBands } from '../../custom-map/render/paths/road-style';
 import { pullDeadEnds, pullOutlines } from './square-outlines';
+import { sortUnderground, type Ramp, type UndergroundReport } from './underground';
 
 export interface RoadStats {
   /** Road ways read, and the tunnels (ways joined end to end) kept as tunnel edges, with their length */
@@ -47,6 +50,8 @@ export interface RoadStats {
   outlinePulled: number;
   /** Ends of roads and paths pulled off the building they end at (square-outlines.ts pullDeadEnds) */
   endsPulled: number;
+  /** Tunnels under buildings (underground.ts): passages, car parks and their entrances */
+  underground: UndergroundReport;
 }
 
 /** A tunnel's mouth inside the map: where its portal stands */
@@ -74,6 +79,8 @@ export interface RoadBuild {
   stats: RoadStats;
   tunnels: TunnelLine[];
   mouths: TunnelMouth[];
+  /** The car parks' entrances, to sink after the roads are levelled (underground.ts sinkRamps) */
+  ramps: Ramp[];
 }
 
 /** Metres the roads stay inside the map's edge */
@@ -93,11 +100,13 @@ interface Vertex {
 /** The road ways of `features` as the map's path graph */
 export function buildRoads(features: OsmFeatures): RoadBuild {
   const lim = features.half - EDGE_INSET;
-  const stats: RoadStats = { ways: 0, tunnels: 0, tunnelM: 0, nodes: 0, edges: 0, bridges: 0, km: { road: 0, path: 0, bridge: 0 }, kmByType: {}, cutAtEdge: 0, openTunnels: 0, covered: 0, outlinePulled: 0, endsPulled: 0 };
-  const roads = features.ways
+  const read = features.ways
     .filter((w) => w.nodes.length >= 2)
     .map((way) => ({ way, tags: roadTags(way.tags) }))
     .filter((r): r is { way: typeof r.way; tags: NonNullable<typeof r.tags> } => r.tags !== null);
+  // Tunnels under buildings first: passages covered, car parks down to their entrances
+  const { roads, ramps, report: underground } = sortUnderground(read, features);
+  const stats: RoadStats = { ways: 0, tunnels: 0, tunnelM: 0, nodes: 0, edges: 0, bridges: 0, km: { road: 0, path: 0, bridge: 0 }, kmByType: {}, cutAtEdge: 0, openTunnels: 0, covered: 0, outlinePulled: 0, endsPulled: 0, underground };
   const { tunnels, mouths, short } = findTunnels(roads.filter((r) => r.tags.kind === 'road'), lim);
   for (const r of roads) {
     if (!r.tags.tunnel || (r.tags.kind === 'road' && !short.has(r.way))) continue;
@@ -175,7 +184,7 @@ export function buildRoads(features: OsmFeatures): RoadBuild {
   stats.edges = edges.length;
   for (const key of ['road', 'path', 'bridge'] as const) stats.km[key] = round2(stats.km[key]);
   for (const key of Object.keys(stats.kmByType)) stats.kmByType[key] = round2(stats.kmByType[key]);
-  return { paths, names, pavements, stats, tunnels, mouths };
+  return { paths, names, pavements, stats, tunnels, mouths, ramps };
 }
 
 type RoadWay = OsmFeatures['ways'][number];

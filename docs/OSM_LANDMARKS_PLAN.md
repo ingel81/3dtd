@@ -462,6 +462,32 @@ Tönung der Wahrzeichen), `convert/anchors.ts` (liest die Rolle), `custom-map-st
 - **Bilder:** lokal `tmp/e297b/` (`aschaffenburg-{schloss,nah,oben}-{before,after}.png`,
   `wuerzburg-{hof,oben,l}-{before,after}.png`).
 
+### Tunnel unter Gebäuden (2026-10-21, zu Entscheidung 2)
+
+Code: `convert/underground.ts` (vor dem Straßengraph, `roads.ts buildRoads`), `sinkRamps` nach dem Einebnen
+(`import-osm.ts`). Specs: `underground.spec.ts`. Jeder Tunnel (Wege über gemeinsame Knoten verbunden) wird sortiert:
+
+- **Tiefgarage:** alle Wege `highway=service` mit `layer` < 0, darunter ein `parking_aisle` oder ein Stück unter einem
+  Gebäude. Es bleiben nur die Einfahrten (Enden an einer Straße): eine Rampe bis zur Wand, auf die sie trifft (höchstens
+  30 m, ohne Wand endet sie dort im Boden), dahinter ein `covered`-Stummel von 2 m in das Gebäude. Die Rampe sinkt nach
+  dem Einebnen bis 2,6 m (höchstens 15 % Gefälle) mit 1:1-Böschungen. Die Gänge unter der Erde entfallen: eine Garage
+  ist kein Weg, die Routen bleiben auf den Straßen (vorher liefen sie unsichtbar unter Plätzen durch). Kein Portal,
+  kein Hügel.
+- **Durchgang:** liegt die Linie zu mindestens 50 % unter Grundrissen, wird der Tunnel ein `covered`-Weg wie
+  `building_passage` (Türen an den Enden, das Gebäude bleibt ganz). Begründung der Schwelle: OSM setzt die Enden eines
+  Durchgangs auf oder wenige Meter hinter die Wand, ein kurzer Durchgang liegt 60 bis 100 % unter dem Haus, ein Tunnel
+  durch Gelände unter keinem (Würzburg: Durchgänge 70 bis 100 %, Straßentunnel 0 %; die Garagengänge, 8 bis 47 %, sind
+  vorher aussortiert).
+- **Sonst** ein Tunnel durch Gelände wie bisher (Portale ab 40 m).
+
+Würzburg (2,4 km um 49.7932, 9.9312): Portale 6 → 2 (nur der Straßentunnel), angehobene Höhenpunkte 4223 → 1089, 15
+Durchgänge, 7 Tiefgaragen mit 14 Einfahrten; Häuser, die Portal und Hügel verdrängten, stehen wieder.
+
+**Schnittstelle für die Öffnung (nach L3):** der `covered`-Stummel einer Einfahrt ist eine Kante, die an der Wand
+beginnt und im Grundriss blind endet. Der Gebäudeschritt findet so jede Einfahrt (Kante `covered`, ein Ende ohne
+weitere Kante, im Grundriss) und schneidet dort die dunkle Öffnung: Breite aus der Kante, Unterkante auf der Rampe an
+der Wand. Bis dahin endet die Rampe an der geschlossenen Wand; ein eigenes Öffnungsmodell gibt es bewusst nicht.
+
 ### Offen nach L2
 
 - Aussparung der Durchgänge (Torbogen zum Durchsehen, Entscheidung 2): heute laufen die Gegner unsichtbar durch die

@@ -20,6 +20,7 @@ import { downloadOsm, osmQueryBox } from './osm-query';
 import type { OverpassResponse, OverpassRetry } from './overpass-client';
 import type { OsmProgress } from './osm-progress';
 import { buildRoads, levelRoads, paintRoads, roadPaintMaterials, type RoadStats } from './convert/roads';
+import { sinkRamps } from './convert/underground';
 import { buildTunnels, seatPortals, type TunnelReport } from './convert/tunnels';
 import { layPavements, type PavementStats } from './convert/pavements';
 import { layPlots, type PlotReport } from './convert/plots';
@@ -195,6 +196,8 @@ export function convertOsm(
   step('water');
 
   levelRoads(t0, doc.paths);
+  // The car parks' entrances down into the ground, on the levelled street
+  sinkRamps(t0, roads.ramps);
   // After the roads: a level crossing takes the road's height; the beds keep off the road bands and the water
   const railGround = levelRails(t0, rails, doc.paths, (k) => water.roads[k] === 1 || water.wet[k] === 1 || water.sea[k] === 1);
   settleWater(t0, water);
