@@ -758,6 +758,10 @@ Kreuzungen, Flecken, Unterführungen, Brückenrampen und Router prüfen `road-ne
 - **AA8 Abgänge:** auf die Bahnsteige östlich der Unterführung, dann zur Fußgänger-Unterführung am Westrand des
   Gleisfelds (Nord- und Südende). *Grube mit Betontreppe, Geländer, Kopfwand mit dunkler Öffnung; die Bahnsteigdächer
   stehen.* Gegner laufen nicht hindurch.
+- **AA9 Stützmauern am Gleisfeld:** Würzburg neu bauen. (1) Fußgänger-Unterführung westlich des Bahnhofs, (2)
+  Straße beim Bürobau nordöstlich am Gleisfeld, (3) Parkplatz am Fluss bei der Brücke. *Betonmauer mit Kiesbett statt
+  Felshang, keine schwebenden Platten, kein Durchblick an den Mauerenden; am Parkplatz keine Mauer (bleibt Fels).* Aus
+  der Höhe: wirken die grauen Kiesflächen neben den Brückenwiderlagern zu flächig?
 
 ## Eichtabelle
 

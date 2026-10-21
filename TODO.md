@@ -231,8 +231,10 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       am Hang eingeebnet; zwei Brücken dicht hintereinander heben das Gleis nicht doppelt; Boden in Durchgängen
       gepflastert; Gleise zuerst und vollständig ins Möblierungsbudget (Mauern, Zäune, Hecken bekommen den Rest, bis
       E304 mehr Platz schafft); Straße mit Breitenwechsel verjüngt sich über den Knoten; Unterführungen mit
-      Betontreppe, Geländer und dunklem Eingang (neue Modelle) (AA1 bis AA8). Offen: Gleisfeld als Plateau mit
-      Felsklippen (Stützmauern), graue Fetzen vor Garagenöffnungen.
+      Betontreppe, Geländer und dunklem Eingang (neue Modelle); Gleise eines Felds auf einer Höhe, Beton-Stützmauern
+      mit Kiesbett und Geländeschnitt statt Felsklippen an Straßen neben dem Gleisbett (AA1 bis AA9). Offen: graue
+      Fetzen vor Garagenöffnungen; Straßenbelag bricht an einer Geländestufe neben erhöhtem Gleisbett zackig durch
+      (Straße mit Gehweg auf einer Böschung über dem Gleis, Bett 1,6 m höher; Straßenbelag gegen Geländestufe allgemein).
 - [ ] **E291 Krater und Einstürze ändern Route und Sicht**: Korridor-Kacheln und rote Linie folgen dem Krater;
       stehende Tower sehen nach Krater, Einsturz, Verschleiß-Loch oder Wellenobjekt neu (Cube neu, gesammelt höchstens
       einmal je Sekunde, nicht im Bild des Ereignisses). Nuke-Dauerfeuer mit 30 Towern 0,18 ms je Bild (Z1 bis Z3).
