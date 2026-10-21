@@ -58,12 +58,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
 - [ ] **E282 Dialog „Karte von einem Ort“ (OSM-Rahmen)** (User 2026-10-20): Dass man das Quadrat verschieben kann, ist
       nicht erkennbar; beim Verschieben ploppt oben etwas auf und lädt nach, die Ansicht rutscht nach unten. UX überarbeiten.
       Entschieden (2026-10-21): erst 2-3 animierte Varianten auf der Design-Leinwand, User wählt, dann bauen.
-- [ ] **E283 Fluss über Krater** (User 2026-10-20): Nach mehreren Atomschlägen auf einen Fluss bleibt die Wasserfläche auf
-      alter Höhe schwebend über dem Krater; ebenso wölbt sich der Asphaltrand eines Parkplatzes als Bogen darüber
-      (Flächen folgen dem Krater nicht). Vorschläge offen (User will „coole Lösung“): Krater läuft als Kratersee voll mit
-      Wasserfall und Überlauf (Empfehlung), Verdampfen mit Dampfsäule und trockenem Bett, Kombination.
-      User 2026-10-21: erst komplett durchdenken, bevor gebaut wird. Der Fluss braucht eine Fließrichtung, der Krater
-      füllt sich als See und gibt beim Überlauf den Fluss stromab weiter. Zuerst Plan-Doc, dann Abstimmung.
 - [ ] **E291 Route, Korridor und Sicht folgen dem Krater nicht** (User 2026-10-21, geprüft im Code, noch nicht
       entschieden, ob und wie): Gegner laufen durch den Krater (Simulation: Zellhöhe plus Stempelraster). Aber:
       (1) die Korridor-Kacheln und die rote Routenlinie werden nur bei neuen Routen gebaut (`route-grid-viz.service.ts`
@@ -78,9 +72,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       des Editors und `ObjectIds` über die Liste (LandscapeContext, map-kit, mirror-map; vergibt per Undo
       zurückgenommene Ids wieder). Seit E292 passen sie zusammen, eine einzige Quelle wäre sauberer. Dazu: der
       Straßenpinsel legt bei „Draw a longer road“ trotzdem einen Schritt an (nur die Teilung); Enden erst auflösen.
-- [ ] **E293 Krater auf trockenem Land kostet ein langes Bild** (Zweitrechner 2026-10-21, bei E283 gesehen, Dev-Build):
-      ein Krater ohne Wasser 150-233 ms in einem Bild. Erst im Production-Build messen (3 Krater, längstes Bild), dann
-      entscheiden. DESTRUCTION_PLAN.md nennt für einen Atomkrater 2-3 ms Hauptthread plus 29-38 ms einmalig.
 - [ ] **E294 Kratersee im Editor** (2026-10-21, aus E283 ausgeklammert): Der Landschafts-Modus „crater“ schreibt nur
       Höhen, ohne Kraterliste und Spielzeit; im Editor füllt sich darum kein See. Eigener Schritt: Pinsel mit Vorschau
       (See gleich voll oder Füllen ohne Spielzeit).
@@ -238,6 +229,10 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q und R)
 
+- [ ] **E283 Krater im Fluss**: Krater schneidet Fluss, Wasserfall hinein, Bett stromab trocken, Kratersee füllt in
+      10-20 s (Spielzeit), Überlauf an der tiefsten Kante oder neuer Bach bergab, Ketten, Lava erstarrt an Wasser,
+      Fontäne/Dampf; nach Laden oder Sprung sofort voll. Plan docs/WATER_NETWORK_PLAN.md, Abnahme auf dem Board.
+      Rest: Flächen folgen dem Krater (Schritt 3, Zweitrechner).
 - [ ] **E290 OSM-Grundrisse in OSM-Welten**: Kachel „OSM“ im Entwicklermenü legt die beim Import gelesenen Grundrisse
       (neues Feld `footprints`, nur neu gebaute Welten) über die Häuser an den Routen, dieselbe Ebene wie die
       Schnellaktion „Gebäude“ auf echten Orten (R1, R2). Doku: OSM_WORLD_PLAN.md.
