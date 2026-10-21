@@ -28,6 +28,7 @@ import { bridgeStyle, roadTags, sidewalkTag, type RoadSurface } from '../osm-tag
 import { roadPaintBands } from '../../custom-map/render/paths/road-style';
 import { pullDeadEnds, pullOutlines } from './square-outlines';
 import { sortUnderground, type Ramp, type UndergroundReport } from './underground';
+import { findDescents, type DescentReport, type SubwayDescent } from './subway-descents';
 
 export interface RoadStats {
   /** Road ways read, and the tunnels (ways joined end to end) kept as tunnel edges, with their length */
@@ -47,6 +48,8 @@ export interface RoadStats {
   openTunnels: number;
   /** Footway and path tunnels kept under a track field: underpasses, see underpasses() */
   underpasses: number;
+  /** Their stairs and ramps down from the ground (subway-descents.ts) */
+  descents: DescentReport;
   /** Edges through buildings (passages, `covered`), and points of squares' outlines pulled off the walls (square-outlines.ts) */
   covered: number;
   outlinePulled: number;
@@ -83,6 +86,8 @@ export interface RoadBuild {
   mouths: TunnelMouth[];
   /** The car parks' entrances, to sink after the roads are levelled (underground.ts sinkRamps) */
   ramps: Ramp[];
+  /** The underpasses' stairs and ramps, to place after the ground is levelled (subway-descents.ts placeDescents) */
+  descents: SubwayDescent[];
 }
 
 /** Metres the roads stay inside the map's edge */
@@ -107,16 +112,29 @@ export function buildRoads(features: OsmFeatures): RoadBuild {
     .map((way) => ({ way, tags: roadTags(way.tags) }))
     .filter((r): r is { way: typeof r.way; tags: NonNullable<typeof r.tags> } => r.tags !== null);
   // Tunnels under buildings first: passages covered, car parks down to their entrances
-  const { roads, ramps, report: underground } = sortUnderground(read, features);
-  const stats: RoadStats = { ways: 0, tunnels: 0, tunnelM: 0, nodes: 0, edges: 0, bridges: 0, km: { road: 0, path: 0, bridge: 0 }, kmByType: {}, cutAtEdge: 0, openTunnels: 0, underpasses: 0, covered: 0, outlinePulled: 0, endsPulled: 0, underground };
-  const { tunnels, mouths, short } = findTunnels(roads.filter((r) => r.tags.kind === 'road'), lim);
-  const under = underpasses(roads.filter((r) => r.tags.tunnel && r.tags.kind === 'path').map((r) => r.way), features);
-  stats.underpasses = under.size;
-  for (const r of roads) {
+  const { roads: sorted, ramps, report: underground } = sortUnderground(read, features);
+  // A station's subway is often mapped indoors, its stairs too: such ways below the ground find the underpasses and
+  // their descents, and stay out of the graph with the ways indoors (roadTags): as tunnel edges under the platforms
+  // they held the platforms' roofs off (buildings.ts takes a tunnel for a road)
+  const below = features.ways
+    .filter((w) => w.nodes.length >= 2 && w.tags['indoor'] && w.tags['indoor'] !== 'no' && belowGround(w.tags))
+    .map((way) => ({ way, tags: roadTags({ ...way.tags, indoor: 'no' }) }))
+    .filter((r): r is { way: typeof r.way; tags: NonNullable<typeof r.tags> } => r.tags?.kind === 'path');
+  const indoors = new Set(below);
+  const taken = [...sorted, ...below];
+  const stats: RoadStats = { ways: 0, tunnels: 0, tunnelM: 0, nodes: 0, edges: 0, bridges: 0, km: { road: 0, path: 0, bridge: 0 }, kmByType: {}, cutAtEdge: 0, openTunnels: 0, underpasses: 0, descents: { stairs: 0, ramps: 0, skipped: 0 }, covered: 0, outlinePulled: 0, endsPulled: 0, underground };
+  const { tunnels, mouths, short } = findTunnels(sorted.filter((r) => r.tags.kind === 'road'), lim);
+  const under = underpasses(taken.filter((r) => r.tags.tunnel && r.tags.kind === 'path').map((r) => r.way), features);
+  for (const r of taken) {
     if (!r.tags.tunnel || (r.tags.kind === 'road' && !short.has(r.way)) || under.has(r.way)) continue;
     r.tags = { ...r.tags, tunnel: false };
-    stats.openTunnels++;
+    if (!indoors.has(r)) stats.openTunnels++;
   }
+  // The ways up from the underpasses' mouths go under with them, their stairs and ramps in their place
+  const { descents, report: descentReport } = findDescents(taken, under, features);
+  stats.descents = descentReport;
+  const roads = taken.filter((r) => !indoors.has(r));
+  stats.underpasses = roads.filter((r) => under.has(r.way)).length;
   stats.tunnels = tunnels.length;
   stats.tunnelM = tunnels.reduce((s, t) => s + t.length, 0);
 
@@ -188,7 +206,7 @@ export function buildRoads(features: OsmFeatures): RoadBuild {
   stats.edges = edges.length;
   for (const key of ['road', 'path', 'bridge'] as const) stats.km[key] = round2(stats.km[key]);
   for (const key of Object.keys(stats.kmByType)) stats.kmByType[key] = round2(stats.kmByType[key]);
-  return { paths, names, pavements, stats, tunnels, mouths, ramps };
+  return { paths, names, pavements, stats, tunnels, mouths, ramps, descents };
 }
 
 type RoadWay = OsmFeatures['ways'][number];
@@ -322,6 +340,11 @@ function underpasses(tunnels: readonly OsmWay[], features: OsmFeatures): Set<Osm
     }
   }
   return out;
+}
+
+/** Whether a way's tags put it below the ground: a tunnel, or a layer under the ground's */
+function belowGround(tags: Record<string, string>): boolean {
+  return (!!tags['tunnel'] && tags['tunnel'] !== 'no') || parseInt(tags['layer'] ?? '0', 10) < 0;
 }
 
 /** Whether segment ab crosses segment cd (touching at an end does not count) */

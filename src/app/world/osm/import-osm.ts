@@ -21,6 +21,7 @@ import type { OverpassResponse, OverpassRetry } from './overpass-client';
 import type { OsmProgress } from './osm-progress';
 import { buildRoads, levelRoads, paintRoads, roadPaintMaterials, type RoadStats } from './convert/roads';
 import { sinkRamps } from './convert/underground';
+import { placeDescents } from './convert/subway-descents';
 import { buildTunnels, seatPortals, type TunnelReport } from './convert/tunnels';
 import { layPavements, type PavementStats } from './convert/pavements';
 import { layPlots, type PlotReport } from './convert/plots';
@@ -202,6 +203,8 @@ export function convertOsm(
   const railGround = levelRails(t0, rails, doc.paths, (k) => water.roads[k] === 1 || water.wet[k] === 1 || water.sea[k] === 1);
   settleWater(t0, water);
   seatPortals(t0, tunnels.objects);
+  // The underpasses' stairs and ramps on the levelled ground, levelling it round them
+  doc.objects.push(...placeDescents(t0, roads.descents));
   step('level');
   // The land takes the layers the roads' surfaces and the water's shores leave
   const wetMaterials = (Object.keys(WATER_MATERIALS) as WaterPaintRole[]).filter((r) => water.paint[r].some((v) => v > 0)).map((r) => WATER_MATERIALS[r]);
