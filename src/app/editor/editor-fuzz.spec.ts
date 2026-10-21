@@ -11,7 +11,8 @@
  *
  * Along the way the editor worker's mirror (model/doc-mirror.ts) follows the
  * map by its syncs, now and then: a map packed from the mirror has to be the
- * map packed from the document, byte for byte.
+ * map packed from the document, byte for byte; and no two objects share an
+ * id after any step.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -580,6 +581,9 @@ function fuzz(seed: number, count: number): Run {
     const [name] = weights.find(([, w]) => (roll -= w) < 0) ?? weights[0];
     ops[name]();
     editor.select(null);
+    // Two objects with one id go by unseen until a removal and its undo put them back at each other's places
+    const ids = new Set(objectIds());
+    if (ids.size !== editor.doc.objects.length) throw new Error(`seed ${seed}: after step ${k} ${steps.at(-1)} two objects share an id`);
     states.set(editor.stateId, { bytes: contentBytes(editor.doc), step: `${k} ${steps.at(-1)}` });
     mirrored(`seed ${seed}, after step ${k} ${steps.at(-1)}`);
   }
@@ -587,8 +591,9 @@ function fuzz(seed: number, count: number): Run {
 }
 
 describe('undo and redo under random work', () => {
-  // The last five: seeds that once failed on the test's own assumptions (a run ending on a jump back, few steps left)
-  for (const seed of [1, 7, 42, 99, 2026, 3000, 3156, 3195, 3260, 3494]) {
+  // 3156 to 3494: seeds that once failed on the test's own assumptions (a run ending on a jump back, few steps left);
+  // 5009: a landscape stroke's symmetric images whose ids the editor handed out again
+  for (const seed of [1, 7, 42, 99, 2026, 3000, 3156, 3195, 3260, 3494, 5009]) {
     it(`seed ${seed}: all undos give the first map byte for byte, all redos the last`, () => {
       const start = contentBytes(createMapDocument({ id: 'fuzz', name: 'Fuzz', width: 256, depth: 256, cellSize: 4, seed, ground: 'noise', relief: 6, now: new Date(0) }));
       // The tools roll their own dice (turns, scatter spots, thinning): seeded too, so a seed plays the same run
