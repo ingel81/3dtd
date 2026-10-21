@@ -83,9 +83,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Mit Abgleich nach jedem Schritt (Seeds 5000-5149) bleiben 3 von 150 rot. 5023 und 5138: nach „landscape road“
       stimmt die Worker-Kopie (DocMirror) nicht mit dem Editor-Dokument überein. 5038: Undo von „Remove 17 objects“
       ergibt nicht die Karte von Schritt 56. Die 10 Seeds im Test sind grün. Ursache offen.
-- [ ] **E285 Weinberge: Rebzeilen** (User 2026-10-20): Zeilen stehen schräg und sind in kurze Stücke zerhackt. Soll:
-      gerade, parallel, durchgehend über die Parzelle, in der Falllinie den Hang hoch, meist rechtwinklig zur
-      erschließenden Straße; auf flachem Gelände rechtwinklig zur nächsten Straße.
 - [ ] **E275 Übergang vom Laden ins Spiel** (Zweitrechner 2026-10-20, Production, V-Sync, warmes Profil): in den ersten
       0,3 s nach ready ein Bild von 117-166 ms und einige von 33-50 ms (OSM und Ruined City). Darin erste Textur-Uploads
       (512×512, 650×426 mit Mipmaps, vermutlich Minimap oder UI) und eine Programmabfrage von 5,5 ms. Ursache im
@@ -238,8 +235,10 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ## 2. Gebaut, wartet auf Test
 
-### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O und P)
+### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P und Q)
 
+- [ ] **E285 Weinberge: Rebzeilen**: gerade, parallel, durchgehend je Parzelle, am Hang in der Falllinie (folgen dem
+      Boden), sonst rechtwinklig zur erschließenden Straße; Wege und Gräben brechen sie, Budget je ganzer Zeile (Q1 bis Q3).
 - [ ] **E288 Flüsse vereinigen sich**: Haarnadel eine Fläche, Kreuzung als Kreuz (höherer fällt im Knoten hinein),
       Mündung auf dem Spiegel; Wasser und Lava, Editor und OSM, aus der Geometrie (map-ops/river-network.ts). Plan:
       docs/WATER_NETWORK_PLAN.md. Abnahme auf dem Board.

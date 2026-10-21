@@ -30,6 +30,8 @@ import { FURNITURE_ASSETS } from './furniture';
 import { POI_ASSETS } from './pois';
 import { standScale } from '../../../map-ops/tree-stands';
 import { AREA_ASSETS } from './areas';
+import { heightAt } from '../../../map-ops/grid';
+import { parcelsOf, rowDirection, rowRuns, runPieces, runPlants, RoadIndex } from './crop-rows';
 
 /** Share of the scene budget the plants may take; buildings and furniture get the rest */
 export const PLANT_BUDGET_SHARE = 0.5;
@@ -52,15 +54,13 @@ interface PlantKind {
   clear: number;
 }
 
-/** Rows of a crop: across the slope (vines) or along the area (orchards) */
+/** Rows of a crop, straight across its parcel (crop-rows.ts): down the slope or square to the road that serves it */
 interface RowKind {
   asset: string;
-  /** Metres between rows and between plants in a row */
+  /** Metres between rows and between plants in a row (a length of row: its length at stretch 1) */
   across: number;
   along: number;
-  /** Rows run down the slope (vines on a hillside) instead of along the area's longest side */
-  downhill?: boolean;
-  /** The model is a length of row along its x axis */
+  /** The model is a length of row along its x axis (catalogue `row`): a run is laid as pieces end to end, stretched to fit */
   segment?: boolean;
   scale: readonly [number, number];
 }
@@ -116,13 +116,15 @@ const PLANTS: Partial<Record<LandClass, readonly PlantKind[]>> = {
 };
 
 const ROWS: Partial<Record<LandClass, RowKind>> = {
-  vineyard: { asset: 'vine-row', across: 2.4, along: 10, downhill: true, segment: true, scale: [1, 1] },
+  vineyard: { asset: 'vine-row', across: 2.4, along: 10, segment: true, scale: [1, 1] },
   orchard: { asset: 'fruit-tree', across: 8, along: 7, scale: [0.85, 1.15] },
 };
 
 /** Reeds at the shores of lakes, ponds and streams, per hectare of the band within 3 m of the water */
 const SHORE_REEDS: PlantKind = { assets: ['reeds', 'reed-bed'], perHa: 300, scale: [0.8, 1.3], clear: 1 };
 const SHORE_BAND = 3;
+/** Metres from a parcel's edge within which its rows do not ask the land class raster, which lies up to a cell off the ring */
+const EDGE_SLACK = 3;
 
 /** Metres a plant keeps from the HQ and from a spawn */
 const HQ_CLEAR = 25;
@@ -168,8 +170,10 @@ interface Candidate {
   /** Lower goes first when the budget runs short */
   priority: number;
   source: string;
-  /** A row of a crop (ROW_BUDGET_SHARE) */
-  row?: boolean;
+  /** The run of a crop's row it belongs to (ROW_BUDGET_SHARE): a run is kept or left out whole */
+  run?: number;
+  /** A length of row stretched along its x axis to end where its run ends (MapObject.stretch) */
+  stretch?: number;
 }
 
 /**
@@ -292,52 +296,34 @@ export function growVegetation(doc: CustomMapDocument, features: OsmFeatures, la
   const shore = distanceField(shoreWater, n, grid.step, SHORE_BAND + 1, false);
   scatter(SHORE_REEDS, 'shore', -1, 900, (k) => (shore[k] > 0 && shore[k] <= SHORE_BAND ? 1 : 0));
 
-  // Rows: vines and orchards, each area on its own grid, kept nearest the routes first
+  // Rows: vines and orchards straight across each parcel (crop-rows.ts), a run kept or left out whole, nearest the routes first
+  const roads = new RoadIndex(pathLines(doc));
+  const ground = (x: number, y: number) => heightAt(t, x, y);
+  let runCount = 0;
   for (const a of features.areas) {
     const tags = a.tags;
     const cls = (tags['landuse'] === 'vineyard' ? 'vineyard' : tags['landuse'] === 'orchard' ? 'orchard' : null) as LandClass | null;
     const row = cls ? ROWS[cls] : undefined;
     if (!cls || !row) continue;
     const index = LAND_CLASSES.indexOf(cls) + 1;
-    const angle = row.downhill ? downhill(doc, a.outer[0]) : longestSide(a.outer[0]);
-    const ux = Math.cos(angle);
-    const uy = Math.sin(angle);
-    let minA = Infinity;
-    let maxA = -Infinity;
-    let minB = Infinity;
-    let maxB = -Infinity;
-    for (const p of a.outer[0]) {
-      const s = p.x * ux + p.y * uy;
-      const r = -p.x * uy + p.y * ux;
-      minA = Math.min(minA, s);
-      maxA = Math.max(maxA, s);
-      minB = Math.min(minB, r);
-      maxB = Math.max(maxB, r);
-    }
-    for (let b = Math.ceil(minB / row.across) * row.across; b <= maxB; b += row.across) {
-      for (let s = Math.ceil(minA / row.along) * row.along + row.along / 2; s <= maxA; s += row.along) {
-        const x = s * ux - b * uy;
-        const y = s * uy + b * ux;
-        const k = cell({ x, y });
-        if (k < 0 || land[k] !== index) continue;
-        // A segment of row needs its ends in the vineyard as well
+    for (const parcel of parcelsOf(a.outer, a.inner)) {
+      const { angle } = rowDirection(parcel, ground, roads);
+      // Free, and on the parcel's own land class (another area painted over part of it breaks the rows); not that
+      // near the edge, where the raster lies a cell off the ring
+      const free2 = (x: number, y: number) => free(x, y, 1) && (land[cell({ x, y })] === index || nearRing(x, y, parcel.outer, EDGE_SLACK));
+      for (const run of rowRuns(parcel, angle, row.across, free2)) {
+        const id = runCount++;
+        const priority = 1 + nearRoute((run.a.x + run.b.x) / 2, (run.a.y + run.b.y) / 2) / ROUTE_FAR;
         if (row.segment) {
-          const e1 = cell({ x: x + ux * row.along * 0.45, y: y + uy * row.along * 0.45 });
-          const e2 = cell({ x: x - ux * row.along * 0.45, y: y - uy * row.along * 0.45 });
-          if (e1 < 0 || e2 < 0 || land[e1] !== index || land[e2] !== index || !free(x + ux * 4, y + uy * 4, 1) || !free(x - ux * 4, y - uy * 4, 1)) continue;
+          for (const p of runPieces(run, row.along)) {
+            candidates.push({ asset: row.asset, x: p.x, y: p.y, rotation: angle, scale: row.scale[0], priority, source: cls, run: id, stretch: p.stretch });
+          }
+          continue;
         }
-        if (!free(x, y, 1)) continue;
-        const u = hashCell(Math.round(s * 10), Math.round(b * 10), seed + 7);
-        candidates.push({
-          asset: row.asset,
-          x,
-          y,
-          rotation: row.segment ? angle : u * Math.PI * 2,
-          scale: lerp(row.scale, u),
-          priority: 1 + nearRoute(x, y) / ROUTE_FAR,
-          source: cls,
-          row: true,
-        });
+        for (const p of runPlants(run, row.along)) {
+          const u = hashCell(Math.round(p.x * 10), Math.round(p.y * 10), seed + 7);
+          candidates.push({ asset: row.asset, x: p.x, y: p.y, rotation: u * Math.PI * 2, scale: lerp(row.scale, u), priority, source: cls, run: id });
+        }
       }
     }
   }
@@ -367,7 +353,16 @@ export function growVegetation(doc: CustomMapDocument, features: OsmFeatures, la
   // The budget: by priority until the points or the count run out
   const budget = options.budget ?? PLANT_BUDGET_SHARE * SCENE_BUDGET;
   const limit = options.limit ?? PLANT_LIMIT;
-  candidates.sort((p, q) => p.priority - q.priority);
+  // A run is decided once, at its first plant, for all of them (they share its priority): whole rows or none
+  const runCost = new Float64Array(runCount);
+  const runSize = new Uint32Array(runCount);
+  for (const c of candidates) {
+    if (c.run === undefined) continue;
+    runCost[c.run] += options.costOf(c.asset);
+    runSize[c.run]++;
+  }
+  const runKept = new Int8Array(runCount);
+  candidates.sort((p, q) => p.priority - q.priority || (p.run ?? -1) - (q.run ?? -1));
   const ids = new ObjectIds(doc.objects);
   const placed: Record<string, number> = {};
   let cost = 0;
@@ -375,13 +370,26 @@ export function growVegetation(doc: CustomMapDocument, features: OsmFeatures, la
   let count = 0;
   for (const c of candidates) {
     if (count >= limit) break;
-    const add = options.costOf(c.asset);
-    if (cost + add > budget || (c.row && rowCost + add > budget * ROW_BUDGET_SHARE)) continue;
-    cost += add;
-    if (c.row) rowCost += add;
+    if (c.run !== undefined) {
+      if (runKept[c.run] === 0) {
+        const add = runCost[c.run];
+        const fits = cost + add <= budget && rowCost + add <= budget * ROW_BUDGET_SHARE && count + runSize[c.run] <= limit;
+        runKept[c.run] = fits ? 1 : -1;
+        if (fits) {
+          cost += add;
+          rowCost += add;
+        }
+      }
+      if (runKept[c.run] < 0) continue;
+    } else {
+      const add = options.costOf(c.asset);
+      if (cost + add > budget) continue;
+      cost += add;
+    }
     count++;
     placed[c.source] = (placed[c.source] ?? 0) + 1;
     const o: MapObject = { id: ids.take(), asset: c.asset, x: round2(c.x), y: round2(c.y), z: 0, rotation: Math.round(c.rotation * 1000) / 1000, scale: round2(c.scale) };
+    if (c.stretch !== undefined && Math.abs(c.stretch - 1) >= 0.001) o.stretch = Math.round(c.stretch * 1000) / 1000;
     doc.objects.push(o);
   }
   return { placed, objects: count, cost: Math.round(cost), budget: Math.round(budget), candidates: candidates.length };
@@ -418,44 +426,30 @@ export function treeAsset(tags: Readonly<Record<string, string>>, inTown: boolea
   return BROADLEAF[Math.min(BROADLEAF.length - 1, Math.floor(u * BROADLEAF.length))];
 }
 
-/** The direction (radians from east) of a ring's longest side */
-function longestSide(ring: readonly MapPoint[]): number {
-  let best = 0;
-  let angle = 0;
-  for (let k = 0; k < ring.length; k++) {
-    const a = ring[k];
-    const b = ring[(k + 1) % ring.length];
-    const len = Math.hypot(b.x - a.x, b.y - a.y);
-    if (len > best) {
-      best = len;
-      angle = Math.atan2(b.y - a.y, b.x - a.x);
-    }
+/** The centre lines of the map's roads and paths (not tunnels): the roads that serve a parcel of rows */
+function pathLines(doc: CustomMapDocument): MapPoint[][] {
+  const nodes = new Map(doc.paths.nodes.map((p) => [p.id, p]));
+  const out: MapPoint[][] = [];
+  for (const e of doc.paths.edges) {
+    const a = nodes.get(e.a);
+    const b = nodes.get(e.b);
+    if (a && b && !e.tunnel) out.push([a, ...(e.via ?? []), b]);
   }
-  return angle;
+  return out;
 }
 
-/** The direction (radians from east) down the slope at a ring's middle, its longest side on flat ground */
-function downhill(doc: CustomMapDocument, ring: readonly MapPoint[]): number {
-  const t = doc.terrain;
-  const g = t.grid;
-  let cx = 0;
-  let cy = 0;
-  for (const p of ring) {
-    cx += p.x;
-    cy += p.y;
+/** Whether a point lies within `reach` metres of a ring's edge */
+function nearRing(x: number, y: number, ring: readonly MapPoint[], reach: number): boolean {
+  for (let k = 0, m = ring.length - 1; k < ring.length; m = k++) {
+    const a = ring[m];
+    const b = ring[k];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len2 = dx * dx + dy * dy;
+    const u = len2 > 0 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / len2)) : 0;
+    if (Math.hypot(a.x + dx * u - x, a.y + dy * u - y) <= reach) return true;
   }
-  cx /= ring.length;
-  cy /= ring.length;
-  const at = (x: number, y: number) => {
-    const i = Math.min(g.columns - 1, Math.max(0, Math.round((x + t.width / 2) / g.cellSize)));
-    const j = Math.min(g.rows - 1, Math.max(0, Math.round((y + t.depth / 2) / g.cellSize)));
-    return g.heights[j * g.columns + i];
-  };
-  const d = 12;
-  const gx = at(cx + d, cy) - at(cx - d, cy);
-  const gy = at(cx, cy + d) - at(cx, cy - d);
-  if (Math.hypot(gx, gy) < 0.5) return longestSide(ring);
-  return Math.atan2(-gy, -gx);
+  return false;
 }
 
 const round2 = (v: number): number => Math.round(v * 100) / 100;

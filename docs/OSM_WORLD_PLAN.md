@@ -249,8 +249,8 @@ auf die nächste ähnliche (Vorrang: Wasser vor Straße vor Gebäude vor Landnut
 | `landuse=meadow`, `grass`, `village_green`, `natural=grassland`, `leisure=park` | `meadow`, `grass-lush` | Gras, im Park Einzelbäume aus Knoten, Bänke |
 | `landuse=farmland` | `farmland` | Heuballen am Rand |
 | `landuse=farmyard` | `dirt` | Scheune, Karren |
-| `landuse=vineyard` | `farm-soil` | Rebzeilen (fehlt) |
-| `landuse=orchard` | `meadow-earthy` | Obstbäume in Reihen (fehlt, solange junge Eichen) |
+| `landuse=vineyard` | `farm-soil` | Rebzeilen (`crop-rows.ts`, E285) |
+| `landuse=orchard` | `meadow-earthy` | Obstbäume in Reihen (`crop-rows.ts`) |
 | `landuse=allotments` | `grass` | Gartenhäuschen (fehlt), Hecken |
 | `landuse=cemetery` | `grass` | `graves`, Hecken |
 | `landuse=residential` | `grass` (Gärten) | Gebäude tragen den Ort |
@@ -680,15 +680,26 @@ Bericht hat dafür `ground`, `water` und `plants`.
 - **Pflanzen:** je Landklasse Arten mit Dichte je Hektar (Wald: Laubbäume 100, am Rand 200 auf 18 m, ein paar
   Nadelbäume, Büsche am Rand, Farn, Stümpfe; Nadelwald 120 und 220; Gebüsch, Heide, Wiese mit Blumen, Park, Friedhof,
   Kleingärten, Feuchtgebiet mit Schilf). Kandidaten aus einem verwackelten Gitter je Art, je Zelle ein Ort und ein Wurf
-  aus einem Hash (gleiche Daten, gleicher Wald). Fern der Routen dünner: bis 150 m voll, ab 700 m die Hälfte. Reben in
-  Reihen hangabwärts (2,4 m Abstand, Stücke von 10 m), Obstbäume in Reihen entlang der längsten Seite (8 × 7 m), Schilf
+  aus einem Hash (gleiche Daten, gleicher Wald). Fern der Routen dünner: bis 150 m voll, ab 700 m die Hälfte. Reben
+  (2,4 m Abstand) und Obstbäume (8 × 7 m) in geraden, parallelen Reihen über die ganze Parzelle (`crop-rows.ts`, E285),
+  eine Richtung je Parzelle (jeder äußere Ring mit seinen Löchern): am Hang (Ebene durch den Boden der Parzelle, ab 8 %
+  Steigung) in der Falllinie, rechtwinklig zur erschließenden Straße, solange das höchstens 35° von der Falllinie
+  abweicht; flach rechtwinklig zur erschließenden Straße (Straßen und Wege, deren Mittellinie bis 14 m an den Rand
+  reicht, nach Randlänge gewichtet), ohne sie entlang der längsten Seite. Jede Reihe endet 0,6 m innen an der
+  Parzellengrenze (dort steht der Endpfahl des Modells), Wege, Straßen, Gräben, Betonrinnen, Gebäude, Wasser und
+  andere Landnutzung brechen sie (Prüfung je Meter); Läufe unter 3 m entfallen. Ein Lauf wird mit gleich langen
+  Rebstücken gefüllt (Anzahl = Länge / 10 m gerundet, gestreckt per `MapObject.stretch`), die dem Hang folgen
+  (`wallShear`). Vorher: ein festes 10-m-Raster je Fläche, nur der erste äußere Ring, die Richtung aus zwei
+  Höhenpaaren um den Eckpunkt-Mittelwert, waagerechte Stücke (am Steilhang Treppen) mit Größen- und Farbstreuung je
+  Stück, Lücken wo ein Stückende die Fläche verließ, Budget je Stück. Schilf
   in 3 m um Seen, Teiche und Bäche, Einzelbäume nach `leaf_type` und `genus` (in der Stadt `tree-street`), Baumreihen
   alle 9 m. Nichts wächst auf Straßen (Bäume 2 m, Büsche 1 m Abstand), im Wasser, in Gebäudegrundrissen, 25 m um das HQ
   und 12 m um Spawns.
 - **Objektbudget nach Scene cost** (Entscheidung 5): die Pflanzen dürfen die Hälfte von `SCENE_BUDGET` kosten (6 M
   Punkte; der Rest bleibt für Gebäude und Ausstattung), Reihen davon höchstens 40 % (ein Rebstück kostet so viel wie
   drei Bäume, ein Weindorf gäbe sonst alles für Reben aus), höchstens 60 000 Objekte. Reicht es nicht, gehen
-  Einzelbäume und Baumreihen vor, dann die Reihen nach Nähe zur Route und die übrigen nach Wurf geteilt durch die
+  Einzelbäume und Baumreihen vor, dann die Reihen nach Nähe zur Route (je Lauf ganz oder gar nicht, so bleibt jede
+  gezeichnete Rebzeile durchgehend) und die übrigen nach Wurf geteilt durch die
   Routennähe. Die Kosten je Objekt rechnet `plantCosts` aus dem Katalog (`objectCost` auf 2,4 km); der Rahmen (`OsmFrameComponent.make`) liest den
   Katalog und gibt sie als Option `plantCosts` in den Worker. Ohne sie zählt eine Pflanze wie ein unbekanntes Objekt
   (lichter).

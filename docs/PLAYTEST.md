@@ -552,6 +552,22 @@ Neu bauen, alte OSM-Welten behalten ihre Gräben. Ort im Feld „A map of a real
 - **P2 Erdgräben:** wie P1 mit `49.8895, 10.1600` (Weinberg in Franken mit vielen Gräben). *Die Gräben sind flache
   Erdmulden ohne Wasser und ohne Schilf; Weinbergzeilen reichen bis an den Graben, stehen nicht darin.*
 
+## Q Rebzeilen in OSM-Welten (2026-10-21, E285)
+
+Neu bauen, alte OSM-Welten behalten ihre Zeilen (die neue Zeichnung, Hang und Farbton je Zeile, gilt aber auch dort).
+Richtung, durchgehende Zeilen, Ende an der Grenze und Bruch an einem Weg prüfen Specs (`crop-rows.spec.ts`,
+`vegetation.spec.ts`); hier nur das Auge.
+
+- **Q1 Steilhang:** New game, „A map of a real place“, `49.9214, 7.0720` (Mosel), bauen, aus Spielhöhe auf die
+  Weinberge östlich des HQ, dann von nah zwischen die Zeilen. *Je Parzelle gerade, parallele Zeilen den Hang hinauf,
+  ohne Treppen und Lücken; die Pfähle stehen senkrecht, Draht und Laub laufen am Boden entlang; jede Zeile endet mit
+  einem Pfahl kurz vor der Parzellengrenze, an Wegen und an der Betonrinne bricht sie ab.*
+- **Q2 Franken:** wie Q1 mit `49.8895, 10.1600`. *Zeilen den Hang hinab, durch die großen Flächen durchgehend, an
+  Feldwegen und Erdgräben unterbrochen.* Aus größerer Höhe kann ein Moiré-Muster über dichten Zeilen flimmern: notieren,
+  ob es stört.
+- **Q3 Flache Lage:** wie Q1 mit `49.4000, 8.1950` (Ruppertsberg, Pfalz). *Zeilen rechtwinklig zu den Wirtschaftswegen,
+  zwischen denen der Block liegt; fern der Route fehlen ganze Zeilen statt einzelner Stücke.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo
