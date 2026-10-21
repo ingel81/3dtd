@@ -219,6 +219,8 @@ const LONE_MODULE = 0.1;
  */
 const MODEL_COVER = 0.85;
 const MODEL_OVERHANG = 0.1;
+/** What models may stand out more than the rectangle a raised building would stand as, and still stay */
+const RECT_SLACK = 0.02;
 /** Footprints from this size (m²) count in the coverage report */
 const COVER_FROM = 40;
 /** A footprint filling less of its turned rectangle than this has wings (buildingKind's `winged`) */
@@ -422,32 +424,34 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       // How the models fit the footprint: raised from its outline instead where they fit badly and that stands
       const cover = kept.length ? coverage(outer, holes, rect, (q) => kept.some((pl) => inBox(pl, q))) : 0;
       const over = kept.length ? overhang(outer, holes, kept, ringA) : 0;
-      if (cover < MODEL_COVER || over > MODEL_OVERHANG) {
-        const raised = raiseMass(outer, holes, rect, kind, area.tags, ringA, hashId(area.id), inOldTown);
-        if (raised) {
-          const pl: Placement = {
-            asset: MASS_ASSET,
-            p: raised.centre,
-            front: raised.front,
-            hw: raised.hw,
-            hd: raised.hd,
-            scale: 1,
-            rotation: raised.rotation,
-            model: { asset: MASS_ASSET, box: [raised.hw * 2, raised.hd * 2], floors: raised.mass.floors },
-            mass: raised.mass,
-          };
-          const blocked = massBlocked(pl, raised.mass, outer, doc, waters, roads, onRoad, !role.landmark);
-          if (!blocked) {
-            report.masses++;
-            if (pl.scale < 1) report.shrunk++;
-            if (role.ruin) report.ruins++;
-            const cost = costOf(MASS_ASSET, catalog, doc) + massTriangles(raised.mass);
-            footprints.push({ id: area.id, ring: outer, kind, area: ringA, centre, placements: [pl], cost, tint: raised.tint, ruin: role.ruin });
-            measure(ringA, ringA >= COVER_FROM ? coverage(outer, holes, rect, (q) => inMass(pl, raised.mass, q)) : 0, 0);
-            continue;
-          }
-          why ??= blocked;
+      const raised = cover >= MODEL_COVER && over <= MODEL_OVERHANG ? null : raiseMass(outer, holes, rect, kind, area.tags, ringA, hashId(area.id), inOldTown);
+      // Raised as its rectangle (a pitched roof over a footprint that nearly fills it), it stands out as far as the
+      // rectangle: models that cover as well and stand out no farther stay (a row of old-town houses)
+      const asRect = raised?.mass.roof === 'gable' || raised?.mass.roof === 'hip';
+      const rectOver = (rect.a * rect.b) / ringA - 1;
+      if (raised && !(asRect && cover >= MODEL_COVER && over <= rectOver + RECT_SLACK)) {
+        const pl: Placement = {
+          asset: MASS_ASSET,
+          p: raised.centre,
+          front: raised.front,
+          hw: raised.hw,
+          hd: raised.hd,
+          scale: 1,
+          rotation: raised.rotation,
+          model: { asset: MASS_ASSET, box: [raised.hw * 2, raised.hd * 2], floors: raised.mass.floors },
+          mass: raised.mass,
+        };
+        const blocked = massBlocked(pl, raised.mass, outer, doc, waters, roads, onRoad, !role.landmark);
+        if (!blocked) {
+          report.masses++;
+          if (pl.scale < 1) report.shrunk++;
+          if (role.ruin) report.ruins++;
+          const cost = costOf(MASS_ASSET, catalog, doc) + massTriangles(raised.mass);
+          footprints.push({ id: area.id, ring: outer, kind, area: ringA, centre, placements: [pl], cost, tint: raised.tint, ruin: role.ruin });
+          measure(ringA, ringA >= COVER_FROM ? coverage(outer, holes, rect, (q) => inMass(pl, raised.mass, q)) : 0, asRect ? Math.max(0, rectOver) : 0);
+          continue;
         }
+        why ??= blocked;
       }
       if (!placements.length) {
         report.dropped[why ?? 'noModel']++;
