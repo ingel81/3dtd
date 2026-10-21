@@ -6,7 +6,7 @@
  * the nearest point. Everything here edits `MapPaths` in place; the tool
  * wraps it in a snapshot command.
  */
-import { MinHeap } from '../utils/street-astar';
+import { MinHeap, UNDERPASS_WEIGHT } from '../utils/street-astar';
 import type {
   CustomMapDocument,
   MapPathEdge,
@@ -503,6 +503,17 @@ interface Link {
   to: string;
   edge: MapPathEdge;
   length: number;
+  /** What it costs a route: its length, a thousandfold on an underpass (costFactor) */
+  cost: number;
+}
+
+/**
+ * What a metre along `edge` costs a route: a path tunnel is an underpass (a
+ * station's subway), taken only where no other way joins its ends, as the
+ * game's router weighs it (UNDERPASS_WEIGHT, mapStreetNetwork)
+ */
+function costFactor(edge: MapPathEdge): number {
+  return edge.tunnel && edge.kind === 'path' ? UNDERPASS_WEIGHT : 1;
 }
 
 function adjacency(paths: MapPaths, index: EdgeIndex): Map<string, Link[]> {
@@ -510,8 +521,9 @@ function adjacency(paths: MapPaths, index: EdgeIndex): Map<string, Link[]> {
   for (const n of paths.nodes) adj.set(n.id, []);
   for (const e of paths.edges) {
     const length = index.length(e);
-    adj.get(e.a)?.push({ to: e.b, edge: e, length });
-    adj.get(e.b)?.push({ to: e.a, edge: e, length });
+    const cost = length * costFactor(e);
+    adj.get(e.a)?.push({ to: e.b, edge: e, length, cost });
+    adj.get(e.b)?.push({ to: e.a, edge: e, length, cost });
   }
   return adj;
 }
@@ -561,8 +573,9 @@ export function routeBetween(paths: MapPaths, from: MapPoint, to: MapPoint, inde
       open.push(node, cost);
     }
   };
-  seed(s.edge.a, s.along);
-  seed(s.edge.b, s.length - s.along);
+  const sCost = costFactor(s.edge);
+  seed(s.edge.a, s.along * sCost);
+  seed(s.edge.b, (s.length - s.along) * sCost);
   const done = new Set<string>();
   while (open.size) {
     const cur = open.pop()!;
@@ -570,7 +583,7 @@ export function routeBetween(paths: MapPaths, from: MapPoint, to: MapPoint, inde
     done.add(cur);
     const best = dist.get(cur)!;
     for (const link of adj.get(cur) ?? []) {
-      const d = best + link.length;
+      const d = best + link.cost;
       if (d < (dist.get(link.to) ?? Infinity)) {
         dist.set(link.to, d);
         prev.set(link.to, { node: cur, edge: link.edge });
@@ -578,8 +591,9 @@ export function routeBetween(paths: MapPaths, from: MapPoint, to: MapPoint, inde
       }
     }
   }
-  const viaA = (dist.get(t.edge.a) ?? Infinity) + t.along;
-  const viaB = (dist.get(t.edge.b) ?? Infinity) + (t.length - t.along);
+  const tCost = costFactor(t.edge);
+  const viaA = (dist.get(t.edge.a) ?? Infinity) + t.along * tCost;
+  const viaB = (dist.get(t.edge.b) ?? Infinity) + (t.length - t.along) * tCost;
   const total = Math.min(viaA, viaB);
   if (!Number.isFinite(total)) return null;
   const exitNode = viaA <= viaB ? t.edge.a : t.edge.b;
@@ -603,7 +617,9 @@ export function routeBetween(paths: MapPaths, from: MapPoint, to: MapPoint, inde
   }
   const tLen = t.length;
   points.push(...slicePolyline(tLine, exitNode === t.edge.a ? 0 : tLen, t.along), t.point);
-  return { points: dedupe(points), length: total, startGap, endGap };
+  // Its length along the ground: the cost counts an underpass a thousandfold
+  const route = dedupe(points);
+  return { points: route, length: polylineLength(route), startGap, endGap };
 }
 
 /** The points of a polyline between two arc lengths, ends included, in that direction */

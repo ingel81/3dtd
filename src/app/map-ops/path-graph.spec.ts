@@ -175,3 +175,31 @@ describe('nodeById', () => {
     expect(nodeById(paths, c.id)).toBe(paths.nodes.find((n) => n.id === c.id));
   });
 });
+
+describe('routes and underpasses', () => {
+  /** A to B straight through a footway under a track field, or round by road over C and D */
+  function station(detour: boolean): MapPaths {
+    const p: MapPaths = { nodes: [], edges: [] };
+    const a = addNode(p, { x: 0, y: 0 });
+    const b = addNode(p, { x: 100, y: 0 });
+    const sub = connect(p, a.id, b.id)!;
+    sub.kind = 'path';
+    sub.tunnel = true;
+    if (detour) {
+      const c = addNode(p, { x: 0, y: 300 });
+      const d = addNode(p, { x: 100, y: 300 });
+      connect(p, a.id, c.id);
+      connect(p, c.id, d.id);
+      connect(p, d.id, b.id);
+    }
+    return p;
+  }
+
+  it('keeps the enemies off a subway where the streets join its ends, through it where nothing else does', () => {
+    const round = routeBetween(station(true), { x: -5, y: 20 }, { x: 105, y: 20 })!;
+    expect(round.length).toBeCloseTo(660, 0);
+    expect(round.points.some((q) => q.y > 250)).toBe(true);
+    const through = routeBetween(station(false), { x: -5, y: 20 }, { x: 105, y: 20 })!;
+    expect(through.length).toBeCloseTo(100, 0);
+  });
+});

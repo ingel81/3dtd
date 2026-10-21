@@ -7,10 +7,9 @@ import { PORTAL_DEPTH, PORTAL_MAX_SCALE, portalDepthScale } from '../../configs/
 import { closestPointOnSegment } from '../../utils/route-geometry';
 import { MAX_HQ_STREET_DISTANCE } from '../../configs/map-constants.config';
 import {
-  DEFAULT_ROAD_WEIGHT,
   MinHeap,
-  ROAD_TYPE_WEIGHTS,
   haversineDistance as sharedHaversineDistance,
+  streetWeight,
 } from '../../utils/street-astar';
 import { nearestStreetSegment } from '../../utils/street-grid';
 import { coveredSpawnRange, isInsideCoverage, type WorldCoverage } from '../../world/world-coverage';
@@ -63,7 +62,7 @@ function connectedComponents(graph: ReadonlyMap<number, { neighbors: { nodeId: n
 export class StreetRouter {
   // Cached graph for pathfinding (avoid rebuilding on every findPath call)
   // neighbors now include streetType for weighted pathfinding
-  private cachedGraph: Map<number, { node: StreetNode; neighbors: { nodeId: number; streetType: string }[] }> | null = null;
+  private cachedGraph: Map<number, { node: StreetNode; neighbors: { nodeId: number; streetType: string; weight: number }[] }> | null = null;
   private cachedGraphNetworkId: string | null = null;
   /** Connected piece of the cached graph per node id, see connectedComponents. */
   private cachedComponents: Map<number, number> | null = null;
@@ -150,13 +149,13 @@ export class StreetRouter {
     const a = endPoint.street.nodes[endPoint.nodeIndex];
     const b = endPoint.street.nodes[endPoint.nodeIndex + 1];
     const foot = closestPointOnSegment(a, b, { lat: endLat, lon: endLon });
-    const weight = ROAD_TYPE_WEIGHTS[endPoint.street.type] ?? DEFAULT_ROAD_WEIGHT;
+    const weight = streetWeight(endPoint.street);
     const ends = [a, b].map((node) => ({ node, cost: this.haversineDistance(node.lat, node.lon, foot.lat, foot.lon) * weight }));
     const footNode: StreetNode = { id: ROUTE_END_FOOT_ID, lat: foot.lat, lon: foot.lon };
     return new SegmentRoutes(
       start.street.nodes[start.nodeIndex],
       start.street.nodes[start.nodeIndex + 1],
-      ROAD_TYPE_WEIGHTS[start.street.type] ?? DEFAULT_ROAD_WEIGHT,
+      streetWeight(start.street),
       (node) => this.astar(graph, node, ends, endLat, endLon),
       footNode,
     );
@@ -165,7 +164,7 @@ export class StreetRouter {
   /**
    * Get cached graph or build new one if network changed
    */
-  private getOrBuildGraph(network: StreetNetwork): Map<number, { node: StreetNode; neighbors: { nodeId: number; streetType: string }[] }> {
+  private getOrBuildGraph(network: StreetNetwork): Map<number, { node: StreetNode; neighbors: { nodeId: number; streetType: string; weight: number }[] }> {
     // Create unique ID for this network based on bounds
     const networkId = `${network.bounds.minLat}_${network.bounds.maxLat}_${network.bounds.minLon}_${network.bounds.maxLon}_${network.streets.length}`;
 
@@ -276,12 +275,13 @@ export class StreetRouter {
     return false;
   }
 
-  private buildGraph(network: StreetNetwork): Map<number, { node: StreetNode; neighbors: { nodeId: number; streetType: string }[] }> {
-    const graph = new Map<number, { node: StreetNode; neighbors: { nodeId: number; streetType: string }[] }>();
+  private buildGraph(network: StreetNetwork): Map<number, { node: StreetNode; neighbors: { nodeId: number; streetType: string; weight: number }[] }> {
+    const graph = new Map<number, { node: StreetNode; neighbors: { nodeId: number; streetType: string; weight: number }[] }>();
 
     // Add all nodes from streets
     for (const street of network.streets) {
       const streetType = street.type;
+      const weight = streetWeight(street);
 
       for (let i = 0; i < street.nodes.length; i++) {
         const node = street.nodes[i];
@@ -297,7 +297,7 @@ export class StreetRouter {
           const prevNode = street.nodes[i - 1];
           // Check if neighbor already exists (avoid duplicates)
           if (!entry.neighbors.some(n => n.nodeId === prevNode.id)) {
-            entry.neighbors.push({ nodeId: prevNode.id, streetType });
+            entry.neighbors.push({ nodeId: prevNode.id, streetType, weight });
           }
         }
 
@@ -305,7 +305,7 @@ export class StreetRouter {
         if (i < street.nodes.length - 1) {
           const nextNode = street.nodes[i + 1];
           if (!entry.neighbors.some(n => n.nodeId === nextNode.id)) {
-            entry.neighbors.push({ nodeId: nextNode.id, streetType });
+            entry.neighbors.push({ nodeId: nextNode.id, streetType, weight });
           }
         }
       }
@@ -320,7 +320,7 @@ export class StreetRouter {
    * cost includes it.
    */
   private astar(
-    graph: Map<number, { node: StreetNode; neighbors: { nodeId: number; streetType: string }[] }>,
+    graph: Map<number, { node: StreetNode; neighbors: { nodeId: number; streetType: string; weight: number }[] }>,
     start: StreetNode,
     ends: readonly { node: StreetNode; cost: number }[],
     endLat: number,
@@ -386,7 +386,7 @@ export class StreetRouter {
           neighborEntry.node.lat,
           neighborEntry.node.lon
         );
-        const weight = ROAD_TYPE_WEIGHTS[neighbor.streetType] ?? DEFAULT_ROAD_WEIGHT;
+        const weight = neighbor.weight;
         const weightedDistance = distance * weight;
 
         const tentativeG = (gScore.get(current) ?? Infinity) + weightedDistance;

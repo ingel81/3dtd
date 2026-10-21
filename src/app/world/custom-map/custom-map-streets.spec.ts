@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CustomMapStreets, type StreetMap } from './custom-map-streets';
+import { CustomMapStreets, mapStreetNetwork, type StreetMap } from './custom-map-streets';
+import { streetWeight, UNDERPASS_WEIGHT } from '../../utils/street-astar';
 import { MAP_METERS_PER_DEGREE as M } from './map-document';
 import { packFootprints } from './map-footprints';
 import type { WorldStreetSource } from '../world-provider';
@@ -47,5 +48,25 @@ describe('CustomMapStreets footprints', () => {
     // The routes do not narrow them down (the game asks with its routes and the tiles' corridor)
     const source: WorldStreetSource = streets;
     expect((await source.loadBuildingsNearRoutes([route], 25)).buildings).toHaveLength(4);
+  });
+});
+
+describe('CustomMapStreets underpasses', () => {
+  it('hands the router a path tunnel as an underpass, weighed a thousandfold; a road tunnel stays a road', () => {
+    const network = mapStreetNetwork({
+      terrain: { width: 400, depth: 400 },
+      footprints: undefined,
+      paths: {
+        nodes: [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 100, y: 0 }, { id: 'c', x: 100, y: 100 }],
+        edges: [
+          { id: 'sub', a: 'a', b: 'b', width: 3, kind: 'path', street: 'footway', tunnel: true },
+          { id: 'tun', a: 'b', b: 'c', width: 8, kind: 'road', street: 'secondary', tunnel: true },
+        ],
+      },
+    } as unknown as StreetMap);
+    const [sub, tun] = network.streets;
+    expect([sub.underpass, tun.underpass]).toEqual([true, undefined]);
+    expect(streetWeight(sub)).toBe(streetWeight({ type: 'footway' }) * UNDERPASS_WEIGHT);
+    expect(streetWeight(tun)).toBe(streetWeight({ type: 'secondary' }));
   });
 });

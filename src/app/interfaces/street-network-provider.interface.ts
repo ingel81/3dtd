@@ -30,6 +30,11 @@ export interface Street {
   /** yes, arcade, ... */
   covered?: string;
   layer?: number;
+  /**
+   * A footway or path under a track field (a custom map's path tunnel): the
+   * enemies take it only where nothing else joins their ends (UNDERPASS_WEIGHT)
+   */
+  underpass?: boolean;
 }
 
 export interface StreetNetwork {

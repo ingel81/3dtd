@@ -43,6 +43,18 @@ export const ROAD_TYPE_WEIGHTS: Record<string, number> = {
 export const DEFAULT_ROAD_WEIGHT = 1.5;
 
 /**
+ * Cost multiplier on an underpass (Street.underpass, a custom map's path
+ * under a track field): a route takes one only where no other way joins its
+ * ends, a detour a thousand times its length being none
+ */
+export const UNDERPASS_WEIGHT = 1000;
+
+/** What a metre along `street` costs a route */
+export function streetWeight(street: { type: string; underpass?: boolean }): number {
+  return (ROAD_TYPE_WEIGHTS[street.type] ?? DEFAULT_ROAD_WEIGHT) * (street.underpass ? UNDERPASS_WEIGHT : 1);
+}
+
+/**
  * MinHeap for A* pathfinding - O(log n) insert/extract
  */
 export class MinHeap<T> {

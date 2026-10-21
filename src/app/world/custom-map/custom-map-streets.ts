@@ -123,6 +123,8 @@ export function mapStreetNetwork(doc: StreetMap): StreetNetwork {
     };
     if (e.kind === 'bridge') street.bridge = 'yes';
     if (e.tunnel) street.tunnel = 'yes';
+    // A path tunnel is an underpass (an OSM world's subway under a station's tracks): the enemies keep off it
+    if (e.tunnel && e.kind === 'path') street.underpass = true;
     // Through a building: under cover as on a real place (route-corridor.ts runsUnderCover)
     else if (e.covered) street.covered = 'yes';
     streets.push(street);
