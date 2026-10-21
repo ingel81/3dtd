@@ -84,6 +84,10 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Krater-Rechteck neu setzen (billig); Sicht entweder nur die betroffenen Zellen gegen den alten Cube neu proben
       (billig, Kraterwand selbst verdeckt dann nicht) oder Cube der Tower in Reichweite neu rendern (je Tower ein
       Cube-Render, bei Nuke-Dauerfeuer gedrosselt, z. B. höchstens einmal je Sekunde gesammelt).
+- [ ] **E292 Editor: zwei Abweichungen im Fuzz-Test** (Zweitrechner 2026-10-21, beim Spiegel-Fix a30484b02 gefunden):
+      Mit Abgleich nach jedem Schritt (Seeds 5000-5149) bleiben 3 von 150 rot. 5023 und 5138: nach „landscape road“
+      stimmt die Worker-Kopie (DocMirror) nicht mit dem Editor-Dokument überein. 5038: Undo von „Remove 17 objects“
+      ergibt nicht die Karte von Schritt 56. Die 10 Seeds im Test sind grün. Ursache offen.
 - [ ] **E285 Weinberge: Rebzeilen** (User 2026-10-20): Zeilen stehen schräg und sind in kurze Stücke zerhackt. Soll:
       gerade, parallel, durchgehend über die Parzelle, in der Falllinie den Hang hoch, meist rechtwinklig zur
       erschließenden Straße; auf flachem Gelände rechtwinklig zur nächsten Straße.
