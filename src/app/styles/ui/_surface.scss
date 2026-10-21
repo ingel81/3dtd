@@ -199,6 +199,25 @@
   box-shadow: var(--td-well-shadow);
 }
 
+// A raised stone plate that holds more than one line: the picked map of a
+// list, opened in its place with its ways. The plate is the choice: a chosen
+// row in it lies flat, quiet text on it turns lighter (as on a chosen row)
+@mixin plate {
+  border-radius: var(--td-radius);
+  background: var(--td-stone-plate);
+  box-shadow: var(--td-raised-plate);
+
+  :is(.td-muted, .td-note:not(.is-warn, .is-error, .is-ok), .td-sub, .td-caps) {
+    color: var(--td-text-secondary);
+  }
+
+  > :is(.td-row.is-selected, .td-row[aria-selected='true']) {
+    border-bottom-color: transparent;
+    background: none;
+    box-shadow: none;
+  }
+}
+
 // A card in a grid (build cards): sunken; chosen with a brass edge. As a
 // <button> it is the whole card: hover lights its text, a locked one dims.
 @mixin card {

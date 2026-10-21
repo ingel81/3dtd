@@ -139,6 +139,7 @@
   .td-head { @include surface.head; }
   .td-well { @include surface.well; }
   .td-well.is-deep { @include surface.well-deep; }
+  .td-plate { @include surface.plate; }
   .td-card { @include surface.card; }
 
   // === Buttons ===

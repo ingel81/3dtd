@@ -13,7 +13,7 @@ import { WorldPathComponent } from '../components/world-path/world-path.componen
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { Component, Input, Output, computed, input, output, signal } from '@angular/core';
+import { Component, Input, Output, booleanAttribute, computed, input, output, signal } from '@angular/core';
 import { getTestBed, TestBed, type ComponentFixture } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { MatDialog } from '@angular/material/dialog';
@@ -95,6 +95,7 @@ for (const name of ['world', 'worldHere', 'mode', 'modes', 'playLabel', 'editLab
 }
 
 Input({ alias: 'world', isSignal: true } as Input)(StageContinueComponent.prototype, 'world');
+Input({ alias: 'block', isSignal: true, transform: booleanAttribute } as Input)(StageContinueComponent.prototype, 'block');
 for (const name of ['world', 'src', 'label']) Input({ alias: name, isSignal: true } as Input)(GlobePictureComponent.prototype, name);
 // The rows' Enter (an output() the JIT compiler does not see on its own)
 Output('pickRowsPlay')(PickRowsDirective.prototype, 'pickRowsPlay');
@@ -128,12 +129,14 @@ describe('Worlds stage', () => {
     TestBed.resetTestingModule();
     localStorage.clear();
     own = [];
+    shared = [];
     trashed = [];
   });
 
   let store: MemorySlotStore;
   const shipped = () => [{ summary: summary({ id: 'demo-valley', name: 'Demo Valley', description: 'River valley.' }), picture: 'maps/demo-valley.png' }];
   let own: { summary: MapSummary; picture: string | null }[] = [];
+  let shared: { summary: MapSummary; picture: string | null }[] = [];
   let trashed: MapSummary[] = [];
   let trashMap: ReturnType<typeof vi.fn<(id: string) => Promise<boolean>>>;
 
@@ -173,7 +176,7 @@ describe('Worlds stage', () => {
         {
           provide: WorldChoiceService,
           useValue: {
-            listMaps: async () => ({ own: [...own], shared: [], shipped: shipped() }),
+            listMaps: async () => ({ own: [...own], shared: [...shared], shipped: shipped() }),
             tilesets: signal([]),
             editMap: vi.fn(),
             newMap: vi.fn(),
@@ -442,30 +445,58 @@ describe('Worlds stage', () => {
     expect(rows()).toEqual([]);
   });
 
-  it('Built Worlds lists every other map with its picture and where it comes from; Recent shows the maps played lately', async () => {
+  it('Built Worlds lists every map once, in the group it comes from; a map played lately says when, an OSM map says so', async () => {
     own = [
       ownMap('miltenberg', 'Miltenberg', { generated: true, osm: { lat: 49.7, lon: 9.26 } }),
       ownMap('musterdorf', 'Musterdorf', { osm: { lat: 48.5, lon: 10.6 } }),
-      ownMap('demo-valley-copy', 'Demo Valley (copy)', { copyOf: { id: 'demo-valley', hash: 'h' } }),
+      ownMap('demo-valley-copy', 'Demo Valley (copy)', { copyOf: { id: 'demo-valley', hash: 'h' }, spawns: 4 }),
     ];
-    localStorage.setItem('td_recent_maps_v1', JSON.stringify(['demo-valley']));
+    const today = new Date().toISOString();
+    localStorage.setItem('td_recent_maps_v2', JSON.stringify([{ id: 'demo-valley', at: today }, { id: 'musterdorf', at: today }]));
     const f = await open({ key: true });
     card(f, 'maps').click();
     await settle(f);
     const sections = [...el(f).querySelectorAll('.wm-body .td-group')].map((g) => [text(g.querySelector('.td-section')), [...g.querySelectorAll<HTMLElement>('[data-map]')].map((r) => r.dataset['map'])]);
+    // No Recent group, and no group of coop hosts while none sent a map
     expect(sections).toEqual([
-      ['Recent', ['demo-valley']],
       ['Your built worlds', ['musterdorf', 'demo-valley-copy']],
-      ['From coop hosts', []],
       ['Shipped', ['demo-valley']],
     ]);
-    expect(text(el(f).querySelector('[data-map="musterdorf"]'))).toContain('from OpenStreetMap');
-    expect(text(el(f).querySelector('[data-map="demo-valley-copy"]'))).toContain('copy of Demo Valley');
+    expect(text(el(f).querySelector('[data-map="musterdorf"]'))).toBe('Musterdorf OSM | played today');
+    expect(el(f).querySelector('[data-map="musterdorf"] [title="Made from OpenStreetMap"]')).not.toBeNull();
+    expect(text(el(f).querySelector('[data-map="demo-valley"]'))).toBe('Demo Valley played today');
+    // No spawns in a row: they show in the picked map's plate, with the copy's origin and when it changed
+    expect(text(el(f).querySelector('[data-map="demo-valley-copy"]'))).toBe('Demo Valley (copy)');
     expect(el(f).querySelector<HTMLImageElement>('[data-map="demo-valley"] img')!.getAttribute('src')).toBe('maps/demo-valley.png');
-    el(f).querySelector<HTMLElement>('[data-recent-remove]')!.click();
+    el(f).querySelector<HTMLElement>('[data-map="demo-valley-copy"]')!.click();
     await settle(f);
-    expect(text(el(f).querySelector('.wm-body .td-group .td-section'))).toBe('Your built worlds');
-    expect(localStorage.getItem('td_recent_maps_v1')).toBe('[]');
+    const plate = el(f).querySelector<HTMLElement>('.wm-item.td-plate')!;
+    expect(plate.querySelector('[data-map="demo-valley-copy"]')).not.toBeNull();
+    expect(text(plate.querySelector('[data-test="map-detail"]'))).toBe(`4 spawns | copy of Demo Valley | changed ${en.worlds.playedAt('2026-10-16T08:00:00Z')}`);
+    expect(text(plate.querySelector('.wm-actions'))).toBe('Play Edit');
+    // A shipped map: its words, Play, Edit, and that the copy comes with the first change
+    el(f).querySelector<HTMLElement>('[data-map="demo-valley"]')!.click();
+    await settle(f);
+    expect(el(f).querySelectorAll('.td-plate')).toHaveLength(1);
+    expect(text(el(f).querySelector('.td-plate [data-test="map-detail"]'))).toContain('River valley with a village');
+    expect(text(el(f).querySelector('.td-plate'))).toContain('Your copy comes with the first change');
+  });
+
+  it('a host\'s map shows its group; the running game stands on top as one block with its picture, Continue and Discard', async () => {
+    shared = [{ summary: summary({ id: 'host-map', name: 'Host map', origin: 'shared' }), picture: null }];
+    const f = await open({ key: true });
+    await store.write({ ...heilbronn(), id: 'autosave-built', name: 'Demo Valley, wave 2', wave: 2, location: 'Demo Valley', map: { id: 'demo-valley', name: 'Demo Valley' }, world: 'maps' }, 'save');
+    card(f, 'maps').click();
+    await settle(f);
+    expect([...el(f).querySelectorAll<HTMLElement>('.wm-body .td-group')].map((g) => g.dataset['group'])).toEqual(['own', 'shared', 'shipped']);
+    const block = el(f).querySelector<HTMLElement>('[data-test="running-game"]')!;
+    expect(text(block)).toBe(`Running game Demo Valley Wave 2 | ${en.worlds.playedAt('2026-10-16T08:00:00Z')} Continue`);
+    expect(block.querySelector('img')!.getAttribute('src')).toBe('maps/demo-valley.png');
+    expect(block.querySelector('[data-stage-discard]')!.getAttribute('aria-label')).toBe('Discard Demo Valley | wave 2');
+    // Its map's plate says Continue too
+    el(f).querySelector<HTMLElement>('[data-map="demo-valley"]')!.click();
+    await settle(f);
+    expect(text(el(f).querySelector('.td-plate [data-stage-start]'))).toBe('Continue');
   });
 
   it('each world menu keeps its pick over a reload; a map that is gone is no pick', async () => {
@@ -642,7 +673,7 @@ describe('Worlds stage', () => {
     await settle(f);
     card(f, 'maps').click();
     await settle(f);
-    expect(text(el(f).querySelector('[data-stage-continue]'))).toBe('Continue Demo Valley | wave 3');
+    expect(text(el(f).querySelector('[data-test="running-game"]'))).toBe('Running game Demo Valley Wave 3 Continue');
     expect([...el(f).querySelectorAll('.ws-chip')].map((c) => c.getAttribute('data-chip'))).toEqual(['continue-real']);
   });
 
@@ -747,6 +778,45 @@ describe('Worlds stage', () => {
     expect(worlds['importMaps']).toHaveBeenCalledWith([file]);
   });
 
+  it('More of the picked map opens its menu: own maps Download, Duplicate, Delete; shipped Download only; Esc and a click beside close it', async () => {
+    own = [{ summary: summary({ id: 'bay', name: 'Bay', origin: 'own', updatedAt: '2026-10-16T08:00:00Z' }), picture: null }];
+    const f = await open({ key: true });
+    card(f, 'maps').click();
+    await settle(f);
+    const more = () => el(f).querySelector<HTMLElement>('[data-test="map-more"]')!;
+    const menu = () => el(f).querySelector<HTMLElement>('.wm-more-menu');
+    el(f).querySelector<HTMLElement>('[data-map="bay"]')!.click();
+    await settle(f);
+    expect(menu()).toBeNull();
+    more().click();
+    await settle(f);
+    expect(more().getAttribute('aria-expanded')).toBe('true');
+    const items = [...menu()!.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+    expect(items.map(text)).toEqual(['Download', 'Duplicate', 'Delete']);
+    // The focus on its first entry; Up goes round to the last
+    expect(document.activeElement).toBe(items[0]);
+    items[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(items[2]);
+    // Esc closes the menu, not the world's menu
+    menu()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    await settle(f);
+    expect(menu()).toBeNull();
+    expect(TestBed.inject(WorldsStageService).view()).toBe('world');
+    expect(document.activeElement).toBe(more());
+    // A click beside it closes it
+    more().click();
+    await settle(f);
+    el(f).querySelector<HTMLElement>('.wm-body .td-section')!.click();
+    await settle(f);
+    expect(menu()).toBeNull();
+    // A shipped map: only Download
+    el(f).querySelector<HTMLElement>('[data-map="demo-valley"]')!.click();
+    await settle(f);
+    more().click();
+    await settle(f);
+    expect([...menu()!.querySelectorAll('[role="menuitem"]')].map(text)).toEqual(['Download']);
+  });
+
   it('the picked map: Download, Duplicate (picked after), Delete to the trash with Restore; the trash lists it at the end', async () => {
     own = [{ summary: summary({ id: 'bay', name: 'Bay', origin: 'own', updatedAt: '2026-10-16T08:00:00Z' }), picture: null }];
     const f = await open({ key: true });
@@ -758,14 +828,24 @@ describe('Worlds stage', () => {
     await settle(f);
     el(f).querySelector<HTMLElement>('[data-map="bay"]')!.click();
     await settle(f);
+    const more = async () => {
+      el(f).querySelector<HTMLElement>('[data-test="map-more"]')!.click();
+      await settle(f);
+    };
+    await more();
     button(f, 'Download').click();
+    await settle(f);
     expect(worlds['downloadMap']).toHaveBeenCalledWith('bay', 'own');
+    // The menu closed with its entry
+    expect(el(f).querySelector('.wm-more-menu')).toBeNull();
+    await more();
     button(f, 'Duplicate').click();
     await settle(f);
     expect(worlds['duplicateMap']).toHaveBeenCalledWith('bay', 'own');
     expect(stage.picks().maps).toMatchObject({ id: 'bay-2' });
     el(f).querySelector<HTMLElement>('[data-map="bay"]')!.click();
     await settle(f);
+    await more();
     el(f).querySelector<HTMLElement>('[data-test="delete-map"]')!.click();
     await vi.waitFor(() => expect(library.deleteMap).toHaveBeenCalledWith('bay', 'Bay'));
     await settle(f);

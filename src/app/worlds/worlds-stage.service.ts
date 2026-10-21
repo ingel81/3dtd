@@ -17,7 +17,7 @@ import type { PathChip } from '../components/world-path/world-path.component';
 import { PLAIN_START, WorldStartService, type WorldStart } from '../world/world-start';
 import type { OsmFrameRequest } from '../components/osm-frame/osm-frame-request';
 import { StageSaves } from './stage-saves';
-import { forgetRecentMap, loadRecentMaps, overflowWorlds } from './recent-maps';
+import { loadRecentMaps, overflowWorlds, type RecentMap } from './recent-maps';
 import {
   heroWorld,
   runAtRisk,
@@ -80,6 +80,12 @@ export interface StageContinue {
   label: string;
   /** "Heilbronn | wave 12" */
   line: string;
+  /** What it plays: the place or map's name, its wave (null for a place held with no run) and its pick */
+  name: string;
+  wave: number | null;
+  pick: WorldPick | null;
+  /** A place held whose run was lost (game over) */
+  over: boolean;
   /** When the run was last played, its save's time (ISO 8601); null without a save (a run held with none yet, a place held) */
   at: string | null;
   /** The run behind it, for Discard */
@@ -160,8 +166,8 @@ export class WorldsStageService {
   private readonly frameFrom = signal<WorldId | 'game'>('osm');
   /** Own, received and shipped maps, filled when a world of maps shows */
   readonly maps = signal<readonly StageMap[]>([]);
-  /** The Built Worlds' Recent: the maps played lately, newest first (recent-maps.ts) */
-  readonly recentMaps = signal<readonly string[]>(loadRecentMaps());
+  /** The maps played lately in Built Worlds, newest first: their rows say when (recent-maps.ts) */
+  readonly recentMaps = signal<readonly RecentMap[]>(loadRecentMaps());
   /** OpenStreetMap's Recent worlds: the maps made there and not changed since, newest first */
   readonly recentWorlds = computed(() =>
     this.maps().filter((m) => m.generated).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
@@ -271,11 +277,14 @@ export class WorldsStageService {
     if (held && held.world === world) {
       // The autosave of the held run is the one Discard drops with it
       const own = run && held.pick && run.pick && samePick(run.pick, held.pick) ? run : null;
+      const plays = { name: held.label, pick: held.pick, over: !!held.over };
       return held.run
-        ? { world, kind: 'ready', label: words.continue, line: words.runLine(held.label, held.wave), at: own?.savedAt || null, run: own ?? this.heldRun(held) }
-        : { world, kind: 'back', label: words.backTo(held.label), line: held.over ? words.stillLoadedOver : words.stillLoadedNoRun, at: null, run: null };
+        ? { world, kind: 'ready', label: words.continue, line: words.runLine(held.label, held.wave), ...plays, wave: held.wave, at: own?.savedAt || null, run: own ?? this.heldRun(held) }
+        : { world, kind: 'back', label: words.backTo(held.label), line: held.over ? words.stillLoadedOver : words.stillLoadedNoRun, ...plays, wave: null, at: null, run: null };
     }
-    return run ? { world, kind: 'saved', label: words.continue, line: words.runLine(run.name, run.wave), at: run.savedAt || null, run } : null;
+    return run
+      ? { world, kind: 'saved', label: words.continue, line: words.runLine(run.name, run.wave), name: run.name, wave: run.wave, pick: run.pick, over: false, at: run.savedAt || null, run }
+      : null;
   }
 
   /** A held run with no autosave of its own yet, as Discard and a start elsewhere see it */
@@ -751,11 +760,6 @@ export class WorldsStageService {
     const pick = this.picks().osm;
     if (pick?.kind === 'map' && pick.id === id) this.pick('osm', null);
     await this.refreshMaps();
-  }
-
-  /** A map off the Built Worlds' Recent; the map itself stays */
-  forgetMap(id: string): void {
-    this.recentMaps.set(forgetRecentMap(id));
   }
 
   /** Out of the frame, back to where it was opened: a world's menu, or the game it was made from (plan 3.3) */

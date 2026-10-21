@@ -1479,12 +1479,11 @@ export const de: Messages = {
     osmPick: 'Such einen Ort für eine neue Karte oder wähl eine deiner Karten. Der Globus dreht sich hin.',
     mapsSoon: 'Gebaute Welten und der Editor kommen bald in diesem Build.',
     newMap: 'Neue Karte',
-    importFile: 'Datei importieren',
+    importFile: 'Importieren',
     importHint: 'Eine 3DTD-Karte (.3dtdmap) oder eine Warcraft-3-Karte (.w3x, Beta)',
     mapFolder: 'Kartenordner',
     mapFolderHint: 'Deine Karten als .3dtdmap-Dateien in Dokumente/3DTD/Maps; leg Dateien dorthin, um sie hinzuzufügen',
     groups: {
-      recent: 'Zuletzt',
       own: 'Eigene Welten',
       ownEmpty: 'Noch keine: Neue Karte fängt eine an, oder ändere eine unter OpenStreetMap gemachte Karte.',
       shared: 'Von Koop-Hosts',
@@ -1499,8 +1498,23 @@ export const de: Messages = {
     download: 'Herunterladen',
     duplicate: 'Duplizieren',
     pickMap: 'Wähle eine Karte: Ihr Turm dreht sich nach vorn. Spielen lädt sie.',
-    fromOsm: 'aus OpenStreetMap',
+    osm: 'OSM',
+    osmHint: 'Aus OpenStreetMap gemacht',
     copyOf: (name) => `Kopie von ${name}`,
+    lastPlayed: (at, now = new Date()) => {
+      const { days, sameYear } = calendarAge(at, now);
+      if (days === 0) return 'zuletzt heute';
+      if (days === 1) return 'zuletzt gestern';
+      return `zuletzt ${f.date(at, sameYear ? { day: '2-digit', month: '2-digit' } : { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+    },
+    changed: (when) => `geändert ${when}`,
+    more: 'Mehr',
+    runningGame: 'Laufendes Spiel',
+    stillLoaded: 'Noch geladen',
+    runOver: 'Der Lauf ist vorbei',
+    noRunYet: 'Noch kein Lauf',
+    runSub: (wave, when) => `Welle ${f.int(wave)}${when ? ` | ${when}` : ''}`,
+    backToGame: 'Zurück ins Spiel',
     deleted: (daysAgo, left) =>
       `Gelöscht ${daysAgo <= 0 ? 'heute' : daysAgo === 1 ? 'gestern' : `vor ${f.int(daysAgo)} Tagen`} | endgültig weg in ${f.int(left)} ${f.plural(left, 'Tag', 'Tagen')}`,
   },

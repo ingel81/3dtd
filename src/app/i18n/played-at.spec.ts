@@ -29,4 +29,13 @@ describe('playedAt', () => {
     expect(en.worlds.playedAt(at(2026, 9, 18, 14, 3), now)).toBe('Oct 18, 2:03 PM');
     expect(en.worlds.playedAt(at(2025, 9, 18, 14, 3), now)).toBe('Oct 18, 2025, 2:03 PM');
   });
+
+  it('a map row says only the day it was played last', () => {
+    expect(de.worlds.lastPlayed(at(2026, 9, 20, 18, 42), now)).toBe('zuletzt heute');
+    expect(de.worlds.lastPlayed(at(2026, 9, 19, 21, 10), now)).toBe('zuletzt gestern');
+    expect(de.worlds.lastPlayed(at(2026, 9, 18, 14, 3), now)).toBe('zuletzt 18.10.');
+    expect(en.worlds.lastPlayed(at(2026, 9, 20, 18, 42), now)).toBe('played today');
+    expect(en.worlds.lastPlayed(at(2026, 9, 19, 21, 10), now)).toBe('played yesterday');
+    expect(en.worlds.lastPlayed(at(2025, 9, 18, 14, 3), now)).toBe('played Oct 18, 2025');
+  });
 });

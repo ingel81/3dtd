@@ -1704,12 +1704,11 @@ export const en = {
     // The Built Worlds' menu
     mapsSoon: 'Built worlds and the editor are coming soon in this build.',
     newMap: 'New map',
-    importFile: 'Import file',
+    importFile: 'Import',
     importHint: 'A 3DTD map (.3dtdmap) or a Warcraft 3 map (.w3x, beta)',
     mapFolder: 'Map folder',
     mapFolderHint: 'Your maps as .3dtdmap files in Documents/3DTD/Maps; put files there to add them',
     groups: {
-      recent: 'Recent',
       own: 'Your built worlds',
       ownEmpty: 'None yet: New map starts one, or change a map made under OpenStreetMap.',
       shared: 'From coop hosts',
@@ -1724,8 +1723,27 @@ export const en = {
     download: 'Download',
     duplicate: 'Duplicate',
     pickMap: 'Pick a map: its tower turns to the front. Play loads it.',
-    fromOsm: 'from OpenStreetMap',
+    osm: 'OSM',
+    osmHint: 'Made from OpenStreetMap',
     copyOf: (name: string) => `copy of ${name}`,
+    /** A map's row: when it was played last, "played today", "played Oct 18", "played Oct 18, 2025" */
+    lastPlayed: (at: string, now: Date = new Date()) => {
+      const { days, sameYear } = calendarAge(at, now);
+      if (days === 0) return 'played today';
+      if (days === 1) return 'played yesterday';
+      return `played ${f.date(at, sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    },
+    /** "changed today 9:30 AM", `when` from playedAt */
+    changed: (when: string) => `changed ${when}`,
+    more: 'More',
+    /** The running game at the top of the Built Worlds' menu */
+    runningGame: 'Running game',
+    stillLoaded: 'Still loaded',
+    runOver: 'The run is over',
+    noRunYet: 'No run yet',
+    /** "Wave 2 | today 9:41 AM", `when` from playedAt */
+    runSub: (wave: number, when: string | null) => `Wave ${f.int(wave)}${when ? ` | ${when}` : ''}`,
+    backToGame: 'Back to the game',
     /** "Deleted today | goes for good in 30 days" */
     deleted: (daysAgo: number, left: number) =>
       `Deleted ${daysAgo <= 0 ? 'today' : daysAgo === 1 ? 'yesterday' : `${f.int(daysAgo)} days ago`} | goes for good in ${f.int(left)} ${f.plural(left, 'day', 'days')}`,

@@ -41,12 +41,21 @@
   }
 }
 
-// A group's head with its action right: New map beside the own maps
+// A group's head with its ways right: New map and Import beside the own maps
 .wm-group-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--td-sp-3);
+}
+
+.wm-head-tools {
+  gap: var(--td-sp-1);
+}
+
+// The picked map's plate: its row and what opened under it, one stone
+.wm-item.td-plate {
+  padding-bottom: var(--td-sp-1);
 }
 
 .wm-row {
@@ -149,6 +158,21 @@
   align-items: flex-start;
 }
 
+// More at the end of a picked map's buttons, its menu under it at the right
+.wm-more {
+  position: relative;
+  margin-left: auto;
+}
+
+.wm-more-menu {
+  position: absolute;
+  top: calc(100% + var(--td-sp-1));
+  right: 0;
+  z-index: 2;
+  min-width: 200px;
+  padding: var(--td-sp-1);
+}
+
 // A map's row: its picture, its name and where it comes from (docs/WORLDS_STATE_PLAN.md, 3.6)
 .wm-map {
   display: flex;
@@ -163,8 +187,4 @@
   height: 36px;
   border-radius: var(--td-radius);
   object-fit: cover;
-}
-
-.wm-badge {
-  align-self: flex-start;
 }
