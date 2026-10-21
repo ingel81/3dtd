@@ -55,4 +55,35 @@ describe('RouteLineLayer', () => {
     expect(geometry).toHaveBeenCalledOnce();
     expect(material).toHaveBeenCalledOnce();
   });
+
+  it('stands on the craters under the route, every metre over them, and draws again only the lines that cross a change (E291)', () => {
+    const crater = { x: 20, z: 0, r: 3, depth: 2 };
+    let stamps: { heightAt(x: number, z: number): number } | null = null;
+    const layer = new RouteLineLayer(() => stamps);
+    const overlay = new Group();
+    const across = [new Vector3(0, 1, 0), new Vector3(40, 1, 0)];
+    const beside = [new Vector3(0, 1, 50), new Vector3(40, 1, 50)];
+    layer.add(overlay, across, 0xff0000, true, clip);
+    layer.add(overlay, beside, 0xff0000, true, clip);
+    const ys = (k: number) => {
+      const start = layer.all[k].geometry.getAttribute('instanceStart');
+      return Array.from({ length: start.count }, (_, i) => [start.getX(i), start.getY(i)]);
+    };
+    // On the ground as built: its two points
+    expect(ys(0)).toEqual([[0, 1]]);
+    const besideGeometry = layer.all[1].geometry;
+
+    stamps = { heightAt: (x, z) => (Math.hypot(x - crater.x, z - crater.z) < crater.r ? -crater.depth : 0) };
+    layer.restand({ minX: 16, minZ: -4, maxX: 24, maxZ: 4 });
+    const pts = ys(0);
+    // A metre a step over the 40 m, down into the crater and up again
+    expect(pts).toHaveLength(40);
+    expect(pts.find(([x]) => x === 20)![1]).toBe(-1);
+    expect(pts.find(([x]) => x === 10)![1]).toBe(1);
+    // The line 50 m off was not drawn again
+    expect(layer.all[1].geometry).toBe(besideGeometry);
+    // A new line on a stamped ground stands on it from the start
+    layer.add(overlay, across, 0x00ff00, true, clip);
+    expect(ys(2)).toEqual(pts);
+  });
 });

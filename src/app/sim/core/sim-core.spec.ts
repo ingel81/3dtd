@@ -303,6 +303,37 @@ describe('SimCore in the same thread', () => {
       .toEqual([['structures.setStages', new Uint8Array([0]), new Int16Array([-1]), new Int32Array([100]), new Int32Array(30)]]);
   });
 
+  it('makes the towers whose reach a new crater under the routes touches look anew, not those beyond it (E291)', () => {
+    const main = mainWorld();
+    const rules = { startCredits: 100, hqHealth: 500, towers: null, structures: [], destruction: { craters: true, wear: false }, start: null };
+    const world: SimWorld = {
+      ...main.world,
+      rules,
+      worldKey: worldKeyOf(main.grid.snapshotHeights(), main.world.paths.map(([, p]) => p), main.sync.getOrigin(), rules),
+    };
+    const core = newCore(world);
+    const drive = new Driver(core);
+    drive.send({ type: 'debug:add-credits', amount: 5000 });
+    for (const lat of [100, 360]) drive.send({ type: 'command:place-tower', typeId: 'archer', position: { lat: lat / M, lon: -9 / M, height: 0 } });
+    let packet = drive.tick();
+    for (const need of drive.needs(packet)) drive.send(answer(main, core, need));
+    drive.tick();
+    const [near, far] = core.gsm.towerManager.getAll();
+    expect(near.position.lat * M).toBeCloseTo(100, 3);
+
+    // A crater on the route 9 m from the near archer, 260 m from the far one
+    drive.send({ type: 'debug:dig-crater', lat: 100 / M, lon: 0, radius: 4, depth: 120 });
+    packet = drive.tick();
+    expect(packet.ops.map((op) => op[0])).toContain('craters.dig');
+    expect(drive.needs(packet).map((n) => [n.towerId, n.reason])).toEqual([[near.id, 'world']]);
+    // It keeps firing on its old answers until the new ones come
+    expect(near.losReady).toBe(true);
+    // Deepened by a few centimetres in the same place: no new request
+    drive.send({ type: 'debug:dig-crater', lat: 100 / M, lon: 0, radius: 4, depth: 5 });
+    expect(drive.needs(drive.tick())).toEqual([]);
+    expect(far.losReady).toBe(true);
+  });
+
   it("shells a destructible world's structure with the jumper's gun, the same on every run; on a world without, its gun looks ahead", () => {
     const main = mainWorld();
     // A house 25 m east of the first route, 140 m along it

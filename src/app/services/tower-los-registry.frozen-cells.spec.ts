@@ -121,7 +121,7 @@ describe('TowerLosRegistry on the frozen cells', () => {
       readFacesAsync: () => Promise.resolve([]),
     };
     blockerGroup = {};
-    const engine = { sync, getLosBlockerGroup: () => blockerGroup, getTowerShadowMapper: () => mapper };
+    const engine = { sync, world: { destruction: null }, getLosBlockerGroup: () => blockerGroup, getTowerShadowMapper: () => mapper };
 
     bus = createMainEventBus();
     mirror = new SimMirror();

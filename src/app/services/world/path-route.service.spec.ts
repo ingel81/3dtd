@@ -23,6 +23,7 @@ vi.mock('@angular/core', async () => {
       notice: { value: null as unknown, set(value: unknown) { this.value = value; } },
     },
     GlobalRouteGridService: {
+      onStampsChanged: () => () => undefined,
       isInitialized: () => grid.ready,
       getGroundLocalYAt: (x: number, z: number) => grid.cellY(x, z),
       getGrid: () => ({

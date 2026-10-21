@@ -321,6 +321,17 @@ Tower sendet `tower:los-resolved` mit `reason: 'retrofit'`. Für ein exaktes
 Nachrechnen muss das Befehlslog den Sub-Step festhalten, an dem das Event
 kam; die Maske steckt im Event.
 
+### Geänderte Welt (`reason: 'world'`, E291)
+
+Ein Krater unter den Routen, ein Fall, die Wand einer Ruine, die Objekte
+eines Wellen-Ereignisses: die Simulation lässt die Tower in Reichweite neu
+anfragen (`seeAround`, docs/DESTRUCTION_PLAN.md). Der Hauptthread rendert
+dafür den Cube neu und probt alle Zellen in Reichweite (`registerTower`,
+nicht inkrementell), denn jede alte Antwort kann falsch sein. Die Anfragen
+warten und gehen als Stapel (`WorldSightBatch`): höchstens einer je
+Sekunde, je Tower die neueste Anfrage, erst wenn der gezeichnete Boden alle
+Krater trägt. Bau, Upgrade und Nachrüstung warten nicht.
+
 Sonst entwertet nichts die Registrierung eines platzierten Towers: Die
 Reichweite ändert sich nur per Upgrade (`recomputeRangeAfterUpgrade` in
 `TowerLifecycle`), Position und Höhe sind ab dem Bau fest, `canTargetGround`

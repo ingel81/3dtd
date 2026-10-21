@@ -34,6 +34,7 @@ import { UIStore } from '../../store/ui.store';
 import type { ColumnSample } from '../../three-engine/column-sample';
 import type { Enemy } from '../../entities/enemy.entity';
 import type { GeoPosition } from '../../models/game.types';
+import { StampField, type CellSpan } from '../../utils/stamp-field';
 
 /**
  * The service wraps GlobalRouteGrid (covered in utils/global-route-grid.spec.ts);
@@ -555,5 +556,45 @@ describe('GlobalRouteGridService', () => {
       viz.updateAirRouteLayer();
       expect(scene.children).toHaveLength(0);
     });
+  });
+
+  it('stands the overlay plates, the stand height and its listeners on a crater dug under the route, only there (E291)', () => {
+    init();
+    const mesh = service.getGrid().createVisualization();
+    const m = new Matrix4();
+    /** The plate nearest (x, z): its height */
+    const plateY = (x: number, z: number) => {
+      let best = Infinity;
+      let y = NaN;
+      for (let i = 0; i < mesh.count; i++) {
+        mesh.getMatrixAt(i, m);
+        const d = Math.hypot(m.elements[12] - x, m.elements[14] - z);
+        if (d < best) [best, y] = [d, m.elements[13]];
+      }
+      return y;
+    };
+    const field = new StampField(service.cellSpan()!);
+    service.setStampField(field);
+    const spans: (CellSpan | null)[] = [];
+    service.onStampsChanged((span) => spans.push(span));
+    const [atCrater, farOff, stand] = [plateY(20, 0), plateY(1, 0), service.getStandLocalYAt(20, 0)!];
+
+    field.crater({ x: 20, z: 0, radius: 4, depthCm: 200 }, 1);
+    service.stampsChanged();
+    expect(spans).toHaveLength(1);
+    const span = spans[0]!;
+    // The crater's cells (5.4 m round its middle), not the route's whole length
+    expect([span.minIx <= 10, span.maxIx >= 10, span.minIx >= 7, span.maxIx <= 12]).toEqual([true, true, true, true]);
+    expect(plateY(20, 0)).toBeLessThan(atCrater - 1);
+    expect(plateY(1, 0)).toBe(farOff);
+    expect(service.getStandLocalYAt(20, 0)!).toBeLessThan(stand - 1);
+    expect(service.getStandLocalYAt(1, 0)).toBe(service.getGrid().getGroundLocalYAt(1, 0));
+    // Nothing new: nobody hears
+    service.stampsChanged();
+    expect(spans).toHaveLength(1);
+    // The field gone (a restore to before the crater): everything anew
+    service.setStampField(null);
+    expect(spans.at(-1)).toBeNull();
+    expect(plateY(20, 0)).toBe(atCrater);
   });
 });

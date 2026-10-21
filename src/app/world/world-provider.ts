@@ -578,6 +578,8 @@ export interface WorldGroundDamage {
   /** Map metres */
   holdTower(id: string, x: number, y: number): void;
   releaseTower(id: string): void;
+  /** Pieces of the ground still to be written: a line of sight rendered before they are would miss their stamps */
+  readonly pending?: number;
 }
 
 /**

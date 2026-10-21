@@ -13,6 +13,7 @@ import type { SightCount } from '../utils/route-grid-los';
 import { SimClient } from '../sim/client/sim-client.service';
 import type { LosNeededPayload } from '../sim/protocol/events';
 import type { SimFramePacket } from '../sim/protocol/packet';
+import { WORLD_BUSY_OPS, WORLD_CALM_FRAMES, WorldSightBatch } from './world-sight-batch';
 
 /**
  * Lines of sight on the main thread (docs/SIM_WORKER.md, docs/LOS_PIPELINE.md).
@@ -26,6 +27,12 @@ import type { SimFramePacket } from '../sim/protocol/packet';
  * Who renders: the single player game and the coop host (role 'render'); a
  * coop guest waits for the host's masks (role 'wait'), which reach its
  * simulation through the relay.
+ *
+ * A tower whose world changed (reason 'world': a crater under the routes, a
+ * fall, a ruin's lost wall, a wave event's objects) renders its cube again
+ * from the world as it is now and samples every cell in reach anew; those
+ * requests go in batches, at most one a second (WorldSightBatch), the
+ * others at once.
  *
  * The main thread's grid follows the simulation's answers: every tower state
  * that carries a mask (sim/protocol/packet.ts TowerStateDto.losMask) is
@@ -52,6 +59,10 @@ export class TowerLosRegistry {
   private inFlight: LosNeededPayload | null = null;
   /** Counts the times the requests were dropped: a readback of an earlier count answers nothing */
   private epoch = 0;
+  /** When the requests of towers whose world changed render (reason 'world') */
+  private readonly worldBatch = new WorldSightBatch<LosNeededPayload>();
+  /** Frames to go before a changed world's cube may render: none in a frame a fall or a crater comes with, nor the next */
+  private calmIn = 0;
   private readonly unsubscribe: (() => void)[] = [];
 
   /**
@@ -110,6 +121,8 @@ export class TowerLosRegistry {
     this.queuedAt.clear();
     this.inFlight = null;
     this.epoch++;
+    this.worldBatch.reset();
+    this.calmIn = 0;
   }
 
   /** The request of `id` ends, unless it came with this packet (see queuedAt). */
@@ -144,8 +157,22 @@ export class TowerLosRegistry {
       if (!local) continue;
       tower.visibleCells = this.grid.applyLosMask(state.id, local.x, local.z, losMaskFromJson(state.losMask));
     }
-    if (this.role === 'render') this.resolveQueued();
+    if (this.role === 'render') {
+      if (packet.ops.some((op) => WORLD_BUSY_OPS.has(op[0]))) this.calmIn = WORLD_CALM_FRAMES;
+      this.worldBatch.tick(this.worldWaiting(), (this.engine?.world.destruction?.ground?.pending ?? 0) === 0);
+      this.resolveQueued(this.calmIn === 0);
+      if (this.calmIn > 0) this.calmIn--;
+    }
     this.packets++;
+  }
+
+  /** The requests of towers whose world changed, waiting since an earlier packet (WorldSightBatch.tick) */
+  private worldWaiting(): LosNeededPayload[] {
+    const out: LosNeededPayload[] = [];
+    for (const [id, request] of this.queue) {
+      if (request.reason === 'world' && (this.queuedAt.get(id) ?? this.packets) < this.packets) out.push(request);
+    }
+    return out;
   }
 
   private localOf(tower: Tower): { x: number; y: number; z: number } | null {
@@ -156,13 +183,14 @@ export class TowerLosRegistry {
 
   /**
    * One cube per frame at most, and none while the last one's faces come
-   * back: the oldest request renders, its readback runs without waiting
+   * back: the oldest request renders (one for a changed world only in its
+   * batch, WorldSightBatch, and not in a frame a fall or a crater weighs on), its readback runs without waiting
    * (TowerShadowMapper.readFacesAsync), and the answer goes out once the
    * faces are there (finish), a frame or two after the render. The
    * simulation waits for the mask either way; what it applies, and when, is
    * in the command log (docs/SIM_WORKER.md).
    */
-  private resolveQueued(): void {
+  private resolveQueued(worldCalm: boolean): void {
     if (!this.engine || !this.grid.isInitialized() || this.inFlight) return;
     for (const [id, request] of this.queue) {
       const tower = this.sim.mirror.tower(id);
@@ -172,6 +200,7 @@ export class TowerLosRegistry {
         this.queuedAt.delete(id);
         continue;
       }
+      if (request.reason === 'world' && (!worldCalm || !this.worldBatch.allows(request))) continue;
       this.start(tower, request);
       return;
     }
@@ -218,13 +247,15 @@ export class TowerLosRegistry {
 
   /**
    * The tower's cells in range against the cube on the main grid: all of
-   * them for a place, incrementally for a recompute (cells that keep a
-   * cached answer are not sampled again). The answers stay in the main grid;
+   * them for a place and for a changed world (the cube saw the world as it
+   * is now, every old answer may be wrong), incrementally for a range
+   * upgrade and an air retrofit (cells that keep a cached answer are not
+   * sampled again). The answers stay in the main grid;
    * the mask goes to the simulation.
    */
   private resolve(tower: Tower, request: LosNeededPayload, terrainPos: { x: number; z: number }, ctx: LosResolveContext): ReturnType<typeof losMaskToJson> {
     const before = tower.visibleCells.length;
-    const incremental = request.reason !== 'place';
+    const incremental = request.reason === 'upgrade' || request.reason === 'retrofit';
     tower.visibleCells = incremental
       ? this.grid.registerTowerIncremental(tower.id, terrainPos.x, terrainPos.z, request.range, ctx, request.canTargetGround, request.canTargetAir)
       : this.grid.registerTower(tower.id, terrainPos.x, terrainPos.z, request.range, ctx, request.canTargetGround, request.canTargetAir);

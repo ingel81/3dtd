@@ -217,8 +217,26 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   `null`), sonst ein Nachschlag für die Höhe und für Läufer ein zweiter für die Bremse.
 - **Sichtlinien:** der Hauptthread führt dasselbe Raster aus denselben Ops (`WorldDamagePresenter`) und gibt es dem
   Routenraster: die Sichtproben der Tower stehen 1,5 m über Zellhöhe plus Stempel, wo die Gegner stehen. Ein neuer
-  Krater unter den Routen und ein Fall lassen die Tower in Reichweite ihre Sicht neu anfragen; ein vertiefter Krater
-  (wenige Zentimeter) nicht.
+  Krater unter den Routen, ein Fall, eine Wand, die eine Ruine verliert (`WEAR_SIGHT_EVERY`), und die Objekte eines
+  Wellen-Ereignisses lassen die Tower in Reichweite ihre Sicht neu anfragen (`seeAround`, Grund `'world'`; beim Krater
+  Reichweite plus 1,35 Kraterradien); ein vertiefter Krater (wenige Zentimeter) nicht. Die Simulation fragt je Ereignis
+  an, deterministisch mit Generationen wie jede Sichtanfrage.
+- **Neu gerechnet (E291, gebaut 2026-10-21):** der Hauptthread (`TowerLosRegistry`) rendert für `'world'` den Cube
+  aus der Welt, wie sie jetzt ist, und probt jede Zelle in Reichweite neu (`registerTower`, nicht inkrementell wie
+  ein Reichweiten-Upgrade): die Kraterwand verdeckt, durch die Lücke eines Gefallenen sieht der Tower. Bis dahin
+  behielt jede Zelle ihre alte Antwort, ein Krater oder Fall änderte an der Sicht stehender Tower nichts. Gesammelt
+  und gedrosselt (`WorldSightBatch`): die wartenden Anfragen gehen als ein Stapel, höchstens einer je Sekunde, je
+  Tower die neueste, ein Cube je Bild wie bei jedem Render; ein Stapel beginnt erst, wenn der gezeichnete Boden alle
+  Stempel trägt (`CustomMapGroundDamage.pending`, sonst fehlte dem Cube die Mulde), und kein Cube eines Stapels fällt in
+  das Bild, mit dem ein Fall oder ein Krater ankommt, noch in das nächste (`WORLD_BUSY_OPS`: ein Cube von 6 bis 13 ms machte
+  in einer Stadt ein Fallbild von 34 bis 47 ms). Bau, Upgrade und Nachrüstung
+  warten nicht. Nur der Zeitpunkt der Antwort hängt davon ab; die Masken gehen wie immer als `command:los-mask` in die
+  Simulation und ins Befehlslog, Coop (der Host rendert) und Replay bleiben gleich.
+- **Linie und Overlay folgen dem Boden (E291):** mit jedem Stempel meldet der Presenter dem Routenraster die Zellen,
+  die er änderte (`StampField.takeChanged`, `GlobalRouteGridService.stampsChanged`). Die Platten des Routen-Overlays
+  in diesen Zellen stehen auf der neuen Höhe (nur sie gehen zur GPU), die rote Routenlinie zeichnet sich dort neu:
+  über Stempeln jeden Meter auf dem Boden (`RouteLineLayer.restand`), sonst durch ihre Wegpunkte; nur die Linien, die
+  das geänderte Rechteck kreuzen.
 - Speicher: drei `Int32Array` über dem Rechteck der Routenzellen, angelegt mit dem ersten Stempel; bei 512 m Kante
   höchstens 256 x 256 Zellen, 786 KB.
 
@@ -464,7 +482,7 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
 |---|---|---|
 | Ändern Ruinen Wege? | Nein. Schutt darf auf die Straße, Gegner laufen darüber und werden leicht gebremst, er sperrt nie | Routen stehen je Spawn fest (A*), ein Wechsel mitten in der Welle bräche Korridor, Budget und Coop |
 | Ändern Krater Wege oder Gegnerhöhe? | Keine Wege; die Gegner laufen durch die Mulde (Höhe aus dem Stempelraster der Simulation) | Ein Nachschlag je Gegner und Tick, ganze Zahlen, gleich für Coop und Replay |
-| Sichtlinien | ändern sich beim Fall (gibt es) und bei Stufe 2 nicht | eine Neuanfrage je Fall, nicht je Treffer |
+| Sichtlinien | ändern sich beim Fall und beim Krater unter den Routen (gibt es, E291: Cube neu, alle Zellen), bei Stufe 2 nicht | eine Neuanfrage je Fall, nicht je Treffer; gerendert gesammelt, höchstens ein Stapel je Sekunde |
 | Bauen | eine Ruine wird bebaubar (auf dem Schutt, Sockel wie am Hang); Stufe 1 und 2 sperren wie intakt | Ruined City verspricht „Build in the fallen blocks“ |
 | Tower auf Dächern zerstörbarer Gebäude | erlaubt; ein Gebäude mit Tower auf dem Dach nimmt keinen Schaden | kein Tower in der Luft, die Dach-Bauplätze bleiben |
 | Deckung für Gegner | nein | Gegner laufen auf Zellen, Deckung wäre ein neues Kampfsystem |

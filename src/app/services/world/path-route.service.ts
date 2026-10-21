@@ -295,8 +295,18 @@ export class PathAndRouteService {
   /** Bumped whenever the routes are replaced, see routesEpoch. */
   private epoch = 0;
 
-  /** 3D route lines for visualization */
-  private readonly routeLines = new RouteLineLayer();
+  /** 3D route lines for visualization, standing on the craters and rubble under the routes */
+  private readonly routeLines = new RouteLineLayer(() => this.globalRouteGrid.getGrid().stampField);
+
+  constructor() {
+    // The lines follow the craters and rubble where they change (E291)
+    this.globalRouteGrid.onStampsChanged((span) => {
+      const size = this.globalRouteGrid.getCellSize();
+      this.routeLines.restand(
+        span && { minX: span.minIx * size, minZ: span.minIz * size, maxX: (span.maxIx + 1) * size, maxZ: (span.maxIz + 1) * size },
+      );
+    });
+  }
 
   /** Reference to the 3D engine */
   private engine: ThreeTilesEngine | null = null;

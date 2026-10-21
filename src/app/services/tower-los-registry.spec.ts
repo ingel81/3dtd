@@ -47,6 +47,8 @@ describe('TowerLosRegistry', () => {
     readFacesAsync: ReturnType<typeof vi.fn>;
   };
   let initialized: boolean;
+  /** The drawn ground: tiles of craters still to be written */
+  let ground: { pending: number };
   let blockers: object | null;
   let bus: MainEventBus;
   let mirror: SimMirror;
@@ -80,7 +82,7 @@ describe('TowerLosRegistry', () => {
     return t;
   };
   let generation = 0;
-  const needed = (t: Tower, reason: 'place' | 'upgrade' | 'retrofit' = 'place', range = t.combat.range) =>
+  const needed = (t: Tower, reason: 'place' | 'upgrade' | 'retrofit' | 'world' = 'place', range = t.combat.range) =>
     bus.emit({ type: 'tower:los-needed', towerId: t.id, reason, generation: ++generation, range, canTargetGround: true, canTargetAir: true });
 
   beforeEach(() => {
@@ -117,7 +119,8 @@ describe('TowerLosRegistry', () => {
       readFacesToCpu: vi.fn(() => []),
       readFacesAsync: vi.fn(() => Promise.resolve([])),
     };
-    engine = { sync, getLosBlockerGroup: () => blockers, getTowerShadowMapper: () => mapper } as unknown as ThreeTilesEngine;
+    ground = { pending: 0 };
+    engine = { sync, world: { destruction: { ground } }, getLosBlockerGroup: () => blockers, getTowerShadowMapper: () => mapper } as unknown as ThreeTilesEngine;
     const injector = Injector.create({
       providers: [
         { provide: GlobalRouteGridService, useValue: grid },
@@ -399,5 +402,73 @@ describe('TowerLosRegistry', () => {
       await recomputeTo(place(50, 0), seen().slice(0, 5), []);
       expect(warn).not.toHaveBeenCalled();
     });
+  });
+
+  it('renders the towers whose world changed afresh, all cells, in one batch a second at most and on the ground as drawn (E291)', async () => {
+    const now = vi.spyOn(performance, 'now').mockReturnValue(10_000);
+    registry.attach(engine);
+    const a = place(1, 0);
+    const b = place(2, 0);
+    const c = place(3, 0);
+    // A crater: a and b in reach ask anew; its tiles are not written yet
+    ground.pending = 2;
+    needed(a, 'world');
+    needed(b, 'world');
+    await frameAnswered();
+    await frameAnswered();
+    expect(sent).toEqual([]);
+    // Written: the batch starts, one cube per frame, every cell sampled again against it
+    ground.pending = 0;
+    await frameAnswered();
+    await frameAnswered();
+    expect(sent.map((e) => [e.towerId, e.reason])).toEqual([[a.id, 'world'], [b.id, 'world']]);
+    expect(mapper.update).toHaveBeenCalledTimes(2);
+    expect(grid.registerTower.mock.calls.map((call) => call[0])).toEqual([a.id, b.id]);
+    expect(grid.registerTowerIncremental).not.toHaveBeenCalled();
+
+    // More craters within the second: gathered, a placed tower renders meanwhile
+    now.mockReturnValue(10_400);
+    needed(a, 'world');
+    needed(c, 'world');
+    needed(c, 'world');
+    const d = place(4, 0);
+    needed(d);
+    await frameAnswered();
+    await frameAnswered();
+    expect(sent.slice(2).map((e) => [e.towerId, e.reason])).toEqual([[d.id, 'place']]);
+    now.mockReturnValue(11_000);
+    await frameAnswered();
+    await frameAnswered();
+    await frameAnswered();
+    // One cube each for a and c, though c asked twice, on its latest request
+    expect(sent.slice(3).map((e) => [e.towerId, e.reason])).toEqual([[a.id, 'world'], [c.id, 'world']]);
+    expect(sent.at(-1)!.generation).toBe(generation - 1);
+  });
+
+  it('renders no cube for a changed world in the frame a fall comes with, nor the next; a placed tower renders (E291)', async () => {
+    vi.spyOn(performance, 'now').mockReturnValue(50_000);
+    registry.attach(engine);
+    const a = place(1, 0);
+    const d = place(4, 0);
+    // Asked in this packet: it may join a batch from the next frame on
+    needed(a, 'world');
+    await frameAnswered();
+    expect(sent).toEqual([]);
+    /** A frame whose packet brings a fall */
+    const fallFrame = async () => {
+      const p = packet({});
+      p.ops.push(['main.structureFell', 0, 0, 0, 5, 6]);
+      mirror.applyState(p);
+      mirror.afterFrame(p);
+      for (const listener of [...frameListeners]) listener(p);
+      await facesBack();
+    };
+    needed(d);
+    await fallFrame();
+    expect(sent.map((e) => [e.towerId, e.reason])).toEqual([[d.id, 'place']]);
+    await frameAnswered();
+    expect(sent).toHaveLength(1);
+    await frameAnswered();
+    expect(sent.map((e) => [e.towerId, e.reason])).toEqual([[d.id, 'place'], [a.id, 'world']]);
   });
 });

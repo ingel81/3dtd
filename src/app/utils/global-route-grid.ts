@@ -198,13 +198,41 @@ export class GlobalRouteGrid {
   /** Craters and rubble under the routes the enemies stand in or on (StampField), null while there are none */
   private stamps: StampField | null = null;
 
+  /** See setStampField */
+  get stampField(): StampField | null {
+    return this.stamps;
+  }
+
   /**
    * The field of craters and rubble under the routes, as the simulation's
    * enemies stand on it: from now on the tower sight probes and the overlay
    * stand there too (standHeight). Null: the ground as built.
    */
   setStampField(field: StampField | null): void {
+    if (field === this.stamps) return;
     this.stamps = field;
+    // A new field (or none) changes every cell
+    field?.takeChanged();
+    this.aggregateViz.refreshPositions();
+  }
+
+  /**
+   * The stamps of the field changed (a crater dug, a heap of rubble): the
+   * overlay's plates in the cells they changed stand on the new ground.
+   * Returns those cells' grid indices, null for none.
+   */
+  stampsChanged(): CellSpan | null {
+    const span = this.stamps?.takeChanged() ?? null;
+    if (!span) return null;
+    const cells: RouteCell[] = [];
+    for (let iz = span.minIz; iz <= span.maxIz; iz++) {
+      for (let ix = span.minIx; ix <= span.maxIx; ix++) {
+        const cell = this.cells.get(this.intCellKey(ix, iz));
+        if (cell) cells.push(cell);
+      }
+    }
+    this.aggregateViz.refreshCells(cells);
+    return span;
   }
 
   /** The grid indices the cells span, first and last on each axis; null without cells (StampField's extent) */
@@ -939,6 +967,12 @@ export class GlobalRouteGrid {
     const cell = this.cells.get(this.intCellKey(this.cellIndex(localX), this.cellIndex(localZ)));
     if (cell && cell.heightSampled) return cell.terrainHeight;
     return this.estimateTerrainY(localX, localZ);
+  }
+
+  /** getGroundLocalYAt() with the craters and rubble under the routes (StampField): where the enemies stand */
+  getStandLocalYAt(localX: number, localZ: number): number | null {
+    const y = this.getGroundLocalYAt(localX, localZ);
+    return y === null || this.stamps === null ? y : y + this.stamps.heightAt(localX, localZ);
   }
 
   /**

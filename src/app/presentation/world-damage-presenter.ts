@@ -38,6 +38,8 @@ const BAR_OVER_ROOF_M = 1.5;
 export interface StampGround {
   cellSpan(): CellSpan | null;
   setStampField(field: StampField | null): void;
+  /** The field's stamps changed: what is drawn on the cells follows (the overlay, the route lines) */
+  stampsChanged(): void;
   /** Hear when the cells are built anew or dropped; returns the unsubscribe */
   onCellsChanged(listener: () => void): () => void;
 }
@@ -254,6 +256,7 @@ export class WorldDamagePresenter {
     // A field made now stamps its rubble with the rest
     if (this.field) this.field.rubbleHeap(rubbleStampOf(s, this.toLocal), 1);
     else this.restamp(this.newField());
+    this.ground?.stampsChanged();
   }
 
   /** Every crater of the run (op `craters.setAll`) */
@@ -282,6 +285,7 @@ export class WorldDamagePresenter {
     }
     this.craters.set([x, y, radius, depth], k);
     field?.crater(craterStampOf(x, y, radius, depth, this.toLocal), 1);
+    this.ground?.stampsChanged();
     // A hit into water throws it up (before the crater takes it out of the reckoning)
     const wet = this.drawn?.waterAt?.(x, y) ?? null;
     this.drawn?.crater(x, y, radius, depth, 1);
@@ -430,6 +434,7 @@ export class WorldDamagePresenter {
       }
     }
     this.useField(field);
+    this.ground?.stampsChanged();
   }
 
   private newField(): StampField | null {

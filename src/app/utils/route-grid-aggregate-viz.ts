@@ -428,8 +428,9 @@ export class RouteGridAggregateViz {
   private initializePositions(mesh: InstancedMesh, airLayer: boolean): void {
     const maxCells = mesh.instanceMatrix.count;
     const kinds = mesh.geometry.getAttribute('aCellKind') as InstancedBufferAttribute;
-    const matrix = new Matrix4();
+    const matrix = this.matrix;
     let index = 0;
+    this.instanceOf.clear();
 
     for (const cell of this.cells.values()) {
       if (index >= maxCells) break;
@@ -437,12 +438,47 @@ export class RouteGridAggregateViz {
       matrix.setPosition(cell.x, y, cell.z);
       mesh.setMatrixAt(index, matrix);
       kinds.setX(index, overlayCellKind(cell));
+      this.instanceOf.set(cell, index);
       index++;
     }
 
     mesh.count = index;
+    mesh.instanceMatrix.clearUpdateRanges();
     mesh.instanceMatrix.needsUpdate = true;
     kinds.needsUpdate = true;
+  }
+
+  /** The plate of each cell drawn, both layers walk the cells in the same order (initializePositions) */
+  private readonly instanceOf = new Map<RouteCell, number>();
+  private readonly matrix = new Matrix4();
+
+  /**
+   * Set the plates of `cells` on their height again (the craters and the
+   * rubble under them changed, GlobalRouteGrid.stampsChanged): only those
+   * plates go up to the GPU, not the whole overlay
+   */
+  refreshCells(cells: Iterable<RouteCell>): void {
+    if (!this.visualization && !this.airVisualization) return;
+    let first = Infinity;
+    let last = -1;
+    for (const cell of cells) {
+      const index = this.instanceOf.get(cell);
+      if (index === undefined) continue;
+      const y = this.displayHeight(cell);
+      for (const [mesh, lift] of [[this.visualization, CELL_VIZ_Y_OFFSET_M], [this.airVisualization, LOS_VIZ_CONFIG.airSampleYOffset]] as const) {
+        if (!mesh) continue;
+        this.matrix.setPosition(cell.x, y + lift, cell.z);
+        mesh.setMatrixAt(index, this.matrix);
+      }
+      first = Math.min(first, index);
+      last = Math.max(last, index);
+    }
+    if (last < 0) return;
+    for (const mesh of [this.visualization, this.airVisualization]) {
+      if (!mesh) continue;
+      mesh.instanceMatrix.addUpdateRange(first * 16, (last - first + 1) * 16);
+      mesh.instanceMatrix.needsUpdate = true;
+    }
   }
 
   /**

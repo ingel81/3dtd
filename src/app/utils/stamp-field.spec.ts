@@ -73,4 +73,21 @@ describe('StampField (docs/DESTRUCTION_PLAN.md)', () => {
   it('holds a crater entry in the local frame: map dm to m', () => {
     expect(craterStampOf(100, -250, 25, 40, local)).toEqual({ x: -10, z: -25, radius: 2.5, depthCm: 40 });
   });
+
+  it('tells the cells its stamps changed since it was last asked, all of them after a clear (E291)', () => {
+    const field = new StampField(SPAN);
+    expect(field.takeChanged()).toBeNull();
+    field.crater({ x: 10, z: 10, radius: 3, depthCm: 50 }, 1);
+    // 4.05 m round (10, 10): cells 2 to 7 of 2 m on both axes
+    expect(field.takeChanged()).toEqual({ minIx: 2, maxIx: 7, minIz: 2, maxIz: 7 });
+    expect(field.takeChanged()).toBeNull();
+    field.crater({ x: 10, z: 10, radius: 3, depthCm: 50 }, -1);
+    field.crater({ x: -20, z: 10, radius: 3, depthCm: 50 }, 1);
+    expect(field.takeChanged()).toEqual({ minIx: -13, maxIx: 7, minIz: 2, maxIz: 7 });
+    // Off the field nothing changed
+    field.crater({ x: 5000, z: 0, radius: 3, depthCm: 50 }, 1);
+    expect(field.takeChanged()).toBeNull();
+    field.clear();
+    expect(field.takeChanged()).toEqual(SPAN);
+  });
 });

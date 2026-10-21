@@ -18,6 +18,7 @@ vi.mock('@angular/core', async () => {
   const stubs: Record<string, unknown> = {
     UIStore: { routesVisible: () => false },
     GlobalRouteGridService: {
+      onStampsChanged: () => () => undefined,
       isInitialized: () => true,
       getGroundLocalYAt: (x: number, z: number) => hill(x, z),
       getGrid: () => ({ setBand: () => undefined }),

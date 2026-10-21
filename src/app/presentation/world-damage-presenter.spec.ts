@@ -25,6 +25,7 @@ function setup(destructible: boolean) {
     field: null as StampField | null,
     cellSpan: () => span,
     setStampField: vi.fn((f: StampField | null) => (ground.field = f)),
+    stampsChanged: vi.fn(),
     onCellsChanged: () => () => undefined,
   };
   const bus = createMainEventBus();

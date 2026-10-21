@@ -62,6 +62,7 @@ describe('Streets that come late, or a save without a route (TODO E232)', () => 
     sent = [];
     mirrorSet = vi.fn();
     const grid = {
+      onStampsChanged: () => () => undefined,
       initialize: () => undefined,
       generateFromRoutes: () => undefined,
       clear: () => undefined,

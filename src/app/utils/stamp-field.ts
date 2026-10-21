@@ -137,6 +137,33 @@ export class StampField {
     this.ground.fill(0);
     this.rubble.fill(0);
     this.packed.fill(0);
+    this.mark(0, this.columns - 1, 0, this.rows - 1);
+  }
+
+  /**
+   * The grid indices of the cells the stamps changed since the last take,
+   * null for none: what the main thread draws on the cells follows them
+   * (GlobalRouteGrid.stampsChanged)
+   */
+  takeChanged(): CellSpan | null {
+    if (this.changed === null) return null;
+    const c = this.changed;
+    this.changed = null;
+    return { minIx: c.minIx + this.minIx, minIz: c.minIz + this.minIz, maxIx: c.maxIx + this.minIx, maxIz: c.maxIz + this.minIz };
+  }
+
+  /** Changed since the last take, in the field's own indices; null for nothing */
+  private changed: CellSpan | null = null;
+
+  private mark(i0: number, i1: number, j0: number, j1: number): void {
+    const c = this.changed;
+    if (c === null) this.changed = { minIx: i0, maxIx: i1, minIz: j0, maxIz: j1 };
+    else {
+      c.minIx = Math.min(c.minIx, i0);
+      c.maxIx = Math.max(c.maxIx, i1);
+      c.minIz = Math.min(c.minIz, j0);
+      c.maxIz = Math.max(c.maxIz, j1);
+    }
   }
 
   private stamp(x: number, z: number, reachX: number, reachZ: number, rubble: boolean, cm: (dx: number, dz: number) => number): boolean {
@@ -157,6 +184,7 @@ export class StampField {
         touched = true;
       }
     }
+    if (touched) this.mark(i0, i1, j0, j1);
     return touched;
   }
 }

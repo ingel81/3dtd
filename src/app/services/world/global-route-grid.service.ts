@@ -30,6 +30,7 @@ export class GlobalRouteGridService {
   private grid: GlobalRouteGrid;
   private initialized = false;
   private readonly changeListeners = new Set<(change: RouteGridChange) => void>();
+  private readonly stampListeners = new Set<(span: CellSpan | null) => void>();
 
   constructor() {
     this.grid = new GlobalRouteGrid();
@@ -39,6 +40,16 @@ export class GlobalRouteGridService {
   onCellsChanged(listener: (change: RouteGridChange) => void): () => void {
     this.changeListeners.add(listener);
     return () => this.changeListeners.delete(listener);
+  }
+
+  /**
+   * Hear when the ground under the routes changed by the craters and the
+   * rubble (stampsChanged): the grid indices of the cells it changed in,
+   * null for all of them (a new field or none). Returns the unsubscribe.
+   */
+  onStampsChanged(listener: (span: CellSpan | null) => void): () => void {
+    this.stampListeners.add(listener);
+    return () => this.stampListeners.delete(listener);
   }
 
   private changed(change: RouteGridChange): void {
@@ -106,7 +117,20 @@ export class GlobalRouteGridService {
 
   /** See GlobalRouteGrid.setStampField */
   setStampField(field: StampField | null): void {
+    if (field === this.grid.stampField) return;
     this.grid.setStampField(field);
+    for (const listener of this.stampListeners) listener(null);
+  }
+
+  /** The field's stamps changed (WorldDamagePresenter): the overlay and the listeners follow, see GlobalRouteGrid.stampsChanged */
+  stampsChanged(): void {
+    const span = this.grid.stampsChanged();
+    if (span) for (const listener of this.stampListeners) listener(span);
+  }
+
+  /** See GlobalRouteGrid.getStandLocalYAt */
+  getStandLocalYAt(localX: number, localZ: number): number | null {
+    return this.grid.getStandLocalYAt(localX, localZ);
   }
 
   isInitialized(): boolean {
