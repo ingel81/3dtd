@@ -1,7 +1,6 @@
 import {
   BufferAttribute,
   BufferGeometry,
-  Color,
   DataTexture,
   FloatType,
   Group,
@@ -13,86 +12,56 @@ import {
   RGBAFormat,
   Sphere,
   Vector3,
-  type Material,
 } from 'three';
 import type { CatalogObject, StageTone } from '../asset-catalog';
 import { linePiece } from '../asset-catalog';
-import type { ModelPart } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
 import { addLodFade, fadeGeometry } from './lod-fade';
 import { InstanceList, type InstanceSource } from './instance-list';
 import type { SharedDraws } from './shared-draws';
 
 /**
- * The far stage of the pieces of walls, fences and tracks (E304 (d),
+ * The far stage of the pieces of walls, fences, hedges and tracks (E304 (d),
  * docs/RENDER_DENSITY_PLAN.md): each piece a box of six triangles, its top
  * and both long sides, every asset's in one instanced draw (one for those
  * that block sight, one for the rest). The pieces of a line overlap a
  * little, so far off their boxes read as one band along the line, a wall's
  * 156 triangles or a track's 116 down to 6. A destroyed piece leaves its
  * gap: the band is its pieces. The box is the catalogue's ground rectangle
- * (`box`) up to the model's height, coloured top and sides apart with the
- * means of its LOD model's colours (match_lods.py gave them the full
- * model's texture means), times the stage's tone; from an asset's row of a
- * small data texture, in the vertex shader of the material and of the
- * sun's shadow alike. The line-of-sight cube draws the pieces' full models
- * (object-layer.ts LosDraw), never these.
+ * (`box`) up to the model's height, coloured top and sides apart with what
+ * the full model shows from above and from its sides (catalogue `band`,
+ * measured at pack time by tools/map-assets/measure_bands.mjs), times the
+ * tone of the stage before it where that is a LOD model (matched to the full
+ * model in the game's light, flat like the band). A side that covers only a
+ * share of its rectangle (a chain-link fence's wire, a rail fence) keeps that
+ * share of its pixels in the LOD fade's dither, in the shadow too. All from
+ * an asset's row of a small data texture, in the vertex shader of the
+ * material and of the sun's shadow alike. The line-of-sight cube draws the
+ * pieces' full models (object-layer.ts LosDraw), never these.
  */
 
 /** A piece goes over to its band where its bounding radius is this share of the view's half height: 3 px of 1080 lines */
 export const BAND_SCREEN = 3 / 540;
 /** Triangles of a piece's band */
 export const BAND_TRIANGLES = 6;
-/** Texels per asset row: box, heights, top colour, side colour */
+/** Texels per asset row: box, heights and cover, top colour, side colour */
 const ROW_TEXELS = 4;
 
-/** Whether an asset's pieces end in a band: a wall or structure (linePiece) with a ground rectangle and a LOD model to take its colours from */
-export function hasBand(entry: Pick<CatalogObject, 'category' | 'box' | 'lod'>): boolean {
-  return linePiece(entry.category) && !!entry.box && !!entry.lod?.length;
+/** Whether an asset's pieces end in a band: a wall or structure (linePiece) with a ground rectangle and measured band colours */
+export function hasBand(entry: Pick<CatalogObject, 'category' | 'box' | 'band'>): boolean {
+  return linePiece(entry.category) && !!entry.box && !!entry.band;
 }
 
 /**
- * Area-weighted mean colours of a model's faces that look up (top) and those
- * that do not (sides), linear, times `tone`; null when a part takes its
- * colour from a texture (no mean to read on the CPU)
+ * An asset's band in numbers (line-bands' row, the HLOD tiles' bake): its
+ * box (middle x, z, half width, half depth), height and side cover, its top
+ * and side colours times `tone`
  */
-export function bandColours(parts: readonly ModelPart[], tone?: StageTone): { top: Color; side: Color } | null {
-  const sum = { top: [0, 0, 0, 0], side: [0, 0, 0, 0] };
-  const a = new Vector3();
-  const b = new Vector3();
-  const c = new Vector3();
-  const colour = new Color();
-  for (const { geometry, material } of parts) {
-    const m = material as Material & { color?: Color; map?: unknown; vertexColors?: boolean };
-    if (m.map) return null;
-    const base = m.color ?? new Color(1, 1, 1);
-    const pos = geometry.getAttribute('position');
-    const col = m.vertexColors ? geometry.getAttribute('color') : undefined;
-    const index = geometry.getIndex();
-    const count = index ? index.count : pos.count;
-    for (let k = 0; k + 2 < count; k += 3) {
-      const [i, j, l] = index ? [index.getX(k), index.getX(k + 1), index.getX(k + 2)] : [k, k + 1, k + 2];
-      a.fromBufferAttribute(pos, i);
-      b.fromBufferAttribute(pos, j).sub(a);
-      c.fromBufferAttribute(pos, l).sub(a);
-      const n = b.cross(c);
-      const area = n.length() / 2;
-      if (!(area > 0)) continue;
-      colour.copy(base);
-      if (col) colour.multiply(new Color((col.getX(i) + col.getX(j) + col.getX(l)) / 3, (col.getY(i) + col.getY(j) + col.getY(l)) / 3, (col.getZ(i) + col.getZ(j) + col.getZ(l)) / 3));
-      const s = n.y / (area * 2) > 0.7 ? sum.top : sum.side;
-      s[0] += colour.r * area;
-      s[1] += colour.g * area;
-      s[2] += colour.b * area;
-      s[3] += area;
-    }
-  }
-  const mean = (s: number[], other: number[]): Color => {
-    const w = s[3] > 0 ? s : other;
-    const out = w[3] > 0 ? new Color(w[0] / w[3], w[1] / w[3], w[2] / w[3]) : new Color(0.5, 0.5, 0.5);
-    return tone ? out.multiply(new Color(tone[0], tone[1], tone[2])) : out;
-  };
-  return { top: mean(sum.top, sum.side), side: mean(sum.side, sum.top) };
+export function bandParams(entry: Pick<CatalogObject, 'box' | 'band'>, height: number, tone?: StageTone): number[] {
+  const [cx, cz, hw, hd] = entry.box!;
+  const { top, side, cover = 1 } = entry.band!;
+  const t = tone ?? [1, 1, 1];
+  return [cx, cz, hw, hd, height, cover, top[0] * t[0], top[1] * t[1], top[2] * t[2], side[0] * t[0], side[1] * t[1], side[2] * t[2]];
 }
 
 /** GLSL of the band: where a template vertex lies for its asset's row, and its colour */
@@ -100,6 +69,7 @@ const BAND_GLSL = /* glsl */ `
 attribute float aBandRow;
 attribute float aBandSide;
 uniform highp sampler2D uBandParams;
+varying float vBandCover;
 vec4 bandParam(int k) {
   return texelFetch(uBandParams, ivec2(k, int(aBandRow + 0.5)), 0);
 }
@@ -109,6 +79,11 @@ vec3 bandLocal(vec3 p) {
   vec4 h = bandParam(1);
   return vec3(box.x + p.x * box.z, mix(h.x, h.y, p.y), box.y + p.z * box.w);
 }
+`;
+
+/** Drops the share of a band's pixels its side does not cover, in the LOD fade's dither (lod-fade.ts) */
+export const BAND_COVER_GLSL = /* glsl */ `
+if (vBandCover < 1.0 && fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) >= vBandCover) discard;
 `;
 
 /** The template: the top and the two sides along model x (z = -1 and +1); aBandSide 0 on the top, 1 on the sides */
@@ -166,10 +141,12 @@ export class LineBands implements SharedDraws {
         .replace(
           '#include <begin_vertex>',
           /* glsl */ `vec3 transformed = bandLocal(position);
-          vBandColour = aBandSide < 0.5 ? bandParam(2).rgb : bandParam(3).rgb;`,
+          vBandColour = aBandSide < 0.5 ? bandParam(2).rgb : bandParam(3).rgb;
+          vBandCover = bandParam(1).z;`,
         );
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nvarying vec3 vBandColour;')
+        .replace('#include <common>', '#include <common>\nvarying vec3 vBandColour;\nvarying float vBandCover;')
+        .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>\n${BAND_COVER_GLSL}`)
         .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= vBandColour;');
     };
     m.customProgramCacheKey = () => 'custom-map-line-band';
@@ -183,7 +160,10 @@ export class LineBands implements SharedDraws {
       Object.assign(shader.uniforms, this.uniforms);
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', `#include <common>\n${BAND_GLSL}`)
-        .replace('#include <begin_vertex>', 'vec3 transformed = bandLocal(position);');
+        .replace('#include <begin_vertex>', 'vec3 transformed = bandLocal(position);\nvBandCover = bandParam(1).z;');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying float vBandCover;')
+        .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>\n${BAND_COVER_GLSL}`);
     };
     d.customProgramCacheKey = () => 'custom-map-line-band-depth';
     this.depthMaterial = d;
@@ -195,12 +175,11 @@ export class LineBands implements SharedDraws {
     return b;
   }
 
-  /** The asset's row (its box, heights and colours written on first use); null for one hasBand does not take or whose colours are a texture's */
-  row(entry: CatalogObject, height: number, parts: readonly ModelPart[], tone?: StageTone): number | null {
+  /** The asset's row (its box, heights, cover and colours written on first use, times `tone`); null for one hasBand does not take */
+  row(entry: CatalogObject, height: number, tone?: StageTone): number | null {
     const known = this.rows.get(entry.id);
     if (known !== undefined) return known;
-    const colours = hasBand(entry) ? bandColours(parts, tone) : null;
-    if (!colours) return null;
+    if (!hasBand(entry)) return null;
     const r = this.rows.size;
     this.rows.set(entry.id, r);
     if (r >= this.params.image.height) {
@@ -211,9 +190,8 @@ export class LineBands implements SharedDraws {
       this.params = grown;
       this.uniforms.uBandParams.value = grown;
     }
-    const [cx, cz, hw, hd] = entry.box!;
-    const { top, side } = colours;
-    (this.params.image.data as Float32Array).set([cx, cz, hw, hd, 0, height, 0, 0, top.r, top.g, top.b, 0, side.r, side.g, side.b, 0], r * ROW_TEXELS * 4);
+    const [cx, cz, hw, hd, h, cover, tr, tg, tb, sr, sg, sb] = bandParams(entry, height, tone);
+    (this.params.image.data as Float32Array).set([cx, cz, hw, hd, 0, h, cover, 0, tr, tg, tb, 0, sr, sg, sb, 0], r * ROW_TEXELS * 4);
     this.params.needsUpdate = true;
     return r;
   }

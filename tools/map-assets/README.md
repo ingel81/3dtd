@@ -77,6 +77,12 @@ npx -y @gltf-transform/cli@4.5.1 meshopt public/maps/assets/models/<id>-lod1.glb
 # danach update_catalog.py (Feld `far`). Playwright aus e2e/node_modules
 node tools/map-assets/bake_far_boxes.mjs public/maps/assets
 
+# Farben des Fernbands der Linienstücke (Mauern, Zäune, Hecken, Gleise; bands.json, Feld `band`): das volle Modell
+# von oben und von beiden Längsseiten gerastert (Farbtextur linear mal Faktor, Alpha schneidet), Mittel oben und
+# seitlich, Deckung der Seite (`cover`) unter 85 %; liest die KTX2-Dateien mit dem Basis-Transcoder von three. Danach
+# update_catalog.py
+node tools/map-assets/measure_bands.mjs public/maps/assets
+
 # Objekte in catalog.json schreiben (objects.json + Messwerte + bases.json), Dreiecke je Modell und LOD
 # (count_triangles.py, auch allein nach einem pack_models.py), LICENSES.md neu; vorher pack-map-models.mjs über alle
 # Modelle (räumt Texturen weg, die kein Modell mehr nennt) und je Datei die geteilten Texturen (`textures`). Nicht gebaute Modelle (ein Bau

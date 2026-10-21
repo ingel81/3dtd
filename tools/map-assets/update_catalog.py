@@ -9,7 +9,8 @@ footprint and height come from the measured bounds in <glb-raw-dir>/report.json
 (pack_models.py) unless objects.json sets them; the underside of rocks (`base`)
 from bases.json (measure_bases.mjs), the ground rectangle of buildings and walls
 (`box`) from boxes.json (measure_boxes.mjs), the top surface of what carries a tower (`roof`) from roofs.json
-(measure_roofs.mjs), the far stage of buildings (`far`) from farboxes.json (bake_far_boxes.mjs), the detail stages'
+(measure_roofs.mjs), the far stage of buildings (`far`) from farboxes.json (bake_far_boxes.mjs), the colours of a
+line piece's far band (`band`) from bands.json (measure_bands.mjs), the detail stages'
 tones (`lod[].tone`, `far.tone`) from stage-tones.json (stage_tones.mjs); the triangle counts from the packed models
 (count_triangles.py). Objects <glb-raw-dir> has not measured (a build of a few
 models) keep their measured fields from the current catalog.json.
@@ -63,7 +64,7 @@ FAR_SCREEN = 0.045
 # back (which drew a million triangles more on Demo Valley)
 TREE_LOD_DISTANCE = 175
 ORDER = ['id', 'name', 'category', 'file', 'footprint', 'height', 'base', 'box', 'roof', 'blocksLos', 'blocksBuild', 'scaleRange',
-         'randomRotation', 'wind', 'float', 'aloft', 'stilts', 'roadThrough', 'groundCut', 'spin', 'rotor', 'cable', 'grip', 'row', 'variants', 'signPanel', 'grime', 'tags', 'effects', 'light', 'textures', 'lod', 'far', 'source']
+         'randomRotation', 'wind', 'float', 'aloft', 'stilts', 'roadThrough', 'groundCut', 'spin', 'rotor', 'cable', 'grip', 'row', 'variants', 'signPanel', 'grime', 'tags', 'effects', 'light', 'textures', 'lod', 'far', 'band', 'source']
 
 
 def lod_screen(e, distance):
@@ -92,6 +93,7 @@ def main():
     boxes = json.load(open(os.path.join(HERE, 'boxes.json'), encoding='utf8'))
     roofs = json.load(open(os.path.join(HERE, 'roofs.json'), encoding='utf8'))
     farboxes = json.load(open(os.path.join(HERE, 'farboxes.json'), encoding='utf8'))
+    bands = json.load(open(os.path.join(HERE, 'bands.json'), encoding='utf8'))
     path = os.path.join(out, 'catalog.json')
     catalog = json.load(open(path, encoding='utf8'))
     current = {o['id']: o for o in catalog['objects']}
@@ -136,6 +138,8 @@ def main():
             e['lod'] = kept['lod']
         if o['id'] in farboxes:
             e['far'] = {'screen': FAR_SCREEN, **farboxes[o['id']]}
+        if o['id'] in bands:
+            e['band'] = bands[o['id']]
         if os.path.exists(os.path.join(out, e['file'])):
             textures = shared_textures(out, e['file'])
             if textures:

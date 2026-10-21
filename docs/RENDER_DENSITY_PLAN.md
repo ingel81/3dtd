@@ -451,6 +451,14 @@ für die ersten drei Spitzen je Pose: `tmp/e304-shots/a-*` im Worktree.
 2. **Band:** jedes Stück einer Mauer, eines Zauns oder eines Gleises (Katalog `wall`/`structure` mit `box` und
    LOD-Modell) endet ab 3 px Radius (1080 Zeilen) in einem Kasten aus sechs Dreiecken, alle Assets in einem Draw
    (`line-bands.ts`). Farben aus den LOD-Teilen, oben und seitlich. Die Kostenrechnung zählt das Band mit.
+3. **Band für Gleise, Hecken und Maschendraht (2026-10-22):** die Farben kommen jetzt aus dem Katalog (`band`), beim
+   Packen gemessen (`tools/map-assets/measure_bands.mjs`): das volle Modell von oben und von beiden Längsseiten mit
+   Tiefenpuffer gerastert, Farbtextur (KTX2 über den Basis-Transcoder von three) linear mal Faktor, Alpha schneidet;
+   dazu die Deckung der Seite (`cover`, unter 85 % gespeichert: Maschendraht 0,26, Lattenzaun 0,34, Eisentor 0,22),
+   die das Band im Raster der Blende als Anteil seiner Pixel behält. `hasBand` = Linienstück mit `box` und `band`;
+   Hecken und Maschendraht ohne LOD-Modell gehen nach dem vollen Modell bzw. dem Fernkasten ins Band. Die Farbmittel
+   der LOD-Teile auf der CPU sind entfallen; das Band nimmt den Ton des LOD-Modells, wo eins davor steht. 37 Assets
+   tragen ein Band (vorher 28; neu die vier Gleise, zwei Hecken, zwei Maschendrahtzäune und die Ruinenecke).
 
 **Folge im Import (Würzburg, 2.8):** mit den billigeren Fernstufen legt der Import unter denselben Teilbudgets mehr:
 Möblierung 18 528 statt 13 444 Stücke (Mauern 4 270 statt 1 893, Stützmauern 3 208 statt 1 869, Zäune 2 126 statt
@@ -488,11 +496,27 @@ der Abgabe an der Grenze von 6,8 ms (2.9). Die Stufenwahl kostet mit den zusätz
 Mittel. „fehlen“ steigt leicht: die
 zusätzlichen Stücke einzelner kurzer Linien unter der Pixelgrenze.
 
-**Offen:** Gleise bekommen noch kein Band: ihre LOD-Modelle tragen Texturen (`rail-track-lod1` mit Farb-, Normal- und
-ORM-Textur), aus denen sich auf der CPU kein Mittel lesen lässt; sie zeichnen fern ihr LOD-Modell (116 Dreiecke). Ebenso
-Hecken und Maschendraht (ohne LOD). Weg: Farbmittel beim Packen der Modelle messen und im Katalog ablegen (z. B.
-`band.top`/`band.side`), dann greift `hasBand` auch für sie. Die Skripte der mitgelieferten Karten legen ihre Mauern noch
-Stück für Stück (Autumn Keep); als Linie hieße neuer Hash.
+**Offen:** Die Skripte der mitgelieferten Karten legen ihre Mauern noch Stück für Stück (Autumn Keep); als Linie hieße
+neuer Hash.
+
+**Messung Schritt 3** (Gleise, Hecken, Maschendraht mit Band; vorher die Karte und der Stand von Schritt 2, nachher
+Würzburg neu importiert: Möblierung 18 754 statt 18 528 Stücke, Mauern 4 464 statt 4 270, Stützmauern 3 240 statt
+3 208, Hecken und Zäune gleich, Szenenkosten 4,78 statt 4,82 Mio.). Die Vorher-Läufe stammen aus der Sitzung von
+Schritt 2; zwischen den Sitzungen wich die GPU-Zeit auch auf den unveränderten Karten Ruined City und Autumn Keep um bis
+zu 0,5 ms ab (Low und Ultra), deshalb hier nur die Dreiecke als Vergleich und die GPU-Zeit von High:
+
+| Ansicht | High: Dreiecke (Mio.) | High: GPU ms | Ultra: Dreiecke (Mio.) | Low: Dreiecke (Mio.) |
+|---|---|---|---|---|
+| start | 4,70 → 4,55 | 2,35 → 2,43 | 5,74 → 5,69 | 3,21 → 2,62 |
+| game | 6,16 → 6,05 | 3,47 → 3,45 | 8,21 → 8,16 | 3,48 → 2,90 |
+| low | 7,20 → 6,98 | 4,29 → 4,28 | 9,10 → 9,05 | 4,00 → 3,43 |
+| top | 3,82 → 3,25 | 3,12 → 3,00 | 4,08 → 3,54 | 3,62 → 3,03 |
+| street | 6,86 → 6,75 | 4,12 → 4,07 | 8,54 → 8,49 | 3,72 → 3,14 |
+| station | 4,92 → 4,80 | 3,32 → 3,31 | 5,91 → 5,85 | 2,83 → 2,53 |
+
+Die Gleise sind der Posten: fern 6 statt 116 Dreiecke je Stück, von oben 0,57 Mio. Dreiecke weniger (High), auf Low
+überall 0,3 bis 0,6 Mio. Ruined City und Autumn Keep zeichnen dieselben Dreiecke. Die Stufenwahl kostet auf Würzburg
+0,05 bis 0,23 ms mehr im Mittel (mehr Stücke haben eine Stufe mehr). Bilder `tmp/e304-shots/b2-*` (Worktree).
 
 ## 3. Wie andere es machen (belegt)
 

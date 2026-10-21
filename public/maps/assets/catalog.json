@@ -3501,6 +3501,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.298,
+          0.248,
+          0.163
+        ],
+        "side": [
+          0.305,
+          0.254,
+          0.167
+        ]
+      },
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/stacked_stone_wall"
     },
     {
@@ -3546,6 +3558,19 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.114,
+          0.087,
+          0.059
+        ],
+        "side": [
+          0.121,
+          0.092,
+          0.063
+        ],
+        "cover": 0.34
+      },
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/rough_wood"
     },
     {
@@ -5062,6 +5087,18 @@
           2.279
         ]
       },
+      "band": {
+        "top": [
+          0.123,
+          0.166,
+          0.037
+        ],
+        "side": [
+          0.123,
+          0.166,
+          0.037
+        ]
+      },
       "source": "procedural (tools/map-assets/build_nature.py); Blätter https://ambientcg.com/view?id=LeafSet002"
     },
     {
@@ -5119,6 +5156,18 @@
           1.98,
           2.014,
           2.278
+        ]
+      },
+      "band": {
+        "top": [
+          0.124,
+          0.167,
+          0.037
+        ],
+        "side": [
+          0.124,
+          0.167,
+          0.037
         ]
       },
       "source": "procedural (tools/map-assets/build_nature.py); Blätter https://ambientcg.com/view?id=LeafSet002"
@@ -7537,6 +7586,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.276,
+          0.23,
+          0.151
+        ],
+        "side": [
+          0.277,
+          0.23,
+          0.151
+        ]
+      },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -7592,6 +7653,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.275,
+          0.229,
+          0.15
+        ],
+        "side": [
+          0.274,
+          0.227,
+          0.149
+        ]
+      },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -7647,6 +7720,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.276,
+          0.23,
+          0.152
+        ],
+        "side": [
+          0.275,
+          0.229,
+          0.151
+        ]
+      },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -7702,6 +7787,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.275,
+          0.228,
+          0.15
+        ],
+        "side": [
+          0.271,
+          0.226,
+          0.149
+        ]
+      },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -7757,6 +7854,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.276,
+          0.229,
+          0.15
+        ],
+        "side": [
+          0.273,
+          0.227,
+          0.149
+        ]
+      },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -7812,6 +7921,19 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.085,
+          0.066,
+          0.036
+        ],
+        "side": [
+          0.086,
+          0.067,
+          0.037
+        ],
+        "cover": 0.84
+      },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall"
     },
     {
@@ -7867,6 +7989,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.086,
+          0.067,
+          0.037
+        ],
+        "side": [
+          0.086,
+          0.067,
+          0.037
+        ]
+      },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall"
     },
     {
@@ -8259,6 +8393,19 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.27,
+          0.225,
+          0.148
+        ],
+        "side": [
+          0.275,
+          0.229,
+          0.15
+        ],
+        "cover": 0.63
+      },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -10226,6 +10373,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.128,
+          0.107,
+          0.071
+        ],
+        "side": [
+          0.119,
+          0.094,
+          0.056
+        ]
+      },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/bark_brown_02; https://polyhaven.com/a/dark_planks"
     },
     {
@@ -10277,6 +10436,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.117,
+          0.107,
+          0.078
+        ],
+        "side": [
+          0.129,
+          0.115,
+          0.084
+        ]
+      },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/bark_brown_02; https://polyhaven.com/a/dark_planks"
     },
     {
@@ -10323,6 +10494,19 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.084,
+          0.079,
+          0.064
+        ],
+        "side": [
+          0.099,
+          0.092,
+          0.075
+        ],
+        "cover": 0.61
+      },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/wood_planks_grey"
     },
     {
@@ -10370,6 +10554,19 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.074,
+          0.059,
+          0.026
+        ],
+        "side": [
+          0.097,
+          0.077,
+          0.045
+        ],
+        "cover": 0.36
+      },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/bark_brown_02"
     },
     {
@@ -10416,6 +10613,19 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.118,
+          0.09,
+          0.062
+        ],
+        "side": [
+          0.121,
+          0.093,
+          0.063
+        ],
+        "cover": 0.57
+      },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/rough_wood"
     },
     {
@@ -10463,6 +10673,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.301,
+          0.251,
+          0.166
+        ],
+        "side": [
+          0.305,
+          0.254,
+          0.167
+        ]
+      },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/rock_wall_10"
     },
     {
@@ -10510,6 +10732,19 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.297,
+          0.247,
+          0.163
+        ],
+        "side": [
+          0.296,
+          0.246,
+          0.162
+        ],
+        "cover": 0.52
+      },
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/rock_wall_10"
     },
     {
@@ -10568,6 +10803,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.181,
+          0.15,
+          0.095
+        ],
+        "side": [
+          0.191,
+          0.159,
+          0.109
+        ]
+      },
       "source": "https://polyhaven.com/a/modular_fort_01"
     },
     {
@@ -10670,6 +10917,19 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.015,
+          0.012,
+          0.011
+        ],
+        "side": [
+          0.017,
+          0.013,
+          0.012
+        ],
+        "cover": 0.22
+      },
       "source": "https://polyhaven.com/a/large_iron_gate"
     },
     {
@@ -14242,6 +14502,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.189,
+          0.15,
+          0.107
+        ],
+        "side": [
+          0.187,
+          0.15,
+          0.107
+        ]
+      },
       "source": "https://polyhaven.com/a/concrete_road_barrier"
     },
     {
@@ -14287,6 +14559,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.443,
+          0.352,
+          0.251
+        ],
+        "side": [
+          0.416,
+          0.327,
+          0.228
+        ]
+      },
       "source": "https://polyhaven.com/a/concrete_road_barrier_02"
     },
     {
@@ -14321,6 +14605,19 @@
       "textures": [
         "textures/chainlink-5b75c16fe56ed3fd.ktx2"
       ],
+      "band": {
+        "top": [
+          0.45,
+          0.46,
+          0.45
+        ],
+        "side": [
+          0.387,
+          0.39,
+          0.387
+        ],
+        "cover": 0.26
+      },
       "source": "procedural (tools/map-assets/build_city.py); Maschendraht gezeichnet (make_foliage.py)"
     },
     {
@@ -14352,6 +14649,19 @@
       "textures": [
         "textures/chainlink-5b75c16fe56ed3fd.ktx2"
       ],
+      "band": {
+        "top": [
+          0.383,
+          0.38,
+          0.366
+        ],
+        "side": [
+          0.383,
+          0.385,
+          0.38
+        ],
+        "cover": 0.24
+      },
       "source": "procedural (tools/map-assets/build_city.py); Maschendraht gezeichnet (make_foliage.py)"
     },
     {
@@ -14587,6 +14897,19 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.245,
+          0.228,
+          0.206
+        ],
+        "side": [
+          0.24,
+          0.224,
+          0.201
+        ],
+        "cover": 0.15
+      },
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/dark_planks"
     },
     {
@@ -14632,6 +14955,19 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.255,
+          0.168,
+          0.07
+        ],
+        "side": [
+          0.25,
+          0.166,
+          0.069
+        ],
+        "cover": 0.82
+      },
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/hessian_230"
     },
     {
@@ -14682,6 +15018,19 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.222,
+          0.141,
+          0.057
+        ],
+        "side": [
+          0.216,
+          0.108,
+          0.028
+        ],
+        "cover": 0.74
+      },
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/hessian_230; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/rusty_metal_03"
     },
     {
@@ -16394,6 +16743,19 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.1,
+          0.09,
+          0.09
+        ],
+        "side": [
+          0.1,
+          0.09,
+          0.09
+        ],
+        "cover": 0.15
+      },
       "source": "procedural (tools/map-assets/build_extreme.py)"
     },
     {
@@ -17698,6 +18060,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.221,
+          0.177,
+          0.113
+        ],
+        "side": [
+          0.093,
+          0.055,
+          0.027
+        ]
+      },
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/rock_wall_10; https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -17757,6 +18131,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.225,
+          0.181,
+          0.116
+        ],
+        "side": [
+          0.093,
+          0.055,
+          0.027
+        ]
+      },
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/rock_wall_10; https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -19009,6 +19395,19 @@
         "textures/mossy_stone_wall_diff_1k-95b8e208eb96af98.ktx2",
         "textures/mossy_stone_wall_nor_gl_1k-9fad0ea6aea9e69c.ktx2"
       ],
+      "band": {
+        "top": [
+          0.087,
+          0.067,
+          0.037
+        ],
+        "side": [
+          0.078,
+          0.068,
+          0.032
+        ],
+        "cover": 0.8
+      },
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/mossy_stone_wall; Efeu https://ambientcg.com/view?id=LeafSet029"
     },
     {
@@ -19367,6 +19766,19 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.058,
+          0.039,
+          0.027
+        ],
+        "side": [
+          0.057,
+          0.038,
+          0.026
+        ],
+        "cover": 0.49
+      },
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/weathered_planks"
     },
     {
@@ -25503,6 +25915,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.107,
+          0.098,
+          0.085
+        ],
+        "side": [
+          0.082,
+          0.074,
+          0.062
+        ]
+      },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -25553,6 +25977,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.108,
+          0.099,
+          0.086
+        ],
+        "side": [
+          0.085,
+          0.077,
+          0.065
+        ]
+      },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -25603,6 +26039,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.097,
+          0.089,
+          0.077
+        ],
+        "side": [
+          0.081,
+          0.073,
+          0.061
+        ]
+      },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/dark_planks"
     },
     {
@@ -25653,6 +26101,18 @@
           ]
         }
       ],
+      "band": {
+        "top": [
+          0.098,
+          0.091,
+          0.079
+        ],
+        "side": [
+          0.083,
+          0.075,
+          0.063
+        ]
+      },
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/gravel_floor_02; https://polyhaven.com/a/dark_planks"
     },
     {

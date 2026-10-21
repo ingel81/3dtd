@@ -8,7 +8,7 @@ import { massTriangles } from '../../object-mass';
  * What a map's objects cost the picture, in points: per object about the
  * triangles it puts on screen with the camera somewhere over the map. An
  * object draws its model near the camera, its LOD models farther out, trees
- * and big rocks an impostor beyond that, walls and tracks a band of six
+ * and big rocks an impostor beyond that, line pieces a band of six
  * triangles (line-bands.ts), and nothing once it is smaller on screen than
  * the pixel limit (object-layer.ts, render-quality.ts `drawPixels`); the
  * pieces of a line draw as far as the line, which on any map is the whole
@@ -51,7 +51,7 @@ const UNKNOWN_TRIANGLES = 500;
 const UNKNOWN: CostEntry = { category: 'prop', height: 2, file: '?' };
 
 /** The catalogue fields the cost reads */
-export type CostEntry = Pick<CatalogObject, 'category' | 'height' | 'file' | 'triangles' | 'lod' | 'effects' | 'box'> & {
+export type CostEntry = Pick<CatalogObject, 'category' | 'height' | 'file' | 'triangles' | 'lod' | 'effects' | 'box' | 'band'> & {
   footprint?: number;
   far?: { screen: number };
 };
@@ -81,7 +81,7 @@ export function objectCost(entry: CostEntry | undefined, area: number, inLine = 
   }
   // As levelsFor: a building's box where it fills its screen share
   if (entry.far) levels.push({ from: screenDistance(radius, entry.far.screen), triangles: FAR_BOX_TRIANGLES });
-  // As levelsFor: a wall's or track's band after its LOD model (line-bands.ts)
+  // As levelsFor: a wall's, fence's, hedge's or track's band after its last stage (line-bands.ts)
   if (hasBand(entry)) levels.push({ from: Math.max(screenDistance(radius, BAND_SCREEN), Math.max(...levels.map((l) => l.from)) * 1.2), triangles: BAND_TRIANGLES });
   levels.sort((a, b) => a.from - b.from);
   // Drawn while its radius on screen stays above the pixel limit; a line's piece as far as its line

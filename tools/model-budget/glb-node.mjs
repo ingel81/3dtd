@@ -39,12 +39,17 @@ function withoutImages(bytes) {
   return out.buffer;
 }
 
-/** { root, animations } of a GLB file, as GLTFLoader builds them. */
+/**
+ * { root, animations, json, associations } of a GLB file, as GLTFLoader builds them: `json` is the file's own
+ * glTF (with its textures), `associations` maps each built material, mesh and node to its index in it.
+ */
 export async function loadGlb(path) {
   const buffer = readFileSync(path);
   const bytes = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
   await MeshoptDecoder.ready;
   const gltf = await new Promise((resolve, reject) =>
     new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parse(withoutImages(bytes), '', resolve, reject));
-  return { root: gltf.scene, animations: gltf.animations };
+  const jsonLength = new DataView(bytes.buffer, bytes.byteOffset).getUint32(12, true);
+  const json = JSON.parse(new TextDecoder().decode(bytes.subarray(20, 20 + jsonLength)));
+  return { root: gltf.scene, animations: gltf.animations, json, associations: gltf.parser.associations };
 }

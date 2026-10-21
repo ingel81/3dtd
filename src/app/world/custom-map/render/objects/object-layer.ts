@@ -1041,11 +1041,11 @@ export class MapObjectLayer {
         shared: { draws: this.farBoxes, key: blocks ? FAR_BLOCKING : FAR_OPEN, extras: () => [row] },
       });
     }
-    // A wall's, fence's or track's piece: far off a band of six triangles, every asset's in one mesh (line-bands.ts),
-    // after its LOD model, whose colours it takes
-    if (hasBand(entry) && lods.length && !model.placeholder) {
+    // A wall's, fence's, hedge's or track's piece: far off a band of six triangles, every asset's in one mesh
+    // (line-bands.ts), after its last stage (its LOD model, whose tone it takes, or its far box or full model)
+    if (hasBand(entry) && !model.placeholder) {
       this.bands ??= new LineBands({ blocking: this.losGroup, open: this.group });
-      const r = this.bands.row(entry, model.height, lods[0].model.parts, lods[0].tone);
+      const r = this.bands.row(entry, model.height, lods[0]?.tone);
       if (r !== null) {
         const row = [r];
         levels.push({

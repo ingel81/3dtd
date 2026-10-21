@@ -274,6 +274,14 @@ export interface CatalogObject {
    * -z to +z, each from -x to +x; `tone` as a LOD model's
    */
   far?: { screen: number; tile: number; box: [number, number, number, number, number, number]; top: number[]; tone?: StageTone };
+  /**
+   * Pieces of a line (walls, fences, hedges, tracks): the colours of their
+   * far band (objects/line-bands.ts), what the full model shows from above
+   * (`top`) and from its long sides (`side`), linear, and the share of the
+   * box's side its pixels cover where that is less than whole (`cover`: a
+   * chain-link fence's wire); measured by tools/map-assets/measure_bands.mjs
+   */
+  band?: { top: [number, number, number]; side: [number, number, number]; cover?: number };
   /** Where an object's `sign` is written on the model (render/objects/sign-text.ts) */
   signPanel?: CatalogSignPanel;
 }

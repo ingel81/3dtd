@@ -582,14 +582,16 @@ für ferne Bäume ab 380 m, nichts, sobald sein Radius im Bild unter die Pixelgr
 Linie, `line-spheres.ts`). Ein weiteres Sichtfeld als 60° schaltet entsprechend näher. Sichtblocker (Katalog
 `blocksLos`, je Objekt überschreibbar) liegen in `losBlockers`.
 
-**Linien als Band (E304 (d), `line-bands.ts`):** Mauern, Zäune und Gleise (Katalog `wall` oder `structure` mit `box`
-und LOD-Modell) enden fern in einem Band: je Stück ein Kasten aus sechs Dreiecken (Deckel und beide Längsseiten) über
+**Linien als Band (E304 (d), `line-bands.ts`):** Mauern, Zäune, Hecken und Gleise (Katalog `wall` oder `structure`
+mit `box` und `band`) enden fern in einem Band: je Stück ein Kasten aus sechs Dreiecken (Deckel und beide Längsseiten) über
 dem Grundrechteck `box` bis zur Modellhöhe, alle Assets in einem instanzierten Draw (Sichtblocker und übrige getrennt).
 Die Stücke einer Linie überlappen, ihre Kästen lesen sich fern als ein Band; ein zerstörtes Stück lässt seine Lücke.
-Übergang bei 3 px Radius (1080 Zeilen, `BAND_SCREEN`) mit der Blende der Stufen, nach dem LOD-Modell. Farben: die
-flächengewichteten Mittel der LOD-Teile, oben und seitlich getrennt, mal dem Ton der Stufe (die LOD-Modelle tragen die
-Texturmittel des vollen Modells, `match_lods.py`); ein Asset mit Textur in der Farbquelle (Hecken, Maschendraht ohne
-LOD) bekommt kein Band. Der Sicht-Cube sieht die Bänder nie (er zeichnet die vollen Modelle, LOS_PIPELINE.md Regel 14).
+Übergang bei 3 px Radius (1080 Zeilen, `BAND_SCREEN`) mit der Blende der Stufen, nach der letzten Stufe davor
+(LOD-Modell, Fernkasten der Hecken oder das volle Modell). Farben aus dem Katalog (`band`, beim Packen gemessen von
+`tools/map-assets/measure_bands.mjs`): das volle Modell von oben und von beiden Längsseiten gerastert, Farbtextur linear
+mal Faktor, was das Alpha wegschneidet, zählt nicht; Mittel oben und seitlich, mal dem Ton des LOD-Modells, wo eins davor
+steht. Deckt die Seite ihr Rechteck nicht (Maschendraht 26 %, Lattenzaun 34 %, `band.cover`), behält das Band diesen
+Anteil seiner Pixel im Raster der Blende, im Schatten ebenso. Der Sicht-Cube sieht die Bänder nie (er zeichnet die vollen Modelle, LOS_PIPELINE.md Regel 14).
 
 **Draw Calls (V2, ersetzt Zellen und gepackte Assets):** Ein Stufenwechsel verschiebt eine oder zwei Instanzen in der
 Liste der Stufe (der letzte seiner Abteilung füllt die Lücke), nie die Liste; hochgeladen wird je Bild ein Bereich je
