@@ -63,10 +63,11 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Wasserfall und Überlauf (Empfehlung), Verdampfen mit Dampfsäule und trockenem Bett, Kombination.
       User 2026-10-21: erst komplett durchdenken, bevor gebaut wird. Der Fluss braucht eine Fließrichtung, der Krater
       füllt sich als See und gibt beim Überlauf den Fluss stromab weiter. Zuerst Plan-Doc, dann Abstimmung.
-- [ ] **E288 Gemalte Flüsse vereinigen sich nicht** (User 2026-10-21, Editor): Zwei Flussstriche, die sich berühren oder
-      kreuzen, bleiben zwei getrennte Wasserflächen mit dunkler Naht dazwischen, Ufer und Vegetation stehen mitten im
-      Wasser. Soll: zusammenfließen (gemeinsame Fläche, Mündung bzw. Zusammenfluss). Gehört zum Wassernetz mit
-      Fließrichtung aus E283, im selben Plan-Doc durchdenken.
+- [ ] **E288 Gemalte Flüsse vereinigen sich nicht** (User 2026-10-21, Editor): Ein in einem Zug gemalter Fluss, dessen
+      Strich nah an sich selbst zurückläuft, überlappt sich: zwei Bandstücke mit verschiedener Höhe nebeneinander,
+      dunkle Naht dazwischen, Ufer und Vegetation mitten im Wasser. Ebenso zwei Striche, die sich berühren oder kreuzen
+      (User erwartet bei genauem Kreuzen ein Gesamtgewässer als Kreuz; testet das noch im Editor). Soll: eine
+      gemeinsame Wasserfläche. Plan: docs/WATER_NETWORK_PLAN.md (mit E283).
 - [ ] **E289 Eigene Welten ohne Vorschaubild** (User 2026-10-21): Im Menü „Gebaute Welten“ zeigen selbst gebaute Karten
       (Zuletzt und Eigene Welten, z. B. „Editor Testworld1“) nur ein leeres dunkles Feld, mitgelieferte wie Mountain Pass
       ein Bildchen. Soll: auch eigene Karten bekommen ein Vorschaubild (z. B. beim Speichern im Editor erzeugt).
