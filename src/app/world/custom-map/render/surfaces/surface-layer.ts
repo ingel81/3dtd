@@ -100,11 +100,22 @@ export class SurfaceLayer {
     this.textures.setIds(this.materials);
   }
 
+  /** Craters may sink the ground: the tiles get ready to follow (DrapedTiles.prepareForCraters) */
+  prepareForCraters(): void {
+    this.tiles.prepareForCraters();
+  }
+
   /**
    * Heights changed inside a map rectangle (all when omitted): the surfaces
-   * there are cut again on the new ground, the tiles fit their bounds again
+   * there are cut again on the new ground, the tiles fit their bounds again.
+   * Craters (`sunk`): no new cut of the whole surface, its tiles are split
+   * closer over the pit only (DrapedTiles.refreshBounds)
    */
-  refreshBounds(rect?: { minX: number; minY: number; maxX: number; maxY: number }): void {
+  refreshBounds(rect?: { minX: number; minY: number; maxX: number; maxY: number }, sunk = false): void {
+    if (sunk && rect) {
+      this.tiles.refreshBounds(rect, true);
+      return;
+    }
     let moved = false;
     for (const s of this.list) {
       if (rect && !overlaps(s, rect)) continue;

@@ -227,7 +227,7 @@ export class CustomMapWorld implements WorldProvider {
     const ground = damaged
       ? new CustomMapGroundDamage(
         this.doc.terrain.grid, this.doc.terrain.width, this.doc.terrain.depth,
-        (rect) => this.view?.updateHeights(rect),
+        (rect) => this.view?.updateHeights(rect, true),
         (marks) => this.view?.setImpactMarks(marks),
         (id) => this.destruction?.materialOf(id) ?? 'plaster',
         (bare) => this.view?.setGroundBare(bare),

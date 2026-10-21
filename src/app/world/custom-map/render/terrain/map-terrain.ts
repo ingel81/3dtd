@@ -432,7 +432,7 @@ export class MapTerrainLayer {
    * Heights changed in `rect` (all when omitted), clamped to the grid; whether the apron changed with them (the
    * border's heights)
    */
-  rebuild(area?: GridRect): boolean {
+  rebuild(area?: GridRect, sunk = false): boolean {
     const f = this.field;
     // A rectangle with a margin past the border (CustomMapView.gridRect): the ground worker's copy took rows past
     // the grid's end, its job threw and every later bake ran on this thread (TODO E256)
@@ -440,8 +440,9 @@ export class MapTerrainLayer {
     this.chunks.rebuild(rect);
     this.albedo.invalidate();
     const bounds = rect && { minX: f.originX + rect.i0 * f.cellSize, minY: f.originY + rect.j0 * f.cellSize, maxX: f.originX + rect.i1 * f.cellSize, maxY: f.originY + rect.j1 * f.cellSize };
-    this.roads.refreshBounds(bounds);
-    this.surfaces.refreshBounds(bounds);
+    // Craters: the roads and surfaces over them split closer, so they follow the ground into the pit
+    this.roads.refreshBounds(bounds, sunk);
+    this.surfaces.refreshBounds(bounds, sunk);
     this.normals.update(rect);
     this.occlusion.baker?.heightsChanged?.(f.grid.heights, f.columns, rect ?? null);
     if (rect) this.occlusion.queueTerrain(rect);

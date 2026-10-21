@@ -1,7 +1,7 @@
 # Wassernetz: Zusammenfluss, Krater im Fluss, Überlauf (Plan)
 
 Stand 2026-10-21, abgestimmt (Entscheidungen unten). Betrifft TODO E283 (Fluss über Krater) und E288 (gemalte Flüsse
-vereinigen sich nicht). Schritte 1 (Netz, E288) und 2 (Krater im Fluss, E283) gebaut, Schritt 3 offen.
+vereinigen sich nicht). Schritte 1 (Netz, E288), 2 (Krater im Fluss, E283) und 3 (Flächen folgen dem Krater) gebaut.
 
 ## Befund
 
@@ -120,10 +120,20 @@ Der Vorschlag, wie er abgestimmt war:
   Kraterwall kann als Insel herausragen. Kein Umbau nötig, nur prüfen, dass Maske und Uferschaum mitziehen.
 - **Lava** verhält sich gleich (Lavasee im Krater, Lavafall), nur langsamer.
 
-### 3. Flächen folgen dem Krater (Rest von E283)
+### 3. Flächen folgen dem Krater (Rest von E283, gebaut)
 
 Asphalt, Parkplätze und andere flache Flächen (Pfad-Maske, Bodenflächen) lesen ihre Höhe aus dem Raster mit
 Kratern, statt ihre alte Form zu behalten. Eigener kleiner Schritt, unabhängig vom Wasser.
+
+Gebaut so (2026-10-21): Straßen und Flächen (`render/drape/draped-layer.ts`, auch Rinnen) nahmen ihre Höhe schon
+im Shader aus der Höhentextur; der Bogen kam von weit auseinander liegenden Ecken (quer über eine Straße bis 4,5 m,
+Kreuzungen und Enden als Fächer, flache Flächen in 64-m-Zellen). Nach einem Krater (`updateHeights` mit `sunk`)
+wandern die Dreiecke über der Grube, deren Grund mehr als 10 cm von ihrer Ebene abweicht, aus ihrer Kachel (dort
+entartet, ihre Puffer bleiben) in einen Flicken der Kachel und werden bis auf die Rasterzelle geteilt
+(`draped-refine.ts`): ein Draw Call mehr je getroffener Kachel. Je Kachel ein Index der Dreiecke nach Lage (beim
+Laden gebaut, nur auf Karten mit Kratern), damit ein Krater nur die Dreiecke in seiner Nähe ansieht. Die Box der
+Kachel wächst nur um die Höhen im Rechteck. Brücken behalten bei Kratern ihre Fahrbahn. Die Pfad-Maske folgt
+ohnehin (sie liegt im Gelände-Shader). Routenkorridor, rote Routenlinie und Tower-Sicht (E291) nicht berührt.
 
 ## Kosten und Leistung
 

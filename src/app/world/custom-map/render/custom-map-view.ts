@@ -405,6 +405,9 @@ export class CustomMapView {
     this.decals = new GroundDecals(this.terrain.heightTexture);
     this.group.add(this.decals.mesh);
     if (options.impactMarks) {
+      // Craters sink the ground under roads and surfaces: their tiles get ready to follow it
+      this.terrain.roads.prepareForCraters();
+      this.terrain.surfaces.prepareForCraters();
       this.impactMarks = new ImpactMarks(this.terrain.heightTexture);
       this.group.add(this.impactMarks.mesh);
       this.rubblePieces = new RubblePieces(this.terrain.heightTexture);
@@ -1098,8 +1101,9 @@ export class CustomMapView {
   }
 
   /** Heights changed inside `rect` (map metres); whole map when omitted. Objects and water follow. */
-  updateHeights(rect?: MapRect): void {
-    const apron = this.terrain.rebuild(rect ? this.gridRect(rect) : undefined);
+  /** Heights changed in `rect` (all when omitted); `sunk`: by craters (roads and surfaces follow, bridges keep their decks) */
+  updateHeights(rect?: MapRect, sunk = false): void {
+    const apron = this.terrain.rebuild(rect ? this.gridRect(rect) : undefined, sunk);
     this.objects.refreshHeights(rect);
     // Ruins that sank with a crater smoulder where they lie now
     this.refreshEmbers();
@@ -1110,7 +1114,8 @@ export class CustomMapView {
     // Water and bridges only when the change reaches them: a brush on a big map must stay cheap
     if (!rect) this.updateWater();
     else this.refreshWaterNear(rect, apron);
-    if (!rect || this.bridgeNear(rect)) void this.refreshBridges();
+    // A bridge keeps its deck where a crater sank the ground at its end
+    if (!sunk && (!rect || this.bridgeNear(rect))) void this.refreshBridges();
     // The apron beyond the border follows its heights, the mirrored trees the apron
     if (!rect || this.nearBorder(rect)) this.edgeTreesLater(this.shownObjects());
     this.environment.invalidateShadows();

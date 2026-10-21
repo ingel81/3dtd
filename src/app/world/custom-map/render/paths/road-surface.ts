@@ -72,8 +72,13 @@ export class RoadSurfaceLayer {
   }
 
   /** Heights changed inside a map rectangle (all when omitted): the tiles there fit their bounds again */
-  refreshBounds(rect?: { minX: number; minY: number; maxX: number; maxY: number }): void {
-    this.tiles.refreshBounds(rect);
+  /** Craters may sink the ground: the tiles get ready to follow (DrapedTiles.prepareForCraters) */
+  prepareForCraters(): void {
+    this.tiles.prepareForCraters();
+  }
+
+  refreshBounds(rect?: { minX: number; minY: number; maxX: number; maxY: number }, sunk = false): void {
+    this.tiles.refreshBounds(rect, sunk);
   }
 
   dispose(): void {

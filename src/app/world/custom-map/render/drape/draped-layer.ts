@@ -5,6 +5,7 @@ import { addHeightFog } from '../environment/height-fog';
 import type { HeightField } from '../height-field';
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
+import { mergeDraped, refineDraped, takeSplitting, triangleBuckets, type DrapedGeometry, type TriangleBuckets } from './draped-refine';
 
 /**
  * What lies over the ground as a surface of its own: the paved roads
@@ -17,7 +18,11 @@ import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-textu
  *     when the ground moves;
  *   - the vertices take their height from the terrain's height texture, so
  *     a brush moves the surface with the ground without a rebuild, and their
- *     normal from the terrain's grid;
+ *     normal from the terrain's grid; where a crater sank the ground between
+ *     them, the triangles over it leave their tile for a patch of the tile
+ *     where they are split closer (refreshBounds with `sunk`,
+ *     draped-refine.ts), so the surface follows it into the pit: a draw call
+ *     more per tile a crater hit, the tile's own buffers kept;
  *   - they are drawn a little towards the camera (more with distance)
  *     instead of lifted: the surface never fights the ground it lies on and
  *     does not float over it seen from the side. Of two that overlap, the
@@ -72,7 +77,12 @@ export function drapeTileKey(x: number, y: number): string {
 /** The meshes of a draped surface, one per tile, fitted to the heights for culling */
 export class DrapedTiles {
   readonly group = new Group();
-  private readonly tiles = new Map<string, { mesh: Mesh; tile: DrapedTile }>();
+  private readonly tiles = new Map<
+    string,
+    { mesh: Mesh; tile: DrapedTile; patch: { mesh: Mesh; geometry: DrapedGeometry } | null; buckets: TriangleBuckets | null }
+  >();
+  /** Craters may sink the ground (prepareForCraters): each tile keeps its triangles by where they lie */
+  private craters = false;
 
   /** @param tile Metres a side of a tile (DRAPE_TILE, the roads'; the surfaces take wider ones) */
   constructor(
@@ -89,10 +99,17 @@ export class DrapedTiles {
     return this.tiles.size;
   }
 
-  /** Triangles of all tiles */
+  /** Triangles of all tiles, with their patches over craters */
   get triangles(): number {
     let n = 0;
-    for (const { tile } of this.tiles.values()) n += tile.index.length / 3;
+    for (const { tile, patch } of this.tiles.values()) n += (tile.index.length + (patch?.geometry.index.length ?? 0)) / 3;
+    return n;
+  }
+
+  /** Tiles with a patch over craters: each a draw call more */
+  get patches(): number {
+    let n = 0;
+    for (const { patch } of this.tiles.values()) if (patch) n++;
     return n;
   }
 
@@ -100,22 +117,8 @@ export class DrapedTiles {
   set(tile: DrapedTile): void {
     this.remove(tile.key);
     if (!tile.index.length) return;
-    const g = new BufferGeometry();
-    // Scene space (x = -map x, z = map y); the height comes from the terrain in the shader
-    const pos = new Float32Array((tile.position.length / 2) * 3);
-    for (let k = 0; k < tile.position.length / 2; k++) {
-      pos[k * 3] = -tile.position[k * 2];
-      pos[k * 3 + 2] = tile.position[k * 2 + 1];
-    }
-    g.setAttribute('position', new BufferAttribute(pos, 3));
-    for (const [name, a] of Object.entries(tile.attributes)) g.setAttribute(name, new BufferAttribute(a.array, a.itemSize));
-    g.setIndex(new BufferAttribute(tile.index, 1));
-    const mesh = new Mesh(g, this.material);
-    mesh.name = `${this.name}-${tile.key}`;
-    mesh.receiveShadow = true;
-    mesh.matrixAutoUpdate = false;
-    this.fitBounds(mesh, tile);
-    this.tiles.set(tile.key, { mesh, tile });
+    const mesh = this.meshOf(tile, `${this.name}-${tile.key}`);
+    this.tiles.set(tile.key, { mesh, tile, patch: null, buckets: this.craters ? triangleBuckets(tile) : null });
     this.group.add(mesh);
     this.group.visible = true;
   }
@@ -125,25 +128,117 @@ export class DrapedTiles {
     if (!t) return;
     t.mesh.geometry.dispose();
     t.mesh.removeFromParent();
+    t.patch?.mesh.geometry.dispose();
+    t.patch?.mesh.removeFromParent();
     this.tiles.delete(key);
     this.group.visible = this.tiles.size > 0;
   }
 
-  /** Heights changed inside a map rectangle (all when omitted): the tiles there fit their bounds again */
-  refreshBounds(rect?: { minX: number; minY: number; maxX: number; maxY: number }): void {
-    for (const { mesh, tile } of this.tiles.values()) {
+  /**
+   * Craters may sink the ground under the tiles (a map that digs them): each
+   * tile keeps its triangles by where they lie, made now and as tiles come,
+   * so a crater looks only at the triangles near it (a town's tile holds
+   * 20 000; looking at all of them took 5 ms a crater)
+   */
+  prepareForCraters(): void {
+    if (this.craters) return;
+    this.craters = true;
+    for (const entry of this.tiles.values()) entry.buckets ??= triangleBuckets(entry.tile);
+  }
+
+  /** A mesh of a geometry in map positions; scene space (x = -map x, z = map y), the height from the terrain in the shader */
+  private meshOf(geometry: DrapedGeometry, name: string): Mesh {
+    const g = new BufferGeometry();
+    const pos = new Float32Array((geometry.position.length / 2) * 3);
+    for (let k = 0; k < geometry.position.length / 2; k++) {
+      pos[k * 3] = -geometry.position[k * 2];
+      pos[k * 3 + 2] = geometry.position[k * 2 + 1];
+    }
+    g.setAttribute('position', new BufferAttribute(pos, 3));
+    for (const [n, a] of Object.entries(geometry.attributes)) g.setAttribute(n, new BufferAttribute(a.array, a.itemSize));
+    g.setIndex(new BufferAttribute(geometry.index, 1));
+    const mesh = new Mesh(g, this.material);
+    mesh.name = name;
+    mesh.receiveShadow = true;
+    mesh.matrixAutoUpdate = false;
+    this.fitBounds(mesh, geometry);
+    return mesh;
+  }
+
+  /**
+   * Heights changed inside a map rectangle (all when omitted): the tiles there fit their bounds again. `sunk`:
+   * craters sank the ground there; the tiles' triangles over it are split closer (draped-refine.ts), so the
+   * surface follows the ground into the pit instead of spanning it
+   */
+  refreshBounds(rect?: { minX: number; minY: number; maxX: number; maxY: number }, sunk = false): void {
+    const heightAt = (x: number, y: number) => this.field.heightAt(x, y);
+    for (const entry of this.tiles.values()) {
+      const { mesh, tile } = entry;
       if (rect && (tile.x > rect.maxX || tile.y > rect.maxY || tile.x + this.tile < rect.minX || tile.y + this.tile < rect.minY)) continue;
+      if (sunk && rect) {
+        // The triangles over the pit out of the tile (drawn as nothing there now) into its patch, split closer
+        const taken = takeSplitting(tile, rect, heightAt, this.field.cellSize, entry.buckets);
+        if (taken) mesh.geometry.index!.needsUpdate = true;
+        const had = entry.patch?.geometry ?? null;
+        const joined = had && taken ? mergeDraped(had, taken) : (had ?? taken);
+        const refined = joined && refineDraped(joined, rect, heightAt, this.field.cellSize);
+        if (refined || taken) {
+          entry.patch?.mesh.geometry.dispose();
+          entry.patch?.mesh.removeFromParent();
+          const geometry = refined ?? joined!;
+          const patch = this.meshOf(geometry, `${this.name}-${tile.key}-patch`);
+          entry.patch = { mesh: patch, geometry };
+          this.group.add(patch);
+        } else if (entry.patch) this.growBounds(entry.patch.mesh, rect);
+        // Its box only grows by the ground in the rectangle: a walk over every vertex of a town's tile took
+        // half a millisecond and more per crater
+        this.growBounds(mesh, rect);
+        continue;
+      }
       this.fitBounds(mesh, tile);
     }
   }
 
+  /** A mesh's box grown to the ground's heights in a rectangle (its samples there) */
+  private growBounds(mesh: Mesh, rect: { minX: number; minY: number; maxX: number; maxY: number }): void {
+    const box = mesh.geometry.boundingBox;
+    if (!box) return;
+    const f = this.field;
+    // Scene x is map -x: the box's x runs from -maxX to -minX
+    const minX = Math.max(rect.minX, -box.max.x);
+    const maxX = Math.min(rect.maxX, -box.min.x);
+    const minY = Math.max(rect.minY, box.min.z);
+    const maxY = Math.min(rect.maxY, box.max.z);
+    if (minX > maxX || minY > maxY) return;
+    const i0 = Math.floor((minX - f.originX) / f.cellSize);
+    const i1 = Math.ceil((maxX - f.originX) / f.cellSize);
+    const j0 = Math.floor((minY - f.originY) / f.cellSize);
+    const j1 = Math.ceil((maxY - f.originY) / f.cellSize);
+    let lo = box.min.y;
+    let hi = box.max.y;
+    for (let j = j0; j <= j1; j++) {
+      for (let i = i0; i <= i1; i++) {
+        const h = f.sample(i, j);
+        if (h - 1 < lo) lo = h - 1;
+        if (h + 1 > hi) hi = h + 1;
+      }
+    }
+    if (lo === box.min.y && hi === box.max.y) return;
+    box.min.y = lo;
+    box.max.y = hi;
+    mesh.geometry.boundingSphere = box.getBoundingSphere(new Sphere());
+  }
+
   clear(): void {
-    for (const { mesh } of this.tiles.values()) mesh.geometry.dispose();
+    for (const { mesh, patch } of this.tiles.values()) {
+      mesh.geometry.dispose();
+      patch?.mesh.geometry.dispose();
+    }
     this.tiles.clear();
     this.group.clear();
   }
 
-  private fitBounds(mesh: Mesh, tile: DrapedTile): void {
+  private fitBounds(mesh: Mesh, tile: DrapedGeometry): void {
     const box = new Box3();
     const p = tile.position;
     const q = new Vector3();
