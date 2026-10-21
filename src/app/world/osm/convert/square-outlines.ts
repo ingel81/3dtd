@@ -8,8 +8,10 @@
  * out of the buildings beside it here, half its width and a little more
  * from the nearest wall, so the enemies walking it keep out of the houses.
  *
- * A node the outline shares with a road or path stays: the road is where OSM
- * has it. A point that no place clears (a lane narrower than the outline
+ * A node the outline shares with a road or a bridge stays: the road is where
+ * OSM has it. One it shares with a footway or a passage goes with it (a door
+ * of a passage on the courtyard's wall: the passage reaches a little into the
+ * courtyard, the footway starts there). A point that no place clears (a lane narrower than the outline
  * between two houses) goes to the first place outside the buildings it
  * finds, else stays.
  */
@@ -40,10 +42,10 @@ export function pullOutlines(paths: MapPaths, features: OsmFeatures): number {
   const outlines = paths.edges.filter((e) => e.area);
   if (!outlines.length) return 0;
   const solids = new SolidIndex(features);
-  // A node any other edge than an outline or a passage uses stays where OSM has it
+  // A node a road or a bridge uses stays where OSM has it
   const fixed = new Set<string>();
   for (const e of paths.edges) {
-    if (e.area || e.covered) continue;
+    if (e.area || e.covered || e.kind === 'path') continue;
     fixed.add(e.a);
     fixed.add(e.b);
   }
