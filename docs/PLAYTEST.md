@@ -650,6 +650,18 @@ Ob ein Krater einen Fluss schneidet, wie hoch der See steht und wohin er überl�
   Überlauf erstarrt, wo er auf Wasser trifft.*
 - **U3 Spielen:** die Karte aus U1 speichern und spielen. *Der See steht von Anfang an voll da, mit Fall und Überlauf.*
 
+## V Tunnel unter Gebäuden (2026-10-21, E299)
+
+Welche Tunnel Durchgang, Tiefgarage oder Geländetunnel werden, prüft `underground.spec.ts`; hier das Auge. New game,
+„A map of a real place“, `49.7932, 9.9312` (Würzburg), bauen.
+
+- **V1 Kein Portal in der Stadt:** durch die Altstadt fliegen. *Kein Betonportal und kein Hügel zwischen den Häusern;
+  wo vorher einer lag, stehen Häuser.*
+- **V2 Tiefgarage:** eine Garageneinfahrt suchen (Rampe an einer Hauswand). *Kurze abgesenkte Rampe bis zur Wand; die
+  Wand ist noch geschlossen (Öffnung kommt mit E297).* Gegner laufen nicht hinein.
+- **V3 Durchgang:** einem Fußweg folgen, der unter einem Haus durchführt. *Das Haus steht, der Weg läuft darunter
+  durch.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo
