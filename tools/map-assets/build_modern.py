@@ -18,7 +18,7 @@ from mathutils import Vector
 from blender_kit import (CITY_FACADES, Nodes, Part, bake_surface, box, card, card_material, clear_scene, export_lod, finish, flat_material, hexa,
                          net_material, pbr_material, tilt, tube)
 from blender_kit import export as export_plain
-from build_city import Face, glass
+from build_city import Face, glass, hole
 from build_nature import broadleaf
 from build_structures import gable_roof, pyramid_roof
 
@@ -1696,6 +1696,136 @@ def platform(name, length=20.0, width=4.0, h=0.76):
     export(name, kit.objects(name))
 
 
+SUBWAY_DEPTH = 3.0
+SUBWAY_RISE = SUBWAY_DEPTH / 18
+SUBWAY_TREAD = 0.30
+
+
+def subway_parts():
+    """Concrete of the subway's descents: walls, coping and steps in brushed concrete (the walls lighter), the
+    floor in slabs, galvanised steel for the rails"""
+    wall = Part(pbr_material('subway-wall', 'brushed_concrete', (0.95, 0.95, 0.93)), uv_metres=3.0, bevel=0.015)
+    trim = Part(pbr_material('subway-trim', 'brushed_concrete', (0.78, 0.78, 0.76)), uv_metres=2.0, bevel=0.015)
+    floor = Part(pbr_material('subway-floor', 'concrete_slab_wall', (0.8, 0.8, 0.8)), uv_metres=2.5)
+    steel = Part(flat_material('subway-steel', (0.6, 0.62, 0.63), 0.45, 0.8), smooth=True)
+    return wall, trim, floor, steel
+
+
+def subway_walls(wall, trim, length, width, top_at, foot=-SUBWAY_DEPTH - 0.2):
+    """The side walls of a descent along +X from x 0 to `length`, `width` apart, their coping at `top_at`"""
+    for s in (-1, 1):
+        y = s * (width / 2 + 0.125)
+        box(wall, length / 2, y, foot, length, 0.25, top_at - foot)
+        box(trim, length / 2, y + s * 0.03, top_at, length + 0.02, 0.32, 0.08)
+
+
+def subway_handrails(steel, points, width):
+    """Handrails on both walls along `points` (x, z of the walking surface), 0.9 m above it, on brackets"""
+    for s in (-1, 1):
+        y = s * (width / 2 - 0.07)
+        line = [Vector((x, y, z + 0.9)) for x, z in points]
+        tube(steel, line, [0.025] * len(line), 6)
+        for x, z in points:
+            tube(steel, [Vector((x, y, z + 0.9)), Vector((x, y + s * 0.07, z + 0.9))], [0.012, 0.012], 4)
+
+
+def subway_stairs(name, width=3.0):
+    """Stairs down into a subway along +X, the top at the ground (z 0) at x 0: two flights of nine steps of
+    SUBWAY_RISE with a landing between, walls either side up to the ground with a coping, handrails"""
+    clear_scene()
+    wall, trim, floor, steel = subway_parts()
+    nosing = Part(flat_material('subway-nosing', (0.62, 0.6, 0.55), 0.6))
+    foot = -SUBWAY_DEPTH - 0.2
+    x = 0.0
+    z = 0.0
+    rails = [(0.0, 0.0)]
+    for flight in range(2):
+        for _ in range(9):
+            z -= SUBWAY_RISE
+            box(trim, x + SUBWAY_TREAD / 2, 0, foot, SUBWAY_TREAD, width, z - foot)
+            box(nosing, x + 0.04, 0, z, 0.08, width - 0.02, 0.004)
+            x += SUBWAY_TREAD
+        rails.append((x, z))
+        if flight == 0:
+            box(floor, x + 0.75, 0, foot, 1.5, width, z - foot)
+            x += 1.5
+            rails.append((x, z))
+    box(floor, x + 0.5, 0, foot, 1.0, width, z - foot)
+    length = x + 1.0
+    subway_walls(wall, trim, length, width, 0.1)
+    subway_handrails(steel, rails, width)
+    export(name, [wall.to_object(name), trim.to_object(name + '-steps'), floor.to_object(name + '-floor'),
+                  nosing.to_object(name + '-nosing'), steel.to_object(name + '-rails')], lod=300)
+
+
+def subway_ramp(name, length=20.0, width=3.0):
+    """Ramp down into a subway along +X, from the ground at x 0 to SUBWAY_DEPTH at `length`, walls and
+    handrails as the stairs have"""
+    clear_scene()
+    wall, trim, floor, steel = subway_parts()
+    foot = -SUBWAY_DEPTH - 0.2
+    steps = 8
+    for k in range(steps):
+        x0, x1 = k * length / steps, (k + 1) * length / steps
+        z0, z1 = -SUBWAY_DEPTH * x0 / length, -SUBWAY_DEPTH * x1 / length
+        floor.quad([Vector((x0, -width / 2, z0)), Vector((x1, -width / 2, z1)), Vector((x1, width / 2, z1)), Vector((x0, width / 2, z0))],
+                   [(x0 / 2.5, 0), (x1 / 2.5, 0), (x1 / 2.5, width / 2.5), (x0 / 2.5, width / 2.5)])
+    box(trim, length / 2, 0, foot, length, width, 0.05)
+    subway_walls(wall, trim, length, width, 0.1)
+    subway_handrails(steel, [(0.0, 0.0), (length / 2, -SUBWAY_DEPTH / 2), (length, -SUBWAY_DEPTH)], width)
+    export(name, [wall.to_object(name), trim.to_object(name + '-trim'), floor.to_object(name + '-floor'),
+                  steel.to_object(name + '-rails')])
+
+
+def subway_entrance(name, width=5.0, opening=3.0, high=2.5, depth=4.0):
+    """The head wall at the foot of a descent, its front to -X at x 0, the floor at z 0: a concrete wall up to
+    the ground above (SUBWAY_DEPTH and its coping) with the subway's opening, inside tiled walls and ceiling
+    and a slab floor going dark the further in, a black back"""
+    clear_scene()
+    wall, trim, floor, steel = subway_parts()
+    tiles = Part(pbr_material('subway-tiles', 'rectangular_facade_tiles', (0.82, 0.84, 0.82)), uv_metres=2.0)
+    shade = Part(flat_material('subway-shade', (0.09, 0.09, 0.085), 0.9))
+    dark = Part(hole())
+    top = SUBWAY_DEPTH + 0.1
+    side = (width - opening) / 2
+    for s in (-1, 1):
+        box(wall, -0.2, s * (opening / 2 + side / 2), -0.2, 0.4, side, top + 0.2)
+    box(wall, -0.2, 0, high, 0.4, opening, top - high)
+    box(trim, -0.42, 0, high - 0.02, 0.06, opening + 0.3, 0.3)
+    box(trim, -0.2, 0, top, 0.5, width + 0.02, 0.08)
+    # Inside: lit near the mouth, dark further in
+    lit = depth * 0.4
+    for x0, x1, part in ((0.0, lit, tiles), (lit, depth, shade)):
+        box(part, (x0 + x1) / 2, -opening / 2 - 0.05, 0, x1 - x0, 0.1, high)
+        box(part, (x0 + x1) / 2, opening / 2 + 0.05, 0, x1 - x0, 0.1, high)
+        box(part, (x0 + x1) / 2, 0, high, x1 - x0, opening, 0.1)
+    box(floor, lit / 2, 0, -0.2, lit, opening, 0.2)
+    box(shade, (lit + depth) / 2, 0, -0.2, depth - lit, opening, 0.2)
+    box(dark, depth + 0.05, 0, -0.2, 0.1, opening + 0.2, high + 0.3)
+    export(name, [wall.to_object(name), trim.to_object(name + '-trim'), floor.to_object(name + '-floor'),
+                  tiles.to_object(name + '-tiles'), shade.to_object(name + '-shade'), dark.to_object(name + '-dark')])
+
+
+def concrete_retaining_wall(name, length=6.0, height=3.0):
+    """Retaining wall in concrete along X, the foot at z 0: plain face, a darker coping"""
+    clear_scene()
+    wall, trim, _, _ = subway_parts()
+    box(wall, 0, 0, -0.5, length, 0.3, height + 0.5)
+    box(trim, 0, 0, height, length + 0.02, 0.38, 0.08)
+    export(name, [wall.to_object(name), trim.to_object(name + '-coping')])
+
+
+def steel_railing(name, length=3.0):
+    """Galvanised steel railing along X: posts at the ends and the middle, a handrail at 1.1 m and a knee rail"""
+    clear_scene()
+    _, _, _, steel = subway_parts()
+    for x in (-length / 2 + 0.03, 0.0, length / 2 - 0.03):
+        tube(steel, [Vector((x, 0, -0.1)), Vector((x, 0, 1.1))], [0.022, 0.022], 6)
+    for z, r in ((1.1, 0.025), (0.55, 0.016), (0.12, 0.012)):
+        tube(steel, [Vector((-length / 2, 0, z)), Vector((length / 2, 0, z))], [r, r], 6)
+    export(name, [steel.to_object(name)])
+
+
 def catenary_mast(name, height=7.6, reach=3.2):
     """Overhead line mast beside the track: an H-beam mast on a concrete footing, a cantilever over the
     track (+Y) with insulators, a stub of contact and messenger wire along X"""
@@ -1934,6 +2064,11 @@ def models():
         'bridge-abutment': lambda: abutment('bridge-abutment'),
         'bridge-pier': lambda: pier('bridge-pier'),
         'rail-platform': lambda: platform('rail-platform'),
+        'subway-stairs': lambda: subway_stairs('subway-stairs'),
+        'subway-ramp': lambda: subway_ramp('subway-ramp'),
+        'subway-entrance': lambda: subway_entrance('subway-entrance'),
+        'retaining-wall-concrete': lambda: concrete_retaining_wall('retaining-wall-concrete'),
+        'railing-steel': lambda: steel_railing('railing-steel'),
         'catenary-mast': lambda: catenary_mast('catenary-mast'),
         'buffer-stop': lambda: buffer_stop('buffer-stop'),
         'power-pylon': lambda: pylon('power-pylon'),

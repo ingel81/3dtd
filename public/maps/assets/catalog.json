@@ -26568,6 +26568,167 @@
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall"
     },
     {
+      "id": "subway-stairs",
+      "name": "Subway stairs (3 m wide, 3 m down, a landing)",
+      "category": "structure",
+      "file": "models/subway-stairs.glb",
+      "triangles": 1408,
+      "footprint": 3.6,
+      "height": 0.9,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1200,
+      "tags": [
+        "city"
+      ],
+      "textures": [
+        "textures/brushed_concrete_arm_1k-43618626adce0df3.ktx2",
+        "textures/brushed_concrete_diff_1k-d54c7d06c5e8d6eb.ktx2",
+        "textures/brushed_concrete_nor_gl_1k-20b9c86ac337f879.ktx2",
+        "textures/concrete_slab_wall_arm_1k-7805e9abd8ae6b08.ktx2",
+        "textures/concrete_slab_wall_diff_1k-cfdb0c7600de33e0.ktx2",
+        "textures/concrete_slab_wall_nor_gl_1k-d4cfb606c06dd691.ktx2",
+        "textures/subway-stairs-ao-f52cb9f0c2b4a0c2.ktx2"
+      ],
+      "lod": [
+        {
+          "file": "models/subway-stairs-lod1.glb",
+          "screen": 0.0178,
+          "tone": [
+            1.118,
+            1.204,
+            1.451
+          ],
+          "triangles": 492
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall"
+    },
+    {
+      "id": "subway-ramp",
+      "name": "Subway ramp (20 m, 3 m down)",
+      "category": "structure",
+      "file": "models/subway-ramp.glb",
+      "triangles": 332,
+      "footprint": 9.0,
+      "height": 0.9,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1200,
+      "tags": [
+        "city"
+      ],
+      "textures": [
+        "textures/brushed_concrete_arm_1k-43618626adce0df3.ktx2",
+        "textures/brushed_concrete_diff_1k-d54c7d06c5e8d6eb.ktx2",
+        "textures/brushed_concrete_nor_gl_1k-20b9c86ac337f879.ktx2",
+        "textures/concrete_slab_wall_arm_1k-7805e9abd8ae6b08.ktx2",
+        "textures/concrete_slab_wall_diff_1k-cfdb0c7600de33e0.ktx2",
+        "textures/concrete_slab_wall_nor_gl_1k-d4cfb606c06dd691.ktx2",
+        "textures/subway-ramp-ao-a2ce91482951fe57.ktx2"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall"
+    },
+    {
+      "id": "subway-entrance",
+      "name": "Subway entrance (head wall with its opening, 5 m)",
+      "category": "structure",
+      "file": "models/subway-entrance.glb",
+      "triangles": 456,
+      "footprint": 2.3,
+      "height": 3.2,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1200,
+      "tags": [
+        "city"
+      ],
+      "textures": [
+        "textures/brushed_concrete_arm_1k-43618626adce0df3.ktx2",
+        "textures/brushed_concrete_diff_1k-d54c7d06c5e8d6eb.ktx2",
+        "textures/brushed_concrete_nor_gl_1k-20b9c86ac337f879.ktx2",
+        "textures/concrete_slab_wall_arm_1k-7805e9abd8ae6b08.ktx2",
+        "textures/concrete_slab_wall_diff_1k-cfdb0c7600de33e0.ktx2",
+        "textures/concrete_slab_wall_nor_gl_1k-d4cfb606c06dd691.ktx2",
+        "textures/rectangular_facade_tiles_arm_1k-de0a18c6b5be76bd.ktx2",
+        "textures/rectangular_facade_tiles_diff_1k-bce78c0a4a60c61c.ktx2",
+        "textures/rectangular_facade_tiles_nor_gl_1k-911bf324bbf91330.ktx2",
+        "textures/subway-entrance-ao-6c5de762dbd24b25.ktx2"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/rectangular_facade_tiles"
+    },
+    {
+      "id": "retaining-wall-concrete",
+      "name": "Retaining wall, concrete (6 m, 3 m high)",
+      "category": "wall",
+      "file": "models/retaining-wall-concrete.glb",
+      "triangles": 88,
+      "footprint": 2.7,
+      "height": 3.1,
+      "blocksLos": true,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "tags": [
+        "city"
+      ],
+      "textures": [
+        "textures/brushed_concrete_arm_1k-43618626adce0df3.ktx2",
+        "textures/brushed_concrete_diff_1k-d54c7d06c5e8d6eb.ktx2",
+        "textures/brushed_concrete_nor_gl_1k-20b9c86ac337f879.ktx2",
+        "textures/retaining-wall-concrete-ao-1976cdaa7eddc7a8.ktx2"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
+    },
+    {
+      "id": "railing-steel",
+      "name": "Steel railing (3 m)",
+      "category": "wall",
+      "file": "models/railing-steel.glb",
+      "triangles": 72,
+      "footprint": 1.4,
+      "height": 1.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 600,
+      "tags": [
+        "city"
+      ],
+      "textures": [
+        "textures/railing-steel-ao-3bfac316b9ec676e.ktx2"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py)"
+    },
+    {
       "id": "catenary-mast",
       "name": "Overhead line mast (arm reaches back over the track)",
       "category": "prop",

@@ -630,6 +630,11 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | bridge-abutment | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/brushed_concrete |
 | bridge-pier | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/brushed_concrete |
 | rail-platform | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall |
+| subway-stairs | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall |
+| subway-ramp | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall |
+| subway-entrance | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/rectangular_facade_tiles |
+| retaining-wall-concrete | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
+| railing-steel | procedural (tools/map-assets/build_modern.py) |
 | catenary-mast | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
 | buffer-stop | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/dark_planks |
 | power-pylon | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
