@@ -74,6 +74,16 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       `uiStore.buildingsVisible`). In OSM-generierten Welten fehlt das (dort sind Gebäude Teil der Welt). Soll: dieselbe
       Ebene als Debug-Werkzeug auch dort, um gebaute Gebäude mit den OSM-Grundrissen zu vergleichen (Quelle: die beim
       Import gelesenen Grundrisse). Kein Parallelsystem: vorhandene Ebene und Darstellung wiederverwenden.
+- [ ] **E291 Route, Korridor und Sicht folgen dem Krater nicht** (User 2026-10-21, geprüft im Code, noch nicht
+      entschieden, ob und wie): Gegner laufen durch den Krater (Simulation: Zellhöhe plus Stempelraster). Aber:
+      (1) die Korridor-Kacheln und die rote Routenlinie werden nur bei neuen Routen gebaut (`route-grid-viz.service.ts`
+      hört nur auf `onCellsChanged`), sie bleiben auf alter Höhe; (2) die Sicht der Tower ist ein Cache je Zelle aus
+      Bau oder Upgrade (`GlobalRouteGrid.registerTower`), kein Krater fragt sie neu an. Nur ein danach gebauter Tower
+      probt in der Mulde (`standHeight` liest das Stempelraster). DESTRUCTION_PLAN.md behauptet, ein neuer Krater lasse
+      die Tower in Reichweite neu anfragen; das ist nicht gebaut. Kosten, falls gewünscht: Kacheln/Linie im
+      Krater-Rechteck neu setzen (billig); Sicht entweder nur die betroffenen Zellen gegen den alten Cube neu proben
+      (billig, Kraterwand selbst verdeckt dann nicht) oder Cube der Tower in Reichweite neu rendern (je Tower ein
+      Cube-Render, bei Nuke-Dauerfeuer gedrosselt, z. B. höchstens einmal je Sekunde gesammelt).
 - [ ] **E285 Weinberge: Rebzeilen** (User 2026-10-20): Zeilen stehen schräg und sind in kurze Stücke zerhackt. Soll:
       gerade, parallel, durchgehend über die Parzelle, in der Falllinie den Hang hoch, meist rechtwinklig zur
       erschließenden Straße; auf flachem Gelände rechtwinklig zur nächsten Straße.
