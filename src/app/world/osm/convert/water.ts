@@ -23,7 +23,8 @@
  *   culvert): those with water (land-tags.ts waterwayOf: rivers, canals,
  *   streams, a drain or ditch tagged `intermittent=no`) as river lines
  *   (`terrain.rivers`) on the real course, the surface from the banks (never
- *   rising downstream), a channel dug and banks shaped. Dry ones (ditches,
+ *   rising downstream), joined where they meet (map-ops/river-network.ts),
+ *   a channel dug and banks shaped. Dry ones (ditches,
  *   anything `intermittent=yes`) only as their channel, dug into the ground
  *   and painted (dry gravel, earth). A drain is a runnel of concrete half
  *   shells, wet or dry: a shallow hollow here, its shells a surface laid
@@ -34,6 +35,7 @@
  * (`paintWater`, after the land and before the roads).
  */
 import { bankLevels, riverPoints } from '../../../map-ops/river-levels';
+import { joinRiverLevels } from '../../../map-ops/river-network';
 import { resample } from '../../../map-ops/lines';
 import { hashCell, smooth } from '../../../map-ops/landscape-noise';
 import { MAX_LAYERS, readWeights, writeWeights } from '../../../map-ops/paint-ops';
@@ -667,6 +669,17 @@ function carveRivers(
     }
   }
   if (!courses.length) return { rivers: [], dryLines: 0 };
+  // The river lines join where they meet (map-ops/river-network.ts): a stream ends on the level of the river it runs into
+  // (OSM joins them in a shared node), on a lake's, or where one way of a river ends and the next goes on. On every
+  // vertex, so a level taken on at a junction starts where the junction does; the channels are dug to it. Dry channels
+  // and drains have no surface and join nothing
+  const wetCourses = courses.filter((c) => c.river);
+  const joined: MapTerrain = {
+    ...terrain,
+    rivers: wetCourses.map((c, k) => ({ id: `river-${k + 1}`, kind: 'water', points: c.line.map((p, i) => ({ x: p.x, y: p.y, width: c.width, height: c.surface[i] })) })),
+  };
+  joinRiverLevels(joined);
+  joined.rivers!.forEach((r, k) => (wetCourses[k].surface = r.points.map((p) => p.height)));
 
   // The nearest course per sample: its distance, half width, bank, depth and surface there
   const best = new Float32Array(n * n).fill(Infinity);

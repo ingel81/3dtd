@@ -1,12 +1,12 @@
 import { BufferAttribute, BufferGeometry, Mesh, Vector2, type ShaderMaterial } from 'three';
-import type { MapRiver } from '../../map-document';
+import type { MapRiver, MapRiverPoint, MapTerrain } from '../../map-document';
+import { riverCover, type CoverAt, type RiverNetwork } from '../../../../map-ops/river-network';
 import type { HeightField } from '../height-field';
 import type { HeightTexture } from '../terrain/height-texture';
-import { createWaterMaterial, setWaterColor, setWaterEffects, setWaterSky } from './water-material';
+import { createWaterMaterial, setWaterEffects, setWaterSky } from './water-material';
 import type { MapEffects } from '../map-effects';
 import type { SceneCopy } from './scene-copy';
 import { setHeatHaze } from './heat-haze';
-import { sampleRiver } from './river-line';
 
 /**
  * A river or lava flow: a ribbon along the river's line (Catmull-Rom through
@@ -14,6 +14,9 @@ import { sampleRiver } from './river-line';
  * flowing from the first point to the last. The water material cuts it
  * where the terrain rises above the surface and fades its sides, and moves
  * its waves (or lava crust) downstream at a speed that grows with the drop.
+ * Where it meets other water of its kind (map-ops/river-network.ts) it gives
+ * way to the water that draws there and mixes that one's current into its
+ * own, so a junction shows one surface.
  */
 
 const ACROSS = 8;
@@ -25,6 +28,10 @@ export class RiverSurface {
     field: HeightField,
     heights: HeightTexture,
     river: MapRiver,
+    /** The network of the map's rivers (riverNetwork) and this river's index in it */
+    terrain: MapTerrain,
+    network: RiverNetwork,
+    index: number,
   ) {
     const material = createWaterMaterial({
       kind: river.kind,
@@ -33,18 +40,12 @@ export class RiverSurface {
       color: river.color ?? '',
       mapHalf: new Vector2(((field.columns - 1) * field.cellSize) / 2, ((field.rows - 1) * field.cellSize) / 2),
     });
-    this.mesh = new Mesh(buildRiver(river), material);
+    this.mesh = new Mesh(buildRiver(river, terrain, network, index), material);
     this.mesh.name = `custom-map-river-${river.id}`;
     this.mesh.userData['losTransparent'] = true;
     this.mesh.renderOrder = 1;
     this.mesh.receiveShadow = true;
     this.mesh.matrixAutoUpdate = false;
-  }
-
-  set(river: MapRiver): void {
-    setWaterColor(this.mesh.material, river.kind, river.color ?? '');
-    this.mesh.geometry.dispose();
-    this.mesh.geometry = buildRiver(river);
   }
 
   setSky(skyUniforms: ShaderMaterial['uniforms'], sunIntensity: number, darkness = 0): void {
@@ -70,24 +71,37 @@ export class RiverSurface {
   }
 }
 
-function buildRiver(river: MapRiver): BufferGeometry {
-  const line = river.points.length >= 2 ? sampleRiver(river.points) : [];
+/** Metres a vertex drawn over by other water sinks, so the water that draws there wins the depth test */
+const GIVE_WAY = 0.03;
+
+/** The current at sample `r` of a line in map x and y, m/s: along it, slow on the flat, fast down a drop */
+function currentAt(line: readonly MapRiverPoint[], r: number, kind: MapRiver['kind']): [number, number] {
+  const a = line[Math.max(0, r - 1)];
+  const b = line[Math.min(line.length - 1, r + 1)];
+  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+  const drop = Math.max(0, a.height - b.height) / len;
+  const speed = kind === 'lava' ? 0.4 + Math.min(1.5, drop * 15) : 0.5 + Math.min(3, drop * 40);
+  return [((b.x - a.x) / len) * speed, ((b.y - a.y) / len) * speed];
+}
+
+function buildRiver(river: MapRiver, terrain: MapTerrain, network: RiverNetwork, own: number): BufferGeometry {
+  const line = network.lines[own]?.samples ?? [];
   const rows = line.length;
   const pos = new Float32Array(rows * (ACROSS + 1) * 3);
   const flow = new Float32Array(rows * (ACROSS + 1) * 2);
   const across = new Float32Array(rows * (ACROSS + 1));
+  const join = new Float32Array(rows * (ACROSS + 1) * 2);
   const depth = new Float32Array(rows * (ACROSS + 1)).fill(1);
+  const rivers = terrain.rivers ?? [];
+  const otherCurrent = (r2: number, k2: number) => currentAt(network.lines[r2]!.samples, k2, rivers[r2].kind);
+  const at: CoverAt = { cover: 0, open: 0, flowX: 0, flowY: 0, mix: 0 };
   for (let r = 0; r < rows; r++) {
     const a = line[Math.max(0, r - 1)];
     const b = line[Math.min(rows - 1, r + 1)];
-    let tx = b.x - a.x;
-    let ty = b.y - a.y;
-    const len = Math.hypot(tx, ty) || 1;
-    tx /= len;
-    ty /= len;
-    const drop = Math.max(0, a.height - b.height) / len;
-    // Flow speed in m/s from the slope: slow and wide on the flat, fast down a drop
-    const speed = river.kind === 'lava' ? 0.4 + Math.min(1.5, drop * 15) : 0.5 + Math.min(3, drop * 40);
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const tx = (b.x - a.x) / len;
+    const ty = (b.y - a.y) / len;
+    const [fx, fy] = currentAt(line, r, river.kind);
     const p = line[r];
     for (let c = 0; c <= ACROSS; c++) {
       const u = (c / ACROSS) * 2 - 1;
@@ -95,10 +109,12 @@ function buildRiver(river: MapRiver): BufferGeometry {
       const mx = p.x - ty * u * (p.width / 2);
       const my = p.y + tx * u * (p.width / 2);
       const k = r * (ACROSS + 1) + c;
-      pos.set([-mx, p.height, my], k * 3);
-      // Scene direction of map (tx, ty) is (-tx, ty)
-      flow.set([-tx * speed, ty * speed], k * 2);
+      riverCover(terrain, network, own, r, mx, my, otherCurrent, at);
+      pos.set([-mx, p.height - GIVE_WAY * at.cover, my], k * 3);
+      // The current, mixed with the one drawn under it at a junction; scene direction of map (x, y) is (-x, y)
+      flow.set([-(fx + (at.flowX - fx) * at.mix), fy + (at.flowY - fy) * at.mix], k * 2);
       across[k] = u;
+      join.set([at.cover, at.open], k * 2);
     }
   }
   const index: number[] = [];
@@ -114,6 +130,7 @@ function buildRiver(river: MapRiver): BufferGeometry {
   g.setAttribute('position', new BufferAttribute(pos, 3));
   g.setAttribute('aFlow', new BufferAttribute(flow, 2));
   g.setAttribute('aAcross', new BufferAttribute(across, 1));
+  g.setAttribute('aJoin', new BufferAttribute(join, 2));
   g.setAttribute('aDepth', new BufferAttribute(depth, 1));
   g.setIndex(index);
   g.computeBoundingSphere();

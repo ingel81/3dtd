@@ -270,8 +270,12 @@ void gerstner(vec2 dir, float length, float amp, inout vec3 p, inout vec3 n, vec
 #if RIVER == 1
 attribute vec2 aFlow;
 attribute float aAcross;
+// Where rivers meet (river-network.ts riverCover): how far other water draws here instead (x), how far the water
+// this one draws over goes on past its side (y), so its edge stays open
+attribute vec2 aJoin;
 varying vec2 vFlow;
 varying float vAcross;
+varying vec2 vJoin;
 #endif
 varying float vApronDepth;
 varying vec3 vWorldPos;
@@ -283,6 +287,7 @@ void main() {
 #if RIVER == 1
   vFlow = aFlow;
   vAcross = aAcross;
+  vJoin = aJoin;
 #endif
   vec3 surface = position;
 #ifdef SEA_WAVES
@@ -362,6 +367,7 @@ varying vec3 vMapPos;
 #if RIVER == 1
 varying vec2 vFlow;
 varying float vAcross;
+varying vec2 vJoin;
 #endif
 
 // The gradient of a value over the surface, per metre in the scene's x/z plane: its screen derivatives solved
@@ -485,7 +491,10 @@ void main() {
     depth = mix(min(depth, max(cut, 0.0) * ${SHORE_CUT_DEPTH.toFixed(2)}), depth, smoothstep(1.5, 2.5, cut));
   }
 #if RIVER == 1
-  edge *= 1.0 - smoothstep(0.82, 1.0, abs(vAcross));
+  // The sides fade, but where the water drawn under it goes on past them; where a junction's other water draws
+  // (the receiving river, a body, the earlier stretch) this one gives way
+  edge *= 1.0 - smoothstep(0.82, 1.0, abs(vAcross)) * (1.0 - vJoin.y);
+  edge *= 1.0 - vJoin.x;
   // The river's current per vertex: its patterns move downstream at half of it in two cross-faded phases (see
   // flowNormal). Time times the vertex's velocity would shear them without end wherever the speed or heading
   // changes from row to row: after some minutes they read as stripes across the river

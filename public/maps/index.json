@@ -26,7 +26,7 @@
       "spawns": 2,
       "biome": "mountain",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "6c3e6d258d25ba2682c995d908ae426ba3cd5d49fdff71f7fb46dfc39b8132e7"
+      "contentHash": "f329ec03617094b5a7358fd75c4fcff6accbde18bc1e1a050e2d079bb509932f"
     },
     {
       "id": "witch-marsh",
@@ -124,7 +124,7 @@
       "spawns": 4,
       "biome": "temperate",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "d97766f84a0e19ef51e0475ce52ef1603416b74091f56efd2cc55aa21863a6ae"
+      "contentHash": "04a5cdbcaf59480a3d2502025bcf3bf71105ac7e24a2c39f2e84ca1f9fb45f17"
     },
     {
       "id": "moon-base",

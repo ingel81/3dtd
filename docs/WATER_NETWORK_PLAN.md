@@ -1,7 +1,7 @@
 # Wassernetz: Zusammenfluss, Krater im Fluss, Überlauf (Plan)
 
 Stand 2026-10-21, abgestimmt (Entscheidungen unten). Betrifft TODO E283 (Fluss über Krater) und E288 (gemalte Flüsse
-vereinigen sich nicht). Noch nichts gebaut.
+vereinigen sich nicht). Schritt 1 (Netz, E288) gebaut, Schritte 2 und 3 offen.
 
 ## Befund
 
@@ -37,19 +37,37 @@ Alles gilt für Wasser und Lava gleich (`MapRiver.kind`, `MapWaterKind`): Lavafl
 Krater und laufen über wie Wasser, nur langsamer und mit Lavafall statt Wasserfall. Ein Netz verbindet nur
 Gleichartiges; trifft Lava auf Wasser, erstarrt sie (F5).
 
-### 1. Netz statt Einzelstücke (E288)
+### 1. Netz statt Einzelstücke (E288, gebaut)
 
-- Ein Fluss bekommt optional `into?: { river: id, at: number }` (mündet bei Bogenlänge `at` in einen anderen Fluss)
-  bzw. in ein Flächengewässer (`into: { body: index }`). Abgeleitet beim Malen und beim OSM-Import (dort liegen
-  Zusammenflüsse als gemeinsame Knoten der Waterways vor), gespeichert in der Karte.
-- **Höhen:** der Zufluss endet auf dem Spiegel des Hauptflusses an der Mündung; sein Gefälle wird von dort
-  stromauf neu verteilt (bankLevels mit fester Endhöhe). Der Hauptfluss ändert sich nicht.
-- **Darstellung:** an der Mündung eine gemeinsame Wasserfläche statt zweier Bänder (Band des Zuflusses endet mit
-  weichem Übergang unter dem Hauptband, eine Höhe, ein Material); Ufer, Schilf und Steine des Zuflusses werden in
-  der Fläche des Hauptflusses nicht gesetzt. Strömung (flow-map) an der Mündung aus beiden Richtungen gemischt.
-- **Überlappt ein Fluss sich selbst** (Schleife, Haarnadel): die überlappenden Stücke werden eine gemeinsame
-  Fläche auf einer Höhe, wie eine breite Stelle oder Bucht (F0).
+- **Abgeleitet, nicht gespeichert** (`map-ops/river-network.ts`): das Netz folgt aus der Geometrie, kein Feld
+  `into` in der Karte. Wo sich die Bänder zweier gleichartiger Flüsse überlappen, zwei Stücke eines Flusses (mit
+  langem Lauf dazwischen: eine Falte, keine Biegung) oder ein Fluss in einem Flächengewässer seiner Art liegt, ist
+  ein Knoten. Je Fluss sind seine Stücke im Knoten Mündung (sein Ende), Abzweig (sein Anfang) oder Durchlauf.
+  Grund: ein gespeichertes `into` wäre eine zweite Wahrheit neben der Geometrie und müsste bei jedem verschobenen
+  Punkt nachgeführt werden; abgeleitet finden Pinsel, OSM-Import und Darstellung dieselben Knoten. Gesucht wird
+  über ein Raster der Stützstellen (alle 2 m), nicht über alle Paare.
+- **Höhen** (`joinRiverLevels`, Ergebnis in den Punkthöhen von `MapRiver.points`, also auch für `waterLevelAt`):
+  ein Zufluss endet auf dem Spiegel des Hauptflusses bzw. Sees; liegt er höher, wird der Unterschied über seinen
+  Lauf verteilt, liegt er tiefer, läuft er flach auf den Spiegel (an einem Fluss; in einem See endet er unter
+  dessen Spiegel, angehoben stünde er über einem Ufer, das die Maske des Sees nicht erreicht). Der Hauptfluss ändert sich nicht. Kreuzung und
+  Selbstüberlappung: eine Höhe, die tiefste, mit der ein Stück den Knoten verlässt. Ein Stück, das ihn auf
+  dieser Höhe oder tiefer verlässt, läuft ab und ist ab seinem Eintritt höchstens so hoch; eines, das dahinter
+  höher steht (der höhere zweier kreuzender Flüsse), speist: es steht nur im Knoten auf dessen Höhe und fällt
+  von beiden Seiten hinein, seine Arme behalten ihr Wasser und ihr Bett (beim Pinsel ab FALL_MIN mit
+  Lippenpunkt und dem vorhandenen Wasserfall).
+- **Angewandt** beim Malen (Pinsel, auch nach Verschieben von Punkten über `relevelRiver`) und beim OSM-Import,
+  jeweils vor dem Ausheben, sodass das Bett zur Höhe passt; nicht beim Laden (der Editor ist noch nicht
+  freigegeben, User 2026-10-21). Mitgelieferte Karten mit Flüssen werden neu gebacken.
+- **Darstellung:** je Ecke eines Bandes, wie weit anderes Wasser dort zeichnet (`riverCover`): der empfangende
+  Fluss, das Flächengewässer, das frühere Stück. Das andere Band blendet sich dort aus, gegenläufig zum Seitenrand
+  des zeichnenden, eine Höhe, ein Material, keine Naht. Die Strömung des darunter liegenden Bandes wird in die
+  des zeichnenden gemischt. Ufer, Schilf und Steine des Pinsels werden in anderem Wasser nicht gesetzt; die des
+  anderen Flusses im neuen Wasser gehen.
+- **Überlappt ein Fluss sich selbst** (Haarnadel, zwei Schenkel nebeneinander): eine Fläche auf einer Höhe (F0).
+  Eine lange Schleife, die ihren Hals nur streift, behält ihre Höhen (abgeflacht fiele ihr Bett trocken) und wird
+  nur in der Darstellung verbunden: das höhere, frühere Stück zeichnet.
 - **Kreuzen sich zwei Flüsse:** Gesamtgewässer als Kreuz, der höhere speist, die tieferen Arme laufen ab (F1).
+- Nur Gleichartiges verbindet sich (Wasser mit Wasser, Lava mit Lava; Eis mit nichts).
 
 ### 2. Krater im Fluss (E283)
 

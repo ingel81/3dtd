@@ -145,6 +145,22 @@ describe('OSM world water', () => {
     }
   });
 
+  it('ends a stream that joins a river in a shared node on the level of the river there (E288)', () => {
+    // The ground falls to the north and rises to the west: the stream comes down from the west
+    const t = terrain((x, y) => 20 - y * 0.03 - x * 0.04);
+    const river = { tags: { waterway: 'river' }, points: [{ x: 0, y: -190 }, { x: 0, y: 40 }, { x: 0, y: 190 }] };
+    const stream = { tags: { waterway: 'stream' }, points: [{ x: -190, y: 40 }, { x: 0, y: 40 }] };
+    carveWater(t, features({ ways: [river, stream] }), { nodes: [], edges: [] }, 0);
+    const [main, side] = [...t.rivers!].sort((a, b) => b.points[0].width - a.points[0].width);
+    const end = side.points[side.points.length - 1];
+    expect(Math.abs(end.x)).toBeLessThan(1);
+    const near = main.points.reduce((a, b) => (Math.abs(b.y - 40) < Math.abs(a.y - 40) ? b : a));
+    expect(Math.abs(end.height - near.height)).toBeLessThan(0.3);
+    for (let k = 1; k < side.points.length; k++) expect(side.points[k].height).toBeLessThanOrEqual(side.points[k - 1].height);
+    // Its channel is dug to that level: under the water all the way
+    for (const p of side.points) expect(heightAt(t, p.x, p.y)).toBeLessThan(p.height);
+  });
+
   it('keeps a road through a lake on a dam over the water', () => {
     const t = terrain(() => 8);
     const f = features({ areas: [{ tags: { natural: 'water' }, outer: [square(0, 0, 60)] }] });

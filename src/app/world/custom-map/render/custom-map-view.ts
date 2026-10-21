@@ -59,6 +59,7 @@ import { ApronField, EDGE_TREE_BAND, edgeTreeObjects } from './objects/edge-tree
 import { NIGHT_WINDOW_UNIFORMS } from './objects/night-windows';
 import type { HeightTexture } from './terrain/height-texture';
 import { RiverSurface } from './water/river-surface';
+import { riverNetwork } from '../../../map-ops/river-network';
 import { lavaSamples, type GroundBaker } from './terrain/ground-shape';
 import { GroundWorker } from './terrain/ground-worker';
 import { WaterSurface } from './water/water-surface';
@@ -1243,11 +1244,12 @@ export class CustomMapView {
         this.group.add(created.object);
       }
     });
-    // Rivers: rebuilt from their lines each time (cheap: a ribbon per river)
+    // Rivers: rebuilt from their lines each time (cheap: a ribbon per river), joined where they meet
     for (const r of this.rivers) r.dispose();
-    this.rivers = (this.doc.terrain.rivers ?? [])
-      .filter((r) => r.points.length >= 2)
-      .map((r) => new RiverSurface(this.heights, this.terrain.heightTexture, r));
+    const network = riverNetwork(this.doc.terrain);
+    this.rivers = (this.doc.terrain.rivers ?? []).flatMap((r, k) =>
+      r.points.length >= 2 ? [new RiverSurface(this.heights, this.terrain.heightTexture, r, this.doc.terrain, network, k)] : [],
+    );
     for (const r of this.rivers) this.group.add(r.mesh);
     // The constructor sets up the water before the effects exist and lights the lava after
     if (this.effects) this.refreshLava();

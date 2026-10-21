@@ -10,8 +10,12 @@
  * waterfall where the surface drops steeply, and a bridge wherever it
  * crosses a road. The river itself is a `MapRiver` of the map: points with
  * width and surface height that the renderer draws as a flowing ribbon.
+ * Where it meets water of its kind (another river, a lake, itself in a
+ * hairpin) it joins it (map-ops/river-network.ts): it ends on that water's
+ * level or shares one level with it, its bed is carved to that level, and
+ * no bank, reed or stone of it stands in the other water.
  */
-import type { MapPoint, MapRiver } from '../../../world/custom-map/map-document';
+import type { MapPoint, MapRiver, MapTerrain } from '../../../world/custom-map/map-document';
 import { heightAt, sampleX, sampleY, slopeAt, texelX, texelY, type GridRect } from '../../../map-ops/grid';
 import { MAX_LAYERS, readWeights, writeWeights } from '../../../map-ops/paint-ops';
 import { edgePolyline, nearestOnPolyline, newId, pointAt, polylineLength, splitEdge } from '../../../map-ops/path-graph';
@@ -19,6 +23,7 @@ import { segmentCross } from '../../../map-ops/lines';
 import { smooth } from '../../../map-ops/landscape-noise';
 import type { LandscapeContext } from './landscape-context';
 import { bankLevels, catmullRomLine, riverPoints } from '../../../map-ops/river-levels';
+import { joinRiverLevels } from '../../../map-ops/river-network';
 
 export interface RiverOptions {
   /** Mean water width in metres */
@@ -47,6 +52,14 @@ const MAX_FALL = 12;
 const FALL_MIN = 1.5;
 /** Degrees of slope from which reeds no longer grow on a bank: on a cliff by a waterfall they would stick out of the rock */
 const REED_SLOPE = 30;
+/**
+ * Share of a river's half width that counts as its water for the banks,
+ * reeds and stones of another (wetAt): the stored points cut the inside of a
+ * bend by a little, the band's very edge is no water to keep out of
+ */
+const BANK_SHARE = 0.9;
+/** Metres past a higher river's water that its bank keeps (holdsWater): where the bank rises to the land */
+const HOLD_REACH = 4;
 
 export interface RiverResult {
   line: MapPoint[];
@@ -120,6 +133,8 @@ export function relevelRiver(stroke: LandscapeContext, river: MapRiver, bank = D
   stroke.markRivers();
   const levels = bankLevels((x, y) => heightAt(t, x, y), pts, (k) => pts[k].width / 2, bank * 1.4);
   pts.forEach((p, k) => (p.height = Math.round(levels[k] * 100) / 100));
+  // Then joined with the water it meets
+  joinRiverLevels(t);
 }
 
 export function carveRiver(stroke: LandscapeContext, drawn: readonly MapPoint[], options: RiverOptions): RiverResult | null {
@@ -129,11 +144,26 @@ export function carveRiver(stroke: LandscapeContext, drawn: readonly MapPoint[],
   if (drawn.length < 2 || polylineLength(drawn) < g.cellSize * 3) return null;
   const lava = options.kind === 'lava';
   const course = riverCourse(stroke, drawn, options, g.cellSize);
-  const { line, surface, reversed } = riverSurface(stroke, course.line, course.half, options.bank);
+  const { line, surface: natural, reversed } = riverSurface(stroke, course.line, course.half, options.bank);
   const length = polylineLength(line);
   const half = (s: number) => course.half(reversed ? length - s : s);
   const along: number[] = [0];
   for (let k = 1; k < line.length; k++) along.push(along[k - 1] + Math.hypot(line[k].x - line[k - 1].x, line[k].y - line[k - 1].y));
+  const round = (v: number) => Math.round(v * 100) / 100;
+
+  // The river joins the water it meets: on the whole course first (a point per vertex), so a level it takes on at
+  // a junction starts right where the junction does (a lip, a fall), then kept in the points it stores
+  stroke.markRivers();
+  const rivers = (t.rivers ??= []);
+  const river: MapRiver = {
+    id: newId('river', rivers),
+    kind: lava ? 'lava' : 'water',
+    points: line.map((p, k) => ({ x: p.x, y: p.y, width: round(half(along[k]) * 2), height: natural[k] })),
+  };
+  const before = rivers.map((r) => r.points.map((p) => p.height));
+  rivers.push(river);
+  joinRiverLevels(t);
+  const surface = river.points.map((p) => p.height);
   /** Surface height at a distance along the course */
   const surfaceAt = (s: number) => {
     let lo = 0;
@@ -177,7 +207,9 @@ export function carveRiver(stroke: LandscapeContext, drawn: readonly MapPoint[],
         const deep = Math.pow(1 - smooth(0.2, 1, d / h), 1.3);
         g.heights[k] = Math.min(base, level - 0.25 - options.depth * deep);
       } else {
-        // The bank: from just above the surface into the land, a soft S curve (a levee where the land lies lower)
+        // The bank: from just above the surface into the land, a soft S curve (a levee where the land lies lower);
+        // none in other water (a river it meets, a lake, its own other stretch in a hairpin)
+        if (wetAt(t, x, y, base, BANK_SHARE) || holdsWater(t, x, y, level, river)) continue;
         const shore = level + 0.35;
         const s = smooth(0, 1, (d - h) / (bank * BANK_RISE));
         g.heights[k] = shore + (base - shore) * s;
@@ -188,14 +220,22 @@ export function carveRiver(stroke: LandscapeContext, drawn: readonly MapPoint[],
   const splat = paintRiverBed(stroke, line, half, bankAt, reach, lava);
 
   // The river itself: points with width and surface height, flowing from the first
-  stroke.markRivers();
-  const round = (v: number) => Math.round(v * 100) / 100;
-  const points = riverPoints(line, along, surface).map(({ p, s }) => ({ x: round(p.x), y: round(p.y), width: round(half(s) * 2), height: round(surfaceAt(s)) }));
-  const rivers = (t.rivers ??= []);
-  const river: MapRiver = { id: newId('river', rivers), kind: lava ? 'lava' : 'water', points };
-  rivers.push(river);
+  river.points = riverPoints(line, along, surface).map(({ p, s }) => ({ x: round(p.x), y: round(p.y), width: round(half(s) * 2), height: round(surfaceAt(s)) }));
+  // Reeds, stones and falls of other rivers in its water go (a crossing); a river that now falls into it gets a fall.
+  // A step takes objects away only before it adds any: the second line of a symmetric stroke leaves them
+  const drowned = (stroke.tx.added.length ? [] : stroke.doc.objects)
+    .filter((o) => RIVER_ASSETS.has(o.asset))
+    .filter((o) => {
+      const hit = nearestOnPolyline(line, o);
+      return !!hit && hit.dist < half(hit.along) * BANK_SHARE;
+    })
+    .map((o) => o.id);
+  stroke.removeObjects(drowned);
+  const falls = fallsInto(stroke, before, lava);
 
-  const { placed, waterfalls } = decorateRiver(stroke, line, along, surface, half, options, lava);
+  const decorated = decorateRiver(stroke, line, along, surface, half, options, lava);
+  const placed = [...drowned, ...falls, ...decorated.placed];
+  const waterfalls = falls.length + decorated.waterfalls;
 
   const bridges = options.bridges && !lava ? bridgeCrossings(stroke, line, maxHalf + options.bank) : 0;
   stroke.changed({ heights: rect, splat: splat ?? undefined, water: true, objects: placed.length ? placed : undefined, paths: bridges > 0 || undefined });
@@ -249,6 +289,8 @@ function paintRiverBed(
         if (!hit) continue;
         const s = (hit.dist - half(hit.along)) / bankAt(x, y);
         if (s > 0.85) continue;
+        // No bank ground in other water
+        if (s >= 0 && wetAt(t, x, y, heightAt(t, x, y), BANK_SHARE)) continue;
         // How much of the river ground: full in the bed, fading out over the outer half of the bank
         const a = 1 - smooth(0.25, 0.85, s);
         if (a <= 0) continue;
@@ -311,6 +353,8 @@ function decorateRiver(
           const x = p.x - ((q.y - p.y) / dl) * off * side;
           const y = p.y + ((q.x - p.x) / dl) * off * side;
           if (!stroke.freeForObject(x, y, 0.3) || stroke.grid.near({ x, y }, 0.9)) return;
+          // Not in other water (a river it meets, a lake, the other stretch of a hairpin)
+          if (wetAt(t, x, y, heightAt(t, x, y), BANK_SHARE)) return;
           const o = stroke.addObject({
             asset,
             x: round(x),
@@ -338,7 +382,6 @@ function decorateRiver(
   let waterfalls = 0;
   const fall = lava ? undefined : has(['fx-waterfall', 'waterfall']);
   if (fall) {
-    const tall = Math.max(0.5, stroke.catalog.object(fall).height);
     const steep = (k: number) => {
       const run = along[k] - along[k - 1];
       return run > 0 && (surface[k - 1] - surface[k]) / run >= FALL_STEEP;
@@ -356,21 +399,24 @@ function decorateRiver(
         const lipLevel = surface[top] - (drop * n) / steps;
         let at = top;
         while (at < k && surface[at + 1] > lipLevel - 1e-3) at++;
-        const lip = line[at];
-        const foot = lipLevel - drop / steps;
-        const ground = heightAt(t, lip.x, lip.y);
-        const o = stroke.addObject({
-          asset: fall,
-          x: round(lip.x),
-          y: round(lip.y),
-          // The sheet stands from its foot up to the lip
-          z: round(foot - ground),
-          rotation: Math.round(heading * 1000) / 1000,
-          scale: round(drop / steps / tall),
-        });
-        placed.push(o.id);
+        placed.push(placeFall(stroke, fall, line[at], heading, lipLevel, lipLevel - drop / steps));
         waterfalls++;
       }
+    }
+    // Where the surface rises steeply instead (it leaves a junction it falls into from both sides, the higher of
+    // two crossing rivers): a fall from the higher ground back into it, at the top
+    const steepUp = (k: number) => {
+      const run = along[k] - along[k - 1];
+      return run > 0 && (surface[k] - surface[k - 1]) / run >= FALL_STEEP;
+    };
+    for (let k = 1; k < line.length; k++) {
+      if (!steepUp(k)) continue;
+      const low = k - 1;
+      while (k + 1 < line.length && steepUp(k + 1)) k++;
+      if (surface[k] - surface[low] < FALL_MIN) continue;
+      const heading = Math.atan2(line[low].y - line[k].y, line[low].x - line[k].x) - Math.PI / 2;
+      placed.push(placeFall(stroke, fall, line[k], heading, surface[k], surface[low]));
+      waterfalls++;
     }
   }
 
@@ -428,6 +474,7 @@ export function recarveRiver(
         const deep = Math.pow(1 - smooth(0.2, 1, d / h), 1.3);
         g.heights[k] = Math.min(land, level - 0.25 - depth * deep);
       } else {
+        if (wetAt(t, x, y, land, BANK_SHARE) || holdsWater(t, x, y, level, river)) continue;
         const shore = level + 0.35;
         g.heights[k] = shore + (land - shore) * smooth(0, 1, (d - h) / (bankWidth * BANK_RISE));
       }
@@ -435,6 +482,122 @@ export function recarveRiver(
   }
   stroke.changed({ heights: rect, water: true });
   return rect;
+}
+
+/** A waterfall object at `lip` facing `heading`: its sheet from `foot` up to `top`; returns its id */
+function placeFall(stroke: LandscapeContext, fall: string, lip: MapPoint, heading: number, top: number, foot: number): string {
+  const round = (v: number) => Math.round(v * 100) / 100;
+  const tall = Math.max(0.5, stroke.catalog.object(fall).height);
+  const ground = heightAt(stroke.doc.terrain, lip.x, lip.y);
+  return stroke.addObject({
+    asset: fall,
+    x: round(lip.x),
+    y: round(lip.y),
+    // The sheet stands from its foot up to the lip
+    z: round(foot - ground),
+    rotation: Math.round(heading * 1000) / 1000,
+    scale: round((top - foot) / tall),
+  }).id;
+}
+
+/**
+ * Where joining lowered a river from a point on (it runs into a junction
+ * that lies lower: a crossing, the lower stretch of a hairpin) by at least
+ * FALL_MIN, it falls there: a lip point a metre before that point keeps its
+ * old level, so the ribbon drops at the junction's edge instead of sloping
+ * down over the stretch before it, and a waterfall stands at the lip.
+ * `before` are the rivers' levels before the join, per river and point.
+ * Returns the falls placed.
+ */
+function fallsInto(stroke: LandscapeContext, before: readonly number[][], lava: boolean): string[] {
+  const rivers = stroke.doc.terrain.rivers ?? [];
+  const fall = lava ? undefined : ['fx-waterfall', 'waterfall'].find((a) => stroke.catalog.objects.has(a));
+  const placed: string[] = [];
+  before.forEach((old, r) => {
+    const pts = rivers[r]?.points;
+    if (!pts || pts.length !== old.length) return;
+    const lowered = (k: number) => pts[k].height < old[k] - 0.005;
+    for (let k = pts.length - 1; k >= 1; k--) {
+      const a = pts[k - 1];
+      const b = pts[k];
+      const run = Math.hypot(b.x - a.x, b.y - a.y);
+      // Into the junction (b lowered, a not) or, for a river that feeds it, out of it again (a lowered, b not):
+      // the lip a metre off the lowered point, on the old level, the fall facing the junction
+      const into = lowered(k) && !lowered(k - 1);
+      if (run < 2 || (!into && !(lowered(k - 1) && !lowered(k)))) continue;
+      const foot = into ? b.height : a.height;
+      const f = into ? (run - 1) / run : 1 / run;
+      const lip = {
+        x: Math.round((a.x + (b.x - a.x) * f) * 100) / 100,
+        y: Math.round((a.y + (b.y - a.y) * f) * 100) / 100,
+        width: Math.round((a.width + (b.width - a.width) * f) * 100) / 100,
+        height: Math.round((old[k - 1] + (old[k] - old[k - 1]) * f) * 100) / 100,
+      };
+      if (lip.height - foot < FALL_MIN) continue;
+      pts.splice(k, 0, lip);
+      const heading = into ? Math.atan2(b.y - a.y, b.x - a.x) : Math.atan2(a.y - b.y, a.x - b.x);
+      if (fall) placed.push(placeFall(stroke, fall, lip, heading - Math.PI / 2, lip.height, foot));
+    }
+  });
+  return placed;
+}
+
+/**
+ * Whether the ground at map (x, y) is the bank of a river standing higher
+ * than a bank at `level` would hold (within HOLD_REACH of its band), other
+ * than `own` (the river being carved, whose fall stands over its own pool): a
+ * river crossing another lower down must not dig away the banks of the
+ * higher one, whose arms keep their water beside the crossing
+ */
+function holdsWater(t: MapTerrain, x: number, y: number, level: number, own: MapRiver): boolean {
+  for (const r of t.rivers ?? []) {
+    if (r === own) continue;
+    const p = r.points;
+    for (let n = 0; n + 1 < p.length; n++) {
+      const a = p[n];
+      const b = p[n + 1];
+      if (Math.max(a.height, b.height) <= level + 0.35) continue;
+      const reach = Math.max(a.width, b.width) / 2 + HOLD_REACH;
+      if (x < Math.min(a.x, b.x) - reach || x > Math.max(a.x, b.x) + reach || y < Math.min(a.y, b.y) - reach || y > Math.max(a.y, b.y) + reach) continue;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const u = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+      const half = (a.width + (b.width - a.width) * u) / 2;
+      if (a.height + (b.height - a.height) * u > level + 0.35 && Math.hypot(x - a.x - dx * u, y - a.y - dy * u) < half + HOLD_REACH) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Whether map (x, y) lies in water other than a stroke's own bed: a body
+ * standing over `ground` there, or within `share` of a river's half width
+ * of its line (the stored points, straight between them). A river's own
+ * other stretch counts too: a bank cell lies outside the stretch nearest it.
+ */
+function wetAt(t: MapTerrain, x: number, y: number, ground: number, share: number): boolean {
+  const g = t.grid;
+  const i = Math.round((x + t.width / 2) / g.cellSize);
+  const j = Math.round((y + t.depth / 2) / g.cellSize);
+  if (i >= 0 && j >= 0 && i < g.columns && j < g.rows) {
+    const k = j * g.columns + i;
+    for (const body of [t.water, ...(t.waterBodies ?? [])]) if (body && body.mask[k] >= 128 && body.level > ground) return true;
+  }
+  for (const r of t.rivers ?? []) {
+    const p = r.points;
+    for (let n = 0; n + 1 < p.length; n++) {
+      const a = p[n];
+      const b = p[n + 1];
+      const reach = Math.max(a.width, b.width) / 2;
+      if (x < Math.min(a.x, b.x) - reach || x > Math.max(a.x, b.x) + reach || y < Math.min(a.y, b.y) - reach || y > Math.max(a.y, b.y) + reach) continue;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const u = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+      const half = ((a.width + (b.width - a.width) * u) / 2) * share;
+      if (Math.hypot(x - a.x - dx * u, y - a.y - dy * u) < half) return true;
+    }
+  }
+  return false;
 }
 
 /** What the river brush puts on the banks and in the falls; a removed river takes them along */

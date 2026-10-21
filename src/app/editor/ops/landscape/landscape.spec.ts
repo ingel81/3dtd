@@ -865,3 +865,97 @@ describe('river and road', () => {
     expect(ed.doc.paths.nodes.length).toBe(nodes);
   });
 });
+
+describe('rivers that meet (E288)', () => {
+  /** Pairs of points of `a` and `b` whose bands overlap, of one river only where the course between them is long */
+  function touching(a: { x: number; y: number; width: number; height: number }[], b: typeof a, same: boolean) {
+    const out: [number, number][] = [];
+    const along = (pts: typeof a) => pts.reduce<number[]>((s, p, k) => (s.push(k ? s[k - 1] + Math.hypot(p.x - pts[k - 1].x, p.y - pts[k - 1].y) : 0), s), []);
+    const sa = along(a);
+    const sb = along(b);
+    a.forEach((p, i) =>
+      b.forEach((q, j) => {
+        const d = Math.hypot(p.x - q.x, p.y - q.y);
+        if (d < (p.width + q.width) / 2 - 2 && (!same || Math.abs(sa[i] - sb[j]) > 2 * d + 20)) out.push([i, j]);
+      }),
+    );
+    return out;
+  }
+
+  it('a hairpin drawn in one stroke is one surface where its legs overlap: one level, no bank or reed between', () => {
+    const ed = map();
+    const t = ed.doc.terrain;
+    const g = t.grid;
+    // Land falling to the north, 2 cm per metre
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = 5 - 0.02 * (j * g.cellSize - t.depth / 2);
+    const stroke = new LandscapeContext(ed.begin('River'), 3, catalog);
+    const drawn = [{ x: -4, y: -150 }, { x: -4, y: 60 }, { x: 0, y: 70 }, { x: 4, y: 60 }, { x: 4, y: -150 }];
+    const result = carveRiver(stroke, drawn, { ...DEFAULT_RIVER, bridges: false })!;
+    stroke.finish();
+    const pts = result.river.points;
+    const pairs = touching(pts, pts, true);
+    expect(pairs.length).toBeGreaterThan(5);
+    for (const [i, j] of pairs) expect(Math.abs(pts[i].height - pts[j].height)).toBeLessThan(0.02);
+    for (let k = 1; k < pts.length; k++) expect(pts[k].height).toBeLessThanOrEqual(pts[k - 1].height);
+    // Between two touching points the ground lies under the water, and no reed or stone stands there
+    for (const [i, j] of pairs) {
+      const x = (pts[i].x + pts[j].x) / 2;
+      const y = (pts[i].y + pts[j].y) / 2;
+      expect(heightAt(t, x, y)).toBeLessThan(pts[i].height);
+      expect(ed.doc.objects.some((o) => /reed|grass|stone|rock/.test(o.asset) && Math.hypot(o.x - x, o.y - y) < 2)).toBe(false);
+    }
+  });
+
+  it('a tributary ends on the main river: the main river keeps its levels, no reed of the tributary stands in it', () => {
+    const ed = map();
+    const t = ed.doc.terrain;
+    const g = t.grid;
+    for (let j = 0; j < g.rows; j++) for (let i = 0; i < g.columns; i++) g.heights[j * g.columns + i] = 5 - 0.02 * (j * g.cellSize - t.depth / 2) - 0.01 * (i * g.cellSize - t.width / 2);
+    let stroke = new LandscapeContext(ed.begin('Main'), 3, catalog);
+    carveRiver(stroke, [{ x: 0, y: -150 }, { x: 0, y: 150 }], { ...DEFAULT_RIVER, bridges: false });
+    stroke.finish();
+    const main = structuredClone(t.rivers![0]);
+    stroke = new LandscapeContext(ed.begin('Tributary'), 4, catalog);
+    const trib = carveRiver(stroke, [{ x: -150, y: 40 }, { x: 0, y: 40 }], { ...DEFAULT_RIVER, width: 8, bridges: false })!.river;
+    stroke.finish();
+    expect(t.rivers![0]).toEqual(main);
+    // It flows into the main river and ends on its level there
+    const end = trib.points[trib.points.length - 1];
+    expect(Math.abs(end.x)).toBeLessThan(2);
+    const near = main.points.reduce((a, b) => (Math.hypot(b.x - end.x, b.y - end.y) < Math.hypot(a.x - end.x, a.y - end.y) ? b : a));
+    expect(Math.abs(end.height - near.height)).toBeLessThan(0.3);
+    for (let k = 1; k < trib.points.length; k++) expect(trib.points[k].height).toBeLessThanOrEqual(trib.points[k - 1].height);
+    // None of the reeds and stones stands in the main river's water
+    for (const o of ed.doc.objects.filter((q) => /reed|grass|stone|rock/.test(q.asset))) {
+      const hit = nearestOnPolyline(main.points, o)!;
+      expect(hit.dist).toBeGreaterThan((main.points[hit.segment].width / 2) * 0.85);
+    }
+  });
+
+  it('a higher river crossed by a lower one falls into the crossing from both sides over falls and keeps its arms; its reeds there go', () => {
+    const ed = map();
+    const t = ed.doc.terrain;
+    let stroke = new LandscapeContext(ed.begin('High'), 3, catalog);
+    carveRiver(stroke, [{ x: -150, y: 0 }, { x: 150, y: 0 }], { ...DEFAULT_RIVER, bridges: false });
+    stroke.finish();
+    // Held 3 m higher than its banks would put it (a river from a terrace)
+    for (const p of t.rivers![0].points) p.height += 3;
+    stroke = new LandscapeContext(ed.begin('Low'), 4, catalog);
+    const low = carveRiver(stroke, [{ x: 0, y: -150 }, { x: 0, y: 150 }], { ...DEFAULT_RIVER, bridges: false })!;
+    stroke.finish();
+    const high = t.rivers![0].points;
+    const at = (pts: typeof high, x: number, y: number) => pts.reduce((a, b) => (Math.hypot(b.x - x, b.y - y) < Math.hypot(a.x - x, a.y - y) ? b : a));
+    // In the crossing it stands on the low river's level, on either side of it on its own: it falls in from both
+    const cross = at(low.river.points, 0, 0);
+    expect(at(high, 0, 0).height).toBeLessThanOrEqual(cross.height + 0.01);
+    expect(at(high, -60, 0).height).toBeGreaterThan(cross.height + 2);
+    expect(at(high, 60, 0).height).toBeGreaterThan(cross.height + 2);
+    // A fall on each side of the crossing where the high river drops into it, facing it (the low river may fall in too)
+    const falls = ed.doc.objects.filter((o) => o.asset === 'fx-waterfall' && Math.abs(o.y) < 6);
+    expect(falls.map((o) => Math.sign(o.x)).sort()).toEqual([-1, 1]);
+    for (const fall of falls) expect(Math.abs(fall.x)).toBeLessThan(20);
+    expect(low.waterfalls).toBeGreaterThanOrEqual(2);
+    // No reed or stone of either stands in the other's water at the crossing
+    for (const o of ed.doc.objects.filter((q) => /reed|grass|stone|rock/.test(q.asset))) expect(Math.abs(o.x) < 4 && Math.abs(o.y) < 4).toBe(false);
+  });
+});
