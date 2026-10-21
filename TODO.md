@@ -64,11 +64,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Wasserfall und Überlauf (Empfehlung), Verdampfen mit Dampfsäule und trockenem Bett, Kombination.
       User 2026-10-21: erst komplett durchdenken, bevor gebaut wird. Der Fluss braucht eine Fließrichtung, der Krater
       füllt sich als See und gibt beim Überlauf den Fluss stromab weiter. Zuerst Plan-Doc, dann Abstimmung.
-- [ ] **E288 Gemalte Flüsse vereinigen sich nicht** (User 2026-10-21, Editor): Ein in einem Zug gemalter Fluss, dessen
-      Strich nah an sich selbst zurückläuft, überlappt sich: zwei Bandstücke mit verschiedener Höhe nebeneinander,
-      dunkle Naht dazwischen, Ufer und Vegetation mitten im Wasser. Ebenso zwei Striche, die sich berühren oder kreuzen
-      (User erwartet bei genauem Kreuzen ein Gesamtgewässer als Kreuz; testet das noch im Editor). Soll: eine
-      gemeinsame Wasserfläche. Plan: docs/WATER_NETWORK_PLAN.md (mit E283).
 - [ ] **E290 OSM-Gebäude als Ebene in OSM-Welten (Debug)** (User 2026-10-21): Auf echten Orten (Tiles) blendet die
       Schnellaktion „Gebäude“ die OSM-Grundrisse im Routenkorridor ein (`services/world/building-overlay.ts`,
       `uiStore.buildingsVisible`). In OSM-generierten Welten fehlt das (dort sind Gebäude Teil der Welt). Soll: dieselbe
@@ -245,6 +240,9 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O und P)
 
+- [ ] **E288 Flüsse vereinigen sich**: Haarnadel eine Fläche, Kreuzung als Kreuz (höherer fällt im Knoten hinein),
+      Mündung auf dem Spiegel; Wasser und Lava, Editor und OSM, aus der Geometrie (map-ops/river-network.ts). Plan:
+      docs/WATER_NETWORK_PLAN.md. Abnahme auf dem Board.
 - [ ] **E286 Gräben in OSM-Welten**: drain als Betonrinne (0,5 m am Grund oder width, Rinnsal), ditch als trockener
       Erdgraben, intermittent=yes trocken statt weggelassen, Wasser nur bei Bach, Fluss, Kanal oder intermittent=no (P1, P2).
 - [ ] **E289 Listenbilder eigener Karten**: eine Zeichnung für alle Karten (wie die mitgelieferten), bei jedem Speichern
