@@ -77,6 +77,9 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Kloster, Denkmal, Ruine u. a.) und sie aus ihrem echten Grundriss bauen (Flügel um den Hof, Dachform aus
       roof:shape, Ecktürme aus Teilen/Formen), statt Katalogmodelle in Rechtecke zu stellen. Erst Bestandsaufnahme und
       Plan (welche Tags, wie häufig, welcher Bauweg je Art), dann bauen.
+      Plan und Entscheidungen (2026-10-21): docs/OSM_LANDMARKS_PLAN.md, ein Bauweg aus dem Grundriss für alle Häuser
+      (Kontur stimmt, nicht generisch), Schritte L1-L8; Durchgänge als echte Aussparung, Ruinen als Ruine, fünf
+      Fassadenfamilien, vor E280.
 - [ ] **E294 Kratersee im Editor** (2026-10-21, aus E283 ausgeklammert): Der Landschafts-Modus „crater“ schreibt nur
       Höhen, ohne Kraterliste und Spielzeit; im Editor füllt sich darum kein See. Eigener Schritt: Pinsel mit Vorschau
       (See gleich voll oder Füllen ohne Spielzeit).

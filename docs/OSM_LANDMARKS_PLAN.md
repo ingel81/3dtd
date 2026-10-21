@@ -351,21 +351,22 @@ Fragment-Shader). Messen: `map-load`-Probe vor und nach jedem Schritt auf dersel
 L1 und L2 zuerst: sie beheben das Schloss schon als schlichten Bau mit Hof und kosten wenig. L3 bis L5 machen die
 Silhouette, L6 die Optik, L7 und L8 die Breite.
 
-## Offene Fragen an den User
+## Entscheidungen (User 2026-10-21)
 
-1. **Ein Bauweg für Wahrzeichen und gewöhnliche Häuser** (der erweiterte Bau aus dem Grundriss), Katalogmodelle nur
-   noch bei guter Passung? Empfehlung: ja; die Wohngebiete behalten ihre Modelle, Altstädte und Wahrzeichen werden
-   überwiegend aus dem Grundriss gebaut.
-2. **Durchgänge im Spiel:** sollen Gegner durch `building_passage` laufen (wie ein Tunnel unter dem Haus) oder nur
-   der Weg gezeichnet sein? Empfehlung: begehbar wie ein Tunnel, das Haus darüber steht.
-3. **Ruinen aus OSM:** sofort als Ruine gebaut (Burg Wertheim, Heidelberg), oder heil, bis das Spiel sie zerstört?
-   Empfehlung: als Ruine, im festen Zustand, mit derselben Darstellung wie zerstörte Häuser.
-4. **HQ an einem Wahrzeichen:** HQ davor (Platz, Straße) statt im Hof? Empfehlung: davor, das Wahrzeichen bleibt immer
-   stehen.
-5. **Wie weit die Formerkennung gehen soll**, wenn OSM keine Teile hat (Ecktürme, Kirchturm am Schiff)? Empfehlung:
-   Türme nur aus eigenen Turm-Grundrissen und klaren Ausbuchtungen; sonst ein schlichter Bau mit richtigem Dach.
-6. **Fassadenfamilien:** fünf neue Familien im Shader (Barock, Gotik, Bruchstein, Blockrand, Haus) oder zuerst nur die
-   drei für Wahrzeichen? Empfehlung: zuerst Barock, Gotik, Bruchstein; Blockrand und Haus mit L8, wenn mehr Häuser aus
-   dem Grundriss stehen. Abnahme per Baukasten mit Varianten.
-7. **Reihenfolge gegen E280:** L1 und L2 vor der Fortsetzung von E280, L5 und L6 danach (sie berühren die Programme)?
-   Empfehlung: ja.
+1. **Ein Bauweg:** ja. Gebäude aus dem echten Grundriss, Katalogmodelle nur bei guter Passung (mindestens 85 %
+   Deckung, höchstens 10 % Überstand). Dazu ausdrücklich: Die Gebäude müssen trotzdem gut und nicht generisch
+   aussehen; alles, was wir über das jeweilige Gebäude wissen (Art, Tags, Teile, Dachform, Höhe, Geschosse,
+   Material, Alter, Name/Wikidata), fließt in Form und Optik ein.
+2. **Durchgänge:** echte Aussparung im Gebäude, durch die man hindurchsehen kann, passend zum Gebäude (Torbogen,
+   Durchfahrt); Gegner laufen hindurch.
+3. **Ruinen aus OSM:** gleich als Ruine gebaut, fester Zustand, Darstellung wie zerstörte Häuser.
+4. **HQ an einem Wahrzeichen:** keine Auswahl für den Spieler, kein Verschieben durch den Import: das HQ steht genau
+   dort, wo der Spieler es hinsetzt (auch im Hof). Das Wahrzeichen bleibt ganz stehen; der Abstand ums HQ entfernt
+   kein Wahrzeichen. Verschieben geht im Spiel vor der ersten Welle.
+5. **Formerkennung ohne Teile:** nur klare Fälle (eigene Turm-Grundrisse, deutliche Ausbuchtungen, Kirchturm am
+   schmalen Ende, runder Chor); sonst schlichter Bau mit richtigem Dach.
+6. **Fassadenfamilien:** alle fünf (Barock, Gotik, Bruchstein, Blockrand, Haus), damit auch normale Häuser aus dem
+   Grundriss nicht generisch wirken.
+7. **Reihenfolge:** Gebäude zuerst (ohne neue Shader-Programme, Fassaden als Uniform); E280 bleibt pausiert und wird
+   danach einmal sauber gemessen.
+
