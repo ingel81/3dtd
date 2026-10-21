@@ -452,11 +452,13 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
 
 ## 3. Später und Ideen
 
-- [ ] **E296 Weltraum-Karte auf einem Asteroiden** (User-Idee 2026-10-21): Eine mitgelieferte Karte auf einem Asteroiden.
-      Statt der fernen Berge rundum echte Weltraum-Optik: Sternenhimmel ohne Atmosphäre und Nebel, der Horizont fällt
-      sichtbar ab (gekrümmte Oberfläche, Rand des Brockens), dahinter Planet und weitere Asteroiden, harte Schatten
-      von einer Sonne, Krater und Regolith als Boden. Zu klären: eigenes Biom und Himmel im Editor (wie Lava/Eis),
-      Gegner und Wasser dort (Eis statt Wasser?), Schwerkraft/Partikel (Staub fällt langsam), Klang ohne Atmosphäre.
+- [ ] **E296 Weltraum-Karte auf einem Asteroiden** (User-Idee 2026-10-21, Details per AUQ geklärt, nicht geplant):
+      Kleiner Brocken: Spielfeld flach genug zum Bauen, der Rand fällt rundum sichtbar ab (gekrümmter Horizont),
+      dahinter direkt der Weltraum statt ferner Berge: Sterne ohne Atmosphäre und Nebel, Planet und weitere Brocken,
+      harte Schatten einer Sonne, Regolith und Krater. Statt Wasser Eisflächen und Eisspalten plus glühende Lava-Risse.
+      Nur Optik und Effekte (Staub und Trümmer fallen langsamer und fliegen weiter, Explosionen ohne Rauchpilz),
+      Spielregeln, Gegner und Klang wie überall. Im Editor als Himmel „Weltraum“ und Biom „Asteroid“ wählbar; die
+      mitgelieferte Karte nutzt dasselbe.
 - [ ] **E287 Karte bearbeiten während eines Laufs** (User 2026-10-20: zurückgestellt, noch nicht entschieden): Wechselt man aus einem
       laufenden Spiel (Wellen gespielt, Türme gebaut) in den Editor dieser Karte, ändert sie und kehrt zurück, passt
       der Lauf nicht mehr (Türme schweben über geändertem Gelände usw.). Wege: (1) Bearbeiten beendet den Lauf, mit
