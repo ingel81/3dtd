@@ -1366,7 +1366,7 @@ export const de: Messages = {
     waitsIn: (line, world) => `${line} wartet in ${world}.`,
     oneRunStart: 'Jede Welt behält einen Lauf. Startest du hier etwas Neues, endet er jetzt.',
     endAndStart: 'Beenden und starten',
-    continueName: (name) => `${name} weiterspielen`,
+    continueRun: 'Weiterspielen',
     discardAsk: (line) => `${line} verwerfen?`,
     cannotContinue: 'Er lässt sich nicht fortsetzen.',
     discard: 'Verwerfen',

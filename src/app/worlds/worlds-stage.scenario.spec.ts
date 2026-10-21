@@ -336,7 +336,7 @@ describe('Worlds stage', () => {
     await settle(f);
     expect(opened).toEqual([]);
     expect(text(el(f).querySelector('.ws-confirm'))).toContain('Heilbronn | wave 12 waits in Real places.');
-    button(f, 'Continue Heilbronn').click();
+    button(f, 'Continue').click();
     expect(opened[0]).toMatchObject({ world: null, resume: AUTOSAVE_SLOT, play: true, label: 'Heilbronn' });
   });
 

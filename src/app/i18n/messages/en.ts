@@ -1585,7 +1585,7 @@ export const en = {
     waitsIn: (line: string, world: string) => `${line} waits in ${world}.`,
     oneRunStart: 'Each world keeps one run. Starting something new here ends it now.',
     endAndStart: 'End it and start',
-    continueName: (name: string) => `Continue ${name}`,
+    continueRun: 'Continue',
     discardAsk: (line: string) => `Discard ${line}?`,
     cannotContinue: 'It cannot be continued.',
     discard: 'Discard',

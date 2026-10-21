@@ -439,7 +439,7 @@ export class WorldsStageService {
       note: t.worlds.oneRunStart,
       answers: [
         { label: t.worlds.endAndStart, primary: true, run: () => void this.endThenGo(risk, () => this.go(world, pick)) },
-        { label: t.worlds.continueName(risk.name), run: () => this.resume(item) },
+        { label: t.worlds.continueRun, run: () => this.resume(item) },
         { label: t.common.cancel, run: () => undefined },
       ],
     });
