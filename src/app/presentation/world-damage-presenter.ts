@@ -287,7 +287,8 @@ export class WorldDamagePresenter {
     this.drawn?.crater(x, y, radius, depth, 1);
     this.drawn?.dug?.(x, y);
     if (wet) this.splash(y / 10 / MAP_METERS_PER_DEGREE, x / 10 / MAP_METERS_PER_DEGREE, radius / 10, wet);
-    if (this.destruction) this.playAt(DESTRUCTION_SOUNDS.crater.id, y / MAP_METERS_PER_DEGREE, x / MAP_METERS_PER_DEGREE);
+    // At the crater: its middle comes in decimetres
+    if (this.destruction) this.playAt(DESTRUCTION_SOUNDS.crater.id, y / 10 / MAP_METERS_PER_DEGREE, x / 10 / MAP_METERS_PER_DEGREE);
   }
 
   /**

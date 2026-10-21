@@ -4,6 +4,7 @@ import { WorldDamagePresenter, collapseClass } from './world-damage-presenter';
 import { StampField, craterStampOf, rubbleStampOf, type ToLocal } from '../utils/stamp-field';
 import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
 import type { RunStructure } from '../sim/protocol/run-rules';
+import { MAP_METERS_PER_DEGREE } from '../world/custom-map/map-document';
 
 const BARN: RunStructure = { id: 'barn', lat: 10 / M, lon: -20 / M, radius: 5, height: 6, hp: 100 };
 
@@ -124,6 +125,16 @@ describe('WorldDamagePresenter (docs/DESTRUCTION_PLAN.md)', () => {
     ]);
     expect(collapseClass('plaster')).toBe('masonry');
     expect(collapseClass('wood')).toBe('wood');
+    presenter.destroy();
+  });
+
+  it('sounds a crater at its middle, which comes in decimetres', () => {
+    const { bus, presenter } = setup(true);
+    const at: { lat: number; lon: number }[] = [];
+    bus.on('audio:play', (e) => at.push({ lat: e.lat, lon: e.lon }));
+    presenter.dig(0, 100, 200, 25, 30);
+    expect(at[0].lon).toBeCloseTo(10 / MAP_METERS_PER_DEGREE, 12);
+    expect(at[0].lat).toBeCloseTo(20 / MAP_METERS_PER_DEGREE, 12);
     presenter.destroy();
   });
 
