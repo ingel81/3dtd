@@ -18,6 +18,7 @@ import { MapAssetLibrary } from '../render/map-asset-library';
 import { mapToScene } from '../render/map-coords';
 import { pageSwitches } from '../../../core/page-switches';
 import { WorldStartService } from '../../world-start';
+import { TowerShadowMapper } from '../../../three-engine/tower-shadow-mapper';
 
 /** Camera spots on the demo map: camera and target in map space (x, y, height) */
 const VIEWS: Record<string, [number, number, number, number, number, number]> = {
@@ -48,7 +49,8 @@ const VIEWS: Record<string, [number, number, number, number, number, number]> = 
  * flat map instead (asset-showcase.ts), `?surfaces` a surface of each marking (surface-showcase.ts). `?map=<id>` shows a shipped map instead
  * of the demo valley (`&own`: an own map of this browser, an OSM world or an import), `?cam=x,y,h,tx,ty,th` puts the camera and its target at
  * map points (heights over the ground there), `?clean` hides the numbers. E2E probes read
- * `window.__mapPreview` (view, renderer, stats).
+ * `window.__mapPreview` (view, renderer, stats; `losCube()` the towers' line-of-sight cube on this scene, made on
+ * first use, for e2e/perf/los-cube.ts).
  */
 @Component({
   selector: 'app-map-preview',
@@ -101,6 +103,8 @@ export class MapPreviewComponent implements OnDestroy {
     this.resize = null;
     this.post?.dispose();
     this.post = null;
+    this.losCube?.dispose();
+    this.losCube = null;
     this.controls?.dispose();
     this.view?.dispose();
     this.lights?.clear();
@@ -237,6 +241,7 @@ export class MapPreviewComponent implements OnDestroy {
       controls,
       isReady: () => ready,
       frames: () => frames,
+      losCube: () => (this.losCube ??= new TowerShadowMapper(renderer, scene)),
     };
 
     const loop = (): void => {
@@ -269,4 +274,6 @@ export class MapPreviewComponent implements OnDestroy {
   }
 
   private lastFrames: number | null = null;
+  /** The towers' line-of-sight cube on the preview's scene, for probes (`__mapPreview.losCube`) */
+  private losCube: TowerShadowMapper | null = null;
 }
