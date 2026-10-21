@@ -67,6 +67,9 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       kreuzen, bleiben zwei getrennte Wasserflächen mit dunkler Naht dazwischen, Ufer und Vegetation stehen mitten im
       Wasser. Soll: zusammenfließen (gemeinsame Fläche, Mündung bzw. Zusammenfluss). Gehört zum Wassernetz mit
       Fließrichtung aus E283, im selben Plan-Doc durchdenken.
+- [ ] **E289 Eigene Welten ohne Vorschaubild** (User 2026-10-21): Im Menü „Gebaute Welten“ zeigen selbst gebaute Karten
+      (Zuletzt und Eigene Welten, z. B. „Editor Testworld1“) nur ein leeres dunkles Feld, mitgelieferte wie Mountain Pass
+      ein Bildchen. Soll: auch eigene Karten bekommen ein Vorschaubild (z. B. beim Speichern im Editor erzeugt).
 - [ ] **E284 Zerstörungswerkzeug: Radius für Nuke** (User 2026-10-20): Regler für den Explosionsradius im
       Entwickler-Werkzeug „Zerstören“. Radius als optionales Feld des Debug-Treffer-Befehls durch die Sim (Krater,
       Gebäudeschaden, Effektgröße), Befehlsprüfung im Koop mitziehen. Klein bis mittel.
