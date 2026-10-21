@@ -42,6 +42,8 @@ describe('OSM roads', () => {
         way(3, { highway: 'primary', tunnel: 'yes' }, [[40, 0, 3], [300, 0, 4]]),
         way(4, { highway: 'service', tunnel: 'building_passage', surface: 'sett' }, [[40, 0, 3], [40, 30, 5]]),
         way(5, { highway: 'construction' }, [[0, 0, 2], [0, 50, 6]]),
+        // A corridor inside a town hall: no road
+        way(6, { highway: 'footway', indoor: 'yes' }, [[0, 0, 2], [0, -50, 7]]),
       ],
     }, frame, 1200);
     const { paths, stats, mouths } = buildRoads(f);

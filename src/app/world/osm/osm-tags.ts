@@ -107,12 +107,15 @@ export interface RoadTags {
  * What a way's tags make of it as a road, null for a way that is none. Width
  * from `width`, else `lanes` times 3 m, else the type's; `surface` picks the
  * material. A passage through a building is no tunnel: it stays a road,
- * covered by the building.
+ * covered by the building. A way inside a building (`indoor=*`, a town
+ * hall's corridor, a shopping arcade's floor) is none: no one walks it from
+ * the street, and as a road it held the building off its own ground
  */
 export function roadTags(tags: Record<string, string>): RoadTags | null {
   const type = tags['highway'];
   const road = type ? ROAD_TYPES[type] : undefined;
   if (!road) return null;
+  if (tags['indoor'] && tags['indoor'] !== 'no') return null;
   const widthTag = /^\s*(\d+(?:[.,]\d+)?)\s*m?\s*$/.exec(tags['width'] ?? '');
   const lanes = /^\d+$/.test(tags['lanes'] ?? '') ? parseInt(tags['lanes'], 10) : 0;
   const raw = widthTag ? parseFloat(widthTag[1].replace(',', '.')) : lanes > 0 && road.kind === 'road' ? lanes * LANE_WIDTH : road.width;
