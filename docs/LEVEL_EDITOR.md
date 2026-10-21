@@ -728,6 +728,11 @@ Szenenkosten.
   (PNG als Data-URL) und das Stück; dessen Arrays liegen im Zip unter `prefabs/<k>/heights.f32`, `paint.u8` und
   `water.u8`. Nur der Editor liest sie, das Spiel nicht; sie zählen nicht zum `contentHash` (wie `meta.uid`), eine
   Karte ohne Prefabs schreibt kein Feld. Hebt die Version nicht
+- OSM-Grundrisse einer OSM-Welt (`footprints`, optional, E290): die Gebäudegrundrisse, die der Import gelesen hat,
+  als ein Int16-Array im Zip unter `osm/footprints.i16` (je Ring Punktzahl, Geschosse, dann x, y in Dezimetern;
+  `world/custom-map/map-footprints.ts`). Nur die Entwickler-Ebene „OSM“ liest sie, die Regeln des Spiels nicht; sie
+  zählen nicht zum `contentHash`, kein Werkzeug ändert sie, der Spiegel im Editor-Worker bekommt sie nur, wenn die
+  Liste eine andere ist. Abgeschnittene Ringe schreibt das Packen nicht, das Lesen lässt sie weg. Hebt die Version nicht
 - Kartendokument Version 3: bis zu zwölf Bodenschichten. Die Gewichte der Schichten 9 bis 12 liegen in einer dritten
   Splat-Karte (`terrain/splat2.u8`), die es nur gibt, solange die Karte mehr als acht Schichten hat
   (`splatMapCount`, `fitSplatMaps`: die neunte Schicht legt sie leer an, das Entfernen bis auf acht wirft sie weg; im

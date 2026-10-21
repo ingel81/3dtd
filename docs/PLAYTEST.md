@@ -568,6 +568,17 @@ Richtung, durchgehende Zeilen, Ende an der Grenze und Bruch an einem Weg prüfen
 - **Q3 Flache Lage:** wie Q1 mit `49.4000, 8.1950` (Ruppertsberg, Pfalz). *Zeilen rechtwinklig zu den Wirtschaftswegen,
   zwischen denen der Block liegt; fern der Route fehlen ganze Zeilen statt einzelner Stücke.*
 
+## R OSM-Grundrisse in OSM-Welten (2026-10-21, E290)
+
+Nur neu gebaute OSM-Welten tragen die Grundrisse; ältere zeigen die Kachel nicht.
+
+- **R1 Kachel und Ebene:** New game, „A map of a real place“, einen Ort mit Altstadt bauen (z. B. Miltenberg), im Spiel
+  unten rechts Entwickleroptionen › Karte › „OSM“. *Türkise Kästen mit Kanten über den Häusern an den roten Routen,
+  gut sichtbar auch hinter Dächern; nochmals klicken blendet sie aus. Im Ebenenmenü kein Knopf „Gebäude“.* Danach
+  vor Welle 1 eine weitere Spur öffnen, Ebene an: *nach gut einer Sekunde auch die Grundrisse an der neuen Route.*
+- **R2 Echter Ort unverändert:** einen echten Ort (3D-Tiles) spielen, Ebenenmenü › „Gebäude“. *Wie bisher: Grundrisse
+  an den Routen, im Entwicklermenü keine Kachel „OSM“.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo

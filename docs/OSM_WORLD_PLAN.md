@@ -882,6 +882,27 @@ schon. Im ganzen Ort lagen 31 von 110 Grundrissen ab 300 m² unter 75 % Deckung,
 
 Die Zeit des Gebäudeschritts ist noch nicht auf freiem Rechner gemessen.
 
+## OSM-Grundrisse als Entwickler-Ebene, gebaut (2026-10-21, E290)
+
+Auf echten Orten zeigt die Schnellaktion „Gebäude“ die OSM-Grundrisse an den Routen (`services/world/building-overlay.ts`,
+Overpass). In OSM-Welten dieselbe Ebene als Kachel „OSM“ im Entwicklermenü (Gruppe Karte), um die gebauten Häuser mit
+den Grundrissen zu vergleichen.
+
+- **Quelle:** die Grundrisse gingen beim Import verloren. Ein Katalogmodell trägt nur Mitte, Drehung und Maßstab, ein
+  Bau aus dem Grundriss (`mass`) seinen an Straßen beschnittenen Umriss; beides ist das Gebaute, nicht OSM. Deshalb
+  schreibt der Import jeden Grundriss, den die Gebäude lesen (`building` am Boden, auch die weggelassenen), als äußeren
+  Ring mit Geschossen in das neue optionale Feld `footprints` (Format in LEVEL_EDITOR.md, Datei). Miltenberg 1,2 km:
+  1 385 Ringe, 32 kB roh, die Datei wächst um rund 26 kB (2 %). Keine Overpass-Abfrage zur Laufzeit; der
+  Rahmenspeicher (`osm-frame-store.ts`) taugt nicht als Quelle (nur sechs Rahmen, 15 bis 40 MB je Stadt, fehlt auf
+  anderen Rechnern und im Koop).
+- **Weg:** `WorldStreetSource.footprints` sagt, woher die Grundrisse kommen: `fetched` (Tiles, Overpass, wie bisher
+  vorab geladen für die Minimap, Schnellaktion im Ebenenmenü), `kept` (OSM-Welt mit Feld, Kachel im Entwicklermenü),
+  `none` (DevWorld, eigene Karten, ältere OSM-Welten: kein Knopf). `CustomMapStreets.loadBuildingsNearRoutes` liest
+  das Feld beim ersten Einschalten und filtert auf den Korridor wie Overpass `around` (25 m um die Routen, Raster über
+  die Routenstücke, `footprintsNearRoutes`); `BuildingOverlay` und `BuildingRenderingService` zeichnen wie auf echten
+  Orten. Bei `kept` lädt und baut nichts vorab: ohne Einschalten kostet die Ebene nichts.
+- **Alte OSM-Welten** haben das Feld nicht; die Kachel erscheint erst nach einem Neubau.
+
 ## Altstadt, Reihenenden, Verwitterung, gebaut (2026-10-19, V10)
 
 Code: `convert/old-town.ts` (wo eine Altstadt ist), `building-tags.ts` (Art `oldtown`, Reihenenden `ROW_ENDS`),

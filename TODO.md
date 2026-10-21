@@ -64,11 +64,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Wasserfall und Überlauf (Empfehlung), Verdampfen mit Dampfsäule und trockenem Bett, Kombination.
       User 2026-10-21: erst komplett durchdenken, bevor gebaut wird. Der Fluss braucht eine Fließrichtung, der Krater
       füllt sich als See und gibt beim Überlauf den Fluss stromab weiter. Zuerst Plan-Doc, dann Abstimmung.
-- [ ] **E290 OSM-Gebäude als Ebene in OSM-Welten (Debug)** (User 2026-10-21): Auf echten Orten (Tiles) blendet die
-      Schnellaktion „Gebäude“ die OSM-Grundrisse im Routenkorridor ein (`services/world/building-overlay.ts`,
-      `uiStore.buildingsVisible`). In OSM-generierten Welten fehlt das (dort sind Gebäude Teil der Welt). Soll: dieselbe
-      Ebene als Debug-Werkzeug auch dort, um gebaute Gebäude mit den OSM-Grundrissen zu vergleichen (Quelle: die beim
-      Import gelesenen Grundrisse). Kein Parallelsystem: vorhandene Ebene und Darstellung wiederverwenden.
 - [ ] **E291 Route, Korridor und Sicht folgen dem Krater nicht** (User 2026-10-21, geprüft im Code, noch nicht
       entschieden, ob und wie): Gegner laufen durch den Krater (Simulation: Zellhöhe plus Stempelraster). Aber:
       (1) die Korridor-Kacheln und die rote Routenlinie werden nur bei neuen Routen gebaut (`route-grid-viz.service.ts`
@@ -241,8 +236,11 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ## 2. Gebaut, wartet auf Test
 
-### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P und Q)
+### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q und R)
 
+- [ ] **E290 OSM-Grundrisse in OSM-Welten**: Kachel „OSM“ im Entwicklermenü legt die beim Import gelesenen Grundrisse
+      (neues Feld `footprints`, nur neu gebaute Welten) über die Häuser an den Routen, dieselbe Ebene wie die
+      Schnellaktion „Gebäude“ auf echten Orten (R1, R2). Doku: OSM_WORLD_PLAN.md.
 - [ ] **E285 Weinberge: Rebzeilen**: gerade, parallel, durchgehend je Parzelle, am Hang in der Falllinie (folgen dem
       Boden), sonst rechtwinklig zur erschließenden Straße; Wege und Gräben brechen sie, Budget je ganzer Zeile (Q1 bis Q3).
 - [ ] **E288 Flüsse vereinigen sich**: Haarnadel eine Fläche, Kreuzung als Kreuz (höherer fällt im Knoten hinein),
