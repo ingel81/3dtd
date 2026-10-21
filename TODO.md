@@ -69,6 +69,14 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       des Editors und `ObjectIds` über die Liste (LandscapeContext, map-kit, mirror-map; vergibt per Undo
       zurückgenommene Ids wieder). Seit E292 passen sie zusammen, eine einzige Quelle wäre sauberer. Dazu: der
       Straßenpinsel legt bei „Draw a longer road“ trotzdem einen Schritt an (nur die Teilung); Enden erst auflösen.
+- [ ] **E297 Besondere Gebäude aus OSM (Schloss, Burg, Kirche, Sehenswürdigkeit …)** (User 2026-10-21, Schloss
+      Johannisburg Aschaffenburg): OSM führt building=castle, historic=castle, castle_type=stately, tourism=attraction,
+      roof:shape, building:levels, wikidata, Innenhof als Multipolygon, Ecktürme. Gebaut werden daraus sechs
+      Wohnblöcke um einen Platz, weil `castle` keine eigene Art hat (fällt auf Wohnhaus nach Größe und Geschossen).
+      Soll allgemein: besondere Gebäude als eigene Arten erkennen (Burg/Schloss, Kirche/Dom, Rathaus, Stadttor/Turm,
+      Kloster, Denkmal, Ruine u. a.) und sie aus ihrem echten Grundriss bauen (Flügel um den Hof, Dachform aus
+      roof:shape, Ecktürme aus Teilen/Formen), statt Katalogmodelle in Rechtecke zu stellen. Erst Bestandsaufnahme und
+      Plan (welche Tags, wie häufig, welcher Bauweg je Art), dann bauen.
 - [ ] **E294 Kratersee im Editor** (2026-10-21, aus E283 ausgeklammert): Der Landschafts-Modus „crater“ schreibt nur
       Höhen, ohne Kraterliste und Spielzeit; im Editor füllt sich darum kein See. Eigener Schritt: Pinsel mit Vorschau
       (See gleich voll oder Füllen ohne Spielzeit).
