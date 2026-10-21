@@ -212,8 +212,15 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ## 2. Gebaut, wartet auf Test
 
-### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q, R, S, T, U, V, W, X und Z)
+### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q, R, S, T, U, V, W, X, Z und AA)
 
+- [ ] **E303 Straßen und Gleise in OSM-Städten** (Fundstücke Würzburg 2026-10-21): Gehweg kippt nicht mehr an
+      Einmündungen schmaler Wege in die Fahrbahn (Sägezahn); Erdflecken nur noch neben unbefestigten Wegen; Fußgänger-
+      unterführungen unter Gleisfeldern bleiben unter der Erde statt Graben, Gegner meiden Unterführungen; Kreuzungen
+      am Hang eingeebnet; zwei Brücken dicht hintereinander heben das Gleis nicht doppelt; Boden in Durchgängen
+      gepflastert (AA1 bis AA6). Offen: sichtbare Abgänge an Unterführungen (eigene Modelle), fehlende Gleise im
+      Bahnhofsgleisfeld, Gleisfeld als Plateau mit Felsklippen, Reste an Hangkreuzungen, graue Fetzen vor
+      Garagenöffnungen.
 - [ ] **E291 Krater und Einstürze ändern Route und Sicht**: Korridor-Kacheln und rote Linie folgen dem Krater;
       stehende Tower sehen nach Krater, Einsturz, Verschleiß-Loch oder Wellenobjekt neu (Cube neu, gesammelt höchstens
       einmal je Sekunde, nicht im Bild des Ereignisses). Nuke-Dauerfeuer mit 30 Towern 0,18 ms je Bild (Z1 bis Z3).

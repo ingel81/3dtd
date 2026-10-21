@@ -713,6 +713,24 @@ Drosselung, Reichweite und Neuanfrage prüfen `world-sight-batch.spec.ts`, `towe
   die Sichtzellen: tief in der Mulde hinter der Kraterwand sieht er nichts.*
 - **Z3 Lücke nach Einsturz:** ein Gebäude neben einem Tower einstürzen lassen. *Der Tower sieht durch die Lücke.*
 
+## AA Straßen und Gleise in OSM-Städten (2026-10-21, E303)
+
+Kreuzungen, Flecken, Unterführungen, Brückenrampen und Router prüfen `road-network.spec.ts`, `ground-decals.spec.ts`,
+`roads.spec.ts`, `rails.spec.ts`, Router-Specs; hier das Auge. New game, „A map of a real place“, `49.7932, 9.9312`
+(Würzburg), bauen.
+
+- **AA1 Gehweg an Einmündungen:** über Straßen mit vielen Einfahrten fliegen. *Der Gehweg läuft gerade weiter, nur
+  der einmündende Weg quert ihn als Rechteck; keine Zacken in die Fahrbahn.*
+- **AA2 Flecken:** Plätze, Parkplätze, Straßen ansehen. *Keine braunen Erdflecken auf Pflaster und Asphalt; an
+  Feldwegen draußen weiter Trampelränder.*
+- **AA3 Bahnhof:** zum Hauptbahnhof. *Das Gleisfeld ist durchgehend, keine Gräben quer hindurch, keine schwebenden
+  Steinblöcke.*
+- **AA4 Kreuzung am Hang:** Straßen in Einschnitten oder an Böschungen. *Fußwege setzen glatt an, keine
+  Dreiecksfetzen.*
+- **AA5 Gleis an der Brücke:** Westkopf der Friedensbrücke, etwa `49.79820, 9.92140`. *Das Gleis läuft eben auf die
+  Brücke, keine Felsklippe darunter.*
+- **AA6 Durchgang:** Garage `49.798047, 9.926921`. *Im Durchgang Pflaster bis an die Wände, kein Gras.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo
