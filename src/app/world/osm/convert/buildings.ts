@@ -63,9 +63,9 @@ import { ringArea } from '../square-clip';
 import { convexHull, pointInRing } from './raster';
 import { MASS_ASSET, type MapFootprints, type MapMass } from '../../custom-map/map-document';
 import { packFootprints, type FootprintDrop, type FootprintRing } from '../../custom-map/map-footprints';
-import { massArea, massBodies, massBox, massDistance, massOnRamp, massRadius, massTriangles, ringsContain } from '../../custom-map/object-mass';
+import { massArea, massBodies, massBox, massDistance, massOnRamp, massRadius, massTop, massTriangles, ringsContain } from '../../custom-map/object-mass';
 import { toModel } from '../../custom-map/object-ground';
-import { CLIP_KEEP, CLIP_LEAST, clipOffRoads, isDrawnPart, raiseMass, type OsmPart } from './building-mass';
+import { CLIP_KEEP, CLIP_LEAST, clipOffRoads, isDrawnPart, raiseMass, sharedWalls, shareWalls, type OsmPart } from './building-mass';
 import { findOldTown } from './old-town';
 import type { ImportNote } from '../../import-notes';
 
@@ -225,8 +225,6 @@ const LONE_MODULE = 0.1;
  */
 const MODEL_COVER = 0.85;
 const MODEL_OVERHANG = 0.1;
-/** What models may stand out more than the rectangle a raised building would stand as, and still stay */
-const RECT_SLACK = 0.02;
 /** Footprints from this size (m²) count in the coverage report */
 const COVER_FROM = 40;
 /** A footprint filling less of its turned rectangle than this has wings (buildingKind's `winged`) */
@@ -443,11 +441,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       const raised = cover >= MODEL_COVER && over <= MODEL_OVERHANG && !ownParts.length && !passage
         ? null
         : raiseMass(outer, holes, rect, kind, area.tags, ringA, hashId(area.id), inOldTown, ownParts);
-      // Raised as its rectangle (a pitched roof over a footprint that nearly fills it), it stands out as far as the
-      // rectangle: models that cover as well and stand out no farther stay (a row of old-town houses)
-      const asRect = raised?.mass.roof === 'gable' || raised?.mass.roof === 'hip';
-      const rectOver = (rect.a * rect.b) / ringA - 1;
-      if (raised && !(asRect && !passage && cover >= MODEL_COVER && over <= rectOver + RECT_SLACK)) {
+      if (raised) {
         const pl: Placement = {
           asset: MASS_ASSET,
           p: raised.centre,
@@ -470,7 +464,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
           }
           const cost = costOf(MASS_ASSET, catalog, doc) + massTriangles(raised.mass);
           footprints.push({ id: area.id, ring: outer, kind, area: ringA, centre, placements: [pl], cost, tint: raised.tint, ruin: role.ruin });
-          measure(ringA, ringA >= COVER_FROM ? coverage(outer, holes, rect, (q) => inMass(pl, raised.mass, q)) : 0, asRect ? Math.max(0, rectOver) : 0);
+          measure(ringA, ringA >= COVER_FROM ? coverage(outer, holes, rect, (q) => inMass(pl, raised.mass, q)) : 0, 0);
           continue;
         }
         why ??= blocked;
@@ -533,9 +527,15 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
   }
   const objects: MapObject[] = [];
   let n = 0;
+  // Walls other buildings stand against (party walls): a sloped roof ends there in a gable (building-mass.ts shareWalls)
+  const neighbours = new FootprintGrid(footprints);
   for (const f of footprints) {
     const group = `osm-b${f.id}`;
     for (const pl of f.placements) {
+      if (pl.mass && !pl.mass.parts) {
+        const o = { x: round2(origin(pl).x), y: round2(origin(pl).y), rotation: round3(pl.rotation), scale: round3(pl.scale) };
+        shareWalls(pl.mass, partyWalls(pl.mass, o, neighbours, f));
+      }
       const entry = catalog?.get(pl.asset);
       const object: MapObject = {
         id: `osm-b${++n}`,
@@ -594,6 +594,66 @@ function isWaterTags(tags: Readonly<Record<string, string>>): boolean {
 }
 
 // ---- Raised buildings ----
+
+/** The footprints that stand, on a grid of their bounds, with how high they stand: which one holds a point */
+class FootprintGrid {
+  private static readonly CELL = 40;
+  private readonly cells = new Map<number, Footprint[]>();
+  /** Per footprint its top (a raised building's, a model's about by its storeys and a roof) and its bounds */
+  private readonly of = new Map<Footprint, { top: number; minX: number; maxX: number; minY: number; maxY: number }>();
+
+  constructor(footprints: readonly Footprint[]) {
+    const c = FootprintGrid.CELL;
+    for (const f of footprints) {
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      for (const p of f.ring) {
+        minX = Math.min(minX, p.x);
+        maxX = Math.max(maxX, p.x);
+        minY = Math.min(minY, p.y);
+        maxY = Math.max(maxY, p.y);
+      }
+      const top = Math.max(...f.placements.map((pl) => (pl.mass ? massTop(pl.mass) : pl.model.floors * 3.1 + 3) * pl.scale));
+      this.of.set(f, { top, minX, maxX, minY, maxY });
+      for (let i = Math.floor(minX / c); i <= Math.floor(maxX / c); i++) {
+        for (let j = Math.floor(minY / c); j <= Math.floor(maxY / c); j++) {
+          const key = i * 100003 + j;
+          const list = this.cells.get(key);
+          if (list) list.push(f);
+          else this.cells.set(key, [f]);
+        }
+      }
+    }
+  }
+
+  /** Whether a footprint other than `self`, standing at least `least` high, holds the point */
+  holds(p: MapPoint, self: Footprint, least: number): boolean {
+    const c = FootprintGrid.CELL;
+    for (const f of this.cells.get(Math.floor(p.x / c) * 100003 + Math.floor(p.y / c)) ?? []) {
+      const b = this.of.get(f)!;
+      if (f === self || b.top < least || p.x < b.minX || p.x > b.maxX || p.y < b.minY || p.y > b.maxY) continue;
+      if (pointInRing(p, f.ring)) return true;
+    }
+    return false;
+  }
+}
+
+/**
+ * The walls of a raised building's outline another standing footprint lies
+ * against (MapMass.shared), the building placed as `o`: one standing half way
+ * up its roof at least (a lower one leaves its slopes free, no bare gable
+ * stands high over a shed)
+ */
+function partyWalls(mass: MapMass, o: Pick<MapObject, 'x' | 'y' | 'rotation' | 'scale'>, grid: FootprintGrid, self: Footprint): number[] {
+  const cos = Math.cos(o.rotation);
+  const sin = Math.sin(o.rotation);
+  const s = o.scale || 1;
+  const least = (mass.height + 0.5 * (mass.ridge ?? 0)) * s;
+  // Model (x, z) to the map: the inverse of toModel (object-ground.ts)
+  return sharedWalls(mass.rings[0], (x, z) => grid.holds({ x: o.x - (x * cos + z * sin) * s, y: o.y - x * sin * s + z * cos * s }, self, least));
+}
 
 /**
  * Share of a footprint (outer less holes) the built covers (`covers`, a map

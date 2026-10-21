@@ -143,6 +143,47 @@ describe('raised buildings from their OSM parts (E297 L3)', () => {
     expect(ringsContain(corner.rings, ne.x, ne.z)).toBe(false);
     expect(corner.parts!.length).toBe(4);
   });
+
+  it('ends a wing at its tower in a gable: the wall it shares with the tower stands, the ridge runs into it (E297 L4)', () => {
+    // A wing 30 x 10 m under a hip roof, a tower as wide at its east end
+    const outline = box({ x: 0, y: 0 }, 40, 10);
+    const parts: OsmPart[] = [
+      { outer: box({ x: -5, y: 0 }, 30, 10), holes: [], tags: { 'building:part': 'yes', height: '20', 'roof:height': '5', 'roof:shape': 'hipped' } },
+      { outer: box({ x: 15, y: 0 }, 10, 10), holes: [], tags: { 'building:part': 'yes', height: '30', 'roof:shape': 'flat' } },
+    ];
+    const raised = raiseMass(outline, [], minAreaRect(outline), 'palace', TAGS, 400, 3, false, parts)!;
+    const wing = raised.mass.parts![0];
+    expect(wing.shared?.length).toBe(1);
+    const cos = Math.cos(raised.rotation);
+    const sin = Math.sin(raised.rotation);
+    const at = (p: MapPoint) => {
+      const m = toModel(p.x - raised.centre.x, p.y - raised.centre.y, cos, sin);
+      return massRoofAt({ ...raised.mass, parts: [wing] }, m.x, m.z);
+    };
+    // Up to the tower the ridge stands full height; at the free west end the hip comes down
+    expect(at({ x: 9.6, y: 0 })).toBeCloseTo(20, 0);
+    expect(at({ x: -19.6, y: 0 })).toBeLessThan(16);
+  });
+
+  it('slopes a lean-to without its way down away from the higher part it leans on: an aisle down from its nave', () => {
+    const nave = box({ x: 0, y: 4 }, 40, 12);
+    const aisle = box({ x: 0, y: -5 }, 40, 6);
+    const outline = box({ x: 0, y: 1 }, 40, 18);
+    const parts: OsmPart[] = [
+      { outer: nave, holes: [], tags: { 'building:part': 'yes', height: '24', 'roof:shape': 'gabled', 'roof:height': '8' } },
+      { outer: aisle, holes: [], tags: { 'building:part': 'yes', height: '12', 'roof:shape': 'skillion', 'roof:height': '3' } },
+    ];
+    const raised = raiseMass(outline, [], minAreaRect(outline), 'church', { building: 'church' }, 720, 2, false, parts)!;
+    const cos = Math.cos(raised.rotation);
+    const sin = Math.sin(raised.rotation);
+    const at = (p: MapPoint) => {
+      const m = toModel(p.x - raised.centre.x, p.y - raised.centre.y, cos, sin);
+      return massRoofAt(raised.mass, m.x, m.z);
+    };
+    // High against the nave (y = -2), low at its outer wall (y = -8)
+    expect(at({ x: 0, y: -2.1 })).toBeCloseTo(12, 0);
+    expect(at({ x: 0, y: -7.9 })).toBeCloseTo(9, 0);
+  });
 });
 
 describe('the parts of the OSM footprints, in the world', () => {

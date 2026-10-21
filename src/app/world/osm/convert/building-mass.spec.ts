@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MapMass, MapPoint } from '../../custom-map/map-document';
-import { massArea, massContains, massPitched } from '../../custom-map/object-mass';
+import { massArea, massContains, massPitched, massRoofAt } from '../../custom-map/object-mass';
 import { toModel } from '../../custom-map/object-ground';
 import { clipOffRoads, massFacade, massLevels, massTint, raiseMass, simplifyRing } from './building-mass';
 import { minAreaRect } from './buildings';
@@ -39,29 +39,65 @@ describe('raised buildings from OSM footprints', () => {
     expect([raised.hw * 2, raised.hd * 2].sort((p, q) => p - q).map((v) => Math.round(v))).toEqual([40, 80]);
   });
 
-  it('puts a pitched roof on a house that fills its rectangle, a mansard on a crooked one, a flat one round a courtyard', () => {
+  it('puts a sloped roof over the real outline: a house, an L, wings round a courtyard (E297 L4)', () => {
     const plain = turned(ring(-6, -4.5, 6, -4.5, 6, 4.5, -6.3, 4.5), 1.1, { x: 0, y: 0 });
     const raised = raiseMass(plain, [], minAreaRect(plain), 'house', { building: 'house' }, 108, 2)!;
     expect(massPitched(raised.mass)).toBe(true);
-    expect(raised.mass.ridge).toBeGreaterThan(2.5);
+    // Its own outline, not its rectangle
+    expect(massArea(raised.mass)).toBeCloseTo(12.15 * 9, 0);
+    // 38 degrees over half the house's depth
+    expect(raised.mass.ridge).toBeCloseTo(4.5 * Math.tan((38 * Math.PI) / 180), 1);
     const l = ring(0, 0, 30, 0, 30, 10, 10, 10, 10, 30, 0, 30);
     const lHouse = raiseMass(l, [], minAreaRect(l), 'house', { building: 'house' }, 500, 2)!.mass;
-    expect(lHouse.roof).toBe('mansard');
-    expect(lHouse.ridge).toBeGreaterThan(1);
-    expect(raiseMass(l, [ring(2, 2, 6, 2, 6, 6, 2, 6)], minAreaRect(l), 'house', { building: 'house' }, 484, 2)!.mass.roof).toBe('flat');
+    expect(lHouse.roof).toBe('gable');
+    expect(lHouse.rings[0].length).toBe(12);
+    expect(lHouse.ridge).toBeCloseTo(5 * Math.tan((38 * Math.PI) / 180), 1);
+    expect(raiseMass(l, [ring(2, 2, 6, 2, 6, 6, 2, 6)], minAreaRect(l), 'house', { building: 'house' }, 484, 2)!.mass.roof).toBe('gable');
     // The tag decides over the kind
     expect(raiseMass(plain, [], minAreaRect(plain), 'house', { building: 'house', 'roof:shape': 'flat' }, 108, 2)!.mass.roof).toBe('flat');
     expect(raiseMass(plain, [], minAreaRect(plain), 'house', { building: 'house', 'roof:shape': 'hipped' }, 108, 2)!.mass.roof).toBe('hip');
+    expect(raiseMass(l, [], minAreaRect(l), 'house', { building: 'house', 'roof:shape': 'half-hipped' }, 500, 2)!.mass.roof).toBe('halfhip');
+    expect(raiseMass(l, [], minAreaRect(l), 'house', { building: 'house', 'roof:shape': 'mansard' }, 500, 2)!.mass.roof).toBe('mansard');
+    // The roof's height and angle as tagged; a tagged height holds the roof
+    expect(raiseMass(plain, [], minAreaRect(plain), 'house', { building: 'house', 'roof:height': '5.5' }, 108, 2)!.mass.ridge).toBe(5.5);
+    expect(raiseMass(plain, [], minAreaRect(plain), 'house', { building: 'house', 'roof:angle': '45' }, 108, 2)!.mass.ridge).toBeCloseTo(4.5, 1);
+    const tall = raiseMass(plain, [], minAreaRect(plain), 'house', { building: 'house', height: '10' }, 108, 2)!.mass;
+    expect(tall.height + tall.ridge!).toBeCloseTo(10, 1);
+    // Untagged, a flat block outside an old town and a hipped one in it
+    const block = ring(0, 0, 40, 0, 40, 16, 0, 16);
+    expect(raiseMass(block, [], minAreaRect(block), 'apartments', { building: 'apartments' }, 640, 2)!.mass.roof).toBe('flat');
+    expect(raiseMass(block, [], minAreaRect(block), 'apartments', { building: 'apartments' }, 640, 2, true)!.mass.roof).toBe('hip');
+  });
+
+  it('slopes a lean-to down its roof:direction, turns a ridge across with roof:orientation', () => {
+    // 20 m east-west, 8 m north-south; down towards the south (180 degrees)
+    const shed = ring(0, 0, 20, 0, 20, 8, 0, 8);
+    const lean = raiseMass(shed, [], minAreaRect(shed), 'house', { building: 'yes', 'roof:shape': 'skillion', 'roof:direction': '180', 'roof:height': '2' }, 160, 3)!;
+    expect(lean.mass.roof).toBe('skillion');
+    expect(lean.mass.ridge).toBe(2);
+    // Back on the map: high on the north side, low on the south
+    const c = Math.cos(lean.rotation);
+    const s = Math.sin(lean.rotation);
+    const at = (x: number, y: number) => {
+      const m = toModel(x - lean.centre.x, y - lean.centre.y, c, s);
+      return massRoofAt(lean.mass, m.x, m.z);
+    };
+    expect(at(10, 7.9)).toBeCloseTo(lean.mass.height + 2, 1);
+    expect(at(10, 0.1)).toBeCloseTo(lean.mass.height, 1);
+    expect(raiseMass(shed, [], minAreaRect(shed), 'house', { building: 'yes', 'roof:shape': 'skillion', 'roof:direction': 'S' }, 160, 3)!.mass.roofDirection).toBe(lean.mass.roofDirection);
+    const across = raiseMass(shed, [], minAreaRect(shed), 'house', { building: 'yes', 'roof:shape': 'gabled', 'roof:orientation': 'across' }, 160, 3)!.mass;
+    expect(across.roofAcross).toBe(true);
+    expect(across.ridge).toBeCloseTo(10 * Math.tan((38 * Math.PI) / 180), 1);
   });
 
   it('raises a tower in stone under a steep pyramid, an old-town house half-timbered under a pitched roof (V10)', () => {
     const square = ring(-4, -4, 4, -4, 4, 4, -4, 4);
     const tower = raiseMass(square, [], minAreaRect(square), 'apartments', { building: 'yes', height: '52' }, 64, 1)!;
     expect(tower.mass.facade).toBe('stone');
-    expect(tower.mass.roof).toBe('hip');
+    expect(tower.mass.roof).toBe('pyramid');
     expect(tower.mass.ridge).toBeGreaterThan(7);
     expect(tower.mass.floors).toBeGreaterThanOrEqual(13);
-    // An old-town house whose footprint is a crooked quad still gets its roof over the rectangle
+    // An old-town house whose footprint is a crooked quad gets its roof over that quad
     const crooked = ring(0, 0, 8, 0.6, 7.6, 12, -0.4, 11.4);
     const house = raiseMass(crooked, [], minAreaRect(crooked), 'oldtown', { building: 'yes' }, 88, 4)!;
     expect(house.mass.facade).toBe('timber');
@@ -109,7 +145,7 @@ describe('raised buildings from OSM footprints', () => {
     // A tagged tower: stone, its own storeys, a steep pyramid, even when not slender
     const square = ring(0, 0, 14, 0, 14, 14, 0, 14);
     const tower = raiseMass(square, [], minAreaRect(square), 'tower', { building: 'yes', man_made: 'tower' }, 196, 1)!;
-    expect(tower.mass).toMatchObject({ facade: 'stone', roof: 'hip' });
+    expect(tower.mass).toMatchObject({ facade: 'stone', roof: 'pyramid' });
   });
 
   it('leaves out points on the line of their neighbours, keeps the corners', () => {

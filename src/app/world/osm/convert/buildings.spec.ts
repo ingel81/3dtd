@@ -298,6 +298,27 @@ describe('OSM buildings: placing', () => {
     expect(report.openings).toMatchObject({ passages: 1, closed: 1 });
   });
 
+  it('ends two houses against each other in a gable: the party wall they share stands, no eaves over it (E297 L4)', () => {
+    // Two houses north of the road sharing the wall x = 0, their backs askew (no model fits either)
+    const west = area(60, [{ x: -10, y: 10 }, { x: 0, y: 10 }, { x: 0, y: 22 }, { x: -10, y: 18 }], { building: 'house', 'roof:shape': 'gabled' });
+    const east = area(61, [{ x: 0, y: 10 }, { x: 10, y: 10 }, { x: 10, y: 18 }, { x: 0, y: 22 }], { building: 'house', 'roof:shape': 'gabled' });
+    const { doc, features } = world([west, east]);
+    const { objects } = placeBuildings(doc, features, { catalog });
+    for (const id of [60, 61]) {
+      const o = objects.find((q) => q.group === `osm-b${id}` && q.asset === MASS_ASSET)!;
+      expect(o.mass!.shared?.length).toBe(1);
+      // The shared wall lies on x = 0 on the map
+      const r = o.mass!.rings[0];
+      const k = o.mass!.shared![0];
+      const n = r.length / 2;
+      const mx = (r[2 * k] + r[2 * ((k + 1) % n)]) / 2;
+      const mz = (r[2 * k + 1] + r[2 * ((k + 1) % n) + 1]) / 2;
+      const c = Math.cos(o.rotation);
+      const s = Math.sin(o.rotation);
+      expect(o.x - (mx * c + mz * s) * o.scale).toBeCloseTo(0, 0);
+    }
+  });
+
   it('heads a passage through a palace with a round arch, a gateway wide and high (E297)', () => {
     const palace: OsmArea = { ...area(4, box({ x: 0, y: 40 }, 40, 14, 0), { building: 'palace', historic: 'castle', 'building:levels': '3' }) };
     const { doc, features } = world([palace]);
@@ -405,7 +426,7 @@ describe('OSM buildings: placing', () => {
     const of = (id: number) => objects.filter((o) => o.group === `osm-b${id}` && o.asset !== 'retaining-wall');
     expect(of(50).map((o) => [o.asset, o.damage])).toEqual([[MASS_ASSET, 3]]);
     expect(of(51).map((o) => [o.asset, o.damage])).toEqual([[MASS_ASSET, 3]]);
-    expect(of(51)[0].mass).toMatchObject({ facade: 'stone', roof: 'hip' });
+    expect(of(51)[0].mass).toMatchObject({ facade: 'stone', roof: 'pyramid' });
     expect(of(52)[0].damage).toBeUndefined();
     expect(report.ruins).toBe(2);
     expect(report.landmarks).toMatchObject({ tower: 1 });

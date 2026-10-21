@@ -3,8 +3,10 @@
  * "Gebäude aus dem Grundriss"): the outline and its courtyards, simplified,
  * as the rings of a MapMass in the object's own axes; its height from
  * `height` or `building:levels`, else guessed from the kind and the size;
- * its roof from `roof:shape`, else by kind (pitched only over a footprint
- * that is nearly its rectangle); its walls from `building:material`, else
+ * its roof from `roof:shape`, `roof:height`, `roof:angle`, `roof:direction`
+ * and `roof:orientation`, else by kind, sloped over the real outline
+ * (custom-map/mass-roof.ts: gable, hip, half-hip, mansard, skillion per
+ * wing, docs/OSM_LANDMARKS_PLAN.md L4); its walls from `building:material`, else
  * by kind; its tint from `building:colour`, else one of its facade's.
  *
  * A footprint with parts (`building:part` inside it, Simple 3D Buildings;
@@ -17,8 +19,8 @@
  * none, and where the parts leave much of it bare a part of its own fills it.
  */
 import type { MapMass, MapMassCover, MapMassFacade, MapMassPart, MapMassRoof, MapPoint } from '../../custom-map/map-document';
+import { massRectAxes, roofRun } from '../../custom-map/mass-roof';
 import {
-  insetOutline,
   MASS_MAX_PARTS,
   MASS_MAX_POINTS,
   MASS_PARAPET,
@@ -35,10 +37,6 @@ import { ringArea } from '../square-clip';
 
 /** Points nearer than this (m) to the line of their neighbours go (Douglas-Peucker) */
 const SIMPLIFY_M = 0.35;
-/** A footprint filling this much of its rectangle, without courtyards, may take a pitched roof over the rectangle */
-const PITCH_FILL = 0.9;
-/** The same for an old-town house and a tower */
-const PITCH_FILL_OLD = 0.72;
 /** A footprint under TOWER_AREA m² whose walls stand TOWER_SLENDER times as high as the root of its area is a tower */
 const TOWER_AREA = 400;
 const TOWER_SLENDER = 2.2;
@@ -285,11 +283,48 @@ const FILL_INSET = 0.15;
 /** Points of the footprint the parts' cover is measured at, about */
 const COVER_SAMPLES = 600;
 
-/** `roof:shape` values drawn as a pitched roof over a rectangle: a ridge (gable) or hips all round */
-const GABLE_SHAPES: ReadonlySet<string> = new Set(['gabled', 'half-hipped', 'gambrel', 'round', 'saltbox', 'mansard']);
-const HIP_SHAPES: ReadonlySet<string> = new Set(['hipped', 'side_hipped']);
-/** `roof:shape` values drawn as a pyramid to one top (a helm; onion, dome and spire as such until L5) */
-const PYRAMID_SHAPES: ReadonlySet<string> = new Set(['pyramidal', 'cone', 'conical', 'onion', 'dome', 'spire', 'helm']);
+/**
+ * OSM `roof:shape` values as the roofs drawn (mass-roof.ts): the ridged ones
+ * over any outline, a lean-to as a skillion; onion, dome and spire as a
+ * pyramid until L5, many-sided ones (`many`, `quadruple_saltbox`) hipped.
+ * Others stand flat at half their roof's height
+ */
+const ROOF_SHAPES: Readonly<Record<string, MapMassRoof>> = {
+  flat: 'flat',
+  gabled: 'gable',
+  gambrel: 'gable',
+  round: 'gable',
+  saltbox: 'gable',
+  double_saltbox: 'gable',
+  'half-hipped': 'halfhip',
+  'side_half-hipped': 'halfhip',
+  hipped: 'hip',
+  side_hipped: 'hip',
+  quadruple_saltbox: 'hip',
+  many: 'hip',
+  crosspitched: 'hip',
+  mansard: 'mansard',
+  skillion: 'skillion',
+  lean_to: 'skillion',
+  pyramidal: 'pyramid',
+  cone: 'pyramid',
+  conical: 'pyramid',
+  onion: 'pyramid',
+  dome: 'pyramid',
+  spire: 'pyramid',
+  helm: 'pyramid',
+};
+
+/** Pitches of the roofs no tag or kind gives one, degrees: a lean-to's, a mansard's steep slopes, any other */
+const SKILLION_PITCH = 18;
+const MANSARD_PITCH = 62;
+const ANY_PITCH = 40;
+/** Highest rise of a building's sloped roof by its pitch, m: a house's, a large landmark's, a tower's helm */
+const RIDGE_MOST = 14;
+const LANDMARK_RIDGE_MOST = 18;
+const TOWER_RIDGE_MOST = 24;
+/** A sloped roof over a building tagged with `height` but not `roof:height` takes at most this share of it */
+const ROOF_SHARE = 0.45;
 
 /**
  * The footprint (`outer` with its courtyards `holes`, in map space) raised
@@ -331,7 +366,7 @@ export function raiseMass(
   const placed = { centre: rect.c, rotation, front, hw: rect.a / 2, hd: rect.b / 2, tint };
   const drawn = parts.filter((p) => isDrawnPart(p.tags));
   if (drawn.length) {
-    const mass = partsMass(outer, holes, local, drawn, kind, tags, area, levels, facade, roofColour);
+    const mass = partsMass(outer, holes, local, rotation, drawn, kind, tags, area, levels, facade, roofColour);
     if (!mass) return null;
     // Untagged, the building takes the colours most of its parts have: the parts without (a stair tower) match them
     const ownTint = tagColour(tags['building:colour'], facade === 'stone') ?? mostOf(mass.parts!.map((p) => p.tint));
@@ -355,44 +390,162 @@ export function raiseMass(
     }
     return { mass, ...placed };
   }
-  const pitchDeg = tower ? TOWER_PITCH : roofPitch(tags, kind);
-  const fill = area / Math.max(1e-6, rect.a * rect.b);
-  let rings: number[][];
-  let roof: MapMassRoof = 'flat';
-  let ridge: number | undefined;
-  const tagged = parseFloat((tags['roof:height'] ?? '').replace(',', '.'));
-  // An old town's houses are rarely square: a pitched roof over the rectangle of one that nearly fills it
-  if (pitchDeg && !holes.length && fill >= (kind === 'oldtown' || tower ? PITCH_FILL_OLD : PITCH_FILL)) {
-    // Nearly its rectangle: the rectangle itself under a ridge along its longer side
-    const ha = round2(rect.a / 2);
-    const hb = round2(rect.b / 2);
-    rings = [[-ha, -hb, ha, -hb, ha, hb, -ha, hb]];
-    roof = tower || tags['roof:shape'] === 'hipped' || tags['roof:shape'] === 'pyramidal' || (tags['roof:shape'] === undefined && kind === 'house' && salt % 3 === 0)
-      ? 'hip'
-      : 'gable';
-    const half = Math.min(rect.a, rect.b) / 2;
-    ridge = round2(tagged > 0 && tagged < 40 ? tagged : Math.min(tower ? 24 : 14, half * Math.tan((pitchDeg * Math.PI) / 180)));
-  } else {
-    rings = simplifiedRings(outer, holes, local, 0);
-    if (!rings.length) return null;
-    const pyramid = PYRAMID_SHAPES.has(tags['roof:shape'] ?? '') && rings.length === 1 ? pyramidRidge(rings[0], tagged, pitchDeg || TOWER_PITCH, area) : null;
-    // A kind with a pitched roof on a crooked outline: slopes from every wall up to a flat top (a mansard)
-    const inset = !pyramid && pitchDeg && rings.length === 1 ? insetOutline(rings[0]) : null;
-    if (pyramid) {
-      roof = 'pyramid';
-      ridge = pyramid;
-    } else if (inset) {
-      roof = 'mansard';
-      ridge = mansardRidge(inset.run, tagged, pitchDeg);
-    }
+  // The real outline under the roof its tags ask for, else its kind's (deterministic by the footprint's salt)
+  const rings = simplifiedRings(outer, holes, local, 0);
+  if (!rings.length) return null;
+  const wanted = roofOf(tags, kind, tower, oldTown, salt, area);
+  const tagged = metres(tags, 'roof:height');
+  const most = tower ? TOWER_RIDGE_MOST : LANDMARK_KINDS.has(kind) || kind === 'church' ? LANDMARK_RIDGE_MOST : RIDGE_MOST;
+  // A tagged height without the roof's: the roof is part of it, the walls the rest
+  const tallTag = metres(tags, 'height');
+  const within = tallTag !== null && tagged === null ? tallTag * ROOF_SHARE : Infinity;
+  const fit = wanted.roof === 'flat' ? null : roofFit(rings, wanted.roof, wanted.pitch, tagged, Math.min(most, within), tags, rotation, salt, rect);
+  const roof: MapMassRoof = fit?.roof ?? 'flat';
+  if (fit && tallTag !== null && tagged === null) {
+    levels.height = Math.max(2.2, tallTag - fit.ridge);
+    if (buildingLevels(tags) === null) levels.floors = Math.max(1, Math.round((levels.height - PLINTH) / storeyOf(kind)));
   }
-  // A pitched roof's walls stop at the eaves; a flat one's go on to the parapet
+  // A sloped roof's walls stop at the eaves; a flat one's go on to the parapet
   const height = round2(roof === 'flat' ? levels.height + MASS_PARAPET : levels.height);
   return {
-    mass: { rings, height, floors: levels.floors, roof, ...(ridge !== undefined ? { ridge } : {}), facade, ...(roof !== 'flat' ? roofColour : {}) },
+    mass: { rings, height, floors: levels.floors, roof, ...(fit ? fit.fields : {}), facade, ...(roof !== 'flat' ? roofColour : {}) },
     ...placed,
   };
 }
+
+/**
+ * The roof a footprint takes: its `roof:shape` (ROOF_SHAPES), else its
+ * kind's, and the pitch from `roof:angle`, else the kind's. Untagged a tower
+ * has a helm; an old-town house a gable, now and then a half-hip or, when
+ * large, a hip; a house a gable or a hip; a palace, a castle, a town hall,
+ * a station and an old town's large blocks a hip; a church a steep gable;
+ * the kinds without a pitch (blocks, halls, offices) a flat roof
+ */
+function roofOf(tags: Readonly<Record<string, string>>, kind: BuildingKind, tower: boolean, oldTown: boolean, salt: number, area: number): { roof: MapMassRoof; pitch: number } {
+  const angle = parseFloat(tags['roof:angle'] ?? '');
+  const own = angle > 3 && angle < 80 ? angle : null;
+  const shape = tags['roof:shape'];
+  if (shape !== undefined) {
+    const roof = ROOF_SHAPES[shape] ?? 'flat';
+    const pitch = own ?? (roof === 'skillion' ? SKILLION_PITCH : roof === 'mansard' ? MANSARD_PITCH : roof === 'pyramid' ? TOWER_PITCH : (PITCH[kind] ?? ANY_PITCH));
+    return { roof, pitch };
+  }
+  if (tower) return { roof: 'pyramid', pitch: own ?? TOWER_PITCH };
+  const pitch = PITCH[kind];
+  if (pitch === undefined) {
+    // An old town has hardly a flat roof: its large blocks are hipped
+    const block = kind === 'apartments' || kind === 'civic' || kind === 'office' || kind === 'school';
+    return oldTown && block ? { roof: 'hip', pitch: own ?? 45 } : { roof: 'flat', pitch: 0 };
+  }
+  let roof: MapMassRoof = 'gable';
+  if (kind === 'oldtown') roof = salt % 6 === 0 ? 'halfhip' : area > 350 && salt % 2 === 0 ? 'hip' : 'gable';
+  else if (kind === 'house' || kind === 'semi' || kind === 'terrace') roof = salt % 3 === 0 ? 'hip' : salt % 7 === 1 ? 'halfhip' : 'gable';
+  else if (kind === 'palace' || kind === 'castle' || kind === 'townhall' || kind === 'station') roof = 'hip';
+  return { roof, pitch: own ?? pitch };
+}
+
+/** A sloped roof's fields on a building or a part (MapMass.ridge, roofDirection, roofAcross) and its rise */
+interface RoofFit {
+  roof: MapMassRoof;
+  ridge: number;
+  fields: Pick<MapMass, 'ridge' | 'roofDirection' | 'roofAcross' | 'shared'>;
+}
+
+/**
+ * The measures of `roof` over `rings` (in the building's axes): its rise the
+ * tagged `roof:height`, else as its pitch makes it over the widest wing (a
+ * mansard's over its run, a skillion's over its depth, a ridge across a
+ * rectangle over half its length), at most `most`; a skillion's way down
+ * from `roof:direction` (or `down`, else across its rectangle by the salt),
+ * a gable's ridge across from `roof:orientation` or `roof:direction`. A
+ * pyramid its middle does not see whole is a hip; null where no roof of the
+ * kind can be made over the outline (mass-roof.ts) and it stands flat
+ */
+function roofFit(
+  rings: number[][],
+  wanted: MapMassRoof,
+  pitchDeg: number,
+  tagged: number | null,
+  most: number,
+  tags: Readonly<Record<string, string>>,
+  rotation: number,
+  salt: number,
+  rect: MassRect | null,
+  down: number | null = null,
+  shared: readonly number[] = [],
+): RoofFit | null {
+  const tan = Math.tan((Math.min(80, Math.max(3, pitchDeg)) * Math.PI) / 180);
+  let roof = wanted;
+  if (roof === 'pyramid') {
+    const area = Math.abs(ringArea2(rings[0]));
+    const ridge = rings.length === 1 ? pyramidRidge(rings[0], tagged ?? 0, pitchDeg, area) : null;
+    if (ridge) return { roof, ridge, fields: { ridge } };
+    roof = 'hip';
+  }
+  const fields: RoofFit['fields'] = {};
+  let run: number | null;
+  if (roof === 'skillion') {
+    const dir = compass(tags['roof:direction']);
+    // OSM's way down is a bearing on the map (x east, y north): turned into the building's axes
+    fields.roofDirection = round3(dir !== null ? modelAngle(Math.sin(dir), Math.cos(dir), rotation) : down ?? defaultDown(rect, rotation, salt));
+    run = roofRun({ rings, roof, ridge: 1, roofDirection: fields.roofDirection });
+  } else {
+    const across = roof === 'gable' && rings.length === 1 && acrossWanted(tags, rings[0], rotation);
+    if (across) fields.roofAcross = true;
+    if (shared.length) fields.shared = [...shared];
+    run = roofRun({ rings, roof, ridge: 1, ...fields });
+    if (run === null && fields.shared) {
+      delete fields.shared;
+      run = roofRun({ rings, roof, ridge: 1, ...fields });
+    }
+  }
+  if (run === null) return null;
+  const ridge = round2(Math.max(0.3, Math.min(MAX_RIDGE, tagged ?? Math.min(roof === 'mansard' ? MANSARD_RISE : most, run * tan))));
+  fields.ridge = ridge;
+  // The run was measured over the roof's skeleton: a model can be made (mass-roof.ts roofRun)
+  return { roof, ridge, fields };
+}
+
+/** Whether a gable's ridge runs across its rectangle: `roof:orientation=across`, or `roof:direction` along its longer side */
+function acrossWanted(tags: Readonly<Record<string, string>>, ring: readonly number[], rotation: number): boolean {
+  const axes = massRectAxes(ring);
+  if (!axes) return false;
+  if (tags['roof:orientation'] === 'across') return true;
+  if (tags['roof:orientation'] === 'along') return false;
+  const dir = compass(tags['roof:direction']);
+  if (dir === null) return false;
+  // The slopes face the way the tag says: along the longer side means the ridge across it
+  const a = modelAngle(Math.sin(dir), Math.cos(dir), rotation);
+  return Math.abs(Math.cos(a) * axes.ux + Math.sin(a) * axes.uz) > 0.7;
+}
+
+/** A skillion's way down without a tag: across its rectangle's longer side, one way or the other by the salt */
+function defaultDown(rect: MassRect | null, rotation: number, salt: number): number {
+  if (!rect) return Math.PI / 2;
+  // The rectangle's side b runs along v, a quarter turn left of u on the map
+  const sign = salt % 2 ? 1 : -1;
+  return modelAngle(-rect.u.y * sign, rect.u.x * sign, rotation);
+}
+
+/** A direction on the map (x east, y north) as an angle in the building's axes (from model +x towards +z) */
+function modelAngle(dx: number, dy: number, rotation: number): number {
+  const m = toModel(dx, dy, Math.cos(rotation), Math.sin(rotation));
+  return Math.atan2(m.z, m.x);
+}
+
+/** Compass points of `roof:direction` */
+const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+
+/** `roof:direction` (degrees from north, clockwise, or a compass point) in radians; null for none */
+function compass(value: string | undefined): number | null {
+  if (!value) return null;
+  const v = value.trim().toUpperCase();
+  const k = COMPASS.indexOf(v);
+  const deg = k >= 0 ? k * 22.5 : parseFloat(v.replace(',', '.'));
+  return Number.isFinite(deg) ? (((deg % 360) + 360) % 360) * (Math.PI / 180) : null;
+}
+
+const round3 = (v: number): number => Math.round(v * 1000) / 1000;
 
 /**
  * The outline and its courtyards in the building's axes, simplified, more
@@ -412,11 +565,6 @@ function simplifiedRings(outer: readonly MapPoint[], holes: readonly (readonly M
     if (used + rings.reduce((s, r) => s + r.length / 2, 0) <= MASS_MAX_POINTS) break;
   }
   return rings;
-}
-
-/** A mansard's rise: the tagged `roof:height`, else as its pitch makes it over its run; at most MANSARD_RISE */
-function mansardRidge(run: number, tagged: number, pitchDeg: number): number {
-  return round2(Math.min(MANSARD_RISE, tagged > 0 ? tagged : run * Math.tan((pitchDeg * Math.PI) / 180)));
 }
 
 /** A pyramid's rise over an outline its middle sees whole (massApex): the tagged `roof:height`, else by its pitch over its mean radius; null for none */
@@ -460,6 +608,7 @@ function partsMass(
   outer: readonly MapPoint[],
   holes: readonly (readonly MapPoint[])[],
   local: (ring: readonly MapPoint[]) => number[],
+  rotation: number,
   parts: readonly OsmPart[],
   kind: BuildingKind,
   tags: Readonly<Record<string, string>>,
@@ -479,26 +628,98 @@ function partsMass(
     if (!rings.length) return null;
     let points = rings.reduce((s, r) => s + r.length / 2, 0);
     const own: MapMassPart[] = [];
-    for (const { p, area: partArea } of sorted) {
-      const part = partOf(p, partArea, local, kind, levels, facade, tolerance);
+    const from: { p: OsmPart; area: number }[] = [];
+    for (const q of sorted) {
+      const part = partOf(q.p, q.area, local, rotation, kind, levels, facade, tolerance);
       if (!part) continue;
       own.push(part);
+      from.push(q);
       points += part.rings.reduce((s, r) => s + r.length / 2, 0);
     }
     if (!own.length) return null;
+    // A lean-to without its way down slopes away from the higher part it leans on
+    own.forEach((part, k) => {
+      if (part.roof !== 'skillion' || compass(from[k].p.tags['roof:direction']) !== null) return;
+      const down = leanAway(part, own);
+      if (down === null) return;
+      const leaning = partOf(from[k].p, from[k].area, local, rotation, kind, levels, facade, tolerance, down);
+      if (leaning) own[k] = leaning;
+    });
     // What the parts leave bare of the footprint: filled by a part of its own, a little inside its walls
+    let fill: MapMassPart | null = null;
     if (partsCover(rings, own) < PARTS_COVER) {
-      const fill = fillPart(rings, own, levels);
-      if (fill) {
-        own.push(fill);
-        points += fill.rings.reduce((s, r) => s + r.length / 2, 0);
-      }
+      fill = fillPart(rings, own, levels);
+      if (fill) points += fill.rings.reduce((s, r) => s + r.length / 2, 0);
     }
+    // Walls against another part (a wing against its corner tower or the next wing): its roof ends there upright
+    const all = fill ? [...own, fill] : own;
+    const shared = own.map((part) => partWalls(part, all));
+    shared.forEach((walls, k) => {
+      if (!walls.length) return;
+      // No higher a roof than before: the slopes over the wings left lie flatter, not taller
+      const standing = partOf(from[k].p, from[k].area, local, rotation, kind, levels, facade, tolerance, null, walls, own[k].ridge);
+      if (standing) own[k] = standing;
+    });
+    if (fill) own.push(fill);
     if (points > MASS_MAX_POINTS && tries < 5) continue;
     const height = round2(Math.max(...own.map((q) => q.height)));
     return { rings, height, floors: levels.floors, roof: 'flat', facade, ...roofColour, parts: own };
   }
   return null;
+}
+
+/** How far past a wall another building or part must stand to share it, m */
+const SHARED_REACH = 0.4;
+
+/**
+ * The walls of a ring (x, z pairs, the outline) another building or part
+ * stands against (MapMass.shared): `inside` holds the ground a little past
+ * four of five points along it, so a wall another stands against only in
+ * part keeps its slope; walls under a metre do not count
+ */
+export function sharedWalls(ring: readonly number[], inside: (x: number, z: number) => boolean): number[] {
+  const out: number[] = [];
+  const n = ring.length / 2;
+  const s = ringArea2(ring) > 0 ? 1 : -1;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const ex = ring[2 * j] - ring[2 * i];
+    const ez = ring[2 * j + 1] - ring[2 * i + 1];
+    const len = Math.hypot(ex, ez);
+    if (len < 1) continue;
+    // Out of a counter-clockwise ring is right of its walls
+    const nx = (ez / len) * s;
+    const nz = (-ex / len) * s;
+    let hits = 0;
+    for (const f of [0.1, 0.3, 0.5, 0.7, 0.9]) if (inside(ring[2 * i] + ex * f + nx * SHARED_REACH, ring[2 * i + 1] + ez * f + nz * SHARED_REACH)) hits++;
+    if (hits >= 4) out.push(i);
+  }
+  return out;
+}
+
+/**
+ * The walls a part of a raised building shares with another part standing
+ * there at its eaves (a wing against its corner tower, a wing against the
+ * next one): no slope of its roof rises from them (MapMassPart.shared)
+ */
+function partWalls(p: MapMassPart, parts: readonly MapMassPart[]): number[] {
+  if (p.roof !== 'gable' && p.roof !== 'hip' && p.roof !== 'halfhip' && p.roof !== 'mansard') return [];
+  // Standing from under its eaves to half way up its roof at least: a lower one leaves its slopes free
+  const others = parts.filter((q) => q !== p && (q.base ?? 0) < p.height - 0.5 && q.height + (q.ridge ?? 0) >= p.height + 0.5 * (p.ridge ?? 0));
+  return others.length ? sharedWalls(p.rings[0], (x, z) => others.some((q) => ringsContain(q.rings, x, z))) : [];
+}
+
+/**
+ * A raised building's walls another building stands against (a party wall,
+ * MapMass.shared): its sloped roof ends there in a gable (a narrow town
+ * house between two others is sloped front and back, its ridge along the
+ * street). Its rise stays: walls standing still only make the wings the
+ * slopes span deeper, so they lie flatter, the roof no higher; dropped where
+ * no roof can be made so
+ */
+export function shareWalls(mass: MapMass, shared: readonly number[]): void {
+  if (!shared.length || mass.parts || (mass.roof !== 'gable' && mass.roof !== 'hip' && mass.roof !== 'halfhip' && mass.roof !== 'mansard')) return;
+  if (roofRun({ ...mass, shared: [...shared] }) !== null) mass.shared = [...shared];
 }
 
 /** Share of the footprint (rings in the building's axes) under its parts, on a raster of about COVER_SAMPLES points */
@@ -547,65 +768,49 @@ function fillPart(rings: readonly number[][], parts: readonly MapMassPart[], lev
  * One `building:part` as a part of the raised building: its outline in the
  * building's axes; its floor from `min_height` (or `building:min_level`
  * storeys); its top from `height`, else `building:levels`, else the
- * building's own (a tower a storey higher); its roof from `roof:shape` and
- * `roof:height` (a pitched one over a part that nearly fills its rectangle,
- * a pyramid over one its middle sees whole, else a mansard, else flat: a
- * shape not drawn yet stands flat at half its roof's height); its storeys
- * from `building:levels`; its walls and colours from `building:material`,
- * `building:colour`, `roof:colour`, `roof:material`. Null where nothing of
- * it stands
+ * building's own (a tower a storey higher); its roof from `roof:shape`,
+ * `roof:height`, `roof:angle`, `roof:direction`, `roof:orientation` over its
+ * real outline (roofFit; a skillion without a way down slopes `down`, away
+ * from a higher part it leans on, partsMass; a shape not drawn stands flat
+ * at half its roof's height); its storeys from `building:levels`; its walls
+ * and colours from `building:material`, `building:colour`, `roof:colour`,
+ * `roof:material`. Null where nothing of it stands
  */
 function partOf(
   part: OsmPart,
   area: number,
   local: (ring: readonly MapPoint[]) => number[],
+  rotation: number,
   kind: BuildingKind,
   levels: { floors: number; height: number },
   facade: MapMassFacade,
   tolerance: number,
+  down: number | null = null,
+  shared: readonly number[] = [],
+  most = MAX_RIDGE,
 ): MapMassPart | null {
   const t = part.tags;
   const tower = t['man_made'] === 'tower' || t['building:part'] === 'tower' || !!t['tower:type'];
   const storey = storeyOf(kind);
-  const shape = t['roof:shape'] ?? 'flat';
-  const pitchDeg = (() => {
-    const angle = parseFloat(t['roof:angle'] ?? '');
-    return angle > 5 && angle < 85 ? angle : tower ? TOWER_PITCH : (PITCH[kind] ?? 40);
-  })();
-  const tagged = metres(t, 'roof:height') ?? 0;
-  const rect = minAreaRect(part.outer);
-  const fill = area / Math.max(1e-6, rect.a * rect.b);
-  let rings: number[][];
-  let roof: MapMassRoof = 'flat';
-  let ridge = 0;
-  const pitched = GABLE_SHAPES.has(shape) || HIP_SHAPES.has(shape);
-  if (pitched && !part.holes.length && fill >= PITCH_FILL) {
-    // Nearly its rectangle: the rectangle under a ridge along its longer side, turned as the part lies
-    const v = { x: -rect.u.y, y: rect.u.x };
-    const corner = (sa: number, sb: number): MapPoint => ({ x: rect.c.x + (rect.u.x * rect.a * sa + v.x * rect.b * sb) / 2, y: rect.c.y + (rect.u.y * rect.a * sa + v.y * rect.b * sb) / 2 });
-    rings = [local([corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)])];
-    roof = HIP_SHAPES.has(shape) ? 'hip' : 'gable';
-    ridge = round2(Math.min(MAX_RIDGE, tagged || (Math.min(rect.a, rect.b) / 2) * Math.tan((pitchDeg * Math.PI) / 180)));
-  } else {
-    rings = simplifiedRings(part.outer, part.holes, local, 0, tolerance);
-    if (!rings.length) return null;
-    const pyramid = PYRAMID_SHAPES.has(shape) && rings.length === 1 ? pyramidRidge(rings[0], tagged, pitchDeg, area) : null;
-    const inset = !pyramid && pitched && rings.length === 1 ? insetOutline(rings[0]) : null;
-    if (pyramid) {
-      roof = 'pyramid';
-      ridge = pyramid;
-    } else if (inset) {
-      roof = 'mansard';
-      ridge = mansardRidge(inset.run, tagged, pitchDeg);
-    }
-  }
+  // Untagged a part is flat (OSM's default for parts)
+  const wanted = ROOF_SHAPES[t['roof:shape'] ?? 'flat'] ?? 'flat';
+  const angle = parseFloat(t['roof:angle'] ?? '');
+  const pitchDeg = angle > 3 && angle < 85
+    ? angle
+    : wanted === 'pyramid' || tower ? TOWER_PITCH : wanted === 'skillion' ? SKILLION_PITCH : wanted === 'mansard' ? MANSARD_PITCH : (PITCH[kind] ?? ANY_PITCH);
+  const tagged = metres(t, 'roof:height');
+  const rings = simplifiedRings(part.outer, part.holes, local, 0, tolerance);
+  if (!rings.length) return null;
+  const fit = wanted === 'flat' ? null : roofFit(rings, wanted, pitchDeg, tagged, most, t, rotation, Math.round(area), minAreaRect(part.outer), down, shared);
+  const roof: MapMassRoof = fit?.roof ?? 'flat';
+  let ridge = fit?.ridge ?? 0;
   const height = metres(t, 'height');
   const own = count(t, 'building:levels');
   const minLevel = count(t, 'building:min_level');
   const base = round2(metres(t, 'min_height') ?? (minLevel ? PLINTH + minLevel * storey : 0));
-  // The top of the walls: the tagged height less the roof drawn on it (a roof not drawn yet: half of it), else the storeys
+  // The top of the walls: the tagged height less the roof drawn on it (a roof not drawn: half of it), else the storeys
   let top = height !== null
-    ? height - (roof === 'flat' ? tagged / 2 : ridge)
+    ? height - (roof === 'flat' ? (tagged ?? 0) / 2 : ridge)
     : own !== null
       ? PLINTH + own * storey
       : levels.height + (tower ? storey : 0);
@@ -625,11 +830,45 @@ function partOf(
     height: round2(Math.min(400, top)),
     floors,
     roof,
-    ...(roof !== 'flat' ? { ridge } : {}),
+    ...(fit ? { ...fit.fields, ridge } : {}),
     ...(wall && wall !== facade ? { facade: wall } : {}),
     ...(tint ? { tint } : {}),
     ...look,
   };
+}
+
+/**
+ * The way down of a skillion part that OSM gives none: away from the higher
+ * part it leans on (an aisle's roof down from the nave), the wall it shares
+ * with it the longest; null where it leans on none
+ */
+function leanAway(part: MapMassPart, parts: readonly MapMassPart[]): number | null {
+  const ring = part.rings[0];
+  const top = part.height + (part.ridge ?? 0);
+  let best = 0;
+  let way: number | null = null;
+  for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
+    const ex = ring[i] - ring[j];
+    const ez = ring[i + 1] - ring[j + 1];
+    const len = Math.sqrt(ex * ex + ez * ez);
+    if (len < 1) continue;
+    const mx = (ring[i] + ring[j]) / 2;
+    const mz = (ring[i + 1] + ring[j + 1]) / 2;
+    // The wall's normal pointing into the part
+    let nx = -ez / len;
+    let nz = ex / len;
+    if (!ringsContain(part.rings, mx + nx * 0.05, mz + nz * 0.05)) {
+      nx = -nx;
+      nz = -nz;
+    }
+    // A higher part just outside this wall
+    const higher = parts.some((q) => q !== part && q.height > top - 0.5 && ringsContain(q.rings, mx - nx * 0.6, mz - nz * 0.6));
+    if (higher && len > best) {
+      best = len;
+      way = Math.atan2(nz, nx);
+    }
+  }
+  return way;
 }
 
 /** A roof's colour and covering from `roof:colour` and `roof:material` (MapMass.roofTint, roofCover); none untagged */
@@ -747,14 +986,6 @@ export function massLevels(tags: Readonly<Record<string, string>>, kind: Buildin
   return { floors, height: PLINTH + floors * storey };
 }
 
-/** The pitch of a pitched roof (degrees) the tags or the kind ask for; 0 for a flat one */
-function roofPitch(tags: Readonly<Record<string, string>>, kind: BuildingKind): number {
-  const shape = tags['roof:shape'];
-  if (shape === 'flat') return 0;
-  const angle = parseFloat(tags['roof:angle'] ?? '');
-  if (shape === 'gabled' || shape === 'hipped' || shape === 'half-hipped' || shape === 'pyramidal') return angle > 5 && angle < 70 ? angle : (PITCH[kind] ?? 35);
-  return shape === undefined ? (PITCH[kind] ?? 0) : 0;
-}
 
 /** The walls' look: `building:material` (or `building:facade:material`), else the kind's; a town hall in an old town half-timbered */
 export function massFacade(tags: Readonly<Record<string, string>>, kind: BuildingKind, oldTown = false): MapMassFacade {
@@ -838,6 +1069,8 @@ export function clipOffRoads(mass: MapMass, roads: readonly MassRoad[], keep = C
   if (outer === mass.rings[0]) return true;
   if (Math.abs(ringArea2(outer)) < before * keep) return false;
   mass.rings = [outer.map(round2), ...holes];
+  // The walls it shared are other walls now (MapMass.shared counts them on the outline)
+  delete mass.shared;
   if (mass.parts) {
     // The parts the same way: what lies past a cut goes, a part wholly past it with it
     const parts: MapMassPart[] = [];
@@ -850,8 +1083,14 @@ export function clipOffRoads(mass: MapMass, roads: readonly MassRoad[], keep = C
         courts = courts.filter((h) => step(h)?.length === h.length);
       }
       if (!ring || Math.abs(ringArea2(ring)) < 1) continue;
-      // A part cut along a side keeps its roof (a rectangle stays one, a helm keeps its top); one cut askew stands flat (massPitched)
-      parts.push(ring === p.rings[0] ? p : { ...p, rings: [ring.map(round2), ...courts] });
+      // A part cut keeps its roof over what is left of it (a helm its top, mass-roof.ts the rest), not its shared walls
+      if (ring === p.rings[0]) {
+        parts.push(p);
+      } else {
+        const cut: MapMassPart = { ...p, rings: [ring.map(round2), ...courts] };
+        delete cut.shared;
+        parts.push(cut);
+      }
     }
     if (parts.length) mass.parts = parts;
     else delete mass.parts;

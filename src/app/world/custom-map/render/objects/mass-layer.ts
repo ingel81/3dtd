@@ -26,15 +26,14 @@ import {
   massApex,
   massBodies,
   massBounds,
-  massInset,
-  massPitched,
   massRadius,
-  massRectFrame,
   massRoof,
+  massSlopes,
   massTop,
   ringsContain,
   type MassBody,
 } from '../../object-mass';
+import { gableIsTriangle, type RoofModel, type RoofPlaneFit } from '../../mass-roof';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary, ObjectModel } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
@@ -79,8 +78,6 @@ import { addDamage, collapseCuts, RUIN_HOLES, DAMAGE_ATTRIBUTES, DAMAGE_LOS, dam
 
 /** Thickness of a flat roof's parapet, m */
 const PARAPET_THICKNESS = 0.3;
-/** How far a pitched roof reaches past the walls, m */
-const EAVES = 0.4;
 
 /** Facade index of each look, the shader's uFacade */
 const FACADE_INDEX: Readonly<Record<MapMassFacade, number>> = Object.fromEntries(MAP_MASS_FACADES.map((f, i) => [f, i])) as Record<MapMassFacade, number>;
@@ -156,13 +153,12 @@ const shapes = new WeakMap<MassBody, MassShape>();
 export function massShape(m: MassBody, seed = 0): MassShape {
   let shape = shapes.get(m);
   if (shape) return shape;
-  const pitched = massPitched(m);
-  const inset = massInset(m);
+  const slopes = massSlopes(m);
   const apex = massApex(m);
-  shape = pitched ? pitchedShape(m) : apex ? pyramidShape(m, apex) : inset ? mansardShape(m, inset.ring) : flatShape(m);
+  shape = slopes ? slopedShape(m, slopes) : apex ? pyramidShape(m, apex) : flatShape(m);
   // The ways through the building it stands over: their reveals, ceilings, back walls (mass-openings.ts)
   if (m.openings?.length) shape.walls.push(...openingInsides(m));
-  shape.covering = !pitched && !inset && !apex ? 'flat' : m.roofCover ? COVER_COVERING[m.roofCover] : m.facade === 'metal' ? 'metal' : seed % 3 === 0 ? 'grey' : 'red';
+  shape.covering = !slopes && !apex ? 'flat' : m.roofCover ? COVER_COVERING[m.roofCover] : m.facade === 'metal' ? 'metal' : seed % 3 === 0 ? 'grey' : 'red';
   shapes.set(m, shape);
   return shape;
 }
@@ -203,88 +199,84 @@ function flatShape(m: MassBody): MassShape {
   return { walls, roof, covering: 'flat', caps };
 }
 
-/** Walls to the eaves, slopes from every wall up to the drawn-in top, the top flat over them */
-function mansardShape(m: MassBody, inner: readonly number[]): MassShape {
+/**
+ * A sloped roof over any outline (mass-roof.ts): the walls to the eaves (a
+ * skillion's on up to its slope over a plain triangle), the roof's faces
+ * with their eaves and verges, the gables standing on the wing ends
+ */
+function slopedShape(m: MassBody, model: RoofModel): MassShape {
   const walls: WallPiece[] = [];
   const roof: RoofPiece[] = [];
-  const r = m.rings[0];
   const h = m.height;
-  const top = h + (m.ridge ?? 0);
-  const n = r.length / 2;
   const foot = wallFoot(m);
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
-    const e = edge(m, r[2 * i], r[2 * i + 1], r[2 * j], r[2 * j + 1]);
-    if (e) pushWall(walls, m, { ...e, ...foot, top: h, kind: facadeKind(m, 0, i), band: 0.3 });
-    // The slope over this wall: a quad from the eaves to the top's edge, its texture along the wall and up the slope
-    const a = [r[2 * i], h, r[2 * i + 1]];
-    const b = [r[2 * j], h, r[2 * j + 1]];
-    const c = [inner[2 * j], top, inner[2 * j + 1]];
-    const d = [inner[2 * i], top, inner[2 * i + 1]];
-    const len = Math.hypot(b[0] - a[0], b[2] - a[2]);
-    const up = Math.hypot(d[0] - a[0], d[1] - a[1], d[2] - a[2]);
-    roof.push({ p: [...a, ...b, ...c], uv: [0, up, len, up, len, 0] });
-    roof.push({ p: [...a, ...c, ...d], uv: [0, up, len, 0, 0, 0] });
+  const lean = model.walls;
+  m.rings.forEach((ring, k) => {
+    for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
+      const e = edge(m, ring[j], ring[j + 1], ring[i], ring[i + 1]);
+      if (!e) continue;
+      if (!lean) {
+        pushWall(walls, m, { ...e, ...foot, top: h, kind: facadeKind(m, k, j / 2), band: 0.3 });
+        continue;
+      }
+      // Up to its lower end with the cornice at the eaves (the storeys as on the low walls), a triangle on to the slope
+      const r0 = riseOf(lean, e.sx, e.sz);
+      const r1 = riseOf(lean, e.sx + e.ax * e.length, e.sz + e.az * e.length);
+      const low = Math.max(0, Math.min(r0, r1));
+      pushWall(walls, m, { ...e, ...foot, top: h + low, kind: facadeKind(m, k, j / 2), band: 0.3 + low });
+      if (Math.abs(r1 - r0) > 0.02) walls.push({ ...e, bottom: h + low, top: h + Math.max(r0, r1), kind: WALL_GABLE, band: 0, apex: r1 > r0 ? 1 : 0 });
+    }
+  });
+  for (const g of model.gables) {
+    const e = edge(m, g.ax, g.az, g.bx, g.bz);
+    if (!e) continue;
+    // The chain's metres from a, as metres from the wall's start (edge turns it to face out)
+    const fromA = Math.abs(e.sx - g.ax) + Math.abs(e.sz - g.az) < 1e-6;
+    const u = (along: number) => (fromA ? along : e.length - along);
+    const t = g.top;
+    if (gableIsTriangle(g)) {
+      walls.push({ ...e, bottom: h, top: h + t[3], kind: WALL_GABLE, band: 0, apex: Math.min(1, Math.max(0, u(t[2]) / e.length)) });
+      continue;
+    }
+    // A half-hip's trapezoid: per stretch of its top a plain piece up to its lower end and a triangle on top
+    for (let q = 0; q + 3 < t.length; q += 2) {
+      const ua = u(t[q]);
+      const ub = u(t[q + 2]);
+      const length = Math.abs(ub - ua);
+      if (length < 0.02) continue;
+      const start = Math.min(ua, ub);
+      const piece = { ...e, sx: e.sx + e.ax * start, sz: e.sz + e.az * start, length, u0: start };
+      const ra = t[q + 1];
+      const rb = t[q + 3];
+      const low = Math.min(ra, rb);
+      if (low > 0.01) walls.push({ ...piece, bottom: h, top: h + low, kind: WALL_PLAIN, band: 0 });
+      // The higher end of the stretch: its far end when the rise grows along the wall's way
+      const higherFar = (rb > ra) === (ub > ua);
+      if (Math.abs(rb - ra) > 0.01) walls.push({ ...piece, bottom: h + low, top: h + Math.max(ra, rb), kind: WALL_GABLE, band: 0, apex: higherFar ? 1 : 0 });
+    }
   }
-  const contour = toPoints(inner);
-  for (const [ia, ib, ic] of ShapeUtils.triangulateShape(contour, [])) {
-    const pa = contour[ia];
-    const pb = contour[ib];
-    const pc = contour[ic];
-    roof.push({ p: [pa.x, top, pa.y, pb.x, top, pb.y, pc.x, top, pc.y], uv: [pa.x, pa.y, pb.x, pb.y, pc.x, pc.y] });
+  for (const poly of model.polygons) {
+    const contour = toPoints(poly.rings[0]);
+    const holes = poly.rings.slice(1).map(toPoints);
+    const all = [contour, ...holes].flat();
+    // Texture: along the eaves, and down the slope in metres along it (a flat top in x, z)
+    const g = Math.sqrt(poly.px * poly.px + poly.pz * poly.pz);
+    const down = g > 1e-6 ? [-poly.px / g, -poly.pz / g] : [0, 0];
+    const stretch = Math.sqrt(1 + g * g);
+    const uv = (p: Vector2): number[] => (poly.flat || g <= 1e-6 ? [p.x, p.y] : [p.x * poly.ux + p.y * poly.uz, (p.x * down[0] + p.y * down[1]) * stretch]);
+    const y = (p: Vector2) => h + poly.px * p.x + poly.pz * p.y + poly.p0;
+    for (const [a, b, c] of ShapeUtils.triangulateShape(contour, holes)) {
+      const pa = all[a];
+      const pb = all[b];
+      const pc = all[c];
+      roof.push({ p: [pa.x, y(pa), pa.y, pb.x, y(pb), pb.y, pc.x, y(pc), pc.y], uv: [...uv(pa), ...uv(pb), ...uv(pc)] });
+    }
   }
   return { walls, roof, covering: 'red', caps: [] };
 }
 
-/** A rectangle's four walls to the eaves, a gable or hip roof along its longer side, the gables under it */
-function pitchedShape(m: MassBody): MassShape {
-  const f = massRectFrame(m.rings[0])!;
-  const ridge = m.ridge ?? 0;
-  const h = m.height;
-  const walls: WallPiece[] = [];
-  const r = m.rings[0];
-  const foot = wallFoot(m);
-  for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
-    const e = edge(m, r[j], r[j + 1], r[i], r[i + 1]);
-    if (!e) continue;
-    pushWall(walls, m, { ...e, ...foot, top: h, kind: facadeKind(m, 0, j / 2), band: 0.3 });
-    // The gable over an end wall (across the ridge: its normal along it)
-    const end = Math.abs(e.nx * f.ux + e.nz * f.uz) > 0.5;
-    if (end && m.roof === 'gable') walls.push({ ...e, bottom: h, top: h + ridge, kind: WALL_GABLE, band: 0 });
-  }
-  // In the frame of the ridge: s along it, t across, both from the middle
-  const { cx, cz, halfS, halfT } = f;
-  const at = (s: number, t: number, y: number): number[] => [cx + f.ux * s + f.vx * t, y, cz + f.uz * s + f.vz * t];
-  // The eaves reach past the walls and sink as the slope runs on
-  const slope = ridge / Math.max(halfT, 0.1);
-  const eaveY = h - EAVES * slope;
-  const sE = halfS + EAVES;
-  const tE = halfT + EAVES;
-  const hip = m.roof === 'hip' ? Math.min(halfT, halfS) : 0;
-  const roof: RoofPiece[] = [];
-  const slopeLength = Math.hypot(tE, ridge + EAVES * slope);
-  const tri = (p: number[][], uv: number[][]) => roof.push({ p: p.flat(), uv: uv.flat() });
-  for (const side of [-1, 1]) {
-    // A slope from the eaves up to the ridge (texture: s along, the way down the slope from the ridge)
-    const e0 = at(-sE, side * tE, eaveY);
-    const e1 = at(sE, side * tE, eaveY);
-    const r0 = at(-sE + hip, 0, h + ridge);
-    const r1 = at(sE - hip, 0, h + ridge);
-    const uvE0 = [-sE, slopeLength];
-    const uvE1 = [sE, slopeLength];
-    const uvR0 = [-sE + hip, 0];
-    const uvR1 = [sE - hip, 0];
-    tri([e0, e1, r1], [uvE0, uvE1, uvR1]);
-    tri([e0, r1, r0], [uvE0, uvR1, uvR0]);
-    if (hip > 0) {
-      // A hip at each end
-      const a = at(side * sE, -tE, eaveY);
-      const c = at(side * sE, tE, eaveY);
-      const top = at(side * (sE - hip), 0, h + ridge);
-      tri([a, c, top], [[-tE, slopeLength], [tE, slopeLength], [0, 0]]);
-    }
-  }
-  return { walls, roof, covering: 'red', caps: [] };
+/** A plane's rise over the eaves at (x, z) */
+function riseOf(p: RoofPlaneFit, x: number, z: number): number {
+  return p.px * x + p.pz * z + p.p0;
 }
 
 /** Walls to the eaves, a slope from every wall up to the top over the outline's middle (a tower's helm) */
@@ -459,7 +451,7 @@ export class MassLayer {
     this.depthMaterial = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
     this.depthMaterial.onBeforeCompile = (shader) => {
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nattribute vec4 aWallB;')
+        .replace('#include <common>', `#include <common>\n${GABLE_PARS}`)
         .replace('#include <begin_vertex>', `#include <begin_vertex>\n${GABLE_GLSL}`);
     };
     this.depthMaterial.customProgramCacheKey = () => 'mass-depth';
@@ -794,7 +786,7 @@ export class MassLayer {
       geometry.setAttribute('aWallD', new InstancedBufferAttribute(d, 4));
       geometry.userData['owned'] = true;
       const mesh = new InstancedMesh(geometry, this.wallMaterial(facade, surface, surfaces.get('mass-plinth'), ruin), count);
-      mesh.customDepthMaterial = ruin ? (this.ruinWallDepth ??= damageDepthMaterial('mass-wall', 'attribute vec4 aWallB;', GABLE_GLSL)) : this.depthMaterial;
+      mesh.customDepthMaterial = ruin ? (this.ruinWallDepth ??= damageDepthMaterial('mass-wall', GABLE_PARS, GABLE_GLSL)) : this.depthMaterial;
       walls.set(facade, { batch: { mesh, owners: [], part: `walls:${facade}` }, a, b, c, d, damage: damageOf(mesh, count), n: 0 });
     }
     const roofs = new Map<Covering, { batch: Batch; uv: Float32Array; damage: DamageArrays | null; n: number }>();
@@ -870,7 +862,8 @@ export class MassLayer {
             // A wall in pieces: where along the whole wall it starts and how long that is; the opening beside it (mass-openings.ts)
             const cut = p.cut;
             w.c.set([(p.u0 ?? 0) * scale, (p.wallLength ?? 0) * scale, (cut?.mid ?? 0) * scale, (cut?.half ?? 0) * scale], w.n * 4);
-            w.d.set(cut ? [cut.top * scale, cut.rise * scale, cut.style, cut.floor * scale] : [0, 0, 0, 0], w.n * 4);
+            // Beside an opening its frame; a gable where its top is (GABLE_GLSL)
+            w.d.set(cut ? [cut.top * scale, cut.rise * scale, cut.style, cut.floor * scale] : [p.kind === WALL_GABLE ? (p.apex ?? 0.5) : 0, 0, 0, 0], w.n * 4);
             if (r && w.damage) writeDamage(w.damage, w.n, r.stage, r.fallStart, r.shape);
             w.batch.owners.push(o);
             w.n++;
@@ -1143,14 +1136,18 @@ function seedOf(id: string): number {
 }
 
 /**
- * A gable's quad drawn in to a triangle: its top corners meet in the
- * middle; a wedge's (mass-openings.ts WALL_WEDGE) meet at its start, the
+ * A gable's quad drawn in to a triangle: its top corners meet where along it
+ * its top is (aWallD.x: the middle of a wing's end, an end of a skillion's
+ * side wall); a wedge's (mass-openings.ts WALL_WEDGE) meet at its start, the
  * quad's corner and its two edges a triangle of any shape
  */
 const GABLE_GLSL = /* glsl */ `
-if (abs(aWallB.y - 2.0) < 0.5 && transformed.y > 0.5) transformed.x = 0.5;
+if (abs(aWallB.y - 2.0) < 0.5 && transformed.y > 0.5) transformed.x = aWallD.x;
 if (abs(aWallB.y - 5.0) < 0.5 && transformed.y > 0.5) transformed.x = 0.0;
 `;
+
+/** What GABLE_GLSL reads, for the depth materials of the sun's shadow */
+const GABLE_PARS = 'attribute vec4 aWallB;\nattribute vec4 aWallD;';
 
 const WALL_VERTEX_PARS = /* glsl */ `
 attribute vec4 aWall;
@@ -1176,7 +1173,7 @@ const WALL_UV_VERTEX = /* glsl */ `
 {
   // uv_vertex runs before begin_vertex: the gable's corners drawn in again here
   vec3 wallP = position;
-  if (abs(aWallB.y - 2.0) < 0.5 && wallP.y > 0.5) wallP.x = 0.5;
+  if (abs(aWallB.y - 2.0) < 0.5 && wallP.y > 0.5) wallP.x = aWallD.x;
   if (abs(aWallB.y - 5.0) < 0.5 && wallP.y > 0.5) wallP.x = 0.0;
   vWallM = vec2(aWallC.x + wallP.x * aWall.x, wallP.y * aWall.y - aWall.z);
   vWall = aWall;

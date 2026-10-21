@@ -267,15 +267,17 @@ export const MAP_MASS_FACADES = ['plaster', 'concrete', 'metal', 'brick', 'stone
 export type MapMassFacade = (typeof MAP_MASS_FACADES)[number];
 
 /**
- * Roofs of a raised building: flat with a parapet; pitched over a rectangle
- * (a ridge along its longer side, the rectangle turned any way); `mansard`
- * over any outline without a courtyard: slopes all round up to a flat top
- * drawn in from the walls (object-mass.ts massInset), the roof an old town's
- * crooked houses take; `pyramid` over an outline without a courtyard that
- * its middle sees whole: a slope from every wall up to one point over the
- * middle (a tower's helm, a stair tower's cap; object-mass.ts massApex)
+ * Roofs of a raised building: flat with a parapet; sloped over any outline
+ * and its courtyards (mass-roof.ts, the straight skeleton: each wing its
+ * ridge along it, valleys and hips where wings meet): `gable` with the wing
+ * ends upright, `hip` sloped all round, `halfhip` a gable with a small hip
+ * over its top (Krüppelwalm), `mansard` steep slopes up to a flat top;
+ * `skillion` one slope over the whole outline (MapMass.roofDirection);
+ * `pyramid` over an outline without a courtyard that its middle sees whole:
+ * a slope from every wall up to one point over the middle (a tower's helm, a
+ * stair tower's cap; object-mass.ts massApex)
  */
-export const MAP_MASS_ROOFS = ['flat', 'gable', 'hip', 'mansard', 'pyramid'] as const;
+export const MAP_MASS_ROOFS = ['flat', 'gable', 'hip', 'halfhip', 'mansard', 'skillion', 'pyramid'] as const;
 export type MapMassRoof = (typeof MAP_MASS_ROOFS)[number];
 
 /** What a pitched roof is covered with: clay tiles, slate, sheet metal (copper, zinc); by the facade and the building's salt when missing */
@@ -301,6 +303,10 @@ export interface MapMassPart {
   floors: number;
   roof: MapMassRoof;
   ridge?: number;
+  /** As MapMass.roofDirection, roofAcross, shared (walls of its outline another part stands against) */
+  roofDirection?: number;
+  roofAcross?: boolean;
+  shared?: number[];
   /** Its walls; the building's when missing */
   facade?: MapMassFacade;
   /** Its walls' colour (#rrggbb); the building's (MapObject.tint) when missing */
@@ -324,8 +330,18 @@ export interface MapMass {
   /** Storeys, one row of windows each (a hall has one) */
   floors: number;
   roof: MapMassRoof;
-  /** A pitched roof's ridge (a mansard's top) over the eaves, m */
+  /** A sloped roof's rise over the eaves, m: the ridge over its widest wing, a mansard's top, a skillion's high side */
   ridge?: number;
+  /** A skillion's way down, radians in the object's x, z (from +x towards +z; OSM `roof:direction`); towards +z when missing */
+  roofDirection?: number;
+  /** A gable roof over a rectangle with its ridge across the longer side (OSM `roof:orientation=across`): gables on the long sides */
+  roofAcross?: boolean;
+  /**
+   * Walls of the outline another building stands against, by index as
+   * `shop` (a party wall): no slope of a sloped roof rises from them, it ends
+   * there in an upright gable without eaves
+   */
+  shared?: number[];
   facade: MapMassFacade;
   /**
    * Walls of the outline with a shop on the ground floor (display windows

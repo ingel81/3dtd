@@ -23,6 +23,7 @@ import type { GroundBox } from './object-ground';
 import type { CatalogRoof } from './object-roof';
 import type { ObjectFooting } from './render/objects/object-seat';
 import type { MapText } from './map-text';
+import { roofModel, roofRiseAt, roofRun, roofTriangleGuess, type RoofModel } from './mass-roof';
 
 /** Points a raised building may have over all its rings */
 export const MASS_MAX_POINTS = 2048;
@@ -107,6 +108,11 @@ function bodyProblem(r: Record<string, unknown>, part: boolean): MapText | null 
   if (!finite(r['floors']) || (r['floors'] as number) < 1 || (r['floors'] as number) > 120) return { key: 'massStoreys' };
   if (!MAP_MASS_ROOFS.includes(r['roof'] as never)) return { key: 'massRoof' };
   if (r['ridge'] !== undefined && (!finite(r['ridge']) || (r['ridge'] as number) < 0 || (r['ridge'] as number) > 60)) return { key: 'massRidge' };
+  if (r['roofDirection'] !== undefined && (!finite(r['roofDirection']) || Math.abs(r['roofDirection'] as number) > 7)) return { key: 'massRoof' };
+  if (r['roofAcross'] !== undefined && typeof r['roofAcross'] !== 'boolean') return { key: 'massRoof' };
+  const shared = r['shared'];
+  const outline = Array.isArray(r['rings']) && Array.isArray((r['rings'] as unknown[])[0]) ? ((r['rings'] as unknown[][])[0].length / 2) : 0;
+  if (shared !== undefined && (!Array.isArray(shared) || !shared.every((k) => Number.isInteger(k) && k >= 0 && k < outline))) return { key: 'massRoof' };
   if (!(part && r['facade'] === undefined) && !MAP_MASS_FACADES.includes(r['facade'] as never)) return { key: 'massFacade' };
   for (const key of part ? ['tint', 'roofTint'] : ['roofTint']) {
     if (r[key] !== undefined && (typeof r[key] !== 'string' || !HEX.test(r[key] as string))) return { key: 'massColour' };
@@ -129,6 +135,9 @@ export interface MassBody {
   floors: number;
   roof: MapMassRoof;
   ridge?: number;
+  roofDirection?: number;
+  roofAcross?: boolean;
+  shared?: number[];
   facade: MapMassFacade;
   shop?: number[];
   /** Its walls' colour over the object's (a part's own `building:colour`) */
@@ -228,84 +237,21 @@ export function massArea(m: MapMass): number {
   return Math.max(0, a);
 }
 
-/** The frame of a pitched roof over a rectangle: its middle, unit axis `u` along the ridge (its longer side), `v` across, half sides */
-export interface MassRectFrame {
-  cx: number;
-  cz: number;
-  ux: number;
-  uz: number;
-  vx: number;
-  vz: number;
-  /** Half the side along the ridge, half the side across it */
-  halfS: number;
-  halfT: number;
+/**
+ * The model of a body's sloped roof (gable, hip, half-hip, mansard, skillion
+ * over any outline, mass-roof.ts), null for a flat roof, a pyramid or one
+ * that cannot be made (then it stands flat)
+ */
+export function massSlopes(m: MassBody): RoofModel | null {
+  return roofModel(m);
 }
-
-const frames = new WeakMap<number[], MassRectFrame | null>();
 
 /**
- * A ring of four points that is a rectangle, turned any way (a part of a
- * building lies as OSM has it): its frame, the ridge along its longer side
- * (along x where both are as long); null for any other ring. Worked out once
- * per ring
+ * Whether a sloped roof stands over the body (massSlopes makes one), else its
+ * roof is flat or a pyramid; read off its skeleton without making the model
  */
-export function massRectFrame(ring: number[]): MassRectFrame | null {
-  const cached = frames.get(ring);
-  if (cached !== undefined) return cached;
-  let frame: MassRectFrame | null = null;
-  if (ring.length === 8) {
-    let square = true;
-    for (let i = 0; i < 4 && square; i++) {
-      const a = 2 * i;
-      const b = 2 * ((i + 1) % 4);
-      const c = 2 * ((i + 2) % 4);
-      const e1x = ring[b] - ring[a];
-      const e1z = ring[b + 1] - ring[a + 1];
-      const e2x = ring[c] - ring[b];
-      const e2z = ring[c + 1] - ring[b + 1];
-      const l1 = Math.hypot(e1x, e1z);
-      const l2 = Math.hypot(e2x, e2z);
-      // Right angles, within the centimetre the rings are rounded to
-      square = l1 > 0.05 && l2 > 0.05 && Math.abs(e1x * e2x + e1z * e2z) <= 0.01 * (l1 + l2);
-    }
-    if (square) {
-      const l0 = Math.hypot(ring[2] - ring[0], ring[3] - ring[1]);
-      const l1 = Math.hypot(ring[4] - ring[2], ring[5] - ring[3]);
-      const e0 = [(ring[2] - ring[0]) / l0, (ring[3] - ring[1]) / l0];
-      const e1 = [(ring[4] - ring[2]) / l1, (ring[5] - ring[3]) / l1];
-      // Along the longer side; of two as long, the one nearer the x axis
-      const along = Math.abs(l0 - l1) > 1e-6 ? (l0 > l1 ? e0 : e1) : Math.abs(e0[0]) >= Math.abs(e1[0]) ? e0 : e1;
-      let [ux, uz] = along;
-      if (ux < -1e-9 || (Math.abs(ux) <= 1e-9 && uz < 0)) {
-        ux = -ux;
-        uz = -uz;
-      }
-      let vx = -uz;
-      let vz = ux;
-      if (vx < -1e-9 || (Math.abs(vx) <= 1e-9 && vz < 0)) {
-        vx = -vx;
-        vz = -vz;
-      }
-      frame = {
-        cx: (ring[0] + ring[2] + ring[4] + ring[6]) / 4,
-        cz: (ring[1] + ring[3] + ring[5] + ring[7]) / 4,
-        ux,
-        uz,
-        vx,
-        vz,
-        halfS: Math.max(l0, l1) / 2,
-        halfT: Math.min(l0, l1) / 2,
-      };
-    }
-  }
-  frames.set(ring, frame);
-  return frame;
-}
-
-/** Whether a pitched roof stands: only over a lone rectangle (turned any way), else the roof is flat */
 export function massPitched(m: MassBody): boolean {
-  if ((m.roof !== 'gable' && m.roof !== 'hip') || m.rings.length !== 1 || !((m.ridge ?? 0) > 0)) return false;
-  return massRectFrame(m.rings[0]) !== null;
+  return (m.ridge ?? 0) > 0 && roofRun(m) !== null;
 }
 
 const apexes = new WeakMap<number[], { x: number; z: number } | null>();
@@ -347,21 +293,19 @@ export function massApex(m: MassBody): { x: number; z: number } | null {
 
 /** Triangles the mass layer draws for one body (massTriangles) */
 function bodyTriangles(m: MassBody): number {
-  // Four walls, two slopes of two triangles; two gables (a quad drawn in to a point) or two hips
-  if (massPitched(m)) return 8 + 4 + (m.roof === 'hip' ? 2 : 4);
   let edges = 0;
   for (const r of m.rings) edges += r.length / 2;
-  // Two per wall, one slope per wall
+  // Two per wall; a sloped roof's faces and gables (a skillion's walls a triangle more each), a pyramid's slope per wall
+  if (massPitched(m)) return edges * 2 + roofTriangleGuess(m) + (m.roof === 'skillion' && m.rings.length === 1 ? edges * 2 : 0);
   if (massApex(m)) return edges * 3;
-  if (massInset(m)) return edges * 4 + edges - 2;
   return edges * 2 + (edges - 2 + 2 * (m.rings.length - 1)) + edges * 4;
 }
 
 /**
  * Triangles the mass layer draws for the building: two per wall, a flat
  * roof's triangulation and four per side of its parapet (its inner face and
- * its top), a pitched roof's slopes and gables, a mansard's slopes and top,
- * a pyramid's slopes; a building with parts its parts'
+ * its top), a sloped roof's faces and gables (a skillion's walls a triangle
+ * more up to its slope), a pyramid's slopes; a building with parts its parts'
  */
 export function massTriangles(m: MapMass): number {
   let n = 0;
@@ -375,7 +319,8 @@ const OPENING_TRIANGLES = 48;
 
 /** Highest point of one body over the seat at scale 1, m */
 export function bodyTop(m: MassBody): number {
-  return m.height + (massPitched(m) || massInset(m) || massApex(m) ? (m.ridge ?? 0) : 0);
+  // A sloped roof reaches its ridge (mass-roof.ts: the rise over the widest wing, a mansard's top)
+  return m.height + (massPitched(m) || massApex(m) ? (m.ridge ?? 0) : 0);
 }
 
 /** Highest point over the seat at scale 1, m: of a building with parts, its highest part's */
@@ -383,48 +328,6 @@ export function massTop(m: MapMass): number {
   let top = 0;
   for (const b of massBodies(m)) top = Math.max(top, bodyTop(b));
   return top;
-}
-
-/** A mansard's slopes run in at most this far from the walls, m */
-export const MANSARD_RUN = 4;
-
-/** A mansard's flat top: the outline drawn in by `run` metres (its slopes' run), at `ridge` over the eaves */
-export interface MassInset {
-  ring: number[];
-  run: number;
-}
-
-const insets = new WeakMap<number[][], MassInset | null>();
-
-/**
- * The top of a mansard roof (`roof: 'mansard'`, one ring, a ridge): the
- * outline drawn in from every wall, the run a share of the outline's mean
- * half width and at most MANSARD_RUN; null for any other roof or where the
- * drawn-in outline would cross itself (then the roof is flat). Worked out
- * once per set of rings
- */
-export function massInset(m: MassBody): MassInset | null {
-  if (m.roof !== 'mansard' || m.rings.length !== 1 || !((m.ridge ?? 0) > 0)) return null;
-  const cached = insets.get(m.rings);
-  if (cached !== undefined) return cached;
-  const inset = insetOutline(m.rings[0]);
-  insets.set(m.rings, inset);
-  return inset;
-}
-
-/** An outline drawn in by a share of its mean half width (at most MANSARD_RUN), halved twice where it crosses itself */
-export function insetOutline(ring: readonly number[]): MassInset | null {
-  const n = ring.length / 2;
-  let perimeter = 0;
-  for (let i = 0, j = n - 1; i < n; j = i++) perimeter += Math.hypot(ring[2 * i] - ring[2 * j], ring[2 * i + 1] - ring[2 * j + 1]);
-  const area = Math.abs(ringArea2(ring));
-  // Mean half width: area over half the perimeter, halved (a 10 x 30 m house: 3.75 m)
-  let run = Math.min(MANSARD_RUN, (0.8 * area) / perimeter);
-  for (let tries = 0; tries < 3 && run > 0.6; tries++, run /= 2) {
-    const out = offsetRing(ring, run);
-    if (out && Math.abs(ringArea2(out)) > 0.5 && !selfCrossing(out)) return { ring: out, run };
-  }
-  return null;
 }
 
 /** Every vertex moved `d` in along the bisector of its walls (a mitre held to 2.5 d; out for a negative `d`); null where a wall turns round */
@@ -459,23 +362,6 @@ export function offsetRing(ring: readonly number[], d: number): number[] | null 
   }
   // The drawn-in outline keeps its turn
   return ringArea2(out) > 0 === ccw ? out : null;
-}
-
-/** Whether two walls of a ring that do not meet cross */
-function selfCrossing(ring: readonly number[]): boolean {
-  const n = ring.length / 2;
-  if (n > 120) return true;
-  for (let i = 0; i < n; i++) {
-    const a = 2 * i;
-    const b = 2 * ((i + 1) % n);
-    for (let j = i + 2; j < n; j++) {
-      if (i === 0 && j === n - 1) continue;
-      const c = 2 * j;
-      const d = 2 * ((j + 1) % n);
-      if (segmentDistance(ring[a], ring[a + 1], ring[b], ring[b + 1], ring[c], ring[c + 1], ring[d], ring[d + 1]) === 0) return true;
-    }
-  }
-  return false;
 }
 
 /** Bounds of the outline at scale 1 */
@@ -586,22 +472,10 @@ export function massSegmentDistance(m: MapMass, ax: number, az: number, bx: numb
   return best;
 }
 
-/** Roof height of one body over the seat at model (x, z), scale 1: a flat roof inside its parapet, a pitched one on its slopes */
+/** Roof height of one body over the seat at model (x, z), scale 1: a flat roof inside its parapet, a sloped one on its slopes */
 export function bodyRoofAt(m: MassBody, x: number, z: number): number {
-  const inset = massInset(m);
-  if (inset) {
-    // A mansard rises from the walls over its run, flat above
-    let wall = Infinity;
-    const r = m.rings[0];
-    for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
-      const dx = r[i] - r[j];
-      const dz = r[i + 1] - r[j + 1];
-      const l2 = dx * dx + dz * dz;
-      const t = l2 > 0 ? Math.max(0, Math.min(1, ((x - r[j]) * dx + (z - r[j + 1]) * dz) / l2)) : 0;
-      wall = Math.min(wall, Math.hypot(x - r[j] - t * dx, z - r[j + 1] - t * dz));
-    }
-    return m.height + (m.ridge ?? 0) * Math.min(1, wall / inset.run);
-  }
+  const slopes = massSlopes(m);
+  if (slopes) return m.height + (roofRiseAt(slopes, x, z) ?? 0);
   const apex = massApex(m);
   if (apex) {
     // On the slope of the wall whose triangle (its two ends and the top) holds the point: as high as it is near the top
@@ -612,18 +486,7 @@ export function bodyRoofAt(m: MassBody, x: number, z: number): number {
     }
     return m.height;
   }
-  const f = massPitched(m) ? massRectFrame(m.rings[0]) : null;
-  if (!f) return m.height - MASS_PARAPET;
-  const ridge = m.ridge ?? 0;
-  // The ridge runs along the longer side
-  const s = (x - f.cx) * f.ux + (z - f.cz) * f.uz;
-  const t = (x - f.cx) * f.vx + (z - f.cz) * f.vz;
-  let rise = ridge * Math.max(0, 1 - Math.abs(t) / f.halfT);
-  if (m.roof === 'hip') {
-    // The hips slope as the sides do, from each end in
-    rise = Math.min(rise, ridge * Math.max(0, (f.halfS - Math.abs(s)) / f.halfT));
-  }
-  return m.height + rise;
+  return m.height - MASS_PARAPET;
 }
 
 /** The weight of the top c at point p in the triangle a, b, c; -1 where p lies outside it */

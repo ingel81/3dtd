@@ -25,7 +25,7 @@ import { ringsContain, type MassBody } from '../../object-mass';
 export const WALL_FACADE = 0;
 /** A plain face (a parapet's inside, an opening's ceiling) */
 export const WALL_PLAIN = 1;
-/** A gable: the quad's top drawn in to a point */
+/** A gable: the quad's top drawn in to a point (WallPiece.apex along it, the shader's aWallD.x) */
 export const WALL_GABLE = 2;
 /** A facade with a shop's display windows on its ground floor (MapMass.shop) */
 export const WALL_SHOP = 3;
@@ -91,6 +91,8 @@ export interface WallPiece {
   ny?: number;
   /** Its colour over the wall's (an opening's inside in shade, a car park's dark) */
   shade?: number;
+  /** A gable's top: where along it its top corners are drawn in to (0 its start, 1 its end), the middle when missing */
+  apex?: number;
 }
 
 /** Shade of a passage's reveals and of its ceiling; a car park's inside, its back wall */

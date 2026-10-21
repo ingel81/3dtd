@@ -6,12 +6,10 @@ import {
   massArea,
   massBodies,
   massBox,
-  massRectFrame,
   massRoofAt,
   massContains,
   massDistance,
   massFronts,
-  massInset,
   massPitched,
   massProblem,
   massRadius,
@@ -59,8 +57,9 @@ describe('raised buildings: what the rules read of one', () => {
     expect(massPitched(court)).toBe(false);
     expect(massPitched(house)).toBe(true);
     expect(massTop(house)).toBeCloseTo(9.2);
-    // A pitched roof stands only over a lone rectangle along the axes
-    expect(massPitched({ ...house, rings: [[-6, -4, 6, -4, 7, 4, -6, 4]] })).toBe(false);
+    // A sloped roof stands over any outline (mass-roof.ts), a flat one is none
+    expect(massPitched({ ...house, rings: [[-6, -4, 6, -4, 7, 4, -6, 4]] })).toBe(true);
+    expect(massPitched({ ...house, roof: 'flat' })).toBe(false);
     const o: Pick<MapObject, 'asset' | 'mass'> = { asset: MASS_ASSET, mass: court };
     const footing = objectFooting(o, { category: 'building', footprint: 16.7, height: 4 });
     expect(footing).toEqual({ category: 'building', footprint: massRadius(court), height: 12, box: [0, 0, 20, 15] });
@@ -110,25 +109,50 @@ describe('raised buildings: what the rules read of one', () => {
   });
 });
 
-describe('raised buildings: a mansard over a crooked outline', () => {
+describe('raised buildings: sloped roofs over crooked outlines (E297 L4)', () => {
   const l: MapMass = { rings: [[0, 0, 30, 0, 30, 10, 10, 10, 10, 30, 0, 30]], height: 6, floors: 2, roof: 'mansard', ridge: 3, facade: 'timber' };
+  const roofAt = (m: MapMass, x: number, z: number) => {
+    const roof = massRoof(m);
+    return roofHeights(roof)[Math.floor((z - roof.z) / roof.cell) * roof.columns + Math.floor((x - roof.x) / roof.cell)];
+  };
 
-  it('draws the outline in for its top, rises from the walls to it, and carries towers on both', () => {
-    const inset = massInset(l)!;
-    expect(inset.run).toBeGreaterThan(1);
-    expect(inset.run).toBeLessThanOrEqual(4);
-    expect(inset.ring.length).toBe(12);
+  it('stands a mansard on an L: steep from the walls, flat on top, and carries towers on both', () => {
     expect(massTop(l)).toBe(9);
-    expect(massPitched(l)).toBe(false);
-    const roof = massRoof(l);
-    const heights = roofHeights(roof);
-    const at = (x: number, z: number) => heights[Math.floor((z - roof.z) / roof.cell) * roof.columns + Math.floor((x - roof.x) / roof.cell)];
+    expect(massPitched(l)).toBe(true);
     // At the wall the eaves, deep inside the wing the top
-    expect(at(15, 0.5)).toBeLessThan(7.5);
-    expect(at(5, 20)).toBeCloseTo(9, 0);
-    // A courtyard or a second ring: no mansard, the roof is flat
-    expect(massInset({ ...l, rings: [...l.rings, [2, 2, 4, 2, 4, 4]] })).toBeNull();
-    expect(massInset({ ...l, roof: 'flat' })).toBeNull();
+    expect(roofAt(l, 15, 0.5)).toBeLessThan(7.5);
+    expect(roofAt(l, 5, 20)).toBeCloseTo(9, 0);
+    // Round a courtyard too
+    const court2: MapMass = { ...l, rings: [[0, 0, 40, 0, 40, 40, 0, 40], [12, 12, 28, 12, 28, 28, 12, 28]] };
+    expect(massPitched(court2)).toBe(true);
+    expect(roofAt(court2, 6, 20)).toBeCloseTo(9, 0);
+    expect(roofAt(court2, 20, 20)).toBeNaN();
+  });
+
+  it('runs a gable along each wing of an L, its ridge as high over both, the gables at the wings\' ends', () => {
+    const gabled: MapMass = { ...l, roof: 'gable', ridge: 4 };
+    expect(massTop(gabled)).toBeCloseTo(10);
+    // The ridges over both wings' middles, the valley lower over the inner corner's diagonal
+    expect(massRoofAt(gabled, 20, 5)).toBeCloseTo(10, 1);
+    expect(massRoofAt(gabled, 5, 20)).toBeCloseTo(10, 1);
+    expect(massRoofAt(gabled, 20, 1)).toBeCloseTo(6 + 4 / 5, 1);
+    // The gable end: the ridge runs out to the wall at x = 30
+    expect(massRoofAt(gabled, 29.9, 5)).toBeCloseTo(10, 1);
+    const hipped: MapMass = { ...gabled, roof: 'hip' };
+    expect(massRoofAt(hipped, 29.9, 5)).toBeLessThan(6.5);
+  });
+
+  it('slopes a skillion down its way over the whole outline', () => {
+    // Down towards +z: high at z = 0, low at z = 30
+    const lean: MapMass = { ...l, roof: 'skillion', ridge: 6, roofDirection: Math.PI / 2 };
+    expect(massTop(lean)).toBeCloseTo(12);
+    expect(massRoofAt(lean, 15, 0.1)).toBeCloseTo(12, 1);
+    expect(massRoofAt(lean, 5, 29.9)).toBeCloseTo(6, 1);
+    expect(wordsOf(massProblem({ ...lean, roofDirection: Number.NaN }))).toMatch(/roof/);
+    // Walls another building stands against, by index of the outline's walls
+    expect(massProblem({ ...l, roof: 'gable', shared: [0, 5] })).toBeNull();
+    expect(wordsOf(massProblem({ ...l, roof: 'gable', shared: [6] }))).toMatch(/roof/);
+    expect(wordsOf(massProblem({ ...l, roofAcross: 'yes' }))).toMatch(/roof/);
   });
 });
 
@@ -177,11 +201,11 @@ describe('raised buildings: their parts (E297 L3)', () => {
     const ring = [turn(-6, -4), turn(6, -4), turn(6, 4), turn(-6, 4)].flat();
     const turned: MapMass = { rings: [ring], height: 6, floors: 2, roof: 'gable', ridge: 3, facade: 'plaster' };
     expect(massPitched(turned)).toBe(true);
-    const f = massRectFrame(ring)!;
-    expect([f.halfS, f.halfT]).toEqual([expect.closeTo(6, 5), expect.closeTo(4, 5)]);
-    expect(Math.abs(f.ux * c + f.uz * s)).toBeCloseTo(1);
+    // On the ridge along the longer side, half way down a slope
     const [rx, rz] = turn(3, 0);
     expect(massRoofAt(turned, rx, rz)).toBeCloseTo(9);
+    const [sx, sz] = turn(3, 2);
+    expect(massRoofAt(turned, sx, sz)).toBeCloseTo(7.5);
     // An octagon under a helm: its top over the middle, the slopes down to the eaves
     const oct = Array.from({ length: 8 }, (_, k) => [5 * Math.cos((k * Math.PI) / 4), 5 * Math.sin((k * Math.PI) / 4)]).flat();
     const helm: MapMass = { rings: [oct], height: 10, floors: 3, roof: 'pyramid', ridge: 8, facade: 'stone' };

@@ -83,14 +83,49 @@ describe('mass layer: the shape of a raised building', () => {
     expect(shape.covering).toBe('flat');
   });
 
-  it('raises a mansard: walls to the eaves, two triangles of slope per wall, the top over the drawn-in outline', () => {
+  it('raises a mansard: walls to the eaves, steep slopes from past them, the top flat', () => {
     const l: MapMass = { rings: [[0, 0, 30, 0, 30, 10, 10, 10, 10, 30, 0, 30]], height: 6, floors: 2, roof: 'mansard', ridge: 3, facade: 'timber' };
     const shape = massShape(l);
     expect(shape.walls.length).toBe(6);
     expect(shape.caps.length).toBe(0);
-    expect(shape.roof.length).toBe(12 + 4);
-    expect(Math.max(...shape.roof.flatMap((t) => [t.p[1], t.p[4], t.p[7]]))).toBeCloseTo(9);
+    const ys = shape.roof.flatMap((t) => [t.p[1], t.p[4], t.p[7]]);
+    expect(Math.max(...ys)).toBeCloseTo(9);
+    // The eaves a little under the walls' top, past them
+    expect(Math.min(...ys)).toBeLessThan(6);
+    expect(Math.min(...ys)).toBeGreaterThan(4);
+    expect(shape.roof.filter((t) => [t.p[1], t.p[4], t.p[7]].every((y) => Math.abs(y - 9) < 1e-6)).length).toBeGreaterThan(0);
     expect(shape.covering).not.toBe('flat');
+  });
+
+  it('runs a gable along each wing of an L: two gables at the wings\' ends, the valley at the inner corner', () => {
+    const l: MapMass = { rings: [[0, 0, 30, 0, 30, 10, 10, 10, 10, 30, 0, 30]], height: 6, floors: 2, roof: 'gable', ridge: 4, facade: 'plaster' };
+    const shape = massShape(l);
+    const gables = shape.walls.filter((w) => w.kind === 2);
+    expect(gables.length).toBe(2);
+    // Each stands on a wing's end, its top in the middle of it
+    for (const g of gables) {
+      expect(g.length).toBeCloseTo(10);
+      expect(g.apex).toBeCloseTo(0.5);
+      expect(g.top - g.bottom).toBeCloseTo(4);
+    }
+    const ys = shape.roof.flatMap((t) => [t.p[1], t.p[4], t.p[7]]);
+    expect(Math.max(...ys)).toBeCloseTo(10);
+    // A half-hip: the gables up to the cut, a small hip over each
+    const half = massShape({ ...l, roof: 'halfhip' });
+    expect(half.walls.filter((w) => w.kind === 2).length).toBe(4);
+    expect(half.walls.filter((w) => w.kind === 1).length).toBe(2);
+    expect(half.roof.length).toBeGreaterThan(shape.roof.length);
+  });
+
+  it('slopes a skillion over the outline, its side walls up to the slope', () => {
+    const lean: MapMass = { rings: [[-6, -4, 6, -4, 6, 4, -6, 4]], height: 5, floors: 1, roof: 'skillion', ridge: 2, facade: 'plaster', roofDirection: Math.PI / 2 };
+    const shape = massShape(lean);
+    // Down towards +z: the side walls (along z) end in a triangle, the high wall reaches up to the slope
+    const triangles = shape.walls.filter((w) => w.kind === 2);
+    expect(triangles.length).toBe(2);
+    for (const t of triangles) expect([0, 1]).toContain(t.apex);
+    expect(Math.max(...shape.walls.map((w) => w.top))).toBeCloseTo(7);
+    expect(shape.roof.length).toBe(2);
   });
 
   it('gives a rectangle under a gable roof two gables, under a hip roof none', () => {
