@@ -105,6 +105,11 @@ export class SurfaceLayer {
     this.tiles.prepareForCraters();
   }
 
+  /** The surfaces over the pits craters left follow them, a few tiles a frame (DrapedTiles.followCraters) */
+  followCraters(budgetMs: number, atLeastOne = true): number {
+    return this.tiles.followCraters(budgetMs, atLeastOne);
+  }
+
   /**
    * Heights changed inside a map rectangle (all when omitted): the surfaces
    * there are cut again on the new ground, the tiles fit their bounds again.

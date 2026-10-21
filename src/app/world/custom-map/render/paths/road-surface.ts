@@ -77,6 +77,11 @@ export class RoadSurfaceLayer {
     this.tiles.prepareForCraters();
   }
 
+  /** The roads over the pits craters left follow them, a few tiles a frame (DrapedTiles.followCraters) */
+  followCraters(budgetMs: number, atLeastOne = true): number {
+    return this.tiles.followCraters(budgetMs, atLeastOne);
+  }
+
   refreshBounds(rect?: { minX: number; minY: number; maxX: number; maxY: number }, sunk = false): void {
     this.tiles.refreshBounds(rect, sunk);
   }

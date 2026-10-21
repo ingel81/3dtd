@@ -69,6 +69,9 @@ export function assignLayerSlots(t: MapTerrainDoc): { ids: string[]; slots: Terr
  * the splat material with its texture arrays, splat maps and path mask.
  * Until then the chunks show a plain green.
  */
+/** Milliseconds a frame the roads and surfaces over craters' pits may take to follow them (DrapedTiles.followCraters) */
+const CRATER_FOLLOW_MS = 1.5;
+
 export class MapTerrainLayer {
   readonly chunks: TerrainChunks;
   /** Land beyond the border, not part of the map (no LOS, no queries) */
@@ -426,6 +429,10 @@ export class MapTerrainLayer {
     this.material?.tick(dt);
     // Occlusion of edited ground follows a few milliseconds a frame
     this.occlusion.flush(2);
+    // Roads and surfaces over a crater's pit follow it, a few tiles a frame within one budget (the surfaces only
+    // when the roads took none or left some of it)
+    const spent = this.roads.followCraters(CRATER_FOLLOW_MS);
+    this.surfaces.followCraters(Math.max(0, CRATER_FOLLOW_MS - spent), spent === 0);
   }
 
   /**

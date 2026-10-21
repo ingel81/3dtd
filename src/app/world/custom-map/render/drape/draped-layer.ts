@@ -83,6 +83,16 @@ export class DrapedTiles {
   >();
   /** Craters may sink the ground (prepareForCraters): each tile keeps its triangles by where they lie */
   private craters = false;
+  /**
+   * Tiles a crater sank the ground under, with the rectangle it sank in, to split a few a frame (followCraters):
+   * first the triangles over the pit taken out (`taken`), in a later frame split and shown
+   */
+  private readonly sunk = new Map<
+    string,
+    { rect: { minX: number; minY: number; maxX: number; maxY: number }; taken: DrapedGeometry | null | undefined; again: boolean }
+  >();
+  /** The ground sank this frame: the splitting waits for the next, the frame carries the ground's own work */
+  private sankNow = false;
 
   /** @param tile Metres a side of a tile (DRAPE_TILE, the roads'; the surfaces take wider ones) */
   constructor(
@@ -171,13 +181,66 @@ export class DrapedTiles {
    * surface follows the ground into the pit instead of spanning it
    */
   refreshBounds(rect?: { minX: number; minY: number; maxX: number; maxY: number }, sunk = false): void {
-    const heightAt = (x: number, y: number) => this.field.heightAt(x, y);
     for (const entry of this.tiles.values()) {
       const { mesh, tile } = entry;
       if (rect && (tile.x > rect.maxX || tile.y > rect.maxY || tile.x + this.tile < rect.minX || tile.y + this.tile < rect.minY)) continue;
       if (sunk && rect) {
-        // The triangles over the pit out of the tile (drawn as nothing there now) into its patch, split closer
-        const taken = takeSplitting(tile, rect, heightAt, this.field.cellSize, entry.buckets);
+        // Its box only grows by the ground in the rectangle (a walk over every vertex of a town's tile took half a
+        // millisecond and more per crater); its triangles over the pit are split in the frames to come
+        this.growBounds(mesh, rect);
+        if (entry.patch) this.growBounds(entry.patch.mesh, rect);
+        this.sankNow = true;
+        const was = this.sunk.get(tile.key);
+        // A tile taken from already keeps what it took and is taken from again once shown (the wider rectangle)
+        const r = was?.rect;
+        this.sunk.set(tile.key, {
+          rect: r ? { minX: Math.min(r.minX, rect.minX), minY: Math.min(r.minY, rect.minY), maxX: Math.max(r.maxX, rect.maxX), maxY: Math.max(r.maxY, rect.maxY) } : { ...rect },
+          taken: was?.taken,
+          again: was?.taken !== undefined,
+        });
+        continue;
+      }
+      this.fitBounds(mesh, tile);
+    }
+  }
+
+  /**
+   * Splits the triangles over the pits of the tiles craters sank (refreshBounds with `sunk`), tile by tile until
+   * `budgetMs` are spent, one at least with `atLeastOne`: a nuclear strike at the corner of four of a town's tiles
+   * took 2.5 to 3.5 ms in one frame in a production build, a single tile up to 2.2 ms: a tile takes two steps, in
+   * frames of their own (the triangles taken out, then split and shown; the tile's index goes up with the patch,
+   * so no frame shows the hole). Not in the frame the ground sank in. Each frame (MapTerrainLayer.update); returns
+   * the milliseconds it took
+   */
+  followCraters(budgetMs: number, atLeastOne = true): number {
+    if (!this.sunk.size) return 0;
+    if (this.sankNow) {
+      this.sankNow = false;
+      return 0;
+    }
+    const start = performance.now();
+    const heightAt = (x: number, y: number) => this.field.heightAt(x, y);
+    let done = 0;
+    for (const [key, step] of this.sunk) {
+      if ((done > 0 || !atLeastOne) && performance.now() - start >= budgetMs) break;
+      done++;
+      const entry = this.tiles.get(key);
+      if (!entry) {
+        this.sunk.delete(key);
+        continue;
+      }
+      const { mesh, tile } = entry;
+      const rect = step.rect;
+      // First step: the triangles over the pit out of the tile (drawn as nothing there once its index goes up)
+      if (step.taken === undefined) {
+        step.taken = takeSplitting(tile, rect, heightAt, this.field.cellSize, entry.buckets);
+        continue;
+      }
+      // Second step: into its patch, split closer, shown with the tile's index
+      this.sunk.delete(key);
+      if (step.again) this.sunk.set(key, { rect, taken: undefined, again: false });
+      {
+        const taken = step.taken;
         if (taken) mesh.geometry.index!.needsUpdate = true;
         const had = entry.patch?.geometry ?? null;
         const joined = had && taken ? mergeDraped(had, taken) : (had ?? taken);
@@ -189,14 +252,10 @@ export class DrapedTiles {
           const patch = this.meshOf(geometry, `${this.name}-${tile.key}-patch`);
           entry.patch = { mesh: patch, geometry };
           this.group.add(patch);
-        } else if (entry.patch) this.growBounds(entry.patch.mesh, rect);
-        // Its box only grows by the ground in the rectangle: a walk over every vertex of a town's tile took
-        // half a millisecond and more per crater
-        this.growBounds(mesh, rect);
-        continue;
+        }
       }
-      this.fitBounds(mesh, tile);
     }
+    return performance.now() - start;
   }
 
   /** A mesh's box grown to the ground's heights in a rectangle (its samples there) */
