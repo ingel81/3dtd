@@ -1,4 +1,6 @@
-// Layout of the OSM world's frame: the flat map over the width of the page,
+// Layout of the OSM world's frame: the flat map over the width of the page
+// with its square in the middle (td-crop, 72 % of the box's shorter side; the
+// map's zoom reads the square's size from it), the side's slider under it,
 // the spawn rows with their number, the actions under them.
 
 .of-map {
@@ -6,6 +8,27 @@
   width: 100%;
   height: clamp(240px, 44vh, 420px);
   overflow: hidden;
+  container-type: size;
+}
+
+.of-map-host {
+  position: absolute;
+  inset: 0;
+}
+
+.of-map .td-crop {
+  width: 72cqmin;
+  height: 72cqmin;
+}
+
+// The slider's row: its name, the slider, the side; no unit column
+.of-side {
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+}
+
+.of-side-value {
+  min-width: 56px;
+  text-align: right;
 }
 
 .of-credit {

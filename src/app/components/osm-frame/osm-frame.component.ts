@@ -10,11 +10,12 @@ import { buildingCatalog } from '../../world/osm/convert/buildings';
 import { assetCosts } from '../../world/osm/convert/vegetation';
 import { OSM_SPAWNS, OSM_WORLD_SIDE, osmMapNames, type OsmImportReport } from '../../world/osm/import-osm';
 import type { FrameLandmark, FrameSpawn, GeoPoint, OsmFrameInfo, OsmOpenRequest } from '../../world/osm/osm-frame-core';
-import { loadingRows, makingView, reduceProgress, type OsmDetail, type OsmLoadRow, type OsmProgress, type OsmProgressState, type OsmStepStatus } from '../../world/osm/osm-progress';
-import { fitArea, OSM_HQ_EDGE_M, OSM_MIN_SIDE, sameArea, type OsmArea } from '../../world/osm/osm-area';
+import { loadingRows, loadingView, makingView, reduceProgress, type OsmDetail, type OsmLoadRow, type OsmProgress, type OsmProgressState, type OsmStepStatus } from '../../world/osm/osm-progress';
+import { fitArea, OSM_MIN_SIDE, OSM_SIDE_STEP, sameArea, type OsmArea } from '../../world/osm/osm-area';
 import { OSM_CANCELLED, OsmFrameSession } from '../../world/osm/osm-frame-session';
 import { overpassRetryText, type OverpassRetry } from '../../world/osm/overpass-client';
-import { OsmFrameMap } from './osm-frame-map';
+import { OsmFrameMap, type FrameMapView } from './osm-frame-map';
+import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import type { OsmFramePlace } from './osm-frame-request';
 import { injectT } from '../../i18n/i18n.service';
 import { say } from '../../i18n/said';
@@ -38,14 +39,17 @@ const RETRY_NOW_S = 15;
 
 /**
  * The frame of an OSM world (docs/OSM_WORLD_PLAN.md, O2): a flat map of the
- * place with the map's square (2.4 km round the place at first, moved by its
- * edge and sized by its corners, E209), the HQ on the place and the spawns,
- * drawn as on a real place and dragged to other streets, then the making
- * in the OSM worker with its steps and a Cancel, and the map stored as an
- * own map. The menu plays it or opens it in the editor; the editor opens it.
- * The place's data loads once per frame (OsmFrameSession, frame store).
- * The HQ stands on the address, or on a landmark near it the player picks
- * (a church, the town hall, a gate; docs/OSM_WORLD_ROUND2_PLAN.md, P5).
+ * place under the map's square, which stands still in its middle (E282): the
+ * map is dragged under it (or moved by the arrows), the slider under it sets
+ * the side (2.4 km round the place at first). The HQ stands in the square's
+ * middle: on the address at first, on a landmark near it the player picks
+ * (a church, the town hall, a gate; docs/OSM_WORLD_ROUND2_PLAN.md, P5), or
+ * where the map was dragged to. The spawns are drawn as on a real place and
+ * dragged to other streets, then the making in the OSM worker with its steps
+ * and a Cancel, and the map stored as an own map. The menu plays it or opens
+ * it in the editor; the editor opens it. The place's data loads once per
+ * frame (OsmFrameSession, frame store); a load shows as a veil in the square,
+ * so nothing above or round the map moves.
  */
 @Component({
   selector: 'app-osm-frame',
@@ -74,10 +78,24 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
 
   /** The map's square as it stands (laid out by the worker); null before the place is open */
   readonly area = signal<OsmArea | null>(null);
-  readonly sideKm = computed(() => ((this.area()?.sideM ?? OSM_WORLD_SIDE) / 1000).toFixed(1));
-  readonly sideMin = OSM_MIN_SIDE / 1000;
-  readonly sideMax = OSM_WORLD_SIDE / 1000;
-  readonly hqEdge = OSM_HQ_EDGE_M;
+  /** The square the load under way asks for; null for the place's first opening and while none runs */
+  readonly loadingArea = signal<OsmArea | null>(null);
+  /** The side the slider or the keys set and the square does not have yet; null: the square's own */
+  readonly side = signal<number | null>(null);
+  /** Where the square stands on the map: the one that loads, else the one laid out (the default round the place before), at the side set */
+  readonly target = computed<OsmArea>(() => {
+    const place = this.place();
+    const base = this.loadingArea() ?? this.area() ?? { lat: place.lat, lon: place.lon, sideM: OSM_WORLD_SIDE };
+    const side = this.side();
+    return side === null ? base : { ...base, sideM: side };
+  });
+  readonly sideMin = OSM_MIN_SIDE;
+  readonly sideMax = OSM_WORLD_SIDE;
+  readonly sideStep = OSM_SIDE_STEP;
+  /** "1.2 km" beside the slider */
+  readonly sideText = computed(() => this.t().osm.side(this.target().sideM / 1000));
+  /** The map is off the square laid out (dragged, keys held, a new square loading): the HQ is drawn in the square's middle */
+  readonly moving = signal(false);
   readonly maxSpawns = OSM_FRAME_MAX_SPAWNS;
   readonly phase = signal<Phase>('loading');
   /** The steps of the load or the making under way, as the worker reported them (osm-progress.ts, E218) */
@@ -98,12 +116,16 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   /** The flat map did not come (no WebGL, the style's server); the frame works without it */
   readonly mapProblem = signal<string | null>(null);
   readonly made = signal<{ summary: MapSummary; report: OsmImportReport } | null>(null);
-  /** The landmark the HQ stands on; null: on the address */
-  readonly hqAt = signal<FrameLandmark | null>(null);
-  /** Where the HQ goes: the landmark picked, else the place searched for */
-  readonly hqPlace = computed<GeoPoint>(() => this.hqAt() ?? this.place());
   /** Landmarks near the address the HQ may move to, the best first */
   readonly landmarks = computed(() => this.frame()?.landmarks ?? []);
+  /** The HQ stands in the square's middle */
+  readonly hqPlace = computed<GeoPoint>(() => this.area() ?? this.place());
+  /** The landmark the HQ stands on; null: elsewhere */
+  readonly hqAt = computed<FrameLandmark | null>(() => this.landmarks().find((l) => near(l, this.hqPlace())) ?? null);
+  /** The HQ stands on the address searched for */
+  readonly hqOnAddress = computed(() => near(this.hqPlace(), this.place()));
+  /** Metres from the address to the HQ (the square dragged off it) */
+  readonly hqFromAddress = computed(() => Math.round(metresBetween(this.hqPlace(), this.place())));
 
   /** The clock while loading or making (twice a second): the wait before the next round, the time spent */
   readonly now = signal(Date.now());
@@ -113,14 +135,17 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   private ticker: ReturnType<typeof setInterval> | null = null;
   /** The load under way; an older one that ends late (Try again now) changes nothing */
   private loadGen = 0;
-  /** The square the load under way asked for; none for the place's first opening */
-  private loadingArea: OsmArea | undefined;
 
   /** Seconds the load has waited so far */
   readonly waited = computed(() => Math.max(0, Math.floor((this.now() - this.loadStart) / 1000)));
 
   /** The rows of the load: the data kept here, or the OpenStreetMap answer and the heights side by side, then the streets */
   readonly loadRows = computed(() => loadingRows(this.progress()));
+  /** The load as the veil in the square shows it: the wall's share, the row under way */
+  readonly loadNow = computed(() => loadingView(this.progress(), this.now()));
+  readonly loadPercent = computed(() => Math.round(this.loadNow().share * 100));
+  /** A square loads while the one before stands on the map: the list and its controls stay where they are */
+  readonly reloading = computed(() => this.phase() === 'loading' && !!this.frame());
   /** The OpenStreetMap answer has not begun to come yet: the servers are asked, or asked again */
   private readonly askingOverpass = computed(() => {
     const overpass = this.progress().overpass;
@@ -151,6 +176,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   });
 
   private readonly mapHost = viewChild<ElementRef<HTMLElement>>('mapHost');
+  private readonly crop = viewChild<ElementRef<HTMLElement>>('crop');
   private readonly session = inject(OSM_FRAME_SESSION)();
   private map: OsmFrameMap | null = null;
   private making: AbortController | null = null;
@@ -159,6 +185,8 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     void this.load();
+    // The map stands from the start round the place: the first load shows in its square as every later one
+    setTimeout(() => void this.showMap());
   }
 
   ngOnDestroy(): void {
@@ -171,13 +199,14 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Loads the place's data (frame store or download) and lays out its spawns; with `area` again for the
-   * square moved or sized on the map (E209): the spawns standing are kept where they fit, the rest drawn
-   * anew. A new square that cannot load (the servers, Cancel) leaves the one before as it was.
+   * Loads the place's data (frame store or download) and lays out its spawns, the HQ in the square's middle;
+   * with `area` again for the square moved or sized on the map (E209, E282): the spawns standing are kept
+   * where they fit, the rest drawn anew. A new square that cannot load (the servers, Cancel) leaves the one
+   * before as it was.
    */
   async load(area?: OsmArea): Promise<void> {
     const gen = ++this.loadGen;
-    this.loadingArea = area;
+    this.loadingArea.set(area ?? null);
     const before = area ? this.frame() : null;
     this.phase.set('loading');
     this.error.set(null);
@@ -186,8 +215,9 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     this.retry.set(null);
     this.loading = new AbortController();
     this.startClock();
+    this.redraw();
     const place = this.place();
-    const hq = this.hqPlace();
+    const hq: GeoPoint = area ?? place;
     const standing = before ? this.spawns().map(({ lat, lon }) => ({ lat, lon })) : [];
     const at = { place: { lat: hq.lat, lon: hq.lon, address: place.address }, searched: { lat: place.lat, lon: place.lon } };
     const request: OsmOpenRequest = before
@@ -210,9 +240,6 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       else if (before && standing.some((p) => !frame.spawns.some((s) => Math.abs(s.lat - p.lat) < 2e-5 && Math.abs(s.lon - p.lon) < 3e-5))) {
         this.dropNote.set(this.t().osm.spawnsRedrawn);
       }
-      // The map's box exists once the phase is ready; a map that stands shows the new square
-      if (this.map) this.redraw();
-      else setTimeout(() => void this.showMap());
     } catch (e) {
       if (this.destroyed || gen !== this.loadGen) return;
       const message = (e as Error).message;
@@ -220,7 +247,6 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
         // The square goes back: the worker keeps what was laid out before (OsmFrameSession.open)
         this.phase.set('ready');
         this.error.set(message === OSM_CANCELLED ? null : this.t().osm.squareFailed(osmErrorMessage(this.t(), e)));
-        this.redraw();
       } else {
         this.phase.set('failed');
         this.error.set(message === OSM_CANCELLED ? this.t().osm.cancelled : osmErrorMessage(this.t(), e));
@@ -228,8 +254,11 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     } finally {
       if (gen === this.loadGen) {
         this.loading = null;
+        this.loadingArea.set(null);
+        this.side.set(null);
         this.retry.set(null);
         this.stopTicker();
+        this.redraw();
       }
     }
   }
@@ -242,7 +271,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   retryNow(): void {
     this.loading?.abort();
     // The same square again: a moved or sized one is not swapped for the default round the place
-    void this.load(this.loadingArea);
+    void this.load(this.loadingArea() ?? undefined);
   }
 
   /** A step reported: into the state the rows and the bar show; a step that comes ends the wait for the servers */
@@ -287,16 +316,17 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   /** The flat map, MapLibre loaded on first use */
   private async showMap(): Promise<void> {
     const host = this.mapHost()?.nativeElement;
-    const area = this.area();
-    if (!host || !area || this.map || this.destroyed) return;
+    const crop = this.crop()?.nativeElement;
+    if (!host || !crop || this.map || this.destroyed) return;
     try {
-      const map = await OsmFrameMap.open(host, this.place(), area, {
+      const map = await OsmFrameMap.open(host, crop, this.mapView(), this.t().osm.mapLabel, {
         drop: (index, at) => void this.dropSpawn(index, at),
         select: (index) => this.select(index),
         tilesFailed: (message) => this.mapProblem.set(this.t().osm.tilesFailed(message)),
-        fit: (area) => fitArea(area, this.hqPlace()),
-        canEdit: () => this.canEdit(),
-        reframe: (area) => this.reframe(area),
+        fit: (area) => fitArea(area, this.place()),
+        settle: (centre) => this.reframe({ ...centre, sideM: this.target().sideM }),
+        resize: (step) => this.sizeTo(this.target().sideM + step * OSM_SIDE_STEP),
+        moving: (on) => this.moving.set(on),
       });
       if (this.destroyed) {
         map.dispose();
@@ -309,8 +339,12 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     }
   }
 
+  private mapView(): FrameMapView {
+    return { hq: this.frame()?.hq ?? null, spawns: this.spawns(), selected: this.selected(), area: this.area(), target: this.target(), editable: this.canEdit() };
+  }
+
   private redraw(): void {
-    this.map?.show({ hq: this.frame()?.hq ?? null, spawns: this.spawns(), selected: this.selected(), area: this.area() });
+    this.map?.show(this.mapView());
   }
 
   /** Spawns and square may change: the place is laid out and no call to the worker runs */
@@ -318,22 +352,49 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     return this.phase() === 'ready' && !this.busy();
   }
 
-  /** The square moved or sized on the map and let go: laid out anew there, its data loaded if it reaches past what is in hand */
+  /**
+   * The square let go where the map stands (dragged, keys, the slider): held to its limits and laid out anew
+   * there, the HQ in its middle, its data loaded if it reaches past what is in hand; the same square stays
+   */
   reframe(area: OsmArea): void {
     const now = this.area();
-    if (now && sameArea(now, area)) {
+    if (!this.canEdit() || !now) return;
+    const fitted = fitArea(area, this.place());
+    if (sameArea(now, fitted)) {
+      this.side.set(null);
       this.redraw();
       return;
     }
-    void this.load(area);
+    void this.load(fitted);
   }
 
-  /** The HQ moved to a landmark (null: back to the address): laid out anew in the same square, the spawns kept where they still fit */
+  /** The side the slider or + and - set, before it is let go: the map zooms, the square on the screen stays */
+  sizeTo(sideM: number): void {
+    if (!this.canEdit()) return;
+    this.side.set(Math.min(this.sideMax, Math.max(this.sideMin, Math.round(sideM / OSM_SIDE_STEP) * OSM_SIDE_STEP)));
+    this.redraw();
+  }
+
+  /** The slider let go: the square laid out at its side, where the map stands */
+  sizeDone(): void {
+    const target = this.target();
+    this.reframe({ ...(this.map?.centre() ?? target), sideM: target.sideM });
+  }
+
+  /** The HQ moved to a landmark (null: back to the address): the square centred there, the spawns kept where they still fit */
   moveHq(landmark: FrameLandmark | null): void {
     const area = this.area();
-    if (!this.canEdit() || !area) return;
-    this.hqAt.set(landmark);
-    void this.load(area);
+    if (!area) return;
+    const to = landmark ?? this.place();
+    this.reframe({ lat: to.lat, lon: to.lon, sideM: area.sideM });
+  }
+
+  /** "On Johanneskirche (church, 320 m)", "On the address", "800 m from the address" */
+  hqWhere(): string {
+    const osm = this.t().osm;
+    const at = this.hqAt();
+    if (at) return osm.hqOn(this.landmarkLabel(at));
+    return this.hqOnAddress() ? osm.hqOnAddress : osm.hqFromAddress(osm.distance(this.hqFromAddress()));
   }
 
   /** The landmark the HQ stands on */
@@ -361,6 +422,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       return;
     }
     this.busy.set(true);
+    this.redraw();
     try {
       const dropped = await this.session.drop(at);
       if ('reason' in dropped) {
@@ -409,6 +471,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
   private async drawing(work: () => Promise<FrameSpawn[]>): Promise<void> {
     this.busy.set(true);
     this.dropNote.set(null);
+    this.redraw();
     try {
       this.spawns.set(await work());
       this.selected.set(null);
@@ -429,6 +492,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     this.hear({ step: 'parse' });
     this.startClock();
     this.making = new AbortController();
+    this.redraw();
     const signal = this.making.signal;
     try {
       const names = osmMapNames(this.place());
@@ -462,6 +526,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
     } finally {
       this.making = null;
       this.stopTicker();
+      this.redraw();
     }
   }
 
@@ -488,6 +553,15 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
       roadKm: Math.round(r.km.road + r.km.bridge), pathKm: Math.round(r.km.path), bridges: r.bridges, buildings: report.buildings.placed, spawns,
     });
   }
+}
+
+/** Two points within a metre: the HQ on the address or on a landmark */
+function near(a: GeoPoint, b: GeoPoint): boolean {
+  return metresBetween(a, b) < 1;
+}
+
+function metresBetween(a: GeoPoint, b: GeoPoint): number {
+  return Math.hypot((a.lat - b.lat) * METERS_PER_DEGREE_LAT, (a.lon - b.lon) * METERS_PER_DEGREE_LAT * Math.cos((a.lat * Math.PI) / 180));
 }
 
 /**

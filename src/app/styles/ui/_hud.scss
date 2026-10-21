@@ -392,6 +392,62 @@
   }
 }
 
+// A square cut out of a map (the OSM frame, E282): it stands in the middle of
+// its box with a brass line round it, the land outside dimmed as under a bar
+// over the map; the map under it is dragged, so the square takes no pointer.
+// Its size is the layout's.
+@mixin crop {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  box-sizing: border-box;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--td-brass);
+  box-shadow: 0 0 0 100vmax var(--td-tint-overlay);
+  pointer-events: none;
+}
+
+// The HQ in the square's middle while the map moves under it, as the map
+// draws it: a brass disc with an ink outline
+@mixin crop-hq {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  outline: 2px solid var(--td-ink);
+  background: var(--td-brass);
+}
+
+// A load inside the square: a panel's tint over the map with its words and a
+// low wall in the middle; its buttons take the pointer
+@mixin crop-veil {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--td-sp-2);
+  box-sizing: border-box;
+  padding: var(--td-sp-3);
+  overflow: hidden;
+  background: var(--td-tint);
+  color: var(--td-text-primary);
+  text-align: center;
+  pointer-events: auto;
+
+  > * {
+    max-width: 100%;
+  }
+
+  > .td-wall {
+    width: 80%;
+  }
+}
+
 // Game over over the map: a red vignette over the greyed map, GAME OVER
 // slams in from large, the view shakes once, the plate with the figures rises
 // after it. Played once as the screen opens; still under reduced motion.

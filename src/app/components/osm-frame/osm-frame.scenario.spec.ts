@@ -4,7 +4,8 @@
  * drawn as on a real place, rolls one again, removes one, makes the map in
  * the session (on the calling thread here) and stores it as an own map; Play
  * hands the stored map on. The flat map (MapLibre) does not run in jsdom: the
- * frame says so and works from the list.
+ * frame says so and works from the list; the square over it, its veil and the
+ * side's slider are the frame's own and show (E282).
  */
 import '@angular/compiler';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -86,14 +87,74 @@ describe('OSM world frame', () => {
       fixture.detectChanges();
     };
     const button = (text: string) => Array.from(root.querySelectorAll<HTMLButtonElement>('button')).filter((b) => b.textContent!.trim() === text);
-    return { fixture, root, settle, button, maps, done, fetch };
+    /** The probe's data kept for a square round `at` as well (a square moved there opens without fetching) */
+    const keepAt = (at: { lat: number; lon: number }) =>
+      frames.save({ lat: at.lat, lon: at.lon, sideM: OSM_PROBE_SIDE, fetchedAt: input.fetchedAt, overpass: input.overpass, dem: input.dem, demFailed: [] });
+    return { fixture, root, settle, button, maps, done, fetch, keepAt };
+  }
+
+  /** The frame with a session whose first opening stands at once and every later one waits for the spec */
+  function stubbed() {
+    type Open = OsmFrameSession['open'];
+    const requests: Parameters<Open>[0][] = [];
+    const pending: { request: Parameters<Open>[0]; resolve: (info: unknown) => void; reject: (e: Error) => void }[] = [];
+    const info = (area: { lat: number; lon: number; sideM: number }, hq = { lat: area.lat, lon: area.lon }) => ({
+      area,
+      data: { lat: 49.7, lon: 9.26, sideM: 2400 },
+      hq,
+      hqShiftM: 0,
+      spawns: [{ lat: 49.705, lon: 9.265, name: 'North', distanceM: 600, routeM: 700, route: [] }],
+      fetchedAt: '2026-10-17T00:00:00Z',
+      download: { stored: true, osmMs: 0, osmChars: 0, osmRequests: 0, demMs: 0, demTiles: 0, demBytes: 0 },
+      roads: { edges: 10, roadKm: 1, pathKm: 1, bridges: 0, tunnels: 0 },
+      dem: null,
+      landmarks: [{ lat: 49.7018, lon: 9.2612, name: 'St. Jakobus', kind: 'church', distanceM: 210 }],
+    });
+    const session = {
+      open: vi.fn((request: Parameters<Open>[0]) => {
+        requests.push(request);
+        if (requests.length === 1) return Promise.resolve(info({ lat: 49.7, lon: 9.26, sideM: 2400 }));
+        return new Promise((resolve, reject) => pending.push({ request, resolve, reject }));
+      }),
+      dispose: vi.fn(),
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: MAP_STORE, useValue: new MapStore({ backend: new MemoryMapBackend(), fetch: async () => new Response('{"maps":[]}') }) },
+        { provide: OSM_FRAME_SESSION, useValue: () => session },
+      ],
+    });
+    TestBed.overrideComponent(OsmFrameComponent, { set: { template, templateUrl: undefined, styleUrl: undefined, styles: [], imports: [IconStub, BrickWallComponent] } });
+    const fixture = TestBed.createComponent(OsmFrameComponent);
+    fixture.componentRef.setInput('place', { lat: 49.7, lon: 9.26, name: 'Miltenberg' });
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const settle = async () => {
+      for (let k = 0; k < 5; k++) await new Promise((r) => setTimeout(r, 0));
+      fixture.detectChanges();
+    };
+    /** The load under way answers: the square it asked for stands, the HQ in its middle */
+    const answer = async () => {
+      const next = pending.shift()!;
+      next.resolve(info(next.request.area!, next.request.place));
+      await settle();
+    };
+    return { fixture, root, frame: fixture.componentInstance, requests, pending, session, settle, answer };
   }
 
   it('opens the place without fetching, lists its spawns, rolls and removes one, makes and stores the map, Play hands it on', async () => {
     const { fixture, root, settle, button, maps, done, fetch } = await open();
     fixture.detectChanges();
     expect(root.querySelector('[data-test=osm-loading]')!.textContent).toContain('Opening the data kept on this device');
+    // The map and its square stand from the start; the first load shows as a veil in the square
+    const mapBox = root.querySelector('[data-test=osm-frame-map]');
+    expect(mapBox).not.toBeNull();
+    expect(mapBox!.querySelector('[data-test=osm-veil]')!.textContent).toContain('Loading streets and buildings');
+    expect(root.textContent).toContain('Drag the map until the square sits. The HQ stands in the middle.');
     await settle();
+    expect(root.querySelector('[data-test=osm-frame-map]')).toBe(mapBox);
+    expect(root.querySelector('[data-test=osm-veil]')).toBeNull();
+    expect(root.querySelector('[data-test=osm-loading]')).toBeNull();
     expect(root.textContent).toContain('A map of Miltenberg');
     expect(root.textContent).toContain('kept on this device');
     expect(root.textContent).toContain('Map data © OpenStreetMap contributors, heights: Mapterhorn');
@@ -130,13 +191,14 @@ describe('OSM world frame', () => {
     expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('overpass'), expect.anything());
   });
 
-  it('moves the HQ to a landmark near the address and back, and makes the map with the HQ there', async () => {
-    const { fixture, root, settle } = await open();
+  it('moves the HQ to a landmark near the address, the square centred there, and makes the map with the HQ there', async () => {
+    const { fixture, root, settle, keepAt, fetch } = await open();
     await settle();
     const c = fixture.componentInstance;
     expect(root.querySelector('[data-test=osm-hq-at]')!.textContent).toContain('On the address');
     const offered = c.landmarks();
     expect(offered.length).toBeGreaterThan(0);
+    await keepAt(offered[0]);
     const first = root.querySelector<HTMLButtonElement>('[data-test=osm-hq-landmark]')!;
     expect(first.textContent).toContain(c.landmarkLabel(offered[0]));
     const before = c.frame()!.hq!;
@@ -151,9 +213,12 @@ describe('OSM world frame', () => {
     expect(hq).not.toEqual(before);
     // The HQ stands on the road nearest the landmark (within the HQ's reach for a road)
     expect(Math.hypot((hq.lat - offered[0].lat) * 111320, (hq.lon - offered[0].lon) * 111320 * Math.cos((hq.lat * Math.PI) / 180))).toBeLessThan(260);
-    // Still the landmarks round the address, the one in use not offered again
-    expect(c.landmarks()).toEqual(offered);
+    // The square stands round the landmark, the HQ in its middle; the way back to the address is offered
+    expect(Math.abs(c.area()!.lat - offered[0].lat)).toBeLessThan(1e-6);
+    expect(Math.abs(c.area()!.lon - offered[0].lon)).toBeLessThan(1e-6);
+    expect(c.hqAt()).toEqual(offered[0]);
     expect(root.querySelector('[data-test=osm-hq-address]')).not.toBeNull();
+    expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('overpass'), expect.anything());
 
     root.querySelector<HTMLButtonElement>('[data-test=osm-make]')!.click();
     await settle();
@@ -166,10 +231,11 @@ describe('OSM world frame', () => {
   });
 
   it('puts the HQ back on the address', async () => {
-    const { fixture, root, settle } = await open();
+    const { fixture, root, settle, keepAt } = await open();
     await settle();
     const c = fixture.componentInstance;
     const home = c.frame()!.hq;
+    await keepAt(c.landmarks()[0]);
     c.moveHq(c.landmarks()[0]);
     await vi.waitFor(async () => {
       await settle();
@@ -207,7 +273,9 @@ describe('OSM world frame', () => {
     fixture.componentRef.setInput('place', { lat: 49.7, lon: 9.26, name: 'Miltenberg' });
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
-    const status = () => root.querySelector('[role=status]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    // The veil in the square (its step, the wait, the buttons) and the steps listed under the map
+    const status = () =>
+      ['[data-test=osm-veil]', '[data-test=osm-loading]'].map((q) => root.querySelector(q)?.textContent ?? '').join(' ').replace(/\s+/g, ' ').trim();
     fixture.detectChanges();
     expect(status()).toMatch(/Streets, water and buildings from OpenStreetMap ?asking \(0 s\)/);
 
@@ -296,6 +364,8 @@ describe('OSM world frame', () => {
     frame.retryNow();
     expect(requests.map((r) => r.area)).toEqual([undefined, moved, moved]);
     expect(requests[2]).toMatchObject({ topUp: true, spawnsAt: [{ lat: 49.705, lon: 9.265 }] });
+    // The HQ goes to the square's middle
+    expect(requests[2].place).toMatchObject({ lat: moved.lat, lon: moved.lon });
     // While the square loads a spawn cannot be dragged: the map takes no press, a drop changes nothing
     expect(frame.canEdit()).toBe(false);
     const drop = vi.fn();
@@ -303,6 +373,84 @@ describe('OSM world frame', () => {
     await frame.dropSpawn(0, { lat: 49.71, lon: 9.27 });
     expect(drop).not.toHaveBeenCalled();
     expect(frame.spawns()).toEqual(info.spawns);
+    fixture.destroy();
+  });
+
+  it('drags the map, not the square: let go, the square is laid out there with the HQ in its middle; the list stays while it loads', async () => {
+    const { frame, root, requests, pending, settle, answer, fixture } = stubbed();
+    await settle();
+    expect(frame.phase()).toBe('ready');
+    const mapBox = root.querySelector('[data-test=osm-frame-map]')!;
+    const list = root.querySelector('[data-test=osm-spawns]')!;
+    expect(root.querySelector('[data-test=osm-hq-at]')!.textContent).toContain('On the address');
+
+    // The map let go 350 m north of the address (as OsmFrameMap's settle hands it): the square follows, its side kept
+    frame.reframe({ lat: 49.7 + 350 / 111320, lon: 9.26, sideM: frame.area()!.sideM });
+    fixture.detectChanges();
+    expect(requests).toHaveLength(2);
+    expect(requests[1].area!.sideM).toBe(2400);
+    expect(requests[1].place.lat).toBeCloseTo(49.7 + 350 / 111320, 9);
+    expect(requests[1].searched).toEqual({ lat: 49.7, lon: 9.26 });
+
+    // While it loads: a veil in the square, nothing above or round the map changes, nothing can be changed
+    const veil = mapBox.querySelector('[data-test=osm-veil]')!;
+    expect(veil.textContent).toContain('Loading streets and buildings');
+    expect(veil.querySelector('app-brick-wall')).not.toBeNull();
+    expect(root.querySelector('[data-test=osm-loading]')).toBeNull();
+    expect(root.querySelector('[data-test=osm-frame-map]')).toBe(mapBox);
+    expect(root.querySelector('[data-test=osm-spawns]')).toBe(list);
+    expect(root.querySelector<HTMLButtonElement>('[data-test=osm-make]')!.disabled).toBe(true);
+    expect(root.querySelector<HTMLInputElement>('[data-test=osm-side]')!.disabled).toBe(true);
+
+    await answer();
+    expect(pending).toHaveLength(0);
+    expect(root.querySelector('[data-test=osm-veil]')).toBeNull();
+    expect(root.querySelector('[data-test=osm-spawns]')).toBe(list);
+    expect(root.querySelector('[data-test=osm-hq-at]')!.textContent).toContain('In the middle of the square, 350 m from the address');
+    // Back to the address centres the square there again
+    root.querySelector<HTMLButtonElement>('[data-test=osm-hq-address]')!.click();
+    expect(requests[2].area).toEqual({ lat: 49.7, lon: 9.26, sideM: 2400 });
+    await answer();
+    expect(root.querySelector('[data-test=osm-hq-address]')).toBeNull();
+
+    // A square that would leave the address too near its edge is held: the map stops there
+    frame.reframe({ lat: 49.7 + 5000 / 111320, lon: 9.26, sideM: 2400 });
+    expect(requests[3].place.lat).toBeCloseTo(49.7 + 1000 / 111320, 6);
+    await answer();
+    fixture.destroy();
+  });
+
+  it('sizes the square by the slider under the map: the value beside it follows, letting go lays it out', async () => {
+    const { frame, root, requests, settle, answer, fixture } = stubbed();
+    await settle();
+    const slider = root.querySelector<HTMLInputElement>('[data-test=osm-side]')!;
+    const value = () => root.querySelector('[data-test=osm-side-value]')!.textContent!.trim();
+    expect(value()).toBe('2.4 km');
+    expect(slider.disabled).toBe(false);
+    expect([slider.min, slider.max, slider.step]).toEqual(['1200', '2400', '100']);
+
+    slider.value = '1500';
+    slider.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(value()).toBe('1.5 km');
+    expect(frame.target().sideM).toBe(1500);
+    // Dragging the slider loads nothing
+    expect(requests).toHaveLength(1);
+    slider.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(requests[1].area).toEqual({ lat: 49.7, lon: 9.26, sideM: 1500 });
+    await answer();
+    expect(frame.area()!.sideM).toBe(1500);
+    expect(value()).toBe('1.5 km');
+
+    // + and - on the map step the side within its limits, the same square let go loads nothing
+    frame.sizeTo(9000);
+    expect(frame.target().sideM).toBe(2400);
+    frame.sizeTo(1549);
+    expect(frame.target().sideM).toBe(1500);
+    frame.sizeDone();
+    expect(requests).toHaveLength(2);
+    expect(frame.side()).toBeNull();
     fixture.destroy();
   });
 });

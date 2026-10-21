@@ -6,11 +6,54 @@
     </button>
   }
   <h3 class="td-section">{{ w.mapOf(place().name) }}</h3>
-  <p class="td-note">{{ w.about(sideKm(), w.sideLimits(sideMin, sideMax), hqEdge) }}</p>
+  <p class="td-note">{{ w.about }}</p>
 </section>
 
-@if (phase() === 'loading' || (phase() === 'failed' && loadRows().length)) {
-  <div class="td-stack" role="status" data-test="osm-loading">
+<!-- The map stands from the start; the square in its middle stays put, a load shows as a veil inside it (E282) -->
+<div class="of-map td-well" data-test="osm-frame-map">
+  <div class="of-map-host" #mapHost></div>
+  <div class="td-crop" #crop>
+    @if (moving() && phase() !== 'loading') {
+      <span class="td-crop-hq" aria-hidden="true"></span>
+    }
+    @if (phase() === 'loading') {
+      <div class="td-crop-veil" role="status" data-test="osm-veil">
+        <span class="td-text">{{ w.loadingSquare }}</span>
+        <app-brick-wall size="sm" [value]="loadPercent()" [label]="w.loadingPlace" />
+        @if (waitText(); as wait) {
+          <span class="td-note is-warn td-trunc" aria-live="polite" data-test="osm-wait">{{ wait }}</span>
+        } @else if (loadNow().current; as row) {
+          <span class="td-note td-trunc">{{ w.steps[row.step] }}@if (rowDetail(row); as d) {<span>, {{ d }}</span>}</span>
+        }
+        <div class="td-inline">
+          @if (canRetryNow()) {
+            <button type="button" class="td-btn-secondary td-btn-sm" (click)="retryNow()" data-test="osm-retry-now">{{ w.tryAgainNow }}</button>
+          }
+          <button type="button" class="td-btn-secondary td-btn-sm" (click)="cancelLoad()" data-test="osm-cancel-load">{{ t().common.cancel }}</button>
+        </div>
+      </div>
+    }
+  </div>
+</div>
+<div class="td-range-row of-side">
+  <label for="of-side">{{ w.sideLabel }}</label>
+  <input id="of-side" class="td-slider" type="range" data-test="osm-side"
+         [min]="sideMin" [max]="sideMax" [step]="sideStep" [value]="target().sideM"
+         [attr.aria-label]="w.sideAria" [attr.aria-valuetext]="sideText()" [disabled]="!canEdit()"
+         (input)="sizeTo(+$any($event.target).value)" (change)="sizeDone()" />
+  <output for="of-side" class="td-figure of-side-value" data-test="osm-side-value">{{ sideText() }}</output>
+</div>
+
+@if (frame(); as f) {
+  <p class="td-note of-credit">{{ w.dataFrom(credits(), fetchedOn(), f.download.stored) }}</p>
+}
+@if (mapProblem(); as problem) {
+  <p class="td-note is-warn" role="status">{{ problem }}</p>
+}
+
+<!-- The first load lists its steps under the map; a later one leaves the list below as it is -->
+@if ((phase() === 'loading' && !frame()) || (phase() === 'failed' && loadRows().length)) {
+  <div class="td-stack" data-test="osm-loading">
     <ol class="of-steps td-note" [attr.aria-label]="w.loadingPlace">
       @for (row of loadRows(); track row.step) {
         <li class="of-step" [class.is-done]="row.status === 'done'" [class.is-active]="row.status === 'active'" [class.is-failed]="row.status === 'failed'">
@@ -22,16 +65,7 @@
       }
     </ol>
     @if (phase() === 'loading') {
-      @if (waitText(); as wait) {
-        <p class="td-note is-warn" aria-live="polite" data-test="osm-wait">{{ wait }}</p>
-      }
       <p class="td-note">{{ w.cityTakes }}</p>
-      <div class="td-actions is-start">
-        @if (canRetryNow()) {
-          <button type="button" class="td-btn-secondary td-btn-sm" (click)="retryNow()" data-test="osm-retry-now">{{ w.tryAgainNow }}</button>
-        }
-        <button type="button" class="td-btn-secondary td-btn-sm" (click)="cancelLoad()">{{ t().common.cancel }}</button>
-      </div>
     }
   </div>
 }
@@ -46,31 +80,26 @@
 }
 
 @if (frame(); as f) {
-  <div class="of-map td-well" #mapHost data-test="osm-frame-map" [attr.aria-label]="w.mapLabel" role="img"></div>
-  <p class="td-note of-credit">{{ w.dataFrom(credits(), fetchedOn(), f.download.stored) }}</p>
-  @if (mapProblem(); as problem) {
-    <p class="td-note is-warn" role="status">{{ problem }}</p>
-  }
   @if (dropNote(); as note) {
     <p class="td-note is-warn" role="status" data-test="osm-drop-note">{{ note }}</p>
   }
 
-  @if (phase() === 'ready') {
+  @if (phase() === 'ready' || reloading()) {
     @if (error(); as e) {
       <p class="td-banner is-warn" role="alert">{{ e }}</p>
     }
-    @if (landmarks().length || hqAt()) {
+    @if (landmarks().length || !hqOnAddress()) {
       <section class="td-group" aria-labelledby="of-hq" data-test="osm-hq">
         <h3 class="td-section" id="of-hq">{{ w.hq }}</h3>
-        <p class="td-note" data-test="osm-hq-at">{{ hqAt() ? w.hqOn(landmarkLabel(hqAt()!)) : w.hqOnAddress }}</p>
+        <p class="td-note" data-test="osm-hq-at">{{ hqWhere() }}</p>
         <div class="td-inline of-landmarks">
           @for (l of landmarks(); track l.lat + ',' + l.lon) {
             @if (!isHqAt(l)) {
-              <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="busy()" (click)="moveHq(l)" data-test="osm-hq-landmark">{{ w.hqTo(landmarkLabel(l)) }}</button>
+              <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="!canEdit()" (click)="moveHq(l)" data-test="osm-hq-landmark">{{ w.hqTo(landmarkLabel(l)) }}</button>
             }
           }
-          @if (hqAt()) {
-            <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="busy()" (click)="moveHq(null)" data-test="osm-hq-address">{{ w.hqBack }}</button>
+          @if (!hqOnAddress()) {
+            <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="!canEdit()" (click)="moveHq(null)" data-test="osm-hq-address">{{ w.hqBack }}</button>
           }
         </div>
       </section>
@@ -79,10 +108,11 @@
       <div class="td-actions is-split">
         <h3 class="td-section" id="of-spawns">{{ w.spawns }}</h3>
         <div class="td-inline">
-          <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="busy() || !f.hq" (click)="rollAll()">{{ w.rollAll }}</button>
-          <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="busy() || !f.hq || spawns().length >= maxSpawns" (click)="addSpawn()">{{ w.addSpawn }}</button>
+          <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="!canEdit() || !f.hq" (click)="rollAll()">{{ w.rollAll }}</button>
+          <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="!canEdit() || !f.hq || spawns().length >= maxSpawns" (click)="addSpawn()">{{ w.addSpawn }}</button>
         </div>
       </div>
+      <p class="td-note">{{ w.spawnsDrag }}</p>
       @if (spawns().length) {
         <ul class="td-rows" aria-labelledby="of-spawns" data-test="osm-spawns">
           @for (s of spawns(); track $index; let k = $index) {
@@ -95,8 +125,8 @@
                 </span>
               </button>
               <span class="td-inline">
-                <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="busy()" (click)="rollOne(k)">{{ w.rollOne }}</button>
-                <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="busy() || spawns().length <= 1" (click)="removeSpawn(k)">{{ w.remove }}</button>
+                <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="!canEdit()" (click)="rollOne(k)">{{ w.rollOne }}</button>
+                <button type="button" class="td-btn-ghost td-btn-sm" [disabled]="!canEdit() || spawns().length <= 1" (click)="removeSpawn(k)">{{ w.remove }}</button>
               </span>
             </li>
           }
@@ -110,7 +140,7 @@
       <span>{{ w.destructible }}</span>
     </label>
     <div class="td-actions">
-      <button type="button" class="td-btn-primary" [disabled]="busy() || !spawns().length" (click)="make()" data-test="osm-make">{{ w.make }}</button>
+      <button type="button" class="td-btn-primary" [disabled]="!canEdit() || !spawns().length" (click)="make()" data-test="osm-make">{{ w.make }}</button>
     </div>
   }
 

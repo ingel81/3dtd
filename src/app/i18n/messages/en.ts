@@ -1427,16 +1427,18 @@ export const en = {
     // The frame of a map made from OpenStreetMap
     back: 'Back',
     mapOf: (place: string) => `A map of ${place}`,
-    about: (sideKm: string, limits: string, hqEdge: number) =>
-      `A ${sideKm} km square with the HQ, made from OpenStreetMap and free height data. Enemies walk its streets as on `
-      + `the real place; drag a spawn to another street. Move the square by its edge and size it by its corners (${limits}, the HQ at least ${f.int(hqEdge)} m inside).`,
-    sideLimits: (min: number, max: number) => `${f.num(min, 1)} to ${f.num(max, 1)} km`,
+    about: 'Drag the map until the square sits. The HQ stands in the middle.',
+    /** The slider under the map: the square's side */
+    sideLabel: 'Side',
+    sideAria: 'Side of the square',
+    side: (km: number) => `${f.fixed(km, 1)} km`,
     loadingPlace: 'Loading the place',
+    loadingSquare: 'Loading streets and buildings',
     rowState: { done: 'done', active: 'under way', failed: 'failed', waiting: 'waiting' },
     cityTakes: 'A city centre takes up to half a minute; the second time it comes from this device.',
     tryAgainNow: 'Try again now',
     tryAgain: 'Try again',
-    mapLabel: 'Map of the place with the HQ and the spawns',
+    mapLabel: 'Map of the place with the HQ and the spawns. Arrow keys move the map under the square, plus and minus change its side.',
     /** The credit line: the data's licence words stay as the licensors write them */
     dataFrom: (credits: string, date: string, stored: boolean) => `${credits}. Data from ${date}${stored ? ', kept on this device' : ''}.`,
     hq: 'HQ',
@@ -1444,7 +1446,9 @@ export const en = {
     hqOnAddress: 'On the address',
     hqTo: (where: string) => `To ${where}`,
     hqBack: 'Back to the address',
+    hqFromAddress: (distance: string) => `In the middle of the square, ${distance} from the address`,
     spawns: 'Spawns',
+    spawnsDrag: 'Drag a spawn on the map to another street; enemies walk the streets as on the real place.',
     rollAll: 'Roll all again',
     addSpawn: 'Add a spawn',
     openFromStart: ', open from the start',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadingRows, makingView, reduceProgress, thinProgress, PROGRESS_EVERY_MS, OSM_MAKE_STEPS, OSM_STEPS, type OsmProgress, type OsmProgressState } from './osm-progress';
+import { loadingRows, loadingView, makingView, reduceProgress, thinProgress, PROGRESS_EVERY_MS, OSM_MAKE_STEPS, OSM_STEPS, type OsmProgress, type OsmProgressState } from './osm-progress';
 import { say } from '../../i18n/said';
 import { en } from '../../i18n/messages/en';
 
@@ -51,6 +51,22 @@ describe('OSM world progress', () => {
       'overpass active 2.1 MB received',
       'heights failed none came, the ground will be flat',
     ]);
+  });
+
+  it('the veil over the square: the share of the load by its weights, the row under way', () => {
+    const t = 1000;
+    const asking = add([{ step: 'stored' }, { step: 'stored', state: 'done', detail: { key: 'nothingKept' } }, { step: 'overpass' }, { step: 'heights' }]);
+    const view = loadingView(asking, t);
+    expect(view.current?.step).toBe('overpass');
+    expect(view.share).toBeGreaterThan(0);
+    expect(view.share).toBeLessThan(0.5);
+    // Found on this device: the downloads do not count, the streets are the rest
+    const found = add([{ step: 'stored' }, { step: 'stored', state: 'done', detail: { key: 'found' } }, { step: 'streets' }]);
+    expect(loadingView(found, t).current?.step).toBe('streets');
+    expect(loadingView(found, t).share).toBeGreaterThan(0.4);
+    const end = add([{ step: 'streets', state: 'done' }], found);
+    expect(loadingView(end, t)).toMatchObject({ share: 1, current: { step: 'streets', status: 'done' } });
+    expect(loadingView({}, t)).toEqual({ share: 0, current: null });
   });
 
   it('thins a step that only counts on, never one that begins or ends', () => {

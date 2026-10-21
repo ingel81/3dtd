@@ -248,6 +248,9 @@
   @include hud.wall-keyframes;
   .td-marker { @include hud.marker; }
   .td-marker-btn { @include hud.marker-btn; }
+  .td-crop { @include hud.crop; }
+  .td-crop-hq { @include hud.crop-hq; }
+  .td-crop-veil { @include hud.crop-veil; }
   .td-loc-label { @include hud.loc-label; }
   .td-gameover-veil { @include hud.gameover-veil; }
   .td-gameover-word { @include hud.gameover-word; }

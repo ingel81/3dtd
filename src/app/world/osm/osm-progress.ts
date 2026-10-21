@@ -188,6 +188,29 @@ export function loadingRows(state: OsmProgressState): OsmLoadRow[] {
   });
 }
 
+/** The loading as the veil over the frame's square draws it (E282): the share by the steps' weights, the row under way */
+export interface OsmLoadingView {
+  share: number;
+  current: OsmLoadRow | null;
+}
+
+/**
+ * The loading at `now`: the steps to come are the data kept here, the two
+ * downloads unless the data was found kept, and the streets; the row under
+ * way is the first active one in the list's order, else the last heard of
+ */
+export function loadingView(state: OsmProgressState, now: number = Date.now()): OsmLoadingView {
+  const found = state.stored?.status === 'done' && state.stored.detail?.key === 'found';
+  const steps: OsmLoadStep[] = found ? ['stored', 'streets'] : ['stored', 'overpass', 'heights', 'streets'];
+  const total = steps.reduce((sum, s) => sum + OSM_STEPS[s].weight, 0);
+  const done = steps.reduce((sum, s) => {
+    const st = state[s];
+    return st ? sum + OSM_STEPS[s].weight * shareOf(s, st, now) : sum;
+  }, 0);
+  const rows = loadingRows(state);
+  return { share: Math.min(1, done / total), current: rows.find((r) => r.status === 'active') ?? rows.at(-1) ?? null };
+}
+
 /**
  * `send` with the reports of a step that only counts on thinned to one per
  * PROGRESS_EVERY_MS; a step that begins, ends or fails, and another step,
