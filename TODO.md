@@ -220,8 +220,11 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ## 2. Gebaut, wartet auf Test
 
-### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q, R, S, T, U, V und W)
+### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q, R, S, T, U, V, W und X)
 
+- [ ] **E302 Gebaute Welten aufgeräumt** (Variante A): laufendes Spiel als ein Block oben, jede Karte einmal in ihrer
+      Herkunftsgruppe (kein Zuletzt, Koop-Hosts nur wenn nicht leer), gewählte Karte als Platte mit Spielen, Bearbeiten
+      und „...“-Menü; „zuletzt heute“ und „OSM“ klein in der Zeile (X1 bis X4). Doku: WORLDS_NAVIGATION_PLAN.md 3.1.
 - [ ] **E294 Kratersee im Editor**: der Krater-Pinsel trägt den Krater in die Karte ein (`terrain.craters`); Wasser und
       Lava tun im Editor, was sie im Spiel tun (Fall, See, Überlauf), dreimal so schnell; gespielt steht der See voll da
       Map-Kit, Agent und Level-Skripte tragen ihre Krater ebenso ein (U1 bis U4). Doku:

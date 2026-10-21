@@ -124,6 +124,17 @@ unter ihr, kein Feld am Ende der Liste (`PickRowsDirective`: Pfeile wechseln Zei
 spielen, die aufgeklappte Zeile wird ganz ins Bild gescrollt). Eine Wahl, die die Liste gerade nicht zeigt (Suche,
 Würfel, anderer Reiter), klappt für sich oben bzw. unter der Suche auf.
 
+Built Worlds (E302, 2026-10-21): oben das laufende Spiel als ein vertiefter Block (`app-stage-continue block`: Bild der
+Karte, „Running game“, Name, „Wave 2 | today 9:41 AM“, Continue als Hauptknopf, Discard als Steinknopf mit Papierkorb),
+nur wenn es eins gibt. Darunter jede Karte genau einmal in ihrer Herkunftsgruppe: Your built worlds (im Kopf rechts
+New map und Import als ruhige Textknöpfe mit Symbol, Map folder als dritter in der Desktop-App), From coop hosts (nur
+wenn nicht leer), Shipped; keine Gruppe Recent mehr. Zeilen tragen Bild und Namen, rechts klein „OSM“ und bei den
+zuletzt gespielten „played today“ / „played yesterday“ / Datum, keine Spawns. Die gewählte Karte wird zur Steinplatte
+(`td-plate`) und klappt in sich auf: „4 spawns | copy of … | changed today 9:30 AM“ (mitgeliefert: ihre Beschreibung),
+Play (Continue, wenn ihr Lauf läuft), Edit, rechts More (`more`) mit dem Menü Download, Duplicate (nur eigene),
+Delete (nicht mitgeliefert); Pfeile wandern darin, Esc und ein Klick daneben schließen es. Hinweis „Your copy comes with
+the first change“ und Sperrgründe stehen in der Platte. Der Papierkorb bleibt unten und eingeklappt.
+
 Übergänge (Dummy `EDGES`): Globes → World menu (Globus anklicken); World menu → Loading → Game (Start/Play);
 Real places → OSM frame („Make a map of this place“, Rahmen vorbelegt); OSM frame → Loading (Play) oder Editor (Edit);
 Maps → Editor (Edit); Game → Pause (Esc) → Editor, OSM frame, Globes; Game → Game over → Game (Restart) oder Editor;

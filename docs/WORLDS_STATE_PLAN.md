@@ -147,7 +147,7 @@ Ein Chip und ein Continue-Eintrag sind dasselbe Ding: Klick setzt fort, die Unte
 - **Game over** leert das Continue (Frage 1). Restart startet einen neuen Lauf am selben Ort.
 - **Neuer Lauf** in derselben Welt: Rückfrage beim Start, dann sofort weg (Regel 2).
 - **Recent:** jede Zeile hat Entfernen. In OpenStreetMap löscht das die Erzeugung mit (Frage 4), außer ein Continue
-  spielt noch auf ihr.
+  spielt noch auf ihr. Built Worlds hat seit E302 keine Recent-Zeilen mehr, also nichts zu entfernen.
 - **Back to** braucht kein Wegwerfen: es verfällt, sobald etwas anderes startet.
 
 ### 3.5 Übergänge
@@ -175,8 +175,10 @@ Ein Chip und ein Continue-Eintrag sind dasselbe Ding: Klick setzt fort, die Unte
   unter dem Globus, Editor-Pfad. Die Id `maps` kann bleiben.
 - OpenStreetMap: „A map of a real place“ (Suche, Ort aus Real places), darunter **Recent worlds** (unbearbeitete
   Erzeugungen, höchstens 10, Frage 3), mit Vorschaubild. Play, Edit, Entfernen.
-- Built Worlds: Your built worlds (mit Abzeichen „from OpenStreetMap“ oder „copy of Demo Valley“), From coop hosts,
-  Shipped; jede Zeile mit Vorschaubild (Punkt 9), Recent als eigener Abschnitt oben (Frage 6).
+- Built Worlds: Your built worlds, From coop hosts (nur wenn nicht leer), Shipped; jede Karte genau einmal, jede Zeile
+  mit Vorschaubild (Punkt 9). Seit E302 (2026-10-21) kein eigener Abschnitt Recent mehr: die zuletzt gespielten Karten
+  sagen in ihrer Zeile „played today“ bzw. das Datum, OSM-Karten „OSM“; „copy of Demo Valley“ steht in der Platte der
+  gewählten Karte. Das laufende Spiel steht als ein Block oben (WORLDS_NAVIGATION_PLAN 3.1).
 - „Make a map of this place“ aus Real places: Rahmen, „Make the map“ legt eine OSM-Erzeugung an (Recent worlds); „Make
   the map and edit“ öffnet den Editor, und mit dem ersten Speichern ist sie eine Built World.
 - Die Welt einer Karte entscheidet eine Regel an einer Stelle: unbearbeitete OSM-Erzeugung → OpenStreetMap, sonst
@@ -228,7 +230,8 @@ Entschieden (User, 2026-10-16): alle zwölf Empfehlungen unten übernommen.
 10. **Soll „All worlds“ die Spielwelt im Speicher halten (sofort zurück) statt sie abzubauen?** Empfehlung: ja, eine
     Welt zur Zeit, abgebaut beim nächsten Start; Speicher und GPU vorher messen wie in Phase 2.
 11. **Soll Built Worlds ein eigenes Recent zeigen (zuletzt gespielte Karten)?** Empfehlung: ja, als kurzer Abschnitt
-    oben (5 Karten), weil die Liste mit eigenen und mitgelieferten Karten lang wird.
+    oben (5 Karten), weil die Liste mit eigenen und mitgelieferten Karten lang wird. Revidiert mit E302 (2026-10-21,
+    User): kein Abschnitt, dieselbe Karte stand sonst mehrfach; die fünf zuletzt gespielten sagen es in ihrer Zeile.
 12. **Soll Recent places nur gespielte Orte führen (erste Welle oder erster Turm) statt jeden geladenen?**
     Empfehlung: ja, dann deckt sich Recent mit dem, was der Spieler als „gespielt“ erinnert.
 
@@ -260,8 +263,9 @@ Entschieden (User, 2026-10-16): alle zwölf Empfehlungen unten übernommen.
   Laden aus einer Datei fragt nur nach dem Lauf hier (die Welt der Datei steht erst nach dem Lesen fest).
 - **Recent:** Real places nur gespielte Orte (`recentCandidate` wartet auf Welle oder Turm), Entfernen je Zeile;
   OpenStreetMap „Recent worlds“ = Karten mit `generated`, höchstens 10, ältere in den Papierkorb (`overflowWorlds`,
-  `WorldChoiceService.trashMap`); Built Worlds mit Recent (5, `td_recent_maps_v1`, aufgezeichnet von
-  `MainMenuService`), eigenen Karten mit Abzeichen (from OpenStreetMap, copy of …), Coop, mitgelieferten.
+  `WorldChoiceService.trashMap`); Built Worlds merkt die fünf zuletzt gespielten Karten mit Zeitpunkt
+  (`td_recent_maps_v2`, `recordRecentMap`, aufgezeichnet von `MainMenuService`), ihre Zeilen sagen „played today“
+  (seit E302 ohne eigenen Abschnitt und ohne Entfernen); eigene Karten, Coop, mitgelieferte.
   Jede Kartenzeile mit Bild (seit E289 für alle Karten dieselbe Zeichnung, siehe 8).
 - **Editor:** eine mitgelieferte oder Coop-Karte öffnet wie sie ist, die erste Speicherung mit Änderung legt die
   Kopie an (`MapStore.makeCopy`, Sperre zieht mit); die erste Speicherung mit Änderung nimmt `generated` weg.

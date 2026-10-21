@@ -685,6 +685,23 @@ Wo die Öffnungen liegen und wie hoch und breit sie werden, prüfen `buildings.s
 - **W5 Zerstören:** ein Haus mit Durchgang zerstören (Nuke). *Es fällt als Ruine wie andere Häuser, die Öffnung und
   ihre Laibungen fallen mit; nichts bleibt in der Luft stehen.*
 
+## X Gebaute Welten aufgeräumt (2026-10-21, E302)
+
+Gruppen, Zeilen, Platte und Menü prüft `worlds-stage.scenario.spec.ts`; hier Auge und Hand. Globen, Gebaute Welten.
+
+- **X1 Liste:** ohne laufendes Spiel öffnen. *Oben nur der Hinweis, dann Eigene Welten (rechts „+ Neue Karte“,
+  „Importieren“), Mitgeliefert, unten Papierkorb eingeklappt. Jede Karte einmal, keine Spawns in den Zeilen; zuletzt
+  gespielte rechts „zuletzt heute“, OSM-Karten „OSM“. „Von Koop-Hosts“ fehlt, solange kein Host eine Karte schickte.*
+- **X2 Laufendes Spiel:** eine Karte spielen, eine Welle starten, Esc, Alle Welten, Gebaute Welten. *Oben ein
+  vertiefter Block: Bild, „Laufendes Spiel“, Name, „Welle 2 | heute …“, Weiterspielen, Papierkorb.* Weiterspielen
+  zeigt das Spiel sofort; der Papierkorb fragt erst.
+- **X3 Platte:** eine eigene Karte anklicken. *Die Zeile wird zur Steinplatte: „4 Spawns | geändert …“, Spielen,
+  Bearbeiten, rechts „...“.* Eine mitgelieferte: *ihre Beschreibung, darunter „Deine Kopie entsteht mit der ersten
+  Änderung“.* Doppelklick spielt, Pfeile wandern, Enter spielt, der Globus dreht mit.
+- **X4 Mehr:** „...“ an einer eigenen Karte. *Menü Herunterladen, Duplizieren, Löschen; an einer mitgelieferten nur
+  Herunterladen.* Esc und ein Klick daneben schließen es, Esc lässt das Weltmenü offen; Löschen legt die Karte in den
+  Papierkorb, der aufgeht.
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo
