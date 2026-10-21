@@ -87,6 +87,10 @@ describe('raised buildings from their OSM parts (E297 L3)', () => {
     const { mass } = palace([part]);
     // A palace's storeys of 4.2 m over the plinth: from 8.8 m to 17.2 m, the parapet over it
     expect(mass.parts![0]).toMatchObject({ base: 8.8, height: 18.1, floors: 4, roof: 'flat' });
+    // The ground under it is no one's part: a part of the footprint fills it up to that floor, nothing hangs in the air
+    expect(mass.parts!.length).toBe(2);
+    expect(mass.parts![1]).toMatchObject({ height: 8.8, roof: 'flat' });
+    expect(mass.parts![1].base).toBeUndefined();
     // A part without height or storeys takes the building's; a tower a storey more
     const bare = palace([{ outer: box({ x: 0, y: 0 }, 40, 20), holes: [], tags: { 'building:part': 'yes' } }]).mass;
     const tower = palace([{ outer: box({ x: 0, y: 0 }, 40, 20), holes: [], tags: { 'building:part': 'yes', man_made: 'tower' } }]).mass;
