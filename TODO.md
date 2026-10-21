@@ -66,6 +66,12 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Cube-Render, bei Nuke-Dauerfeuer gedrosselt, z. B. höchstens einmal je Sekunde gesammelt).
       Entschieden (User 2026-10-21): Kacheln und Linie im Krater-Rechteck neu setzen; die Tower in Reichweite rendern
       ihren Cube neu, gesammelt höchstens einmal je Sekunde (die Kraterwand verdeckt richtig).
+- [ ] **E301 Wasser mit Volumen** (User 2026-10-21, zu E294): Wasser ist heute je Art eigene Regel (Flussnetz,
+      Kratersee mit Füllstand und Überlauf, Rinne) und wird als flache Fläche gezeichnet, ohne Volumen. Erst ein Plan
+      mit Messung, nichts bauen: (1) Optik mit Volumen bei gleichen Regeln (Tiefe färbt und trübt, Grund sichtbar,
+      Ufer, sichtbare Wasserwand an Kanten wie Kraterrand, Fall, Damm); (2) Wasser als Feld (Höhenraster mit
+      Wassermenge je Zelle, Mulden füllen sich, Fluss bergab, Krater und Dämme ohne Sonderregeln). Zu klären: was Wasser
+      im Spiel bewirken muss, Kosten von (2) deterministisch im Worker (Coop, Replay), ob (1) als erster Schritt reicht.
 - [ ] **E297 Besondere Gebäude aus OSM (Schloss, Burg, Kirche, Sehenswürdigkeit …)** (User 2026-10-21, Schloss
       Johannisburg Aschaffenburg): OSM führt building=castle, historic=castle, castle_type=stately, tourism=attraction,
       roof:shape, building:levels, wikidata, Innenhof als Multipolygon, Ecktürme. Gebaut werden daraus sechs
