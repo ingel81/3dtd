@@ -220,10 +220,10 @@ export function massOpenings(mass: MapMass, frame: OpeningFrame, ways: CoveredWa
       const out0 = blindStart ? 0 : 1;
       const out1 = blindEnd ? 0 : 1;
       const line: [number, number, number, number] = [round2(a[0] - dx * out0), round2(a[1] - dz * out0), round2(b[0] + dx * out1), round2(b[1] + dz * out1)];
-      // Room under the eaves of the lowest part on the ground it passes under, and in its ground floor (a little more)
+      // Room under the building over it (an overhang's floor, the lowest eaves less the lintel), and in its ground floor (a little more)
       const low = lowestBody(mass, a, b);
       const storey = Math.max(2.4, (low.height - 1) / Math.max(1, low.floors));
-      const room = Math.min(low.height - OVER, Math.max(FOOT_HEIGHT, 0.5 + storey * GROUND_REACH));
+      const room = Math.min(low.top, Math.max(FOOT_HEIGHT, 0.5 + storey * GROUND_REACH));
       let opening: MapMassOpening | null;
       if (garage) {
         // Its floor on the ground for now: where the ramp meets the wall, under the seat once it stands (garageFloors)
@@ -414,24 +414,36 @@ function lineDistance(p: readonly [number, number], a: readonly [number, number]
 }
 
 /**
- * Where the building is lowest over the line a-b: at each point the top of
- * its highest part there (a part on another one carries the building on
- * over a low one), the lowest of those along the line, with that part's
- * storeys (the building itself without parts)
+ * The room over the line a-b, the top an opening may reach (`top`), and
+ * the storeys of the part that sets it: at each point along it a part on
+ * the ground leaves its eaves less OVER, or its whole height where another
+ * part stands on it; a part in the air over bare ground (an overhang, OSM
+ * `min_height`) leaves up to its floor. The lowest along the line (the
+ * building itself without parts)
  */
-function lowestBody(mass: MapMass, a: readonly [number, number], b: readonly [number, number]): { height: number; floors: number } {
+function lowestBody(mass: MapMass, a: readonly [number, number], b: readonly [number, number]): { top: number; height: number; floors: number } {
   const bodies = massBodies(mass);
   const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
   const steps = Math.max(2, Math.ceil(length));
-  let low: { height: number; floors: number } | null = null;
+  let low: { top: number; height: number; floors: number } | null = null;
   for (let s = 1; s < steps; s++) {
     const x = a[0] + ((b[0] - a[0]) * s) / steps;
     const z = a[1] + ((b[1] - a[1]) * s) / steps;
-    let top: { height: number; floors: number } | null = null;
-    for (const p of bodies) if (ringsContain(p.rings, x, z) && (!top || p.height > top.height)) top = { height: p.height, floors: p.floors };
-    if (top && (!low || top.height < low.height)) low = top;
+    const here = bodies.filter((p) => ringsContain(p.rings, x, z));
+    const ground = here.filter((p) => (p.base ?? 0) <= 0.5);
+    const air = here.filter((p) => (p.base ?? 0) > 0.5);
+    for (const g of ground) {
+      const carried = air.some((p) => Math.abs(p.base! - g.height) <= 1);
+      const top = carried ? g.height : g.height - OVER;
+      if (!low || top < low.top) low = { top, height: g.height, floors: g.floors };
+    }
+    const groundTop = Math.max(0, ...ground.map((g) => g.height));
+    for (const p of air) {
+      if (p.base! <= groundTop + 1) continue;
+      if (!low || p.base! < low.top) low = { top: p.base!, height: p.height, floors: p.floors };
+    }
   }
-  return low ?? { height: mass.height, floors: mass.floors };
+  return low ?? { top: mass.height - OVER, height: mass.height, floors: mass.floors };
 }
 
 /** Whether the walls the line a-b passes through are stone (the part over its middle, else the building's) */

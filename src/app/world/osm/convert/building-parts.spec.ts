@@ -188,4 +188,29 @@ describe('the parts of the OSM footprints, in the world', () => {
     expect(report).toMatchObject({ withParts: 1, parts: 4 });
     expect(report.coverage.median).toBeGreaterThan(0.98);
   });
+
+  it("opens a passage under an overhang up to the overhang's floor, one through a part on the ground under its eaves (E297)", () => {
+    const doc = createMapDocument({ id: 't', name: 't', width: 200, depth: 200, cellSize: 2, baseMaterial: 'grass', splatResolution: 64, starter: false });
+    // Two pedestrian ways north through a house: the west one under its part on the ground, the east one under a part
+    // from 3.2 m up over bare ground
+    doc.paths = {
+      nodes: [{ id: 'a', x: -95, y: 0 }, { id: 'b', x: 95, y: 0 }, { id: 'w1', x: -6, y: 30 }, { id: 'w2', x: -6, y: 50 }, { id: 'e1', x: 6, y: 30 }, { id: 'e2', x: 6, y: 50 }],
+      edges: [
+        { id: 'r', a: 'a', b: 'b', width: 6, kind: 'road' },
+        { id: 'west', a: 'w1', b: 'w2', width: 3, kind: 'path', street: 'pedestrian', covered: true },
+        { id: 'east', a: 'e1', b: 'e2', width: 3, kind: 'path', street: 'pedestrian', covered: true },
+      ],
+    };
+    doc.hq = { x: 90, y: 0 };
+    doc.spawns = [];
+    doc.objects = [];
+    const house = area(1, box({ x: 0, y: 40 }, 24, 10), { building: 'yes', 'building:levels': '3' });
+    const low = area(2, box({ x: -6, y: 40 }, 12, 10), { 'building:part': 'yes', height: '9' });
+    const over = area(3, box({ x: 6, y: 40 }, 12, 10), { 'building:part': 'yes', height: '9', min_height: '3.2' });
+    const { objects } = placeBuildings(doc, features([house, low, over]), { catalog });
+    const raised = objects.find((o) => o.group === 'osm-b1' && o.asset === MASS_ASSET)!;
+    const openings = raised.mass!.openings!;
+    // A pedestrian street's 3.4 m under the part on the ground, the overhang's floor at 3.2 m over the other
+    expect(openings.map((o) => o.height).sort()).toEqual([3.2, 3.4]);
+  });
 });
