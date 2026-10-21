@@ -4,7 +4,8 @@ import { heightAt } from '../../../map-ops/grid';
 import { objectsInAir, objectsOnPaths, validateMap } from '../../../map-ops/validation/map-validation';
 import { createMapDocument } from '../../custom-map/map-create';
 import { MASS_ASSET, type CustomMapDocument, type MapPoint } from '../../custom-map/map-document';
-import { massArea, massContains } from '../../custom-map/object-mass';
+import { massArea, massContains, massDistance } from '../../custom-map/object-mass';
+import { toModel } from '../../custom-map/object-ground';
 import { seatHeight } from '../../custom-map/render/objects/object-seat';
 import { buildingKind, BUILDING_MODELS } from '../building-tags';
 import { OsmFrame, type OsmArea, type OsmFeatures } from '../osm-parse';
@@ -316,6 +317,26 @@ describe('OSM buildings: placing', () => {
       const c = Math.cos(o.rotation);
       const s = Math.sin(o.rotation);
       expect(o.x - (mx * c + mz * s) * o.scale).toBeCloseTo(0, 0);
+    }
+  });
+
+  it('keeps two houses off an alley OSM maps on their party wall, a covered way through neither (E297 L4)', () => {
+    const west = area(62, [{ x: -10, y: 10 }, { x: 0, y: 10 }, { x: 0, y: 22 }, { x: -10, y: 18 }], { building: 'house' });
+    const east = area(63, [{ x: 0, y: 10 }, { x: 10, y: 10 }, { x: 10, y: 18 }, { x: 0, y: 22 }], { building: 'house' });
+    const { doc, features } = world([west, east]);
+    // The alley from the road along the wall the two share, covered (it goes on under a building further back)
+    doc.paths.nodes.push({ id: 'g1', x: 0, y: 3 }, { id: 'g2', x: 0, y: 10 }, { id: 'g3', x: 0, y: 22 }, { id: 'g4', x: 0, y: 40 });
+    doc.paths.edges.push({ id: 'gin', a: 'g1', b: 'g2', width: 4, kind: 'path', street: 'pedestrian' }, { id: 'gass', a: 'g2', b: 'g3', width: 4, kind: 'path', covered: true, street: 'pedestrian' }, { id: 'gout', a: 'g3', b: 'g4', width: 4, kind: 'path', street: 'pedestrian' });
+    const { objects } = placeBuildings(doc, features, { catalog });
+    for (const id of [62, 63]) {
+      const o = objects.find((q) => q.group === `osm-b${id}` && q.asset === MASS_ASSET)!;
+      const c = Math.cos(o.rotation);
+      const s = Math.sin(o.rotation);
+      // The alley's middle line is clear of both
+      for (const y of [12, 16, 20]) {
+        const m = toModel(0 - o.x, y - o.y, c, s);
+        expect(massDistance(o.mass!, m.x / o.scale, m.z / o.scale)).toBeGreaterThan(0.5);
+      }
     }
   });
 

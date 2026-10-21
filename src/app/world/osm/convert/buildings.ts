@@ -763,11 +763,21 @@ function massBlocked(
   // where that leaves less than half of it, cut back further (CLIP_LEAST): never worse than the models it replaces
   const cos = Math.cos(pl.rotation);
   const sin = Math.sin(pl.rotation);
-  const pieces = roads.blocking(pl.p, massRadius(mass) + 40).map((g) => {
+  const local = (g: { a: MapPoint; b: MapPoint; half: number }) => {
     const a = toModel(g.a.x - pl.p.x, g.a.y - pl.p.y, cos, sin);
     const b = toModel(g.b.x - pl.p.x, g.b.y - pl.p.y, cos, sin);
     return { ax: a.x, az: a.z, bx: b.x, bz: b.z, half: g.half + ROAD_GUARD };
-  });
+  };
+  const pieces = roads.blocking(pl.p, massRadius(mass) + 40).map(local);
+  // A passage that runs along its wall, not through it (an alley between two houses OSM maps on their party wall):
+  // the walls keep off it as off any way, else the alley runs into them
+  const radius = massRadius(mass);
+  for (const g of roads.coveredNear(pl.p, radius + 40)) {
+    const piece = local(g);
+    // Only pieces that come near the building's ground at all (its circle round the origin)
+    if (pointSegment({ x: 0, y: 0 }, { x: piece.ax, y: piece.az }, { x: piece.bx, y: piece.bz }) > radius + piece.half) continue;
+    if (alongWalls(mass, piece)) pieces.push(piece);
+  }
   const rings = mass.rings;
   const parts = mass.parts;
   const restore = () => {
@@ -790,6 +800,43 @@ function massBlocked(
   }
   restore();
   return 'roads';
+}
+
+/**
+ * Whether a piece of a passage (model x, z with its half width) runs along a
+ * raised building's walls rather than under it: it comes within its half
+ * width of the building, its line on the walls or outside them (OSM maps an
+ * alley between two houses on their party wall). One inside, under the
+ * building (a passage through it, an arcade behind its front), opens its
+ * walls instead or stays under it (building-openings.ts)
+ */
+function alongWalls(mass: MapMass, piece: { ax: number; az: number; bx: number; bz: number; half: number }): boolean {
+  const deep = 0.3;
+  let near = false;
+  for (const t of [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1]) {
+    const x = piece.ax + (piece.bx - piece.ax) * t;
+    const z = piece.az + (piece.bz - piece.az) * t;
+    const inside = ringsContain(mass.rings, x, z);
+    const d = inside ? wallDistance(mass.rings, x, z) : massDistance(mass, x, z);
+    if (inside && d > deep) return false;
+    if (inside || d < piece.half) near = true;
+  }
+  return near;
+}
+
+/** Distance from model point (x, z) to the nearest wall of `rings` */
+function wallDistance(rings: readonly (readonly number[])[], x: number, z: number): number {
+  let best = Infinity;
+  for (const r of rings) {
+    for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
+      const dx = r[i] - r[j];
+      const dz = r[i + 1] - r[j + 1];
+      const l2 = dx * dx + dz * dz;
+      const t = l2 > 0 ? Math.max(0, Math.min(1, ((x - r[j]) * dx + (z - r[j + 1]) * dz) / l2)) : 0;
+      best = Math.min(best, Math.hypot(x - r[j] - t * dx, z - r[j + 1] - t * dz));
+    }
+  }
+  return best;
 }
 
 /** Ground (m²) a raised building cut back past CLIP_KEEP keeps at least */
@@ -1303,12 +1350,14 @@ interface Segment {
 /**
  * The map's path segments in a grid of cells, for the nearest street and the
  * roads near a building. A passage through a building (`covered`) is in
- * neither; a square's outline (`area`) gives a front to face, nothing to keep
- * off
+ * neither, but kept apart: where it runs along a building's wall instead of
+ * through it, it holds that building off (coveredNear); a square's outline
+ * (`area`) gives a front to face, nothing to keep off
  */
 class SegmentIndex {
   private readonly cell = 32;
   private readonly cells = new Map<number, Segment[]>();
+  private readonly coveredCells = new Map<number, Segment[]>();
 
   constructor(doc: CustomMapDocument) {
     const nodes = new Map(doc.paths.nodes.map((nd) => [nd.id, nd]));
@@ -1316,14 +1365,15 @@ class SegmentIndex {
     for (const e of doc.paths.edges) {
       const a = nodes.get(e.a);
       const b = nodes.get(e.b);
-      if (!a || !b || e.covered) continue;
+      if (!a || !b) continue;
       const line = [a, ...(e.via ?? []), b];
       const half = (e.width / 2) * (e.kind === 'path' ? PATH_WALL_SHARE : 1);
+      const cells = e.covered ? this.coveredCells : this.cells;
       for (let s = 0; s + 1 < line.length; s++) {
         // A way into a passage holds the building off only past its door (offDoors), as the editor's check sees it
-        const piece = offDoors(line[s], line[s + 1], s === 0 && doors.has(e.a), s === line.length - 2 && doors.has(e.b), half);
+        const piece = e.covered ? [line[s], line[s + 1]] : offDoors(line[s], line[s + 1], s === 0 && doors.has(e.a), s === line.length - 2 && doors.has(e.b), half);
         if (!piece) continue;
-        const seg = { a: piece[0], b: piece[1], half, road: e.kind !== 'path', blocks: !e.area };
+        const seg = { a: piece[0], b: piece[1], half, road: e.kind !== 'path', blocks: !e.area && !e.covered };
         const i0 = Math.floor(Math.min(seg.a.x, seg.b.x) / this.cell);
         const i1 = Math.floor(Math.max(seg.a.x, seg.b.x) / this.cell);
         const j0 = Math.floor(Math.min(seg.a.y, seg.b.y) / this.cell);
@@ -1331,13 +1381,24 @@ class SegmentIndex {
         for (let j = j0; j <= j1; j++) {
           for (let i = i0; i <= i1; i++) {
             const key = this.key(i, j);
-            let list = this.cells.get(key);
-            if (!list) this.cells.set(key, (list = []));
+            let list = cells.get(key);
+            if (!list) cells.set(key, (list = []));
             list.push(seg);
           }
         }
       }
     }
+  }
+
+  /** Pieces of covered ways (passages) whose cells come within `reach` of `p` */
+  coveredNear(p: MapPoint, reach: number): Segment[] {
+    const out = new Set<Segment>();
+    const i0 = Math.floor((p.x - reach) / this.cell);
+    const i1 = Math.floor((p.x + reach) / this.cell);
+    const j0 = Math.floor((p.y - reach) / this.cell);
+    const j1 = Math.floor((p.y + reach) / this.cell);
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) for (const s of this.coveredCells.get(this.key(i, j)) ?? []) out.add(s);
+    return [...out];
   }
 
   private key(i: number, j: number): number {
