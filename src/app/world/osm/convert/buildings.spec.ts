@@ -262,7 +262,7 @@ describe('OSM buildings: placing', () => {
     doc.paths.nodes.push({ id: 'n1', x: -30, y: 30 }, { id: 'n2', x: -30, y: 10 }, { id: 'm1', x: 30, y: 30 }, { id: 'm2', x: 30, y: 10 });
     doc.paths.edges.push(
       { id: 'pass', a: 'n1', b: 'n2', width: 2.5, kind: 'path', covered: true, street: 'footway' },
-      // A way that bends through the other house more than the opening could widen over: it stays closed
+      // A way that bends through the other house more than one opening could widen over: two that meet at the bend
       { id: 'bent', a: 'm1', b: 'm2', width: 2.5, kind: 'path', covered: true, street: 'footway', via: [{ x: 33.5, y: 20 }] },
     );
     const { objects, report } = placeBuildings(doc, features, { catalog });
@@ -279,8 +279,8 @@ describe('OSM buildings: placing', () => {
     expect(massContains(house.mass!, bx, bz)).toBe(false);
     expect(massContains(house.mass!, (ax + bx) / 2, (az + bz) / 2)).toBe(true);
     expect(Math.hypot(bx - ax, bz - az)).toBeCloseTo(8.6 + 2, 1);
-    expect(of(3)[0].mass!.openings).toBeUndefined();
-    expect(report.openings).toEqual({ passages: 1, arches: 0, garages: 0, closed: 1 });
+    expect(of(3)[0].mass!.openings!.length).toBe(2);
+    expect(report.openings).toEqual({ passages: 3, arches: 0, garages: 0, closed: 0 });
     expect(validateMap({ ...doc, objects }, { footingOf: (a) => byId.get(a), blocksBuild: () => true }).filter((i) => i.severity === 'error' && i.code !== 'no-spawns').map((i) => i.code)).toEqual([]);
   });
 

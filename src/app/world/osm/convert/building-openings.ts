@@ -45,6 +45,8 @@ const GATE_SPRING = 2.6;
 const PAST_DOOR = 1.5;
 /** Widest bend in a stretch the opening widens over, m; more and it stays closed */
 const BEND_MAX = 1.5;
+/** Metres a bent stretch's straight pieces stay off its line at most */
+const BEND_TOLERANCE = 0.75;
 /** A stretch that meets a wall flatter than this (sine of the angle) runs along it, not through */
 const CROSS_LEAST = 0.5;
 /** Widest opening, m; narrowest worth cutting */
@@ -216,15 +218,15 @@ export function massOpenings(mass: MapMass, frame: OpeningFrame, ways: CoveredWa
         return { ...s, points: [s.points[0], [ax + ((bx - ax) / d) * OPENING_STUB, az + ((bz - az) / d) * OPENING_STUB] as const] };
       });
     }
-    for (const st of found) {
+    for (const whole of found) for (const st of straightened(whole)) {
       if (out.length >= MASS_MAX_OPENINGS) break;
-      const blindStart = st.s0 === 0 && way.blind0;
-      const blindEnd = st.end && way.blind1;
+      const blindStart = whole.s0 === 0 && way.blind0 && !st.joint0;
+      const blindEnd = whole.end && way.blind1 && !st.joint1;
       const a = st.points[0];
       const b = st.points[st.points.length - 1];
       const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
       if (length < 0.8) continue;
-      // Straight from wall to wall, as wide as the way and its bend
+      // Straight from wall to wall (or to where the way bends inside), as wide as the way and its bend
       let bend = 0;
       for (const p of st.points) bend = Math.max(bend, lineDistance(p, a, b));
       const across = (k: number) => k < 0 || wallSine(mass.rings, a, b, k) >= CROSS_LEAST;
@@ -244,8 +246,9 @@ export function massOpenings(mass: MapMass, frame: OpeningFrame, ways: CoveredWa
       // Its line: a metre out past each wall it crosses, to its end where it ends inside
       const dx = (b[0] - a[0]) / length;
       const dz = (b[1] - a[1]) / length;
-      const out0 = blindStart ? 0 : 1;
-      const out1 = blindEnd ? 0 : 1;
+      // Where it bends inside, on past the bend by half its width: the pieces overlap there, no gap at the outer side
+      const out0 = blindStart ? 0 : st.joint0 ? width / 2 : 1;
+      const out1 = blindEnd ? 0 : st.joint1 ? width / 2 : 1;
       const line: [number, number, number, number] = [round2(a[0] - dx * out0), round2(a[1] - dz * out0), round2(b[0] + dx * out1), round2(b[1] + dz * out1)];
       // Room under the building over it (an overhang's floor, the lowest eaves less the lintel), and in its ground floor (a little more)
       const low = lowestBody(mass, a, b);
@@ -354,6 +357,58 @@ export function stretches(pts: readonly (readonly [number, number])[], rings: re
     if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 1e-3) continue;
     if (!ringsContain(rings, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) continue;
     out.push({ points, s0: n === 1 ? 0 : 1, end: n === bounds.length - 1, wall0: p.wall, wall1: q.wall });
+  }
+  return out;
+}
+
+/** A straight piece of a stretch: its points, the walls at its ends (-1 none), whether an end is a bend inside (joint) */
+interface Piece {
+  points: (readonly [number, number])[];
+  wall0: number;
+  wall1: number;
+  joint0: boolean;
+  joint1: boolean;
+}
+
+/**
+ * A stretch in straight pieces: whole where it bends BEND_MAX at most,
+ * else cut at its bends (Douglas-Peucker to BEND_TOLERANCE), each piece an
+ * opening of its own that meets the next at the bend
+ */
+function straightened(st: Stretch): Piece[] {
+  const whole: Piece = { points: st.points, wall0: st.wall0, wall1: st.wall1, joint0: false, joint1: false };
+  const keep = new Set<number>([0, st.points.length - 1]);
+  const split = (i: number, j: number) => {
+    let far = -1;
+    let most = BEND_TOLERANCE;
+    for (let k = i + 1; k < j; k++) {
+      const d = lineDistance(st.points[k], st.points[i], st.points[j]);
+      if (d > most) {
+        most = d;
+        far = k;
+      }
+    }
+    if (far < 0) return;
+    keep.add(far);
+    split(i, far);
+    split(far, j);
+  };
+  let bend = 0;
+  const a = st.points[0];
+  const b = st.points[st.points.length - 1];
+  for (const p of st.points) bend = Math.max(bend, lineDistance(p, a, b));
+  if (bend <= BEND_MAX) return [whole];
+  split(0, st.points.length - 1);
+  const at = [...keep].sort((p, q) => p - q);
+  const out: Piece[] = [];
+  for (let k = 1; k < at.length; k++) {
+    out.push({
+      points: st.points.slice(at[k - 1], at[k] + 1),
+      wall0: k === 1 ? st.wall0 : -1,
+      wall1: k === at.length - 1 ? st.wall1 : -1,
+      joint0: k > 1,
+      joint1: k < at.length - 1,
+    });
   }
   return out;
 }
