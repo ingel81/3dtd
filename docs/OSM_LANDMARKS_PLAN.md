@@ -1,6 +1,6 @@
 # Besondere Gebäude in OSM-Welten (Plan)
 
-**Status:** Plan, 2026-10-21 (TODO E297), nichts gebaut
+**Status:** Plan, 2026-10-21 (TODO E297); L1 und L2 gebaut (2026-10-21, siehe „L1 und L2, gebaut“), L3 bis L8 offen
 **Bezug:** [OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md) (Gebäude, Bau aus dem Grundriss E235, Altstadt V10),
 [OSM_WORLD_ROUND2_PLAN.md](OSM_WORLD_ROUND2_PLAN.md) (Wahrzeichen als Anker, E240), [CUSTOM_MAPS.md](CUSTOM_MAPS.md)
 (Katalog, Renderer), [DESTRUCTION_PLAN.md](DESTRUCTION_PLAN.md) (Ruinen, Programme), TODO E280 (Ruinen-Programme)
@@ -330,8 +330,7 @@ Fragment-Shader). Messen: `map-load`-Probe vor und nach jedem Schritt auf dersel
   Weniger Katalogmodelle heißt auch weniger Asset-Ruinen-Programme (Stufe 2 von E280 wird kleiner).
 - **Altstadt:** bleibt für gewöhnliche Häuser bis 700 m²; Wahrzeichen nehmen nie die Art `oldtown`. Die neuen
   Fassadenfamilien ersetzen den Einheitsputz von `mass` in der Altstadt nicht, `timber` bleibt.
-- **HQ:** das HQ-Angebot setzt das HQ vor das Wahrzeichen (nächster Platz oder Straße außerhalb des Grundrisses, nicht
-  im Hof), und ein Wahrzeichen fällt nie wegen der 14 m weg: dann rückt das HQ.
+- **HQ:** überholt durch Entscheidung 4: das HQ rückt nicht, der Abstand ums HQ nimmt kein Wahrzeichen (gebaut in L2).
 - **Spielregeln:** Dach und Bauverbot lesen `massRoof` (`object-mass.ts`); geneigte Dächer und Aufsätze bekommen dort
   ihre Höhe, damit Tower und Sichtlinien stimmen.
 
@@ -339,8 +338,8 @@ Fragment-Shader). Messen: `map-load`-Probe vor und nach jedem Schritt auf dersel
 
 | Schritt | Inhalt | Aufwand |
 |---|---|---|
-| L1 | Wege durch Gebäude (`building_passage`, `covered`, Platzrand) und kein Rückfall auf schlechte Modelle; Deckung in den Bericht | 1 Tag |
-| L2 | Eine Rolle für Wahrzeichen (`building-tags.ts` statt `landmarkKind`), Ruinen nicht mehr weglassen, Anlagenfläche `historic=castle` lesen; HQ vor dem Wahrzeichen | 1 Tag |
+| L1 | Wege durch Gebäude (`building_passage`, `covered`, Platzrand) und kein Rückfall auf schlechte Modelle; Deckung in den Bericht | gebaut |
+| L2 | Eine Rolle für Wahrzeichen (`building-tags.ts` statt `landmarkKind`), Ruinen nicht mehr weglassen, Anlagenfläche `historic=castle` lesen; HQ entfernt kein Wahrzeichen (Entscheidung 4) | gebaut |
 | L3 | Abfrage um `building:part` und `type=building` (Version des Rahmenspeichers hoch), Teile an den Grundriss hängen, `MapMass.parts` im Format, Editor und Prüfung | 2 Tage |
 | L4 | Dach über beliebigem Umriss (Skelett), Satteldach und Walmdach für Flügel und Höfe, auch für gewöhnliche Häuser | 2 bis 3 Tage |
 | L5 | Dachaufsätze (Helm, Kegel, Zwiebel, Kuppel, Zinnen) und ihre Ruinenform im Dachprogramm | 2 Tage |
@@ -370,3 +369,95 @@ Silhouette, L6 die Optik, L7 und L8 die Breite.
 7. **Reihenfolge:** Gebäude zuerst (ohne neue Shader-Programme, Fassaden als Uniform); E280 bleibt pausiert und wird
    danach einmal sauber gemessen.
 
+## L1 und L2, gebaut (2026-10-21)
+
+Code: `osm-tags.ts` (`covered`), `convert/roads.ts`, `convert/square-outlines.ts` (Platzränder), `map-ops/path-graph.ts`
+(`doorNodes`, `offDoors`), `map-validation.ts` (`objectsOnPaths`), `convert/buildings.ts` (Passung, Rolle, Ruinen, HQ,
+Bericht), `building-tags.ts` (`landmarkRole`, `buildingRole`, Arten), `convert/building-mass.ts` (Geschosse, Fassade,
+Tönung der Wahrzeichen), `convert/anchors.ts` (liest die Rolle), `custom-map-streets.ts`, `convert/layout.ts`. Specs:
+`building-tags.spec.ts` (neu), `buildings.spec.ts`, `building-mass.spec.ts`, `roads.spec.ts`, `tunnels.spec.ts`,
+`anchors.spec.ts`, `import-osm.spec.ts`.
+
+### L1: Wege durch Gebäude, Passung der Modelle
+
+- **Durchgänge:** `tunnel=building_passage` und `covered=yes` werden eine Straßenkante mit `covered` (Format: neues
+  optionales Feld an `MapPathEdge`, geprüft wie `tunnel`). Gezeichnet, eingeebnet und begangen wie jede Straße, ohne
+  Gehweg; für Gebäude kein Hindernis (weder Zurückschneiden noch Editor-Prüfung). Routen laufen dort unter Deckung wie
+  auf echten Orten (`street.covered = 'yes'`, `runsUnderCover`, Routenzellen als Tunnel zwischen den Mündungen). HQ und
+  Spawns meiden sie wie Tunnel. **Noch ohne Aussparung:** das Haus steht geschlossen über dem Weg, die Gegner laufen
+  durch die Wand wie durch einen Tunnel; der Torbogen zum Durchsehen (Entscheidung 2) ist offen (L6, Wandart).
+- **Türen:** OSM legt die Knoten eines Durchgangs auf die Wand; jeder Weg, der dort anschließt (Gasse, Brücke über den
+  Graben, Fußweg im Hof), berührt die Wand mit seinem Ende und schnitt beim Schloss den ganzen Bau entlang seiner Linie
+  ab. Die Enden von `covered`-Kanten sind Türen (`doorNodes`); ein Abschnitt, der an einer Tür endet, zählt gegen
+  Gebäude erst ab dem Doppelten seiner halben Breite plus 0,5 m (`offDoors`), in der Editor-Prüfung wie im Import.
+- **Platzränder:** die Randkante eines Platzes (`edge.area`) hält kein Gebäude ab. Ihre Punkte werden beim Bau des
+  Straßennetzes aus den Gebäuden gezogen, halbe Breite plus 0,5 m vor die nächste Wand (`pullOutlines`, in
+  `buildRoads`, damit Rahmen und Import dasselbe Netz haben); Knoten, die eine Straße oder Brücke teilt, bleiben, die
+  Tür eines Durchgangs und Fußwege gehen mit (sonst blieb der Hofrand an der Wand und das HQ landete im Flügel). In engen
+  Fußgängerzonen findet nicht jeder Punkt Platz: dann der erste Ort außerhalb der Häuser, sonst bleibt er.
+- **Passung (Entscheidung 1):** Modelle nur bei mindestens 85 % Deckung und höchstens 10 % Überstand, sonst Bau aus dem
+  Grundriss; die Modelle bleiben nur, wo der Bau nicht stehen kann (Wasser). **Abweichung:** würde der Bau nur das
+  Rechteck des Grundrisses sein (geneigtes Dach über einem fast rechteckigen Grundriss, Altstadt ab 72 % Füllgrad),
+  steht er so weit über wie das Rechteck; Modelle, die 85 % decken und nicht weiter überstehen (plus 2 %), bleiben
+  dann. Sonst wurde eine Reihe von 14 Altstadthäusern ein langer Block mit einem First.
+- **Zurückschneiden:** reicht die Hälfte nicht, wird der Bau bis auf 30 % (mindestens 20 m²) zurückgeschnitten, erst
+  dann fällt der Grundriss weg (`CLIP_LEAST`).
+- **Bericht:** `buildings.coverage` (Grundrisse ab 40 m², Median der Deckung, Anteil unter 70 %, Anteil mit über 10 %
+  Überstand; ein Bau als Rechteck zählt seinen Überstand, einer aus dem Umriss keinen). `osm-world.spec.ts` nimmt
+  `OSM_SIDE` für die 600-m-Quadrate.
+
+### L2: Rolle, Ruinen, HQ
+
+- **Eine Einteilung:** `landmarkRole` (`building-tags.ts`) liest palace, castle, cathedral, church, chapel, worship,
+  gate, tower, townhall, monument, station, museum, sight; die erste Regel gilt. `anchors.ts` übersetzt die Rolle nur
+  noch in den Namen des Rahmens (`place of worship` für chapel und worship, station kein Wahrzeichen).
+  **Abweichungen:** das Tor kommt vor dem Turm (ein Torturm ist zuerst ein Durchgang; so las es `landmarkKind` schon);
+  `building=tower` über 400 m² ohne `historic` ist kein Turm (Hochhäuser); `man_made=tower` zählt mit `historic` oder
+  `tower:type` defensive, bell_tower, watchtower, observation; sight auch mit `heritage`.
+- **Arten:** palace, castle, cathedral, tower, gate, townhall, monument sind eigene Arten ohne Katalogmodelle (aus dem
+  Grundriss); church, chapel, townhall (`town-hall`), station nehmen nur ihre eigenen Modelle, nie die einer anderen
+  Art und nie die Blockrand-Module; keine wird `oldtown`. museum und sight behalten die Art ihrer übrigen Tags.
+- **Optik mit dem, was da ist:** Stein (Rundbogenfenster, Sockel), Geschosse von 4,2 m für Schloss, Burg, Rathaus,
+  Tor; Schloss und Burg nach Größe 2 bis 4 Geschosse, sonst `building:levels`; Dom eine Halle von 22 m; Rathaus in der
+  Altstadt Fachwerk; Turm (auch ein nicht schlanker mit Tag) Stein mit steiler Pyramide. Tönung aus `building:colour`,
+  sonst Baustein nach der Saat: Schloss roter, gelber, heller Sandstein oder Kalkstein, Burg, Turm, Kirche grauer,
+  roter, brauner Bruchstein oder gelber Sandstein. Die Steintextur ist dunkel; ein graues Schloss las sich wie verrußt.
+- **Anlage:** eine Fläche `historic=castle|fort` ohne `building` gibt ihre Rolle (und `ruins=yes`) an die Gebäude in
+  ihr ab 40 m² weiter, die keine eigene haben und kein Nebengebäude sind (`buildingRole`).
+- **Ruinen (Entscheidung 3):** `building=ruins`, `ruins=yes`, `historic=ruins`, `abandoned:building` werden nicht mehr
+  weggelassen, sondern aus dem Grundriss gebaut, mit `damage: 3` (der vorhandene Vorschaden, `MapObject.damage`): die
+  Simulation startet sie gefallen, gezeichnet wie zerstörte Häuser, mit Schutt, bebaubar wie jede Ruine; gleich auf
+  allen Rechnern (aus der Karte). **Grenzen:** nur in zerstörbaren Welten (OSM-Welten sind es, solange der Rahmen es
+  nicht abschaltet), sonst stehen sie heil; sie glimmen und tragen Ruß wie frisch zerstörte, und ein schlanker Turm
+  kippt um, statt als Turmstumpf zu stehen. In `/map-preview` (ohne Simulation) stehen sie heil.
+- **HQ (Entscheidung 4):** der Abstand von 14 m ums HQ nimmt kein Wahrzeichen (jede Rolle) mehr weg, weder Modelle
+  noch den Bau aus dem Grundriss; das HQ rückt nicht. Gewöhnliche Häuser weichen wie bisher.
+
+### Messung (600 m, ohne Höhen, Katalog wie im Spiel)
+
+| | Probe (1,2 km) | Aschaffenburg | Würzburg | Heidelberg |
+|---|---|---|---|---|
+| Deckung Median vorher / nachher | 90 / 100 % | 91 / 100 % | 79 / 95 % | 87 / 96 % |
+| unter 70 % Deckung | 4,6 / 1,7 % | 8,0 / 1,3 % | 33,4 / 9,6 % | 21,9 / 9,2 % |
+| über 10 % Überstand (Bau als Rechteck mitgezählt) | 6,0 / 1,7 % | 14,3 / 6,3 % | 21,8 / 23,5 % | 18,9 / 15,4 % |
+| Bauten aus dem Grundriss | 116 / 556 | 76 / 154 | 303 / 456 | 104 / 200 |
+| Gebäudeschritt (jsdom) | 143 / 156 ms | 69 / 80 ms | 199 / 225 ms | 66 / 82 ms |
+
+- Würzburg steht in der Altstadt etwas mehr über als vorher: dort werden schlecht deckende Modelle zu Bauten als
+  Rechteck mit Satteldach (Altstadt ab 72 % Füllgrad). Das löst L4 (Dach über dem echten Umriss).
+- Schloss Johannisburg: ein Bau aus dem Grundriss mit Hof (20 Punkte außen, 20 im Hof), 26,5 m, sechs Geschosse,
+  Stein, roter Sandstein; vorher fünf `block-row-6`-Module. Das HQ des Testquadrats steht im Hof, 2,9 m vor der Wand,
+  das Schloss bleibt ganz (vorher nahm der Abstand ums HQ den Bau weg, übrig blieben die Module).
+- **Bild** (`/map-preview`, Dev-Build): Aschaffenburg nah 215 → 190 Draw Calls, 2,29 M → 2,11 M Dreiecke; Würzburg
+  Hof 259 → 215, L-Form 276 → 217; WebGL-Programme 84 → 83 bzw. gleich (keine neuen Programme).
+- **Bilder:** lokal `tmp/e297b/` (`aschaffenburg-{schloss,nah,oben}-{before,after}.png`,
+  `wuerzburg-{hof,oben,l}-{before,after}.png`).
+
+### Offen nach L2
+
+- Aussparung der Durchgänge (Torbogen zum Durchsehen, Entscheidung 2): heute laufen die Gegner unsichtbar durch die
+  geschlossene Wand.
+- Dach: Bauten mit Hof und L-, U-Formen sind flach mit Attika (L4); das Schloss hat noch keine Türme und Hauben (L3,
+  L5).
+- Ruinen: eigener Zustand „alt“ ohne Glut und Ruß, Türme als Stumpf statt gekippt (Instanzwert, kein Programm).
+- Überstand der Altstadt-Rechtecke (siehe Messung), L4.

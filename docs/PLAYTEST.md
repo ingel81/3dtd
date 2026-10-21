@@ -583,8 +583,8 @@ Kachel nicht.
   Ebenenmenü kein Knopf „Gebäude“.* Danach vor Welle 1 eine weitere Spur öffnen: *die Grundrisse bleiben, wie sie sind.*
 - **R3 Arten:** wie R1, Maus auf die Kachel: *der Tooltip nennt die Farben.* Über der Altstadt umherfliegen: *Häuser
   türkis, Gebäudeteile (Türme, Anbauten mit eigener Höhe) messingfarben, ein Hof als Loch mit hellen Kanten, an
-  Straßen oder beim HQ weggelassene Grundrisse rot, wo es welche gibt unterirdische grün und Ruinen orange flach am
-  Boden.* Nach Augenmaß: *die Farben sind gut auseinanderzuhalten.*
+  Straßen oder beim HQ weggelassene Grundrisse rot, wo es welche gibt unterirdische grün und nicht am Boden
+  Stehendes (Brücke, eingestürzt) orange flach am Boden.* (Ruinen stehen seit E297 L2 als Ruine, türkis.) Nach Augenmaß: *die Farben sind gut auseinanderzuhalten.*
 - **R2 Echter Ort unverändert:** einen echten Ort (3D-Tiles) spielen, Ebenenmenü › „Gebäude“. *Wie bisher: Grundrisse
   an den Routen, im Entwicklermenü keine Kachel „OSM“.*
 
@@ -606,6 +606,26 @@ und Auge. Globen › OpenStreetMap, einen Ort suchen (z. B. Miltenberg).
 - **S4 Kante:** den Regler „Kante“ unter der Karte ziehen. *Der Rahmen bleibt gleich groß, die Karte zoomt, daneben
   „1,8 km“ usw.; erst beim Loslassen lädt es (Schleier im Rahmen).* Dann die Karte anklicken und Pfeiltasten, Plus,
   Minus drücken: *die Karte rückt, die Kante ändert sich; nach dem Loslassen der Taste lädt es.*
+
+## T Besondere Gebäude in OSM-Welten (2026-10-21, E297 L1 und L2)
+
+Nur neu gebaute OSM-Welten. Einteilung, Durchgang, Deckungsschwelle, Ruine und HQ prüfen Specs (`building-tags.spec.ts`,
+`buildings.spec.ts`, `roads.spec.ts`); hier Auge und Route. Dach, Türme und Fassadenfamilien kommen erst (L3 bis L6).
+
+- **T1 Schloss mit HQ im Hof:** New game, „A map of a real place“, `49.9763, 9.1414` (Schloss Johannisburg,
+  Aschaffenburg), die Karte ziehen, bis das HQ (Mitte des Rahmens) im Schlosshof sitzt, bauen. *Das Schloss steht als ein Bau aus seinem Grundriss um den
+  Hof, sechs Geschosse in Stein mit Rundbogenfenstern, flaches Dach; keine Wohnblöcke. Das HQ steht im Hof, wo es
+  hingesetzt wurde, kein Flügel fehlt.* Notieren, ob das HQ in eine Wand ragt.
+- **T2 Durchgang:** in T1 die erste Welle starten und den Gegnern folgen, die zum Hof laufen. *Sie gehen durch die
+  Durchgänge in den Flügeln in den Hof (dort noch ohne Torbogen: sie verschwinden in der Wand und kommen im Hof heraus),
+  nicht außen herum und nicht über das Dach; im Hof laufen sie nicht durch die Wände.*
+- **T3 Altstadt:** wie T1 mit `49.7932, 9.9312` (Würzburg, Dom). *Häuser stehen auf ihrem ganzen Grundriss, auch an
+  Plätzen und in Hofformen (ein Bau statt einzelner Blöcke mit Lücken); Reihen von Altstadthäusern bleiben einzelne
+  Häuser; nichts steht auf den Straßen.* Notieren, wo flache Dächer über Hofblöcken stören (kommt mit L4).
+- **T4 Ruinen:** wie T1 mit `49.4106, 8.7153` (Heidelberger Schloss), Zerstörung an. *Die Ruinen (Dicker Turm,
+  Ludwigsbau und andere mit `ruins=yes`) stehen von Anfang an als gefallene Ruinen mit Schutt, wie zerstörte Häuser;
+  die übrigen Schlossbauten stehen in Stein.* Notieren, ob Glut und Ruß an alten Ruinen stören und wie die Türme
+  liegen.
 
 ## Eichtabelle
 

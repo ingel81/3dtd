@@ -13,7 +13,7 @@ import type { MapFootprints, MapPoint } from './map-document';
  * What OSM says a footprint is: `ground` a building on the ground (what the
  * import builds from), `part` a `building:part`, `underground` below the
  * ground (`location=underground`, `layer` < 0), `offGround` a building OSM
- * marks as none standing on the ground (a bridge, ruins, a tent, building-tags.ts)
+ * marks as none standing on the ground (a bridge, a collapsed one, a tent, building-tags.ts; ruins stand)
  */
 export type FootprintKind = 'ground' | 'part' | 'underground' | 'offGround';
 

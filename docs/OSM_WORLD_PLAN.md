@@ -790,8 +790,8 @@ eingefrorenen Probe (Katalog-Modelle, keine Objekte auf Straßen oder in der Luf
   Unter Häusern (Median der Grundrisse ab 45 m² in 100 m unter 180 m², ein Dorf, eine Siedlung; Musterdorf rund
   110 m²) wird ein Grundriss ohne Geschosse erst über 400 m² zum Wohnblock (E198).
   `commercial` ohne Geschosse und über 600 m² ist eine Halle (Winzergenossenschaft in Oberbergen), kein Bürohaus.
-  `bridge`, `ruins`, `container`, Tiefgaragen (`location=underground`, `layer<0`) bleiben weg; `building:part` wird
-  nicht gelesen.
+  `bridge`, `container`, Tiefgaragen (`location=underground`, `layer<0`) bleiben weg; `building:part` wird
+  nicht gelesen. Ruinen stehen seit E297 L2 als Ruine (docs/OSM_LANDMARKS_PLAN.md).
 - **Teilen:** Füllgrad unter 0,8: Raster des Grundrisses in seinen eigenen Achsen (0,5 bis 2 m), dann immer das
   größte Rechteck gefüllter Zellen, bis die Reste unter 18 m² bzw. 12 % der Fläche liegen (höchstens 8 Teile).
 - **Wahl:** je Teil die Seite mit der nächsten Straße als Front (Pfade nur ohne Straße in 60 m); Fehlermaß ist die
@@ -926,7 +926,8 @@ den Grundrissen zu vergleichen.
   Höfen (innere Ringe des Multipolygons, die in ihm liegen), Geschossen, unterstem Geschoss (`building:min_level`,
   sonst `min_height`) und einer Art: `ground` (am Boden, woraus der Import baut), `part` (`building:part`),
   `underground` (`location=underground` oder `layer` unter 0, gewinnt über den Wert), `offGround` (die Werte, die
-  `isGroundBuilding` nicht baut: bridge, ruins, collapsed, demolished, proposed, abandoned:yes, container, tent).
+  `isGroundBuilding` nicht baut: bridge, collapsed, demolished, proposed, abandoned:yes, container, tent; `ruins`
+  bis E297 L2 auch, seitdem am Boden als Ruine gebaut).
   **`building=no`** zählt nicht: der Wert sagt ausdrücklich, dass die Fläche kein Gebäude ist; nur wenn dieselbe
   Fläche `building:part` trägt, steht sie als Teil da. Dazu je Ring am Boden, warum der Import nichts darauf gebaut hat
   (`tiny`, `noModel`, `roads`, `water`, `hq`, `budget`): `placeBuildings` merkt sich den Grund je äußerem Ring

@@ -76,6 +76,9 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Plan und Entscheidungen (2026-10-21): docs/OSM_LANDMARKS_PLAN.md, ein Bauweg aus dem Grundriss für alle Häuser
       (Kontur stimmt, nicht generisch), Schritte L1-L8; Durchgänge als echte Aussparung, Ruinen als Ruine, fünf
       Fassadenfamilien, vor E280.
+      L1 und L2 gebaut (2026-10-21, Nachtest PLAYTEST.md T): Durchgänge und Platzränder halten keine Häuser ab, Modelle
+      nur bei 85 % Deckung und 10 % Überstand, eine Rolle für Wahrzeichen, Ruinen als Ruine, HQ nimmt kein Wahrzeichen;
+      Schloss Johannisburg ein Bau mit Hof. Offen: L3-L8, Aussparung der Durchgänge (heute geschlossene Wand).
 - [ ] **E294 Kratersee im Editor** (2026-10-21, aus E283 ausgeklammert): Der Landschafts-Modus „crater“ schreibt nur
       Höhen, ohne Kraterliste und Spielzeit; im Editor füllt sich darum kein See. Eigener Schritt: Pinsel mit Vorschau
       (See gleich voll oder Füllen ohne Spielzeit).
