@@ -386,7 +386,8 @@ describe('The main menu', () => {
       locationMgmt.hq.set(HEILBRONN);
       await setup();
       expect(text()).toContain('Loading Heilbronn');
-      expect(el().querySelector('.mh-start app-brick-wall[role="progressbar"]')).not.toBeNull();
+      // One wall shows the load: the plate's; the start in the menu keeps its line and buttons
+      expect(el().querySelector('.mh-start app-brick-wall')).toBeNull();
 
       await click(entry('play'));
       expect(menu.isOpen()).toBe(true);

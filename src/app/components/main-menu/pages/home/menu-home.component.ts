@@ -11,11 +11,8 @@ import {
 } from '@angular/core';
 import { RovingGroupDirective } from '../../../roving-group.directive';
 import { TdIconComponent, type TdIconName } from '../../../icon/icon.component';
-import { BrickWallComponent } from '../../../brick-wall/brick-wall.component';
 import { MainMenuService } from '../../main-menu.service';
-import { EngineInitializationService } from '../../../../services/infrastructure/engine-initialization.service';
 import { GameStore } from '../../../../store/game.store';
-import { loadingPlateView } from '../../loading/loading-plate';
 import type { MenuLayer, MenuPage } from '../../menu-page';
 import { injectT } from '../../../../i18n/i18n.service';
 
@@ -76,7 +73,7 @@ const PAGE_OF: Partial<Record<HomeEntryId, MenuPage>> = {
 @Component({
   selector: 'app-menu-home',
   standalone: true,
-  imports: [RovingGroupDirective, TdIconComponent, BrickWallComponent],
+  imports: [RovingGroupDirective, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './menu-home.component.html',
   styleUrl: './menu-home.component.scss',
@@ -88,14 +85,11 @@ export class MenuHomeComponent {
   readonly icons = HOME_ENTRY_ICON;
   readonly menu = inject(MainMenuService);
   protected readonly t = injectT();
-  private readonly engineInit = inject(EngineInitializationService);
   private readonly store = inject(GameStore);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly injector = inject(Injector);
 
   readonly confirm = signal<HomeConfirm | null>(null);
-
-  readonly plate = computed(() => loadingPlateView(this.engineInit.loadingSteps()));
 
   /** What the run loaded here is: "Heilbronn | wave 12", the wave as its Continue and its saves name it */
   readonly runLine = computed(() => {

@@ -28,9 +28,6 @@
     <!-- The start is the world's loading, as the world menus' Start shows it: Cancel (Esc) goes back to the world's menu -->
     <div class="mh-start" role="status">
       <h3 class="mh-start-title">{{ loadingNow() ? t().menu.loadingName(startName()) : startName() }}</h3>
-      @if (loadingNow()) {
-        <app-brick-wall size="sm" [value]="plate().percent" [label]="t().menu.loadingPlace" />
-      }
       <p class="td-note">{{ menu.problem() ? t().menu.didNotLoad : menu.starting() ? t().menu.startsWhenStands : loadingNow() ? t().menu.playStarts : t().menu.ready }}</p>
       <div class="td-actions is-start">
         @if (!menu.starting()) {
