@@ -753,6 +753,11 @@ Kreuzungen, Flecken, Unterführungen, Brückenrampen und Router prüfen `road-ne
 - **AA5 Gleis an der Brücke:** Westkopf der Friedensbrücke, etwa `49.79820, 9.92140`. *Das Gleis läuft eben auf die
   Brücke, keine Felsklippe darunter.*
 - **AA6 Durchgang:** Garage `49.798047, 9.926921`. *Im Durchgang Pflaster bis an die Wände, kein Gras.*
+- **AA7 Gleise im Bahnhof:** Hauptbahnhof von oben. *Das ganze Gleisfeld trägt Gleise und Masten.* Dafür stehen in
+  der Stadt weniger Mauern, Zäune und Hecken (Budget, E304).
+- **AA8 Abgänge:** auf die Bahnsteige östlich der Unterführung, dann zur Fußgänger-Unterführung am Westrand des
+  Gleisfelds (Nord- und Südende). *Grube mit Betontreppe, Geländer, Kopfwand mit dunkler Öffnung; die Bahnsteigdächer
+  stehen.* Gegner laufen nicht hindurch.
 
 ## Eichtabelle
 
