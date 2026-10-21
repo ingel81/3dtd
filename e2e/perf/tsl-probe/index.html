@@ -1,0 +1,165 @@
+<!doctype html>
+<!--
+  TSL probe (docs/RENDER_DENSITY_PLAN.md, "Umzug auf WebGPU"): a medium shader of the game, a ruin's damage
+  (ruin-damage.ts, simplified), written once in TSL and drawn by three's WebGPURenderer on WebGPU and on its
+  WebGL 2 backend. Per instance a vec4 (stage, seed, fall start, heading) and a row of holes in a data texture;
+  cracks and soot from noise, a bitten top corner and holes cut out (discard), the part above a ragged break line
+  falling after its start; standard lighting with the sun's shadow, the shadow pass from the same node graph.
+  ?backend=webgpu|webgl&count=2000. Results on window.__tsl. Served by e2e/perf/tsl-probe.ts.
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<title>TSL probe</title>
+<style>html, body { margin: 0; height: 100%; background: #202428; overflow: hidden; } canvas { display: block; }</style>
+<script type="importmap">
+{ "imports": { "three": "/__three/three.webgpu.js", "three/webgpu": "/__three/three.webgpu.js", "three/tsl": "/__three/three.tsl.js" } }
+</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three/webgpu';
+import {
+  Fn, If, Discard, float, vec3, vec4, ivec2, uniform, positionLocal, instanceIndex, instancedBufferAttribute,
+  textureLoad, mx_noise_float, smoothstep, mix, max, min, clamp, distance, Loop, int,
+} from 'three/tsl';
+
+const params = new URLSearchParams(location.search);
+const backend = params.get('backend') ?? 'webgpu';
+const COUNT = Number(params.get('count') ?? 2000);
+const HOLE_SLOTS = 4;
+const out = { backend, count: COUNT, ok: false, error: null };
+window.__tsl = null;
+
+try {
+  const t0 = performance.now();
+  const renderer = new THREE.WebGPURenderer({ antialias: false, forceWebGL: backend === 'webgl', trackTimestamp: true, logarithmicDepthBuffer: true });
+  renderer.setPixelRatio(1);
+  renderer.setSize(1280, 720);
+  renderer.shadowMap.enabled = true;
+  document.body.appendChild(renderer.domElement);
+  await renderer.init();
+  out.isWebGPU = renderer.backend.isWebGPUBackend === true;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x9fb4c8);
+  const camera = new THREE.PerspectiveCamera(60, 1280 / 720, 0.5, 4000);
+  camera.position.set(0, 140, 260);
+  camera.lookAt(0, 0, 0);
+  scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x403a30, 1.2));
+  const sun = new THREE.DirectionalLight(0xffffff, 2.5);
+  sun.position.set(120, 200, 80);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -300, right: 300, top: 300, bottom: -300, near: 1, far: 800 });
+  scene.add(sun);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200), new THREE.MeshStandardNodeMaterial({ color: 0x6d7a55 }));
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // A house: a box 10 x 18 x 10 m with enough rows for the fall to bend
+  const H = 18;
+  const geometry = new THREE.BoxGeometry(10, H, 10, 6, 12, 6);
+  geometry.translate(0, H / 2, 0);
+  // Per instance: stage, seed, fall start (s), heading
+  const damage = new Float32Array(COUNT * 4);
+  // Holes: a row per instance, HOLE_SLOTS texels of (x, y, z, radius) in the house's frame
+  const holes = new Float32Array(COUNT * HOLE_SLOTS * 4);
+  let s = 7;
+  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  const mesh = new THREE.InstancedMesh(geometry, null, COUNT);
+  const m = new THREE.Matrix4();
+  const side = Math.ceil(Math.sqrt(COUNT));
+  for (let i = 0; i < COUNT; i++) {
+    m.makeRotationY(rnd() * 6.28).setPosition((i % side - side / 2) * 16, 0, (Math.floor(i / side) - side / 2) * 16);
+    mesh.setMatrixAt(i, m);
+    damage.set([i % 4, rnd() * 100, i % 4 === 3 ? rnd() * 6 : -1e6, rnd() * 6.28], i * 4);
+    for (let k = 0; k < HOLE_SLOTS; k++) {
+      const big = i % 4 && rnd() < 0.5;
+      holes.set([rnd() * 10 - 5, 2 + rnd() * 12, rnd() < 0.5 ? 5 : -5, big ? 1.2 + rnd() * 2 : 0], (i * HOLE_SLOTS + k) * 4);
+    }
+  }
+  const holeTex = new THREE.DataTexture(holes, HOLE_SLOTS, COUNT, THREE.RGBAFormat, THREE.FloatType);
+  holeTex.needsUpdate = true;
+  const aDamage = instancedBufferAttribute(new THREE.InstancedBufferAttribute(damage, 4), 'vec4');
+  const uTime = uniform(0);
+
+  // The shared part of colour, cut-outs and fall: one graph, the shadow pass derives its own from it
+  const crack = Fn(([p, seed]) => mx_noise_float(p.mul(0.55).add(seed)));
+  const material = new THREE.MeshStandardNodeMaterial({ roughness: 0.85, metalness: 0 });
+  material.positionNode = Fn(() => {
+    const p = positionLocal.toVar();
+    const stage = aDamage.x;
+    const fall = max(uTime.sub(aDamage.z), 0);
+    // Above a ragged break line the house falls straight down and a little inwards (stage 3)
+    const breakY = float(H * 0.35).add(crack(p.mul(0.4), aDamage.y).mul(2.5));
+    If(stage.greaterThan(2.5).and(p.y.greaterThan(breakY)), () => {
+      const drop = min(fall.mul(fall).mul(4.9), p.y.sub(breakY).add(1));
+      p.y.subAssign(drop);
+      p.x.mulAssign(float(1).sub(min(fall.mul(0.08), 0.3)));
+      p.z.mulAssign(float(1).sub(min(fall.mul(0.08), 0.3)));
+    });
+    return p;
+  })();
+  material.colorNode = Fn(() => {
+    const p = positionLocal;
+    const stage = aDamage.x;
+    const n = crack(p, aDamage.y);
+    const base = vec3(0.78, 0.7, 0.6);
+    // Cracks and soot from stage 1, denser low down
+    const soot = smoothstep(0.15, 0.45, n).mul(clamp(stage, 0, 1)).mul(float(1).sub(p.y.div(H)).mul(0.6).add(0.4));
+    // A bite out of a top corner (stage 2 and up), its rim charred
+    const bite = p.y.sub(H * 0.65).add(p.x.add(p.z).mul(0.6)).add(n.mul(2));
+    If(stage.greaterThan(1.5).and(bite.greaterThan(4)), () => Discard());
+    // Holes from the row of this instance (a data texture, read texel by texel)
+    Loop({ start: int(0), end: int(HOLE_SLOTS) }, ({ i }) => {
+      const h = textureLoad(holeTex, ivec2(i, int(instanceIndex)));
+      If(h.w.greaterThan(0).and(stage.greaterThan(0.5)).and(distance(p, h.xyz).lessThan(h.w.mul(n.mul(0.4).add(1)))), () => Discard());
+    });
+    const rim = smoothstep(4, 2.5, bite).mul(stage.greaterThan(1.5).select(1, 0));
+    return vec4(mix(base, vec3(0.08, 0.07, 0.06), max(soot, rim)), 1);
+  })();
+  material.side = THREE.DoubleSide;
+  mesh.material = material;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+
+  // First frame: building the pipelines (WebGPU) or programs (WebGL 2), then frames uncapped
+  const tc = performance.now();
+  await renderer.compileAsync(scene, camera);
+  out.compileMs = performance.now() - tc;
+  const tf = performance.now();
+  renderer.render(scene, camera);
+  out.firstFrameMs = performance.now() - tf;
+  out.initMs = tc - t0;
+  const gpu = [];
+  const cpu = [];
+  const frames = 240;
+  for (let f = 0; f < frames; f++) {
+    uTime.value = f / 60;
+    const t = performance.now();
+    renderer.render(scene, camera);
+    cpu.push(performance.now() - t);
+    if (f % 8 === 7) {
+      await renderer.resolveTimestampsAsync('render');
+      if (renderer.info.render.timestamp) gpu.push(renderer.info.render.timestamp);
+    }
+    await new Promise((r) => requestAnimationFrame(r));
+  }
+  const med = (xs) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] : null);
+  out.cpuMedianMs = med(cpu);
+  out.gpuMedianMs = med(gpu);
+  out.gpuSamples = gpu.length;
+  // The same moment drawn for the picture: 3 s into the fall
+  uTime.value = 3;
+  renderer.render(scene, camera);
+  out.ok = true;
+} catch (e) {
+  out.error = String(e && e.stack || e).slice(0, 600);
+}
+window.__tsl = out;
+</script>
+</body>
+</html>
