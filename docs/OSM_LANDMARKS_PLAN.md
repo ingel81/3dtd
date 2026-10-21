@@ -361,6 +361,11 @@ Silhouette, L6 die Optik, L7 und L8 die Breite.
    Nachtrag (User): kein Portal- oder Tunnelmodell an Durchgängen („ausladendes Tor/Tunneleingang grundfalsch“). Die
    Öffnung ist Teil des Gebäudes: Wand und Fassade laufen über ihr weiter, Breite und Höhe aus dem Weg, der Abschluss
    aus der Fassadenfamilie (Rundbogen am Schloss, schlichte Durchfahrt am Stadthaus). Eigener Schritt nach L3.
+   Befund 2026-10-21 (Würzburg, Board-Bild nach L1): Durchgänge sind in OSM nicht immer `building_passage`; auch
+   `tunnel=yes` (Fußwege, Plätze, Treppen, Tiefgarageneinfahrten mit `layer=-1`) liegt unter Gebäuden und bekommt
+   heute das Straßentunnel-Portal. Regel für den Schritt: Ein Tunnel, dessen Linie größtenteils unter einem
+   Gebäudegrundriss liegt, ist ein Durchgang (Öffnung, kein Portal); eine Tiefgarageneinfahrt ist eine Rampe in eine
+   Öffnung im Gebäude; nur Tunnel durch Gelände bekommen Portale.
 3. **Ruinen aus OSM:** gleich als Ruine gebaut, fester Zustand, Darstellung wie zerstörte Häuser.
 4. **HQ an einem Wahrzeichen:** keine Auswahl für den Spieler, kein Verschieben durch den Import: das HQ steht genau
    dort, wo der Spieler es hinsetzt (auch im Hof). Das Wahrzeichen bleibt ganz stehen; der Abstand ums HQ entfernt
