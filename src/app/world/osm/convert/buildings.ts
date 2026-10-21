@@ -38,7 +38,8 @@ import type { CustomMapDocument, MapObject, MapPoint } from '../../custom-map/ma
 import { objectCost, SCENE_BUDGET, type CostEntry } from '../../custom-map/render/objects/scene-cost';
 import { waterLevelAt } from '../../custom-map/water-level';
 import { groundRing, type GroundBox } from '../../custom-map/object-ground';
-import type { ObjectFooting } from '../../custom-map/render/objects/object-seat';
+import { seatHeight, type ObjectFooting } from '../../custom-map/render/objects/object-seat';
+import { CoveredWays, garageFloors, massOpenings, type OpeningReport } from './building-openings';
 import { doorNodes, EdgeIndex, offDoors } from '../../../map-ops/path-graph';
 import { objectsOnPaths, PATH_WALL_SHARE } from '../../../map-ops/validation/map-validation';
 import {
@@ -62,7 +63,7 @@ import { ringArea } from '../square-clip';
 import { convexHull, pointInRing } from './raster';
 import { MASS_ASSET, type MapFootprints, type MapMass } from '../../custom-map/map-document';
 import { packFootprints, type FootprintDrop, type FootprintRing } from '../../custom-map/map-footprints';
-import { massArea, massBodies, massBox, massDistance, massRadius, massTriangles, ringsContain } from '../../custom-map/object-mass';
+import { massArea, massBodies, massBox, massDistance, massOnRamp, massRadius, massTriangles, ringsContain } from '../../custom-map/object-mass';
 import { toModel } from '../../custom-map/object-ground';
 import { CLIP_KEEP, CLIP_LEAST, clipOffRoads, isDrawnPart, raiseMass, type OsmPart } from './building-mass';
 import { findOldTown } from './old-town';
@@ -135,6 +136,8 @@ export interface BuildingReport {
   missing: { kind: string; count: number }[];
   /** How well the built follows the footprints from COVER_FROM m² (FootprintCover), each left out as none */
   coverage: CoverageReport;
+  /** Openings cut where covered ways run through raised buildings (building-openings.ts), and the stretches left closed */
+  openings: OpeningReport;
 }
 
 /**
@@ -323,6 +326,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     costShare: 0,
     missing: [],
     coverage: { footprints: 0, median: 0, below70: 0, overhang10: 0 },
+    openings: { passages: 0, arches: 0, garages: 0, closed: 0 },
   };
   // Per footprint of COVER_FROM m² or more: its covered share and the models' share outside it
   const covered: number[] = [];
@@ -359,6 +363,8 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
 
   const droppedRings = new Map<readonly MapPoint[], FootprintDrop>();
   const partsOf = partsByOutline(features);
+  // The covered ways through buildings: those buildings raised from their outline, their walls opened (building-openings.ts)
+  const coveredWays = new CoveredWays(doc);
   let seen = 0;
   for (const area of features.areas) {
     if (options.onShare && ++seen % 256 === 0) options.onShare((0.9 * seen) / features.areas.length);
@@ -432,14 +438,16 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       // How the models fit the footprint: raised from its outline instead where they fit badly and that stands
       const cover = kept.length ? coverage(outer, holes, rect, (q) => kept.some((pl) => inBox(pl, q))) : 0;
       const over = kept.length ? overhang(outer, holes, kept, ringA) : 0;
-      const raised = cover >= MODEL_COVER && over <= MODEL_OVERHANG && !ownParts.length
+      // A covered way through it (a passage, a car park's entrance): raised from its outline, its walls open there
+      const passage = coveredWays.through(outer, holes);
+      const raised = cover >= MODEL_COVER && over <= MODEL_OVERHANG && !ownParts.length && !passage
         ? null
         : raiseMass(outer, holes, rect, kind, area.tags, ringA, hashId(area.id), inOldTown, ownParts);
       // Raised as its rectangle (a pitched roof over a footprint that nearly fills it), it stands out as far as the
       // rectangle: models that cover as well and stand out no farther stay (a row of old-town houses)
       const asRect = raised?.mass.roof === 'gable' || raised?.mass.roof === 'hip';
       const rectOver = (rect.a * rect.b) / ringA - 1;
-      if (raised && !(asRect && cover >= MODEL_COVER && over <= rectOver + RECT_SLACK)) {
+      if (raised && !(asRect && !passage && cover >= MODEL_COVER && over <= rectOver + RECT_SLACK)) {
         const pl: Placement = {
           asset: MASS_ASSET,
           p: raised.centre,
@@ -529,12 +537,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     const group = `osm-b${f.id}`;
     for (const pl of f.placements) {
       const entry = catalog?.get(pl.asset);
-      const pad = pl.mass
-        ? levelPad(doc, pl, massRadius(pl.mass), massBox(pl.mass), guard)
-        : levelPad(doc, pl, entry?.footprint ?? Math.max(pl.model.box[0], pl.model.box[1]) * 0.45, entry?.box, guard);
-      if (pad.cut > 0.05) report.pads++;
-      report.deepestCutM = Math.max(report.deepestCutM, round1(pad.cut));
-      objects.push({
+      const object: MapObject = {
         id: `osm-b${++n}`,
         asset: pl.asset,
         x: round2(origin(pl).x),
@@ -546,7 +549,24 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
         group,
         ...(pl.mass ? { mass: pl.mass } : {}),
         ...(f.ruin ? { damage: 3 as const } : {}),
-      });
+      };
+      // The covered ways through it open its walls (building-openings.ts); a car park's ramp before its entrance is
+      // no ground it stands on (object-mass.ts massOnRamp)
+      const mass = pl.mass;
+      const openings = mass ? massOpenings(mass, object, coveredWays, report.openings) : [];
+      if (mass && openings.length) mass.openings = openings;
+      const onRamp = mass?.openings ? (x: number, y: number) => onRampAt(object, mass, x, y) : undefined;
+      const pad = mass
+        ? levelPad(doc, pl, massRadius(mass), massBox(mass), guard, onRamp)
+        : levelPad(doc, pl, entry?.footprint ?? Math.max(pl.model.box[0], pl.model.box[1]) * 0.45, entry?.box, guard);
+      if (pad.cut > 0.05) report.pads++;
+      report.deepestCutM = Math.max(report.deepestCutM, round1(pad.cut));
+      if (mass && openings.some((o) => o.kind === 'garage')) {
+        // Its car park entrances' floors under the seat, where the ramps meet the wall
+        const seat = seatHeight({ category: 'building', footprint: 1, height: mass.height }, object, (x, y) => heightAt(doc.terrain, x, y), () => null);
+        garageFloors(openings, object, doc.terrain, seat);
+      }
+      objects.push(object);
       if (known(RETAINING_ASSET)) {
         for (const w of retainingWalls(doc, pl, pad.level, onRoad, boxes)) {
           objects.push({ id: `osm-b${++n}`, ...w, group });
@@ -1093,16 +1113,23 @@ function roadGuard(doc: CustomMapDocument): Uint8Array {
  * it stands at that height with z 0 and nothing of it hangs: the level and
  * the deepest cut
  */
-function levelPad(doc: CustomMapDocument, pl: Placement, footprint: number, box: GroundBox | undefined, guard: Uint8Array): { level: number; cut: number } {
+function levelPad(
+  doc: CustomMapDocument,
+  pl: Placement,
+  footprint: number,
+  box: GroundBox | undefined,
+  guard: Uint8Array,
+  onRamp?: (x: number, y: number) => boolean,
+): { level: number; cut: number } {
   const t = doc.terrain;
   const g = t.grid;
   const o = origin(pl);
   let level = heightAt(t, o.x, o.y);
-  for (const c of boxCorners(pl)) level = Math.min(level, heightAt(t, c.x, c.y));
+  for (const c of boxCorners(pl)) if (!onRamp?.(c.x, c.y)) level = Math.min(level, heightAt(t, c.x, c.y));
   const ring = groundRing(footprint, box, { x: o.x, y: o.y, rotation: pl.rotation, scale: pl.scale });
   // The samples round each seat point, not the ground between them: a cut sample beside one under the level would
-  // pull the seat under the pad
-  for (let k = 0; k < ring.length; k += 2) level = Math.min(level, lowestSample(t, ring[k], ring[k + 1]));
+  // pull the seat under the pad. A car park's ramp before the building is no ground it stands on
+  for (let k = 0; k < ring.length; k += 2) if (!onRamp?.(ring[k], ring[k + 1])) level = Math.min(level, lowestSample(t, ring[k], ring[k + 1]));
   const corners = boxCorners(pl, PAD_MARGIN);
   const xs = corners.map((c) => c.x);
   const ys = corners.map((c) => c.y);
@@ -1127,6 +1154,13 @@ function levelPad(doc: CustomMapDocument, pl: Placement, footprint: number, box:
     }
   }
   return { level, cut };
+}
+
+/** Whether map point (x, y) lies in the cutting of a car park's ramp before raised building `o` (object-mass.ts massOnRamp) */
+function onRampAt(o: Pick<MapObject, 'x' | 'y' | 'rotation' | 'scale'>, mass: MapMass, x: number, y: number): boolean {
+  const m = toModel(x - o.x, y - o.y, Math.cos(o.rotation), Math.sin(o.rotation));
+  const s = o.scale || 1;
+  return massOnRamp(mass, m.x / s, m.z / s);
 }
 
 /** The lowest of the four height samples round map point (x, y) */

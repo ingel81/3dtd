@@ -4,7 +4,7 @@ import { heightAt } from '../../../map-ops/grid';
 import { objectsInAir, objectsOnPaths, validateMap } from '../../../map-ops/validation/map-validation';
 import { createMapDocument } from '../../custom-map/map-create';
 import { MASS_ASSET, type CustomMapDocument, type MapPoint } from '../../custom-map/map-document';
-import { massArea } from '../../custom-map/object-mass';
+import { massArea, massContains } from '../../custom-map/object-mass';
 import { seatHeight } from '../../custom-map/render/objects/object-seat';
 import { buildingKind, BUILDING_MODELS } from '../building-tags';
 import { OsmFrame, type OsmArea, type OsmFeatures } from '../osm-parse';
@@ -255,6 +255,77 @@ describe('OSM buildings: placing', () => {
     expect(objectsOnPaths(doc, { footingOf: (a) => byId.get(a), blocksBuild: () => true })).toEqual([]);
     expect(report.coverage).toMatchObject({ footprints: 1, below70: 0 });
     expect(report.coverage.median).toBeGreaterThan(0.97);
+  });
+
+  it('opens a covered way through a house: raised from its outline though a model would fit, its walls open over the way (E297)', () => {
+    const { doc, features } = world([area(1, box({ x: -30, y: 20 }, 10, 8.6, 0), { building: 'house' }), area(3, box({ x: 30, y: 20 }, 10, 8.6, 0), { building: 'house' })]);
+    doc.paths.nodes.push({ id: 'n1', x: -30, y: 30 }, { id: 'n2', x: -30, y: 10 }, { id: 'm1', x: 30, y: 30 }, { id: 'm2', x: 30, y: 10 });
+    doc.paths.edges.push(
+      { id: 'pass', a: 'n1', b: 'n2', width: 2.5, kind: 'path', covered: true, street: 'footway' },
+      // A way that bends through the other house more than the opening could widen over: it stays closed
+      { id: 'bent', a: 'm1', b: 'm2', width: 2.5, kind: 'path', covered: true, street: 'footway', via: [{ x: 33.5, y: 20 }] },
+    );
+    const { objects, report } = placeBuildings(doc, features, { catalog });
+    const of = (id: number) => objects.filter((o) => o.group === `osm-b${id}` && o.asset !== 'retaining-wall');
+    expect(of(1).map((o) => o.asset)).toEqual([MASS_ASSET]);
+    expect(of(3).map((o) => o.asset)).toEqual([MASS_ASSET]);
+    const house = of(1)[0];
+    const openings = house.mass!.openings!;
+    expect(openings.length).toBe(1);
+    expect(openings[0]).toMatchObject({ kind: 'passage', head: 'flat', width: 3, height: 2.9 });
+    // Its line from outside one wall to outside the other, through the middle
+    const [ax, az, bx, bz] = openings[0].line;
+    expect(massContains(house.mass!, ax, az)).toBe(false);
+    expect(massContains(house.mass!, bx, bz)).toBe(false);
+    expect(massContains(house.mass!, (ax + bx) / 2, (az + bz) / 2)).toBe(true);
+    expect(Math.hypot(bx - ax, bz - az)).toBeCloseTo(8.6 + 2, 1);
+    expect(of(3)[0].mass!.openings).toBeUndefined();
+    expect(report.openings).toEqual({ passages: 1, arches: 0, garages: 0, closed: 1 });
+    expect(validateMap({ ...doc, objects }, { footingOf: (a) => byId.get(a), blocksBuild: () => true }).filter((i) => i.severity === 'error' && i.code !== 'no-spawns').map((i) => i.code)).toEqual([]);
+  });
+
+  it('heads a passage through a palace with a round arch, a gateway wide and high (E297)', () => {
+    const palace: OsmArea = { ...area(4, box({ x: 0, y: 40 }, 40, 14, 0), { building: 'palace', historic: 'castle', 'building:levels': '3' }) };
+    const { doc, features } = world([palace]);
+    doc.paths.nodes.push({ id: 'g1', x: 0, y: 50 }, { id: 'g2', x: 0, y: 30 });
+    doc.paths.edges.push({ id: 'gate', a: 'g1', b: 'g2', width: 2.5, kind: 'path', covered: true, street: 'footway' });
+    const { objects, report } = placeBuildings(doc, features, { catalog });
+    const raised = objects.find((o) => o.group === 'osm-b4' && o.asset === MASS_ASSET)!;
+    expect(raised.mass!.facade).toBe('stone');
+    const [gate] = raised.mass!.openings!;
+    expect(gate).toMatchObject({ kind: 'passage', head: 'arch', width: 3.6 });
+    // The springing at least as high as a door, the crown under the first floor
+    expect(gate.height - gate.width / 2).toBeGreaterThanOrEqual(1.9);
+    expect(gate.height).toBeLessThan(raised.mass!.height / raised.mass!.floors + 1.5);
+    expect(report.openings.arches).toBe(1);
+  });
+
+  it("opens a car park's entrance where its ramp meets the wall: its floor at the ramp's end, the house seated on its own ground (E297)", () => {
+    const { doc, features } = world([area(2, box({ x: 30, y: 30 }, 20, 12, 0), { building: 'apartments', 'building:levels': '4' })]);
+    // A ramp from the road north down to the wall at y = 24, 2 m deep there and a little past it, as underground.ts sinks it
+    const g = doc.terrain.grid;
+    for (let j = 0; j < g.rows; j++) {
+      for (let i = 0; i < g.columns; i++) {
+        const x = -100 + i * g.cellSize;
+        const y = -100 + j * g.cellSize;
+        if (Math.abs(x - 30) <= 3 && y >= 10 && y <= 26) g.heights[j * g.columns + i] = 20 - 2 * Math.min(1, (y - 10) / 14);
+      }
+    }
+    doc.paths.nodes.push({ id: 'r0', x: 30, y: 4 }, { id: 'w', x: 30, y: 24.3 }, { id: 's', x: 30, y: 26.3 });
+    doc.paths.edges.push(
+      { id: 'ramp', a: 'r0', b: 'w', width: 4, kind: 'road', street: 'service' },
+      { id: 'stub', a: 'w', b: 's', width: 4, kind: 'road', street: 'service', covered: true },
+    );
+    const { objects, report } = placeBuildings(doc, features, { catalog });
+    const raised = objects.find((o) => o.group === 'osm-b2' && o.asset === MASS_ASSET)!;
+    const [entrance] = raised.mass!.openings!;
+    expect(entrance.kind).toBe('garage');
+    expect(entrance.floor!).toBeLessThan(-1.7);
+    expect(entrance.height - entrance.floor!).toBeCloseTo(2.4);
+    expect(report.openings.garages).toBe(1);
+    // Seated on its own ground, not down in the ramp's cutting
+    const seat = seatHeight({ category: 'building', footprint: 1, height: 12 }, raised, (x, y) => heightAt(doc.terrain, x, y), () => null);
+    expect(seat).toBeCloseTo(20, 1);
   });
 
   it('takes a model only where it covers 85 % and stands out 10 % at most, else raises the footprint (decision 1)', () => {
