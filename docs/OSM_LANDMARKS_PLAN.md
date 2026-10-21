@@ -1,7 +1,8 @@
 # Besondere Gebäude in OSM-Welten (Plan)
 
 **Status:** Plan, 2026-10-21 (TODO E297); L1 und L2 gebaut (2026-10-21, siehe „L1 und L2, gebaut“), L3 gebaut
-(2026-10-21, siehe „L3, gebaut“), Durchgänge gebaut (2026-10-21, siehe „Durchgänge, gebaut“), L4 bis L8 offen
+(2026-10-21, siehe „L3, gebaut“), Durchgänge gebaut (2026-10-21, siehe „Durchgänge, gebaut“), L4 gebaut (2026-10-21,
+siehe „L4, gebaut“), L5 bis L8 offen
 **Bezug:** [OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md) (Gebäude, Bau aus dem Grundriss E235, Altstadt V10),
 [OSM_WORLD_ROUND2_PLAN.md](OSM_WORLD_ROUND2_PLAN.md) (Wahrzeichen als Anker, E240), [CUSTOM_MAPS.md](CUSTOM_MAPS.md)
 (Katalog, Renderer), [DESTRUCTION_PLAN.md](DESTRUCTION_PLAN.md) (Ruinen, Programme), TODO E280 (Ruinen-Programme)
@@ -662,7 +663,129 @@ dem übrigen Bild (Grundrisse, die statt Modellen aus dem Grundriss stehen, vers
 ### Offen nach den Durchgängen
 
 - Gassen, die an einem als Rechteck gebauten Haus entlangstreifen (Würzburg, Nordzugang der Fußgängerzone), stoßen
-  weiter auf dessen Wand: der überdeckte Weg hält das Rechteck nicht ab (L4, Dach über dem echten Umriss).
+  weiter auf dessen Wand: der überdeckte Weg hält das Rechteck nicht ab (L4, Dach über dem echten Umriss). Gelöst in
+  L4, Ursache war eine andere (siehe dort).
 - Der Boden der Öffnung neben dem Weg ist das Gelände unter dem Haus (Gras), kein Pflaster.
 - Im Schattenpass und für die Sichtlinien ist der Bogenkopf geschlossen (Rechteck); klein, unter dem Gebäude.
 - Öffnungen entstehen beim Import; im Editor verschobene Wege nehmen ihre Öffnung nicht mit.
+
+## L4, gebaut (2026-10-21)
+
+Code: `custom-map/roof-skeleton.ts` (neu: gerades Skelett mit stehenden Wänden), `custom-map/mass-roof.ts` (neu:
+Dachmodelle), `object-mass.ts` (Dach geneigt, Höhe, Dachraster, Prüfung), `map-document.ts` (Format),
+`render/objects/mass-layer.ts` (Dach aus dem Modell, Giebelspitze an beliebiger Stelle), `convert/building-mass.ts`
+(Dachwahl, Teile, Pultdach, gemeinsame Wände), `convert/buildings.ts` (Brandwände, Gassen auf Brandwänden). Specs:
+`roof-skeleton.spec.ts`, `mass-roof.spec.ts` (beide neu), `object-mass.spec.ts`, `mass-layer.spec.ts`,
+`building-mass.spec.ts`, `building-parts.spec.ts`, `buildings.spec.ts`.
+
+### Dach über dem echten Umriss
+
+- **Ein Weg für alle geneigten Dächer:** das gerade Skelett des Umrisses mit seinen Höfen (Felkel und Obdržálek, Kanten-
+  und Teilungsereignisse, Höfe als eigene Ringe). Jede Wand fegt ihre Fläche, jede Fläche liegt in der Ebene ihrer Wand;
+  so hat jeder Flügel seinen First entlang, wo Flügel sich treffen, kommen Kehlen und Grate. Geprüft wird jedes Ergebnis
+  (jede Fläche geschlossen, jeder Punkt in der Ebene seiner Wand, alle Flächen zusammen der Grund); geht das nicht auf,
+  ein zweiter und dritter Lauf mit um 3 und 7 mm verschobenen Ecken (gleichzeitige Ereignisse rechtwinkliger Umrisse),
+  sonst steht das Dach flach (der Import nimmt dann ein flaches). Würzburg 2,4 km: das ungewichtete Skelett geht für
+  1229 von 1230 Umrissen des Vorher-Stands auf; im neuen Import steht keines der 849 geneigt gewünschten Dächer (Bauten
+  und Teile) flach, Aschaffenburg keines der 110. Nur `+ - * /` und Wurzeln:
+  das Dachraster für Tower auf Dächern rechnet auf jedem Rechner gleich.
+- **Stehende Wände** (gewichtetes Skelett, Gewicht 0): von ihnen steigt keine Fläche, die Flächen daneben laufen bis an
+  sie heran, darüber steht ein Giebel (seine Oberkante: die Knoten auf der Wandlinie). Stehende Wände sind (1) beim
+  Satteldach die Flügelenden: eine Wand, deren Fläche im ersten Lauf ein Dreieck zwischen zwei fast gegenüberliegenden
+  Langseiten (bis 32°) ist, auch schief; (2) Wände, an denen ein anderer Bau oder Teil mindestens bis zur halben
+  Dachhöhe steht (`shared`, unten); (3) beim Pultdach mit Hof alle Außenwände.
+- **Formen:** `gable` (Satteldach), `hip` (Walm), `halfhip` (neu, Krüppelwalm: Giebel bis 62 % der Firsthöhe, darüber
+  ein kleiner Walm), `mansard` (Walm, flach abgeschnitten, wo die steilen Flächen ihren Lauf hinter sich haben; jetzt
+  auch über Höfen), `skillion` (neu, Pultdach: eine Ebene in `roofDirection`, die Wände bis an sie, ohne Traufe an der
+  hohen Seite; mit Hof fällt es von allen Außenwänden zum Hof wie ein Kreuzgang), `roofAcross` (First quer über einem
+  Rechteck, Giebel an den Langseiten). `pyramid` wie bisher. Die Mansarde über dem eingerückten Umriss (`massInset`)
+  und das Satteldach nur über Rechtecken sind entfernt.
+- **Traufe und Ortgang** 0,4 m über die Wände hinaus in der Ebene der Flächen (Ecken auf den versetzten Wandlinien), an
+  geteilten Wänden keiner; wo eine Wand dabei kippen würde, bündig.
+- **Höhe:** `ridge` ist der Anstieg über dem breitesten Flügel (beim Pultdach der hohen Seite), die Neigung folgt daraus;
+  schmalere Flügel liegen niedriger. Das Dachraster (Tower, Ruinenböden) liest die Ebenen der Flächen.
+- **Zeichnen:** jede Fläche als Fächer von Dachdreiecken (Textur entlang der Traufe und die Fläche hinab), Giebel als
+  Wandviereck, dessen obere Ecken der Vertex-Shader zu ihrer Spitze zieht: die Stelle steht jetzt in `aWallD.x` (bisher
+  immer die Mitte), auch im Schatten- und Ruinen-Tiefenmaterial; ein Krüppelwalm-Giebel und die Seitenwände eines
+  Pultdachs als Rechteck und rechtwinkliges Dreieck. Keine Draw Calls, keine Programme mehr.
+
+### Aus OSM
+
+- **Tags:** `roof:shape` (Tabelle `ROOF_SHAPES`; `many`, `quadruple_saltbox` als Walm, `onion`, `dome` bis L5 als
+  Pyramide), `roof:height`, `roof:angle`, `roof:direction` (Grad oder Himmelsrichtung; Pultdach, beim Satteldach über
+  einem Rechteck die Firstlage), `roof:orientation`. Mit `height` ohne `roof:height` gehört das Dach zur Höhe: höchstens
+  45 % davon, die Wände der Rest.
+- **Ohne Tag je Art (fest nach der Saat):** Altstadthaus Satteldach, jedes sechste ein Krüppelwalm, über 350 m² jedes
+  zweite ein Walm; Haus Satteldach, Walm oder Krüppelwalm; Schloss, Burg, Rathaus, Bahnhof Walm; Kirche, Dom, Kapelle,
+  Tor steiles Satteldach; Turm ein Helm (wo seine Mitte den Umriss nicht ganz sieht, ein Walm); Wohnblock, Büro,
+  Schule, öffentlicher Bau in der Altstadt Walm mit 45°, sonst flach. Anstieg höchstens 14 m, an Wahrzeichen 18 m, am
+  Turm 24 m.
+- **Kein Rechteck mehr:** der Bau steht auf seinem vereinfachten Grundriss, auch mit geneigtem Dach und bei Teilen.
+  **Abweichung von L1 aufgehoben:** Modelle, die so weit überstanden wie das Rechteck des Baus, bleiben nicht mehr; es
+  gilt Entscheidung 1 (85 % Deckung, 10 % Überstand). Würzburg: Überstand über 10 % von 21,9 auf 0,2 % der Grundrisse.
+- **Teile:** ein Pultdach ohne `roof:direction` fällt vom höheren Teil weg, an dem es lehnt (Seitenschiff vom
+  Mittelschiff), ohne solchen über die Breite seines Rechtecks; Wände gegen einen Teil, der bis zur halben Dachhöhe
+  reicht, stehen (Flügel am Eckturm und am nächsten Flügel), der Anstieg wird dabei nicht höher.
+- **Brandwände** (`shared`, neu im Format): eine Wand, vor der an vier von fünf Punkten ein anderer stehender
+  Grundriss liegt, der bis zur halben Dachhöhe reicht (Bau: seine Oberkante, Modell: nach Geschossen geschätzt). Das
+  Dach endet dort im Giebel ohne Überstand; ein schmales Haus zwischen zwei anderen ist nach vorn und hinten geneigt.
+  Der Anstieg bleibt, die Neigung wird flacher. Ein niedriger Nachbar lässt die Dachfläche frei (sonst stünden hohe
+  kahle Giebel über Schuppen).
+
+### Nordzugang der Fußgängerzone (Würzburg)
+
+Befund: nicht das Rechteck. Das Haus an der Gasse ist in OSM ein Rechteck (18 × 12 m). Die Gasse (Fußgängerzone, zur
+Passage dahinter) liegt in OSM genau auf der Brandwand zweier Häuser und läuft dahinter unter der Passage weiter; der
+Durchgangsschritt macht sie darum ganz zum überdeckten Weg (`coverJoined`), und ein überdeckter Weg hält kein Haus ab.
+Jetzt schneidet ein Stück eines überdeckten Wegs, dessen Linie auf den Wänden eines Baus oder außerhalb liegt
+(höchstens 0,3 m drinnen) und ihm näher kommt als seine halbe Breite, den Bau zurück wie jeder Weg; unter einem Bau
+(Durchgang, Laubengang hinter der Front) bleibt alles wie bisher. Die Gasse führt zwischen den beiden Häusern zur
+Öffnung der Passage.
+
+### Zerstörung, Schatten, Sichtlinien
+
+- Dachdreiecke und Giebel liegen in den vorhandenen Batches des Baus: eine Ruine nimmt ihr Dach mit (Bruchlinie wie
+  bisher, Giebel bleiben ganz), Ruinen aus OSM ebenso.
+- Schatten: Giebelspitze aus `aWallD.x` auch im Tiefenmaterial.
+- Sichtlinien: Dachflächen als Dreiecke; Giebel sieht der LOS-Würfel wie bisher als ihr Rechteck (offen, siehe unten).
+- Öffnungen: Wände um eine Öffnung bleiben unter der Traufe; Giebel und Pultdach-Dreiecke darüber stehen ganz.
+
+### Messung
+
+Gebäudeschritt aus dem Import im Node-Lauf (gebündelt, gleiche Rohdaten, ohne Höhen, je drei frische Prozesse, Median
+des ersten Laufs; in Klammern der dritte Lauf):
+
+| | vorher | nachher |
+|---|---|---|
+| Aschaffenburg 600 m | 70 (46) ms | 90 (56) ms |
+| Würzburg 600 m | 192 (145) ms | 233 (176) ms |
+| Würzburg 2,4 km | 360 (350) ms | 429 (428) ms |
+| Bauten aus dem Grundriss (Würzburg 600 m, 2,4 km) | 488, 929 | 521, 973 |
+| über 10 % Überstand (Würzburg 600 m) | 21,9 % | 0,2 % |
+| Datei Würzburg 2,4 km | 1,098 MB | 1,104 MB |
+
+Bild (`/map-preview`, Dev-Build, 1600 × 900), vorher / nachher:
+
+| Ort, Kamera | Draw Calls | Dreiecke | Programme |
+|---|---|---|---|
+| Schloss Aschaffenburg, Übersicht | 200 / 201 | 1,42 / 1,40 M | 83 / 83 |
+| Schloss, Flügel nah | 193 / 194 | 2,10 / 2,08 M | 83 / 83 |
+| Schloss, Hof | 224 / 225 | 2,17 / 2,13 M | 83 / 83 |
+| Würzburg Dom | 317 / 300 | 4,39 / 4,16 M | 88 / 88 |
+| Dom, Seitenschiff Nord | 321 / 316 | 4,09 / 3,91 M | 88 / 88 |
+| Altstadt von oben | 337 / 331 | 3,61 / 3,44 M | 88 / 88 |
+| Fußgängerzone Nordzugang | 329 / 312 | 4,17 / 3,95 M | 88 / 88 |
+
+Die Bauten aus dem Grundriss zeichnen in denselben Meshes wie vorher. Der eine Draw Call mehr am Schloss ist nicht
+einzeln untersucht; das Bild ringsum hat andere Objekte (2062 → 2047: Häuser aus dem Grundriss statt Modellen).
+Bilder lokal `tmp/e297e/` im Worktree des Baus.
+
+### Offen nach L4
+
+- Ein Grundriss, der in OSM mehrere Altstadthäuser umfasst, steht als ein Bau mit einem Dach (die Modellreihe, die ihn
+  bis L1 vertrat, steht zu weit über). Häuserzeilen als einzelne Dächer: mit L6/L8.
+- Giebel im LOS-Würfel als Rechteck (ein Distance-Material mit dem Giebelstück wäre ein Programm mehr im LOS-Pass).
+- Dachgauben, Kamine, Dachreiter fehlen den Bauten aus dem Grundriss (die Modelle haben sie); Dachdeckung über alle
+  Flächen gleich (L5/L6).
+- Teile, die sich überschneiden (Querhaus durch das Langhaus), zeichnen beide Dächer; wo beide gleich hoch sind, liest
+  es sich als Kreuzung.

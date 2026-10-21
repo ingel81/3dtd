@@ -758,9 +758,12 @@ liest sich die Reihe als eine. Die Größen im Katalog prüft `asset-scale.spec.
 (0,2 statt 0,5 m), die Laterne steht auf einem Pfosten von 14 statt 20 cm.
 
 **Gebäude aus dem Grundriss (E235, `mass-layer.ts`):** ein Objekt kann seinen Bau selbst tragen (`mass`, Asset
-`building-mass`): Außenring und Höfe in den Achsen des Objekts, Wandhöhe, Geschosse, Dach (flach mit Attika, Sattel
-oder Walm über einem Rechteck in beliebiger Drehung, Mansarde über jedem Umriss ohne Hof, Pyramide über einem Umriss,
-den seine Mitte ganz sieht), Fassade (Putz, Beton, Blech, Ziegel, Sandstein, Fachwerk über verputztem Erdgeschoss),
+`building-mass`): Außenring und Höfe in den Achsen des Objekts, Wandhöhe, Geschosse, Dach (flach mit Attika; Sattel,
+Walm, Krüppelwalm `halfhip`, Mansarde über jedem Umriss mit Höfen, je Flügel ein First, aus dem geraden Skelett,
+`mass-roof.ts`, E297 L4; Pultdach `skillion` als eine Ebene zur Richtung `roofDirection`, um einen Hof zum Hof hin;
+`roofAcross` legt den First quer über ein Rechteck; `ridge` ist der Anstieg über dem breitesten Flügel; Wände in
+`shared` (Indizes wie `shop`) stehen an einem Nachbarn: dort endet das Dach im Giebel ohne Überstand; Pyramide über
+einem Umriss, den seine Mitte ganz sieht), Fassade (Putz, Beton, Blech, Ziegel, Sandstein, Fachwerk über verputztem Erdgeschoss),
 Dachfarbe und Deckung (`roofTint`, `roofCover`: Ziegel, Schiefer, Blech; Instanzfarbe über der Deckung), Wände mit
 Laden im Erdgeschoss (`shop`, Indizes der Außenwände: Schaufenster statt Fenster). **Teile** (`parts`, E297 L3,
 OSM `building:part`): je Teil eigene Ringe, Boden über dem Sitz (`base`), Wandhöhe, Geschosse ab dem Sitz (Fenster
@@ -783,8 +786,8 @@ und Wetterschutz nach dem Umriss, Szenenkosten mit den eigenen Dreiecken. Gezeic
 als wenige instanzierte Grundformen: jede Wand eine Instanz eines Einheitsquads (die Instanzmatrix streckt es entlang
 der Wand und bis zur Traufe, ihre dritte Spalte ist die Außennormale), jedes Dachdreieck eine Instanz eines
 Einheitsdreiecks (affine Matrix, zweite Spalte die Dachnormale), Attika als nach innen gewandte Wand mit
-Betonabdeckung; ein Giebel ist ein Wandquad, dessen obere Ecken der Vertex-Shader zur Mitte zieht (auch im
-Schattenpass), ein Keil (Decke und Gewölbe einer Öffnung) eins, dessen obere Ecken er zum Anfang zieht: ein Dreieck
+Betonabdeckung; ein Giebel ist ein Wandquad, dessen obere Ecken der Vertex-Shader zu seiner Spitze zieht (Stelle
+entlang der Wand in `aWallD.x`, auch im Schattenpass), ein Keil (Decke und Gewölbe einer Öffnung) eins, dessen obere Ecken er zum Anfang zieht: ein Dreieck
 beliebiger Form aus Ecke und zwei Kanten. Die Stücke einer Wand um eine Öffnung zählen ihre Meter ab dem Anfang der
 ganzen Wand (`aWallC`), so stehen die Fenster wie ohne Öffnung, und Fenster, die die Öffnung oder ihre Rahmung
 schneiden würde, entfallen; die Rahmung (`aWallD`: Putzfasche mit Sturz, Rundbogen mit Keilsteinen, Schlussstein,

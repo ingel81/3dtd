@@ -702,6 +702,29 @@ Gruppen, Zeilen, Platte und Menü prüft `worlds-stage.scenario.spec.ts`; hier A
   Herunterladen.* Esc und ein Klick daneben schließen es, Esc lässt das Weltmenü offen; Löschen legt die Karte in den
   Papierkorb, der aufgeht.
 
+## Y Dächer über dem echten Grundriss (2026-10-21, E297 L4)
+
+Formen, Höhen, Giebel, Brandwände und die Gasse prüfen `roof-skeleton.spec.ts`, `mass-roof.spec.ts`,
+`building-mass.spec.ts`, `building-parts.spec.ts`, `buildings.spec.ts`; hier das Auge. New game, „A map of a real
+place“, Koordinate eingeben, Standardgröße, bauen; die Kamera tief und nah stellen.
+
+- **Y1 Schloss:** `49.9763, 9.1414` (Aschaffenburg), zum Schloss, von außen und über den Hof. *Jeder der vier Flügel
+  hat ein Satteldach mit First entlang des Flügels, auch der leicht schiefe; an den Ecktürmen endet es senkrecht (kein
+  Walm, der in den Turm läuft), an den Innenecken stoßen die Dächer zweier Flügel hinter den Treppentürmen aneinander,
+  ohne Spalt und ohne Walm in die Ecke.* Vorher stand ein Flügel als Mansarde mit flachem Deckel.
+- **Y2 Dom:** `49.7932, 9.9312` (Würzburg), zum Dom. *Die Seitenschiffe tragen Pultdächer, hoch am Mittelschiff, tief
+  an der Außenwand (vorher flach mit Brüstung); der Kreuzgang südlich ein Pultdach rundum zum Hof hin, keine hohen
+  kahlen Wände.*
+- **Y3 Altstadt von oben:** gleiche Karte, über der Altstadt westlich des Doms hoch heranzoomen. *Fast alle Häuser
+  geneigt: Satteldächer, einige Krüppelwalme, große Bauten Walm; über L-, T- und Hofformen je Flügel ein First mit
+  Kehlen; zwischen Nachbarn enden Dächer an der Brandwand senkrecht ohne Überstand. Kein Haus steht als Rechteck über
+  seinen Grundriss hinaus auf Gasse oder Gehweg.*
+- **Y4 Nordzugang Fußgängerzone:** gleiche Karte, zu `49.792930, 9.929030`, von dort zur Domstraße; der Zugang liegt
+  bei `49.79316, 9.92930`, von der Domstraße nach Süden schauen. *Die Gasse führt zwischen zwei Häusern hindurch zur
+  Öffnung der Passage dahinter, nicht mehr gegen eine Wand.* Gegner, die dort laufen, gehen sichtbar durch die Gasse.
+- **Y5 Zerstören:** ein Haus mit geneigtem Dach und eines mit Pultdach zerstören (Nuke). *Das Dach fällt mit, kein
+  Dachstück oder Giebel bleibt in der Luft.*
+
 ## Z Krater und Einstürze ändern Route und Sicht (2026-10-21, E291)
 
 Drosselung, Reichweite und Neuanfrage prüfen `world-sight-batch.spec.ts`, `tower-los-registry.spec.ts`,

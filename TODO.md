@@ -81,8 +81,12 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       `building:part` mit Höhe von bis, Dach, Farben, Deckung; Schloss mit Flügeln, Ecktürmen, Hauben (als Pyramide),
       Dom mit Türmen; Wegenden und Fußwegknoten rücken aus Gebäuden. Durchgänge gebaut (2026-10-21, Nachtest
       PLAYTEST.md W): echte Öffnungen in den Wänden (Sturz, Rundbogen am Steinbau, Laibung, Decke oder Gewölbe),
-      Tiefgarageneinfahrt als dunkle Öffnung, keine Modelle. Offen: L4-L8; Gassen, die an einem als Rechteck
-      gebauten Haus entlangstreifen, stoßen weiter auf dessen Wand (L4).
+      Tiefgarageneinfahrt als dunkle Öffnung, keine Modelle. L4 gebaut (2026-10-21, Nachtest PLAYTEST.md Y): Dächer
+      über dem echten Grundriss aus dem geraden Skelett (Satteldach, Walm, Krüppelwalm, Mansarde je Flügel, Kehlen und
+      Grate, auch um Höfe), Pultdach (Seitenschiffe, Kreuzgang), Dachform aus roof:*-Tags, sonst je Art; Giebel an
+      Flügelenden und Brandwänden; kein Rechteck mehr unter geneigten Dächern; die Gasse am Nordzugang der
+      Fußgängerzone (auf einer Brandwand gemappt) hält die Häuser ab. Offen: L5-L8; Grundrisse mit mehreren
+      Altstadthäusern stehen als ein Dach.
 - [ ] **E275 Übergang vom Laden ins Spiel** (Zweitrechner 2026-10-20, Production, V-Sync, warmes Profil): in den ersten
       0,3 s nach ready ein Bild von 117-166 ms und einige von 33-50 ms (OSM und Ruined City). Darin erste Textur-Uploads
       (512×512, 650×426 mit Mipmaps, vermutlich Minimap oder UI) und eine Programmabfrage von 5,5 ms. Ursache im
@@ -212,7 +216,7 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ## 2. Gebaut, wartet auf Test
 
-### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q, R, S, T, U, V, W, X, Z und AA)
+### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q, R, S, T, U, V, W, X, Y, Z und AA)
 
 - [ ] **E303 Straßen und Gleise in OSM-Städten** (Fundstücke Würzburg 2026-10-21): Gehweg kippt nicht mehr an
       Einmündungen schmaler Wege in die Fahrbahn (Sägezahn); Erdflecken nur noch neben unbefestigten Wegen; Fußgänger-
