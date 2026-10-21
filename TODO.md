@@ -117,6 +117,12 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ### Danach: Karten ausbauen und freigeben
 
+- [ ] **E304 Zeichendichte: viel mehr zeichnen bei gleicher Leistung** (User 2026-10-21): Plan mit Ausgangsmessung in
+      [docs/RENDER_DENSITY_PLAN.md](docs/RENDER_DENSITY_PLAN.md) (Probe `e2e/perf/render-density.ts`). Befund: GPU ist
+      nicht die Grenze, die feste Sichtweite schneidet Linien und Gleise ab, CPU je Objekt und Schatten-Neubau
+      begrenzen die Dichte. Bausteine (a) Ausklammern je Instanz, (b) Sichtweite nach Bildgröße, (d) Linien als Band,
+      (c) HLOD je Kachel, (e) Verdeckung; WebGPU kurz betrachtet (TSL-Probe). Wartet auf die Entscheidungen 1 bis 9
+      im Plan.
 - [ ] **E184 Mitgelieferte Karten imposanter** (User, 2026-10-15): die meisten Karten sind noch zu langweilig, es muss
       deutlich mehr gehen (Kulisse, Höhenunterschiede, Blickpunkte, Wahrzeichen, dichtere und abwechslungsreichere
       Gestaltung). Bekannte Stellen aus dem Showreel: Wald in Autumn Keep trüb und aus der Distanz braun, Burg in der
