@@ -384,6 +384,18 @@ describe('OSM railway', () => {
     expect(plan.chains.map((c) => Math.round(c.length)).sort((a, b) => a - b)).toEqual([130, 130, 380]);
   });
 
+  it('brings the lines of a track field to one level, so their beds meet without a step', () => {
+    // Two lines 4.5 m apart across a slope of 1 in 5: the ground under them differs by 0.9 m
+    const elements = [way(10, { railway: 'rail' }, [[-190, 0, 11], [190, 0, 12]]), way(11, { railway: 'rail' }, [[-190, 4.5, 13], [190, 4.5, 14]])];
+    const { doc, plan } = world(elements, (_, y) => 10 + 0.2 * y);
+    levelRails(doc.terrain, plan, doc.paths);
+    const [a, b] = plan.chains;
+    const gap = Math.abs(profileAt(a, 190, doc.terrain) - profileAt(b, 190, doc.terrain));
+    expect(gap).toBeLessThan(0.1);
+    // Halfway between them: the ground they share
+    expect(heightAt(doc.terrain, 0, 2)).toBeCloseTo(profileAt(a, 190, doc.terrain), 0);
+  });
+
   it('runs the line through a switch where two ways go on straight, the branch on its bed at its height', () => {
     // A line split at a switch (node 13) on a slope, a siding leaving it there at 6 degrees
     const elements = [

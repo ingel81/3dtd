@@ -163,6 +163,9 @@ const MAST_CLEAR = 2.5;
 /** Metres from another line's middle within which a line's end lies on it (a branch at a switch), and over which it comes to that line's height */
 const BRANCH_REACH = 1;
 const BRANCH_RAMP = 20;
+/** Metres across which the lines of a track field come to one level, and the passes they take to it (agreeField) */
+const FIELD_REACH = 7;
+const FIELD_PASSES = 8;
 /** Cosine of the sharpest bend a line takes through a switch (30 degrees off straight); the other ways branch off it */
 const THROUGH_COS = Math.cos((30 * Math.PI) / 180);
 /** Width a rail tunnel's mouth counts with (the portal's opening is a road's) */
@@ -671,6 +674,9 @@ export function levelRails(terrain: MapTerrain, plan: RailPlan, paths: MapPaths,
   const report: RailGroundReport = { samples: 0, raisedM: 0, loweredM: 0 };
   const field = new HeightField(terrain.grid, terrain.width, terrain.depth);
   const decks = plan.overpasses.length ? bridgeDecks(paths, terrain, field) : [];
+  // Per line the samples its bridges raise and its road bridges lower, ramps included (agreeField)
+  const raised: Uint8Array[] = [];
+  const lowered: Uint8Array[] = [];
   plan.chains.forEach((c, ci) => {
     const bridges = plan.bridges.filter((b) => b.chain === ci);
     const base = groundProfile(c, terrain, bridges);
@@ -722,6 +728,8 @@ export function levelRails(terrain: MapTerrain, plan: RailPlan, paths: MapPaths,
       }
     }
     for (let k = 0; k < n; k++) out[k] += up[k] + down[k];
+    raised[ci] = Uint8Array.from(up, (v) => (v > 0.01 ? 1 : 0));
+    lowered[ci] = Uint8Array.from(down, (v) => (v < -0.01 ? 1 : 0));
     // Where the line runs in a road: STREET_SINK under it (the road's height at the line, held from the stretch's ends on)
     for (const st of plan.streets.filter((x) => x.chain === ci)) {
       for (let k = 0; k < n; k++) {
@@ -749,8 +757,10 @@ export function levelRails(terrain: MapTerrain, plan: RailPlan, paths: MapPaths,
     }
     c.profile = out;
   });
-  // A line starting or ending on another (a branch at a switch) takes that line's height there, over BRANCH_RAMP
   const lines = new LineIndex(plan.chains);
+  // The lines of a track field at one level, before the branches take their lines' heights
+  agreeField(plan, lines, raised, lowered);
+  // A line starting or ending on another (a branch at a switch) takes that line's height there, over BRANCH_RAMP
   const ends = plan.chains.map((c) =>
     [0, c.length].map((s) => {
       const on = lines.nearest(pointOn(c, s), BRANCH_REACH, c);
@@ -775,6 +785,76 @@ export function levelRails(terrain: MapTerrain, plan: RailPlan, paths: MapPaths,
   report.loweredM = Math.round(report.loweredM * 100) / 100;
   report.samples = levelBeds(terrain, plan, paths, keep);
   return report;
+}
+
+/**
+ * The lines of a track field brought to one level: each line's profile is
+ * its own (the ground along it, averaged; its bridges' and crossings'
+ * bumps), and the ground under the beds took the nearest line's. Side by
+ * side, four or five metres apart, two lines met a metre or more apart in
+ * height (a siding averaged over less toward its end, a bridge's bump of its
+ * own for each track over an underpass), the beds' ground stepped between
+ * them and the steps showed as rock between the tracks (Würzburg: 1248 of
+ * 14291 pairs of samples 3 to 7 m apart, the ground under them as level as
+ * the lines' own). Each sample takes, FIELD_PASSES times, the mean of its
+ * own height and those of the other lines within FIELD_REACH, the nearer
+ * weighing more. Crossings and street track keep theirs (the road's level),
+ * a bridge's span and its ramps (`raised`) only rise (its headroom), a
+ * stretch under a road bridge and its ramps (`lowered`) only sink (the
+ * bridge's): the lines beside them come to them, so a field's tracks rise
+ * over an underpass together
+ */
+function agreeField(plan: RailPlan, lines: LineIndex, raised: readonly Uint8Array[], lowered: readonly Uint8Array[]): void {
+  const within = (ci: number, list: readonly (readonly [number, number])[]) => {
+    const c = plan.chains[ci];
+    return Uint8Array.from(c.profile ?? [], (_, k) => (list.some(([a, b]) => k * PROFILE_STEP >= a && k * PROFILE_STEP <= b) ? 1 : 0));
+  };
+  const fixed = plan.chains.map((_, ci) =>
+    within(ci, [...plan.crossings.filter((x) => x.chain === ci).map((x) => crossingSpan(x)), ...plan.streets.filter((x) => x.chain === ci).map((x) => [x.from, x.to] as const)]),
+  );
+  const bridged = plan.chains.map((_, ci) => within(ci, plan.bridges.filter((b) => b.chain === ci).map((b) => [b.from, b.to] as const)));
+  const under = plan.chains.map((_, ci) => within(ci, plan.overpasses.filter((o) => o.chain === ci).map((o) => [o.along - o.half, o.along + o.half] as const)));
+  const floor = bridged.map((b, ci) => b.map((v, k) => v | (raised[ci]?.[k] ?? 0)));
+  const ceiling = under.map((u, ci) => u.map((v, k) => v | (lowered[ci]?.[k] ?? 0)));
+  const own = plan.chains.map((c) => Float32Array.from(c.profile ?? []));
+  // Per sample the other lines near it: their index, the metres along them, the weight
+  const near = plan.chains.map((c, ci) =>
+    Array.from(c.profile ?? [], (_, k) => {
+      if (fixed[ci][k]) return [];
+      const at = pointOn(c, Math.min(c.length, k * PROFILE_STEP));
+      return lines.within(at, FIELD_REACH, c).map((n) => ({ chain: plan.chains.indexOf(n.chain), along: n.along, w: 1 - n.dist / FIELD_REACH }));
+    }),
+  );
+  for (let pass = 0; pass < FIELD_PASSES; pass++) {
+    const next = plan.chains.map((c, ci) =>
+      Float32Array.from(c.profile ?? [], (h, k) => {
+        const list = near[ci][k];
+        if (!list.length) return h;
+        let sum = h;
+        let weight = 1;
+        for (const n of list) {
+          const other = plan.chains[n.chain].profile;
+          if (!other) continue;
+          sum += sampled(other, n.along) * n.w;
+          weight += n.w;
+        }
+        const mean = sum / weight;
+        if (floor[ci][k]) return Math.max(own[ci][k], mean);
+        if (ceiling[ci][k]) return Math.min(own[ci][k], mean);
+        return mean;
+      }),
+    );
+    plan.chains.forEach((c, ci) => {
+      if (c.profile) c.profile = next[ci];
+    });
+  }
+}
+
+/** A profile's height at `along` metres, between its samples */
+function sampled(profile: Float32Array, along: number): number {
+  const f = Math.max(0, Math.min(profile.length - 1, along / PROFILE_STEP));
+  const k = Math.min(profile.length - 2, Math.floor(f));
+  return k < 0 ? profile[0] : profile[k] + (profile[k + 1] - profile[k]) * (f - k);
 }
 
 /**
@@ -1351,6 +1431,25 @@ class LineIndex {
       }
     }
     return false;
+  }
+
+  /** Per line other than `except` whose middle comes within `r` of `p`: its nearest point, the metres along it and the distance */
+  within(p: MapPoint, r: number, except: RailChain | null = null): { chain: RailChain; along: number; dist: number }[] {
+    const c = LineIndex.CELL;
+    const best = new Map<RailChain, { chain: RailChain; along: number; dist: number }>();
+    for (let j = Math.floor((p.y - r) / c); j <= Math.floor((p.y + r) / c); j++) {
+      for (let i = Math.floor((p.x - r) / c); i <= Math.floor((p.x + r) / c); i++) {
+        for (const s of this.cells.get((i + 100_000) * 200_003 + (j + 100_000)) ?? []) {
+          if (s.chain === except) continue;
+          const d = distance(p, s.a, s.b);
+          if (d >= r || d >= (best.get(s.chain)?.dist ?? Infinity)) continue;
+          const len = s.chain.at[s.k + 1] - s.chain.at[s.k];
+          const t = len > 0 ? Math.max(0, Math.min(len, ((p.x - s.a.x) * (s.b.x - s.a.x) + (p.y - s.a.y) * (s.b.y - s.a.y)) / len)) : 0;
+          best.set(s.chain, { chain: s.chain, along: s.chain.at[s.k] + t, dist: d });
+        }
+      }
+    }
+    return [...best.values()];
   }
 
   /** The nearest track's middle within `r` of `p` (of a line other than `except`): its line and the metres along it */
