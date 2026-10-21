@@ -1,4 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { CatalogIndex, normalizeCatalog } from '../../map-ops/asset-catalog';
+import { LandscapeContext } from '../ops/landscape/landscape-context';
+import { ObjectsCommand } from './commands/objects';
 import { createMapDocument } from '../../world/custom-map/map-create';
 import { packMapFile } from '../../world/custom-map/map-file';
 import { addNode, connect, splitEdge } from '../../map-ops/path-graph';
@@ -43,5 +48,21 @@ describe('what a transaction tells when it is kept', () => {
     expect(mirrored()).toBe(true);
     editor.undo();
     expect(mirrored()).toBe(true);
+  });
+
+  it('tells the objects it added, the symmetric images of a stroke too, so no later one takes their ids', () => {
+    const editor = editorWithRoad();
+    const catalog = new CatalogIndex(normalizeCatalog(JSON.parse(readFileSync(resolve('public/maps/assets/catalog.json'), 'utf8')), 'http://x/maps/assets/'));
+    // The editor counts its object ids on from the map once it handed one out
+    editor.execute(ObjectsCommand.add('Place', editor.doc, [{ id: editor.objectIds.take(), asset: 'bush', x: 0, y: 0, z: 0, rotation: 0, scale: 1 }]));
+    // A landscape stroke under four-fold symmetry sets an object and tells it: its three images it does not tell
+    const stroke = new LandscapeContext(editor.begin('City'), 1, catalog);
+    stroke.symmetry = 'rot4';
+    const sign = stroke.addObject({ asset: 'street-sign', x: 10, y: 20, z: 0, rotation: 0, scale: 1 });
+    stroke.changed({ objects: [sign.id] });
+    stroke.finish();
+    expect(editor.doc.objects).toHaveLength(5);
+    const next = editor.objectIds.take();
+    expect(editor.doc.objects.map((o) => o.id)).not.toContain(next);
   });
 });

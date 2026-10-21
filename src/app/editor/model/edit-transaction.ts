@@ -177,17 +177,28 @@ export class EditTransaction {
   /**
    * Keeps the transaction as one step (refused while the document is held:
    * the map goes back and EditorHeldError is thrown). `report` is what the
-   * view hears with it, beyond what `changed` told it already, and the
-   * parts kept whole are told with it too: an edit may change them in place
-   * in a way that tells nothing (a road brush that split a road and then
-   * found no road to draw), and what follows the document by its changes
-   * (the worker's mirror, the view) would miss them. Null when nothing changed.
+   * view hears with it, beyond what `changed` told it already, and what
+   * the step holds is told with it too (`held`). Null when nothing changed.
    */
   commit(report: DocChange = {}): EditCommand | null {
     this.end();
     const command = this.build();
-    if (command) this.editor.push(command, this.partKeys.length ? mergeChanges(report, partsChange(this.partKeys)) : report);
+    if (command) this.editor.push(command, mergeChanges(report, this.held()));
     return command;
+  }
+
+  /**
+   * What the step holds, whether the edit told it or not: the parts kept
+   * whole (an edit may change them in place without a word: a road brush
+   * that split a road and then found no road to draw) and the objects taken
+   * away and added (a stroke tells the object it set, not its symmetric
+   * images). What follows the document by its changes would miss them: the
+   * worker's mirror, the view, the editor's count of object ids.
+   */
+  private held(): DocChange {
+    const change = this.partKeys.length ? partsChange(this.partKeys) : {};
+    const ids = [...this.removed.flatMap((c) => c.ids()), ...this.added.map((o) => o.id)];
+    return ids.length ? mergeChanges(change, { objects: ids }) : change;
   }
 
   /** Writes everything back as it was before the transaction and tells the view */

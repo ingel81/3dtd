@@ -85,7 +85,8 @@ export class ObjectsCommand implements EditCommand {
     return { objects: this.ids() };
   }
 
-  private ids(): string[] {
+  /** The ids of the objects it adds, removes or changes */
+  ids(): string[] {
     return this.edits.map((e) => (e.after ?? e.before)!.id);
   }
 }
