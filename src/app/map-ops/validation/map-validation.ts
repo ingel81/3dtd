@@ -409,6 +409,9 @@ export function objectsOnPaths(
   const ground = (x: number, y: number) => heightAt(t, x, y);
   const water = (x: number, y: number) => waterLevelAt(t, x, y, ground(x, y));
   const clear = (o: MapObject, footing: ObjectFooting | undefined, edge: MapPathEdge): boolean => {
+    // A passage runs through the building over it; a square's outline is walked, not laid (the OSM import pulls it
+    // off the walls, square-outlines.ts)
+    if (edge.covered || edge.area) return true;
     if (!options.byHeight) return false;
     if (edge.tunnel) return true;
     if (edge.kind !== 'bridge' || !footing) return false;

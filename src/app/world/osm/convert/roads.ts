@@ -13,6 +13,10 @@
  * models (convert/tunnels.ts). A tunnel shorter than MIN_TUNNEL_M (an
  * underpass under an embankment the world does not draw) stays a road, and a
  * footway or path through one stays a path (the portal is a road's).
+ * A passage through a building (`tunnel=building_passage`, `covered=yes`)
+ * is a road with `covered`: the building stands over it, the routes run
+ * under cover. A square's outline (`area=yes`) is pulled off the walls of
+ * the houses round it (square-outlines.ts).
  */
 import { flattenUnderPaths } from '../../../map-ops/path-terrain';
 import { MAX_LAYERS, readWeights, writeWeights } from '../../../map-ops/paint-ops';
@@ -20,6 +24,7 @@ import { fitSplatMaps, type MapPathEdge, type MapPathNode, type MapPaths, type M
 import type { OsmFeatures } from '../osm-parse';
 import { bridgeStyle, roadTags, sidewalkTag, type RoadSurface } from '../osm-tags';
 import { roadPaintBands } from '../../custom-map/render/paths/road-style';
+import { pullOutlines } from './square-outlines';
 
 export interface RoadStats {
   /** Road ways read, and the tunnels (ways joined end to end) kept as tunnel edges, with their length */
@@ -37,6 +42,9 @@ export interface RoadStats {
   cutAtEdge: number;
   /** Tunnel ways kept as plain roads and paths: footways and paths, and roads in tunnels shorter than MIN_TUNNEL_M */
   openTunnels: number;
+  /** Edges through buildings (passages, `covered`), and points of squares' outlines pulled off the walls (square-outlines.ts) */
+  covered: number;
+  outlinePulled: number;
 }
 
 /** A tunnel's mouth inside the map: where its portal stands */
@@ -83,7 +91,7 @@ interface Vertex {
 /** The road ways of `features` as the map's path graph */
 export function buildRoads(features: OsmFeatures): RoadBuild {
   const lim = features.half - EDGE_INSET;
-  const stats: RoadStats = { ways: 0, tunnels: 0, tunnelM: 0, nodes: 0, edges: 0, bridges: 0, km: { road: 0, path: 0, bridge: 0 }, kmByType: {}, cutAtEdge: 0, openTunnels: 0 };
+  const stats: RoadStats = { ways: 0, tunnels: 0, tunnelM: 0, nodes: 0, edges: 0, bridges: 0, km: { road: 0, path: 0, bridge: 0 }, kmByType: {}, cutAtEdge: 0, openTunnels: 0, covered: 0, outlinePulled: 0 };
   const roads = features.ways
     .filter((w) => w.nodes.length >= 2)
     .map((way) => ({ way, tags: roadTags(way.tags) }))
@@ -140,6 +148,8 @@ export function buildRoads(features: OsmFeatures): RoadBuild {
           if (tags.tunnel) edge.tunnel = true;
           else if (kind === 'bridge') edge.style = bridgeStyle(way.tags, tags.kind);
           else edge.surface = tags.surface;
+          // Through a building (a passage, an arcade): the building stands over it
+          if (tags.covered && !tags.tunnel && kind !== 'bridge') edge.covered = true;
           // The outline of a square: walked, not drawn (its surface shows it, convert/areas.ts)
           if (way.tags['area'] === 'yes' && kind !== 'bridge' && !tags.tunnel) edge.area = true;
           edges.push(edge);
@@ -153,11 +163,15 @@ export function buildRoads(features: OsmFeatures): RoadBuild {
       }
     }
   }
+  const paths = { nodes: [...nodes.values()], edges };
+  // The squares' outlines off the walls of the houses round them: they hold no building off
+  stats.outlinePulled = pullOutlines(paths, features);
+  stats.covered = edges.filter((e) => e.covered).length;
   stats.nodes = nodes.size;
   stats.edges = edges.length;
   for (const key of ['road', 'path', 'bridge'] as const) stats.km[key] = round2(stats.km[key]);
   for (const key of Object.keys(stats.kmByType)) stats.kmByType[key] = round2(stats.kmByType[key]);
-  return { paths: { nodes: [...nodes.values()], edges }, names, pavements, stats, tunnels, mouths };
+  return { paths, names, pavements, stats, tunnels, mouths };
 }
 
 type RoadWay = OsmFeatures['ways'][number];

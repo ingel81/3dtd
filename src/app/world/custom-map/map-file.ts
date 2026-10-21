@@ -444,7 +444,7 @@ function checkDocument(doc: CustomMapDocument, p: ProblemList): void {
     if (e.a === e.b) p.push({ key: 'loop', v: { what } });
     if (!finite(e.width) || e.width <= 0) p.push({ key: 'noWidth', v: { what } });
     if (e.via !== undefined && (!Array.isArray(e.via) || e.via.some((v) => !finite(v?.x) || !finite(v?.y)))) p.push({ key: 'badCurve', v: { what } });
-    if (e.tunnel !== undefined && typeof e.tunnel !== 'boolean') p.push({ key: 'badTunnel', v: { what } });
+    if ((e.tunnel !== undefined && typeof e.tunnel !== 'boolean') || (e.covered !== undefined && typeof e.covered !== 'boolean')) p.push({ key: 'badTunnel', v: { what } });
     if ((e.street !== undefined && typeof e.street !== 'string') || (e.surface !== undefined && typeof e.surface !== 'string')) p.push({ key: 'badStreet', v: { what } });
     if (e.sidewalk !== undefined && !(typeof e.sidewalk === 'number' && e.sidewalk >= 0 && e.sidewalk <= 8)) p.push({ key: 'badSidewalk', v: { what } });
   }

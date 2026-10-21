@@ -397,6 +397,12 @@ export interface MapPathEdge {
    */
   tunnel?: boolean;
   /**
+   * Runs through a building (an OSM world's `tunnel=building_passage`,
+   * `covered=yes`): drawn, levelled and walked as any road, but holds no
+   * building off; routes run under cover there as through a tunnel
+   */
+  covered?: boolean;
+  /**
    * What the road brush built along this edge, so it can be laid anew when
    * the road moves (the editor's; the game ignores it): the ground levelled
    * into an embankment or cutting, the surface painted, the lamps and fences

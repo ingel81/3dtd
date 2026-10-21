@@ -51,7 +51,7 @@ export function layPavements(paths: MapPaths, said: ReadonlyMap<string, number |
   const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
   for (const e of paths.edges) {
     const tag = said.get(e.id);
-    if (tag === undefined || e.kind !== 'road' || e.area || e.tunnel || !e.surface || !PAVED_SURFACES.has(e.surface)) continue;
+    if (tag === undefined || e.kind !== 'road' || e.area || e.tunnel || e.covered || !e.surface || !PAVED_SURFACES.has(e.surface)) continue;
     const a = nodes.get(e.a);
     const b = nodes.get(e.b);
     if (!a || !b) continue;

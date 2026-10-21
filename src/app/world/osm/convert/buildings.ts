@@ -18,7 +18,13 @@
  * 4. Clear of roads, water and the HQ: a model over a road shrinks, else it
  *    goes; one in water goes. "Over a road" is the editor's check
  *    (objectsOnPaths): the catalogue's ground of the model against the road's
- *    width, a footpath's half, so the editor reports none of them.
+ *    width, a footpath's half, so the editor reports none of them. A passage
+ *    through a building and a square's outline hold nothing off (roads.ts).
+ * 4b. Fit: models that cover less than MODEL_COVER of the footprint or
+ *    stand more than MODEL_OVERHANG of it outside give way to the footprint
+ *    raised from its own outline (building-mass.ts), cut back off the roads;
+ *    they stay only where that cannot stand (water). The report gives the
+ *    coverage (CoverageReport).
  * 5. Scene cost: with a cap (BUILDING_BUDGET_SHARE of the scene budget, off
  *    for now, or `budget`) the smallest buildings far from the HQ go first
  *    past it.
@@ -41,9 +47,9 @@ import { ringArea } from '../square-clip';
 import { convexHull, pointInRing } from './raster';
 import { MASS_ASSET, type MapFootprints, type MapMass } from '../../custom-map/map-document';
 import { packFootprints, type FootprintDrop, type FootprintRing } from '../../custom-map/map-footprints';
-import { massBox, massContains, massDistance, massRadius, massTriangles } from '../../custom-map/object-mass';
+import { massArea, massBox, massContains, massDistance, massRadius, massTriangles } from '../../custom-map/object-mass';
 import { toModel } from '../../custom-map/object-ground';
-import { clipOffRoads, raiseMass } from './building-mass';
+import { CLIP_KEEP, CLIP_LEAST, clipOffRoads, raiseMass } from './building-mass';
 import { findOldTown } from './old-town';
 import type { ImportNote } from '../../import-notes';
 
@@ -188,14 +194,13 @@ const VARIETY = 0.08;
 /** What a module (blank sides) standing alone costs in a kind that does not stand in rows: a narrow house only */
 const LONE_MODULE = 0.1;
 /**
- * A footprint whose models cover less of it than this is raised from its
- * outline instead (building-mass.ts); a big one (MASS_BIG_AREA) already
- * below MASS_COVER_BIG, one with courtyards below MASS_COVER_COURT
+ * Models stand for a footprint only where they fit it (docs/OSM_LANDMARKS_PLAN.md,
+ * decision 1): covering at least MODEL_COVER of it and standing at most
+ * MODEL_OVERHANG of its area outside it; else it is raised from its outline
+ * (building-mass.ts), and the models stay only where that cannot stand
  */
-const MASS_COVER = 0.6;
-const MASS_COVER_BIG = 0.75;
-const MASS_BIG_AREA = 250;
-const MASS_COVER_COURT = 0.9;
+const MODEL_COVER = 0.85;
+const MODEL_OVERHANG = 0.1;
 /** Footprints from this size (m²) count in the coverage report */
 const COVER_FROM = 40;
 /** A footprint filling less of its turned rectangle than this has wings (buildingKind's `winged`) */
@@ -384,9 +389,10 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
         if (clear === 'shrunk') report.shrunk++;
         kept.push(pl);
       }
-      // What the models leave of the footprint: raised from its outline instead, where that stands
+      // How the models fit the footprint: raised from its outline instead where they fit badly and that stands
       const cover = kept.length ? coverage(outer, holes, rect, (q) => kept.some((pl) => inBox(pl, q))) : 0;
-      if (cover < MASS_COVER || (ringA >= MASS_BIG_AREA && cover < MASS_COVER_BIG) || (holes.length > 0 && cover < MASS_COVER_COURT)) {
+      const over = kept.length ? overhang(outer, holes, kept, ringA) : 0;
+      if (cover < MODEL_COVER || over > MODEL_OVERHANG) {
         const raised = raiseMass(outer, holes, rect, kind, area.tags, ringA, hashId(area.id));
         if (raised) {
           const pl: Placement = {
@@ -424,7 +430,8 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
         measure(ringA, 0, 0);
         continue;
       }
-      measure(ringA, cover, ringA >= COVER_FROM ? overhang(outer, holes, kept, ringA) : 0);
+      // The models that are left where the raised building cannot stand (water), however they fit
+      measure(ringA, cover, over);
       const cost = kept.reduce((s, pl) => s + costOf(pl.asset, catalog, doc), 0);
       footprints.push({ id: area.id, ring: outer, kind, area: ringA, centre, placements: kept, cost, tint: TINTED_KINDS.has(kind) ? BUILDING_TINTS[hashId(area.id) % BUILDING_TINTS.length] : null });
     }
@@ -618,28 +625,36 @@ function massBlocked(
   if (outer.some((q) => waters.at(q) !== null || waterLevelAt(doc.terrain, q.x, q.y, heightAt(doc.terrain, q.x, q.y)) !== null)) return 'water';
   const hq = toModel(doc.hq.x - pl.p.x, doc.hq.y - pl.p.y, Math.cos(pl.rotation), Math.sin(pl.rotation));
   if (massDistance(mass, hq.x, hq.z) < HQ_CLEAR) return 'hq';
-  // Over a road: its walls cut back from the roads, then shrunk about its middle as far as a model may (MASS_SHRINK)
+  // Over a road: its walls cut back from the roads, then shrunk about its middle as far as a model may (MASS_SHRINK);
+  // where that leaves less than half of it, cut back further (CLIP_LEAST): never worse than the models it replaces
   const cos = Math.cos(pl.rotation);
   const sin = Math.sin(pl.rotation);
-  clipOffRoads(
-    mass,
-    roads.near(pl.p, massRadius(mass) + 40).map((g) => {
-      const a = toModel(g.a.x - pl.p.x, g.a.y - pl.p.y, cos, sin);
-      const b = toModel(g.b.x - pl.p.x, g.b.y - pl.p.y, cos, sin);
-      return { ax: a.x, az: a.z, bx: b.x, bz: b.z, half: g.half + ROAD_GUARD };
-    }),
-  );
-  for (const scale of MASS_SHRINK) {
-    if (!onRoad({ asset: pl.asset, x: pl.p.x, y: pl.p.y, rotation: pl.rotation, scale, mass })) {
-      pl.scale = scale;
-      pl.hw *= scale;
-      pl.hd *= scale;
-      return null;
+  const pieces = roads.blocking(pl.p, massRadius(mass) + 40).map((g) => {
+    const a = toModel(g.a.x - pl.p.x, g.a.y - pl.p.y, cos, sin);
+    const b = toModel(g.b.x - pl.p.x, g.b.y - pl.p.y, cos, sin);
+    return { ax: a.x, az: a.z, bx: b.x, bz: b.z, half: g.half + ROAD_GUARD };
+  });
+  const rings = mass.rings;
+  for (const keep of [CLIP_KEEP, CLIP_LEAST]) {
+    mass.rings = rings;
+    // Cut back further only to what is still a house
+    const clipped = clipOffRoads(mass, pieces, keep);
+    if (keep < CLIP_KEEP && (!clipped || massArea(mass) < CLIPPED_LEAST_M2)) continue;
+    for (const scale of MASS_SHRINK) {
+      if (!onRoad({ asset: pl.asset, x: pl.p.x, y: pl.p.y, rotation: pl.rotation, scale, mass })) {
+        pl.scale = scale;
+        pl.hw *= scale;
+        pl.hd *= scale;
+        return null;
+      }
     }
   }
+  mass.rings = rings;
   return 'roads';
 }
 
+/** Ground (m²) a raised building cut back past CLIP_KEEP keeps at least */
+const CLIPPED_LEAST_M2 = 20;
 /** Scales a raised building tries off a road */
 const MASS_SHRINK = [1, 0.95, 0.9, 0.85, 0.8];
 
@@ -1128,9 +1143,16 @@ interface Segment {
   /** Half the width that counts against buildings */
   half: number;
   road: boolean;
+  /** Holds buildings off: not a square's outline (pulled off the walls, square-outlines.ts) */
+  blocks: boolean;
 }
 
-/** The map's path segments in a grid of cells, for the nearest street and the roads near a building */
+/**
+ * The map's path segments in a grid of cells, for the nearest street and the
+ * roads near a building. A passage through a building (`covered`) is in
+ * neither; a square's outline (`area`) gives a front to face, nothing to keep
+ * off
+ */
 class SegmentIndex {
   private readonly cell = 32;
   private readonly cells = new Map<number, Segment[]>();
@@ -1140,11 +1162,11 @@ class SegmentIndex {
     for (const e of doc.paths.edges) {
       const a = nodes.get(e.a);
       const b = nodes.get(e.b);
-      if (!a || !b) continue;
+      if (!a || !b || e.covered) continue;
       const line = [a, ...(e.via ?? []), b];
       const half = (e.width / 2) * (e.kind === 'path' ? PATH_WALL_SHARE : 1);
       for (let s = 0; s + 1 < line.length; s++) {
-        const seg = { a: line[s], b: line[s + 1], half, road: e.kind !== 'path' };
+        const seg = { a: line[s], b: line[s + 1], half, road: e.kind !== 'path', blocks: !e.area };
         const i0 = Math.floor(Math.min(seg.a.x, seg.b.x) / this.cell);
         const i1 = Math.floor(Math.max(seg.a.x, seg.b.x) / this.cell);
         const j0 = Math.floor(Math.min(seg.a.y, seg.b.y) / this.cell);
@@ -1163,6 +1185,11 @@ class SegmentIndex {
 
   private key(i: number, j: number): number {
     return (i + 4096) * 8192 + (j + 4096);
+  }
+
+  /** Segments that hold buildings off whose cells come within `reach` of `p` */
+  blocking(p: MapPoint, reach: number): Segment[] {
+    return this.near(p, reach).filter((s) => s.blocks);
   }
 
   /** Segments whose cells come within `reach` of `p` */

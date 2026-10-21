@@ -54,6 +54,35 @@ describe('OSM roads', () => {
     // Routes run through it: the graph stays one piece from the bridge to the far mouth
     expect(routeBetween(paths, { x: -50, y: 0 }, { x: 300, y: 0 })!.length).toBeCloseTo(350, 0);
     expect(mouths.map((m) => [m.p.x, m.inward.x, m.width])).toEqual([[40, 1, 10], [300, -1, 10]]);
+    // The passage through a building is a covered road, no tunnel
+    expect(paths.edges.find((e) => e.street === 'service')).toMatchObject({ covered: true });
+    expect(paths.edges.find((e) => e.street === 'service')!.tunnel).toBeUndefined();
+    expect(stats.covered).toBe(1);
+  });
+
+  it("pulls a square's outline off the walls of the house it runs into, and keeps a node a road shares", () => {
+    // A house from x 10 to 30, y -10 to 10; the square's outline runs along its west front, 1 m inside it,
+    // from node 1 (where a street meets it) to node 3
+    const house = { type: 'way' as const, id: 50, tags: { building: 'yes' }, nodes: [91, 92, 93, 94, 91], geometry: [g(10, -10), g(30, -10), g(30, 10), g(10, 10), g(10, -10)] };
+    const f = parseOsm({
+      elements: [
+        house,
+        way(1, { highway: 'pedestrian', area: 'yes' }, [[11, -30, 1], [13, 0, 2], [11, 30, 3]]),
+        way(2, { highway: 'residential' }, [[-40, -30, 4], [11, -30, 1]]),
+      ],
+    }, frame, 1200);
+    const { paths, stats } = buildRoads(f);
+    const outline = paths.edges.find((e) => e.area)!;
+    const half = outline.width / 2;
+    // Its curve point inside the house goes out of the west front, half its width and a little more
+    const mid = outline.via![0];
+    expect(mid.x).toBeLessThanOrEqual(10 - half);
+    expect(mid.x).toBeGreaterThan(10 - half - 1);
+    expect(mid.y).toBeCloseTo(0, 1);
+    // The node the street shares stays; the far end, clear of the house, too
+    expect(paths.nodes.find((n) => n.id === 'n1')).toMatchObject({ x: 11, y: -30 });
+    expect(paths.nodes.find((n) => n.id === 'n3')!.x).toBeCloseTo(11, 1);
+    expect(stats.outlinePulled).toBe(1);
   });
 
   it('joins tunnel ways end to end, puts mouths only at its open ends inside the map, and keeps short ones and footways open', () => {

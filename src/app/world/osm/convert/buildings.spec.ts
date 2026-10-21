@@ -227,6 +227,45 @@ describe('OSM buildings: placing', () => {
     expect(objectsInAir(doc, footingOf)).toEqual([]);
   });
 
+  it('stands whole over a passage through its wing and a square outline in its walls (E297 L1)', () => {
+    const at = (xy: number[][]) => xy.map(([x, y]) => ({ x: x - 10, y: y + 45 }));
+    const outline = at(HOME_OUTER);
+    const yard = at(HOME_YARD);
+    const ringArea = (r: MapPoint[]) => Math.abs(r.reduce((s, p, i) => s + p.x * r[(i + 1) % r.length].y - r[(i + 1) % r.length].x * p.y, 0) / 2);
+    const home: OsmArea = { id: 5, from: 'relation', tags: { building: 'yes', amenity: 'social_facility' }, outer: [outline], inner: [yard], area: ringArea(outline) - ringArea(yard) };
+    const { doc, features } = world([home]);
+    // A footway through the north wing into the courtyard, and the courtyard's outline with its ends in the east
+    // and west wings, both from the road
+    doc.paths.nodes.push({ id: 'p1', x: 0, y: 80 }, { id: 'p2', x: 0, y: 58 }, { id: 'q1', x: -25, y: 40 }, { id: 'q2', x: 25, y: 46 });
+    doc.paths.edges.push(
+      { id: 'pass', a: 'p1', b: 'p2', width: 2.5, kind: 'path', covered: true },
+      { id: 'yard', a: 'q1', b: 'q2', width: 5, kind: 'road', area: true, via: [{ x: 0, y: 38 }] },
+    );
+    const { objects, report } = placeBuildings(doc, features, { catalog });
+    expect(report.masses).toBe(1);
+    const raised = objects.filter((o) => o.asset === MASS_ASSET);
+    expect(raised.length).toBe(1);
+    expect(raised[0].scale).toBe(1);
+    expect(raised[0].mass!.rings.length).toBe(2);
+    expect(massArea(raised[0].mass!) / home.area).toBeGreaterThan(0.97);
+    // The editor's check agrees: the passage runs under it, the outline is walked, not built over
+    doc.objects = objects;
+    expect(objectsOnPaths(doc, { footingOf: (a) => byId.get(a), blocksBuild: () => true })).toEqual([]);
+    expect(report.coverage).toMatchObject({ footprints: 1, below70: 0 });
+    expect(report.coverage.median).toBeGreaterThan(0.97);
+  });
+
+  it('takes a model only where it covers 85 % and stands out 10 % at most, else raises the footprint (decision 1)', () => {
+    // A house as the model is, and a trapezoid the same model would cover whole but stand a fifth outside
+    const trapezoid: MapPoint[] = [{ x: 15, y: 10 }, { x: 25, y: 10 }, { x: 23.2, y: 18.6 }, { x: 16.8, y: 18.6 }];
+    const { doc, features } = world([area(1, box({ x: -30, y: 14 }, 10, 8.6, 0), { building: 'house' }), area(2, trapezoid, { building: 'house' })]);
+    const { objects, report } = placeBuildings(doc, features, { catalog });
+    const of = (id: number) => objects.filter((o) => o.group === `osm-b${id}` && o.asset !== 'retaining-wall');
+    expect(of(1).map((o) => o.asset)).toEqual(['house-modern']);
+    expect(of(2).map((o) => o.asset)).toEqual([MASS_ASSET]);
+    expect(report.coverage).toMatchObject({ footprints: 2, below70: 0, overhang10: 0 });
+  });
+
   it('cuts a raised building back from the road it reaches onto, and raises a footprint no model fits', () => {
     // An L whose wing reaches 1 m onto the road's south half (the road along y = 0, 6 m wide)
     const l: MapPoint[] = [{ x: -30, y: 2 }, { x: 0, y: 2 }, { x: 0, y: 12 }, { x: -20, y: 12 }, { x: -20, y: 30 }, { x: -30, y: 30 }];

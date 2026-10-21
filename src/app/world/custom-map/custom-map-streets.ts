@@ -123,6 +123,8 @@ export function mapStreetNetwork(doc: StreetMap): StreetNetwork {
     };
     if (e.kind === 'bridge') street.bridge = 'yes';
     if (e.tunnel) street.tunnel = 'yes';
+    // Through a building: under cover as on a real place (route-corridor.ts runsUnderCover)
+    else if (e.covered) street.covered = 'yes';
     streets.push(street);
   }
 

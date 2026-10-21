@@ -1,6 +1,7 @@
 import { heightAt } from '../../../map-ops/grid';
 import { createMapDocument } from '../../custom-map/map-create';
 import { mapStreetNetwork } from '../../custom-map/custom-map-streets';
+import { runsUnderCover } from '../../../utils/route-corridor';
 import { OsmFrame, parseOsm } from '../osm-parse';
 import type { OverpassElement } from '../overpass-client';
 import { buildRoads } from './roads';
@@ -111,5 +112,14 @@ describe('OSM tunnels', () => {
     const { doc } = tunnelWorld();
     const net = mapStreetNetwork(doc);
     expect(net.streets.map((s) => s.tunnel)).toEqual([undefined, 'yes', undefined]);
+  });
+
+  it('gives routes a passage through a building as a covered street, under cover as on a real place (E297)', () => {
+    const { doc } = tunnelWorld();
+    doc.paths.edges[0].covered = true;
+    const net = mapStreetNetwork(doc);
+    expect(net.streets.map((s) => s.covered)).toEqual(['yes', undefined, undefined]);
+    expect(runsUnderCover(net.streets[0])).toBe(true);
+    expect(runsUnderCover(net.streets[2])).toBe(false);
   });
 });

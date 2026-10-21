@@ -96,12 +96,18 @@ export interface RoadTags {
   bridge: boolean;
   /** A tunnel (see roadTags): a tunnel edge with portals at its mouths (convert/tunnels.ts) */
   tunnel: boolean;
+  /**
+   * Runs through a building or under a roof (`tunnel=building_passage`,
+   * `covered=yes`): a road like any other, with the building standing over it
+   */
+  covered: boolean;
 }
 
 /**
  * What a way's tags make of it as a road, null for a way that is none. Width
  * from `width`, else `lanes` times 3 m, else the type's; `surface` picks the
- * material. A passage through a building is no tunnel: it stays a road.
+ * material. A passage through a building is no tunnel: it stays a road,
+ * covered by the building.
  */
 export function roadTags(tags: Record<string, string>): RoadTags | null {
   const type = tags['highway'];
@@ -118,6 +124,7 @@ export function roadTags(tags: Record<string, string>): RoadTags | null {
     surface: SURFACES[tags['surface'] ?? ''] ?? road.surface,
     bridge: !!tags['bridge'] && tags['bridge'] !== 'no',
     tunnel: !!tunnel && tunnel !== 'no' && tunnel !== 'building_passage',
+    covered: tunnel === 'building_passage' || tags['covered'] === 'yes',
   };
 }
 

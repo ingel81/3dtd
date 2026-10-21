@@ -310,8 +310,13 @@ export interface MassRoad {
   half: number;
 }
 
-/** The share of its ground a raised building keeps at least when roads cut it back (clipOffRoads) */
-const CLIP_KEEP = 0.5;
+/**
+ * The share of its ground a raised building keeps at least when roads cut it
+ * back (clipOffRoads); CLIP_LEAST where no less cut leaves it off the roads
+ * (convert/buildings.ts)
+ */
+export const CLIP_KEEP = 0.5;
+export const CLIP_LEAST = 0.3;
 
 /**
  * Cuts a raised building's walls back from the roads that reach into it (an
@@ -319,9 +324,9 @@ const CLIP_KEEP = 0.5;
  * road piece that comes nearer to the outline than its half width cuts the
  * outline along a line beside it, on the side of the building's middle.
  * Courtyards the cut reaches go. False (the building unchanged) when less
- * than CLIP_KEEP of the ground would be left or nothing is left to cut.
+ * than `keep` of the ground would be left or nothing is left to cut.
  */
-export function clipOffRoads(mass: MapMass, roads: readonly MassRoad[]): boolean {
+export function clipOffRoads(mass: MapMass, roads: readonly MassRoad[], keep = CLIP_KEEP): boolean {
   let outer = mass.rings[0];
   const before = Math.abs(ringArea2(outer));
   let holes = mass.rings.slice(1);
@@ -344,7 +349,7 @@ export function clipOffRoads(mass: MapMass, roads: readonly MassRoad[]): boolean
     holes = holes.filter((h) => ringRoadDistance(h, r) >= r.half && clipHalfPlane(h, r.ax, r.az, nx, nz, r.half)?.length === h.length);
   }
   if (outer === mass.rings[0]) return true;
-  if (Math.abs(ringArea2(outer)) < before * CLIP_KEEP) return false;
+  if (Math.abs(ringArea2(outer)) < before * keep) return false;
   mass.rings = [outer.map(round2), ...holes];
   return true;
 }

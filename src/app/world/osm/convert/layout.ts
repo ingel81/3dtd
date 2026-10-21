@@ -109,8 +109,8 @@ export class OsmLayout {
     private readonly random: () => number = Math.random,
   ) {
     const nodes = new Map(map.paths.nodes.map((n) => [n.id, n]));
-    // A tunnel holds neither the HQ nor a spawn: both would stand in the hill
-    this.lines = map.paths.edges.map((e) => ({ edgeId: e.id, kind: e.tunnel ? 'tunnel' : e.kind, line: [nodes.get(e.a)!, ...(e.via ?? []), nodes.get(e.b)!] }));
+    // A tunnel holds neither the HQ nor a spawn: both would stand in the hill (in a passage, in the house over it)
+    this.lines = map.paths.edges.map((e) => ({ edgeId: e.id, kind: e.tunnel || e.covered ? 'tunnel' : e.kind, line: [nodes.get(e.a)!, ...(e.via ?? []), nodes.get(e.b)!] }));
     const onRoad = this.nearest(place, (k) => k === 'road');
     const hit = onRoad && onRoad.dist <= HQ_ROAD_REACH ? onRoad : (this.nearest(place, (k) => k !== 'tunnel') ?? onRoad);
     this.hq = hit ? { x: round2(hit.point.x), y: round2(hit.point.y) } : null;
