@@ -155,11 +155,13 @@ const TINTS: Readonly<Record<MapMassFacade, readonly (string | null)[]>> = {
 };
 
 /**
- * The stone of landmarks without `building:colour`: red and yellow
- * sandstone, a pale limestone, a grey granite, by the footprint's salt (no
- * two castles alike); the facade's own stone texture under them
+ * The stone of landmarks without `building:colour`, by the footprint's salt
+ * (no two castles alike), over the facade's own stone: a castle's, a
+ * tower's, a church's grey, red or brown rubble and yellow sandstone; a
+ * palace's dressed sandstone, red, yellow or pale, or limestone
  */
-const LANDMARK_TINTS: readonly string[] = ['#c98a72', '#e2c9a4', '#ece4d2', '#b9724f', '#cfc8bd', '#dcb48c'];
+const LANDMARK_TINTS: readonly string[] = ['#cfc8bd', '#c98a72', '#b9a58c', '#e2c9a4', '#b9724f'];
+const PALACE_TINTS: readonly string[] = ['#c98a72', '#e2c9a4', '#d9a07f', '#ece4d2'];
 
 /** Colour names of `building:colour` the tints take as they are */
 const NAMED: Readonly<Record<string, string>> = {
@@ -277,7 +279,7 @@ export function raiseMass(
     front,
     hw: rect.a / 2,
     hd: rect.b / 2,
-    tint: massTint(tags, facade, salt, tower || LANDMARK_KINDS.has(kind)),
+    tint: massTint(tags, facade, salt, tower || LANDMARK_KINDS.has(kind) ? kind : null),
   };
 }
 
@@ -332,15 +334,15 @@ export function massFacade(tags: Readonly<Record<string, string>>, kind: Buildin
 
 /**
  * The tint: `building:colour` (a hex colour or a common name), else one of
- * the facade's by the footprint's salt; a landmark of stone one of the
- * building stones (LANDMARK_TINTS)
+ * the facade's by the footprint's salt; a landmark of stone (`landmark`: its
+ * kind) one of the building stones (LANDMARK_TINTS, a palace's PALACE_TINTS)
  */
-export function massTint(tags: Readonly<Record<string, string>>, facade: MapMassFacade, salt: number, landmark = false): string | null {
+export function massTint(tags: Readonly<Record<string, string>>, facade: MapMassFacade, salt: number, landmark: BuildingKind | null = null): string | null {
   const colour = (tags['building:colour'] ?? '').trim().toLowerCase();
   if (/^#[0-9a-f]{6}$/.test(colour)) return colour;
   if (/^#[0-9a-f]{3}$/.test(colour)) return `#${colour[1]}${colour[1]}${colour[2]}${colour[2]}${colour[3]}${colour[3]}`;
   if (NAMED[colour]) return NAMED[colour];
-  const list = landmark && facade === 'stone' ? LANDMARK_TINTS : TINTS[facade];
+  const list = landmark && facade === 'stone' ? (landmark === 'palace' ? PALACE_TINTS : LANDMARK_TINTS) : TINTS[facade];
   return list[salt % list.length];
 }
 

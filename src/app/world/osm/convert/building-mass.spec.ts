@@ -93,6 +93,25 @@ describe('raised buildings from OSM footprints', () => {
     expect(massTint({}, 'metal', 3)).toBe(massTint({}, 'metal', 3));
   });
 
+  it('raises landmarks in stone with high storeys, their stone tinted, a town hall in an old town half-timbered (E297 L2)', () => {
+    // Schloss Johannisburg: six storeys of 4.2 m
+    expect(massLevels({ 'building:levels': '6' }, 'palace', 4300)).toEqual({ floors: 6, height: 0.4 + 6 * 4.2 });
+    expect(massLevels({}, 'castle', 2000).floors).toBe(4);
+    expect(massLevels({}, 'castle', 100).floors).toBe(2);
+    expect(massLevels({}, 'cathedral', 3000)).toEqual({ floors: 1, height: 22 });
+    for (const kind of ['palace', 'castle', 'cathedral', 'tower', 'gate', 'townhall', 'monument'] as const) expect(massFacade({}, kind)).toBe('stone');
+    expect(massFacade({}, 'townhall', true)).toBe('timber');
+    expect(massFacade({ 'building:material': 'plaster' }, 'palace')).toBe('plaster');
+    // Building stone, a palace's dressed sandstone; OSM's colour first
+    expect(['#c98a72', '#e2c9a4', '#d9a07f', '#ece4d2']).toContain(massTint({}, 'stone', 7, 'palace'));
+    expect(['#cfc8bd', '#c98a72', '#b9a58c', '#e2c9a4', '#b9724f']).toContain(massTint({}, 'stone', 7, 'castle'));
+    expect(massTint({ 'building:colour': '#F5BCA9' }, 'stone', 7, 'castle')).toBe('#f5bca9');
+    // A tagged tower: stone, its own storeys, a steep pyramid, even when not slender
+    const square = ring(0, 0, 14, 0, 14, 14, 0, 14);
+    const tower = raiseMass(square, [], minAreaRect(square), 'tower', { building: 'yes', man_made: 'tower' }, 196, 1)!;
+    expect(tower.mass).toMatchObject({ facade: 'stone', roof: 'hip' });
+  });
+
   it('leaves out points on the line of their neighbours, keeps the corners', () => {
     const wobbly = ring(0, 0, 5, 0.1, 10, 0, 10, 5, 10.05, 10, 0, 10);
     expect(simplifyRing(wobbly, 0.35)?.map((p) => [Math.round(p.x), Math.round(p.y)])).toEqual([[0, 0], [10, 0], [10, 10], [0, 10]]);
