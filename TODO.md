@@ -74,6 +74,10 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Krater-Rechteck neu setzen (billig); Sicht entweder nur die betroffenen Zellen gegen den alten Cube neu proben
       (billig, Kraterwand selbst verdeckt dann nicht) oder Cube der Tower in Reichweite neu rendern (je Tower ein
       Cube-Render, bei Nuke-Dauerfeuer gedrosselt, z. B. höchstens einmal je Sekunde gesammelt).
+- [ ] **E295 Editor: eine Quelle für Objekt-Ids** (aus E292, 2026-10-21): Ids kommen heute aus zwei Quellen, dem Zähler
+      des Editors und `ObjectIds` über die Liste (LandscapeContext, map-kit, mirror-map; vergibt per Undo
+      zurückgenommene Ids wieder). Seit E292 passen sie zusammen, eine einzige Quelle wäre sauberer. Dazu: der
+      Straßenpinsel legt bei „Draw a longer road“ trotzdem einen Schritt an (nur die Teilung); Enden erst auflösen.
 - [ ] **E293 Krater auf trockenem Land kostet ein langes Bild** (Zweitrechner 2026-10-21, bei E283 gesehen, Dev-Build):
       ein Krater ohne Wasser 150-233 ms in einem Bild. Erst im Production-Build messen (3 Krater, längstes Bild), dann
       entscheiden. DESTRUCTION_PLAN.md nennt für einen Atomkrater 2-3 ms Hauptthread plus 29-38 ms einmalig.
