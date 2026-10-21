@@ -31,6 +31,21 @@ describe('OSM tunnels under buildings', () => {
     expect(stats.underground.passages).toBe(1);
   });
 
+  it('covers the ways that go on from a passage under the same house, not a street beside it (E297)', () => {
+    // A passage into the house from the street, a pedestrian street on from it inside, steps on from that inside;
+    // a lane from the passage's door along the street outside stays open
+    const { paths, stats } = build([
+      street,
+      house,
+      way(2, { highway: 'footway', tunnel: 'building_passage' }, [[0, 0, 3], [0, 15, 5]]),
+      way(3, { highway: 'pedestrian' }, [[0, 15, 5], [0, 35, 6]]),
+      way(4, { highway: 'steps' }, [[0, 35, 6], [10, 38, 7]]),
+      way(5, { highway: 'footway' }, [[0, 0, 3], [60, 2, 8]]),
+    ]);
+    expect(stats.underground.joined).toBe(2);
+    expect(paths.edges.filter((e) => e.covered).map((e) => e.street).sort()).toEqual(['footway', 'pedestrian', 'steps']);
+  });
+
   it('keeps a tunnel through the ground a tunnel, with its mouths', () => {
     const { mouths, tunnels, stats } = build([street, way(2, { highway: 'pedestrian', tunnel: 'yes' }, [[0, 0, 3], [0, 50, 5]])]);
     expect(tunnels.length).toBe(1);
@@ -48,7 +63,7 @@ describe('OSM tunnels under buildings', () => {
     ]);
     expect(tunnels).toEqual([]);
     expect(mouths).toEqual([]);
-    expect(stats.underground).toEqual({ passages: 0, carParks: 1, entrances: 1 });
+    expect(stats.underground).toEqual({ passages: 0, carParks: 1, entrances: 1, joined: 0 });
     // No aisle under the ground
     expect(paths.nodes.some((n) => Math.abs(n.y - 25) < 0.01)).toBe(false);
     // The ramp from the street's node to the wall, the stub OPENING_STUB on into the house

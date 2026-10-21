@@ -65,6 +65,8 @@ export interface UndergroundReport {
   passages: number;
   carParks: number;
   entrances: number;
+  /** Ways covered for going on from a covered way under the same buildings (coverJoined) */
+  joined: number;
 }
 
 /**
@@ -73,9 +75,9 @@ export interface UndergroundReport {
  * ways, their new nodes negative ids), their aisles gone; the ramps to sink
  */
 export function sortUnderground(roads: readonly Road[], features: OsmFeatures): { roads: Road[]; ramps: Ramp[]; report: UndergroundReport } {
-  const report: UndergroundReport = { passages: 0, carParks: 0, entrances: 0 };
+  const report: UndergroundReport = { passages: 0, carParks: 0, entrances: 0, joined: 0 };
   const tunnels = roads.filter((r) => r.tags.tunnel);
-  if (!tunnels.length) return { roads: [...roads], ramps: [], report };
+  if (!tunnels.length && !roads.some((r) => r.tags.covered)) return { roads: [...roads], ramps: [], report };
   const solids = new SolidIndex(features);
   // Nodes of the streets above: where a car park's entrance begins
   const street = new Set<number>();
@@ -127,7 +129,42 @@ export function sortUnderground(roads: readonly Road[], features: OsmFeatures): 
       for (const r of group) replaced.set(r, [{ way: r.way, tags: { ...r.tags, tunnel: false, covered: true } }]);
     }
   }
-  return { roads: roads.flatMap((r) => replaced.get(r) ?? [r]), ramps, report };
+  const out = roads.flatMap((r) => replaced.get(r) ?? [r]);
+  report.joined = coverJoined(out, solids);
+  return { roads: out, ramps, report };
+}
+
+/**
+ * Ways that go on from a covered way under the same buildings, not tagged
+ * as covered themselves (a pedestrian street whose passage OSM maps in
+ * pieces, the steps and paths inside it): covered too, where PASSAGE_SHARE
+ * of their line or more lies under buildings, joined on along the chain.
+ * Changes `roads` in place; how many it covered
+ */
+function coverJoined(roads: Road[], solids: SolidIndex): number {
+  const coveredAt = new Set<number>();
+  for (const r of roads) if (r.tags.covered) for (const id of r.way.nodes) coveredAt.add(id);
+  if (!coveredAt.size) return 0;
+  let joined = 0;
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (let k = 0; k < roads.length; k++) {
+      const r = roads[k];
+      if (r.tags.covered || r.tags.tunnel || r.tags.bridge || !r.way.nodes.some((id) => coveredAt.has(id))) continue;
+      let length = 0;
+      let under = 0;
+      walk(points(r.way), (q, d) => {
+        length += d;
+        if (solids.inside(q)) under += d;
+      });
+      if (length <= 0 || under / length < PASSAGE_SHARE) continue;
+      roads[k] = { way: r.way, tags: { ...r.tags, covered: true } };
+      for (const id of r.way.nodes) coveredAt.add(id);
+      joined++;
+      grew = true;
+    }
+  }
+  return joined;
 }
 
 /** Whether a tunnel is an underground car park: all of it a service way below ground, an aisle among it or a part under a building */
