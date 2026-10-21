@@ -1,7 +1,7 @@
 # Besondere Gebäude in OSM-Welten (Plan)
 
 **Status:** Plan, 2026-10-21 (TODO E297); L1 und L2 gebaut (2026-10-21, siehe „L1 und L2, gebaut“), L3 gebaut
-(2026-10-21, siehe „L3, gebaut“), L4 bis L8 offen
+(2026-10-21, siehe „L3, gebaut“), Durchgänge gebaut (2026-10-21, siehe „Durchgänge, gebaut“), L4 bis L8 offen
 **Bezug:** [OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md) (Gebäude, Bau aus dem Grundriss E235, Altstadt V10),
 [OSM_WORLD_ROUND2_PLAN.md](OSM_WORLD_ROUND2_PLAN.md) (Wahrzeichen als Anker, E240), [CUSTOM_MAPS.md](CUSTOM_MAPS.md)
 (Katalog, Renderer), [DESTRUCTION_PLAN.md](DESTRUCTION_PLAN.md) (Ruinen, Programme), TODO E280 (Ruinen-Programme)
@@ -575,3 +575,94 @@ WebGL-Programme 83 / 83 und 84 / 84 (keine neuen). Bilder lokal `tmp/e297c/` im 
 - L6: Fassaden der Wahrzeichen: der verputzte Dom zeigt Wohnhausfenster in 13 Reihen an den Türmen.
 - Teile, die sich in derselben Höhe überdecken, flimmern, wo ihre Wände in einer Ebene liegen (selten; OSM stapelt
   mit `min_height`). Ein schwebender Teil (Boden über allen anderen) hat keine Unterseite.
+
+## Durchgänge, gebaut (2026-10-21)
+
+Code: `map-document.ts` (`MapMassOpening`, `MapMass.openings`), `object-mass.ts` (Prüfung, `massBodies` mit `openings`,
+`hosts`, `ground`, `walls`; `massOnRamp`; `massFronts` ohne geöffnete Wände), `render/objects/mass-openings.ts` (neu:
+Wandstücke, Laibungen, Decke, Gewölbe, Rückwand), `render/objects/mass-layer.ts` (Keil, zwei Attribute je Wand,
+Rahmung im Wand-Shader), `render/objects/object-seat.ts` (Sitz ohne Rampeneinschnitt), `convert/building-openings.ts`
+(neu: Öffnungen aus den überdeckten Wegen), `convert/buildings.ts`, `convert/underground.ts` (`coverJoined`),
+`osm-tags.ts` (`indoor`). Specs: `mass-openings.spec.ts` (neu), `mass-layer.spec.ts`, `object-mass.spec.ts`,
+`buildings.spec.ts`, `building-parts.spec.ts`, `underground.spec.ts`, `roads.spec.ts`.
+
+### Öffnung im Bau aus dem Grundriss
+
+- **Format:** `MapMass.openings` (optional, höchstens 32): Linie in den Achsen des Baus (vor der Wand, durch die der Weg
+  eintritt, bis hinter die, durch die er austritt, oder bis zu seinem Ende drinnen), lichte Breite, Oberkante über dem
+  Sitz (beim Bogen der Scheitel, bei der Einfahrt auch unter dem Sitz), `passage` oder `garage`, `arch` oder `flat`,
+  bei der Einfahrt der Boden. Kein Modell, kein Portal; Teile auf dem Boden öffnen sich wie der Bau, Teile in der Luft
+  über der Öffnung bleiben ganz.
+- **Wände:** jede Wand, die das Band der Öffnung kreuzt, steht in Stücken um sie: daneben die ganze Höhe, darüber der
+  Sturz bis zur Traufe, beim Rundbogen ein eigenes Bogenstück, aus dem der Shader den Bogen ausspart (verworfene
+  Fragmente). Alle Stücke zählen ihre Meter ab dem Anfang der ganzen Wand (`aWallC`): die Fenster stehen wie ohne
+  Öffnung, Fenster und Türen, die die Öffnung oder ihre Rahmung schneiden würde, entfallen. Die Textur läuft in Metern
+  über dem Sitz, auch über die Bruchkante einer Ruine ohne Naht.
+- **Innen,** gezeichnet vom Teil auf dem Boden darüber: zwei Laibungen (Wandton, etwas dunkler, Sockel am Fuß), Decke
+  aus zwei Keilen oder beim Rundbogen ein Gewölbe aus fünf Facetten (Vieleck um den Bogenkreis, tangential bei 30° bis
+  150°), wo der Weg drinnen endet eine Rückwand. Schräge Wände: die Seiten treffen die Wand, wo sie sie kreuzen; ein
+  Teil, dessen Wand bis 1,5 m vor dem Grundriss steht (OSM-Teile folgen dem Umriss grob), wird bis dorthin geöffnet.
+  Zwei Wege, die sich drinnen treffen, öffnen ihre Laibungen ineinander, ohne Rückwand.
+- **Rahmung (Wand-Shader, `aWallD`):** Putzfasche mit Sturz am Stadthaus, am Steinbau Rundbogen aus hellerem
+  Werkstein mit Keilsteinen, Schlussstein, Kämpfer und Eckquadern, an der Tiefgarage ein Betonsturz.
+- **Tiefgarage:** dunkler Kasten von 2 m hinter der Öffnung (Laibungen, Decke, Rückwand in Instanzfarbe fast schwarz),
+  Boden dort, wo die Rampe die Wand trifft, Oberkante 2,4 m darüber; unter einem Überbau (offener Einfahrtsbereich) bis
+  zu dessen Boden. Der Bau sitzt nicht mehr im Einschnitt der Rampe (`massOnRamp`, Sitz und Ausgleichsfläche).
+- **Leistung:** alles in den vorhandenen Wand-Batches und ihrem Programm: ein Keil ist ein Wandquad, dessen obere Ecken
+  der Vertex-Shader zum Anfang zieht (auch im Schattenpass), dazu zwei `vec4`-Attribute je Wandinstanz. Keine Draw
+  Calls, keine Programme mehr; je Öffnung rund 50 Dreiecke.
+
+### Aus OSM (`building-openings.ts`)
+
+- Überdeckte Wege (`building_passage`, `covered=yes`, Tunnel zur Hälfte unter Gebäuden, Stummel der Tiefgaragen)
+  werden zu Linien verbunden und reichen 1,5 m über ihre Türen hinaus. Je Strecke auf dem Grund eines Baus eine
+  Öffnung: gerade von Wand zu Wand, so breit wie der Weg plus 0,5 m und seine Krümmung, höchstens so breit, wie die
+  Wände daneben Platz lassen (0,3 m Rest; unter 1,8 m bleibt sie zu).
+- **Höhe:** Fahrwege 3,8 m, Fußgängerzonen 3,4 m, Fußwege 2,9 m; höchstens das Erdgeschoss mal 1,15, unter der
+  niedrigsten Traufe 1,2 m Sturz, unter einem Teil, der auf dem Teil darunter steht, bis zu dessen Oberkante, unter
+  einem Überbau über offenem Grund bis zu dessen Boden.
+- **Rundbogen** am Steinbau (Fassade `stone`, also Schloss, Burg, Kirche, Turm, Tor): mindestens 3,6 m breit, Kämpfer
+  auf 2,6 m, wo Platz ist; sonst Sturz.
+- **Knicke:** eine Strecke, die mehr als 1,5 m vom Geraden abweicht, wird an ihren Knicken in gerade Stücke geteilt
+  (0,75 m), jedes eine Öffnung, die eine halbe Breite über den Knick reicht.
+- Ein Grundriss, durch den ein überdeckter Weg führt, wird immer aus dem Grundriss gebaut (nie Modelle), damit sich
+  seine Wand öffnen kann.
+
+**Abweichungen und Nebenbefunde:** (1) Wege mit `indoor=*` sind keine Straßen mehr (die Gänge im Würzburger Rathaus
+hielten es als Straßen vom eigenen Grund ab). (2) Wege, die an einen überdeckten Weg anschließen und zur Hälfte unter
+Gebäuden liegen, werden mit überdeckt (`coverJoined`; OSM taggt oft nur ein Stück einer Durchfahrt). (3) Der Stummel
+einer Tiefgarage, der vor einer zurückgeschnittenen Wand endet, reicht bis zu ihr (höchstens 4 m). (4) Schilder und
+Markisen hängen nicht an Wänden mit Öffnung. (5) Ein Versuch, den Grund unter Teilen in der Luft immer zu füllen, ist
+zurückgenommen: dort liegen oft gewollt offene Durchgänge unter einem Überbau.
+
+### Messung (ohne Höhen, Katalog wie im Spiel)
+
+| | Aschaffenburg 600 m | Würzburg 600 m | Würzburg 2,4 km (Daten an drei Stellen) |
+|---|---|---|---|
+| Öffnungen (davon Bogen, Einfahrt) | 9 (3, 0) | 74 (0, 0) | 146 (1, 1) |
+| Strecken geschlossen (Knick, Wand entlang, kein Platz) | 2 | 14 | 19 |
+| Bauten aus dem Grundriss vorher / nachher | 154 / 157 | 461 / 488 | 885 / 929 |
+| Gebäudeschritt vorher / nachher | 70 / 75 ms | 171 / 171 ms | 409 / 408 ms |
+| Datei vorher / nachher | 1,517 / 1,517 MB | 1,723 / 1,690 MB | 1,112 / 1,098 MB |
+
+Bild (`/map-preview`, Dev-Build, 1600 × 900), vorher / nachher:
+
+| Ort, Kamera | Draw Calls | Dreiecke | Programme |
+|---|---|---|---|
+| Schloss Aschaffenburg, Tor | 203 / 205 | 2,15 / 2,14 M | 83 / 83 |
+| Schloss Aschaffenburg, Hof | 200 / 200 | 2,11 / 2,08 M | 83 / 83 |
+| Würzburg Tiefgarage | 384 / 362 | 3,76 / 3,63 M | 88 / 88 |
+| Würzburg Fußgängerzone | 341 / 336 | 4,39 / 4,24 M | 88 / 88 |
+| Würzburg Hofeinfahrt | 269 / 275 | 3,79 / 3,77 M | 88 / 88 |
+
+Die Bauten aus dem Grundriss zeichnen in denselben Meshes wie vorher (Spec); die Unterschiede der Draw Calls kommen aus
+dem übrigen Bild (Grundrisse, die statt Modellen aus dem Grundriss stehen, versetzte Schilder). Bilder lokal
+`tmp/e297d/` im Worktree des Baus.
+
+### Offen nach den Durchgängen
+
+- Gassen, die an einem als Rechteck gebauten Haus entlangstreifen (Würzburg, Nordzugang der Fußgängerzone), stoßen
+  weiter auf dessen Wand: der überdeckte Weg hält das Rechteck nicht ab (L4, Dach über dem echten Umriss).
+- Der Boden der Öffnung neben dem Weg ist das Gelände unter dem Haus (Gras), kein Pflaster.
+- Im Schattenpass und für die Sichtlinien ist der Bogenkopf geschlossen (Rechteck); klein, unter dem Gebäude.
+- Öffnungen entstehen beim Import; im Editor verschobene Wege nehmen ihre Öffnung nicht mit.

@@ -660,9 +660,30 @@ Welche Tunnel Durchgang, Tiefgarage oder Geländetunnel werden, prüft `undergro
 - **V1 Kein Portal in der Stadt:** durch die Altstadt fliegen. *Kein Betonportal und kein Hügel zwischen den Häusern;
   wo vorher einer lag, stehen Häuser.*
 - **V2 Tiefgarage:** eine Garageneinfahrt suchen (Rampe an einer Hauswand). *Kurze abgesenkte Rampe bis zur Wand; die
-  Wand ist noch geschlossen (Öffnung kommt mit E297).* Gegner laufen nicht hinein.
+  Wand öffnet sich dort dunkel (W3).* Gegner laufen nicht hinein.
 - **V3 Durchgang:** einem Fußweg folgen, der unter einem Haus durchführt. *Das Haus steht, der Weg läuft darunter
   durch.*
+
+## W Durchgänge durch Gebäude (2026-10-21, E297)
+
+Wo die Öffnungen liegen und wie hoch und breit sie werden, prüfen `buildings.spec.ts`, `building-parts.spec.ts`,
+`mass-openings.spec.ts`, `mass-layer.spec.ts`; hier das Auge. New game, „A map of a real place“, `49.7932, 9.9312`
+(Würzburg, Standardgröße), bauen; im Spiel nah heranzoomen und die Kamera tief stellen.
+
+- **W1 Fußgängerzone:** zu `49.792930, 9.929030` (die Gasse, die von Westen in den Häuserblock führt und darin
+  abknickt). *Im Fachwerkhaus an der Gasse eine Durchfahrt mit heller Putzfasche und Sturz; man sieht durch sie in den
+  Gang, der im Block abknickt, Laibungen und Decke im Wandton, etwas dunkler; über der Öffnung stehen die Fenster wie
+  sonst, keines ist angeschnitten; kein Schild und keine Markise davor.* Gegner laufen sichtbar hindurch.
+- **W2 Hofeinfahrt:** zu `49.801880, 9.934385`. *Eine lange Durchfahrt (gut 40 m) durch den flachen Bau, an beiden
+  Enden offen, man sieht ans andere Ende.*
+- **W3 Tiefgarageneinfahrt:** zu `49.798047, 9.926921`. *In der Hauswand eine dunkle Öffnung mit Betonsturz, dahinter
+  ein kurzer dunkler Raum, kein Modell, kein Portal.* Liegt die Rampe tiefer als die Straße, sitzt die Öffnung unten in
+  der Rampe, das Haus selbst steht auf seinem Grund (nicht abgesenkt).
+- **W4 Torbogen am Schloss:** neue Karte `49.9763, 9.1414` (Aschaffenburg), zum Schloss. *Durch die Flügel führen
+  Rundbögen (gut 3,6 m breit, Scheitel um 4,4 m) mit hellerem Werkstein: Keilsteine mit Schlussstein, Kämpfer, Eckquader;
+  innen ein Gewölbe; man sieht vom Vorplatz in den Hof und vom Hof hinaus.*
+- **W5 Zerstören:** ein Haus mit Durchgang zerstören (Nuke). *Es fällt als Ruine wie andere Häuser, die Öffnung und
+  ihre Laibungen fallen mit; nichts bleibt in der Luft stehen.*
 
 ## Eichtabelle
 

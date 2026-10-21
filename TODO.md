@@ -87,8 +87,10 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       nur bei 85 % Deckung und 10 % Überstand, eine Rolle für Wahrzeichen, Ruinen als Ruine, HQ nimmt kein Wahrzeichen;
       Schloss Johannisburg ein Bau mit Hof. L3 gebaut (2026-10-21, Nachtest PLAYTEST.md T5-T7): Bauten aus ihren
       `building:part` mit Höhe von bis, Dach, Farben, Deckung; Schloss mit Flügeln, Ecktürmen, Hauben (als Pyramide),
-      Dom mit Türmen; Wegenden und Fußwegknoten rücken aus Gebäuden. Offen: L4-L8, Aussparung der Durchgänge (heute
-      geschlossene Wand).
+      Dom mit Türmen; Wegenden und Fußwegknoten rücken aus Gebäuden. Durchgänge gebaut (2026-10-21, Nachtest
+      PLAYTEST.md W): echte Öffnungen in den Wänden (Sturz, Rundbogen am Steinbau, Laibung, Decke oder Gewölbe),
+      Tiefgarageneinfahrt als dunkle Öffnung, keine Modelle. Offen: L4-L8; Gassen, die an einem als Rechteck
+      gebauten Haus entlangstreifen, stoßen weiter auf dessen Wand (L4).
 - [ ] **E275 Übergang vom Laden ins Spiel** (Zweitrechner 2026-10-20, Production, V-Sync, warmes Profil): in den ersten
       0,3 s nach ready ein Bild von 117-166 ms und einige von 33-50 ms (OSM und Ruined City). Darin erste Textur-Uploads
       (512×512, 650×426 mit Mipmaps, vermutlich Minimap oder UI) und eine Programmabfrage von 5,5 ms. Ursache im
@@ -218,7 +220,7 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ## 2. Gebaut, wartet auf Test
 
-### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q, R, S, T, U und V)
+### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q, R, S, T, U, V und W)
 
 - [ ] **E294 Kratersee im Editor**: der Krater-Pinsel trägt den Krater in die Karte ein (`terrain.craters`); Wasser und
       Lava tun im Editor, was sie im Spiel tun (Fall, See, Überlauf), dreimal so schnell; gespielt steht der See voll da
@@ -226,8 +228,8 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       WATER_NETWORK_PLAN.md.
 - [ ] **E299 Tunnel unter Gebäuden**: ein Tunnel, der zur Hälfte oder mehr unter Grundrissen liegt, ist ein Durchgang
       (covered) ohne Portal und Hügel; eine Tiefgarage behält nur ihre Einfahrten als Rampe bis zur Wand, ihre Gänge
-      fallen weg. Portale nur noch für Tunnel durch Gelände (V1 bis V3). Öffnung in der Wand folgt mit dem
-      Durchgangsschritt von E297. Doku: OSM_LANDMARKS_PLAN.md.
+      fallen weg. Portale nur noch für Tunnel durch Gelände (V1 bis V3). Öffnung in der Wand mit dem
+      Durchgangsschritt von E297 gebaut (W1 bis W5). Doku: OSM_LANDMARKS_PLAN.md.
 
 - [ ] **E282 Dialog „Karte von einem Ort“**: Variante B, Rahmen fest in der Mitte, Karte wird darunter gezogen, HQ in
       der Mitte; Kante per Regler unter der Karte (Rahmen bleibt gleich groß, Karte zoomt), Pfeile und +/-; Laden als
