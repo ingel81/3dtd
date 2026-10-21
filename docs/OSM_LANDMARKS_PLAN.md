@@ -358,6 +358,9 @@ Silhouette, L6 die Optik, L7 und L8 die Breite.
    Material, Alter, Name/Wikidata), fließt in Form und Optik ein.
 2. **Durchgänge:** echte Aussparung im Gebäude, durch die man hindurchsehen kann, passend zum Gebäude (Torbogen,
    Durchfahrt); Gegner laufen hindurch.
+   Nachtrag (User): kein Portal- oder Tunnelmodell an Durchgängen („ausladendes Tor/Tunneleingang grundfalsch“). Die
+   Öffnung ist Teil des Gebäudes: Wand und Fassade laufen über ihr weiter, Breite und Höhe aus dem Weg, der Abschluss
+   aus der Fassadenfamilie (Rundbogen am Schloss, schlichte Durchfahrt am Stadthaus). Eigener Schritt nach L3.
 3. **Ruinen aus OSM:** gleich als Ruine gebaut, fester Zustand, Darstellung wie zerstörte Häuser.
 4. **HQ an einem Wahrzeichen:** keine Auswahl für den Spieler, kein Verschieben durch den Import: das HQ steht genau
    dort, wo der Spieler es hinsetzt (auch im Hof). Das Wahrzeichen bleibt ganz stehen; der Abstand ums HQ entfernt
