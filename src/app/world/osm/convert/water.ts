@@ -20,8 +20,14 @@
  *   height over the water, so the water renders as deep to the wall (a fine
  *   line there, not the foam of a beach).
  * - **Waterways** (rivers, canals, streams, drains, ditches without a
- *   culvert): river lines (`terrain.rivers`) on the real course, the surface
- *   from the banks (never rising downstream), a channel dug and banks shaped.
+ *   culvert): those with water (land-tags.ts waterwayOf: rivers, canals,
+ *   streams, a drain or ditch tagged `intermittent=no`) as river lines
+ *   (`terrain.rivers`) on the real course, the surface from the banks (never
+ *   rising downstream), a channel dug and banks shaped. Dry ones (ditches,
+ *   anything `intermittent=yes`) only as their channel, dug into the ground
+ *   and painted (dry gravel, earth). A drain is a runnel of concrete half
+ *   shells, wet or dry: a shallow hollow here, its shells a surface laid
+ *   with the areas (layRunnels: no river line, no reeds, no wet bank).
  *
  * Every body's bed lies under its level, the land at its rim over it, so
  * the shore is where the mask ends. The beds and shores are painted later
@@ -33,9 +39,11 @@ import { hashCell, smooth } from '../../../map-ops/landscape-noise';
 import { MAX_LAYERS, readWeights, writeWeights } from '../../../map-ops/paint-ops';
 import { polylineLength } from '../../../map-ops/path-graph';
 import { BODY_COLORS } from '../../../map-ops/water-ops';
-import { fitSplatMaps, type MapPaths, type MapPoint, type MapRiver, type MapTerrain, type MapWater, type MapWaterKind } from '../../custom-map/map-document';
+import { fitSplatMaps, type CustomMapDocument, type MapPaths, type MapPoint, type MapRiver, type MapSurface, type MapTerrain, type MapWater, type MapWaterKind } from '../../custom-map/map-document';
 import { MAX_WATER_BODIES } from '../../custom-map/map-file';
-import { landClassOf, waterClassOf, waterwayOf, type WaterClass } from '../land-tags';
+import { MAX_SURFACE_MATERIALS, MAX_SURFACES, RUNNEL_TRICKLE, stripOutline, surfaceMaterials } from '../../custom-map/map-surfaces';
+import { availableMaterial, MATERIAL_FALLBACK } from '../area-tags';
+import { landClassOf, waterClassOf, waterwayOf, type WaterClass, type WaterwayType } from '../land-tags';
 import { runs, type OsmArea, type OsmFeatures } from '../osm-parse';
 import { clipLine, cornersBetween, perimeter, ringArea } from '../square-clip';
 import { distanceField, fillRings, sampleGrid, stampLine, type RasterGrid } from './raster';
@@ -70,8 +78,11 @@ const RIVER_STEP = 4;
 /** Wetlands smaller than this get no pools, m² */
 const MIN_WETLAND_POOLS = 400;
 
-/** Ground materials of the water's beds and shores, by role */
-export const WATER_MATERIALS = { bed: 'riverbed', bank: 'riverbed', beach: 'sand-coast' } as const;
+/**
+ * Ground materials of the water's beds and shores, by role: a dry river's
+ * bed (`intermittent=yes`) is dry gravel, a dry ditch bare earth
+ */
+export const WATER_MATERIALS = { bed: 'riverbed', bank: 'riverbed', beach: 'sand-coast', dryBed: 'riverbed-dry', ditch: 'dirt' } as const;
 export type WaterPaintRole = keyof typeof WATER_MATERIALS;
 
 export interface WaterReport {
@@ -85,9 +96,12 @@ export interface WaterReport {
   /** Bodies left out past the limit of MAX_WATER_BODIES, and areas under MIN_WATER_AREA */
   dropped: number;
   tooSmall: number;
-  /** Waterway lines drawn, and their kilometres */
+  /** Waterway lines drawn with water, and their kilometres */
   rivers: number;
   riverKm: number;
+  /** Waterway lines drawn as their channel only (dry ones and drains), and the drains' runnels among them */
+  dry: number;
+  runnels: number;
   /** Map metres the ground moved up so the map's zero is the sea level (coast only) */
   zeroShift: number;
 }
@@ -105,6 +119,10 @@ export interface WaterResult {
   roads: Uint8Array;
   /** Per height sample: the bed of a river's channel, NaN outside one (cut again once the roads are levelled) */
   channel: Float32Array;
+  /** Per height sample: 1 in the channel of a dry waterway or a drain (plants keep out; no reeds, it is not `wet`) */
+  dry: Uint8Array;
+  /** The drains' runnels, laid as surfaces with the areas (layRunnels) */
+  runnels: Runnel[];
   warnings: ImportNote[];
 }
 
@@ -134,9 +152,9 @@ export function carveWater(terrain: MapTerrain, features: OsmFeatures, paths: Ma
   const n = grid.n;
   const h = g.heights;
   const cellArea = g.cellSize * g.cellSize;
-  const report: WaterReport = { coast: false, main: null, riverSections: 0, lakes: 0, pools: 0, wetlands: 0, dropped: 0, tooSmall: 0, rivers: 0, riverKm: 0, zeroShift: 0 };
+  const report: WaterReport = { coast: false, main: null, riverSections: 0, lakes: 0, pools: 0, wetlands: 0, dropped: 0, tooSmall: 0, rivers: 0, riverKm: 0, dry: 0, runnels: 0, zeroShift: 0 };
   const warnings: ImportNote[] = [];
-  const paint: Record<WaterPaintRole, Float32Array> = { bed: new Float32Array(n * n), bank: new Float32Array(n * n), beach: new Float32Array(n * n) };
+  const paint = Object.fromEntries((Object.keys(WATER_MATERIALS) as WaterPaintRole[]).map((r) => [r, new Float32Array(n * n)])) as Record<WaterPaintRole, Float32Array>;
   const wet = new Uint8Array(n * n);
   const sea = new Uint8Array(n * n);
   const roads = roadMask(paths, grid);
@@ -241,12 +259,16 @@ export function carveWater(terrain: MapTerrain, features: OsmFeatures, paths: Ma
   else delete terrain.waterBodies;
 
   const channel = new Float32Array(n * n).fill(NaN);
-  const rivers = carveRivers(terrain, grid, features, owner, roads, paint, wet, channel);
+  const dry = new Uint8Array(n * n);
+  const runnels: Runnel[] = [];
+  const { rivers, dryLines } = carveRivers(terrain, grid, features, owner, roads, { paint, wet, channel, dry, runnels });
   report.rivers = rivers.length;
   report.riverKm = round2(rivers.reduce((s, r) => s + polylineLength(r.points), 0) / 1000);
+  report.dry = dryLines;
+  report.runnels = runnels.length;
   if (rivers.length) terrain.rivers = rivers;
   else delete terrain.rivers;
-  return { report, paint, wet, sea, roads, channel, warnings };
+  return { report, paint, wet, sea, roads, channel, dry, runnels, warnings };
 }
 
 /** The samples under the roads and paths (not bridges) and their verges */
@@ -543,12 +565,41 @@ function valueNoise(x: number, y: number, wave: number, seed: number): number {
   return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + e * u) * v;
 }
 
+/** A drain's runnel: its line, the width at its bottom and the water's width there (a trickle when dry), metres */
+export interface Runnel {
+  /** The way's id: the runnel's surfaces are `osm-w<way>-<k>` */
+  way: number;
+  line: MapPoint[];
+  width: number;
+  water: number;
+}
+
+/** Share of a runnel's bottom the water fills in a wet one (a dry one has a trickle, RUNNEL_TRICKLE) */
+const RUNNEL_FULL = 0.8;
+/** Metres of the shells either side of a runnel's bottom, up to their lip */
+export const RUNNEL_SHELL = 0.14;
+/** Material of the runnels' shells, falling back along its chain (area-tags.ts) */
+const RUNNEL_MATERIAL = 'concrete';
+/** Most points of a runnel's line in one surface (its outline holds twice as many) */
+const RUNNEL_POINTS = 400;
+
+/** What carveRivers writes besides the heights */
+interface RiverOut {
+  paint: Record<WaterPaintRole, Float32Array>;
+  wet: Uint8Array;
+  channel: Float32Array;
+  dry: Uint8Array;
+  runnels: Runnel[];
+}
+
 /**
- * The waterways as river lines, outside the water areas (a river with its
- * surface mapped runs in it already), each run on its own: the surface from
- * the banks, falling downstream (the way's direction, as OSM draws it; a way
- * drawn uphill is turned round), the channel dug and the banks shaped. A
- * sample takes the nearest waterway's shape.
+ * The waterways outside the water areas (a river with its surface mapped
+ * runs in it already), each run on its own. One with water as a river line:
+ * the surface from the banks, falling downstream (the way's direction, as
+ * OSM draws it; a way drawn uphill is turned round), the channel dug and the
+ * banks shaped. A dry one or a drain as its channel only: dug into the
+ * ground as it lies, painted by its bed (dry gravel, earth; a drain's
+ * shells are its runnel). A sample takes the nearest waterway's shape.
  */
 function carveRivers(
   terrain: MapTerrain,
@@ -556,10 +607,9 @@ function carveRivers(
   features: OsmFeatures,
   owner: Int16Array,
   roads: Uint8Array,
-  paint: Record<WaterPaintRole, Float32Array>,
-  wet: Uint8Array,
-  channel: Float32Array,
-): MapRiver[] {
+  out: RiverOut,
+): { rivers: MapRiver[]; dryLines: number } {
+  const { paint, wet, channel, dry } = out;
   const n = grid.n;
   const h = terrain.grid.heights;
   const lim = features.half - 1;
@@ -575,7 +625,7 @@ function carveRivers(
     if (i < 0 || j < 0 || i >= n || j >= n) return 0;
     return owner[j * n + i] >= 0 ? 1 : roads[j * n + i] ? 2 : 0;
   };
-  const courses: { line: MapPoint[]; surface: number[]; along: number[]; width: number; depth: number; bank: number }[] = [];
+  const courses: { line: MapPoint[]; surface: number[]; along: number[]; width: number; depth: number; bank: number; type: WaterwayType; river: boolean }[] = [];
   for (const way of features.ways) {
     const type = waterwayOf(way.tags);
     if (!type) continue;
@@ -605,15 +655,18 @@ function carveRivers(
           if (line.length < 2) continue;
           if (land(line[0].x, line[0].y) < land(line[line.length - 1].x, line[line.length - 1].y) - 1) line = line.reverse();
           const half = type.width / 2;
-          const surface = bankLevels(land, line, () => half, type.bank + 1);
+          // A river line holds water; a dry channel and a drain's runnel have no surface to level
+          const river = type.wet && type.bed !== 'concrete';
+          const surface = river ? bankLevels(land, line, () => half, type.bank + 1) : [];
           const along = [0];
           for (let k = 1; k < line.length; k++) along.push(along[k - 1] + Math.hypot(line[k].x - line[k - 1].x, line[k].y - line[k - 1].y));
-          courses.push({ line, surface, along, width: type.width, depth: type.depth, bank: type.bank });
+          courses.push({ line, surface, along, width: type.width, depth: type.depth, bank: type.bank, type, river });
+          if (type.bed === 'concrete') out.runnels.push({ way: way.id, line, width: type.width, water: type.wet ? type.width * RUNNEL_FULL : RUNNEL_TRICKLE });
         }
       }
     }
   }
-  if (!courses.length) return [];
+  if (!courses.length) return { rivers: [], dryLines: 0 };
 
   // The nearest course per sample: its distance, half width, bank, depth and surface there
   const best = new Float32Array(n * n).fill(Infinity);
@@ -631,7 +684,7 @@ function carveRivers(
       if (rel >= best[k]) return;
       best[k] = rel;
       which[k] = index;
-      level[k] = c.surface[s] + (c.surface[s + 1] - c.surface[s]) * t;
+      level[k] = c.river ? c.surface[s] + (c.surface[s + 1] - c.surface[s]) * t : 0;
     });
   });
   const base = h.slice();
@@ -642,6 +695,10 @@ function carveRivers(
     const half = cut(c);
     const dist = best[k] * (half + c.bank);
     const surface = level[k];
+    if (!c.river) {
+      dryChannel(k, dist, half, c, base[k]);
+      continue;
+    }
     if (dist < half) {
       const deep = Math.pow(1 - smooth(0.2, 1, dist / half), 1.3);
       h[k] = Math.min(base[k], surface - 0.15 - c.depth * deep);
@@ -657,16 +714,43 @@ function carveRivers(
     }
   }
   const round = (v: number) => round2(v);
-  return courses.map((c, index) => ({
-    id: `river-${index + 1}`,
-    kind: 'water',
-    points: riverPoints(c.line, c.along, c.surface).map(({ p, s }) => {
-      let k = 1;
-      while (k < c.along.length - 1 && c.along[k] < s) k++;
-      const f = Math.min(1, Math.max(0, (s - c.along[k - 1]) / Math.max(1e-6, c.along[k] - c.along[k - 1])));
-      return { x: round(p.x), y: round(p.y), width: round(c.width), height: round(c.surface[k - 1] + (c.surface[k] - c.surface[k - 1]) * f) };
-    }),
-  }));
+  const rivers = courses.filter((c) => c.river);
+  return {
+    dryLines: courses.length - rivers.length,
+    rivers: rivers.map((c, index) => ({
+      id: `river-${index + 1}`,
+      kind: 'water',
+      points: riverPoints(c.line, c.along, c.surface).map(({ p, s }) => {
+        let k = 1;
+        while (k < c.along.length - 1 && c.along[k] < s) k++;
+        const f = Math.min(1, Math.max(0, (s - c.along[k - 1]) / Math.max(1e-6, c.along[k] - c.along[k - 1])));
+        return { x: round(p.x), y: round(p.y), width: round(c.width), height: round(c.surface[k - 1] + (c.surface[k] - c.surface[k - 1]) * f) };
+      }),
+    })),
+  };
+
+  /**
+   * A sample `dist` from a dry channel's or a drain's line: dug into the
+   * ground as it lies (no water to level it), the deepest in the middle;
+   * painted by its bed, a dry river's gravel reaching a little onto its
+   * banks; a drain's shells come as its runnel (layRunnels), bare earth
+   * right beside them
+   */
+  function dryChannel(k: number, dist: number, half: number, c: { depth: number; bank: number; type: WaterwayType }, ground: number): void {
+    const bed = c.type.bed;
+    if (dist < half) {
+      const deep = Math.pow(1 - smooth(0.2, 1, dist / half), 1.3);
+      h[k] = Math.min(ground, ground - c.depth * deep);
+      channel[k] = h[k];
+      dry[k] = 1;
+      if (bed === 'earth') paint.ditch[k] = Math.max(paint.ditch[k], 0.85 * (1 - smooth(0.5, 1, dist / half)));
+      else if (bed === 'natural') paint.dryBed[k] = Math.max(paint.dryBed[k], 1);
+      // Bare earth right along the shells: no grass grows over them (the ground's paint is coarser than a runnel)
+      else paint.ditch[k] = Math.max(paint.ditch[k], 1 - smooth(0.5, 1.8, dist));
+    } else if (bed === 'natural' && c.bank > 0) {
+      paint.dryBed[k] = Math.max(paint.dryBed[k], 0.7 * (1 - smooth(0, 1, (dist - half) / c.bank)));
+    }
+  }
 }
 
 /**
@@ -821,6 +905,67 @@ export function paintWater(terrain: MapTerrain, water: WaterResult): void {
       if (touched) writeWeights(terrain, v * res + u, w);
     }
   }
+}
+
+/**
+ * The drains' runnels (`water.runnels`) laid on `doc` as surfaces of
+ * concrete shells (MapSurface with a `runnel` marking, after the areas'
+ * surfaces): a strip as wide as the runnel's bottom and its shells along
+ * the drain's line, the water at the bottom drawn by the shader; one draped
+ * layer for all of them, no draw call of their own. The material falls back
+ * along its chain past MAX_SURFACE_MATERIALS; past MAX_SURFACES the rest are
+ * left out. How many were laid
+ */
+export function layRunnels(doc: CustomMapDocument, water: WaterResult, has: ((id: string) => boolean) | null): number {
+  if (!water.runnels.length) return 0;
+  const surfaces = doc.surfaces ?? [];
+  const used = new Set(surfaceMaterials(surfaces));
+  let material = availableMaterial(RUNNEL_MATERIAL, has);
+  if (!used.has(material) && used.size >= MAX_SURFACE_MATERIALS) material = (MATERIAL_FALLBACK[material] ?? []).find((m) => used.has(m)) ?? material;
+  const laid: MapSurface[] = [];
+  const pieces = new Map<number, number>();
+  for (const r of water.runnels) {
+    const width = r.width + 2 * RUNNEL_SHELL;
+    for (let start = 0; start < r.line.length - 1; start += RUNNEL_POINTS - 1) {
+      if (surfaces.length + laid.length >= MAX_SURFACES) break;
+      const line = r.line.slice(start, start + RUNNEL_POINTS);
+      const outer = stripOutline(line, width / 2);
+      if (!outer) continue;
+      const a = line[0];
+      const b = line[line.length - 1];
+      const angle = Math.atan2(b.y - a.y, b.x - a.x);
+      const ux = Math.cos(angle);
+      const uy = Math.sin(angle);
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (const p of line) {
+        const u = (p.x - a.x) * ux + (p.y - a.y) * uy;
+        lo = Math.min(lo, u);
+        hi = Math.max(hi, u);
+      }
+      const mid = (lo + hi) / 2;
+      const k = (pieces.get(r.way) ?? 0) + 1;
+      pieces.set(r.way, k);
+      const surface: MapSurface = {
+        id: `osm-w${r.way}-${k}`,
+        material,
+        outer: outer.map((p) => ({ x: round2(p.x), y: round2(p.y) })),
+        marking: {
+          kind: 'runnel',
+          x: round2(a.x + ux * mid),
+          y: round2(a.y + uy * mid),
+          angle: Math.round(angle * 1e4) / 1e4,
+          length: round2(Math.max(width, hi - lo)),
+          width: round2(width),
+        },
+        group: `osm-w${r.way}`,
+      };
+      if (r.water !== RUNNEL_TRICKLE) surface.marking!.water = round2(Math.min(r.water, width));
+      laid.push(surface);
+    }
+  }
+  if (laid.length) doc.surfaces = [...surfaces, ...laid];
+  return laid.length;
 }
 
 const round2 = (v: number): number => Math.round(v * 100) / 100;

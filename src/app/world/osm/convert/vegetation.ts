@@ -191,7 +191,7 @@ export function growVegetation(doc: CustomMapDocument, features: OsmFeatures, la
   // Where nothing grows: roads (with the distance to them), water, buildings, the HQ and spawns
   const roadDist = distanceField(water.roads, n, grid.step, 6, false);
   const blocked = new Uint8Array(n * n);
-  for (let k = 0; k < blocked.length; k++) if (water.wet[k] || water.sea[k]) blocked[k] = 1;
+  for (let k = 0; k < blocked.length; k++) if (water.wet[k] || water.sea[k] || water.dry[k]) blocked[k] = 1;
   for (const a of features.areas) {
     if (!a.tags['building']) continue;
     fillRings([...a.outer, ...a.inner], grid, (i, j) => (blocked[j * n + i] = 1));

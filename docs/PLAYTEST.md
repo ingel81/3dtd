@@ -540,6 +540,18 @@ Norden oben.
   neue OSM-Welt bauen. *Alle drei mit Bild; die OSM-Welt mit Norden oben wie im Spiel (vorher stand ihr Bild auf dem
   Kopf).*
 
+## P Gräben und Rinnen in OSM-Welten (2026-10-21, E286)
+
+Neu bauen, alte OSM-Welten behalten ihre Gräben. Ort im Feld „A map of a real place“ als Koordinaten eingeben.
+
+- **P1 Betonrinne im Weinberg:** New game, „A map of a real place“, `49.9214, 7.0720` (Mosel), bauen und von nah auf
+  die Rinne im Weinberg östlich des HQ schauen, dann aus Spielhöhe. *Eine schmale graue Rinne aus Halbschalen den
+  Hang hinab, eine Seite hell, eine im Schatten, am Grund ein dunkles Rinnsal; kein blaues Band, kein Schilf, kein
+  Kiesufer, kein Gras auf den Schalen. Aus Spielhöhe eine feine helle Linie mit dunkler Mitte.* Wenn möglich auch am
+  eigenen Weinberg mit Rinnen.
+- **P2 Erdgräben:** wie P1 mit `49.8895, 10.1600` (Weinberg in Franken mit vielen Gräben). *Die Gräben sind flache
+  Erdmulden ohne Wasser und ohne Schilf; Weinbergzeilen reichen bis an den Graben, stehen nicht darin.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo

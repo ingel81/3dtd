@@ -4,7 +4,8 @@ import type { MapPaths, MapPoint, MapTerrain } from '../../custom-map/map-docume
 import { landClassOf, waterClassOf, waterwayOf } from '../land-tags';
 import { OsmFrame, type OsmArea, type OsmFeatures, type OsmWay } from '../osm-parse';
 import { ringArea } from '../square-clip';
-import { carveWater, coastMask, isQuayWater, settleWater } from './water';
+import { MAX_SURFACE_MATERIALS, RUNNEL_TRICKLE, surfaceProblems } from '../../custom-map/map-surfaces';
+import { carveWater, coastMask, isQuayWater, layRunnels, RUNNEL_SHELL, settleWater } from './water';
 import { sampleGrid } from './raster';
 
 const SIDE = 400;
@@ -156,5 +157,120 @@ describe('OSM world water', () => {
     expect(body.mask[k]).toBe(0);
     expect(t.grid.heights[k]).toBeGreaterThan(body.level);
     expect(body.mask[k + 20 * n]).toBe(255);
+  });
+});
+
+describe('OSM world drains and ditches (E286)', () => {
+  // A slope falling to the north, a line down it at x = 0
+  const slope = () => terrain((x, y) => 30 - y * 0.08);
+  const down = [{ x: 0, y: -150 }, { x: 0, y: 150 }];
+  const n = sampleGrid(SIDE, 2).n;
+  const at = (x: number, y: number) => Math.round((y + SIDE / 2) / 2) * n + Math.round((x + SIDE / 2) / 2);
+  const doc = () => createMapDocument({ id: 't', name: 't', width: SIDE, depth: SIDE, cellSize: 2, baseMaterial: 'grass', splatResolution: 128, starter: false });
+
+  it('reads a waterway as its bed, its width and whether water stands in it', () => {
+    expect(waterwayOf({ waterway: 'drain' })).toMatchObject({ width: 0.5, bed: 'concrete', wet: false });
+    expect(waterwayOf({ waterway: 'ditch' })).toMatchObject({ bed: 'earth', wet: false });
+    expect(waterwayOf({ waterway: 'stream' })).toMatchObject({ bed: 'natural', wet: true });
+    // A width tag below the old floor of 0.8 m holds
+    expect(waterwayOf({ waterway: 'drain', width: '0.4' })?.width).toBe(0.4);
+    expect(waterwayOf({ waterway: 'drain', width: '0,35 m' })?.width).toBe(0.35);
+    expect(waterwayOf({ waterway: 'ditch', width: '0.1' })?.width).toBe(0.3);
+    // Explicitly not intermittent: water in a drain or ditch; intermittent: dry, but drawn
+    expect(waterwayOf({ waterway: 'ditch', intermittent: 'no' })?.wet).toBe(true);
+    expect(waterwayOf({ waterway: 'drain', intermittent: 'no' })).toMatchObject({ wet: true, bed: 'concrete' });
+    expect(waterwayOf({ waterway: 'stream', intermittent: 'yes' })).toMatchObject({ wet: false, bed: 'natural' });
+    expect(waterwayOf({ waterway: 'river', intermittent: 'yes' })?.wet).toBe(false);
+    expect(waterwayOf({ waterway: 'ditch', tunnel: 'culvert' })).toBeNull();
+  });
+
+  it('digs a dry ditch into the ground as it lies, earth in it, no river line, no water, no reeds', () => {
+    const t = slope();
+    const before = t.grid.heights.slice();
+    const result = carveWater(t, features({ ways: [{ tags: { waterway: 'ditch' }, points: down }] }), noPaths, 0);
+    expect(t.rivers).toBeUndefined();
+    expect(result.report).toMatchObject({ rivers: 0, dry: 1, runnels: 0 });
+    expect(result.runnels).toEqual([]);
+    const k = at(0, 20);
+    expect(t.grid.heights[k]).toBeCloseTo(before[k] - 0.5, 1);
+    expect(t.grid.heights[at(10, 20)]).toBe(before[at(10, 20)]);
+    expect(result.dry[k]).toBe(1);
+    expect(result.wet.every((v) => v === 0)).toBe(true);
+    expect(result.paint.ditch[k]).toBeGreaterThan(0.5);
+    expect(result.paint.bed.every((v) => v === 0)).toBe(true);
+  });
+
+  it('draws an intermittent stream dry, its bed dry gravel, instead of leaving it out', () => {
+    const t = slope();
+    const result = carveWater(t, features({ ways: [{ tags: { waterway: 'stream', intermittent: 'yes' }, points: down }] }), noPaths, 0);
+    expect(t.rivers).toBeUndefined();
+    expect(result.report.dry).toBe(1);
+    expect(result.paint.dryBed[at(0, 20)]).toBe(1);
+    expect(result.paint.bed.every((v) => v === 0)).toBe(true);
+    expect(result.wet.every((v) => v === 0)).toBe(true);
+  });
+
+  it('keeps water where the tags say so: a stream, and a ditch tagged not intermittent', () => {
+    for (const tags of [{ waterway: 'stream' }, { waterway: 'ditch', intermittent: 'no' }] as Record<string, string>[]) {
+      const t = slope();
+      const result = carveWater(t, features({ ways: [{ tags, points: down }] }), noPaths, 0);
+      expect(t.rivers).toHaveLength(1);
+      expect(result.report.dry).toBe(0);
+      expect(result.wet[at(0, 20)]).toBe(1);
+    }
+  });
+
+  it('makes a drain a runnel: a shallow hollow, no river line, a trickle; water across its bottom when not intermittent', () => {
+    const t = slope();
+    const before = t.grid.heights.slice();
+    const result = carveWater(t, features({ ways: [{ tags: { waterway: 'drain' }, points: down }] }), noPaths, 0);
+    expect(t.rivers).toBeUndefined();
+    expect(result.runnels).toHaveLength(1);
+    expect(result.runnels[0]).toMatchObject({ way: 100, width: 0.5, water: RUNNEL_TRICKLE });
+    const k = at(0, 20);
+    expect(before[k] - t.grid.heights[k]).toBeGreaterThan(0.1);
+    expect(before[k] - t.grid.heights[k]).toBeLessThan(0.2);
+    expect(result.dry[k]).toBe(1);
+    expect(result.wet.every((v) => v === 0)).toBe(true);
+    for (const role of ['bed', 'bank', 'dryBed'] as const) expect(result.paint[role].every((v) => v === 0)).toBe(true);
+    // Bare earth right along it, none a few metres off
+    expect(result.paint.ditch[k]).toBe(1);
+    expect(result.paint.ditch[at(4, 20)]).toBe(0);
+
+    const wet = carveWater(slope(), features({ ways: [{ tags: { waterway: 'drain', intermittent: 'no', width: '0.6' }, points: down }] }), noPaths, 0);
+    expect(wet.runnels[0].water).toBeCloseTo(0.48, 5);
+    expect(wet.wet.every((v) => v === 0)).toBe(true);
+  });
+
+  it('lays a runnel as a strip of concrete shells along the drain, with a runnel marking and its water', () => {
+    const d = doc();
+    const ways: Partial<OsmWay>[] = [{ tags: { waterway: 'drain', width: '0.4' }, points: down }, { tags: { waterway: 'drain', intermittent: 'no' }, points: [{ x: 50, y: -100 }, { x: 50, y: 100 }] }];
+    expect(layRunnels(d, carveWater(d.terrain, features({ ways }), noPaths, 0), null)).toBe(2);
+    const [dry, wet] = d.surfaces!;
+    expect(dry.id).toBe('osm-w100-1');
+    expect(dry.group).toBe('osm-w100');
+    // Without the catalogue: the last of concrete's chain
+    expect(dry.material).toBe('asphalt');
+    expect(surfaceProblems(dry)).toEqual([]);
+    const width = 0.4 + 2 * RUNNEL_SHELL;
+    expect(dry.marking).toMatchObject({ kind: 'runnel', width: Number(width.toFixed(2)) });
+    expect(dry.marking!.water).toBeUndefined();
+    // The strip is as wide as the runnel, the line in its middle
+    const xs = dry.outer.map((p) => p.x);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(width, 1);
+    expect(Math.max(...xs) + Math.min(...xs)).toBeCloseTo(0, 1);
+    expect(wet.marking!.water).toBeCloseTo(0.4, 2);
+    expect(surfaceProblems(wet)).toEqual([]);
+    // With the catalogue's materials it is concrete
+    const again = doc();
+    layRunnels(again, carveWater(again.terrain, features({ ways: [{ tags: { waterway: 'drain' }, points: down }] }), noPaths, 0), (m) => m === 'concrete');
+    expect(again.surfaces![0].material).toBe('concrete');
+  });
+
+  it('takes a material the surfaces draw already when they draw as many as they can', () => {
+    const d = doc();
+    d.surfaces = Array.from({ length: MAX_SURFACE_MATERIALS }, (_, k) => ({ id: `s${k}`, material: k === 3 ? 'asphalt' : `m${k}`, outer: [{ x: k, y: 0 }, { x: k + 1, y: 0 }, { x: k, y: 1 }] }));
+    layRunnels(d, carveWater(d.terrain, features({ ways: [{ tags: { waterway: 'drain' }, points: down }] }), noPaths, 0), (m) => m === 'concrete' || m === 'asphalt');
+    expect(d.surfaces.at(-1)!.material).toBe('asphalt');
   });
 });

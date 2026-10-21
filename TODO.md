@@ -91,12 +91,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
 - [ ] **E285 Weinberge: Rebzeilen** (User 2026-10-20): Zeilen stehen schräg und sind in kurze Stücke zerhackt. Soll:
       gerade, parallel, durchgehend über die Parzelle, in der Falllinie den Hang hoch, meist rechtwinklig zur
       erschließenden Straße; auf flachem Gelände rechtwinklig zur nächsten Straße.
-- [ ] **E286 Gräben in OSM-Welten** (User 2026-10-20): waterway=drain/ditch heute 1,6/1,2 m breit, immer mit
-      Wasserfläche; intermittent=yes fällt ganz weg; width wird auf mind. 0,8 m geklemmt (land-tags.ts WATERWAYS,
-      waterwayOf). In Weinbergen sind es meist trockene, befestigte Betonrinnen, am Grund etwa 0,5 m. Vorschlag: drain als
-      schmale Betonrinne (0,5 m oder width), trocken bzw. Rinnsal; ditch als trockener Erdgraben; Wasser nur bei Bach,
-      Fluss, Kanal oder ausdrücklich nicht intermittent; intermittent=yes trocken zeichnen statt weglassen.
-      Entschieden (2026-10-21): Vorschlag so, mit Rinnsal in der Betonrinne.
 - [ ] **E275 Übergang vom Laden ins Spiel** (Zweitrechner 2026-10-20, Production, V-Sync, warmes Profil): in den ersten
       0,3 s nach ready ein Bild von 117-166 ms und einige von 33-50 ms (OSM und Ruined City). Darin erste Textur-Uploads
       (512×512, 650×426 mit Mipmaps, vermutlich Minimap oder UI) und eine Programmabfrage von 5,5 ms. Ursache im
@@ -249,8 +243,10 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ## 2. Gebaut, wartet auf Test
 
-### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11 und O)
+### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O und P)
 
+- [ ] **E286 Gräben in OSM-Welten**: drain als Betonrinne (0,5 m am Grund oder width, Rinnsal), ditch als trockener
+      Erdgraben, intermittent=yes trocken statt weggelassen, Wasser nur bei Bach, Fluss, Kanal oder intermittent=no (P1, P2).
 - [ ] **E289 Listenbilder eigener Karten**: eine Zeichnung für alle Karten (wie die mitgelieferten), bei jedem Speichern
       im Editor-Worker, beim OSM-Bau im OSM-Worker, für Karten ohne Bild nachträglich beim Listen (O1 bis O3).
 - [ ] **E284 Radius für Nuke**: Regler 5 bis 100 m im Werkzeug „Zerstören“, wirkt auf Einsturz,

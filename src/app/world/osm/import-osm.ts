@@ -27,7 +27,7 @@ import { fillOsmTerrain } from './convert/terrain';
 import { paintGround, placeMood, type GroundReport } from './convert/ground';
 import { growVegetation, type VegetationReport } from './convert/vegetation';
 import { objectCost } from '../custom-map/render/objects/scene-cost';
-import { carveWater, paintWater, settleWater, WATER_MATERIALS, type WaterPaintRole, type WaterReport } from './convert/water';
+import { carveWater, layRunnels, paintWater, settleWater, WATER_MATERIALS, type WaterPaintRole, type WaterReport } from './convert/water';
 import { layOut, OsmLayout, type LayoutReport } from './convert/layout';
 import { findLandmarks, spawnAnchors, type Landmark } from './convert/anchors';
 import { growLife, type LifeReport } from './convert/life';
@@ -229,6 +229,8 @@ export function convertOsm(
   // The costs know every asset of the catalogue the areas may place: one missing is left out
   const costs = options.costs;
   const areas = layAreas(doc, features, water, { costOf, routes, hasMaterial: materials ? (m) => materials.has(m) : null, hasAsset: costs ? (a) => a in costs : null, rails });
+  // The drains' concrete shells, surfaces after the areas' (their materials settled)
+  layRunnels(doc, water, materials ? (m) => materials.has(m) : null);
   step('areas');
 
   // After the HQ (they keep clear of it) and the water; their pads cut the ground the roads levelled, never the roads

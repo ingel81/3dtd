@@ -164,30 +164,57 @@ export function waterClassOf(tags: Readonly<Record<string, string>>): WaterClass
   return null;
 }
 
-/** A waterway drawn as a river line: its width without a `width` tag and its depth, metres */
+/**
+ * What a waterway's channel is made of: a natural bed (gravel, sand), dug
+ * earth (a ditch: OSM's `ditch` is unlined), or the concrete half shells of
+ * a drain (OSM's `drain` is lined: in vineyards a runnel down the slope)
+ */
+export type WaterwayBed = 'natural' | 'earth' | 'concrete';
+
+/**
+ * A waterway as the world draws it: its width without a `width` tag (a
+ * drain's at its bottom), its depth and its banks, metres; its bed; and
+ * whether water stands in it (a river line) or it lies dry (only the
+ * channel, a concrete drain with a trickle at its bottom)
+ */
 export interface WaterwayType {
   width: number;
   depth: number;
   /** Bank width each side, metres */
   bank: number;
+  bed: WaterwayBed;
+  wet: boolean;
 }
 
 export const WATERWAYS: Readonly<Record<string, WaterwayType>> = {
-  river: { width: 12, depth: 2, bank: 6 },
-  canal: { width: 8, depth: 1.5, bank: 3 },
-  stream: { width: 2.5, depth: 0.7, bank: 2.5 },
-  drain: { width: 1.6, depth: 0.5, bank: 1.5 },
-  ditch: { width: 1.2, depth: 0.4, bank: 1.2 },
+  river: { width: 12, depth: 2, bank: 6, bed: 'natural', wet: true },
+  canal: { width: 8, depth: 1.5, bank: 3, bed: 'natural', wet: true },
+  stream: { width: 2.5, depth: 0.7, bank: 2.5, bed: 'natural', wet: true },
+  drain: { width: 0.5, depth: 0.15, bank: 0, bed: 'concrete', wet: false },
+  ditch: { width: 1.2, depth: 0.5, bank: 1.2, bed: 'earth', wet: false },
 };
 
-/** The waterway type of a way's tags, null for one the world does not draw (culverts and other tunnels, dry ones) */
+/** Narrowest and widest waterway a `width` tag gives, metres */
+const WATERWAY_WIDTH = { min: 0.3, max: 40 };
+
+/**
+ * The waterway type of a way's tags, null for one the world does not draw
+ * (culverts and other tunnels). Rivers, canals and streams hold water,
+ * drains and ditches lie dry; `intermittent=yes` dries any of them,
+ * `intermittent=no` fills a drain or ditch
+ */
 export function waterwayOf(tags: Readonly<Record<string, string>>): WaterwayType | null {
-  const type = WATERWAYS[tags['waterway'] ?? ''];
-  if (!type) return null;
+  const base = WATERWAYS[tags['waterway'] ?? ''];
+  if (!base) return null;
   if (tags['tunnel'] && tags['tunnel'] !== 'no') return null;
-  if (tags['location'] === 'underground' || tags['intermittent'] === 'yes') return null;
+  if (tags['location'] === 'underground') return null;
+  const intermittent = tags['intermittent'];
+  const wet = intermittent === 'yes' ? false : intermittent === 'no' ? true : base.wet;
+  const type = wet === base.wet ? base : { ...base, wet };
   const widthTag = /^\s*(\d+(?:[.,]\d+)?)\s*m?\s*$/.exec(tags['width'] ?? '');
   if (!widthTag) return type;
-  const width = Math.min(40, Math.max(0.8, parseFloat(widthTag[1].replace(',', '.'))));
-  return { ...type, width, depth: Math.min(3, Math.max(type.depth, width * 0.15)) };
+  const width = Math.min(WATERWAY_WIDTH.max, Math.max(WATERWAY_WIDTH.min, parseFloat(widthTag[1].replace(',', '.'))));
+  // A drain's hollow in the ground stays shallow (its shells are drawn on the ground), a dug channel deepens with its width
+  const depth = type.bed === 'concrete' ? type.depth : Math.min(3, Math.max(type.depth, width * 0.15));
+  return { ...type, width, depth };
 }

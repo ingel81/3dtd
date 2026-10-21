@@ -276,7 +276,8 @@ Breitengrad.
 | `natural=coastline` | Hauptwasser `kind: 'sea'` auf dem Meeresspiegel; Land links der Küstenlinie; Kartennull bleibt dann absolute Höhe 0 |
 | `natural=water` mit `water=river`, `waterway=riverbank` | größte Fläche wird Hauptwasser (läuft am Rand weiter), Spiegel aus dem Median der Höhen am Ufer; ein Fluss mit viel Gefälle wird in Abschnitte mit eigenem Spiegel geteilt |
 | `natural=water` (See, Teich, Becken, Stausee) | eigenes Gewässer (`waterBodies`), Bett unter dem Spiegel ausgehoben; unter 50 m² weglassen, mehr als 64: die kleinsten fallen |
-| `waterway=river`, `stream`, `canal`, `drain`, `ditch` | Fluss als Linie (`terrain.rivers`, `carveRiver`), Breite aus `width` oder 2 bis 8 m; `tunnel=culvert` weglassen |
+| `waterway=river`, `stream`, `canal` | Fluss als Linie (`terrain.rivers`, `carveRiver`), Breite aus `width` oder 2 bis 8 m; `tunnel=culvert` weglassen; `intermittent=yes` trocken (nur das Bett) |
+| `waterway=drain`, `ditch` (E286) | trocken: `drain` eine Betonrinne (Fläche mit Markierung `runnel`, 0,5 m am Grund oder `width`, Rinnsal), `ditch` ein Erdgraben; Wasser nur mit `intermittent=no` |
 | `leisure=swimming_pool`, `water=fountain` | kleine Gewässer nur, solange Platz unter 64 ist, sonst Boden |
 
 ### Ausstattung
@@ -647,12 +648,24 @@ Bericht hat dafür `ground`, `water` und `plants`.
   steilen Wänden), der Rand 2 m breit 0,2 m über dem Spiegel, dann 3 m bis ins Land.
 - **Feuchtgebiete:** Sumpfboden aus der Bodenstufe; ab 400 m² ein Sumpfkörper mit Tümpeln, wo ein weiches Rauschen
   (14 m) niedrig ist, mindestens 3 m vom Rand und höchstens 0,6 m über dem Spiegel.
-- **Bäche und Flüsse als Linien:** `waterway=river`, `canal`, `stream`, `drain`, `ditch` ohne Tunnel (Durchlässe) und
-  ohne `intermittent=yes`; Breite aus `width`, sonst 12, 8, 2,5, 1,6, 1,2 m. Sie laufen auf dem echten Verlauf (kein
+- **Bäche und Flüsse als Linien:** `waterway=river`, `canal`, `stream` ohne Tunnel (Durchlässe) und ohne
+  `intermittent=yes`, dazu `drain` und `ditch` mit `intermittent=no`; Breite aus `width` (0,3 bis 40 m), sonst 12, 8,
+  2,5, 0,5, 1,2 m (`land-tags.ts` `waterwayOf`). Sie laufen auf dem echten Verlauf (kein
   Mäander wie der Flusspinsel), nur außerhalb der Wasserflächen (ein Schritt hinein, damit sie sich treffen), und enden
   an einer Straße ohne Brücke (ein Durchlass, den die Daten nicht nennen). Der Spiegel kommt aus `bankLevels` des
   Flusspinsels und fällt in Richtung des Wegs (gegen die Höhen gezeichnete Wege werden gedreht). Der Graben ist
   mindestens eine Probe breit je Seite, sonst verfehlt das 2-m-Raster einen schmalen Graben.
+- **Trockene Gräben und Rinnen (E286):** `ditch` (laut OSM-Wiki unbefestigt) und alles mit `intermittent=yes` liegen
+  trocken: nur der Graben, ausgehoben, wie der Boden liegt (kein Spiegel), 0,5 m beim Erdgraben, mit Erde (`dirt`) bzw.
+  trockenem Kies (`riverbed-dry`) gemalt; keine Flusslinie, kein Schilf, kein nasses Ufer (`WaterResult.dry` statt
+  `wet`: Pflanzen halten Abstand, Schilf wächst nur an `wet`). `drain` (befestigt) ist eine Rinne aus Betonhalbschalen,
+  wie sie in Weinbergen den Hang hinab läuft: eine flache Mulde (0,15 m) im Gelände, Erde dicht daneben (dort wächst kein
+  Gras über die Schalen), die Schalen selbst als Fläche (`layRunnels`, nach den Flächen der Areale): ein Streifen so
+  breit wie der Grund (0,5 m oder `width`) plus 0,14 m Schale je Seite entlang der Linie, Material `concrete`,
+  Markierung `runnel`. Die Fläche zeichnet die Schalenrundung, Fugen, Schlamm und das Rinnsal am Grund
+  (`surface-look.ts`); mit `intermittent=no` füllt das Wasser 80 % des Grunds. Kein eigener Draw Call je Rinne (eine
+  Schicht für alle Flächen), Gräben ohne Wasser zeichnen auch keine Flussfläche mehr (Weinberg in Franken mit 34
+  Gräben: 96 statt 110 Draw Calls in der Übersicht, `/map-preview`).
 - **Küste:** `natural=coastline` zu Ketten verbunden, am Kartenrand geschnitten; jedes Stück, das die Karte quert, wird
   im Uhrzeigersinn am Rand bis zum nächsten Stück geschlossen (OSM zeichnet das Land links), Inseln schneiden Löcher. Das
   Meer ist Hauptwasser auf 0 m über dem Meer, der Kartennull wandert dorthin (`meta.source.zeroM` 0). Liegt das so
