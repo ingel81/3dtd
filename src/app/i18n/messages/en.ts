@@ -492,6 +492,8 @@ const mapFile = {
     massRidge: () => 'its building has a bad ridge',
     massFacade: () => 'its building has an unknown facade',
     massShop: () => 'its building has bad shop walls',
+    massParts: () => 'its building has broken parts',
+    massColour: () => 'its building has a bad colour',
     markingMiddle: () => 'the marking needs a middle and an angle',
     markingSize: () => 'the marking needs a length and a width of above 0 to 1000 m',
     // What reading sets right, and how

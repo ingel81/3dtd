@@ -20,8 +20,21 @@ import {
   type Raycaster,
   type Texture,
 } from 'three';
-import { MAP_MASS_FACADES, MASS_ASSET, type MapMass, type MapMassFacade, type MapObject } from '../../map-document';
-import { MASS_PARAPET, massBounds, massContains, massInset, massPitched, massRadius, massRoof, massTop } from '../../object-mass';
+import { MAP_MASS_FACADES, MASS_ASSET, type MapMassCover, type MapMassFacade, type MapObject } from '../../map-document';
+import {
+  MASS_PARAPET,
+  massApex,
+  massBodies,
+  massBounds,
+  massInset,
+  massPitched,
+  massRadius,
+  massRectFrame,
+  massRoof,
+  massTop,
+  ringsContain,
+  type MassBody,
+} from '../../object-mass';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary, ObjectModel } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
@@ -81,8 +94,28 @@ const FACADE_SURFACE: Readonly<Record<MapMassFacade, string>> = {
   stone: 'mass-stone',
   timber: 'mass-plaster',
 };
-/** Roof coverings: a flat roof's, and a pitched one's by facade (tiles on homes, sheet on halls) */
+/** Roof coverings: a flat roof's, and a pitched one's by the tags (MapMass.roofCover) or by facade (tiles on homes, sheet on halls) */
 type Covering = 'flat' | 'red' | 'grey' | 'metal';
+
+/** The covering of each tagged roof material */
+const COVER_COVERING: Readonly<Record<MapMassCover, Covering>> = { tiles: 'red', slate: 'grey', metal: 'metal' };
+
+/**
+ * The mean colour of each covering's surface as drawn (its texture times
+ * its tint in the kit, about): a roof's own colour (MapMass.roofTint) is
+ * drawn as its share of that, an instance colour, no program more
+ */
+const COVERING_MEAN: Readonly<Record<Covering, string>> = { flat: '#6f6f6f', red: '#9c5a44', grey: '#575b61', metal: '#9ea3a8' };
+
+/** A roof colour's instance colour over its covering: the tag's colour against the covering's mean, held to a range the texture keeps its look in */
+export function roofTintFactor(covering: Covering, tint: string, out: Color): Color {
+  const mean = new Color(COVERING_MEAN[covering]);
+  out.set(tint);
+  out.r = Math.min(2.4, Math.max(0.3, out.r / Math.max(mean.r, 0.02)));
+  out.g = Math.min(2.4, Math.max(0.3, out.g / Math.max(mean.g, 0.02)));
+  out.b = Math.min(2.4, Math.max(0.3, out.b / Math.max(mean.b, 0.02)));
+  return out;
+}
 
 /**
  * What a wall instance is: a facade with windows, a plain face (a parapet's
@@ -95,7 +128,7 @@ const WALL_GABLE = 2;
 const WALL_SHOP = 3;
 
 /** The kind of the facade wall `edge` of the outline (ring 0), else of a courtyard's */
-function facadeKind(m: MapMass, ring: number, edge: number): number {
+function facadeKind(m: MassBody, ring: number, edge: number): number {
   return ring === 0 && m.shop?.includes(edge) ? WALL_SHOP : WALL_FACADE;
 }
 
@@ -145,30 +178,41 @@ interface MassShape {
   caps: CapPiece[];
 }
 
-const shapes = new WeakMap<MapMass, MassShape>();
+const shapes = new WeakMap<MassBody, MassShape>();
 
-/** A building's walls, roof and parapet at scale 1 in its own frame (model x, height y, model z), worked out once */
-export function massShape(m: MapMass, seed = 0): MassShape {
+/**
+ * One body's walls, roof and parapet (a building's, or a part's:
+ * massBodies) at scale 1 in the building's frame (model x, height y, model
+ * z), worked out once
+ */
+export function massShape(m: MassBody, seed = 0): MassShape {
   let shape = shapes.get(m);
   if (shape) return shape;
   const pitched = massPitched(m);
   const inset = massInset(m);
-  shape = pitched ? pitchedShape(m) : inset ? mansardShape(m, inset.ring) : flatShape(m);
-  shape.covering = !pitched && !inset ? 'flat' : m.facade === 'metal' ? 'metal' : seed % 3 === 0 ? 'grey' : 'red';
+  const apex = massApex(m);
+  shape = pitched ? pitchedShape(m) : apex ? pyramidShape(m, apex) : inset ? mansardShape(m, inset.ring) : flatShape(m);
+  shape.covering = !pitched && !inset && !apex ? 'flat' : m.roofCover ? COVER_COVERING[m.roofCover] : m.facade === 'metal' ? 'metal' : seed % 3 === 0 ? 'grey' : 'red';
   shapes.set(m, shape);
   return shape;
 }
 
+/** Where a body's walls start: on its floor over the seat (a part on another), else the foundation below the seat */
+function wallFoot(m: MassBody): { bottom: number; lift?: number } {
+  return (m.base ?? 0) > 0 ? { bottom: m.base!, lift: -m.base! } : { bottom: -FOUNDATION };
+}
+
 /** Walls up every ring with windows, a parapet round a flat roof over the outline less its courtyards */
-function flatShape(m: MapMass): MassShape {
+function flatShape(m: MassBody): MassShape {
   const walls: WallPiece[] = [];
   const caps: CapPiece[] = [];
   const roofY = m.height - MASS_PARAPET;
+  const foot = wallFoot(m);
   m.rings.forEach((ring, k) => {
     for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
       const e = edge(m, ring[j], ring[j + 1], ring[i], ring[i + 1]);
       if (!e) continue;
-      walls.push({ ...e, bottom: -FOUNDATION, top: m.height, kind: facadeKind(m, k, j / 2), band: MASS_PARAPET + 0.25 });
+      walls.push({ ...e, ...foot, top: m.height, kind: facadeKind(m, k, j / 2), band: MASS_PARAPET + 0.25 });
       // The parapet's inside: a plain wall a parapet's thickness in, facing in; the coping across both
       const t = PARAPET_THICKNESS;
       const inner = { sx: e.sx - e.nx * t + e.ax * e.length, sz: e.sz - e.nz * t + e.az * e.length, ax: -e.ax, az: -e.az, length: e.length, nx: -e.nx, nz: -e.nz };
@@ -190,17 +234,18 @@ function flatShape(m: MapMass): MassShape {
 }
 
 /** Walls to the eaves, slopes from every wall up to the drawn-in top, the top flat over them */
-function mansardShape(m: MapMass, inner: readonly number[]): MassShape {
+function mansardShape(m: MassBody, inner: readonly number[]): MassShape {
   const walls: WallPiece[] = [];
   const roof: RoofPiece[] = [];
   const r = m.rings[0];
   const h = m.height;
   const top = h + (m.ridge ?? 0);
   const n = r.length / 2;
+  const foot = wallFoot(m);
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
     const e = edge(m, r[2 * i], r[2 * i + 1], r[2 * j], r[2 * j + 1]);
-    if (e) walls.push({ ...e, bottom: -FOUNDATION, top: h, kind: facadeKind(m, 0, i), band: 0.3 });
+    if (e) walls.push({ ...e, ...foot, top: h, kind: facadeKind(m, 0, i), band: 0.3 });
     // The slope over this wall: a quad from the eaves to the top's edge, its texture along the wall and up the slope
     const a = [r[2 * i], h, r[2 * i + 1]];
     const b = [r[2 * j], h, r[2 * j + 1]];
@@ -222,27 +267,24 @@ function mansardShape(m: MapMass, inner: readonly number[]): MassShape {
 }
 
 /** A rectangle's four walls to the eaves, a gable or hip roof along its longer side, the gables under it */
-function pitchedShape(m: MapMass): MassShape {
-  const b = massBounds(m);
-  const alongX = b.maxX - b.minX >= b.maxZ - b.minZ;
+function pitchedShape(m: MassBody): MassShape {
+  const f = massRectFrame(m.rings[0])!;
   const ridge = m.ridge ?? 0;
   const h = m.height;
   const walls: WallPiece[] = [];
   const r = m.rings[0];
+  const foot = wallFoot(m);
   for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
     const e = edge(m, r[j], r[j + 1], r[i], r[i + 1]);
     if (!e) continue;
-    walls.push({ ...e, bottom: -FOUNDATION, top: h, kind: facadeKind(m, 0, j / 2), band: 0.3 });
-    // The gable over an end wall (across the ridge)
-    const end = alongX ? Math.abs(e.nx) > 0.5 : Math.abs(e.nz) > 0.5;
+    walls.push({ ...e, ...foot, top: h, kind: facadeKind(m, 0, j / 2), band: 0.3 });
+    // The gable over an end wall (across the ridge: its normal along it)
+    const end = Math.abs(e.nx * f.ux + e.nz * f.uz) > 0.5;
     if (end && m.roof === 'gable') walls.push({ ...e, bottom: h, top: h + ridge, kind: WALL_GABLE, band: 0 });
   }
   // In the frame of the ridge: s along it, t across, both from the middle
-  const cx = (b.minX + b.maxX) / 2;
-  const cz = (b.minZ + b.maxZ) / 2;
-  const halfS = (alongX ? b.maxX - b.minX : b.maxZ - b.minZ) / 2;
-  const halfT = (alongX ? b.maxZ - b.minZ : b.maxX - b.minX) / 2;
-  const at = (s: number, t: number, y: number): number[] => (alongX ? [cx + s, y, cz + t] : [cx + t, y, cz + s]);
+  const { cx, cz, halfS, halfT } = f;
+  const at = (s: number, t: number, y: number): number[] => [cx + f.ux * s + f.vx * t, y, cz + f.uz * s + f.vz * t];
   // The eaves reach past the walls and sink as the slope runs on
   const slope = ridge / Math.max(halfT, 0.1);
   const eaveY = h - EAVES * slope;
@@ -275,8 +317,33 @@ function pitchedShape(m: MapMass): MassShape {
   return { walls, roof, covering: 'red', caps: [] };
 }
 
-/** One edge of a ring as a wall: its start, direction and length, its normal pointing off the building; null if too short */
-function edge(m: MapMass, x0: number, z0: number, x1: number, z1: number): Omit<WallPiece, 'bottom' | 'top' | 'kind' | 'band'> | null {
+/** Walls to the eaves, a slope from every wall up to the top over the outline's middle (a tower's helm) */
+function pyramidShape(m: MassBody, apex: { x: number; z: number }): MassShape {
+  const walls: WallPiece[] = [];
+  const roof: RoofPiece[] = [];
+  const r = m.rings[0];
+  const h = m.height;
+  const top = h + (m.ridge ?? 0);
+  const n = r.length / 2;
+  const foot = wallFoot(m);
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const e = edge(m, r[2 * i], r[2 * i + 1], r[2 * j], r[2 * j + 1]);
+    if (e) walls.push({ ...e, ...foot, top: h, kind: facadeKind(m, 0, i), band: 0.3 });
+    // The slope over this wall: its texture along the wall and up the slope from its middle
+    const ax = r[2 * i];
+    const az = r[2 * i + 1];
+    const bx = r[2 * j];
+    const bz = r[2 * j + 1];
+    const len = Math.hypot(bx - ax, bz - az);
+    const up = Math.hypot((ax + bx) / 2 - apex.x, (az + bz) / 2 - apex.z, top - h);
+    roof.push({ p: [ax, h, az, bx, h, bz, apex.x, top, apex.z], uv: [0, up, len, up, len / 2, 0] });
+  }
+  return { walls, roof, covering: 'red', caps: [] };
+}
+
+/** One edge of a ring as a wall: its start, direction and length, its normal pointing off the body; null if too short */
+function edge(m: MassBody, x0: number, z0: number, x1: number, z1: number): Omit<WallPiece, 'bottom' | 'top' | 'kind' | 'band'> | null {
   const dx = x1 - x0;
   const dz = z1 - z0;
   const length = Math.hypot(dx, dz);
@@ -286,7 +353,7 @@ function edge(m: MapMass, x0: number, z0: number, x1: number, z1: number): Omit<
   // Off the building: a step out of the middle of the edge lands outside it (a courtyard counts as outside)
   const mx = (x0 + x1) / 2;
   const mz = (z0 + z1) / 2;
-  if (massContains(m, mx + nx * 0.05, mz + nz * 0.05)) {
+  if (ringsContain(m.rings, mx + nx * 0.05, mz + nz * 0.05)) {
     nx = -nx;
     nz = -nz;
   }
@@ -315,9 +382,10 @@ interface Batch {
   part: string;
 }
 
-/** The parts a building is drawn with, as Batch.part */
+/** The batches a building is drawn with, as Batch.part: its bodies' facades' walls, their coverings' roofs, the caps */
 function partsOf(o: MapObject): string[] {
-  return [`walls:${o.mass!.facade}`, `roof:${massShape(o.mass!, seedOf(o.id)).covering}`, 'caps'];
+  const seed = seedOf(o.id);
+  return [...new Set(massBodies(o.mass!).flatMap((b) => [`walls:${b.facade}`, `roof:${massShape(b, seed).covering}`])), 'caps'];
 }
 
 /** What the mass layer does with damage (ObjectLayerOptions): ruins built with the map, the ground buildings stand on */
@@ -678,10 +746,13 @@ export class MassLayer {
     const coverings = new Set<Covering>();
     const picked: MapObject[] = [];
     for (const o of this.objects) {
-      const shape = massShape(o.mass!, seedOf(o.id));
-      if (facades.has(o.mass!.facade) && coverings.has(shape.covering)) continue;
-      facades.add(o.mass!.facade);
-      coverings.add(shape.covering);
+      const seed = seedOf(o.id);
+      const bodies = massBodies(o.mass!);
+      if (bodies.every((b) => facades.has(b.facade) && coverings.has(massShape(b, seed).covering))) continue;
+      for (const b of bodies) {
+        facades.add(b.facade);
+        coverings.add(massShape(b, seed).covering);
+      }
       picked.push(o);
     }
     const batches = this.build(picked, surfaces, this.losGroup, true);
@@ -722,10 +793,13 @@ export class MassLayer {
     const roofCount = new Map<Covering, number>();
     let capCount = 0;
     for (const o of objects) {
-      const shape = massShape(o.mass!, seedOf(o.id));
-      wallCount.set(o.mass!.facade, (wallCount.get(o.mass!.facade) ?? 0) + wallsOf(o, shape).length);
-      roofCount.set(shape.covering, (roofCount.get(shape.covering) ?? 0) + shape.roof.length);
-      capCount += shape.caps.length;
+      const seed = seedOf(o.id);
+      for (const body of massBodies(o.mass!)) {
+        const shape = massShape(body, seed);
+        wallCount.set(body.facade, (wallCount.get(body.facade) ?? 0) + wallsOf(o, shape).length);
+        roofCount.set(shape.covering, (roofCount.get(shape.covering) ?? 0) + shape.roof.length);
+        capCount += shape.caps.length;
+      }
     }
     /** A ruin batch's damage attributes, four floats per instance each */
     const damageOf = (mesh: InstancedMesh, count: number): DamageArrays | null => {
@@ -772,17 +846,21 @@ export class MassLayer {
     }
     const color = new Color();
     const tint = new Color();
+    const roofTint = new Color();
+    // Every batch's count before a building: its ranges are what it added
+    const counters: { batch: Batch; n: () => number }[] = [
+      ...[...walls.values()].map((w) => ({ batch: w.batch, n: () => w.n })),
+      ...[...roofs.values()].map((rf) => ({ batch: rf.batch, n: () => rf.n })),
+      ...(caps ? [{ batch: caps.batch, n: () => caps!.n }] : []),
+    ];
+    const starts = new Array<number>(counters.length);
 
     for (const o of objects) {
-      const mass = o.mass!;
       const seed = seedOf(o.id);
-      const shape = massShape(mass, seed);
       const scale = o.scale || 1;
       const r = ruins.get(o);
       // Where its instances start in each batch, for the ranges a damaged building leaves
-      const w = walls.get(mass.facade);
-      const rf = roofs.get(shape.covering);
-      const starts = [w?.n ?? 0, rf?.n ?? 0, caps?.n ?? 0];
+      for (let k = 0; k < counters.length; k++) starts[k] = counters[k].n();
       // The object's own frame: seated like a building on its outline's rectangle (object-seat.ts), turned and scaled
       const seat = this.seatOf(o);
       this.seats.set(o.id, seat);
@@ -790,73 +868,81 @@ export class MassLayer {
       this.q.setFromAxisAngle(this.up, o.rotation);
       this.s.setScalar(scale);
       this.m.compose(this.v, this.q, this.s);
-      tint.set(o.tint ?? '#ffffff');
-      if (w) {
-        for (const p of wallsOf(o, shape)) {
-          const height = p.top - p.bottom;
-          this.local.set(p.ax * p.length, 0, p.nx, p.sx, 0, height, 0, p.bottom, p.az * p.length, 0, p.nz, p.sz, 0, 0, 0, 1);
-          this.local.premultiply(this.m);
-          w.batch.mesh.setMatrixAt(w.n, this.local);
-          w.batch.mesh.setColorAt(w.n, tint);
-          // Length and height in metres (scaled), the foundation below the seat, the storeys
-          w.a.set([p.length * scale, height * scale, (p.lift ?? Math.max(0, -p.bottom)) * scale, mass.floors], w.n * 4);
-          w.b.set([seed, p.kind, p.band * scale, p.kind === WALL_PLAIN ? 0 : Math.max(0, p.wallTop ?? p.top) * scale], w.n * 4);
-          if (r && w.damage) writeDamage(w.damage, w.n, r.stage, r.fallStart, r.shape);
-          w.batch.owners.push(o);
-          w.n++;
-        }
-      }
-      if (rf) {
-        // The covering varies a little per building, the same way round as its tiles
-        color.setHSL(0, 0, 0.92 + (seed % 7) * 0.02);
-        for (const t of shape.roof) {
-          const [ax, ay, az, bx, by, bz, cx, cy, cz] = t.p;
-          // Columns: a to b, the normal, a to c; b and c swapped where (c - a) x (b - a) points down
-          let ux = bx - ax;
-          let uy = by - ay;
-          let uz = bz - az;
-          let wx = cx - ax;
-          let wy = cy - ay;
-          let wz = cz - az;
-          let uvB = [t.uv[2], t.uv[3]];
-          let uvC = [t.uv[4], t.uv[5]];
-          let ny = wz * ux - wx * uz;
-          if (ny < 0) {
-            [ux, wx] = [wx, ux];
-            [uy, wy] = [wy, uy];
-            [uz, wz] = [wz, uz];
-            [uvB, uvC] = [uvC, uvB];
-            ny = -ny;
+      // Its parts (or itself), each with its own walls, roof and colours: one building, one owner of them all
+      for (const body of massBodies(o.mass!)) {
+        const shape = massShape(body, seed);
+        const w = walls.get(body.facade);
+        const rf = roofs.get(shape.covering);
+        tint.set(body.tint ?? o.tint ?? '#ffffff');
+        if (w) {
+          for (const p of wallsOf(o, shape)) {
+            const height = p.top - p.bottom;
+            this.local.set(p.ax * p.length, 0, p.nx, p.sx, 0, height, 0, p.bottom, p.az * p.length, 0, p.nz, p.sz, 0, 0, 0, 1);
+            this.local.premultiply(this.m);
+            w.batch.mesh.setMatrixAt(w.n, this.local);
+            w.batch.mesh.setColorAt(w.n, tint);
+            // Length and height in metres (scaled), the foundation below the seat (a part's floor over it), the storeys
+            w.a.set([p.length * scale, height * scale, (p.lift ?? Math.max(0, -p.bottom)) * scale, body.floors], w.n * 4);
+            w.b.set([seed, p.kind, p.band * scale, p.kind === WALL_PLAIN ? 0 : Math.max(0, p.wallTop ?? p.top) * scale], w.n * 4);
+            if (r && w.damage) writeDamage(w.damage, w.n, r.stage, r.fallStart, r.shape);
+            w.batch.owners.push(o);
+            w.n++;
           }
-          const nx = wy * uz - wz * uy;
-          const nz = wx * uy - wy * ux;
-          const nl = Math.hypot(nx, ny, nz) || 1;
-          this.local.set(ux, nx / nl, wx, ax, uy, ny / nl, wy, ay, uz, nz / nl, wz, az, 0, 0, 0, 1);
-          this.local.premultiply(this.m);
-          rf.batch.mesh.setMatrixAt(rf.n, this.local);
-          rf.batch.mesh.setColorAt(rf.n, color);
-          rf.uv.set([t.uv[0] * scale, t.uv[1] * scale, uvB[0] * scale, uvB[1] * scale, uvC[0] * scale, uvC[1] * scale], rf.n * 6);
-          if (r && rf.damage) writeDamage(rf.damage, rf.n, r.stage, r.fallStart, r.shape);
-          rf.batch.owners.push(o);
-          rf.n++;
         }
-      }
-      if (caps) {
-        for (const c of shape.caps) {
-          const t = PARAPET_THICKNESS;
-          this.local.set(c.ax * c.length, 0, c.nx * t, c.sx, 0, 1, 0, c.y, c.az * c.length, 0, c.nz * t, c.sz, 0, 0, 0, 1);
-          this.local.premultiply(this.m);
-          caps.batch.mesh.setMatrixAt(caps.n, this.local);
-          if (r && caps.damage) writeDamage(caps.damage, caps.n, r.stage, r.fallStart, r.shape);
-          caps.batch.owners.push(o);
-          caps.n++;
+        if (rf) {
+          // The covering varies a little per building, the same way round as its tiles; in the roof's own colour where OSM gives one
+          color.setHSL(0, 0, 0.92 + (seed % 7) * 0.02);
+          if (body.roofTint) color.multiply(roofTintFactor(shape.covering, body.roofTint, roofTint));
+          for (const t of shape.roof) {
+            const [ax, ay, az, bx, by, bz, cx, cy, cz] = t.p;
+            // Columns: a to b, the normal, a to c; b and c swapped where (c - a) x (b - a) points down
+            let ux = bx - ax;
+            let uy = by - ay;
+            let uz = bz - az;
+            let wx = cx - ax;
+            let wy = cy - ay;
+            let wz = cz - az;
+            let uvB = [t.uv[2], t.uv[3]];
+            let uvC = [t.uv[4], t.uv[5]];
+            let ny = wz * ux - wx * uz;
+            if (ny < 0) {
+              [ux, wx] = [wx, ux];
+              [uy, wy] = [wy, uy];
+              [uz, wz] = [wz, uz];
+              [uvB, uvC] = [uvC, uvB];
+              ny = -ny;
+            }
+            const nx = wy * uz - wz * uy;
+            const nz = wx * uy - wy * ux;
+            const nl = Math.hypot(nx, ny, nz) || 1;
+            this.local.set(ux, nx / nl, wx, ax, uy, ny / nl, wy, ay, uz, nz / nl, wz, az, 0, 0, 0, 1);
+            this.local.premultiply(this.m);
+            rf.batch.mesh.setMatrixAt(rf.n, this.local);
+            rf.batch.mesh.setColorAt(rf.n, color);
+            rf.uv.set([t.uv[0] * scale, t.uv[1] * scale, uvB[0] * scale, uvB[1] * scale, uvC[0] * scale, uvC[1] * scale], rf.n * 6);
+            if (r && rf.damage) writeDamage(rf.damage, rf.n, r.stage, r.fallStart, r.shape);
+            rf.batch.owners.push(o);
+            rf.n++;
+          }
+        }
+        if (caps) {
+          for (const c of shape.caps) {
+            const t = PARAPET_THICKNESS;
+            this.local.set(c.ax * c.length, 0, c.nx * t, c.sx, 0, 1, 0, c.y, c.az * c.length, 0, c.nz * t, c.sz, 0, 0, 0, 1);
+            this.local.premultiply(this.m);
+            caps.batch.mesh.setMatrixAt(caps.n, this.local);
+            if (r && caps.damage) writeDamage(caps.damage, caps.n, r.stage, r.fallStart, r.shape);
+            caps.batch.owners.push(o);
+            caps.n++;
+          }
         }
       }
       if (!ruin) {
         const ranges: { batch: Batch; start: number; count: number }[] = [];
-        if (w && w.n > starts[0]) ranges.push({ batch: w.batch, start: starts[0], count: w.n - starts[0] });
-        if (rf && rf.n > starts[1]) ranges.push({ batch: rf.batch, start: starts[1], count: rf.n - starts[1] });
-        if (caps && caps.n > starts[2]) ranges.push({ batch: caps.batch, start: starts[2], count: caps.n - starts[2] });
+        counters.forEach((c, k) => {
+          const n = c.n();
+          if (n > starts[k]) ranges.push({ batch: c.batch, start: starts[k], count: n - starts[k] });
+        });
         this.ranges.set(o.id, ranges);
       }
     }
@@ -1184,7 +1270,8 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
   if (facadeWall > 0.5 && v > plinthH) {
     float usable = max(top - plinthH - band, 0.5);
     float storey = usable / floors;
-    float hall = step(4.6, storey);
+    // A hall is one high storey; the high storeys of a palace keep their rows, with taller windows
+    float hall = step(4.6, storey) * step(floors, 1.5);
     float k = floor((v - plinthH) / storey);
     float inStorey = v - plinthH - k * storey;
     float wb;
@@ -1200,7 +1287,7 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
       k = 0.0;
     } else {
       wb = sill;
-      wh = min(winH, storey - sill - 0.35);
+      wh = min(max(winH, (storey - sill) * 0.55), storey - sill - 0.35);
     }
     float display = shop * step(k, 0.5) * step(hall, 0.5);
     if (display > 0.5) {

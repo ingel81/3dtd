@@ -1,11 +1,12 @@
-import { BoxGeometry, Group, InstancedMesh, Mesh, MeshStandardMaterial, PlaneGeometry, Ray, Vector3 } from 'three';
+import { BoxGeometry, Color, DoubleSide, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, PlaneGeometry, Ray, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { MASS_ASSET, type MapMass, type MapObject } from '../../map-document';
-import { massArea, massContains } from '../../object-mass';
+import { massArea, massBodies, massContains } from '../../object-mass';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import { HeightField } from '../height-field';
 import { MapAssetLibrary } from '../map-asset-library';
-import { massShape } from './mass-layer';
+import { MassLayer, massShape } from './mass-layer';
+import { FELL_LONG_AGO } from './ruin-damage';
 import { MapObjectLayer } from './object-layer';
 
 const court: MapMass = {
@@ -108,6 +109,83 @@ describe('mass layer: the shape of a raised building', () => {
     expect(hip.roof.length).toBe(6);
     // The ridge on top
     expect(Math.max(...hip.roof.flatMap((t) => [t.p[1], t.p[4], t.p[7]]))).toBeCloseTo(9);
+  });
+});
+
+describe('mass layer: a building of parts (E297 L3)', () => {
+  /** A hall under a gable, a tower at its end, a helm on the tower from 24 m */
+  const church: MapMass = {
+    rings: [[-15, -5, 15, -5, 15, 5, -15, 5]],
+    height: 24,
+    floors: 1,
+    roof: 'flat',
+    facade: 'plaster',
+    roofCover: 'tiles',
+    parts: [
+      { rings: [[-15, -5, 9, -5, 9, 5, -15, 5]], height: 12, floors: 3, roof: 'gable', ridge: 6 },
+      { rings: [[9, -3, 15, -3, 15, 3, 9, 3]], height: 24.9, floors: 6, roof: 'flat', tint: '#c65843' },
+      { rings: [[9, -3, 15, -3, 15, 3, 9, 3]], base: 24, height: 26, floors: 7, roof: 'pyramid', ridge: 14 },
+    ],
+  };
+
+  it('raises each part from its own floor: the walls of the helm start on the tower, its slopes meet over its middle', () => {
+    const [hall, tower, helm] = massBodies(church).map((b) => massShape(b));
+    expect(hall.roof.length).toBe(4);
+    expect(tower.covering).toBe('flat');
+    expect(helm.walls.length).toBe(4);
+    for (const w of helm.walls) {
+      expect(w.bottom).toBe(24);
+      // The storeys counted from the seat: the helm's windows in line with the tower's
+      expect(w.lift).toBe(-24);
+    }
+    expect(helm.roof.length).toBe(4);
+    for (const t of helm.roof) expect([t.p[6], t.p[7], t.p[8]]).toEqual([12, 40, 0]);
+    expect(helm.covering).toBe('red');
+    // On the ground the foundation below the seat as before
+    expect(hall.walls[0].bottom).toBeLessThan(0);
+  });
+
+  it('draws all parts as one building, with their own colours, and lets them fall with it', async () => {
+    const heights = new Float32Array(4);
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights }, 1000, 1000);
+    const los = new Group();
+    const layer = new MassLayer(field, library(), los, () => null, () => undefined, { ruins: true });
+    await layer.setObjects([
+      { id: 'c1', asset: MASS_ASSET, x: 0, y: 0, z: 0, rotation: 0.4, scale: 1, mass: church, tint: '#f4f2ee' },
+      { id: 'm1', asset: MASS_ASSET, x: 100, y: 0, z: 0, rotation: 0, scale: 1, mass: court },
+    ]);
+    const shown = () => {
+      const meshes: InstancedMesh[] = [];
+      los.traverse((o) => o instanceof InstancedMesh && o.visible && meshes.push(o));
+      return meshes;
+    };
+    const pieces = massBodies(church).reduce((s, b) => s + massShape(b).walls.length + massShape(b).roof.length + massShape(b).caps.length, 0);
+    const intact = shown().filter((m) => (m.material as MeshStandardMaterial).side !== DoubleSide);
+    // Walls of one facade, flat roofs, tiled roofs, copings: for both buildings, no mesh per part
+    expect(intact.length).toBe(4);
+    /** Instances that stand (a damaged building's shrink to nothing) */
+    const standing = (m: InstancedMesh) => {
+      let n = 0;
+      const e = new Matrix4();
+      for (let i = 0; i < m.count; i++) if (m.getMatrixAt(i, e).elements.some((v) => v !== 0)) n++;
+      return n;
+    };
+    const courtPieces = 16 + massShape(court).roof.length + 8;
+    expect(intact.reduce((s, m) => s + standing(m), 0)).toBe(pieces + courtPieces);
+    // The tower's own colour on its walls, the building's on the hall's
+    const walls = intact.find((m) => m.geometry.getAttribute('aWall'))!;
+    const colours = new Set<string>();
+    const c = new Color();
+    for (let i = 0; i < walls.count; i++) colours.add(walls.getColorAt(i, c).getHexString());
+    expect(colours.size).toBeGreaterThanOrEqual(3);
+    // Destroyed: every part leaves the intact batches for the ruins', the other building stays
+    layer.setDamage([{ id: 'c1', stage: 3, fallStart: FELL_LONG_AGO }]);
+    expect(intact.reduce((s, m) => s + standing(m), 0)).toBe(courtPieces);
+    // Its ruin: all its parts' pieces (walls split at the break line), as high as its helm
+    const ruins = shown().filter((m) => (m.material as MeshStandardMaterial).side === DoubleSide);
+    expect(ruins.reduce((s, m) => s + m.count, 0)).toBeGreaterThanOrEqual(pieces);
+    expect(layer.ruinShapeOf('c1')).not.toBeNull();
+    layer.dispose();
   });
 });
 

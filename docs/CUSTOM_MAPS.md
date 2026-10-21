@@ -759,9 +759,14 @@ liest sich die Reihe als eine. Die Größen im Katalog prüft `asset-scale.spec.
 
 **Gebäude aus dem Grundriss (E235, `mass-layer.ts`):** ein Objekt kann seinen Bau selbst tragen (`mass`, Asset
 `building-mass`): Außenring und Höfe in den Achsen des Objekts, Wandhöhe, Geschosse, Dach (flach mit Attika, Sattel
-oder Walm über einem Rechteck, Mansarde über jedem Umriss ohne Hof), Fassade (Putz, Beton, Blech, Ziegel, Sandstein,
-Fachwerk über verputztem Erdgeschoss), Wände mit Laden im Erdgeschoss (`shop`, Indizes der Außenwände: Schaufenster
-statt Fenster). `massFronts` gibt die Außenwände auf der Karte mit Normale, Erdgeschoss- und Brüstungshöhe des ersten
+oder Walm über einem Rechteck in beliebiger Drehung, Mansarde über jedem Umriss ohne Hof, Pyramide über einem Umriss,
+den seine Mitte ganz sieht), Fassade (Putz, Beton, Blech, Ziegel, Sandstein, Fachwerk über verputztem Erdgeschoss),
+Dachfarbe und Deckung (`roofTint`, `roofCover`: Ziegel, Schiefer, Blech; Instanzfarbe über der Deckung), Wände mit
+Laden im Erdgeschoss (`shop`, Indizes der Außenwände: Schaufenster statt Fenster). **Teile** (`parts`, E297 L3,
+OSM `building:part`): je Teil eigene Ringe, Boden über dem Sitz (`base`), Wandhöhe, Geschosse ab dem Sitz (Fenster
+fluchten über gestapelte Teile), Dach, Fassade, Wand- und Dachfarbe; gezeichnet werden nur die Teile, die Ringe des
+Baus bleiben sein Grund (Sitz, Bauverbot, Straßen, Ruine). Ein Bau mit Teilen ist ein Objekt: Höhe und Dachraster
+nehmen den höchsten Teil je Stelle, bei Zerstörung fallen alle Teile mit. `massFronts` gibt die Außenwände auf der Karte mit Normale, Erdgeschoss- und Brüstungshöhe des ersten
 Stocks (`sill`) und Index (`edge`), etwa für Schilder. Was die Regeln brauchen, rechnet
 `object-mass.ts` aus den Ringen wie der Katalog für Modelle: Grundrechteck, Radius, Höhe und das Dachraster für Tower
 auf dem Dach (Hof ohne Dach). Bauverbot (`CustomMapSurface`) und Editor-Prüfung (`objectsOnPaths`) nehmen den Umriss,

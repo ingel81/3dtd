@@ -2,8 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { MASS_ASSET, type MapMass, type MapObject } from './map-document';
 import {
   MASS_PARAPET,
+  massApex,
   massArea,
+  massBodies,
   massBox,
+  massRectFrame,
+  massRoofAt,
   massContains,
   massDistance,
   massFronts,
@@ -125,6 +129,77 @@ describe('raised buildings: a mansard over a crooked outline', () => {
     // A courtyard or a second ring: no mansard, the roof is flat
     expect(massInset({ ...l, rings: [...l.rings, [2, 2, 4, 2, 4, 4]] })).toBeNull();
     expect(massInset({ ...l, roof: 'flat' })).toBeNull();
+  });
+});
+
+describe('raised buildings: their parts (E297 L3)', () => {
+  /** A hall 30 x 10 m under a gable along x, a tower 6 x 6 m at its east end, a helm on the tower from 24 m */
+  const church: MapMass = {
+    rings: [[-15, -5, 15, -5, 15, 5, -15, 5]],
+    height: 24,
+    floors: 1,
+    roof: 'flat',
+    facade: 'stone',
+    roofTint: '#5f6368',
+    roofCover: 'slate',
+    parts: [
+      { rings: [[-15, -5, 9, -5, 9, 5, -15, 5]], height: 12, floors: 1, roof: 'gable', ridge: 6 },
+      { rings: [[9, -3, 15, -3, 15, 3, 9, 3]], height: 24.9, floors: 6, roof: 'flat', facade: 'brick', tint: '#c65843' },
+      { rings: [[9, -3, 15, -3, 15, 3, 9, 3]], base: 24, height: 26, floors: 7, roof: 'pyramid', ridge: 14, roofTint: '#5f8f78', roofCover: 'metal' },
+    ],
+  };
+
+  it('reads its parts: the top of the highest, the roofs of all, the helm over the tower', () => {
+    expect(massProblem(church)).toBeNull();
+    expect(massTop(church)).toBeCloseTo(40);
+    expect(massRoofAt(church, 12, 0)).toBeCloseTo(40, 0);
+    expect(massRoofAt(church, 0, 0)).toBeCloseTo(18);
+    expect(massRoofAt(church, 0, 4)).toBeCloseTo(12 + 6 * 0.2);
+    // The tower's flat roof in its corner, beside the helm's foot; outside nothing
+    expect(massRoofAt(church, 12, 2.9)).toBeGreaterThan(24);
+    expect(massRoofAt(church, 20, 0)).toBe(0);
+    // The parts' own facade, colours and covering, else the building's
+    const [hall, tower, helm] = massBodies(church);
+    expect(hall).toMatchObject({ facade: 'stone', roofTint: '#5f6368', roofCover: 'slate' });
+    expect(tower).toMatchObject({ facade: 'brick', tint: '#c65843' });
+    expect(helm).toMatchObject({ base: 24, roofCover: 'metal', roofTint: '#5f8f78' });
+    expect(massBodies(church)).toBe(massBodies(church));
+    expect(massBodies(court)).toEqual([court]);
+    // Walls, slopes and gables of all parts
+    expect(massTriangles(church)).toBe(16 + (4 * 2 + 2 + 4 * 4) + 4 * 3);
+  });
+
+  it('pitches a roof over a rectangle turned any way, a pyramid over an outline its middle sees whole', () => {
+    // 12 x 8 m turned 30 degrees: the ridge along the longer side
+    const c = Math.cos(Math.PI / 6);
+    const s = Math.sin(Math.PI / 6);
+    const turn = (x: number, z: number) => [x * c - z * s, x * s + z * c];
+    const ring = [turn(-6, -4), turn(6, -4), turn(6, 4), turn(-6, 4)].flat();
+    const turned: MapMass = { rings: [ring], height: 6, floors: 2, roof: 'gable', ridge: 3, facade: 'plaster' };
+    expect(massPitched(turned)).toBe(true);
+    const f = massRectFrame(ring)!;
+    expect([f.halfS, f.halfT]).toEqual([expect.closeTo(6, 5), expect.closeTo(4, 5)]);
+    expect(Math.abs(f.ux * c + f.uz * s)).toBeCloseTo(1);
+    const [rx, rz] = turn(3, 0);
+    expect(massRoofAt(turned, rx, rz)).toBeCloseTo(9);
+    // An octagon under a helm: its top over the middle, the slopes down to the eaves
+    const oct = Array.from({ length: 8 }, (_, k) => [5 * Math.cos((k * Math.PI) / 4), 5 * Math.sin((k * Math.PI) / 4)]).flat();
+    const helm: MapMass = { rings: [oct], height: 10, floors: 3, roof: 'pyramid', ridge: 8, facade: 'stone' };
+    expect(massApex(helm)!.x).toBeCloseTo(0);
+    expect(massTop(helm)).toBe(18);
+    expect(massRoofAt(helm, 0, 0)).toBeCloseTo(18);
+    expect(massRoofAt(helm, 2.4, 0)).toBeCloseTo(10 + 8 * (1 - 2.4 / 5));
+    // An L its middle does not see whole stands flat
+    expect(massApex({ ...helm, rings: [[0, 0, 30, 0, 30, 10, 10, 10, 10, 30, 0, 30]] })).toBeNull();
+  });
+
+  it('finds what is wrong with its parts', () => {
+    expect(wordsOf(massProblem({ ...church, parts: [] }))).toMatch(/parts/);
+    expect(wordsOf(massProblem({ ...church, parts: [{ ...church.parts![0], rings: [[0, 0, 1, 1]] }] }))).toMatch(/parts/);
+    expect(wordsOf(massProblem({ ...church, parts: [{ ...church.parts![2], base: 30 }] }))).toMatch(/parts/);
+    expect(wordsOf(massProblem({ ...church, parts: [{ ...church.parts![1], tint: 'red' }] }))).toMatch(/colour/);
+    expect(wordsOf(massProblem({ ...church, roofCover: 'straw' }))).toMatch(/roof/);
+    expect(wordsOf(massProblem({ ...church, roofTint: '#12345' }))).toMatch(/colour/);
   });
 });
 

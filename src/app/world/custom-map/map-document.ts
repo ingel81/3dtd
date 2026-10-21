@@ -268,12 +268,47 @@ export type MapMassFacade = (typeof MAP_MASS_FACADES)[number];
 
 /**
  * Roofs of a raised building: flat with a parapet; pitched over a rectangle
- * (a ridge along the model's x axis); `mansard` over any outline without a
- * courtyard: slopes all round up to a flat top drawn in from the walls
- * (object-mass.ts massInset), the roof an old town's crooked houses take
+ * (a ridge along its longer side, the rectangle turned any way); `mansard`
+ * over any outline without a courtyard: slopes all round up to a flat top
+ * drawn in from the walls (object-mass.ts massInset), the roof an old town's
+ * crooked houses take; `pyramid` over an outline without a courtyard that
+ * its middle sees whole: a slope from every wall up to one point over the
+ * middle (a tower's helm, a stair tower's cap; object-mass.ts massApex)
  */
-export const MAP_MASS_ROOFS = ['flat', 'gable', 'hip', 'mansard'] as const;
+export const MAP_MASS_ROOFS = ['flat', 'gable', 'hip', 'mansard', 'pyramid'] as const;
 export type MapMassRoof = (typeof MAP_MASS_ROOFS)[number];
+
+/** What a pitched roof is covered with: clay tiles, slate, sheet metal (copper, zinc); by the facade and the building's salt when missing */
+export const MAP_MASS_COVERS = ['tiles', 'slate', 'metal'] as const;
+export type MapMassCover = (typeof MAP_MASS_COVERS)[number];
+
+/**
+ * One part of a raised building (OSM `building:part`, Simple 3D Buildings):
+ * its own outline in the building's frame, from its own floor up to its own
+ * eaves, its own roof, walls and colours. A building with parts is drawn as
+ * its parts; its own rings stay its ground (the seat, the build bans, the
+ * roads, the ruin), and a part that fills what the parts leave of it is a
+ * part like the others (the import adds it, convert/building-mass.ts)
+ */
+export interface MapMassPart {
+  /** Its outline, then its courtyards, as MapMass.rings */
+  rings: number[][];
+  /** Where its walls start over the seat, m (`min_height`): 0 or missing on the ground, a spire's on the tower under it */
+  base?: number;
+  /** Its walls' top over the seat, m, as MapMass.height */
+  height: number;
+  /** Storeys from the seat to its top (`building:levels`): its windows line up with its neighbours' */
+  floors: number;
+  roof: MapMassRoof;
+  ridge?: number;
+  /** Its walls; the building's when missing */
+  facade?: MapMassFacade;
+  /** Its walls' colour (#rrggbb); the building's (MapObject.tint) when missing */
+  tint?: string;
+  /** Its roof's colour (#rrggbb) and covering; the building's when missing */
+  roofTint?: string;
+  roofCover?: MapMassCover;
+}
 
 /**
  * A building raised from its footprint (MapObject.mass): walls up the
@@ -298,6 +333,14 @@ export interface MapMass {
    * outline's point k to point k + 1
    */
   shop?: number[];
+  /** The roof's colour (#rrggbb, OSM `roof:colour`) and covering (`roof:material`); by the facade when missing */
+  roofTint?: string;
+  roofCover?: MapMassCover;
+  /**
+   * The building as its parts (MapMassPart): drawn are the parts only, the
+   * rings above stay its ground; at most MASS_MAX_PARTS (object-mass.ts)
+   */
+  parts?: MapMassPart[];
 }
 
 /**
