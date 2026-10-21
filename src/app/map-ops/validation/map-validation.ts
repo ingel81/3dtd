@@ -12,7 +12,7 @@ import { dangerLook } from '../../world/custom-map/render/asset-catalog';
 import { sceneCost, SCENE_BUDGET } from '../../world/custom-map/render/objects/scene-cost';
 import { validateWaveTable, type WaveTable } from '../../director/sources/table/wave-table';
 import { heightAt, insideMap, sampleX, sampleY, slopeAt } from '../grid';
-import { components, EdgeIndex, nearestOnPolyline, routeBetween } from '../path-graph';
+import { components, EdgeIndex, nearestOnPolyline, offDoors, routeBetween } from '../path-graph';
 import { undersideGap } from '../object-ops';
 import { seatHeight, type ObjectFooting } from '../../world/custom-map/render/objects/object-seat';
 import { boxDistance, toModel } from '../../world/custom-map/object-ground';
@@ -470,9 +470,14 @@ function groundOnPath(o: MapObject, footing: ObjectFooting | undefined, edges: E
   const box = footing?.box ?? (footing?.base ? ([0, 0, footing.base[0], footing.base[1]] as const) : undefined);
   const cos = Math.cos(o.rotation);
   const sin = Math.sin(o.rotation);
-  for (const { edge, a, b } of edges.segmentsNear(o, r + Math.min(widestHalf(edges), WIDEST_PATH))) {
+  for (const near of edges.segmentsNear(o, r + Math.min(widestHalf(edges), WIDEST_PATH))) {
+    const edge = near.edge;
     if (under(edge)) continue;
     const half = (edge.width / 2) * (edge.kind === 'path' ? PATH_WALL_SHARE : 1);
+    // A way that runs into a passage through a building touches its wall with its end: that holds nothing off
+    const piece = offDoors(near.a, near.b, near.doorA, near.doorB, half);
+    if (!piece) continue;
+    const [a, b] = piece;
     if (mass) {
       // The centre line against the building's walls, in its own axes
       const p = toModel(a.x - o.x, a.y - o.y, cos, sin);

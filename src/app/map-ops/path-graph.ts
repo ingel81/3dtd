@@ -145,6 +145,8 @@ export class EdgeIndex {
   private readonly minJ: number;
   private readonly maxI: number;
   private readonly maxJ: number;
+  /** The doors of the paths (doorNodes), worked out on the first ask */
+  private doors: Set<string> | null = null;
 
   constructor(readonly paths: MapPaths) {
     const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
@@ -193,9 +195,14 @@ export class EdgeIndex {
     return this.lengths.get(edge) ?? polylineLength(this.polyline(edge));
   }
 
-  /** Every edge segment that passes within `radius` of `p` (each once), its ends and the edge */
-  segmentsNear(p: MapPoint, radius: number): { edge: MapPathEdge; a: MapPoint; b: MapPoint }[] {
-    const out: { edge: MapPathEdge; a: MapPoint; b: MapPoint }[] = [];
+  /**
+   * Every edge segment that passes within `radius` of `p` (each once), its
+   * ends and the edge; `doorA` and `doorB` where an end is a door (doorNodes:
+   * where a passage through a building begins)
+   */
+  segmentsNear(p: MapPoint, radius: number): { edge: MapPathEdge; a: MapPoint; b: MapPoint; doorA: boolean; doorB: boolean }[] {
+    const out: { edge: MapPathEdge; a: MapPoint; b: MapPoint; doorA: boolean; doorB: boolean }[] = [];
+    this.doors ??= doorNodes(this.paths);
     const seen = new Set<string>();
     const i0 = Math.floor((p.x - radius) / EDGE_CELL);
     const i1 = Math.floor((p.x + radius) / EDGE_CELL);
@@ -210,7 +217,10 @@ export class EdgeIndex {
           const line = this.lines.get(item.edge)!;
           const a = line[item.segment];
           const b = line[item.segment + 1];
-          if (segmentDistance(p, a, b) <= radius) out.push({ edge: item.edge, a, b });
+          if (segmentDistance(p, a, b) > radius) continue;
+          const doorA = item.segment === 0 && this.doors.has(item.edge.a);
+          const doorB = item.segment === line.length - 2 && this.doors.has(item.edge.b);
+          out.push({ edge: item.edge, a, b, doorA, doorB });
         }
       }
     }
@@ -249,6 +259,42 @@ export class EdgeIndex {
 /** One number per grid cell (cells within a million of the origin either way) */
 function cellKey(i: number, j: number): number {
   return (i + 1_000_000) * 2_000_003 + (j + 1_000_000);
+}
+
+/**
+ * The doors of a graph: the nodes where a passage through a building (an
+ * edge with `covered`) begins or ends. OSM puts them on the building's wall,
+ * so every way that meets the passage there touches the wall with its end
+ */
+export function doorNodes(paths: MapPaths): Set<string> {
+  const out = new Set<string>();
+  for (const e of paths.edges) {
+    if (!e.covered) continue;
+    out.add(e.a);
+    out.add(e.b);
+  }
+  return out;
+}
+
+/**
+ * Segment a to b without the stretch at a door end (`doorA`, `doorB`) that a
+ * way of half width `half` needs to come off the wall it enters there
+ * (twice its half width and half a metre, for a way meeting the wall
+ * slanted): what holds a building off, null when nothing is left. A way
+ * runs into a passage end on; only where it then runs along a wall does it
+ * hold the building off
+ */
+export function offDoors(a: MapPoint, b: MapPoint, doorA: boolean, doorB: boolean, half: number): [MapPoint, MapPoint] | null {
+  if (!doorA && !doorB) return [a, b];
+  const len = Math.hypot(b.x - a.x, b.y - a.y);
+  const trim = 2 * half + 0.5;
+  const t0 = doorA ? trim / Math.max(len, 1e-9) : 0;
+  const t1 = doorB ? 1 - trim / Math.max(len, 1e-9) : 1;
+  if (t1 <= t0) return null;
+  return [
+    { x: a.x + (b.x - a.x) * t0, y: a.y + (b.y - a.y) * t0 },
+    { x: a.x + (b.x - a.x) * t1, y: a.y + (b.y - a.y) * t1 },
+  ];
 }
 
 function segmentDistance(p: MapPoint, a: MapPoint, b: MapPoint): number {
