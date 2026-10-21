@@ -1,5 +1,22 @@
 import type { MapPoint } from '../../custom-map/map-document';
-import { angleBetween, fallLine, LEAST_RUN, longestSide, parcelsOf, RoadIndex, ROW_END_GAP, rowDirection, rowRuns, runPieces, runPlants, type Parcel } from './crop-rows';
+import {
+  angleBetween,
+  BLOCK_GAP,
+  CROP_ROWS,
+  fallLine,
+  LEAST_RUN,
+  longestSide,
+  parcelsOf,
+  RoadIndex,
+  ROW_END_GAP,
+  rowBlocks,
+  rowDirection,
+  rowRuns,
+  runPieces,
+  runPlants,
+  VINE_ROWS,
+  type Parcel,
+} from './crop-rows';
 
 const deg = (a: number) => (a * 180) / Math.PI;
 const rect = (x0: number, y0: number, x1: number, y1: number): MapPoint[] => [
@@ -72,6 +89,92 @@ describe('crop rows: which way they run', () => {
     expect(side.reason).toBe('side');
     expect(deg(angleBetween(side.angle, 0))).toBeLessThan(2);
     expect(deg(angleBetween(longestSide(rect(0, 0, 30, 90)), Math.PI / 2))).toBeLessThan(1e-6);
+  });
+});
+
+describe('crop rows: vineyards down the fall line', () => {
+  // A road along the parcel's lower edge, 20 degrees off the contour (as in the orchard case above)
+  const tilt = (20 * Math.PI) / 180;
+  const road = new RoadIndex([[{ x: -50, y: -4 - 50 * Math.tan(tilt) }, { x: 200, y: -4 + 200 * Math.tan(tilt) }]]);
+  const p = parcel([
+    { x: 0, y: 0 },
+    { x: 120, y: 120 * Math.tan(tilt) },
+    { x: 120, y: 60 },
+    { x: 0, y: 60 },
+  ]);
+
+  it('runs a vineyard down the fall line from a gentle slope on, whatever the road does', () => {
+    // An orchard keeps to the road on a steep slope; a vineyard does not, on a steep slope or a 4 % one
+    expect(rowDirection(p, slope(0.3, -Math.PI / 2), road, CROP_ROWS).reason).toBe('road');
+    for (const grade of [0.3, 0.04]) {
+      const d = rowDirection(p, slope(grade, -Math.PI / 2), road, VINE_ROWS);
+      expect(d.reason).toBe('slope');
+      expect(angleBetween(d.angle, Math.PI / 2)).toBeLessThan(1e-6);
+    }
+    // Under 3 % the ground is flat: square to the road
+    const level = rowDirection(p, slope(0.02, -Math.PI / 2), road, VINE_ROWS);
+    expect(level.reason).toBe('road');
+    expect(deg(angleBetween(level.angle, tilt + Math.PI / 2))).toBeLessThan(3);
+  });
+
+  it('keeps one block over even ground, flat or falling, and for an orchard', () => {
+    const big = parcel(rect(0, 0, 400, 300));
+    for (const ground of [slope(0.2, 0.7), flat]) {
+      const blocks = rowBlocks(big, ground, null, VINE_ROWS);
+      expect(blocks.length).toBe(1);
+      expect(blocks[0].area).toBeUndefined();
+    }
+    const hill = (x: number, y: number) => 200 - 0.25 * Math.hypot(x - 200, y + 100);
+    expect(rowBlocks(big, hill, null, CROP_ROWS)).toEqual([rowDirection(big, hill, null, CROP_ROWS)]);
+  });
+
+  it('cuts a vineyard round a hill into blocks whose rows follow the fall line, with a lane between them', () => {
+    // A cone 25 % steep, its top south of a parcel 600 x 300 m on its north side: the fall line turns 90 degrees across it
+    const top = { x: 300, y: -100 };
+    const hill = (x: number, y: number) => 200 - 0.25 * Math.hypot(x - top.x, y - top.y);
+    const p2 = parcel(rect(0, 0, 600, 300));
+    const blocks = rowBlocks(p2, hill, null, VINE_ROWS);
+    expect(blocks.length).toBeGreaterThan(3);
+    let pieces = 0;
+    let within = 0;
+    for (const b of blocks) {
+      expect(b.reason).toBe('slope');
+      for (const run of rowRuns(p2, b.angle, 2.4, b.area!.holds, b.area)) {
+        for (const q of runPieces(run, 10)) {
+          pieces++;
+          if (deg(angleBetween(b.angle, Math.atan2(q.y - top.y, q.x - top.x))) <= 15) within++;
+        }
+      }
+    }
+    // The rows cover the parcel (about 180 000 m of row at 2.4 m, less the lanes) and lie along the fall line
+    expect(pieces * 10).toBeGreaterThan(0.85 * ((600 * 300) / 2.4));
+    expect(within / pieces).toBeGreaterThan(0.97);
+    // Each point is one block's at most, and no block's within BLOCK_GAP of another's
+    for (let y = 1; y < 300; y += 3.7) {
+      for (let x = 1; x < 600; x += 3.7) {
+        const held = blocks.map((b, id) => (b.area!.holds(x, y) ? id : -1)).filter((id) => id >= 0);
+        expect(held.length).toBeLessThanOrEqual(1);
+        if (!held.length) continue;
+        for (const [u, v] of [[BLOCK_GAP * 0.9, 0], [0, BLOCK_GAP * 0.9]]) {
+          const others = blocks.filter((b, id) => id !== held[0] && b.area!.holds(x + u, y + v));
+          expect(others.length).toBe(0);
+        }
+      }
+    }
+  });
+
+  it('gives the flat part of a vineyard the flat rule and the slope its own fall line', () => {
+    // Flat for x < 200, then rising 20 % to the east (falling west)
+    const ground = (x: number) => (x < 200 ? 50 : 50 + 0.2 * (x - 200));
+    const p3 = parcel(rect(0, 0, 400, 200));
+    const south = new RoadIndex([[{ x: -50, y: -6 }, { x: 450, y: -6 }]]);
+    const blocks = rowBlocks(p3, ground, south, VINE_ROWS);
+    const flatBlock = blocks.find((b) => b.reason === 'road')!;
+    const slopeBlock = blocks.find((b) => b.reason === 'slope')!;
+    expect(angleBetween(flatBlock.angle, Math.PI / 2)).toBeLessThan(1e-6);
+    expect(deg(angleBetween(slopeBlock.angle, 0))).toBeLessThan(3);
+    expect(flatBlock.area!.holds(60, 100)).toBe(true);
+    expect(slopeBlock.area!.holds(340, 100)).toBe(true);
   });
 });
 

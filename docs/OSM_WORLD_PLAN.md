@@ -700,7 +700,20 @@ Bericht hat dafür `ground`, `water` und `plants`.
   eine Richtung je Parzelle (jeder äußere Ring mit seinen Löchern): am Hang (Ebene durch den Boden der Parzelle, ab 8 %
   Steigung) in der Falllinie, rechtwinklig zur erschließenden Straße, solange das höchstens 35° von der Falllinie
   abweicht; flach rechtwinklig zur erschließenden Straße (Straßen und Wege, deren Mittellinie bis 14 m an den Rand
-  reicht, nach Randlänge gewichtet), ohne sie entlang der längsten Seite. Jede Reihe endet 0,6 m innen an der
+  reicht, nach Randlänge gewichtet), ohne sie entlang der längsten Seite. Das gilt so für Obstgärten (`CROP_ROWS`).
+  Reben (`VINE_ROWS`) laufen als feste Regel in der Falllinie, schon ab 3 % Steigung und ohne Straßenausnahme (Wasser
+  und Kaltluft laufen die Zeilen hinab, der Schlepper fährt auf und ab; über das 60-m-Fenster eines Blocks sind 3 %
+  1,8 m Höhe, weit über dem Fehler der Höhenkacheln). Dreht sich der Boden in der Parzelle (ein Hang um eine Kuppe,
+  Sammelflächen über einen ganzen Hang; eine Ebene durch alles lag dort quer zu weiten Teilen), wird sie in Blöcke
+  geteilt (`rowBlocks`): 40-m-Felder lesen je die Ebene ihres 60-m-Fensters, vom steilsten freien Feld wächst ein Block
+  über die Nachbarn, die bis 12° gleich fallen, und läuft in deren mittlerer Falllinie; die flachen Felder sind ein
+  Block mit der flachen Regel. Jeder Punkt gehört dem Block der vier umliegenden Felder, der der dort gemischten
+  Falllinie am nächsten läuft (Grenzen biegen sich mit dem Hang statt Feldtreppen), und die Zeilen enden 1,5 m vor einem
+  anderen Block: eine Gasse wie zwischen echten Weinbergblöcken. Parzellen, deren Felder alle mit ihrer Ebene fallen,
+  bleiben ein Block. Stromlinien (geschwungene Zeilen mit gleichem Abstand) sind verworfen: echte Zeilen stehen gerade
+  zwischen Pfählen, und die Läufe, Stücke und das Budget je Zeile bleiben dieselben. Auf einem Weinberghang mit
+  Sammelpolygonen lagen vorher 27 % der Rebstücke bis 15° an der örtlichen Falllinie, jetzt 91 %; der Pflanzenschritt
+  dort etwa 0,2 s länger. Jede Reihe endet 0,6 m innen an der
   Parzellengrenze (dort steht der Endpfahl des Modells), Wege, Straßen, Gräben, Betonrinnen, Gebäude, Wasser und
   andere Landnutzung brechen sie (Prüfung je Meter); Läufe unter 3 m entfallen. Ein Lauf wird mit gleich langen
   Rebstücken gefüllt (Anzahl = Länge / 10 m gerundet, gestreckt per `MapObject.stretch`), die dem Hang folgen

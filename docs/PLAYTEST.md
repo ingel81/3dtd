@@ -567,6 +567,10 @@ Richtung, durchgehende Zeilen, Ende an der Grenze und Bruch an einem Weg prüfen
   ob es stört.
 - **Q3 Flache Lage:** wie Q1 mit `49.4000, 8.1950` (Ruppertsberg, Pfalz). *Zeilen rechtwinklig zu den Wirtschaftswegen,
   zwischen denen der Block liegt; fern der Route fehlen ganze Zeilen statt einzelner Stücke.*
+- **Q4 Gewölbter Hang (Nachbesserung):** eine Welt mit Weinbergen an einem Hang, der sich um eine Kuppe dreht (wie Q1
+  oder ein eigener Ort), neu bauen, aus Spielhöhe hangauf schauen, dann von oben. *Überall laufen die Zeilen den Hang
+  hinauf, auch wo der untere Feldweg quer liegt; wo der Hang dreht, wechseln Blöcke die Richtung mit einer schmalen
+  Gasse dazwischen, deren Grenze dem Hang folgt (keine rechtwinkligen Treppen).*
 
 ## R OSM-Grundrisse in OSM-Welten (2026-10-21, E290)
 

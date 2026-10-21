@@ -31,7 +31,7 @@ import { POI_ASSETS } from './pois';
 import { standScale } from '../../../map-ops/tree-stands';
 import { AREA_ASSETS } from './areas';
 import { heightAt } from '../../../map-ops/grid';
-import { parcelsOf, rowDirection, rowRuns, runPieces, runPlants, RoadIndex } from './crop-rows';
+import { CROP_ROWS, parcelsOf, rowBlocks, rowRuns, runPieces, runPlants, RoadIndex, VINE_ROWS, type RowRule } from './crop-rows';
 
 /** Share of the scene budget the plants may take; buildings and furniture get the rest */
 export const PLANT_BUDGET_SHARE = 0.5;
@@ -63,6 +63,8 @@ interface RowKind {
   /** The model is a length of row along its x axis (catalogue `row`): a run is laid as pieces end to end, stretched to fit */
   segment?: boolean;
   scale: readonly [number, number];
+  /** Which way the rows run (crop-rows.ts) */
+  rule: RowRule;
 }
 
 const BROADLEAF = ['tree-oak', 'tree-maple', 'tree-birch', 'tree-oak-young'];
@@ -116,8 +118,8 @@ const PLANTS: Partial<Record<LandClass, readonly PlantKind[]>> = {
 };
 
 const ROWS: Partial<Record<LandClass, RowKind>> = {
-  vineyard: { asset: 'vine-row', across: 2.4, along: 10, segment: true, scale: [1, 1] },
-  orchard: { asset: 'fruit-tree', across: 8, along: 7, scale: [0.85, 1.15] },
+  vineyard: { asset: 'vine-row', across: 2.4, along: 10, segment: true, scale: [1, 1], rule: VINE_ROWS },
+  orchard: { asset: 'fruit-tree', across: 8, along: 7, scale: [0.85, 1.15], rule: CROP_ROWS },
 };
 
 /** Reeds at the shores of lakes, ponds and streams, per hectare of the band within 3 m of the water */
@@ -296,7 +298,7 @@ export function growVegetation(doc: CustomMapDocument, features: OsmFeatures, la
   const shore = distanceField(shoreWater, n, grid.step, SHORE_BAND + 1, false);
   scatter(SHORE_REEDS, 'shore', -1, 900, (k) => (shore[k] > 0 && shore[k] <= SHORE_BAND ? 1 : 0));
 
-  // Rows: vines and orchards straight across each parcel (crop-rows.ts), a run kept or left out whole, nearest the routes first
+  // Rows: vines and orchards straight across each parcel or block of it (crop-rows.ts), a run kept or left out whole, nearest the routes first
   const roads = new RoadIndex(pathLines(doc));
   const ground = (x: number, y: number) => heightAt(t, x, y);
   let runCount = 0;
@@ -307,22 +309,24 @@ export function growVegetation(doc: CustomMapDocument, features: OsmFeatures, la
     if (!cls || !row) continue;
     const index = LAND_CLASSES.indexOf(cls) + 1;
     for (const parcel of parcelsOf(a.outer, a.inner)) {
-      const { angle } = rowDirection(parcel, ground, roads);
       // Free, and on the parcel's own land class (another area painted over part of it breaks the rows); not that
       // near the edge, where the raster lies a cell off the ring
       const free2 = (x: number, y: number) => free(x, y, 1) && (land[cell({ x, y })] === index || nearRing(x, y, parcel.outer, EDGE_SLACK));
-      for (const run of rowRuns(parcel, angle, row.across, free2)) {
-        const id = runCount++;
-        const priority = 1 + nearRoute((run.a.x + run.b.x) / 2, (run.a.y + run.b.y) / 2) / ROUTE_FAR;
-        if (row.segment) {
-          for (const p of runPieces(run, row.along)) {
-            candidates.push({ asset: row.asset, x: p.x, y: p.y, rotation: angle, scale: row.scale[0], priority, source: cls, run: id, stretch: p.stretch });
+      for (const { angle, area } of rowBlocks(parcel, ground, roads, row.rule)) {
+        const free3 = area ? (x: number, y: number) => area.holds(x, y) && free2(x, y) : free2;
+        for (const run of rowRuns(parcel, angle, row.across, free3, area)) {
+          const id = runCount++;
+          const priority = 1 + nearRoute((run.a.x + run.b.x) / 2, (run.a.y + run.b.y) / 2) / ROUTE_FAR;
+          if (row.segment) {
+            for (const p of runPieces(run, row.along)) {
+              candidates.push({ asset: row.asset, x: p.x, y: p.y, rotation: angle, scale: row.scale[0], priority, source: cls, run: id, stretch: p.stretch });
+            }
+            continue;
           }
-          continue;
-        }
-        for (const p of runPlants(run, row.along)) {
-          const u = hashCell(Math.round(p.x * 10), Math.round(p.y * 10), seed + 7);
-          candidates.push({ asset: row.asset, x: p.x, y: p.y, rotation: u * Math.PI * 2, scale: lerp(row.scale, u), priority, source: cls, run: id });
+          for (const p of runPlants(run, row.along)) {
+            const u = hashCell(Math.round(p.x * 10), Math.round(p.y * 10), seed + 7);
+            candidates.push({ asset: row.asset, x: p.x, y: p.y, rotation: u * Math.PI * 2, scale: lerp(row.scale, u), priority, source: cls, run: id });
+          }
         }
       }
     }
