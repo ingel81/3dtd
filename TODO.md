@@ -55,8 +55,7 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       2026-10-21: Stufe 1 auf next (fd30005d5, hochgezogene Gebäude 22 → 8 Programme, Leerlauf nach ready ruhig).
       **Pausiert** (User): Stufen 2-4 (Asset-Ruinen, Schatten-Zwillinge, zurück ins Laden) ruhen. Vor einer
       Fortsetzung erst next gegen 8276577a0 mit frischem Profil messen und zählen, ob die Ruinen fertig werden.
-- [ ] **E291 Route, Korridor und Sicht folgen dem Krater nicht** (User 2026-10-21, geprüft im Code, noch nicht
-      entschieden, ob und wie): Gegner laufen durch den Krater (Simulation: Zellhöhe plus Stempelraster). Aber:
+- [ ] **E291 Route, Korridor und Sicht folgen dem Krater nicht** (User 2026-10-21, geprüft im Code): Gegner laufen durch den Krater (Simulation: Zellhöhe plus Stempelraster). Aber:
       (1) die Korridor-Kacheln und die rote Routenlinie werden nur bei neuen Routen gebaut (`route-grid-viz.service.ts`
       hört nur auf `onCellsChanged`), sie bleiben auf alter Höhe; (2) die Sicht der Tower ist ein Cache je Zelle aus
       Bau oder Upgrade (`GlobalRouteGrid.registerTower`), kein Krater fragt sie neu an. Nur ein danach gebauter Tower
@@ -65,6 +64,8 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Krater-Rechteck neu setzen (billig); Sicht entweder nur die betroffenen Zellen gegen den alten Cube neu proben
       (billig, Kraterwand selbst verdeckt dann nicht) oder Cube der Tower in Reichweite neu rendern (je Tower ein
       Cube-Render, bei Nuke-Dauerfeuer gedrosselt, z. B. höchstens einmal je Sekunde gesammelt).
+      Entschieden (User 2026-10-21): Kacheln und Linie im Krater-Rechteck neu setzen; die Tower in Reichweite rendern
+      ihren Cube neu, gesammelt höchstens einmal je Sekunde (die Kraterwand verdeckt richtig).
 - [ ] **E297 Besondere Gebäude aus OSM (Schloss, Burg, Kirche, Sehenswürdigkeit …)** (User 2026-10-21, Schloss
       Johannisburg Aschaffenburg): OSM führt building=castle, historic=castle, castle_type=stately, tourism=attraction,
       roof:shape, building:levels, wikidata, Innenhof als Multipolygon, Ecktürme. Gebaut werden daraus sechs
@@ -102,24 +103,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
 - Entschieden 2026-10-19: Schildgrenze 512 bleibt; Fähigkeiten, Held und Mutatoren bleiben übersetzt (nur Turm- und
   Gegnernamen englisch); Nachtlicht ohne Mond aufgehellt (gebaut).
 
-### Jetzt: Showreel Runde 5
-
-- [ ] **E182 Showreel**: Runde 5 gedreht und geschnitten 2026-10-18 (59 Szenen per Display, OSM mit Cochem, Lindau,
-      Rothenburg, Hallstatt; drei Welten am Anfang, WIP-Wimpel, Einblendung je Shot), Feedback R5
-      (`tmp/showreel/FEEDBACK_R5.md`) umgesetzt; NAS `showreel/r5-final` (full, 200 MB, 90 MB, Thumbnail, YouTube-Text
-      `tmp/showreel/YOUTUBE_R5.md`). Rig auf `wt/r5-reel`, Schnitt `tmp/showreel/edit/` (`make_cuts_r5.py --display`,
-      `build.py`, `small.py`, `thumb_r5.py`). Offen: Veröffentlichung durch den User. Verlauf Runde 4
-      (User, 2026-10-16: v3 abgelehnt, „nicht gut“; Runde 4 pausiert, bis das Spiel rund ist):
-      Drehbuch freigegeben `tmp/showreel/DREHBUCH_R4.md` (lang 6:52, kurz 1:50, englische Texte), Gesamtliste
-      `tmp/showreel/GESAMTLISTE_v3.md`, Wünsche `tmp/showreel/ACCEPT.md` (Punkte 1-21), Konzept einzeln drehbarer Szenen
-      `tmp/showreel/CONCEPT_SCENES.md` (gebaut auf `wt/showreel2`: Takes, Fixtures, Prüfung, Schnittliste, Warteschlange).
-      Kapitel geprobt auf `wt/reel-k12` (K1, K2), `wt/reel-k3` (K3 Stillwater, wip), `wt/reel-k457` (K4, K5, K7),
-      `wt/showreel2` (K0, K6). Gedreht und geschnitten 2026-10-17 (50 Takes; full, medium, short, fast, rapid und eine
-      Review-Fassung mit Szenenname auf dem NAS). Feedback des Users je Szene in `tmp/showreel/FEEDBACK_R4.md`.
-      Die Engine-Punkte dafür sind gebaut (Engine-Runde R4, Abschnitt 2). Jetzt Runde 5 nach Teil B der
-      Feedback-Datei; OSM-Welten und Fixtures auf mitgelieferten Leveln neu erzeugen (Tunnelportale und Höhenmodell
-      geändert, alle mitgelieferten Karten neu gebacken). Für das Feedback wieder eine Review-Fassung mit Szenenname
-      (`tmp/showreel/edit/build.py <liste> --review`).
 
 ### Jetzt: OSM-Runde 2 (User 2026-10-18: Lead lässt ausarbeiten und bauen, User macht optische Abnahme)
 
@@ -153,7 +136,7 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 - [ ] **E195 Rest:** Menü und Weltwechsel sind gebaut (Abschnitt 2), das Leck beim Weltwechsel ist zu und gemessen
       (`docs/WORLDS_NAVIGATION_PLAN.md`, Nachtrag 2026-10-19). Offen: OSM-Karten heißen im Pfad noch „Maps“
       (`worldName` kennt nur den WorldRef).
-- [ ] **E134 Eigene Karten freigeben** (entschieden 2026-10-11): erst wenn alles Abgestimmte steht (E130 bis E133, auch
+- [ ] **E134 Eigene Karten freigeben** (entschieden 2026-10-11, User 2026-10-21: mit 0.8): erst wenn alles Abgestimmte steht (E130 bis E133, auch
       Wellen-Editor und Zerstörung). Dann `CUSTOM_MAPS_RELEASED` an (`src/app/world/custom-maps-open.ts`) und
       `.3dtdmap`-Zuordnung im Installer. Die Karten-Daten (194 MB) kommen beim ersten Öffnen einer Karte vom Webserver
       (Fortschritt, danach Cache; die Desktop-App legt sie auf die Platte), nicht im Installer. Die Level bleiben eine
@@ -161,16 +144,6 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       Vorbereitet 2026-10-12: Nachladen mit Cache und Fortschritt (`map-data.ts`, `mapData` in der runtime-config);
       offen: Daten auf den Webserver, CORS, CSP der Desktop-App ([CUSTOM_MAP_WORLD.md](docs/CUSTOM_MAP_WORLD.md#laden)).
 
-### Spiel und Balance
-
-- [ ] **E1 Balancing aufrollen**: Phase 1 und 2 gebaut, Baseline und sechs Tuning-Runden gelaufen. Offen: Zielbänder
-      (3b) und Kampagnenende (3a), [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
-- [ ] **E105 Spieltiefe, Rest der Balance-Nacht**: Schild am Skarnax-Kopf, Gegnereigenschaften Shielded und Aura,
-      Mutator „Panzerung +1“.
-- [ ] **E106 Menschenähnlicher Bot** ([BOT_PLAYER_PLAN.md](docs/BOT_PLAYER_PLAN.md), B1 bis B6 auf `next`): offen B7
-      (Camo, Pfade, Bauzeit; seit 2026-10-05 auf `next`); Profile mit dem Lauf vom 2026-10-04 nachjustieren
-      (`tools/play-profile`); Gold an den Coop-Partner im Browser auslösen (bisher nur per Spec).
-- [ ] **E103 Ego-Steuerung des Helden** (User, 2026-10-02).
 
 ### Bugs, warten auf neuen Fall
 
@@ -200,9 +173,14 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       `overpass-host/`, Images auf GHCR, Klon vom 13.10., Stadt-Abfragen 1 bis 1,3 s, Proxy gedeckelt, Statusseite
       im LAN). Im Spiel auf `next` angebunden (erster globaler Server, CSP, Rechtsseiten, README, Startseite); geht
       live mit 0.8. Dev-Ports außer 4200 brauchen einen Eintrag in `ALLOWED_ORIGINS` des Servers. Live seit 0.7.2 schon die
-      Rotation über fünf öffentliche Server. Entscheide: echter Overpass statt Kachelserver (keine Datenfilter, keine
-      Spieländerung), 16 GB RAM, Klon ohne Metadaten, Neu-Klon bei Bedarf statt Diffs, jede QL-Abfrage gedeckelt (5 km,
+      Rotation über fünf öffentliche Server. Entschieden (User 2026-10-21): echter Overpass statt Kachelserver (keine Datenfilter, keine
+      Spieländerung), 16 GB RAM, Klon ohne Metadaten, jede QL-Abfrage gedeckelt (5 km,
       90 s), ohne Origin erlaubt, kein XML, Tag `:next` bis main. Andere Datenquellen vom User verworfen.
+- [ ] **E300 Overpass-Instanz aktuell halten** (User 2026-10-21, vor 0.8): Tages-Diffs von planet.openstreetmap.org
+      nachts einspielen statt Neu-Klon (`OVERPASS_DIFF_URL`, `OVERPASS_UPDATE_SLEEP` im wiktorn-Image, geht ohne
+      Metadaten; der Klon bringt seine Startnummer mit). Dafür ein Ausgang des Overpass-Containers nur zu
+      planet.openstreetmap.org, Updater im Startskript, Last und Dauer auf dem Unraid messen; Neu-Klon bleibt der
+      Notweg, falls ein Einspielen die Datenbank beschädigt.
 - [ ] **Entschieden 2026-10-15 (Entscheidungsseite, Runde 1):** Push nach den Nachtests, auf `next` auch früher,
       sobald alles in einem Branch liegt; **kein Release auf main**. E184/E190: alle 13 Karten hohe Priorität, die
       angehakten Vorschläge plus Leben (Liste in der Entscheidungsseite, Notizen in `tmp/plan/IMPOSING_MAPS_2026-10-15.md`).
@@ -478,6 +456,19 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
 
 ## 3. Später und Ideen
 
+- [ ] **E182 Showreel v2** (User 2026-10-21): Runde 5 ist online. Eine v2 deutlich später, Richtung 0.8 (Krater,
+      Wasser, OSM-Gebäude, Weinberge). Rig und Schnitt von R5: `wt/r5-reel`, `tmp/showreel/edit/`.
+
+Spiel und Balance (User 2026-10-21: später, ggf. erst nach 0.8; vorher evtl. ein Coop-Testlauf, danach nachschärfen):
+
+- [ ] **E1 Balancing aufrollen**: Phase 1 und 2 gebaut, Baseline und sechs Tuning-Runden gelaufen. Offen: Zielbänder
+      (3b) und Kampagnenende (3a), [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
+- [ ] **E105 Spieltiefe, Rest der Balance-Nacht**: Schild am Skarnax-Kopf, Gegnereigenschaften Shielded und Aura,
+      Mutator „Panzerung +1“.
+- [ ] **E106 Menschenähnlicher Bot** ([BOT_PLAYER_PLAN.md](docs/BOT_PLAYER_PLAN.md), B1 bis B6 auf `next`): offen B7
+      (Camo, Pfade, Bauzeit; seit 2026-10-05 auf `next`); Profile mit dem Lauf vom 2026-10-04 nachjustieren
+      (`tools/play-profile`); Gold an den Coop-Partner im Browser auslösen (bisher nur per Spec).
+- [ ] **E103 Ego-Steuerung des Helden** (User, 2026-10-02).
 - [ ] **E296 Weltraum-Karte auf einem Asteroiden** (User-Idee 2026-10-21, Details per AUQ geklärt, nicht geplant):
       Kleiner Brocken: Spielfeld flach genug zum Bauen, der Rand fällt rundum sichtbar ab (gekrümmter Horizont),
       dahinter direkt der Weltraum statt ferner Berge: Sterne ohne Atmosphäre und Nebel, Planet und weitere Brocken,
