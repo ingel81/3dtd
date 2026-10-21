@@ -80,10 +80,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
 - [ ] **E294 Kratersee im Editor** (2026-10-21, aus E283 ausgeklammert): Der Landschafts-Modus „crater“ schreibt nur
       Höhen, ohne Kraterliste und Spielzeit; im Editor füllt sich darum kein See. Eigener Schritt: Pinsel mit Vorschau
       (See gleich voll oder Füllen ohne Spielzeit).
-- [ ] **E292 Editor: zwei Abweichungen im Fuzz-Test** (Zweitrechner 2026-10-21, beim Spiegel-Fix a30484b02 gefunden):
-      Mit Abgleich nach jedem Schritt (Seeds 5000-5149) bleiben 3 von 150 rot. 5023 und 5138: nach „landscape road“
-      stimmt die Worker-Kopie (DocMirror) nicht mit dem Editor-Dokument überein. 5038: Undo von „Remove 17 objects“
-      ergibt nicht die Karte von Schritt 56. Die 10 Seeds im Test sind grün. Ursache offen.
 - [ ] **E275 Übergang vom Laden ins Spiel** (Zweitrechner 2026-10-20, Production, V-Sync, warmes Profil): in den ersten
       0,3 s nach ready ein Bild von 117-166 ms und einige von 33-50 ms (OSM und Ruined City). Darin erste Textur-Uploads
       (512×512, 650×426 mit Mipmaps, vermutlich Minimap oder UI) und eine Programmabfrage von 5,5 ms. Ursache im
@@ -253,6 +249,8 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 - [ ] **E284 Radius für Nuke**: Regler 5 bis 100 m im Werkzeug „Zerstören“, wirkt auf Einsturz,
       Krater und Pilzwolke, als Feld `radius` von `debug:blast` mit Koop-Prüfung (PLAYTEST.md N11).
 - [ ] **E281 Dialog „Lauf wartet“**: Knopf heißt nur „Weiterspielen“, Dialog-Fußzeilen dürfen umbrechen (User: ok).
+- [ ] **E292 Fuzz-Abweichungen im Editor**: `commit` einer Transaktion meldet ganz gesicherte Teile und neue/entfernte
+      Objekte mit (Spiegel verpasste geteilte Straße, doppelte Objekt-Ids); Seeds 5000-5149 grün, kein Nachtest nötig.
 
 ### Runde 2026-10-20 (auf `next`, Nachtests in PLAYTEST.md N)
 
