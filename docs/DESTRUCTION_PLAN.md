@@ -398,6 +398,14 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
     (`WorldDamage.debugBlast`: der Einschlag des Projektiltyps am Boden, der Atomschlag über `ability`), mit dessen
     Darstellung (`vfx:projectile-impact`, beim Atomschlag `ability:impact` mit Strike-Id -1). Gegner nehmen keinen
     Schaden.
+  - **Radius** (E284, nur Atomschlag): Regler 5 bis 100 m in ganzen Metern, Start beim echten Schlag (25 m). Er geht
+    als optionales Feld `radius` des Befehls `debug:blast` in die Simulation (`DEBUG_BLAST_RADIUS`,
+    `DEBUG_RADIUS_BLASTS` in `destruction.config.ts`): was fällt, der Krater (Radius und Tiefe im Verhältnis des echten
+    Schlags) und Pilzwolke, Blitz und Brandringe (`radiusM` von `ability:impact`) wachsen mit. Ohne Feld wirkt der
+    Befehl wie vorher, der eigene Radius des Schlags rechnet mit Faktor genau 1. Die Befehlsprüfung
+    (`command-guard.ts`) weist anderes ab: kein ganzer Meter, außerhalb der Grenzen, ein Radius an Kanone oder Rakete.
+    5 m ist etwa ein Haus, 100 m das Vierfache des echten Schlags und der größte Krater, den `debug:dig-crater`
+    zulässt. Ganze Meter halten Befehlslog und Replay frei von Bruchteilen des Reglers.
   - **Pick:** wählt das Bauwerk unter dem Klick (im Grundriss, sonst im Kreis; `WorldDamagePresenter.structureAt`) und
     zeigt Id, HP (aktuell, höchste, Prozent) und Stufe aus dem Spiegel; die Stufe 0 bis 3 setzen, „Fell now“ (Stufe 3)
     und „Mend“ (Stufe 0).
@@ -410,7 +418,7 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
 - Beide sind Befehle im Befehlslog (`debug:*`, im Koop Cheats nach der Raumregel): der Partner sieht dasselbe, ein
   Replay spielt sie nach, ein Spielstand trägt das Ergebnis (HP und Krater). Spec: zwei Simulationen mit denselben
   Befehlen kommen auf dieselbe Prüfsumme, die Welle läuft im Replay ohne Abweichung (`sim-core.spec.ts`).
-- In DevTools dazu `__worldDamage.blast(lat, lon, blast)`, `.setStage(index, stufe)`, `.hp(index)`.
+- In DevTools dazu `__worldDamage.blast(lat, lon, blast, radius?)`, `.setStage(index, stufe)`, `.hp(index)`.
 
 **Schutt und Effekte** (gebaut, Z3, Ton offen)
 

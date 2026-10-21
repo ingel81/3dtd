@@ -70,9 +70,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
 - [ ] **E289 Eigene Welten ohne Vorschaubild** (User 2026-10-21): Im Menü „Gebaute Welten“ zeigen selbst gebaute Karten
       (Zuletzt und Eigene Welten, z. B. „Editor Testworld1“) nur ein leeres dunkles Feld, mitgelieferte wie Mountain Pass
       ein Bildchen. Soll: auch eigene Karten bekommen ein Vorschaubild (z. B. beim Speichern im Editor erzeugt).
-- [ ] **E284 Zerstörungswerkzeug: Radius für Nuke** (User 2026-10-20): Regler für den Explosionsradius im
-      Entwickler-Werkzeug „Zerstören“. Radius als optionales Feld des Debug-Treffer-Befehls durch die Sim (Krater,
-      Gebäudeschaden, Effektgröße), Befehlsprüfung im Koop mitziehen. Klein bis mittel.
 - [ ] **E285 Weinberge: Rebzeilen** (User 2026-10-20): Zeilen stehen schräg und sind in kurze Stücke zerhackt. Soll:
       gerade, parallel, durchgehend über die Parzelle, in der Falllinie den Hang hoch, meist rechtwinklig zur
       erschließenden Straße; auf flachem Gelände rechtwinklig zur nächsten Straße.
@@ -257,6 +254,8 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       E245 Mehrsprachigkeit komplett (Wächter fürs ganze Spiel geschlossen, Kartennamen nie übersetzt).
       E279 Schuss auf einen gestorbenen Luftgegner platzt in der Luft statt am Boden; E278 Ortssuche mit Art und Lage je
       Treffer, Doppel zusammengefasst (Länder noch in Browsersprache); erster Fokus im Startmenü auf Weiterspielen.
+- [ ] **N7 Radius für Nuke** (2026-10-21): E284 Regler 5 bis 100 m im Werkzeug „Zerstören“, wirkt auf Einsturz,
+      Krater und Pilzwolke, als Feld `radius` von `debug:blast` mit Koop-Prüfung (PLAYTEST.md N11).
 
 ### Nachtschicht 2026-10-18/19 (auf `origin/next`, Nachtests in PLAYTEST.md K)
 

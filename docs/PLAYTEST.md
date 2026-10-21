@@ -522,6 +522,9 @@ Gemessen ist alles per Probe (e2e/perf); hier zählt das Gefühl im echten Spiel
 - **N10 Altstadt beim Zoomen:** OSM-Welt mit Fachwerkhäusern, aus der Spielkamera langsam heraus- und hineinzoomen;
   dasselbe an einem Wohnblock und einem Einfamilienhaus. *Dach bleibt dunkel ziegelrot, Wände behalten ihre Farbe,
   nur die Ziegelstruktur glättet sich leicht.*
+- **N11 Radius für Nuke:** wie N7, „Nuke“ wählen, Regler auf 5 m, in die Stadt klicken; dann 100 m an anderer Stelle.
+  *Bei 5 m fällt nur, was direkt getroffen ist, kleiner Krater und kleine Wolke; bei 100 m fällt ein ganzes Viertel,
+  Krater und Wolke entsprechend groß. Bei Kanone und Rakete kein Regler.*
 
 ## Eichtabelle
 
