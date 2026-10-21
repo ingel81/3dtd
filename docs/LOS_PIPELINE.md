@@ -1,6 +1,6 @@
 # LOS-Pipeline: Sichtlinien der Tower auf dem Route-Grid
 
-**Stand:** 2026-10-20
+**Stand:** 2026-10-21
 
 Wie ein Tower weiß, welche Route-Zellen er sieht: eine Cubemap je Tower-Tip auf
 der GPU, drei Leser derselben Cubemap und ein Cache in den Zellen, den der
@@ -207,6 +207,14 @@ teilweise (`NearestFilter` ist dort Lesson 3, hier Regel 5).
     Deklarationen, GLSL auf `localPos` vor Instanz- und Modellmatrix, Uniforms). Der Würfel baut je Schlüssel
     ein Distance-Material mit diesem Stück, das Bezugspunkt und `far` mit dem einfachen teilt; ohne fiele
     das Gelände im Würfel auf Höhe 0.
+14. **Was ein Tower sieht, hängt nicht an der Spielkamera** (E304, Entscheidung 5 in
+    [RENDER_DENSITY_PLAN.md](RENDER_DENSITY_PLAN.md)): Blocker, die die Kamera in Stufen zeichnet (Detailstufen,
+    Impostoren, Fernkästen und Pixelgrenze der Objekte, Quadtree und Geomorph des Geländes), tragen
+    `losTransparent`. Ihre feste Stufe liegt in Groups mit `userData.losOnly`, die nur im Cube-Render sichtbar
+    sind; `userData.losPrepare(tip, far, warmUp)` füllt sie vor jedem Render: das volle Modell jedes Blockers,
+    dessen Hülle innerhalb von `far` um den Tip liegt (`MapObjectLayer`, `LosDraw`), und die feinsten
+    Geländestücke ohne Geomorph in dieser Reichweite (`TerrainChunks.losGroup`). Der Warm-up-Würfel zeigt je Art
+    eins (Programme, nicht die Karte). Geprüft mit `e2e/perf/los-cube.ts`: dieselben Bytes aus jeder Kamerapose.
 
 Für die Schleifen im Kampf gilt außerdem: In `updateTowerShooting`,
 `updateMeleeTowers` und `updateChainTowers` (`tower-combat.service.ts`) steht
@@ -218,7 +226,9 @@ Sonst zählt jeder Tower seinen Cooldown einmal je Methode herunter (Befund
 
 | Datei | Aufgabe |
 |---|---|
-| `three-engine/tower-shadow-mapper.ts` | Cube-Render, Move-Gate, `invalidate()`, Render-Version, `getFaceImageData` fürs Debug-Panel |
+| `three-engine/tower-shadow-mapper.ts` | Cube-Render, Move-Gate, `invalidate()`, Render-Version, `getFaceImageData` fürs Debug-Panel, `losOnly`/`losPrepare` (Regel 14) |
+| `world/custom-map/render/objects/object-layer.ts`, `render/terrain/terrain-chunks.ts` | die feste Stufe für den Cube auf eigenen Karten: `LosDraw` je blockierendem Asset, `losGroup` des Geländes |
+| `e2e/perf/los-cube.ts` | Probe: Kosten je Cube und gleiche Bytes aus mehreren Kameraposen |
 | `utils/gpu-cube-resolve.ts` | `LosResolveContext`, `sampleCubeAtPoint`, `isCubeVisible`: der CPU-Pfad für den Kampf-Cache |
 | `utils/route-grid-los.ts` | `resolveTowerLos`, `resolveTowerLosIncremental`: Antworten je Zelle in Reichweite, auf den eingefrorenen Höhen |
 | `utils/los-mask.ts` | `LosMask`: die Antworten eines Towers als 2 Bit je Slot, JSON-Form für Log und Snapshot |

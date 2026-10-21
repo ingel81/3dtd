@@ -16,7 +16,7 @@ import {
   type Raycaster,
   type WebGLProgramParametersWithUniforms,
 } from 'three';
-import type { LosVertexPatch } from '../../../../three-engine/tower-shadow-mapper';
+import type { LosPrepare, LosVertexPatch } from '../../../../three-engine/tower-shadow-mapper';
 import { cellSplit, type HeightField } from '../height-field';
 import type { HeightTexture } from './height-texture';
 
@@ -210,8 +210,13 @@ const noRaycast = (): void => undefined;
  * the diagonal `cellSplit` picks from its corner heights, as
  * HeightField.heightAt assumes, so a height change picks the diagonals of
  * the cells it reached anew (in the pieces shown at once, the others when
- * they show). Rays meet the surface `heightAt` reports (HeightField.raycast),
- * the line-of-sight cube draws the heights through `userData.losVertex`.
+ * they show). Rays meet the surface `heightAt` reports (HeightField.raycast).
+ *
+ * The line-of-sight cube does not see these pieces (`losTransparent`): what
+ * the camera draws must not change what a tower sees. It draws `losGroup`
+ * instead, the finest pieces within its reach of the tower's tip, unmorphed,
+ * the heights through `userData.losVertex` (tower-shadow-mapper.ts
+ * `losOnly`, `losPrepare`).
  */
 export class TerrainChunks {
   readonly group = new Group();
@@ -230,6 +235,11 @@ export class TerrainChunks {
   private readonly focusLocal = new Vector3(1e9, 0, 1e9);
   /** The pieces' shadow depth with the heights and the geomorph, so the terrain shades itself where it is drawn */
   private readonly depthMaterial: MeshDepthMaterial;
+  /** The ground the line-of-sight cube draws (see the class): the finest pieces round a tip, added beside `group` */
+  readonly losGroup = new Group();
+  /** The cube's mesh of each finest piece it drew once, sharing the piece's geometry */
+  private readonly losMeshes = new Map<Node, Mesh>();
+  private readonly losTip = new Vector3();
   /** The coarsest pieces, row by row */
   private readonly roots: Node[] = [];
   /** The finest pieces, row by row (rays find theirs) */
@@ -285,6 +295,11 @@ export class TerrainChunks {
     };
     this.group.name = 'custom-map-terrain';
     this.group.raycast = (raycaster, intersects) => this.raycast(raycaster, intersects);
+    this.group.userData['losTransparent'] = true;
+    this.losGroup.name = 'custom-map-terrain-los';
+    this.losGroup.visible = false;
+    this.losGroup.userData['losOnly'] = true;
+    this.losGroup.userData['losPrepare'] = ((tip, far, warmUp) => this.prepareLos(tip, far, warmUp)) satisfies LosPrepare;
     this.depthMaterial = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
     this.depthMaterial.onBeforeCompile = (shader) => {
       patchTerrainVertex(shader, this.uniforms, TERRAIN_SKIRT_LIFT);
@@ -368,6 +383,33 @@ export class TerrainChunks {
     this.show();
     this.unsettled = this.waiting.length;
     this.buildWaiting();
+  }
+
+  /**
+   * The cube's ground for a tip (world space) and its reach: every finest piece whose box lies within `far`, built
+   * when missing, its diagonals up to date. The warm-up's cube needs only its program: one piece
+   */
+  private prepareLos(tip: Vector3, far: number, warmUp: boolean): void {
+    this.losGroup.matrix.copy(this.group.matrix);
+    this.losGroup.matrixWorldNeedsUpdate = true;
+    this.losTip.copy(tip).applyMatrix4(this.inverse.copy(this.group.matrixWorld).invert());
+    this.losGroup.clear();
+    for (const n of this.leaves) {
+      if (warmUp ? this.losGroup.children.length > 0 : n.box.distanceToPoint(this.losTip) > far) continue;
+      this.ensureGeometry(n);
+      this.pickDiagonals(n);
+      this.fitBounds(n);
+      let mesh = this.losMeshes.get(n);
+      if (!mesh) {
+        mesh = new Mesh(n.geometry!, this.material);
+        mesh.name = `terrain-los-${n.i0}-${n.j0}`;
+        mesh.matrixAutoUpdate = false;
+        mesh.raycast = noRaycast;
+        mesh.userData['losVertex'] = this.losVertex;
+        this.losMeshes.set(n, mesh);
+      }
+      this.losGroup.add(mesh);
+    }
   }
 
   /** Whether every piece shows the level it wants (none waits to be built) */
@@ -504,6 +546,8 @@ export class TerrainChunks {
     this.shownList = [];
     this.twins.length = 0;
     this.group.clear();
+    this.losGroup.clear();
+    this.losMeshes.clear();
     this.depthMaterial.dispose();
   }
 

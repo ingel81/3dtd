@@ -108,4 +108,39 @@ describe('TowerShadowMapper', () => {
     for (const m of [plain, ...ground]) expect(m.material).toBeInstanceOf(MeshBasicMaterial);
     mapper.dispose();
   });
+
+  it('draws the fixed stage of the blockers instead of what the camera chose, filled for each tip (Regel 14)', () => {
+    const scene = new Scene();
+    const blockers = new Group();
+    scene.add(blockers);
+    const chosen = new Mesh(new BoxGeometry(), new MeshBasicMaterial());
+    chosen.userData['losTransparent'] = true;
+    const stage = new Group();
+    stage.visible = false;
+    stage.userData['losOnly'] = true;
+    const fixed = new Mesh(new BoxGeometry(), new MeshBasicMaterial());
+    stage.add(fixed);
+    const prepared: [number, number, boolean][] = [];
+    stage.userData['losPrepare'] = (tip: Vector3, far: number, warmUp: boolean) => prepared.push([tip.y, far, warmUp]);
+    blockers.add(chosen, stage);
+    let faces = 0;
+    const renderer = fakeRenderer(() => {
+      faces++;
+      expect(drawn(fixed)).toBe(true);
+      expect(drawn(chosen)).toBe(false);
+    });
+    const mapper = new TowerShadowMapper(renderer, scene);
+    mapper.update(new Vector3(0, 5, 0), 30, blockers);
+    expect(faces).toBe(6);
+    expect(prepared).toHaveLength(1);
+    expect(prepared[0][0]).toBe(5);
+    expect(prepared[0][1]).toBeGreaterThan(30);
+    expect(prepared[0][2]).toBe(false);
+    // Hidden again from the frame; the warm-up's cube asks for one of each kind
+    expect(stage.visible).toBe(false);
+    expect(chosen.visible).toBe(true);
+    mapper.warmUp(new Vector3(0, 5, 0), blockers);
+    expect(prepared[1][2]).toBe(true);
+    mapper.dispose();
+  });
 });

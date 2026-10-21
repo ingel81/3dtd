@@ -17,11 +17,11 @@ describe('impostors in texture arrays', () => {
     expect(ShaderChunk.alphatest_fragment).toContain('alphaTest');
   });
 
-  it('draws the impostors of one view size and sight flag in one mesh, the layer per instance, the LOS cube the same cards', () => {
+  it('draws the impostors of one view size and sight flag in one mesh, the layer per instance, none in the LOS cube', () => {
     const blocking = new Group();
     const open = new Group();
     const draws = new ImpostorDraws({ blocking, open });
-    const set = { cell: 64, material: new MeshStandardMaterial(), depthMaterial: new MeshDepthMaterial(), losVertex: { key: 'k', pars: '', vertex: '', uniforms: {} } } as unknown as ImpostorSet;
+    const set = { cell: 64, material: new MeshStandardMaterial(), depthMaterial: new MeshDepthMaterial() } as unknown as ImpostorSet;
     const key = ImpostorDraws.key({ set, layer: 3 }, true);
     expect(key).toBe('64|blocking');
     draws.register(key, set);
@@ -31,7 +31,7 @@ describe('impostors in texture arrays', () => {
     expect(blocking.children).toHaveLength(1);
     const mesh = blocking.children[0] as import('three').InstancedMesh;
     expect(mesh.geometry.getAttribute('aImpLayer')).toBe(list.extras[0]);
-    expect(mesh.userData['losVertex']).toBe(set.losVertex);
+    expect(mesh.userData['losTransparent']).toBe(true);
     expect(mesh.customDepthMaterial).toBe(set.depthMaterial);
     // More than it holds: a new list, the old mesh gone
     expect(draws.list(key, 1000).renewed).toBe(true);

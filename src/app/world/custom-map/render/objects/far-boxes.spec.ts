@@ -5,6 +5,13 @@ import { HeightField } from '../height-field';
 import { MapAssetLibrary } from '../map-asset-library';
 import { MapObjectLayer } from './object-layer';
 
+/** The boxes' parameter rows (one per asset) as their material binds them */
+function farParams(boxes: InstancedMesh): Float32Array {
+  const shader = { uniforms: {} as Record<string, { value: { image: { data: Float32Array } } }>, vertexShader: '#include <common>\n#include <begin_vertex>', fragmentShader: '#include <common>' };
+  (boxes.material as MeshStandardMaterial).onBeforeCompile(shader as never, undefined as never);
+  return shader.uniforms['uFarParams'].value.image.data;
+}
+
 /** A house of radius 6 m whose box takes over where it fills 6 / (300 tan 30°) of the screen: 300 m from its bounds */
 const house: CatalogObject = {
   id: 'house',
@@ -55,11 +62,11 @@ describe('far boxes', () => {
     expect(boxes.count).toBe(1);
     expect(boxes.geometry.index!.count / 3).toBe(24);
     expect(los.children.find((c) => c.name === 'shed' && (c as InstancedMesh).count === 1)).toBeDefined();
-    // The box carries its asset's row and draws in the line of sight with the same shape
+    // The box carries its asset's row; the line of sight does not see it (it draws the full models, LosDraw)
     expect(boxes.geometry.getAttribute('aFarRow').array[0]).toBe(0);
-    expect(boxes.userData['losVertex'].vertex).toContain('farBoxLocal');
+    expect(boxes.userData['losTransparent']).toBe(true);
     // Its tone in the row's fifth texel after the ninth height (catalogue far.tone), 1 without one
-    const params = () => boxes.userData['losVertex'].uniforms.uFarParams.value.image.data as Float32Array;
+    const params = () => farParams(boxes);
     expect([...params().subarray(17, 20)]).toEqual([1, 1, 1]);
     // Moving over: the far house comes near, the near one goes far
     camera.position.set(-600, 5, 0);
@@ -93,7 +100,7 @@ describe('far boxes', () => {
     camera.updateMatrixWorld();
     layer.update(0.016, camera);
     const boxes = los.children.find((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === 'far-boxes')!;
-    expect([...(boxes.userData['losVertex'].uniforms.uFarParams.value.image.data as Float32Array).subarray(17, 20)]).toEqual([2, 1.5, 0.5]);
+    expect([...farParams(boxes).subarray(17, 20)]).toEqual([2, 1.5, 0.5]);
     const material = boxes.material as MeshStandardMaterial;
     const shader = { uniforms: {}, vertexShader: '#include <common>\n#include <begin_vertex>', fragmentShader: '#include <common>\n#include <map_fragment>\n#include <emissivemap_fragment>' };
     material.onBeforeCompile(shader as never, undefined as never);

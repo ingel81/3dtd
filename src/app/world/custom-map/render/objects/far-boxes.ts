@@ -15,7 +15,6 @@ import {
   Vector3,
   type Texture,
 } from 'three';
-import type { LosVertexPatch } from '../../../../three-engine/tower-shadow-mapper';
 import type { CatalogObject } from '../asset-catalog';
 import { addHeightFog } from '../environment/height-fog';
 import { addLodFade, fadeGeometry } from './lod-fade';
@@ -164,7 +163,6 @@ export class FarBoxes implements SharedDraws {
   private readonly material: MeshStandardMaterial;
   private readonly depthMaterial: MeshDepthMaterial;
   private readonly uniforms: { uFarParams: { value: DataTexture }; uFarAtlas: { value: Vector2 } };
-  private readonly losVertex: LosVertexPatch;
   /** The boxes that block sight (key `blocking`), and the rest (`open`) */
   private readonly draws = new Map<string, FarDraw>();
   /** Bounds of every building drawn as a box, per draw */
@@ -179,7 +177,6 @@ export class FarBoxes implements SharedDraws {
     this.params.magFilter = this.params.minFilter = NearestFilter;
     this.params.needsUpdate = true;
     this.uniforms = { uFarParams: { value: this.params }, uFarAtlas: { value: new Vector2(image.width, image.height) } };
-    this.losVertex = { key: 'custom-map-far-box', pars: FAR_BOX_GLSL, vertex: 'localPos.xyz = farBoxLocal(localPos.xyz);', uniforms: this.uniforms };
 
     const m = new MeshStandardMaterial({ map: atlas, flatShading: true, roughness: 0.85, metalness: 0 });
     m.name = 'far-box';
@@ -274,9 +271,9 @@ export class FarBoxes implements SharedDraws {
     mesh.matrixAutoUpdate = false;
     mesh.receiveShadow = true;
     mesh.visible = false;
-    mesh.userData['losVertex'] = this.losVertex;
     mesh.userData['objectsKind'] = 'far-box';
-    if (!blocks) mesh.userData['losTransparent'] = true;
+    // A far stand-in the camera chose: the LOS cube draws the buildings' full models (object-layer.ts LosDraw)
+    mesh.userData['losTransparent'] = true;
     let drawn = 0;
     mesh.onBeforeShadow = () => {
       drawn = mesh.count;

@@ -168,4 +168,31 @@ describe('TerrainChunks rays and line of sight', () => {
     // The cube draws each chunk with its height (tower-shadow-mapper.ts)
     for (const m of chunks.meshes) expect(m.userData['losVertex']).toMatchObject({ key: 'custom-map-terrain' });
   });
+
+  it('gives the LOS cube the finest pieces round a tip, whichever pieces the camera draws', () => {
+    const n = 513;
+    const field = new HeightField({ columns: n, rows: n, cellSize: 2, heights: new Float32Array(n * n) }, 1024, 1024);
+    const chunks = new TerrainChunks(field, new HeightTexture(field), new MeshBasicMaterial(), { buildCells: Infinity });
+    chunks.group.updateMatrixWorld();
+    expect(chunks.group.userData['losTransparent']).toBe(true);
+    const prepare = chunks.losGroup.userData['losPrepare'] as (tip: Vector3, far: number, warmUp: boolean) => void;
+    const tip = mapToScene(-500, -500, 10, new Vector3());
+    const cube = () => {
+      prepare(tip, 80, false);
+      return chunks.losGroup.children.map((m) => m.name).sort();
+    };
+    // The camera over the tip, then over the far corner: the map's own pieces differ, the cube's do not
+    settle(chunks, tip, tip);
+    const near = cube();
+    const far = mapToScene(500, 500, 400, new Vector3());
+    settle(chunks, far, far);
+    expect(chunks.meshes.some((m) => m.name === 'terrain-chunk-0-0')).toBe(false);
+    expect(cube()).toEqual(near);
+    // Finest pieces only (128 m each): the corner's and none beyond 80 m of the tip
+    expect(near).toEqual(['terrain-los-0-0']);
+    // The warm-up's cube one piece
+    prepare(tip, 1e5, true);
+    expect(chunks.losGroup.children).toHaveLength(1);
+  });
 });
+

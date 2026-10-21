@@ -400,7 +400,42 @@ Draws, sondern stößt an eine Grenze des Treibers oder der Bildfolge.
   Bänder zeichnet.
 - **Sichtblocker und Sicht-Cube.** Blocker gehen bei 1,5 px (High), auch auf Low und Ultra. Ein kleiner Blocker (Fels
   ab 1,8 m, Schuppen) fällt damit ab etwa 0,7 bis 1,2 km Kameraabstand aus dem Cube eines Towers; vorher an seiner
-  Sichtweite (Felsen 800 m). Die feste Stufe für den Cube (Entscheidung 5) löst das.
+  Sichtweite (Felsen 800 m). Die feste Stufe für den Cube (Entscheidung 5) löst das; gebaut, Abschnitt 2.10.
+
+### 2.10 Sicht-Cube mit fester Stufe (Entscheidung 5, 2026-10-21)
+
+**Befund vorher:** der Cube eines Towers sah, was die Spielkamera gewählt hatte: Detailstufen, Impostoren und
+Fernkästen der Objekte, Pixelgrenze, und das Gelände in der Stufe seines Quadtrees. Probe `e2e/perf/los-cube.ts`:
+24 Tower-Spitzen auf einer Spirale um das HQ (20 bis 400 m, 6 m über dem Boden), Reichweite 60 m, jeder Cube aus
+drei Kameraposen (`game` über dem HQ, `top` die ganze Karte, `away` am Nordrand nach außen); verglichen werden die
+Bytes der sechs Flächen mit denen aus `game`. Vorher lasen auf Ruined City 5 bzw. 2 von 24 Spitzen dasselbe (8 bis
+10 % der Texel anders), auf Würzburg 4 bzw. 0 von 24 (26 bzw. 48 % der Texel anders). Eine Maske hing also an der
+Kamera des Hosts im Moment des Baus. Dazu zeichnete jede Fläche alle Instanzen jedes Blocker-Meshes, das ihr Kegel
+schnitt (die Hülle eines Meshes ist die ganze Karte).
+
+**Gebaut:** die Blocker, die die Kamera in Stufen zeichnet, sind für den Cube unsichtbar (`losTransparent`). Er
+zeichnet stattdessen je blockierendem Asset das volle Modell jedes Objekts, dessen Hülle innerhalb seiner Reichweite
+(`losCubeFarDistance`) um die Spitze liegt (`LosDraw` in `object-layer.ts`, je Cube-Render neu gefüllt, Ruinen mit
+ihrem Schaden), und die feinsten Geländestücke ohne Geomorph in dieser Reichweite (`TerrainChunks.losGroup`). Gebäude
+aus dem Grundriss (`mass-layer.ts`) hingen nie an der Kamera und bleiben, wie sie sind. Die Fernkästen und Impostoren
+brauchen ihre eigenen LOS-Shader nicht mehr (entfernt). Regel 14 in [LOS_PIPELINE.md](LOS_PIPELINE.md).
+
+**Kosten je Cube** (High, Reichweite 60 m, 24 Spitzen, Median; „max“ enthält den ersten Cube einer Karte, der seine
+Programme baut, im Spiel übernimmt das der Warm-up):
+
+| Karte | Pose | Hauptthread ms | GPU ms | Calls | Dreiecke (Mio.) | gleiche Bytes wie aus `game` |
+|---|---|---|---|---|---|---|
+| Ruined City | game | 0,66 → 0,45 | 0,22 → 0,10 | 216 → 122 | 4,05 → 0,71 | |
+| Ruined City | top | 0,42 → 0,40 | 0,16 → 0,10 | 114 → 122 | 2,78 → 0,71 | 5 → 24 von 24 |
+| Ruined City | away | 0,56 → 0,41 | 0,22 → 0,10 | 204 → 122 | 4,03 → 0,71 | 2 → 24 von 24 |
+| Würzburg | game | 2,53 → 1,83 | 1,22 → 0,33 | 654 → 290 | 9,02 → 1,30 | |
+| Würzburg | top | 1,04 → 1,63 | 0,60 → 0,34 | 141 → 290 | 4,17 → 1,30 | 4 → 24 von 24 |
+| Würzburg | away | 2,06 → 1,52 | 0,96 → 0,36 | 560 → 290 | 5,63 → 1,30 | 0 → 24 von 24 |
+
+Würzburg ist die ganze Welt aus 2.8. Ein Cube kostet jetzt aus jeder Pose dasselbe; aus `top` war er vorher billiger,
+weil die Kamera dort viel weggelassen hatte. Die Auswahl je Cube läuft über alle Blocker der Karte (ein Abstand je
+Objekt, auf Würzburg rund 15 000), in der Hauptthread-Zeit enthalten. Bilder der Flächen (Kreuz der sechs, nah dunkel)
+für die ersten drei Spitzen je Pose: `tmp/e304-shots/a-*` im Worktree.
 
 ## 3. Wie andere es machen (belegt)
 
@@ -780,6 +815,8 @@ Weitere Quelle für den Umzug (vom User, vor der Aufwandsschätzung lesen):
 8. **Verdeckung:** nach dem Umzug, in WebGPU.
 9. **Abnahme:** dieselbe Probe auf dem Hauptrechner (RTX 5080) und dem Zweitrechner (RTX 3080 Ti) vor und nach jedem
    Schritt; unter WebGPU mit installiertem Chrome.
+10. **Pixelwerte (nach 2.9):** wie gebaut, Low 3, Medium 2, High 1,5, Ultra 1 px.
+11. **Teilbudgets des OSM-Imports (nach 2.9):** bleiben bei 15 % Möblierung und 10 % Flächen, bis HLOD (c) Platz schafft.
 
 Branch: Das ganze Programm läuft auf einem eigenen Branch (`render/density`). `next` bleibt spielbar und bekommt nur
 Fixes; der Branch zieht `next` regelmäßig nach und kommt erst auf Zuruf des Users auf `next`.

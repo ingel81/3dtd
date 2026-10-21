@@ -29,7 +29,7 @@ import { losPerf } from '../utils/los-perf';
  * `direction(towerTip → cell)`-Vektor und vergleicht die gepackte
  * Distanz mit der eigenen Distanz zum Tower.
  *
- * 11 der 13 Regeln aus docs/LOS_PIPELINE.md ("Regeln für jeden Eingriff am
+ * 12 der 14 Regeln aus docs/LOS_PIPELINE.md ("Regeln für jeden Eingriff am
  * Cube") sind hier umgesetzt (Regel 9 gilt für die Konsumenten TowerLosViz/
  * TowerManager, Regel 12 für den CPU-Resolve in gpu-cube-resolve.ts):
  *   Regel 1.  Custom ShaderMaterial mit `packDepthToRGBA`, KEIN MeshDistanceMaterial.
@@ -55,8 +55,12 @@ import { losPerf } from '../utils/los-perf';
  *             false-Blocker in jede Cubemap-Face.
  *   Regel 13. Blocker, die ihre Vertices im Shader bewegen (`userData.losVertex`,
  *             LosVertexPatch), bekommen ein Distance-Material mit diesem Stück.
+ *   Regel 14. Was ein Tower sieht, hängt nicht an der Spielkamera: Blocker, die die
+ *             Kamera in Stufen zeichnet, tragen `losTransparent`; ihre feste Stufe
+ *             liegt in einer Group mit `userData.losOnly` (nur im Cube sichtbar), die
+ *             `userData.losPrepare` vor jedem Render für Tip und `far` füllt.
  *
- * Dazu ein eigenes Move-Gate (keine der 13 Regeln): Cubemap wird nur neu
+ * Dazu ein eigenes Move-Gate (keine der 14 Regeln): Cubemap wird nur neu
  * gerendert wenn der Tower-Tip mehr als der Schwellwert bewegt wurde oder
  * `invalidate()` aufgerufen wurde.
  */
@@ -66,6 +70,13 @@ import { losPerf } from '../utils/los-perf';
  * before the instance and model matrices, with its declarations and uniforms. The cube builds one distance
  * material per `key`.
  */
+/**
+ * Fills a `userData.losOnly` group for one cube render (rule 14): what blocks the sight within `far` of `tip`
+ * (world space), at a stage that does not depend on the game camera. `warmUp`: the cube of the loading screen
+ * (warmUp), which needs each kind of mesh once for its program, not the whole map
+ */
+export type LosPrepare = (tip: Vector3, far: number, warmUp: boolean) => void;
+
 export interface LosVertexPatch {
   key: string;
   pars: string;
@@ -94,6 +105,8 @@ export class TowerShadowMapper {
   private readonly lastRenderedTip = new Vector3();
   private hasRendered = false;
   private invalidated = true;
+  /** In warmUp's render: the losPrepare groups show one of each kind (LosPrepare) */
+  private warming = false;
   private lastEncodedFar = 1;
 
   /** Backup-Slots für ClearColor save/restore (Regel 7). */
@@ -304,9 +317,18 @@ export class TowerShadowMapper {
     // not for line of sight. The CPU raycast path never included them, so
     // without this the two disagreed about what blocks a shot.
     const hiddenNonOccluders: Object3D[] = [];
+    // Regel 14 — die feste Stufe der Blocker, nur für diesen Render sichtbar
+    const shownLosOnly: Object3D[] = [];
 
     const tTraverseStart = performance.now();
     includeOnly.traverse((obj) => {
+      (obj.userData?.['losPrepare'] as LosPrepare | undefined)?.(tip, far, this.warming);
+    });
+    includeOnly.traverse((obj) => {
+      if (obj.userData?.['losOnly'] && !obj.visible) {
+        obj.visible = true;
+        shownLosOnly.push(obj);
+      }
       if (obj.userData?.['losTransparent'] && obj.visible) {
         obj.visible = false;
         hiddenNonOccluders.push(obj);
@@ -356,6 +378,7 @@ export class TowerShadowMapper {
       }
       for (const obj of hiddenSiblings) obj.visible = true;
       for (const obj of hiddenNonOccluders) obj.visible = true;
+      for (const obj of shownLosOnly) obj.visible = false;
       losPerf.sample('cube/restore', performance.now() - tRestoreStart);
     }
 
@@ -378,7 +401,12 @@ export class TowerShadowMapper {
    */
   warmUp(tip: Vector3, includeOnly: Object3D): void {
     this.invalidate();
-    this.update(tip, 1e5, includeOnly);
+    this.warming = true;
+    try {
+      this.update(tip, 1e5, includeOnly);
+    } finally {
+      this.warming = false;
+    }
     this.invalidate();
   }
 

@@ -27,7 +27,6 @@ import {
   type Texture,
   type WebGLRenderer,
 } from 'three';
-import type { LosVertexPatch } from '../../../../three-engine/tower-shadow-mapper';
 import { addHeightFog } from '../environment/height-fog';
 import { IMPOSTOR_FRAMES, turnToCamera, type Impostor, type ImpostorAccess } from './impostor';
 import { InstanceList, type InstanceSource } from './instance-list';
@@ -105,15 +104,6 @@ function cardTemplate(): BufferGeometry {
   return g;
 }
 
-/** What the LOS cube draws of a card: the crossed cards of its asset's size (as impostor.ts's geometry has them) */
-const LOS_CARDS = /* glsl */ `
-attribute float aImpLayer;
-uniform highp sampler2D uImpParams;
-vec4 impParam(int k) {
-  return texelFetch(uImpParams, ivec2(k, int(aImpLayer + 0.5)), 0);
-}
-`;
-
 /** One size of views: its arrays, parameters, materials */
 export interface ImpostorSet {
   cell: number;
@@ -123,7 +113,6 @@ export interface ImpostorSet {
   layers: number;
   material: MeshStandardMaterial;
   depthMaterial: MeshDepthMaterial;
-  losVertex: LosVertexPatch;
   uniforms: { uImpColor: { value: Texture }; uImpNd: { value: Texture }; uImpParams: { value: DataTexture } };
 }
 
@@ -234,13 +223,7 @@ export class ImpostorArrays {
       shader.fragmentShader = perInstanceAlphaTest(shader.fragmentShader);
     };
     depthMaterial.customProgramCacheKey = () => 'impostor-array-depth';
-    const losVertex: LosVertexPatch = {
-      key: 'custom-map-impostor-array',
-      pars: LOS_CARDS,
-      vertex: 'localPos.xyz = vec3(impParam(0).x + localPos.x * impParam(2).x, mix(impParam(2).y, impParam(2).z, localPos.y), impParam(0).z + localPos.z * impParam(2).x);',
-      uniforms: { uImpParams: uniforms.uImpParams },
-    };
-    return { cell, color, normalDepth, params, layers: 0, material, depthMaterial, losVertex, uniforms };
+    return { cell, color, normalDepth, params, layers: 0, material, depthMaterial, uniforms };
   }
 
   /** The arrays with room for `layers`, the layers so far copied over */
@@ -369,9 +352,9 @@ export class ImpostorDraws implements SharedDraws {
     mesh.matrixAutoUpdate = false;
     mesh.receiveShadow = true;
     mesh.visible = false;
-    mesh.userData['losVertex'] = set.losVertex;
     mesh.userData['objectsKind'] = 'impostor';
-    if (!blocks) mesh.userData['losTransparent'] = true;
+    // A far stand-in the camera chose: the LOS cube draws the trees' full models (object-layer.ts LosDraw)
+    mesh.userData['losTransparent'] = true;
     let drawn = 0;
     mesh.onBeforeShadow = () => {
       drawn = mesh.count;

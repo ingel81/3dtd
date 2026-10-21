@@ -50,6 +50,8 @@ const field = (): HeightField => new HeightField({ columns: 2, rows: 2, cellSize
 const post = (k: number, x: number, y = 0): MapObject => ({ id: `p${k}`, asset: 'post', x, y, z: 0, rotation: 0, scale: 1 });
 /** Twenty posts along map x, 20 m apart */
 const row = (): MapObject[] => Array.from({ length: 20 }, (_, k) => post(k, k * 20));
+/** The level meshes among a group's children (not the LOS cube's stage, a Group beside them) */
+const levelMeshes = (g: Group): InstancedMesh[] => g.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh);
 const meshes = (g: Group, name: string): InstancedMesh[] => g.children.filter((c): c is InstancedMesh => c instanceof InstancedMesh && c.name === name);
 const shown = (g: Group, name: string): number => meshes(g, name).filter((m) => m.visible).reduce((n, m) => n + m.count, 0);
 const fades = (g: Group, name: string): number[] => {
@@ -124,7 +126,7 @@ describe('MapObjectLayer levels of detail', () => {
     await layer.setObjects(row());
     const look = viewer(layer);
     look(-400, 60);
-    const lists = new Set(los.children.map((c) => c.userData['list'] as InstanceList));
+    const lists = new Set(levelMeshes(los).map((c) => c.userData['list'] as InstanceList));
     const versions = () => [...lists].map((l) => l.matrices.version);
     const before = versions();
     const version = layer.version;
@@ -441,7 +443,7 @@ describe('MapObjectLayer in the editor', () => {
     // Every post near: the far level is empty and hidden, three never uploads it
     viewer(layer)(200);
     for (let k = 0; k < 50; k++) layer.refreshHeights({ minX: 0, minY: -10, maxX: 400, maxY: 10 });
-    for (const m of los.children as InstancedMesh[]) expect(m.instanceMatrix.updateRanges.length).toBeLessThanOrEqual(1);
+    for (const m of levelMeshes(los)) expect(m.instanceMatrix.updateRanges.length).toBeLessThanOrEqual(1);
     layer.dispose();
   });
 });
@@ -494,7 +496,7 @@ describe('MapObjectLayer warm-up', () => {
     viewer(layer)(0);
     expect(meshes(los, 'post-lod1')[0].visible).toBe(false);
     layer.showAllForWarmUp(true);
-    for (const m of los.children as InstancedMesh[]) {
+    for (const m of levelMeshes(los)) {
       expect(m.visible).toBe(true);
       expect(m.count).toBe(1);
       expect(m.castShadow).toBe(true);

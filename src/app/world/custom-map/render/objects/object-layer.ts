@@ -24,6 +24,7 @@ import {
 import type { MapObject } from '../../map-document';
 import { linePiece, LOD_TAN_HALF_FOV, objectRadius, pixelDistance, screenDistance, type AssetCatalog, type CatalogObject, type StageTone } from '../asset-catalog';
 import { QUALITY_TABLE } from '../../../../three-engine/render-quality';
+import type { LosPrepare } from '../../../../three-engine/tower-shadow-mapper';
 import type { HeightField } from '../height-field';
 import type { LodModel, MapAssetLibrary, ModelPart, ObjectModel } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
@@ -76,9 +77,12 @@ import { addDamage, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMate
  * - each level's casters come first in its list: the shadow pass draws
  *   those, objects near the camera's focus (the sun's shadow box covers no
  *   more) with the level that covers more of their pixels in a band
- * - sight blockers (trees, big rocks, buildings) live in the LOS group: the
- *   LOS cube renders from the towers with its own frustum, and sees the
- *   level the camera chose; they draw to High's pixel limit on every level
+ * - sight blockers (trees, big rocks, buildings) live in the LOS group and
+ *   draw to High's pixel limit on every level. The towers' LOS cube does
+ *   not see these levels (`losTransparent`): per blocking asset it draws
+ *   its full model for every object within the cube's reach of the tower's
+ *   tip (`losStage`, filled per cube render), so what a tower sees does not
+ *   depend on the game camera, the quality level or the pixel limit
  *
  * Trees and plants sway in the wind, foliage cards keep their normals and
  * fade when seen edge-on or near their pixel limit, waterfall cards flow
@@ -140,6 +144,14 @@ interface Level {
 }
 
 /** What draws one level of an asset: its instances and the meshes of its parts */
+/** What the LOS cube draws of a blocking asset: its full model, for the objects in a cube's reach (prepareLos) */
+interface LosDraw {
+  list: InstanceList;
+  /** Slot of each object in the list, -1 for none */
+  slots: Int32Array;
+  meshes: InstancedMesh[];
+}
+
 interface LevelDraw {
   list: InstanceList;
   /** Slot of each object in the list, -1 for none */
@@ -166,6 +178,8 @@ interface AssetBatch {
   objects: MapObject[];
   levels: Level[];
   draws: LevelDraw[];
+  /** The LOS cube's draw of a blocking asset; null for one that blocks nothing */
+  los: LosDraw | null;
   /** Objects the lists have room for */
   capacity: number;
   /** Instance matrices of all objects (16 per object), colours (3) when tinted: the lists' source */
@@ -324,6 +338,11 @@ export class MapObjectLayer {
   private readonly fades: { range: Vector2; radius: number }[] = [];
   /** The lines the walls and structures of a group make (asset-catalog.ts linePiece) */
   private readonly lineSpheres = new LineSpheres();
+  /** The blockers as the LOS cube draws them (LosDraw), shown in its render only (tower-shadow-mapper.ts losOnly) */
+  private readonly losStage = new Group();
+  /** The cube's tip in the LOS group's space and its reach: the bounds of every LosDraw mesh */
+  private readonly losTip = new Vector3();
+  private readonly losBounds = new Sphere();
   /** Counts every change the sun's shadow map shows: instances moved, casters switched */
   version = 0;
   /** The buildings raised from their footprint */
@@ -337,6 +356,11 @@ export class MapObjectLayer {
   ) {
     this.group.name = 'custom-map-objects';
     this.group.userData['losTransparent'] = true;
+    this.losStage.name = 'custom-map-objects-los';
+    this.losStage.visible = false;
+    this.losStage.userData['losOnly'] = true;
+    this.losStage.userData['losPrepare'] = ((tip, far, warmUp) => this.prepareLos(tip, far, warmUp)) satisfies LosPrepare;
+    losGroup.add(this.losStage);
     this.slabs = options.ruins ? new RuinSlabs() : null;
     if (this.slabs) this.group.add(this.slabs.mesh);
     this.masses = new MassLayer(field, assets, losGroup, options.waterLevelAt, () => this.version++, { ruins: !!options.ruins, standingAt: options.standingAt, slabs: this.slabs });
@@ -695,6 +719,8 @@ export class MapObjectLayer {
     this.byId.delete(id);
     this.lineSpheres.remove(id);
     this.leaveLevels(b, i);
+    const los = b.los;
+    if (los && los.slots[i] >= 0) los.list.remove(los.slots, i);
     const last = b.objects.length - 1;
     if (i !== last) {
       // The asset's last object moves into the gap; its slots in the lists now name index i
@@ -713,6 +739,7 @@ export class MapObjectLayer {
       b.holdEnd[i] = b.holdEnd[last];
       b.dueAt[i] = b.dueAt[last];
       for (const d of b.draws) if (d.slots[last] >= 0) d.list.rename(d.slots, last, i);
+      if (los && los.slots[last] >= 0) los.list.rename(los.slots, last, i);
       this.byId.set(b.objects[i].id, { batch: b, index: i });
       // The freed index shows nothing: an object added there later is placed anew, not taken as placed
       b.levelOf[last] = -1;
@@ -914,6 +941,7 @@ export class MapObjectLayer {
     this.farBoxes = null;
     this.impostorDraws = null;
     this.group.removeFromParent();
+    this.losStage.removeFromParent();
   }
 
   /** The quality level's detail (see `detail`); every object takes its level again */
@@ -954,6 +982,12 @@ export class MapObjectLayer {
       }
     }
     b.draws = [];
+    for (const m of b.los?.meshes ?? []) {
+      m.removeFromParent();
+      m.dispose();
+      disposeFadeGeometry(m.geometry);
+    }
+    b.los = null;
   }
 
   /** Bakes an asset's impostor ahead (ImpostorCache.prepare), when the layer draws impostors */
@@ -1020,6 +1054,7 @@ export class MapObjectLayer {
       objects: objects.slice(),
       levels: this.levelsFor(model, lods, blocksLos, ruin),
       draws: [],
+      los: null,
       capacity,
       source: { matrices: new Float32Array(capacity * 16), colors: tinted ? new Float32Array(capacity * 3) : null, ...(damage ? { extras: damage } : {}) },
       spheres: new Float32Array(capacity * 4),
@@ -1037,6 +1072,7 @@ export class MapObjectLayer {
     };
     for (let i = 0; i < n; i++) this.writeInstance(b, i);
     b.draws = b.levels.map((level, li) => this.buildDraw(b, level, li));
+    b.los = this.buildLos(b);
     return b;
   }
 
@@ -1073,7 +1109,8 @@ export class MapObjectLayer {
       mesh.visible = false;
       mesh.userData['batch'] = b;
       mesh.userData['list'] = list;
-      if (!b.blocksLos) mesh.userData['losTransparent'] = true;
+      // The LOS cube draws the asset's LosDraw instead: what the camera chose here must not change what a tower sees
+      mesh.userData['losTransparent'] = true;
       parent.add(mesh);
       return mesh;
     });
@@ -1125,6 +1162,53 @@ export class MapObjectLayer {
     return { list, slots: new Int32Array(b.capacity).fill(-1), meshes: [], source, shared: { draws, key } };
   }
 
+  /** The LOS cube's draw of a blocking asset, empty: its full model's parts on a list of their own (prepareLos fills it) */
+  private buildLos(b: AssetBatch): LosDraw | null {
+    if (!b.blocksLos) return null;
+    const list = new InstanceList(b.capacity, false, b.ruin ? DAMAGE_ATTRIBUTES.map(() => 4) : []);
+    const meshes = b.levels[0].parts.map((part) => {
+      const geometry = fadeGeometry(part.geometry, list.fades);
+      if (b.ruin) DAMAGE_ATTRIBUTES.forEach((name, k) => geometry.setAttribute(name, list.extras[k]));
+      const mesh = new InstancedMesh(geometry, part.material, 0);
+      // What is gone of a ruin does not block the towers' sight
+      if (b.ruin) mesh.userData['losVertex'] = DAMAGE_LOS;
+      mesh.instanceMatrix = list.matrices;
+      mesh.count = 0;
+      mesh.name = `${b.entry.id}${b.ruin ? '-damaged' : ''}-los`;
+      mesh.boundingSphere = this.losBounds;
+      mesh.matrixAutoUpdate = false;
+      mesh.userData['batch'] = b;
+      this.losStage.add(mesh);
+      return mesh;
+    });
+    return { list, slots: new Int32Array(b.capacity).fill(-1), meshes };
+  }
+
+  /**
+   * The LOS cube's blockers for a tip (world space) and its reach `far`: in each blocking asset's LosDraw the
+   * objects whose bounds come within `far` of the tip, written anew. The warm-up's cube shows one of each asset
+   */
+  private prepareLos(tip: Vector3, far: number, warmUp: boolean): void {
+    const at = this.losGroup.worldToLocal(this.losTip.copy(tip));
+    this.losBounds.set(at, far);
+    for (const b of this.batches) {
+      const los = b.los;
+      if (!los) continue;
+      const sp = b.spheres;
+      for (let i = 0; i < b.objects.length; i++) {
+        if (los.slots[i] >= 0) los.list.remove(los.slots, i);
+        if (!warmUp && distance(sp, i * 4, at) - sp[i * 4 + 3] <= far) los.list.insert(los.slots, i, b.source, false, 0);
+      }
+      if (warmUp && (b.objects.length || b.ruin)) los.list.placeholder(b.source, 0);
+      los.list.flush();
+      for (const m of los.meshes) {
+        m.count = warmUp ? Math.max(1, los.list.count) : los.list.count;
+        // An asset with nothing in reach costs the cube's six renders nothing
+        m.visible = m.count > 0;
+      }
+    }
+  }
+
   /** The draws other assets share: the far boxes, the impostors */
   private sharedDraws(): SharedDraws[] {
     const out: SharedDraws[] = [];
@@ -1171,6 +1255,7 @@ export class MapObjectLayer {
     b.capacity = capacity;
     this.disposeBatch(b);
     b.draws = b.levels.map((level, li) => this.buildDraw(b, level, li));
+    b.los = this.buildLos(b);
   }
 
   /** Object i out of every list it is in */

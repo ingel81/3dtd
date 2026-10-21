@@ -133,7 +133,11 @@ const MAX_FIREFLY_SPOTS = 60;
  * marked `userData.losTransparent`. The LOS cube hides every direct scene
  * child except its group, so `losBlockers` must be a direct child of the
  * scene: `attach(scene)` adds `group` and lifts `losBlockers` beside it
- * (same transform, the group sits at the origin).
+ * (same transform, the group sits at the origin). What a tower sees must not
+ * depend on the game camera: the terrain's pieces and the objects' levels
+ * the camera chose are hidden from the cube; it draws the finest terrain
+ * pieces and the full models within its reach of the tower's tip instead
+ * (`losOnly` groups, TerrainChunks.losGroup, MapObjectLayer LosDraw).
  */
 
 
@@ -338,7 +342,7 @@ export class CustomMapView {
 
     if (options.groundBaker === undefined) this.ownBaker = new GroundWorker(t);
     this.terrain = new MapTerrainLayer(t, this.heights, doc.environment.biome ?? 'temperate', options.groundBaker ?? this.ownBaker);
-    this.losBlockers.add(this.terrain.chunks.group);
+    this.losBlockers.add(this.terrain.chunks.group, this.terrain.chunks.losGroup);
     this.group.add(this.terrain.apron);
     this.group.add(this.terrain.roads.group);
     // Before the ground loads: its path mask leaves the ground under the surfaces to them
@@ -739,8 +743,9 @@ export class CustomMapView {
     const shown: Object3D[] = [];
     const reveal = (root: Object3D) =>
       root.traverse((o) => {
-        // The object layer's meshes as showAllForWarmUp chose them; nothing that holds a light (the shadow build's stage)
-        if (o.visible || o.userData['batch'] || o.getObjectByProperty('isLight', true)) return;
+        // The object layer's meshes as showAllForWarmUp chose them; nothing that holds a light (the shadow build's stage);
+        // not what only the LOS cube draws (its own warm-up shows it, TowerShadowMapper.warmUp)
+        if (o.visible || o.userData['batch'] || o.userData['losOnly'] || o.getObjectByProperty('isLight', true)) return;
         o.visible = true;
         shown.push(o);
       });

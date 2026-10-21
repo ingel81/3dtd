@@ -1,4 +1,4 @@
-import { BoxGeometry, Group, InstancedMesh, Mesh, MeshStandardMaterial, PerspectiveCamera } from 'three';
+import { BoxGeometry, Group, InstancedMesh, Mesh, MeshStandardMaterial, PerspectiveCamera, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import type { MapObject } from '../../map-document';
 import { pixelDistance, type AssetCatalog, type CatalogObject } from '../asset-catalog';
@@ -6,12 +6,23 @@ import { HeightField } from '../height-field';
 import { MapAssetLibrary } from '../map-asset-library';
 import { MapObjectLayer } from './object-layer';
 
-const asset = (id: string, category: CatalogObject['category'], footprint: number, height: number): CatalogObject => ({
-  id, name: id, category, file: `${id}.glb`, footprint, height, blocksLos: false, blocksBuild: true, scaleRange: [1, 1], randomRotation: false, wind: 0,
+const asset = (id: string, category: CatalogObject['category'], footprint: number, height: number, more: Partial<CatalogObject> = {}): CatalogObject => ({
+  id, name: id, category, file: `${id}.glb`, footprint, height, blocksLos: false, blocksBuild: true, scaleRange: [1, 1], randomRotation: false, wind: 0, ...more,
 });
 
-/** A stone of 0.5 m radius (1.5 px at 312 m, 3 px at 156 m) and a fence piece of 1 m (1.5 px at 624 m) */
-const catalog: AssetCatalog = { version: 1, materials: [], objects: [asset('stone', 'prop', 0.5, 0.5), asset('fence', 'wall', 1, 1)] };
+/**
+ * A stone of 0.5 m radius (1.5 px at 312 m, 3 px at 156 m), a fence piece of 1 m (1.5 px at 624 m) and a hut of
+ * 0.6 m that blocks sight, with a far model from 20 m
+ */
+const catalog: AssetCatalog = {
+  version: 1,
+  materials: [],
+  objects: [
+    asset('stone', 'prop', 0.5, 0.5),
+    asset('fence', 'wall', 1, 1),
+    asset('hut', 'building', 0.6, 1, { blocksLos: true, lod: [{ file: 'hut-far.glb', screen: 0.6 / (20 * Math.tan(Math.PI / 6)) }] }),
+  ],
+};
 
 function library(): MapAssetLibrary {
   return new MapAssetLibrary('base/', {
@@ -20,7 +31,9 @@ function library(): MapAssetLibrary {
       const root = new Group();
       // As high as the catalogue says: the bounding radius is the footprint
       const h = url.includes('stone') ? 0.5 : 1;
+      // The hut's far model a single box, its full model two (a roof on it)
       root.add(new Mesh(new BoxGeometry(1, h, 1).translate(0, h / 2, 0), new MeshStandardMaterial()));
+      if (url.includes('hut') && !url.includes('far')) root.add(new Mesh(new BoxGeometry(1, 0.3, 1).translate(0, h + 0.15, 0), new MeshStandardMaterial({ color: 0xff0000 })));
       return Promise.resolve(root);
     },
   });
@@ -84,6 +97,39 @@ describe('MapObjectLayer pixel limit', () => {
     await layer.addObjects([at('f40', 'fence', 400, 0, { group: 'h' }), at('f41', 'fence', 600, 0, { group: 'h' })]);
     look(-901);
     expect(shown(layer.group, 'fence-decor')).toBe(2);
+    layer.dispose();
+  });
+
+  it('hands the LOS cube every blocker within its reach at its full model, whatever the camera and the level', async () => {
+    const los = new Group();
+    const layer = new MapObjectLayer(field(), library(), los);
+    // Huts at 0, 10 and 30 m along map x, one 900 m off
+    await layer.setObjects([at('h0', 'hut', 0), at('h1', 'hut', 10), at('h2', 'hut', 30), at('h3', 'hut', 900)]);
+    const stage = los.children.find((c) => c.userData['losOnly'])!;
+    const look = viewer(layer);
+    /** What the cube draws for a tip over map x 5 reaching 20 m: per mesh its instances' positions */
+    const cube = () => {
+      (stage.userData['losPrepare'] as (tip: Vector3, far: number, warmUp: boolean) => void)(new Vector3(-5, 2, 0), 20, false);
+      return stage.children
+        .filter((c): c is InstancedMesh => c instanceof InstancedMesh)
+        .map((m) => [m.name, [...m.instanceMatrix.array.subarray(0, m.count * 16)].filter((_, k) => k % 16 === 12)] as const);
+    };
+    // Near: the huts take their full model; 2 km off they are under the pixel limit, the camera draws none
+    look(5);
+    expect(shown(los, 'hut')).toBe(3);
+    const near = cube();
+    look(-2000);
+    expect(shown(los, 'hut') + shown(los, 'hut-lod1')).toBe(0);
+    expect(cube()).toEqual(near);
+    // Low quality changes nothing either; the cube draws h0 and h1 (h2's bounds end 25 m off) with the full model, both
+    // its boxes (merged into one draw), not the far model's one
+    layer.setDetail({ lodBias: 0.5, impostorFrom: 200, drawPixels: 3 });
+    expect(cube()).toEqual(near);
+    expect(near.map(([name, xs]) => [name, xs.map((x) => -x).sort((a, b) => a - b)])).toEqual([['hut-los', [0, 10]]]);
+    const drawnBy = stage.children[0] as InstancedMesh;
+    expect(drawnBy.geometry.getIndex()!.count / 3).toBe(24);
+    // The levels the camera chose stay out of the cube
+    for (const m of los.children) if (m instanceof InstancedMesh) expect(m.userData['losTransparent']).toBe(true);
     layer.dispose();
   });
 });
