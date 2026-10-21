@@ -176,6 +176,18 @@ describe('OSM roads', () => {
     expect(t.splat.maps[0][texel(0, 20) * 4]).toBe(255);
   });
 
+  it('paves the floor of a covered way as wide as a building opens over it, not the grass under the house beside it', () => {
+    const doc = createMapDocument({ id: 't', name: 't', width: 200, depth: 200, cellSize: 2, splatResolution: 256, starter: false });
+    const t = doc.terrain;
+    const f = parseOsm({ elements: [way(1, { highway: 'service', covered: 'yes' }, [[-80, 0, 1], [80, 0, 2]]), way(2, { highway: 'service' }, [[-80, 40, 3], [80, 40, 4]])] }, frame, 100);
+    doc.paths = buildRoads(f).paths;
+    paintRoads(t, doc.paths);
+    const texel = (x: number, y: number) => Math.floor(((y + 100) / 200) * 256) * 256 + Math.floor(((x + 100) / 200) * 256);
+    // Asphalt is layer 1 (the base grass 0): under the covered drive 1 m past its 2 m half, under the open one grass
+    expect(t.splat.maps[0][texel(0, 3) * 4 + 1]).toBe(255);
+    expect(t.splat.maps[0][texel(0, 43) * 4 + 1]).toBe(0);
+  });
+
   it('paints paving stones and footways with one layer, five for all surfaces with the base grass making six', () => {
     const doc = createMapDocument({ id: 't', name: 't', width: 200, depth: 200, cellSize: 2, splatResolution: 256, starter: false });
     const f = parseOsm({

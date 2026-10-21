@@ -492,6 +492,14 @@ export function levelRoads(terrain: MapTerrain, paths: MapPaths): void {
 
 /** Metres a painted road fades into the ground beside it */
 const PAINT_SOFT_EDGE = 0.75;
+/**
+ * Metres the floor of a covered way (a passage, a car park's entrance) is
+ * paved beyond its half width, sharp: the opening a building cuts over it
+ * is wider than the way (half a metre, more at a bend, a gate at least
+ * 3.6 m, building-openings.ts), and its floor showed the grass under the
+ * house beside the way
+ */
+const COVERED_FLOOR = 1.5;
 /** The ground materials paintRoads paints for `paths`: the surfaces, and the verges of the paved roads */
 export function roadPaintMaterials(paths: MapPaths): Set<string> {
   const out = new Set<string>();
@@ -519,6 +527,7 @@ export function paintRoads(terrain: MapTerrain, paths: MapPaths): RoadSurface[] 
     if (!a || !b) continue;
     const line = [a, ...(edge.via ?? []), b];
     for (const band of roadPaintBands(edge, PAINT_SOFT_EDGE)) (band.core ? cores : rims).push({ line, material: band.materials[0], half: band.half, soft: band.soft });
+    if (edge.covered) cores.push({ line, material: edge.surface, half: edge.width / 2 + COVERED_FLOOR, soft: 0.05 });
   }
   return paintBands(terrain, [...cores, ...rims]) as RoadSurface[];
 }
