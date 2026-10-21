@@ -71,7 +71,7 @@ const DEBUG_HIT = { reach: 4, amount: 45 } as const;
  * In development `__worldDamage` in DevTools lists the structures and hits a
  * point through the simulation (`debug:hit-structures`, a cheat in coop):
  * `structures()`, `hit(lat, lon, reach, amount)`, `dig(lat, lon, radius, depth)`,
- * `blast(lat, lon, blast)`, `setStage(index, stage)`, `hp(index)`.
+ * `blast(lat, lon, blast, radius?)`, `setStage(index, stage)`, `hp(index)`.
  */
 export class WorldDamagePresenter {
   /** The world's structures; null for a world where nothing falls */
@@ -133,8 +133,8 @@ export class WorldDamagePresenter {
       hit: (lat: number, lon: number, reach: number = DEBUG_HIT.reach, amount: number = DEBUG_HIT.amount) =>
         bus.emit({ type: 'debug:hit-structures', lat, lon, reach, amount }),
       dig: (lat: number, lon: number, radius = 2.5, depth = 35) => bus.emit({ type: 'debug:dig-crater', lat, lon, radius, depth }),
-      blast: (lat: number, lon: number, blast: DebugBlast = 'rocket') =>
-        bus.emit({ type: 'debug:blast', lat, lon, height: engine.getTerrainHeightAtGeo(lat, lon) ?? 0, blast }),
+      blast: (lat: number, lon: number, blast: DebugBlast = 'rocket', radius?: number) =>
+        bus.emit({ type: 'debug:blast', lat, lon, height: engine.getTerrainHeightAtGeo(lat, lon) ?? 0, blast, ...(radius === undefined ? {} : { radius }) }),
       setStage: (index: number, stage: StructureStage) => {
         const s = this.runStructures()[index];
         if (s) bus.emit({ type: 'debug:set-structure-stage', index, stage, lat: s.lat, lon: s.lon });

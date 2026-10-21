@@ -23,6 +23,10 @@ describe('knownFields', () => {
   it('keeps the type and the known fields, drops the rest and unknown commands', () => {
     expect(knownFields({ type: 'command:give-credits', to: 'p2', amount: 5, note: 'x' })).toEqual({ type: 'command:give-credits', to: 'p2', amount: 5 });
     expect(knownFields({ type: 'command:set-targeting', towerId: 't1' })).toEqual({ type: 'command:set-targeting', towerId: 't1' });
+    // The blast's radius (E284) passes the relay, a blast without one stays without
+    const blast = { type: 'debug:blast', lat: 0, lon: 0, height: 0, blast: 'nuclear-strike' };
+    expect(knownFields({ ...blast, radius: 60 })).toEqual({ ...blast, radius: 60 });
+    expect(knownFields(blast)).toEqual(blast);
     expect(knownFields({ type: 'command:nope' })).toBeNull();
     expect(knownFields({ type: 'hasOwnProperty' })).toBeNull();
   });

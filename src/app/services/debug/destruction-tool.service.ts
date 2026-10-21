@@ -2,7 +2,8 @@ import { Injectable, inject, signal } from '@angular/core';
 import { SimClient } from '../../sim/client/sim-client.service';
 import { PresentationService } from '../../presentation/presentation.service';
 import type { StructureHp } from '../../presentation/world-damage-presenter';
-import type { DebugBlast, StructureStage } from '../../configs/destruction.config';
+import { clampDebugBlastRadius, DEBUG_RADIUS_BLASTS, type DebugBlast, type StructureStage } from '../../configs/destruction.config';
+import { ABILITIES } from '../../configs/abilities.config';
 import { COLLAPSE_VARIANTS, collapseVariant, setCollapseVariant, type CollapseVariant } from '../../world/custom-map/render/objects/ruin-damage';
 
 /** What a click on the map does while the tool is on: set off a blast there, or pick the structure there */
@@ -39,6 +40,8 @@ export class DestructionToolService {
   /** What a click does; null: the clicks go to the game */
   readonly mode = signal<DestructionToolMode | null>(null);
   readonly blast = signal<DebugBlast>('rocket');
+  /** The radius of a blast that takes one (DEBUG_RADIUS_BLASTS, E284), m; the real strike's to begin with */
+  readonly radius = signal(ABILITIES['nuclear-strike'].radiusM);
   readonly picked = signal<PickedStructure | null>(null);
   /** The pick missed: no structure under the click */
   readonly missed = signal(false);
@@ -59,6 +62,16 @@ export class DestructionToolService {
     this.collapse.set(v);
   }
 
+  /** The chosen blast takes a radius (the window shows its slider) */
+  takesRadius(blast: DebugBlast = this.blast()): boolean {
+    return DEBUG_RADIUS_BLASTS.includes(blast);
+  }
+
+  /** The radius from the slider or its number field, whole metres within DEBUG_BLAST_RADIUS */
+  setRadius(radius: number): void {
+    this.radius.set(clampDebugBlastRadius(radius));
+  }
+
   /** The tool takes the clicks */
   active(): boolean {
     return this.mode() !== null;
@@ -73,7 +86,9 @@ export class DestructionToolService {
   click(lat: number, lon: number, height: number): void {
     const mode = this.mode();
     if (mode === 'blast') {
-      this.sim.bus.emit({ type: 'debug:blast', lat, lon, height, blast: this.blast() });
+      const blast = this.blast();
+      if (this.takesRadius(blast)) this.sim.bus.emit({ type: 'debug:blast', lat, lon, height, blast, radius: this.radius() });
+      else this.sim.bus.emit({ type: 'debug:blast', lat, lon, height, blast });
       return;
     }
     if (mode !== 'pick') return;

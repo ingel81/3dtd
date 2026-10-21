@@ -39,6 +39,8 @@ import { runStartAt, runStartGold } from '../protocol/run-start';
 import { RUN_PLAN_RULES } from '../../director/sources/budget/run-plan';
 import type { RunStructure, RunWaveEvent } from '../protocol/run-rules';
 import { PROJECTILE_TYPES } from '../../configs/projectile-types.config';
+import { ABILITIES } from '../../configs/abilities.config';
+import { ABILITY_DESTRUCTION } from '../../configs/destruction.config';
 
 const SEED = 0x51c0;
 const HEAD = { configHash: 'spec', gameVersion: 'spec', commit: 'spec' };
@@ -559,6 +561,76 @@ describe('SimCore in the same thread', () => {
       expect(state.finished).toBe(true);
       expect(state.divergedAt).toBeNull();
       expect(replay.core.gsm.worldDamage.structures.hpList()).toEqual(hp);
+      replay.core.rpc('replayExit');
+    } finally {
+      Math.random = mathRandom;
+    }
+  });
+
+  it("sets off the tool's nuke at a chosen radius as a command: wider falls and cloud, the same on two clients and in a replay (E284)", { timeout: 120_000 }, () => {
+    const mathRandom = Math.random;
+    Math.random = mulberry32(SEED + 6);
+    try {
+      const main = mainWorld();
+      const structures: RunStructure[] = [];
+      for (let n = 60; n <= 300; n += 60) {
+        for (const east of [12, -12]) structures.push({ id: `h${n}${east}`, lat: n / M, lon: east / M, radius: 5, height: 8, hp: 240, box: [east, n, 4, 3, 0.2] });
+      }
+      const rules = { startCredits: 100, hqHealth: 500, towers: null, structures, destruction: { craters: true, wear: false }, start: null };
+      const world: SimWorld = {
+        ...main.world,
+        rules,
+        worldKey: worldKeyOf(main.grid.snapshotHeights(), main.world.paths.map(([, p]) => p), main.sync.getOrigin(), rules),
+      };
+      const run = (tools: object[]) => {
+        const drive = new Driver(newCore(world));
+        drive.tick();
+        drive.send({ type: 'command:start-wave', config: wave });
+        for (let f = 0; f < 20000; f++) {
+          if (f % 20 === 5 && f / 20 < tools.length) drive.send(tools[Math.floor(f / 20)]);
+          const packet = drive.tick();
+          if (packet.scalars.phase !== 'wave' && f > 200) break;
+        }
+        for (let f = 0; f < 400 && drive.packets.at(-1)!.scalars.snapshotRefusal !== null; f++) drive.tick();
+        return drive;
+      };
+      const impacts = (drive: Driver) => drive.packets.flatMap((p) => p.events.filter((e) => e.type === 'ability:impact').map((e) => (e.payload as { radiusM: number }).radiusM));
+      const own = ABILITIES['nuclear-strike'].radiusM;
+
+      // 60 m at 120 m north: the houses at 60, 120 and 180 m fall; the real strike's at 300 m only those there
+      const tools = [
+        { type: 'debug:blast', lat: 120 / M, lon: 0, height: 0, blast: 'nuclear-strike', radius: 60 },
+        { type: 'debug:blast', lat: 300 / M, lon: 0, height: 0, blast: 'nuclear-strike' },
+      ];
+      const a = run(tools);
+      expect(a.core.gsm.worldDamage.structures.hpList()).toEqual([0, 0, 0, 0, 0, 0, 240, 240, 0, 0]);
+      // The cloud and its flash go up at the radius given, the strike's own without one
+      expect(impacts(a)).toEqual([60, own]);
+      const craters = Array.from(a.core.gsm.worldDamage.craters.list());
+      expect(craters.filter((_, k) => k % 4 === 2)).toContain(Math.round((60 / own) * ABILITY_DESTRUCTION['nuclear-strike'].crater!.radiusM * 10));
+
+      // Another client: the same world, bit for bit
+      const b = run(tools);
+      expect(b.core.gsm.stateHash()).toBe(a.core.gsm.stateHash());
+      // The strike's own radius given is the strike without one
+      const plain = run([{ ...tools[0], radius: undefined }, tools[1]]);
+      const given = run([{ ...tools[0], radius: own }, tools[1]]);
+      expect(given.core.gsm.stateHash()).toBe(plain.core.gsm.stateHash());
+      expect(plain.core.gsm.worldDamage.structures.hpList()).toEqual([240, 240, 0, 0, 240, 240, 240, 240, 0, 0]);
+      // Out of its bounds the guard refuses it on every client: the world as without the command
+      const refused = run([{ ...tools[0], radius: 500 }, tools[1]]);
+      expect(refused.core.gsm.worldDamage.structures.hpList()).toEqual([240, 240, 240, 240, 240, 240, 240, 240, 0, 0]);
+
+      // The wave again from the replay file: no divergence, the same falls
+      const file = a.core.rpc('replayFile', { ...HEAD, world: TEST_WORLD_REF })!;
+      const replay = new Driver(newCore(world));
+      expect(replay.core.rpc('loadReplayFile', file.text, { ...HERE, world: TEST_WORLD_REF }).refusal).toBeNull();
+      replay.core.rpc('replayEnter', 1, true);
+      let state = replay.tick({ replay: { playing: true, speed: 10 } }).scalars.replay!;
+      for (let f = 0; f < 20000 && !state.finished; f++) state = replay.tick({ replay: { playing: true, speed: 10 } }).scalars.replay!;
+      expect(state.finished).toBe(true);
+      expect(state.divergedAt).toBeNull();
+      expect(replay.core.gsm.worldDamage.structures.hpList()).toEqual(a.core.gsm.worldDamage.structures.hpList());
       replay.core.rpc('replayExit');
     } finally {
       Math.random = mathRandom;

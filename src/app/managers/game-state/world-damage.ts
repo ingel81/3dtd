@@ -171,13 +171,14 @@ export class WorldDamage {
   /**
    * Ability `id` acts at `at` over the game ms from `fromMs` to `toMs` of
    * its strike: a strike that acts at once (0 to 0) fells and digs, a beam
-   * takes its HP per second for the time in between
+   * takes its HP per second for the time in between. At `radius` m (the
+   * destruction tool's, E284) its crater's radius and depth scale in
+   * proportion; its own radius scales by exactly 1, as before
    */
-  ability(id: AbilityId, at: GeoPosition, fromMs: number, toMs: number): void {
+  ability(id: AbilityId, at: GeoPosition, fromMs: number, toMs: number, radius = ABILITIES[id].radiusM): void {
     const what = ABILITY_DESTRUCTION[id];
     const x = at.lon * MAP_METERS_PER_DEGREE;
     const y = at.lat * MAP_METERS_PER_DEGREE;
-    const radius = ABILITIES[id].radiusM;
     if (what.fells) this.structures.fell(x, y, radius);
     const perSecond = what.structureHpPerSecond ?? 0;
     if (perSecond > 0) {
@@ -185,7 +186,10 @@ export class WorldDamage {
       const amount = Math.floor((perSecond * toMs) / 1000) - Math.floor((perSecond * fromMs) / 1000);
       if (amount > 0) this.structures.hit(x, y, radius, amount);
     }
-    if (what.crater) this.dig(x, y, what.crater.radiusM, what.crater.depthCm);
+    if (what.crater) {
+      const scale = radius / ABILITIES[id].radiusM;
+      this.dig(x, y, what.crater.radiusM * scale, Math.round(what.crater.depthCm * scale));
+    }
   }
 
   /**
@@ -251,10 +255,11 @@ export class WorldDamage {
   /**
    * Debug (the dev tools' destruction tool): `blast` goes off at map degrees
    * (`lat`, `lon`) as the real one does: a projectile type's impact on the
-   * ground, or the nuclear strike where it lands. The show is the caller's
+   * ground, or the nuclear strike where it lands, at `radius` m when given
+   * (E284). The show is the caller's
    */
-  debugBlast(lat: number, lon: number, blast: DebugBlast): void {
-    if (blast === 'nuclear-strike') this.ability(blast, { lat, lon }, 0, 0);
+  debugBlast(lat: number, lon: number, blast: DebugBlast, radius?: number): void {
+    if (blast === 'nuclear-strike') this.ability(blast, { lat, lon }, 0, 0, radius);
     else this.impact(lat, lon, PROJECTILE_TYPES[blast], false);
   }
 

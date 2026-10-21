@@ -30,6 +30,21 @@
             <td-icon [name]="tool.mode() === 'blast' ? 'cross' : 'burst'" [size]="14"></td-icon>
           </button>
         </div>
+        @if (tool.takesRadius()) {
+          <!-- The strike's radius: what it fells, its crater and its cloud (E284) -->
+          <div class="td-range-row" data-test="destruction-radius">
+            <span>Radius</span>
+            <input class="td-slider" type="range" aria-label="Blast radius"
+                   [min]="radiusRange.min" [max]="radiusRange.max" [step]="radiusRange.step"
+                   [value]="tool.radius()"
+                   (input)="onRadius($event)" />
+            <input type="number" class="td-input" aria-label="Blast radius in metres"
+                   [min]="radiusRange.min" [max]="radiusRange.max" [step]="radiusRange.step"
+                   [value]="tool.radius()"
+                   (change)="onRadius($event)" />
+            <span class="td-muted">m</span>
+          </div>
+        }
         @if (tool.mode() === 'blast') {
           <div class="td-note">Click the map: damage and crater as the real hit</div>
         }

@@ -10,7 +10,7 @@
 import { TOWER_TYPES } from '../configs/tower-types.config';
 import { ABILITIES } from '../configs/abilities.config';
 import { HERO_AMMO } from '../configs/hero.config';
-import { DEBUG_BLASTS } from '../configs/destruction.config';
+import { DEBUG_BLASTS, DEBUG_BLAST_RADIUS, DEBUG_RADIUS_BLASTS } from '../configs/destruction.config';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { ALL_SPAWN_PATTERNS } from '../director/spawn-schedule-builder';
 
@@ -146,6 +146,17 @@ function aimOk(c: Command): boolean {
   return finite(heading) && Math.abs(heading) <= 4 * Math.PI && finite(pitch) && Math.abs(pitch) <= Math.PI / 2;
 }
 
+/**
+ * A blast's radius (E284): none, or whole metres within DEBUG_BLAST_RADIUS on a blast that takes one. The
+ * tool rounds and clamps its slider, so anything else is no command of the game
+ */
+function blastRadiusOk(c: Command): boolean {
+  const radius = c['radius'];
+  if (radius === undefined) return true;
+  return (DEBUG_RADIUS_BLASTS as readonly unknown[]).includes(c['blast'])
+    && integerIn(radius, DEBUG_BLAST_RADIUS.min, DEBUG_BLAST_RADIUS.max);
+}
+
 /** What is wrong with `command`, null when it may act. */
 export function commandProblem(c: Command): string | null {
   switch (c.type) {
@@ -202,7 +213,7 @@ export function commandProblem(c: Command): string | null {
         && finite(c['depth']) && c['depth'] > 0 && c['depth'] <= 10_000 ? null : 'crater';
     case 'debug:blast':
       return finite(c['lat']) && finite(c['lon']) && finite(c['height'])
-        && (DEBUG_BLASTS as readonly unknown[]).includes(c['blast']) ? null : 'blast';
+        && (DEBUG_BLASTS as readonly unknown[]).includes(c['blast']) && blastRadiusOk(c) ? null : 'blast';
     case 'debug:set-structure-stage':
       return integerIn(c['index'], 0, 1_000_000) && integerIn(c['stage'], 0, 3)
         && finite(c['lat']) && finite(c['lon']) ? null : 'stage';

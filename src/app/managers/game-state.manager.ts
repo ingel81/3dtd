@@ -1472,15 +1472,16 @@ export class GameStateManager {
    * Debug (the dev tools' destruction tool): `blast` goes off at (`lat`,
    * `lon`) through the world's real damage (WorldDamage.debugBlast) and
    * shows as the real one: a projectile's impact, the nuclear strike's
-   * landing (no strike before it, strike id -1). Enemies take nothing
+   * landing (no strike before it, strike id -1), the strike at `radius` m
+   * when given (E284). Enemies take nothing
    */
-  debugBlast(lat: number, lon: number, height: number, blast: DebugBlast): void {
-    this.worldDamage.debugBlast(lat, lon, blast);
+  debugBlast(lat: number, lon: number, height: number, blast: DebugBlast, radius?: number): void {
+    this.worldDamage.debugBlast(lat, lon, blast, radius);
     if (blast === 'nuclear-strike') {
       const playerId = this.actingPlayerId;
       this.eventBus.emit({
         type: 'ability:impact', abilityId: blast, strikeId: -1, target: { lat, lon, height },
-        radiusM: ABILITIES[blast].radiusM, playerId, local: playerId === this.localPlayerId,
+        radiusM: radius ?? ABILITIES[blast].radiusM, playerId, local: playerId === this.localPlayerId,
       });
     } else {
       this.eventBus.emitDeferred({ type: 'vfx:projectile-impact', lat, lon, height, projectileType: blast, targetLost: true });

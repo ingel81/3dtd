@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { WorldDamage, type WorldDamageHost } from './world-damage';
 import { MAP_METERS_PER_DEGREE as K } from '../../world/custom-map/map-document';
 import { PROJECTILE_TYPES } from '../../configs/projectile-types.config';
+import { ABILITIES } from '../../configs/abilities.config';
 import { ABILITY_DESTRUCTION, CRATERS, IMPACT_REACH_M, WEAR } from '../../configs/destruction.config';
 import { runRulesOf, type RunStructure } from '../../sim/protocol/run-rules';
 import type { StampField } from '../../utils/stamp-field';
@@ -92,6 +93,40 @@ describe('WorldDamage (docs/DESTRUCTION_PLAN.md)', () => {
     expect(ops.at(-1)).toEqual(['structures.hp', new Int32Array([1, 60])]);
     // The hit that took it there left a hole, on the side it came from (E259)
     expect(ops.at(-2)?.[0]).toBe('structures.holes');
+  });
+
+  it("sets off the tool's nuke at its own radius exactly as without one, at another radius wider or narrower (E284)", () => {
+    const houses = () => [house('a', 12, 0), house('b', 40, 0), house('c', 70, 0)];
+    const nuke = ABILITY_DESTRUCTION['nuclear-strike'].crater!;
+    const own = ABILITIES['nuclear-strike'].radiusM;
+    // The strike's own radius given: the same HP, craters and ops as none given
+    const none = setup(houses());
+    const given = setup(houses());
+    none.damage.debugBlast(geo(0, 0).lat, geo(0, 0).lon, 'nuclear-strike');
+    given.damage.debugBlast(geo(0, 0).lat, geo(0, 0).lon, 'nuclear-strike', own);
+    expect(given.damage.structures.hpList()).toEqual(none.damage.structures.hpList());
+    expect(Array.from(given.damage.craters.list())).toEqual(Array.from(none.damage.craters.list()));
+    expect(given.ops).toEqual(none.ops);
+    expect(none.damage.structures.hpList()).toEqual([0, 300, 300]);
+
+    // 50 m: it fells the house at 40 m too, its crater twice as wide and deep
+    const wide = setup(houses());
+    wide.damage.debugBlast(geo(0, 0).lat, geo(0, 0).lon, 'nuclear-strike', 2 * own);
+    expect(wide.damage.structures.hpList()).toEqual([0, 0, 300]);
+    expect(Array.from(wide.damage.craters.entry(0))).toEqual([0, 0, 2 * nuke.radiusM * 10, 2 * nuke.depthCm]);
+
+    // 5 m: the house at 12 m (radius 5) stands, a small crater
+    const narrow = setup(houses());
+    narrow.damage.debugBlast(geo(0, 0).lat, geo(0, 0).lon, 'nuclear-strike', 5);
+    expect(narrow.damage.structures.hpList()).toEqual([300, 300, 300]);
+    expect(Array.from(narrow.damage.craters.entry(0))).toEqual([0, 0, Math.round((5 / own) * nuke.radiusM * 10), Math.round((5 / own) * nuke.depthCm)]);
+
+    // A projectile's impact takes no radius: the rocket as the real one
+    const rocket = setup(houses());
+    const real = setup(houses());
+    rocket.damage.debugBlast(geo(0, 0).lat, geo(0, 0).lon, 'rocket', 80);
+    real.damage.impact(geo(0, 0).lat, geo(0, 0).lon, PROJECTILE_TYPES.rocket, false);
+    expect(rocket.ops).toEqual(real.ops);
   });
 
   it('fells everything in the nuke radius but a house with a tower on its roof, and digs its crater', () => {

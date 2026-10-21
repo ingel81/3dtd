@@ -163,6 +163,25 @@ export const WEAR = {
 export const DEBUG_BLASTS = ['cannonball', 'rocket', 'nuclear-strike'] as const;
 export type DebugBlast = (typeof DEBUG_BLASTS)[number];
 
+/**
+ * The radius the destruction tool may give its nuclear strike (debug:blast `radius`, E284), m: what it fells,
+ * its crater (radius and depth in the real strike's proportion) and its cloud scale with it. Without one the
+ * strike's own (ABILITIES radiusM, 25 m). From 5 m, about one house, to 100 m, four times the real strike and
+ * the largest crater the other dev tool digs (debug:dig-crater). Whole metres, so a command carries no stray
+ * fraction of the slider
+ */
+export const DEBUG_BLAST_RADIUS = { min: 5, max: 100, step: 1 } as const;
+
+/** The blasts a radius applies to: the nuclear strike only, a projectile's impact keeps its type's */
+export const DEBUG_RADIUS_BLASTS: readonly DebugBlast[] = ['nuclear-strike'];
+
+/** `radius` within DEBUG_BLAST_RADIUS, rounded to its step (the tool's slider and number field) */
+export function clampDebugBlastRadius(radius: number): number {
+  const { min, max, step } = DEBUG_BLAST_RADIUS;
+  if (!Number.isFinite(radius)) return min;
+  return Math.min(max, Math.max(min, Math.round(radius / step) * step));
+}
+
 /** Every value above, of the projectile types and of the siege guns as text, for the world key of a world that can be damaged */
 export function destructionKeyParts(): string[] {
   const projectiles = Object.values(PROJECTILE_TYPES).map((p) => `${p.id}:${p.structureDamage}:${p.craterRadius ?? 0}:${p.splashRadius ?? 0}`);

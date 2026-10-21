@@ -2,7 +2,7 @@ import { Component, inject, ChangeDetectionStrategy, effect, untracked } from '@
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { DestructionToolService } from '../../services/debug/destruction-tool.service';
-import { DEBUG_BLASTS, type DebugBlast, type StructureStage } from '../../configs/destruction.config';
+import { DEBUG_BLASTS, DEBUG_BLAST_RADIUS, type DebugBlast, type StructureStage } from '../../configs/destruction.config';
 import { COLLAPSE_VARIANTS, type CollapseVariant } from '../../world/custom-map/render/objects/ruin-damage';
 import { TdIconComponent } from '../icon/icon.component';
 import { RovingGroupDirective } from '../roving-group.directive';
@@ -36,6 +36,7 @@ export class DestructionDebuggerComponent {
 
   readonly blasts = DEBUG_BLASTS;
   readonly blastNames = BLAST_NAMES;
+  readonly radiusRange = DEBUG_BLAST_RADIUS;
   readonly stages: readonly StructureStage[] = [0, 1, 2, 3];
   readonly stageNames = STAGE_NAMES;
   readonly collapses = COLLAPSE_VARIANTS;
@@ -46,6 +47,14 @@ export class DestructionDebuggerComponent {
     effect(() => {
       if (!this.windowService.destructionWindow().isOpen) untracked(() => this.tool.stop());
     });
+  }
+
+  /** The radius slider or its number field moved */
+  onRadius(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!Number.isNaN(input.valueAsNumber)) this.tool.setRadius(input.valueAsNumber);
+    // A value out of range shows clamped, even where the signal kept its value
+    input.value = String(this.tool.radius());
   }
 
   percent(hp: number, max: number): number {
