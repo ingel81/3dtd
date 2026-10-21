@@ -284,6 +284,20 @@ describe('OSM buildings: placing', () => {
     expect(validateMap({ ...doc, objects }, { footingOf: (a) => byId.get(a), blocksBuild: () => true }).filter((i) => i.severity === 'error' && i.code !== 'no-spawns').map((i) => i.code)).toEqual([]);
   });
 
+  it('narrows a passage along a side wall to the room beside it, and closes one with none (E297)', () => {
+    const { doc, features } = world([area(1, box({ x: -30, y: 20 }, 10, 8.6, 0), { building: 'house' })]);
+    // 1.5 m and 0.8 m inside the east wall (x = -25)
+    doc.paths.nodes.push({ id: 'n1', x: -26.5, y: 30 }, { id: 'n2', x: -26.5, y: 10 }, { id: 'm1', x: -25.8, y: 30 }, { id: 'm2', x: -25.8, y: 10 });
+    doc.paths.edges.push(
+      { id: 'pass', a: 'n1', b: 'n2', width: 2.5, kind: 'path', covered: true, street: 'footway' },
+      { id: 'tight', a: 'm1', b: 'm2', width: 2.5, kind: 'path', covered: true, street: 'footway' },
+    );
+    const { objects, report } = placeBuildings(doc, features, { catalog });
+    const house = objects.find((o) => o.group === 'osm-b1' && o.asset === MASS_ASSET)!;
+    expect(house.mass!.openings!.map((o) => o.width)).toEqual([2.4]);
+    expect(report.openings).toMatchObject({ passages: 1, closed: 1 });
+  });
+
   it('heads a passage through a palace with a round arch, a gateway wide and high (E297)', () => {
     const palace: OsmArea = { ...area(4, box({ x: 0, y: 40 }, 40, 14, 0), { building: 'palace', historic: 'castle', 'building:levels': '3' }) };
     const { doc, features } = world([palace]);

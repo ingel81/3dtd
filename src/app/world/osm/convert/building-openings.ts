@@ -44,8 +44,11 @@ const PAST_DOOR = 1.5;
 const BEND_MAX = 1.5;
 /** A stretch that meets a wall flatter than this (sine of the angle) runs along it, not through */
 const CROSS_LEAST = 0.5;
-/** Widest opening, m */
+/** Widest opening, m; narrowest worth cutting */
 const WIDTH_MAX = 12;
+const LEAST_WIDTH = 1.8;
+/** Metres of wall an opening keeps beside it to a wall along it (its reveal's thickness) */
+const SIDE_KEEP = 0.3;
 
 export interface OpeningReport {
   passages: number;
@@ -204,7 +207,13 @@ export function massOpenings(mass: MapMass, frame: OpeningFrame, ways: CoveredWa
         continue;
       }
       const garage = blindEnd && !blindStart && way.street === 'service' && length <= 3.5;
-      const width = Math.min(WIDTH_MAX, way.width + 0.5 + 2 * bend);
+      // As wide as the way and its bend, within the building's walls beside it (a way along a side wall)
+      const beside = sideRoom(mass.rings, a, b, [st.wall0, st.wall1]);
+      const width = Math.min(WIDTH_MAX, way.width + 0.5 + 2 * bend, 2 * (beside - SIDE_KEEP));
+      if (width < LEAST_WIDTH) {
+        report.closed++;
+        continue;
+      }
       // Its line: a metre out past each wall it crosses, to its end where it ends inside
       const dx = (b[0] - a[0]) / length;
       const dz = (b[1] - a[1]) / length;
@@ -223,7 +232,7 @@ export function massOpenings(mass: MapMass, frame: OpeningFrame, ways: CoveredWa
         const wanted = DRIVES.has(way.street) ? DRIVE_HEIGHT : way.street === 'pedestrian' ? STREET_HEIGHT : FOOT_HEIGHT;
         // A stone building takes a round arch, a gateway's width at least, its springing GATE_SPRING up as room allows; else a lintel
         const stone = stoneAt(mass, a, b);
-        const gate = Math.min(WIDTH_MAX, Math.max(width, GATE_WIDTH));
+        const gate = Math.min(WIDTH_MAX, 2 * (beside - SIDE_KEEP), Math.max(width, GATE_WIDTH));
         const crown = Math.min(Math.max(wanted, gate / 2 + GATE_SPRING), room);
         const arch = stone && crown - gate / 2 >= LEAST_SPRING;
         const height = arch ? crown : Math.min(wanted, room);
@@ -349,6 +358,51 @@ function wallSine(rings: readonly (readonly number[])[], a: readonly [number, nu
     wall += n;
   }
   return 1;
+}
+
+/**
+ * Room beside the line a-b inside the rings: the least distance, square to
+ * the line to either side, from a point on it to the first wall (its ends'
+ * walls `ends`, their indices over all rings, do not count)
+ */
+function sideRoom(rings: readonly (readonly number[])[], a: readonly [number, number], b: readonly [number, number], ends: readonly number[]): number {
+  const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const dx = (b[0] - a[0]) / (length || 1);
+  const dz = (b[1] - a[1]) / (length || 1);
+  let least = Infinity;
+  const from = Math.min(0.3, length / 2);
+  const steps = Math.max(1, Math.ceil((length - 2 * from) / 0.5));
+  for (let k = 0; k <= steps; k++) {
+    const t = from + ((length - 2 * from) * k) / steps;
+    const px = a[0] + dx * t;
+    const pz = a[1] + dz * t;
+    for (const side of [1, -1]) {
+      // The ray square to the line, to the first wall
+      const rx = -dz * side;
+      const rz = dx * side;
+      // Walls counted as stretches() counts them
+      let wall = 0;
+      for (const r of rings) {
+        for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2, wall++) {
+          if (ends.includes(wall)) continue;
+          const hit = rayHit(px, pz, rx, rz, r[j], r[j + 1], r[i], r[i + 1]);
+          if (hit !== null) least = Math.min(least, hit);
+        }
+      }
+    }
+  }
+  return least;
+}
+
+/** Metres along the ray from (px, pz) in direction (rx, rz) to the segment c-d; null where it misses */
+function rayHit(px: number, pz: number, rx: number, rz: number, cx: number, cz: number, dx: number, dz: number): number | null {
+  const sx = dx - cx;
+  const sz = dz - cz;
+  const den = rx * sz - rz * sx;
+  if (Math.abs(den) < 1e-12) return null;
+  const t = ((cx - px) * sz - (cz - pz) * sx) / den;
+  const u = ((cx - px) * rz - (cz - pz) * rx) / den;
+  return t >= 0 && u >= 0 && u <= 1 ? t : null;
 }
 
 /** Distance from `p` to the line through a and b */
