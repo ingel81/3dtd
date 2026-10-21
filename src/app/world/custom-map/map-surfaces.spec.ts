@@ -2,7 +2,7 @@ import { createMapDocument } from './map-create';
 import { contentHash, packMapFile, unpackMapFile } from './map-file';
 import { mapRepairs } from './map-repair';
 import type { MapPoint, MapSurface, MapSurfaceMarkingKind } from './map-document';
-import { courtOf, fitMarking, markingFrame, markingPoint, parkingBands, parkingRows, STALL, surfaceArea, surfaceProblems } from './map-surfaces';
+import { courtOf, fitMarking, markingFrame, markingPoint, parkingBands, parkingRows, RUNNEL_TRICKLE, STALL, stripOutline, surfaceArea, surfaceProblems } from './map-surfaces';
 import { words } from './testing/map-words';
 
 const rect = (cx: number, cy: number, a: number, b: number, turn = 0): MapPoint[] => {
@@ -70,6 +70,41 @@ describe('map surfaces', () => {
     expect(words(surfaceProblems({ id: '', material: 'paving', outer: rect(0, 0, 4, 4) }))[0]).toContain('no id');
     expect(words(surfaceProblems({ id: 'a', material: 'paving', outer: rect(0, 0, 4, 4), marking: { kind: 'curling', x: 0, y: 0, angle: 0, length: 4, width: 4 } }))[0]).toContain('unknown');
     expect(surfaceArea({ outer: rect(0, 0, 10, 4), holes: [rect(0, 0, 2, 2)] })).toBeCloseTo(36, 6);
+  });
+
+  it('draws a runnel by its width and its water, a trickle without; water wider than the runnel is broken', () => {
+    const m = { kind: 'runnel' as const, x: 0, y: 0, angle: 0, length: 40, width: 0.8 };
+    expect(courtOf(m)).toEqual({ length: RUNNEL_TRICKLE, width: 0.8 });
+    expect(courtOf({ ...m, water: 0.4 })).toEqual({ length: 0.4, width: 0.8 });
+    const strip = { id: 'r', material: 'concrete', outer: rect(0, 0, 40, 0.8) };
+    expect(surfaceProblems({ ...strip, marking: { ...m, water: 0.4 } })).toEqual([]);
+    expect(words(surfaceProblems({ ...strip, marking: { ...m, water: 2 } }))).toHaveLength(1);
+    expect(words(surfaceProblems({ ...strip, marking: { ...m, water: -1 } }))).toHaveLength(1);
+  });
+
+  it('outlines a strip round a line: square at the ends, mitred at a corner, no spike at a sharp one', () => {
+    const straight = stripOutline([{ x: 0, y: 0 }, { x: 10, y: 0 }], 0.5)!;
+    expect(straight).toHaveLength(4);
+    expect(surfaceArea({ outer: straight })).toBeCloseTo(10, 6);
+    // A right angle: the outer corner a mitre (√2 half widths out), the strip as wide all along
+    const bend = stripOutline([{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }], 0.5)!;
+    expect(bend).toHaveLength(6);
+    expect(bend.some((p) => Math.abs(p.x - 10.5) < 1e-6 && Math.abs(p.y + 0.5) < 1e-6)).toBe(true);
+    expect(surfaceArea({ outer: bend })).toBeCloseTo(20, 6);
+    // Doubling back: the corner reaches at most twice the half width out
+    const back = stripOutline([{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: 0.5 }], 0.5)!;
+    for (const p of back) expect(Math.hypot(p.x - 10, p.y)).toBeLessThan(10.5);
+    expect(Math.max(...back.map((p) => p.x))).toBeLessThanOrEqual(11 + 1e-6);
+    expect(stripOutline([{ x: 1, y: 1 }, { x: 1, y: 1 }], 0.5)).toBeNull();
+  });
+
+  it('fits a runnel to a strip of any bend, narrower than the courts allow, as wide as the strip', () => {
+    const straight = fitMarking('runnel', stripOutline([{ x: 0, y: 0 }, { x: 30, y: 0 }], 0.4)!)!;
+    expect(straight.width).toBeCloseTo(0.8, 2);
+    expect(straight.length).toBeCloseTo(30, 1);
+    const bent = fitMarking('runnel', stripOutline([{ x: 0, y: 0 }, { x: 15, y: 5 }, { x: 22, y: 20 }, { x: 25, y: 40 }], 0.4)!)!;
+    expect(bent.width).toBeCloseTo(0.8, 1);
+    expect(fitMarking('tennis', stripOutline([{ x: 0, y: 0 }, { x: 30, y: 0 }], 0.4)!)).toBeNull();
   });
 });
 

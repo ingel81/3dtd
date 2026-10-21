@@ -49,6 +49,7 @@ export const MARKING_CODE: Readonly<Record<MapSurfaceMarkingKind, number>> = {
   track: 7,
   parking: 8,
   platform: 9,
+  runnel: 10,
 };
 
 /** Most rank: of two surfaces that overlap, the one of higher rank is drawn over the other (DrapePull, surfaceRanks) */

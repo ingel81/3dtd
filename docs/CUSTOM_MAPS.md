@@ -355,18 +355,27 @@ darstellend wie die Bodendecals: Routen, Bauverbot und Simulation sehen sie nich
   Mehrzweck (Handball weiß, Basketball gelb), Laufbahn (Stadionoval im Rechteck, Bahnen zu 1,22 m, Ziel, Rasen-Innenfeld,
   wo keine eigene Fläche darüber liegt), Parkplatz (Stellplätze 2,5 × 5 m in Reihen Rücken an Rücken, `parkingRows`,
   dieselben Reihen, auf die die OSM-Welt Autos stellt; Öl unter den Motoren, Reifenspuren in der Gasse), Bahnsteig
-  (Kantenstein, weiße Linie, gerippter Leitstreifen an beiden Langseiten). Rasenplätze bekommen Mähstreifen und
+  (Kantenstein, weiße Linie, gerippter Leitstreifen an beiden Langseiten), Rinne (`runnel`, E286: Betonhalbschalen
+  einer OSM-`drain`; gezeichnet nach dem Abstand zur Kante, nicht nach dem Rechteck, so auch in Bögen: schmale Lippe,
+  Schale bis zur Mitte mit zur Mitte gedrehter Normale aus der Steigung des Kantenabstands über die Karte, also eine
+  Seite im Licht, eine im Schatten; Fugen je Meter, Schlamm und Feuchte am Grund, das Wasser am Grund als Rinnsal, das
+  längs dünner und breiter wird, oder so breit wie `water`). Rasenplätze bekommen Mähstreifen und
   ausgetretene Torräume, lose Böden (Hackschnitzel, Sand) eine Holzeinfassung, Hartplätze und Parkplätze einen
-  Bordstein, alle einen weichen Kontaktschatten am Rand. Linien sind weiß, im Mehrzweck der zweite Satz gelb.
+  Bordstein, alle außer der Rinne einen weichen Kontaktschatten am Rand. Linien sind weiß, im Mehrzweck der zweite
+  Satz gelb.
 - **Boden darunter**: die Wegmaske deckt jede Fläche (Blau 255 ohne Rot und Grün, 0,3 m innerhalb des Umrisses,
   `paintSurfaceCovers`): kein Gras wächst durch, der Gelände-Shader lässt dort seine Arbeit aus. Im Editor malt der
   Worker die Maske aus den Flächen seines Spiegels mit (`PathMaskRaster` merkt je Ring die Punkte).
 - **Format**: `surfaces?: MapSurface[]` (höchstens `MAX_SURFACES` 4096, je Umriss 3 bis 2048 Punkte, bis 64 Löcher);
-  `marking?: { kind, x, y, angle, length, width }`, `kind` aus `MAP_SURFACE_MARKINGS`. Weich geprüft
+  `marking?: { kind, x, y, angle, length, width, water? }`, `kind` aus `MAP_SURFACE_MARKINGS`; `water` nur bei der
+  Rinne: Breite des Wassers am Grund (fehlt: Rinnsal `RUNNEL_TRICKLE` 0,08 m), `width` ist dort die Breite der Rinne
+  von Lippe zu Lippe (`fitMarking` misst sie aus Fläche und Umfang des Streifens, `stripOutline` legt einen Streifen
+  um eine Linie). Weich geprüft
   (`map-repair.ts`): eine kaputte Fläche fällt weg, eine unbekannte oder kaputte Markierung verliert nur die Linien.
   Ohne Feld liest und hasht eine Karte wie vorher. Höchstens 15 Materialien je Karte (`MAX_SURFACE_MATERIALS`), darüber
   die Mittelfarbe.
-- **Probe**: `/map-preview?surfaces` zeigt je Markierung eine Fläche (`preview/surface-showcase.ts`);
+- **Probe**: `/map-preview?surfaces` zeigt je Markierung eine Fläche (`preview/surface-showcase.ts`, die Rinnen als
+  gebogene trockene und gerade nasse bei x 150 bis 190, y -180 bis -120);
   `/map-preview?map=<id>&own` eine eigene Karte des Browsers (eine OSM-Welt).
 
 ### Wasser (`water/`)

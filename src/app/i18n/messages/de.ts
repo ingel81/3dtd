@@ -1619,7 +1619,7 @@ export const de: Messages = {
   editor: {
     surfaceMarkings: {
       soccer: 'Fußballfeld', handball: 'Handballfeld', basketball: 'Basketballfeld', tennis: 'Tennisplatz', volleyball: 'Volleyballfeld',
-      multi: 'Mehrzweckfeld', track: 'Laufbahn', parking: 'Parkbuchten', platform: 'Bahnsteigkante',
+      multi: 'Mehrzweckfeld', track: 'Laufbahn', parking: 'Parkbuchten', platform: 'Bahnsteigkante', runnel: 'Betonrinne',
     },
     look: {
       hint: 'Umsehen: klick ein Ding an, um zu sehen, was es ist | hier ändert sich nichts an der Karte | zum Bearbeiten ein Werkzeug wählen',

@@ -279,9 +279,11 @@ export interface MapMass {
 
 /**
  * What a surface's lines draw (render/surfaces/): the court or pitch of a
- * sport, a running track, the stalls of a car park, the edge of a platform
+ * sport, a running track, the stalls of a car park, the edge of a platform,
+ * the concrete half shells of a runnel (a drain in a vineyard) with the
+ * water at its bottom
  */
-export type MapSurfaceMarkingKind = 'soccer' | 'handball' | 'basketball' | 'tennis' | 'volleyball' | 'multi' | 'track' | 'parking' | 'platform';
+export type MapSurfaceMarkingKind = 'soccer' | 'handball' | 'basketball' | 'tennis' | 'volleyball' | 'multi' | 'track' | 'parking' | 'platform' | 'runnel';
 
 /**
  * Lines on a surface, in the frame of a turned rectangle: its middle, the
@@ -296,6 +298,12 @@ export interface MapSurfaceMarking {
   angle: number;
   length: number;
   width: number;
+  /**
+   * A runnel's water across its bottom, metres (at most its width): a
+   * trickle when missing (map-surfaces.ts RUNNEL_TRICKLE). A runnel follows
+   * its outline, not the rectangle: `width` is the runnel's from lip to lip
+   */
+  water?: number;
 }
 
 /**
@@ -810,6 +818,7 @@ export const MAP_SURFACE_MARKINGS = valuesOf<MapSurfaceMarkingKind>({
   track: true,
   parking: true,
   platform: true,
+  runnel: true,
 });
 export const MAP_WAVE_EVENT_KINDS = valuesOf<MapWaveEventKind>({ message: true, weather: true, time: true, portal: true, objects: true });
 

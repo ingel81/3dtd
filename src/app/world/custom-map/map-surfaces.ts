@@ -38,15 +38,24 @@ const COURT: Readonly<Record<MapSurfaceMarkingKind, { length: number; width: num
   track: null,
   parking: null,
   platform: null,
+  runnel: null,
 };
+
+/** Metres of water at a runnel's bottom without its own (MapSurfaceMarking.water): a trickle */
+export const RUNNEL_TRICKLE = 0.08;
 
 /** Metres between a court's lines and the rectangle's edge, each side */
 const RUN_OFF = 1;
 /** A football pitch's or multi-sport court's lines stay inside the rectangle by this share of its side, at most 3 m */
 const PITCH_INSET = 0.02;
 
-/** The court's length and width (along and across the rectangle), metres */
-export function courtOf(m: Pick<MapSurfaceMarking, 'kind' | 'length' | 'width'>): { length: number; width: number } {
+/**
+ * The court's length and width (along and across the rectangle), metres. A
+ * runnel's are its water's width and its own: it draws by its outline, the
+ * shader needs only how wide it and its water are
+ */
+export function courtOf(m: Pick<MapSurfaceMarking, 'kind' | 'length' | 'width' | 'water'>): { length: number; width: number } {
+  if (m.kind === 'runnel') return { length: Math.min(m.width, m.water ?? RUNNEL_TRICKLE), width: m.width };
   const real = COURT[m.kind];
   if (!real) {
     if (m.kind !== 'soccer' && m.kind !== 'multi') return { length: m.length, width: m.width };
@@ -204,11 +213,23 @@ export function insideSurface(s: Pick<MapSurface, 'outer' | 'holes'>, p: MapPoin
 /**
  * The marking of `kind` fitted to an outline: its smallest turned
  * rectangle, the long side along. Null where the outline fills less than
- * MARKING_FILL of it (an L or a ring: the lines would cross its edge)
+ * MARKING_FILL of it (an L or a ring: the lines would cross its edge). A
+ * runnel follows its outline whatever its shape (a strip, bent or not): its
+ * width is the strip's, from its area and its perimeter as a rectangle's
  */
 export function fitMarking(kind: MapSurfaceMarkingKind, outer: readonly MapPoint[], holes: readonly MapPoint[][] = [], fill = MARKING_FILL): MapSurfaceMarking | null {
   if (outer.length < 3) return null;
   const r = minAreaRect(outer);
+  if (kind === 'runnel') {
+    const area = surfaceArea({ outer: outer as MapPoint[] });
+    let half = 0;
+    for (let k = 0; k < outer.length; k++) half += Math.hypot(outer[(k + 1) % outer.length].x - outer[k].x, outer[(k + 1) % outer.length].y - outer[k].y) / 2;
+    const width = (half - Math.sqrt(Math.max(0, half * half - 4 * area))) / 2;
+    if (width < 0.1 || width > 1000) return null;
+    const along = r.a >= r.b;
+    const angle = along ? Math.atan2(r.u.y, r.u.x) : Math.atan2(r.u.x, -r.u.y);
+    return { kind, x: round(r.c.x), y: round(r.c.y), angle: Math.round(angle * 1e4) / 1e4, length: round(Math.max(width, half - width)), width: round(width) };
+  }
   if (r.a < 1 || r.b < 1) return null;
   const area = surfaceArea({ outer: outer as MapPoint[], holes: holes as MapPoint[][] });
   if (area < fill * r.a * r.b) return null;
@@ -264,7 +285,41 @@ export function markingProblems(m: unknown): MapText[] {
   if (!finite(k.length) || !finite(k.width) || k.length <= 0 || k.width <= 0 || k.length > 1000 || k.width > 1000) {
     return [{ key: 'markingSize' }];
   }
+  if (k.water !== undefined && (!finite(k.water) || k.water < 0 || k.water > k.width)) return [{ key: 'markingSize' }];
   return [];
+}
+
+/**
+ * The outline of a strip `half` metres either side of a line (a runnel's
+ * shells): along its left side, back along its right, square at the ends.
+ * A corner's outer side is mitred, at most twice `half` out, so a sharp turn
+ * does not throw a spike; null for a line shorter than a point
+ */
+export function stripOutline(line: readonly MapPoint[], half: number): MapPoint[] | null {
+  const pts = line.filter((p, k) => k === 0 || Math.hypot(p.x - line[k - 1].x, p.y - line[k - 1].y) > 1e-3);
+  if (pts.length < 2) return null;
+  const left: MapPoint[] = [];
+  const right: MapPoint[] = [];
+  const dir = (a: MapPoint, b: MapPoint) => {
+    const l = Math.hypot(b.x - a.x, b.y - a.y);
+    return { x: (b.x - a.x) / l, y: (b.y - a.y) / l };
+  };
+  for (let k = 0; k < pts.length; k++) {
+    const din = dir(pts[Math.max(0, k - 1)], pts[Math.max(1, k)]);
+    const dout = dir(pts[Math.min(pts.length - 2, k)], pts[Math.min(pts.length - 1, k + 1)]);
+    // The corner's bisector across the line, scaled so both sides keep their distance (the mitre)
+    let nx = -(din.y + dout.y);
+    let ny = din.x + dout.x;
+    const l = Math.hypot(nx, ny) || 1;
+    nx /= l;
+    ny /= l;
+    const cos = nx * -dout.y + ny * dout.x;
+    const reach = half / Math.max(cos, 0.5);
+    const p = pts[k];
+    left.push({ x: p.x + nx * reach, y: p.y + ny * reach });
+    right.push({ x: p.x - nx * reach, y: p.y - ny * reach });
+  }
+  return [...left, ...right.reverse()];
 }
 
 function ringOk(ring: unknown): boolean {

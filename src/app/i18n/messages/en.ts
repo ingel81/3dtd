@@ -1837,7 +1837,7 @@ export const en = {
     /** The lines a surface can carry (map-surfaces.ts) */
     surfaceMarkings: {
       soccer: 'Football pitch', handball: 'Handball court', basketball: 'Basketball court', tennis: 'Tennis court', volleyball: 'Volleyball court',
-      multi: 'Multi-sport court', track: 'Running track', parking: 'Car park stalls', platform: 'Platform edge',
+      multi: 'Multi-sport court', track: 'Running track', parking: 'Car park stalls', platform: 'Platform edge', runnel: 'Concrete runnel',
     } satisfies Record<MapSurfaceMarkingKind, string> as Record<MapSurfaceMarkingKind, string>,
     /** Look: what a click picked, the ground under it (look tool and panel, describe.ts) */
     look: {

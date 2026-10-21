@@ -18,7 +18,9 @@ export const SURFACE_EDGE_WIDTH = 1024;
  *     multi-sport court with handball lines in white and a basketball court
  *     in yellow; a running track's lanes round a stadium oval; a car park's
  *     stalls (map-surfaces.ts parkingRows, the same rows); a platform's edge
- *     stone, white line and tactile strip;
+ *     stone, white line and tactile strip; a runnel's concrete half shells
+ *     (a drain), their curve into their own shade, their joints, the water
+ *     at their bottom (a trickle, or as wide as the marking says);
  *   - what use leaves: mowing stripes and worn goal mouths on a grass
  *     pitch, a painted key and goal area, oil under the parked cars and the
  *     tyres' tracks along the aisle, paint worn thin;
@@ -333,6 +335,40 @@ if (kind > 0.5 && kind < 1.5) {
   albedo = mix(albedo, vec3(0.52, 0.51, 0.48) * (0.92 + 0.08 * rib * near), tactile);
   nxy = mix(nxy, vec2(rib * 0.6 * near, 0.0), tactile);
   rough = mix(rough, 0.7, tactile);
+} else if (kind < 10.5 && kind > 9.5) {
+  // A runnel of concrete half shells, measured across from its edge (hc.y: half its width, hc.x: half its water's,
+  // map-surfaces.ts courtOf): a narrow lip, then the shell curving down to the middle, its normal turned towards
+  // the middle (the slope of the edge's distance over the map, from the pixel's neighbours: right on a bend as on
+  // a straight), so the sun lights one side and leaves the other in shade; deeper in the shell darker; a joint
+  // every metre along the frame; silt and damp at the bottom, the water there swelling and thinning along it
+  float rh = max(hc.y, 0.05);
+  float mid = max(rh - edge, 0.0);
+  float r = clamp(mid / rh, 0.0, 1.0);
+  float shell = smoothstep(0.03 - aa, 0.03 + aa, edge);
+  vec2 dmx = dFdx(vDrapeMap);
+  vec2 dmy = dFdy(vDrapeMap);
+  float ex = dFdx(edge);
+  float ey = dFdy(edge);
+  float det = dmx.x * dmy.y - dmx.y * dmy.x;
+  vec2 inward = abs(det) > 1e-12 ? vec2(dmy.y * ex - dmx.y * ey, dmx.x * ey - dmy.x * ex) / det : vec2(0.0);
+  inward /= max(length(inward), 1e-4);
+  float slope = shell * min(1.6, r * 1.15 / sqrt(max(1.0 - r * r, 0.15)));
+  vec2 ru = vec2(cos(vSurfAngle), sin(vSurfAngle));
+  vec2 tilt = vec2(dot(inward, vec2(-ru.y, ru.x)), dot(inward, ru)) * slope;
+  float low = 1.0 - r;
+  albedo = mix(albedo, vec3(dot(albedo, vec3(0.3, 0.55, 0.15))), 0.45) * mix(1.06, 0.82, smoothstep(0.3, 0.95, low));
+  ao *= mix(1.0, 0.55, smoothstep(0.25, 1.0, low)) * (1.0 - surfLine(edge - 0.03, 0.012, aa) * 0.4 * near);
+  float along = valueNoise(vec2(p.x * 0.8, 2.3)) * 0.7 + valueNoise(vec2(p.x * 3.1, 5.9)) * 0.3;
+  float silt = smoothstep(0.45, 0.85, low) * smoothstep(0.35, 0.75, valueNoise(vDrapeMap * 3.7) * 0.6 + along * 0.4);
+  albedo = mix(albedo, vec3(0.2, 0.19, 0.13), silt * 0.55);
+  float joint = surfLine(abs(p.x - floor(p.x + 0.5)), 0.012, aa) * near;
+  float hw = hc.x * mix(0.45, 1.35, along);
+  float water = surfLine(mid, 2.0 * hw, aa);
+  float damp = 1.0 - smoothstep(hw, hw + 0.06 + aa, mid);
+  albedo *= 1.0 - max(joint * 0.45, damp * 0.3) * (1.0 - water);
+  albedo = mix(albedo, vec3(0.035, 0.045, 0.04), water * 0.85);
+  rough = mix(mix(rough, 0.45, damp), 0.05, water);
+  nxy = (nxy * 0.5 * (1.0 - silt * 0.5) + tilt) * (1.0 - water);
 }
 
 // Paint, a little worn and dusted; the second set (a multi-sport court's basketball) in yellow
@@ -361,7 +397,8 @@ if (!grassy && !paved) {
   albedo *= 1.0 - (1.0 - smoothstep(0.15, 0.2 + aa, edge)) * (1.0 - kerb) * 0.4;
   rough = mix(rough, 0.8, kerb);
 }
-ao *= mix(0.86, 1.0, smoothstep(0.0, 0.6, edge));
+// (a runnel shades its own curve)
+if (kind < 9.5 || kind > 10.5) ao *= mix(0.86, 1.0, smoothstep(0.0, 0.6, edge));
 
 diffuseColor.rgb *= albedo;
 // The frame of the marking: along and across in the scene (x = -map x), the normal from the terrain's grid

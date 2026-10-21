@@ -1,6 +1,6 @@
 import { createMapDocument } from '../map-create';
 import type { CustomMapDocument, MapPoint, MapSurface, MapSurfaceMarkingKind } from '../map-document';
-import { fitMarking, markingPoint } from '../map-surfaces';
+import { fitMarking, markingPoint, stripOutline } from '../map-surfaces';
 
 /** One surface of the showcase: its material, the marking, the rectangle (middle, long side, sides) */
 interface Sample {
@@ -18,7 +18,8 @@ interface Sample {
  * (`/map-preview?surfaces`, render/surfaces/): football on grass, the courts
  * on hard ground and clay, a multi-sport court, a running track, a car park,
  * a platform, a playground of wood chips with an odd outline, a square of
- * setts round a bed. For the picture of each marking the plan asks for, and
+ * setts round a bed, two runnels of concrete shells (a bent dry one, a
+ * straight one with water). For the picture of each marking the plan asks for, and
  * for the shader's lines against their real measures.
  */
 export function createSurfaceShowcase(): CustomMapDocument {
@@ -50,6 +51,11 @@ export function createSurfaceShowcase(): CustomMapDocument {
     });
   surfaces.push({ id: 'playground', material: 'wood-chips', outer: blob(-150, -130, 18, 24, 0.18) });
   surfaces.push({ id: 'square', material: 'cobblestone', outer: blob(-60, -140, 30, 8, 0.05), holes: [blob(-60, -140, 6, 16, 0)] });
+  // Runnels of concrete shells (an OSM drain's): a bent dry one with its trickle, a straight one with water across its bottom
+  const bent = stripOutline([{ x: 150, y: -180 }, { x: 165, y: -165 }, { x: 172, y: -145 }, { x: 175, y: -120 }], 0.39)!.map(round);
+  surfaces.push({ id: 'runnel', material: 'concrete', outer: bent, marking: fitMarking('runnel', bent)! });
+  const straight = stripOutline([{ x: 190, y: -180 }, { x: 190, y: -120 }], 0.39)!.map(round);
+  surfaces.push({ id: 'runnel-wet', material: 'concrete', outer: straight, marking: { ...fitMarking('runnel', straight)!, water: 0.4 } });
   doc.surfaces = surfaces;
   return doc;
 }
