@@ -38,6 +38,15 @@ describe('terrain cuts', () => {
     expect(cut.dy).toBeCloseTo(-1, 6);
   });
 
+  it('opens a run piece as wide as it is stretched, an other model not', () => {
+    const wall = { id: 'track-wall', category: 'structure', footprint: 6, row: 12, groundCut: [6, 1, 1, 6] } as CatalogObject;
+    const both = new Map([...entries, [wall.id, wall]]);
+    const [run, vault] = groundCuts([{ ...placed(0), asset: wall.id, stretch: 1.5 }, placed(0, { stretch: 1.5 })], both, () => 0, () => null);
+    expect(run.halfWidth).toBe(9);
+    expect(run.length).toBe(6);
+    expect(vault.halfWidth).toBe(4);
+  });
+
   it('skips objects without an opening', () => {
     expect(groundCuts([{ ...placed(0), asset: 'oak' }], entries, () => 0, () => null)).toEqual([]);
   });

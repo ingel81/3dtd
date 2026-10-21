@@ -26741,6 +26741,44 @@
       "source": "procedural (tools/map-assets/build_modern.py)"
     },
     {
+      "id": "track-wall",
+      "name": "Retaining wall beside a track (12 m run, a 6 m gravel shelf behind its top)",
+      "category": "structure",
+      "file": "models/track-wall.glb",
+      "triangles": 220,
+      "footprint": 5.4,
+      "height": 0.1,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": false,
+      "wind": 0,
+      "drawDistance": 1500,
+      "groundCut": [
+        6,
+        1,
+        1,
+        6
+      ],
+      "row": 12,
+      "tags": [
+        "city"
+      ],
+      "textures": [
+        "textures/brushed_concrete_arm_1k-43618626adce0df3.ktx2",
+        "textures/brushed_concrete_diff_1k-d54c7d06c5e8d6eb.ktx2",
+        "textures/brushed_concrete_nor_gl_1k-20b9c86ac337f879.ktx2",
+        "textures/gravel_floor_02_arm_1k-5d0993309a9225d6.ktx2",
+        "textures/gravel_floor_02_diff_1k-896ad499c0c09b30.ktx2",
+        "textures/gravel_floor_02_nor_gl_1k-fe097660148af307.ktx2",
+        "textures/track-wall-ao-6ba38637991ea0af.ktx2"
+      ],
+      "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/gravel_floor_02"
+    },
+    {
       "id": "catenary-mast",
       "name": "Overhead line mast (arm reaches back over the track)",
       "category": "prop",

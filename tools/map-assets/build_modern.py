@@ -1835,6 +1835,23 @@ def steel_railing(name, length=3.0):
     export(name, [steel.to_object(name)])
 
 
+def track_wall(name, length=12.0, depth=10.0, shelf=6.0):
+    """Retaining wall beside a track, a run piece along X (`length`, centred; objects stretch it), its face to -Y
+    (the model's front, +z) at y 0, the top at z 0 with a coping, reaching `depth` down into the ground. Behind it a
+    shelf of gravel `shelf` deep at the top's level: the catalogue's groundCut leaves the ground out under it, so
+    the step from a road to a bed is the wall, not a slope of the 2 m height field; its ends closed into the ground"""
+    clear_scene()
+    wall, trim, _, _ = subway_parts()
+    gravel = Part(pbr_material('track-wall-gravel', 'gravel_floor_02', (0.36, 0.34, 0.31)), uv_metres=2.0)
+    box(wall, 0, 0.15, -depth, length, 0.3, depth)
+    box(trim, 0, 0.15, 0, length + 0.01, 0.36, 0.08)
+    box(gravel, 0, (0.3 + shelf) / 2, -0.15, length, shelf - 0.3, 0.15)
+    # The ends closed down into the ground: the ground left out under the shelf showed through beside them
+    for sx in (-1, 1):
+        box(wall, sx * (length / 2 - 0.15), (0.3 + shelf) / 2, -depth, 0.3, shelf - 0.3, depth - 0.15)
+    export(name, [wall.to_object(name), trim.to_object(name + '-coping'), gravel.to_object(name + '-shelf')])
+
+
 def catenary_mast(name, height=7.6, reach=3.2):
     """Overhead line mast beside the track: an H-beam mast on a concrete footing, a cantilever over the
     track (+Y) with insulators, a stub of contact and messenger wire along X"""
@@ -2078,6 +2095,7 @@ def models():
         'subway-entrance': lambda: subway_entrance('subway-entrance'),
         'retaining-wall-concrete': lambda: concrete_retaining_wall('retaining-wall-concrete'),
         'railing-steel': lambda: steel_railing('railing-steel'),
+        'track-wall': lambda: track_wall('track-wall'),
         'catenary-mast': lambda: catenary_mast('catenary-mast'),
         'buffer-stop': lambda: buffer_stop('buffer-stop'),
         'power-pylon': lambda: pylon('power-pylon'),

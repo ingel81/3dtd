@@ -635,6 +635,7 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | subway-entrance | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/rectangular_facade_tiles |
 | retaining-wall-concrete | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
 | railing-steel | procedural (tools/map-assets/build_modern.py) |
+| track-wall | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/gravel_floor_02 |
 | catenary-mast | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |
 | buffer-stop | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/dark_planks |
 | power-pylon | procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete |

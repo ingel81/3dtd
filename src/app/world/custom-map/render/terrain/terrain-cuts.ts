@@ -15,7 +15,9 @@ import { seatHeight } from '../objects/object-seat';
  * scale 1) runs from the model's front face (z = 0) back along -z, its
  * section straight walls up to the spring and an elliptic arch to the crown,
  * the profile three-quarter round and segmental vaults are built with.
- * Pitch and roll of the object are left out (no such model tilts).
+ * Pitch and roll of the object are left out (no such model tilts). A run
+ * piece (catalogue `row`) stretched along its x (MapObject.stretch) opens
+ * that much wider, as it is drawn (a retaining wall's shelf beside a track).
  *
  * One float texture, a single texture unit (the terrain's program is near the
  * 16 of WebGL 2): a coarse index over the map (CUT_CELL metres a texel)
@@ -63,6 +65,7 @@ export function groundCuts(
     if (!e?.groundCut) continue;
     const [halfWidth, spring, crown, length] = e.groundCut;
     const s = o.scale || 1;
+    const stretch = e.row ? o.stretch || 1 : 1;
     const base = seatHeight(e, o, groundAt, waterAt) + o.z;
     // Model -z in map space (map-coords.ts: model +z turned by r lies along map (-sin r, cos r))
     out.push({
@@ -70,7 +73,7 @@ export function groundCuts(
       y: o.y,
       dx: Math.sin(o.rotation),
       dy: -Math.cos(o.rotation),
-      halfWidth: halfWidth * s,
+      halfWidth: halfWidth * s * stretch,
       length: length * s,
       springY: base + spring * s,
       rise: Math.max(0, crown - spring) * s,

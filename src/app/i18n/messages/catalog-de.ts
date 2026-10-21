@@ -621,6 +621,7 @@ export const CATALOG_DE: Readonly<Record<string, string>> = {
   'subway-entrance': 'Eingang zur Unterführung (Kopfwand mit Öffnung, 5 m)',
   'retaining-wall-concrete': 'Stützmauer, Beton (6 m, 3 m hoch)',
   'railing-steel': 'Stahlgeländer (3 m)',
+  'track-wall': 'Stützmauer am Gleis (12 m, Kiesbett dahinter)',
   'catenary-mast': 'Oberleitungsmast (Ausleger reicht zurück über das Gleis)',
   'buffer-stop': 'Prellbock',
   'power-pylon': 'Hochspannungsmast (47 m)',
