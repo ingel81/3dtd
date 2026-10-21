@@ -748,7 +748,8 @@ const MASS_PLINTH: Readonly<Record<MapMass['facade'], number>> = { plaster: 0.45
  * The walls of the outline at least `least` metres long, on the map at the
  * object's place, turn and scale (courtyards left out): middle, outward
  * normal, length, and the top of the ground floor as the mass layer lays out
- * the storeys (plinth, then `floors` storeys under the cornice or parapet)
+ * the storeys (plinth, then `floors` storeys under the cornice or parapet);
+ * not a wall a way opens (MapMass.openings)
  */
 export function massFronts(o: Pick<MapObject, 'asset' | 'mass' | 'x' | 'y' | 'rotation' | 'scale'>, least = 2): MassFront[] {
   const m = massOf(o);
@@ -767,6 +768,8 @@ export function massFronts(o: Pick<MapObject, 'asset' | 'mass' | 'x' | 'y' | 'ro
   for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
     const length = Math.hypot(r[i] - r[j], r[i + 1] - r[j + 1]);
     if (length * s < least) continue;
+    // A wall a way opens (MapMass.openings) carries no sign or awning: they would hang in the opening
+    if (m.openings?.some((o) => segmentDistance(o.line[0], o.line[1], o.line[2], o.line[3], r[j], r[j + 1], r[i], r[i + 1]) < o.width / 2)) continue;
     const mx = (r[i] + r[j]) / 2;
     const mz = (r[i + 1] + r[j + 1]) / 2;
     let nx = (r[i + 1] - r[j + 1]) / length;

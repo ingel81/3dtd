@@ -223,4 +223,10 @@ describe('raised buildings: their fronts on the map', () => {
     expect(fronts.map((f) => Math.round(f.width)).sort((a, b) => a - b)).toEqual([30, 30, 40, 40]);
     expect(massFronts({ ...o, asset: 'house-modern' })).toEqual([]);
   });
+
+  it('leaves out a wall a way opens: no sign or awning hangs in a passage (E297)', () => {
+    const gated: MapMass = { ...court, openings: [{ line: [0, -16, 0, -4], width: 4, height: 4, kind: 'passage', head: 'flat' }] };
+    const fronts = massFronts({ asset: MASS_ASSET, mass: gated, x: 0, y: 0, rotation: 0, scale: 1 });
+    expect(fronts.length).toBe(3);
+  });
 });
