@@ -1450,8 +1450,10 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
       float bed = 1.0 - smoothstep(0.0, 0.03, fract(v / 0.5) * 0.5);
       float impost = massBox(du, cutHalf - 0.02, cutHalf + 0.7, aa) * massBox(v, cutSpring - 0.22, cutSpring, aa);
       dressed = max(max(voussoir, quoin), impost);
-      detail = mix(detail, dress * (0.96 + 0.08 * massHash(vec3(stone, course, seed))), dressed);
-      detail = mix(detail, dress * 1.05, impost);
+      // Dressed stone a shade lighter than the walling, each block its own
+      vec3 ashlar = min(base * 1.32 + 0.05, vec3(1.0));
+      detail = mix(detail, ashlar * (0.94 + 0.1 * massHash(vec3(stone, course, seed))), dressed);
+      detail = mix(detail, ashlar * 1.06, impost);
       detail *= 1.0 - 0.3 * massBox(du, cutHalf - 0.02, cutHalf + 0.7, aa) * massBox(v, cutSpring - 0.3, cutSpring - 0.22, aa);
       detail = mix(detail, joint, 0.55 * (voussoir * seam + quoin * bed));
     } else {

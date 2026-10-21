@@ -145,6 +145,8 @@ export interface MassBody {
   hosts?: readonly MapMassOpening[];
   /** The building's ground (MapMass.rings) the openings' insides run through; its own rings when missing */
   ground?: number[][];
+  /** The rings of all its building's parts: an opening reaches out to a part's wall a little past the ground */
+  walls?: readonly number[][];
 }
 
 const bodyCache = new WeakMap<MapMass, { rings: number[][]; parts: MapMass['parts']; openings: MapMass['openings']; bodies: readonly MassBody[] }>();
@@ -166,10 +168,11 @@ export function massBodies(m: MapMass): readonly MassBody[] {
     const p = openingInside(o);
     return ground.find((k) => ringsContain(parts[k].rings, p.x, p.z)) ?? ground[0] ?? 0;
   });
+  const walls = openings ? [...m.rings, ...parts.flatMap((p) => p.rings)] : [];
   const bodies = parts.map((p, k): MassBody => {
     const roofTint = p.roofTint ?? m.roofTint;
     const roofCover = p.roofCover ?? m.roofCover;
-    const ways = openings ? { openings, hosts: openings.filter((_, j) => hostOf![j] === k), ground: m.rings } : {};
+    const ways = openings ? { openings, hosts: openings.filter((_, j) => hostOf![j] === k), ground: m.rings, walls } : {};
     return { ...p, facade: p.facade ?? m.facade, ...(roofTint ? { roofTint } : {}), ...(roofCover ? { roofCover } : {}), ...ways };
   });
   bodyCache.set(m, { rings: m.rings, parts, openings, bodies });

@@ -126,12 +126,19 @@ interface OpeningGeometry {
   tmax: number;
 }
 
-const geometries = new WeakMap<MapMassOpening, { ground: readonly number[][]; g: OpeningGeometry }>();
+const geometries = new WeakMap<MapMassOpening, { ground: readonly number[][]; walls: readonly (readonly number[])[]; g: OpeningGeometry }>();
 
-/** An opening's frame on `ground`, worked out once per opening and ground */
-export function openingGeometry(o: MapMassOpening, ground: readonly number[][]): OpeningGeometry {
+/** Metres a part's wall may stand past the building's ground where a way crosses it (OSM's parts follow the outline roughly) */
+const PART_REACH = 1.5;
+
+/**
+ * An opening's frame on `ground` (the building's rings), its stretches
+ * reaching out to the walls of its parts (`walls`, their rings) that stand
+ * a little past the ground; worked out once per opening, ground and walls
+ */
+export function openingGeometry(o: MapMassOpening, ground: readonly number[][], walls: readonly (readonly number[])[] = ground): OpeningGeometry {
   const cached = geometries.get(o);
-  if (cached && cached.ground === ground) return cached.g;
+  if (cached && cached.ground === ground && cached.walls === walls) return cached.g;
   const [ex, ez, bx, bz] = o.line;
   const length = Math.hypot(bx - ex, bz - ez) || 1;
   const dx = (bx - ex) / length;
@@ -155,10 +162,23 @@ export function openingGeometry(o: MapMassOpening, ground: readonly number[][]):
     if (!ringsContain(ground, ex + dx * m, ez + dz * m)) continue;
     const blind0 = k === 1;
     const blind1 = k === cuts.length - 1;
-    // Where each side meets the wall at the stretch's ends: the crossing nearest the centre line's (an oblique wall)
-    const side = (s: number, near: number, blind: boolean) =>
-      blind ? near : nearest(lineCrossings(ground, ex + lx * s, ez + lz * s, dx, dz), near, 2.5 * half + 1.5) ?? near;
-    inside.push({ t0, t1, l0: side(half, t0, blind0), l1: side(half, t1, blind1), r0: side(-half, t0, blind0), r1: side(-half, t1, blind1), blind0, blind1 });
+    // Where each side meets the wall at the stretch's ends: the crossing nearest the centre line's (an oblique wall),
+    // out to a part's wall standing a little past it
+    const side = (s: number, near: number, blind: boolean, out: -1 | 1) => {
+      if (blind) return near;
+      const px = ex + lx * s;
+      const pz = ez + lz * s;
+      const at = nearest(lineCrossings(ground, px, pz, dx, dz), near, 1.75 * half + 0.5) ?? near;
+      if (walls === ground) return at;
+      let far = at;
+      for (const t of lineCrossings(walls, px, pz, dx, dz)) if ((t - at) * out > 0 && (t - at) * out <= PART_REACH && (t - far) * out > 0) far = t;
+      return far;
+    };
+    const l0 = side(half, t0, blind0, -1);
+    const r0 = side(-half, t0, blind0, -1);
+    const l1 = side(half, t1, blind1, 1);
+    const r1 = side(-half, t1, blind1, 1);
+    inside.push({ t0, t1, l0, l1, r0, r1, blind0, blind1 });
   }
   let tmin = Infinity;
   let tmax = -Infinity;
@@ -167,7 +187,7 @@ export function openingGeometry(o: MapMassOpening, ground: readonly number[][]):
     tmax = Math.max(tmax, s.l1, s.r1, s.t1);
   }
   const g: OpeningGeometry = { ex, ez, dx, dz, lx, lz, half, base, top: o.height, spring, style, floor, inside, tmin: tmin - 0.05, tmax: tmax + 0.05 };
-  geometries.set(o, { ground, g });
+  geometries.set(o, { ground, walls, g });
   return g;
 }
 
@@ -221,9 +241,10 @@ export function pushWall(out: WallPiece[], m: MassBody, w: WallPiece): void {
   const ground = m.ground ?? m.rings;
   const cuts: Cut[] = [];
   for (const o of m.openings ?? []) {
-    const g = openingGeometry(o, ground);
-    // A wall standing over the opening's top (a part on a roof) stays whole; a car park's wall is cut down to its floor
-    if (!g.inside.length || (w.bottom >= g.top - 0.1 && g.style !== CUT_GARAGE)) continue;
+    const g = openingGeometry(o, ground, m.walls ?? ground);
+    // A wall standing over the opening's top (a part on a roof) stays whole; one on the ground opens to a car park's
+    // entrance however deep it lies
+    if (!g.inside.length || (w.bottom >= g.top - 0.1 && (w.bottom > 0 || g.style !== CUT_GARAGE))) continue;
     // The wall, from its start along it: across the line (s) and along it (t)
     const s0 = (w.sx - g.ex) * g.lx + (w.sz - g.ez) * g.lz;
     const sa = w.ax * g.lx + w.az * g.lz;
@@ -306,7 +327,7 @@ export function openingInsides(m: MassBody): WallPiece[] {
   const out: WallPiece[] = [];
   const ground = m.ground ?? m.rings;
   for (const o of m.hosts ?? m.openings ?? []) {
-    const g = openingGeometry(o, ground);
+    const g = openingGeometry(o, ground, m.walls ?? ground);
     const garage = g.style === CUT_GARAGE;
     const reveal = garage ? GARAGE_SHADE : PASSAGE_REVEAL_SHADE;
     const ceiling = garage ? GARAGE_SHADE : PASSAGE_CEILING_SHADE;
@@ -322,7 +343,7 @@ export function openingInsides(m: MassBody): WallPiece[] {
         // Each reveal faces into the way, open where another way crosses it
         const from = s > 0 ? st.l0 : st.r0;
         const to = s > 0 ? st.l1 : st.r1;
-        for (const [t0r, t1r] of open(from, to, s, g, o, m.openings ?? [], ground)) {
+        for (const [t0r, t1r] of open(from, to, s, g, o, m.openings ?? [], ground, m.walls ?? ground)) {
           const p = at(s, t0r, 0);
           const q = at(s, t1r, 0);
           out.push(upright(p[0], p[2], q[0], q[2], -Math.sign(s) * g.lx, -Math.sign(s) * g.lz, g.base, revealTop, garage ? WALL_PLAIN : WALL_REVEAL, reveal));
@@ -362,13 +383,22 @@ export function openingInsides(m: MassBody): WallPiece[] {
  * left, the stretches no other opening crosses (two passages that meet
  * inside: each open into the other)
  */
-function open(from: number, to: number, s: number, g: OpeningGeometry, self: MapMassOpening, all: readonly MapMassOpening[], ground: readonly number[][]): [number, number][] {
+function open(
+  from: number,
+  to: number,
+  s: number,
+  g: OpeningGeometry,
+  self: MapMassOpening,
+  all: readonly MapMassOpening[],
+  ground: readonly number[][],
+  walls: readonly (readonly number[])[],
+): [number, number][] {
   let left: [number, number][] = [[from, to]];
   const sx = g.ex + g.lx * s;
   const sz = g.ez + g.lz * s;
   for (const other of all) {
     if (other === self) continue;
-    const o = openingGeometry(other, ground);
+    const o = openingGeometry(other, ground, walls);
     if (!o.inside.length) continue;
     // The reveal's line in the other's frame: across it and along it
     const s0 = (sx - o.ex) * o.lx + (sz - o.ez) * o.lz;

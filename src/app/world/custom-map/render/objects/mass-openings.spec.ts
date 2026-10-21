@@ -155,6 +155,14 @@ describe('mass openings: a way through a raised building', () => {
     expect(massShape(bodies[2]).walls.filter((w) => w.cut).length).toBe(0);
   });
 
+  it("opens a part's wall that stands a little past the building's ground, its inside reaching out to it", () => {
+    // OSM's part reaches 0.8 m past the outline on the far side
+    const mass = house([passage], { parts: [{ rings: [[-10, -5, 10, -5, 10, 5.8, -10, 5.8]], height: 12, floors: 4, roof: 'flat' }] });
+    const shape = massShape(massBodies(mass)[0]);
+    expect(wallOf(shape.walls, 0, 1).length).toBe(3);
+    for (const r of shape.walls.filter((w) => w.kind === WALL_REVEAL)) expect(r.length).toBeCloseTo(10.8);
+  });
+
   it('is checked like the rest of a raised building', () => {
     expect(massProblem(house([passage]))).toBeNull();
     expect(massProblem(house([{ ...passage, width: 0.1 }]))?.key).toBe('massOpenings');
