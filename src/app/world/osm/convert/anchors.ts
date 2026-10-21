@@ -6,6 +6,7 @@
  */
 import type { MapPoint } from '../../custom-map/map-document';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
+import { landmarkRole, type LandmarkRole } from '../building-tags';
 
 /** A place enemies may arrive from, in map metres */
 export interface SpawnAnchor {
@@ -50,8 +51,6 @@ const KIND_SCORE: Readonly<Record<LandmarkKind, number>> = {
   sight: 2,
   'place of worship': 1,
 };
-/** A church or temple with a footprint at least this big (m²) counts as a church, smaller ones as a chapel */
-const CHURCH_MIN_AREA = 250;
 
 /** The anchors of a place: stations, harbours, large car parks and stops within the map */
 export function spawnAnchors(features: OsmFeatures): SpawnAnchor[] {
@@ -110,25 +109,27 @@ export function findLandmarks(features: OsmFeatures, from: MapPoint, reachM: num
   return kept.map(({ rank: _rank, ...l }) => l);
 }
 
-/** The landmark kind of an element's tags, null for none */
+/** How the frame names each landmark role (building-tags.ts landmarkRole); a station is a spawn's anchor, no landmark */
+const ROLE_KINDS: Readonly<Record<LandmarkRole, LandmarkKind | null>> = {
+  palace: 'palace',
+  castle: 'castle',
+  cathedral: 'cathedral',
+  church: 'church',
+  chapel: 'place of worship',
+  worship: 'place of worship',
+  gate: 'city gate',
+  tower: 'tower',
+  townhall: 'town hall',
+  monument: 'monument',
+  station: null,
+  museum: 'museum',
+  sight: 'sight',
+};
+
+/** The landmark kind of an element's tags, null for none: its role as the buildings read it (building-tags.ts), as the frame names it */
 export function landmarkKind(tags: Readonly<Record<string, string>>, area: number): LandmarkKind | null {
-  const historic = tags['historic'] ?? '';
-  if (tags['building'] === 'palace' || /^(palace|stately|manor)$/.test(tags['castle_type'] ?? '')) return 'palace';
-  if (historic === 'castle' || tags['building'] === 'castle') return 'castle';
-  if (historic === 'city_gate') return 'city gate';
-  if (tags['building'] === 'cathedral') return 'cathedral';
-  if (tags['amenity'] === 'place_of_worship' || /^(church|chapel)$/.test(tags['building'] ?? '')) {
-    // The altar or a chapel inside a house is mapped as a point: only the church itself counts
-    if (!area && !tags['wikidata']) return null;
-    if (area && area < CHURCH_MIN_AREA && tags['building'] !== 'church') return 'place of worship';
-    return tags['religion'] && tags['religion'] !== 'christian' ? 'place of worship' : 'church';
-  }
-  if (tags['amenity'] === 'townhall' && (area > 0 || tags['wikidata'])) return 'town hall';
-  if (historic === 'tower' || (tags['man_made'] === 'tower' && tags['historic'])) return 'tower';
-  if (/^(monument|memorial)$/.test(historic) && (tags['wikidata'] || area > 0) && tags['memorial'] !== 'plaque') return 'monument';
-  if (tags['tourism'] === 'museum' && area > 0) return 'museum';
-  if (tags['tourism'] === 'attraction' && tags['wikidata']) return 'sight';
-  return null;
+  const role = landmarkRole(tags, area);
+  return role ? ROLE_KINDS[role] : null;
 }
 
 function hasBells(tags: Readonly<Record<string, string>>, kind: LandmarkKind): boolean {

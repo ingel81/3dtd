@@ -28,6 +28,8 @@ const MANSARD_RISE = 7;
 /** Storey heights, m: homes, and offices, schools and public buildings */
 const HOME_STOREY = 2.9;
 const WORK_STOREY = 3.6;
+/** A castle's, a palace's, a town hall's and a gate's storeys: high halls, m */
+const HALL_STOREY = 4.2;
 /** The ground floor's plinth over the seat, m */
 const PLINTH = 0.4;
 
@@ -55,6 +57,13 @@ const KIND_LEVELS: Readonly<Record<BuildingKind, { floors: number } | { hall: nu
   kiosk: { hall: 3 },
   transformer: { hall: 3 },
   oldtown: { floors: 3 },
+  palace: { floors: 3 },
+  castle: { floors: 3 },
+  townhall: { floors: 3 },
+  gate: { floors: 3 },
+  tower: { floors: 6 },
+  cathedral: { hall: 22 },
+  monument: { hall: 6 },
 };
 
 /** Kinds that take a pitched roof where the footprint allows one, and its pitch in degrees */
@@ -69,6 +78,12 @@ const PITCH: Partial<Record<BuildingKind, number>> = {
   garage: 12,
   shed: 15,
   oldtown: 55,
+  palace: 42,
+  castle: 45,
+  cathedral: 50,
+  townhall: 50,
+  gate: 50,
+  tower: TOWER_PITCH,
 };
 
 /** Walls of each kind without `building:material` */
@@ -95,7 +110,17 @@ const KIND_FACADE: Readonly<Record<BuildingKind, MapMassFacade>> = {
   church: 'stone',
   chapel: 'stone',
   oldtown: 'timber',
+  palace: 'stone',
+  castle: 'stone',
+  cathedral: 'stone',
+  tower: 'stone',
+  gate: 'stone',
+  townhall: 'stone',
+  monument: 'stone',
 };
+
+/** Landmark kinds: their storeys are high halls (HALL_STOREY), their stone takes the tints of building stone (LANDMARK_TINTS) */
+const LANDMARK_KINDS: ReadonlySet<BuildingKind> = new Set(['palace', 'castle', 'cathedral', 'tower', 'gate', 'townhall', 'monument']);
 
 const MATERIALS: Readonly<Record<string, MapMassFacade>> = {
   brick: 'brick',
@@ -128,6 +153,13 @@ const TINTS: Readonly<Record<MapMassFacade, readonly (string | null)[]>> = {
   // The plaster between the frames: ochre, white, salmon, sage, cream
   timber: ['#f0d29a', '#f4f1e8', '#efc2b2', '#d4dcc6', '#f2e4c4'],
 };
+
+/**
+ * The stone of landmarks without `building:colour`: red and yellow
+ * sandstone, a pale limestone, a grey granite, by the footprint's salt (no
+ * two castles alike); the facade's own stone texture under them
+ */
+const LANDMARK_TINTS: readonly string[] = ['#c98a72', '#e2c9a4', '#ece4d2', '#b9724f', '#cfc8bd', '#dcb48c'];
 
 /** Colour names of `building:colour` the tints take as they are */
 const NAMED: Readonly<Record<string, string>> = {
@@ -178,6 +210,7 @@ export function raiseMass(
   tags: Readonly<Record<string, string>>,
   area: number,
   salt: number,
+  oldTown = false,
 ): RaisedMass | null {
   // Model +x along the rectangle's side a (its axis u turned back), +z a quarter turn left of it in the map
   const front = { x: -rect.u.y, y: rect.u.x };
@@ -193,8 +226,8 @@ export function raiseMass(
     return out;
   };
   const levels = massLevels(tags, kind, area);
-  // A tower (much higher than wide: a town hall's or a gate's): stone, storeys of its own, a steep pyramid
-  const tower = area < TOWER_AREA && levels.height > TOWER_SLENDER * Math.sqrt(area);
+  // A tower (tagged one, or much higher than wide: a town hall's or a gate's): stone, storeys of its own, a steep pyramid
+  const tower = kind === 'tower' || (area < TOWER_AREA && levels.height > TOWER_SLENDER * Math.sqrt(area));
   if (tower) levels.floors = Math.max(levels.floors, Math.round(levels.height / 4));
   const pitchDeg = tower ? TOWER_PITCH : roofPitch(tags, kind);
   const fill = area / Math.max(1e-6, rect.a * rect.b);
@@ -236,7 +269,7 @@ export function raiseMass(
   }
   // A pitched roof's walls stop at the eaves; a flat one's go on to the parapet
   const height = round2(roof === 'flat' ? levels.height + MASS_PARAPET : levels.height);
-  const facade = tower && !MATERIALS[tags['building:material'] ?? ''] ? 'stone' : massFacade(tags, kind);
+  const facade = tower && !MATERIALS[tags['building:material'] ?? ''] ? 'stone' : massFacade(tags, kind, oldTown);
   return {
     mass: { rings, height, floors: levels.floors, roof, ...(ridge !== undefined ? { ridge } : {}), facade },
     centre: rect.c,
@@ -244,7 +277,7 @@ export function raiseMass(
     front,
     hw: rect.a / 2,
     hd: rect.b / 2,
-    tint: massTint(tags, facade, salt),
+    tint: massTint(tags, facade, salt, tower || LANDMARK_KINDS.has(kind)),
   };
 }
 
@@ -256,7 +289,9 @@ export function raiseMass(
  */
 export function massLevels(tags: Readonly<Record<string, string>>, kind: BuildingKind, area: number): { floors: number; height: number } {
   const own = KIND_LEVELS[kind];
-  const storey = kind === 'house' || kind === 'semi' || kind === 'terrace' || kind === 'apartments' || kind === 'oldtown' ? HOME_STOREY : WORK_STOREY;
+  const storey = kind === 'house' || kind === 'semi' || kind === 'terrace' || kind === 'apartments' || kind === 'oldtown'
+    ? HOME_STOREY
+    : kind === 'palace' || kind === 'castle' || kind === 'townhall' || kind === 'gate' ? HALL_STOREY : WORK_STOREY;
   const tagged = parseFloat((tags['height'] ?? '').replace(',', '.'));
   if (tagged > 0 && tagged < 400) {
     const roofHeight = parseFloat((tags['roof:height'] ?? '').replace(',', '.'));
@@ -273,7 +308,9 @@ export function massLevels(tags: Readonly<Record<string, string>>, kind: Buildin
     const grow = kind === 'industrial' || kind === 'retail' || kind === 'farm' ? Math.min(4, area / 3000) : 0;
     return { floors: 1, height: round2(own.hall + grow) };
   }
-  const floors = own.floors + (kind === 'apartments' && area > 900 ? 1 : 0);
+  // A big block one storey more; a castle's or a palace's wing by its size, its outbuildings lower
+  const grand = kind === 'palace' || kind === 'castle';
+  const floors = own.floors + (kind === 'apartments' && area > 900 ? 1 : 0) + (grand && area > 1500 ? 1 : 0) - (grand && area < 150 ? 1 : 0);
   return { floors, height: PLINTH + floors * storey };
 }
 
@@ -286,18 +323,24 @@ function roofPitch(tags: Readonly<Record<string, string>>, kind: BuildingKind): 
   return shape === undefined ? (PITCH[kind] ?? 0) : 0;
 }
 
-/** The walls' look: `building:material` (or `building:facade:material`), else the kind's */
-export function massFacade(tags: Readonly<Record<string, string>>, kind: BuildingKind): MapMassFacade {
-  return MATERIALS[tags['building:material'] ?? tags['building:facade:material'] ?? ''] ?? KIND_FACADE[kind];
+/** The walls' look: `building:material` (or `building:facade:material`), else the kind's; a town hall in an old town half-timbered */
+export function massFacade(tags: Readonly<Record<string, string>>, kind: BuildingKind, oldTown = false): MapMassFacade {
+  const tagged = MATERIALS[tags['building:material'] ?? tags['building:facade:material'] ?? ''];
+  if (tagged) return tagged;
+  return kind === 'townhall' && oldTown ? 'timber' : KIND_FACADE[kind];
 }
 
-/** The tint: `building:colour` (a hex colour or a common name), else one of the facade's by the footprint's salt */
-export function massTint(tags: Readonly<Record<string, string>>, facade: MapMassFacade, salt: number): string | null {
+/**
+ * The tint: `building:colour` (a hex colour or a common name), else one of
+ * the facade's by the footprint's salt; a landmark of stone one of the
+ * building stones (LANDMARK_TINTS)
+ */
+export function massTint(tags: Readonly<Record<string, string>>, facade: MapMassFacade, salt: number, landmark = false): string | null {
   const colour = (tags['building:colour'] ?? '').trim().toLowerCase();
   if (/^#[0-9a-f]{6}$/.test(colour)) return colour;
   if (/^#[0-9a-f]{3}$/.test(colour)) return `#${colour[1]}${colour[1]}${colour[2]}${colour[2]}${colour[3]}${colour[3]}`;
   if (NAMED[colour]) return NAMED[colour];
-  const list = TINTS[facade];
+  const list = landmark && facade === 'stone' ? LANDMARK_TINTS : TINTS[facade];
   return list[salt % list.length];
 }
 

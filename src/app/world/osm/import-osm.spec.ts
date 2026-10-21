@@ -155,7 +155,7 @@ describe('OSM world (frozen probe Miltenberg)', () => {
         copy({ 'building:part': 'yes', 'building:levels': '5', 'building:min_level': '3' }),
         copy({ building: 'yes', location: 'underground' }),
         copy({ 'building:part': 'yes', layer: '-1' }),
-        copy({ building: 'ruins' }),
+        copy({ building: 'collapsed' }),
         copy({ building: 'no' }),
         copy({ building: 'no', 'building:part': 'roof' }),
       ],

@@ -234,10 +234,12 @@ describe('OSM buildings: placing', () => {
     const ringArea = (r: MapPoint[]) => Math.abs(r.reduce((s, p, i) => s + p.x * r[(i + 1) % r.length].y - r[(i + 1) % r.length].x * p.y, 0) / 2);
     const home: OsmArea = { id: 5, from: 'relation', tags: { building: 'yes', amenity: 'social_facility' }, outer: [outline], inner: [yard], area: ringArea(outline) - ringArea(yard) };
     const { doc, features } = world([home]);
-    // A footway through the north wing into the courtyard, and the courtyard's outline with its ends in the east
-    // and west wings, both from the road
-    doc.paths.nodes.push({ id: 'p1', x: 0, y: 80 }, { id: 'p2', x: 0, y: 58 }, { id: 'q1', x: -25, y: 40 }, { id: 'q2', x: 25, y: 46 });
+    // A footway through the north wing into the courtyard, its door on the north wall where a lane from the north
+    // ends (as OSM maps a passage: its nodes on the wall), and the courtyard's outline with its ends in the east and
+    // west wings
+    doc.paths.nodes.push({ id: 'p0', x: 0, y: 95 }, { id: 'p1', x: 0, y: 75.14 }, { id: 'p2', x: 0, y: 58 }, { id: 'q1', x: -25, y: 40 }, { id: 'q2', x: 25, y: 46 });
     doc.paths.edges.push(
+      { id: 'lane', a: 'p0', b: 'p1', width: 4, kind: 'road' },
       { id: 'pass', a: 'p1', b: 'p2', width: 2.5, kind: 'path', covered: true },
       { id: 'yard', a: 'q1', b: 'q2', width: 5, kind: 'road', area: true, via: [{ x: 0, y: 38 }] },
     );
@@ -264,6 +266,48 @@ describe('OSM buildings: placing', () => {
     expect(of(1).map((o) => o.asset)).toEqual(['house-modern']);
     expect(of(2).map((o) => o.asset)).toEqual([MASS_ASSET]);
     expect(report.coverage).toMatchObject({ footprints: 2, below70: 0, overhang10: 0 });
+  });
+
+  it('keeps a landmark whole with the HQ in its courtyard, while the room round the HQ takes an ordinary house (decision 4)', () => {
+    // A palace round a courtyard north of the road, the HQ in the courtyard; a house beside it within 14 m of the HQ
+    const palace: OsmArea = {
+      id: 40,
+      from: 'relation',
+      tags: { building: 'castle', historic: 'castle', castle_type: 'stately', 'building:levels': '4', wikidata: 'Q1' },
+      outer: [box({ x: 40, y: 30 }, 36, 30, 0)],
+      inner: [box({ x: 40, y: 30 }, 20, 14, 0)],
+      area: 36 * 30 - 20 * 14,
+    };
+    const { doc, features } = world([palace, area(41, box({ x: 40, y: 50.5 }, 10, 8.6, 0), { building: 'house' })]);
+    doc.hq = { x: 40, y: 36 };
+    const { objects, report } = placeBuildings(doc, features, { catalog });
+    const raised = objects.filter((o) => o.group === 'osm-b40');
+    expect(raised.map((o) => o.asset)).toEqual([MASS_ASSET]);
+    expect(raised[0].mass).toMatchObject({ facade: 'stone', floors: 4 });
+    expect(raised[0].mass!.rings.length).toBe(2);
+    expect(massArea(raised[0].mass!) / palace.area).toBeGreaterThan(0.97);
+    expect(report.kinds.palace).toBe(1);
+    expect(report.landmarks).toMatchObject({ palace: 1 });
+    // The HQ stays where it was put; the ordinary house beside it goes for its room
+    expect(doc.hq).toEqual({ x: 40, y: 36 });
+    expect(objects.some((o) => o.group === 'osm-b41')).toBe(false);
+    expect(report.dropped.hq).toBe(1);
+  });
+
+  it('raises a ruin from its outline, fallen from the start as the ruins of destroyed buildings are (decision 3)', () => {
+    const { doc, features } = world([
+      area(50, box({ x: -40, y: 20 }, 12, 9, 0), { building: 'ruins' }),
+      area(51, box({ x: 0, y: 20 }, 6, 6, 0), { building: 'yes', man_made: 'tower', 'tower:type': 'defensive', ruins: 'yes', height: '18' }),
+      area(52, box({ x: 40, y: 20 }, 10, 8.6, 0), { building: 'house' }),
+    ]);
+    const { objects, report } = placeBuildings(doc, features, { catalog });
+    const of = (id: number) => objects.filter((o) => o.group === `osm-b${id}` && o.asset !== 'retaining-wall');
+    expect(of(50).map((o) => [o.asset, o.damage])).toEqual([[MASS_ASSET, 3]]);
+    expect(of(51).map((o) => [o.asset, o.damage])).toEqual([[MASS_ASSET, 3]]);
+    expect(of(51)[0].mass).toMatchObject({ facade: 'stone', roof: 'hip' });
+    expect(of(52)[0].damage).toBeUndefined();
+    expect(report.ruins).toBe(2);
+    expect(report.landmarks).toMatchObject({ tower: 1 });
   });
 
   it('cuts a raised building back from the road it reaches onto, and raises a footprint no model fits', () => {

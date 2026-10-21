@@ -31,7 +31,15 @@ export type BuildingKind =
   | 'kiosk'
   | 'transformer'
   /** A house of an old town (convert/old-town.ts): half-timbered or plastered, steep roof */
-  | 'oldtown';
+  | 'oldtown'
+  // Landmarks (landmarkRole): raised from their outline, a catalogue model only where one of their own fits
+  | 'palace'
+  | 'castle'
+  | 'cathedral'
+  | 'tower'
+  | 'gate'
+  | 'townhall'
+  | 'monument';
 
 /** A catalogue model a building is fitted with */
 export interface BuildingModel {
@@ -132,9 +140,11 @@ export const ROW_ENDS: Readonly<Record<string, { w: string; e: string; both: str
  * The models of each kind, best first where the fit is a tie; a kind
  * without a fitting model takes the next kind's (`fallback`) and the report
  * counts it. `rows`: the kind stands in rows of modules (terraces, garages,
- * city blocks), so a footprint laid with several copies costs little
+ * city blocks), so a footprint laid with several copies costs little.
+ * `own`: a landmark's kind takes only its own models, never another kind's
+ * nor the block with a facade; none fitting, it is raised from its outline
  */
-export const KIND_MODELS: Readonly<Record<BuildingKind, { models: readonly string[]; fallback?: BuildingKind; rows?: boolean }>> = {
+export const KIND_MODELS: Readonly<Record<BuildingKind, { models: readonly string[]; fallback?: BuildingKind; rows?: boolean; own?: boolean }>> = {
   house: { models: ['house-modern', 'house-modern-red', 'house-semi', 'house-terrace', 'annex'], fallback: 'apartments' },
   semi: { models: ['house-semi'], fallback: 'house' },
   terrace: { models: ['house-terrace', 'house-terrace-row'], fallback: 'house', rows: true },
@@ -153,15 +163,22 @@ export const KIND_MODELS: Readonly<Record<BuildingKind, { models: readonly strin
   farm: { models: ['barn-modern', 'barn', 'warehouse', 'hall-flat'], fallback: 'industrial' },
   school: { models: ['school', 'town-hall'], fallback: 'office' },
   civic: { models: ['town-hall', 'school'], fallback: 'office' },
-  church: { models: ['town-church', 'chapel'], fallback: 'civic' },
-  chapel: { models: ['chapel', 'town-church'], fallback: 'church' },
-  station: { models: ['station'], fallback: 'civic' },
+  church: { models: ['town-church', 'chapel'], own: true },
+  chapel: { models: ['chapel', 'town-church'], own: true },
+  station: { models: ['station'], own: true },
   parking: { models: ['parking-garage'], fallback: 'industrial' },
   greenhouse: { models: ['greenhouse'], fallback: 'shed', rows: true },
   kiosk: { models: ['kiosk'], fallback: 'shed' },
   transformer: { models: ['transformer-station'], fallback: 'shed' },
   // Old-town houses stand wall to wall: a long footprint is a row of them
   oldtown: { models: ['oldtown-gable-3', 'oldtown-eave-3', 'oldtown-gable-2', 'oldtown-eave-2', 'oldtown-gable-4'], fallback: 'house', rows: true },
+  townhall: { models: ['town-hall'], own: true },
+  palace: { models: [], own: true },
+  castle: { models: [], own: true },
+  cathedral: { models: [], own: true },
+  tower: { models: [], own: true },
+  gate: { models: [], own: true },
+  monument: { models: [], own: true },
 };
 
 /** `building` values to a kind; values not here guess from the other tags and the size */
@@ -211,7 +228,6 @@ const BUILDING_VALUES: Readonly<Record<string, BuildingKind>> = {
   hospital: 'school',
   nursing_home: 'civic',
   museum: 'civic',
-  townhall: 'civic',
   civic: 'civic',
   government: 'civic',
   fire_station: 'civic',
@@ -227,8 +243,11 @@ const BUILDING_VALUES: Readonly<Record<string, BuildingKind>> = {
   transformer_tower: 'transformer',
 };
 
-/** `building` values that are no building on the ground: left out */
-const NOT_ON_GROUND = new Set(['no', 'bridge', 'ruins', 'collapsed', 'demolished', 'proposed', 'abandoned:yes', 'container', 'tent']);
+/**
+ * `building` values that are no building on the ground: left out. A ruin
+ * (`building=ruins`) stands, as a ruin (buildingRole)
+ */
+const NOT_ON_GROUND = new Set(['no', 'bridge', 'collapsed', 'demolished', 'proposed', 'abandoned:yes', 'container', 'tent']);
 
 /** `amenity` values on a building of unknown kind */
 const AMENITY_KINDS: Readonly<Record<string, BuildingKind>> = {
@@ -238,7 +257,6 @@ const AMENITY_KINDS: Readonly<Record<string, BuildingKind>> = {
   college: 'school',
   kindergarten: 'school',
   hospital: 'school',
-  townhall: 'civic',
   courthouse: 'civic',
   police: 'civic',
   fire_station: 'civic',
@@ -329,6 +347,109 @@ export function isGroundBuilding(tags: Readonly<Record<string, string>>): boolea
 }
 
 /**
+ * What kind of landmark an element is (docs/OSM_LANDMARKS_PLAN.md,
+ * "Kategorien und Erkennung"): one reading of the tags for the buildings
+ * (their kind, buildingKind) and for the frame (the intro's flight, the
+ * bells, the HQ offered there: convert/anchors.ts). `palace` and `castle`
+ * are the two sorts of the plan's castle (castle_type: a stately home or a
+ * fortress); `worship` a place of worship that is no Christian church;
+ * `museum` and `sight` change no form, only that the landmark stays (the
+ * room round the HQ takes none, convert/buildings.ts)
+ */
+export type LandmarkRole = 'palace' | 'castle' | 'cathedral' | 'church' | 'chapel' | 'worship' | 'gate' | 'tower' | 'townhall' | 'monument' | 'station' | 'museum' | 'sight';
+
+/** A church or temple with a footprint at least this big (m²) is a church, a smaller one a chapel */
+const CHURCH_MIN_AREA = 250;
+/** `building` values of places of worship */
+const WORSHIP_BUILDINGS = /^(church|chapel|basilica|monastery|cloister|mosque|synagogue|temple|shrine|religious)$/;
+/** `building=tower` bigger than this (m²) without `historic` is a high-rise, not a tower */
+const TOWER_ROLE_AREA = 400;
+/** `tower:type` of the towers that are landmarks (not a mast, a cooling tower) */
+const LANDMARK_TOWERS = /^(defensive|bell_tower|watchtower|observation)$/;
+
+/**
+ * The landmark role of an element's tags (`area`: its footprint, m², 0 for a
+ * point), null for none. The first rule that matches wins: castle (palace,
+ * castle), place of worship (cathedral, church, chapel, worship), gate,
+ * tower, town hall, monument, station, museum, sight. A gate comes before a
+ * tower: a gate tower is a way through first. `historic=building`,
+ * `heritage` and `start_date` alone make nothing a landmark (an old town's
+ * signs, convert/old-town.ts)
+ */
+export function landmarkRole(tags: Readonly<Record<string, string>>, area: number): LandmarkRole | null {
+  const b = tags['building'] ?? '';
+  const historic = tags['historic'] ?? '';
+  if (b === 'palace' || /^(palace|stately|manor)$/.test(tags['castle_type'] ?? '')) return 'palace';
+  if (historic === 'castle' || historic === 'fort' || b === 'castle' || b === 'fortress') return 'castle';
+  if (b === 'cathedral') return 'cathedral';
+  if (tags['amenity'] === 'place_of_worship' || WORSHIP_BUILDINGS.test(b)) {
+    // The altar or a chapel inside a house is mapped as a point: only the church itself counts
+    if (!area && !tags['wikidata']) return null;
+    if (tags['religion'] && tags['religion'] !== 'christian') return 'worship';
+    if (b === 'chapel' || (area > 0 && area < CHURCH_MIN_AREA && b !== 'church')) return 'chapel';
+    return 'church';
+  }
+  if (historic === 'city_gate' || b === 'gatehouse') return 'gate';
+  if (historic === 'tower' || (b === 'tower' && (area <= TOWER_ROLE_AREA || !!historic))) return 'tower';
+  if (tags['man_made'] === 'tower' && (!!historic || LANDMARK_TOWERS.test(tags['tower:type'] ?? ''))) return 'tower';
+  if ((tags['amenity'] === 'townhall' || b === 'townhall') && (area > 0 || tags['wikidata'])) return 'townhall';
+  if (b === 'monument' || (/^(monument|memorial)$/.test(historic) && (tags['wikidata'] || area > 0) && tags['memorial'] !== 'plaque')) return 'monument';
+  if (b === 'train_station' || (tags['railway'] === 'station' && area > 0)) return 'station';
+  if (tags['tourism'] === 'museum' && area > 0) return 'museum';
+  if (tags['tourism'] === 'attraction' && (tags['wikidata'] || tags['heritage'])) return 'sight';
+  return null;
+}
+
+/** Whether the tags say a building is a ruin: `building=ruins`, `ruins=yes`, `historic=ruins`, `abandoned:building` */
+export function isRuinTags(tags: Readonly<Record<string, string>>): boolean {
+  return tags['building'] === 'ruins' || tags['ruins'] === 'yes' || tags['historic'] === 'ruins' || !!tags['abandoned:building'];
+}
+
+/** A footprint's role (buildingRole): the landmark it is, null for an ordinary building, and whether it is a ruin */
+export interface BuildingRole {
+  landmark: LandmarkRole | null;
+  ruin: boolean;
+}
+
+/** `building` values a compound passes its role to: a building of its own, not an outbuilding */
+const COMPOUND_TAKES = /^(yes|ruins|castle|tower|church|chapel|palace|residential|house|civic|public|hall)$/;
+/** Footprints smaller than this (m²) take no role from their compound */
+const COMPOUND_FROM = 40;
+
+/**
+ * A footprint's role: its own landmark role (landmarkRole), else that of
+ * the compound it stands in (`compound`: the grounds of a castle mapped
+ * without `building`, isCompoundTags) where it is a building of its own
+ * from COMPOUND_FROM m², no shed or garage; a ruin by its own tags or the
+ * compound's
+ */
+export function buildingRole(tags: Readonly<Record<string, string>>, area: number, compound: Readonly<Record<string, string>> | null = null): BuildingRole {
+  const own = landmarkRole(tags, area);
+  const inherits = !!compound && area >= COMPOUND_FROM && COMPOUND_TAKES.test(tags['building'] ?? '');
+  const landmark = own ?? (inherits ? landmarkRole(compound, area) : null);
+  return { landmark, ruin: isRuinTags(tags) || (inherits && isRuinTags(compound)) };
+}
+
+/** Whether an area is a compound whose buildings take its role: a castle mapped as its grounds, no building itself */
+export function isCompoundTags(tags: Readonly<Record<string, string>>): boolean {
+  return !tags['building'] && (tags['historic'] === 'castle' || tags['historic'] === 'fort');
+}
+
+/** The kind a landmark role builds as, null for one that keeps the kind of the other tags (a museum, a sight) */
+function roleKind(role: LandmarkRole, area: number): BuildingKind | null {
+  switch (role) {
+    case 'church':
+    case 'worship':
+      return area < 150 ? 'chapel' : 'church';
+    case 'museum':
+    case 'sight':
+      return null;
+    default:
+      return role;
+  }
+}
+
+/**
  * Median footprint (m²) of the buildings around under which the place is one
  * of houses (a village, a suburb): there a big untagged footprint is a big
  * house or a farmhouse, not a block of flats (Musterdorf: median about 110 m²)
@@ -345,7 +466,8 @@ const BLOCK_AREA_AMONG_HOUSES = 400;
  * wings that fill little of its rectangle), the land use around and the
  * median footprint of the buildings around (`around`, m², null unknown);
  * `oldTown` (convert/old-town.ts) turns houses, shops and small public
- * buildings into old-town houses
+ * buildings into old-town houses. A landmark (`role`, buildingRole) takes
+ * the kind of its role first
  */
 export function buildingKind(
   tags: Readonly<Record<string, string>>,
@@ -355,7 +477,11 @@ export function buildingKind(
   around: number | null = null,
   winged = false,
   oldTown = false,
+  role: BuildingRole = buildingRole(tags, area),
 ): BuildingKind {
+  // A landmark builds as one, never as an old-town house
+  const landmark = role.landmark && roleKind(role.landmark, area);
+  if (landmark) return landmark;
   const kind = guessKind(tags, area, aspect, land, around, winged);
   // In an old town its houses, its shops and small offices and public buildings are old-town houses
   if (oldTown && OLD_TOWN_KINDS.has(kind) && area <= OLD_TOWN_AREA && (buildingLevels(tags) ?? 3) <= 5) return 'oldtown';
