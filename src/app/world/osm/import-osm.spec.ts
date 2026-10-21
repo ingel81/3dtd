@@ -110,20 +110,62 @@ describe('OSM world (frozen probe Miltenberg)', () => {
     expect(b.missing.every((m) => m.count > 0)).toBe(true);
   });
 
-  it('keeps every footprint it read, those left out too, as OSM has them, in the file but not in its world (TODO E290)', () => {
+  it('keeps every footprint OSM has in the frame, those left out too, as OSM has them, in the file but not in its world (TODO E290)', () => {
     const { doc, report } = convertOsm(probe(), options);
     const kept = readFootprints(doc.footprints!);
-    // Each outer ring of a footprint once: a multipolygon may bring more than one
-    expect(kept.length).toBeGreaterThanOrEqual(report.buildings.footprints);
-    expect(kept.length).toBeLessThan(report.buildings.footprints * 1.05);
+    const ground = kept.filter((f) => f.kind === 'ground');
+    // Each outer ring of a footprint on the ground once: a multipolygon may bring more than one
+    expect(ground.length).toBeGreaterThanOrEqual(report.buildings.footprints);
+    expect(ground.length).toBeLessThan(report.buildings.footprints * 1.05);
     expect(kept.some((f) => f.levels > 0)).toBe(true);
+    // The courtyard of the one multipolygon
+    expect(kept.filter((f) => f.holes.length).length).toBeGreaterThan(0);
+    // Why the buildings left some out, as the report counts them (a tiny multipolygon counts once, each ring is marked)
+    const dropped = ground.filter((f) => f.dropped).length;
+    const counted = Object.values(report.buildings.dropped).reduce((s, n) => s + n, 0);
+    expect(counted).toBeGreaterThan(0);
+    expect(dropped).toBeGreaterThanOrEqual(counted);
+    expect(dropped).toBeLessThan(counted + 5);
+    for (const why of ['tiny', 'roads'] as const) expect(ground.filter((f) => f.dropped === why).length).toBeGreaterThanOrEqual(report.buildings.dropped[why]);
     const half = options.sideM / 2 + 150;
     for (const f of kept) for (const p of f.points) expect(Math.max(Math.abs(p.x), Math.abs(p.y))).toBeLessThan(half);
     const entries = unzipSync(packMapFile(doc));
-    // 1 385 rings of about five points: 32 kB raw, some 26 kB more file (2 %)
+    // 1 385 rings of about five points: 34 kB raw (32 kB in the first format, without the word of info)
     expect(entries['osm/footprints.i16'].length).toBe(doc.footprints!.rings.byteLength);
     expect(doc.footprints!.rings.byteLength).toBeLessThan(64_000);
     expect(readFootprints(unpackMapFile(packMapFile(doc)).doc.footprints!)).toEqual(kept);
+  });
+
+  it('keeps parts, footprints below and off the ground, not those OSM says are no building, and builds on none of them (TODO E290)', () => {
+    const input = probe();
+    const base = convertOsm(probe(), options);
+    const way = input.overpass.elements.find((e) => e.type === 'way' && e.tags?.['building'] === 'yes' && (e.geometry?.length ?? 0) >= 5)!;
+    let id = 9_100_000_000;
+    const copy = (tags: Record<string, string>) => ({ ...way, id: id++, tags });
+    input.overpass = {
+      elements: [
+        ...input.overpass.elements,
+        copy({ 'building:part': 'yes', 'building:levels': '5', 'building:min_level': '3' }),
+        copy({ building: 'yes', location: 'underground' }),
+        copy({ 'building:part': 'yes', layer: '-1' }),
+        copy({ building: 'ruins' }),
+        copy({ building: 'no' }),
+        copy({ building: 'no', 'building:part': 'roof' }),
+      ],
+    };
+    const { doc, report } = convertOsm(input, options);
+    const kinds = (fp: ReturnType<typeof readFootprints>) => fp.reduce<Record<string, number>>((n, f) => ({ ...n, [f.kind]: (n[f.kind] ?? 0) + 1 }), {});
+    const before = kinds(readFootprints(base.doc.footprints!));
+    const after = kinds(readFootprints(doc.footprints!));
+    expect(after['part']).toBe((before['part'] ?? 0) + 2);
+    expect(after['underground']).toBe((before['underground'] ?? 0) + 2);
+    expect(after['offGround']).toBe((before['offGround'] ?? 0) + 1);
+    expect(after['ground']).toBe(before['ground']);
+    const part = readFootprints(doc.footprints!).find((f) => f.kind === 'part' && f.minLevel === 3)!;
+    expect(part.levels).toBe(5);
+    // The buildings read the same footprints as before
+    expect(report.buildings.footprints).toBe(base.report.buildings.footprints);
+    expect(report.buildings.placed).toBe(base.report.buildings.placed);
   });
 
   it('places no buildings without them in the data, and warns when it has no catalogue', () => {

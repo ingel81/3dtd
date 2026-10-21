@@ -237,8 +237,8 @@ export function convertOsm(
   const buildings = placeBuildings(doc, features, { catalog: options.catalog, onShare: onShare && ((share) => onShare('buildings', share)) });
   doc.objects.push(...buildings.objects);
   warnings.push(...buildings.warnings);
-  // The footprints as OSM has them, for the developer layer over the buildings (TODO E290)
-  doc.footprints = osmFootprints(features);
+  // The footprints as OSM has them and which of them the buildings left out, for the developer layer over them (TODO E290)
+  doc.footprints = osmFootprints(features, buildings.droppedRings);
   step('buildings');
 
   // Fences, walls, tracks, lamps and the points of the street, in their own share of the scene budget

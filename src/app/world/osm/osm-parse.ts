@@ -112,7 +112,7 @@ export function isAreaTags(tags: Record<string, string>): boolean {
   // A square or a street's paved width drawn as an area (round 2: their own surface)
   if (tags['area:highway'] || tags['place'] === 'square') return true;
   if (tags['highway'] || tags['barrier']) return false;
-  if (tags['building'] || tags['landuse'] || tags['leisure'] || tags['amenity'] || tags['water']) return true;
+  if (tags['building'] || tags['building:part'] || tags['landuse'] || tags['leisure'] || tags['amenity'] || tags['water']) return true;
   if (tags['natural']) return !NATURAL_NOT_AREA.has(tags['natural']);
   if (tags['man_made']) return !MAN_MADE_NOT_AREA.has(tags['man_made']);
   if (tags['waterway']) return tags['waterway'] === 'riverbank' || tags['waterway'] === 'dock';

@@ -6,6 +6,7 @@ import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { StreetRouter } from './street-router';
 import { spawnLabel } from '../../utils/spawn-label';
 import type { WorldStreetSource } from '../../world/world-provider';
+import type { FootprintDrop, FootprintKind } from '../../world/custom-map/map-footprints';
 import { OVERPASS_SERVERS } from '../../world/osm/overpass-servers';
 import {
   OverpassError,
@@ -23,6 +24,17 @@ export interface BuildingFootprint {
   type: string; // yes, residential, commercial, etc.
   levels: number; // building:levels tag (default 2)
   nodes: StreetNode[];
+  /**
+   * What OSM says it is where a world keeps more than the buildings on the
+   * ground (an OSM world, map-footprints.ts, TODO E290); absent: one on the ground
+   */
+  kind?: FootprintKind;
+  /** Its courtyards, where it has some */
+  holes?: StreetNode[][];
+  /** Storeys below it (`building:min_level`): a part high up on another */
+  minLevel?: number;
+  /** Why an OSM world's import built nothing on it */
+  dropped?: FootprintDrop | null;
 }
 
 export interface BuildingData {

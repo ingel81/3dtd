@@ -9,7 +9,7 @@ import { DocMirror, MirrorTracker } from './doc-mirror';
 describe('the mirror and the footprints an OSM world keeps', () => {
   it('sends them with the first sync only and packs the file the document packs', () => {
     const doc = createMapDocument({ id: 'osm-test', name: 'OSM test', width: 64, depth: 64, ground: 'flat', now: new Date('2026-10-21T00:00:00Z') });
-    doc.footprints = packFootprints([{ points: [{ x: 0, y: 0 }, { x: 6, y: 0 }, { x: 6, y: 8 }, { x: 0, y: 8 }], levels: 2 }]);
+    doc.footprints = packFootprints([{ points: [{ x: 0, y: 0 }, { x: 6, y: 0 }, { x: 6, y: 8 }, { x: 0, y: 8 }], levels: 2, kind: 'ground' }]);
     const editor = new EditorDocument(doc);
     const tracker = new MirrorTracker(editor);
     const mirror = new DocMirror();

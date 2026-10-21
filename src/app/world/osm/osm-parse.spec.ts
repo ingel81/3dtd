@@ -17,6 +17,7 @@ describe('OSM parse', () => {
   it('tells areas from lines by their tags', () => {
     expect(isAreaTags({ landuse: 'forest' })).toBe(true);
     expect(isAreaTags({ building: 'yes' })).toBe(true);
+    expect(isAreaTags({ 'building:part': 'yes' })).toBe(true);
     expect(isAreaTags({ highway: 'pedestrian' })).toBe(false);
     expect(isAreaTags({ highway: 'pedestrian', area: 'yes' })).toBe(true);
     expect(isAreaTags({ 'area:highway': 'pedestrian' })).toBe(true);

@@ -198,14 +198,28 @@ describe('BuildingOverlay', () => {
         await vi.advanceTimersByTimeAsync(0);
         expect(deps.buildingRendering.renderBuildings).toHaveBeenLastCalledWith(engine, ['near'], HQ, true);
 
-        // A new lane while shown: its footprints load by themselves
+        // They are all of the map's: a new lane loads nothing and keeps them drawn
         cachedPaths = new Map([['spawn-1', ROUTE], ['spawn-2', OTHER]]);
         overlay.routesChanged();
         await vi.advanceTimersByTimeAsync(BUILDING_RELOAD_DELAY_MS);
-        expect(deps.osm.loadBuildingsNearRoutes).toHaveBeenCalledTimes(2);
+        expect(deps.osm.loadBuildingsNearRoutes).toHaveBeenCalledTimes(1);
+        expect(deps.buildingRendering.clear).not.toHaveBeenCalled();
+        expect(overlay.footprints()).toEqual(['near']);
       } finally {
         vi.useRealTimers();
       }
+    });
+
+    it('shows the footprints an OSM world keeps before any route is there (TODO E290)', async () => {
+      deps.osm.footprints = 'kept';
+      cachedPaths = new Map();
+      await show();
+      expect(deps.osm.loadBuildingsNearRoutes).toHaveBeenCalledWith([], BUILDING_CORRIDOR_RADIUS);
+      expect(deps.buildingRendering.renderBuildings).toHaveBeenCalledWith(engine, ['near'], HQ, true);
+      // Another place drops them as on the tiles
+      deps.store.baseCoords.set({ lat: 40.64, lon: 22.93 });
+      overlay.routesChanged();
+      expect(deps.buildingRendering.clear).toHaveBeenCalledTimes(1);
     });
 
     it('never draws the old cache on the new place after a tile load', async () => {

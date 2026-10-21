@@ -6,6 +6,7 @@
  * box (width along the front, depth) and their storeys, which the footprint
  * is fitted against (convert/buildings.ts).
  */
+import type { FootprintKind } from '../custom-map/map-footprints';
 
 export type BuildingKind =
   | 'house'
@@ -296,12 +297,35 @@ export function buildingLevels(tags: Readonly<Record<string, string>>): number |
   return null;
 }
 
+/** Storeys under a footprint that starts above the ground (`building:min_level`, else `min_height`): a part on another */
+export function buildingMinLevel(tags: Readonly<Record<string, string>>): number | null {
+  const levels = parseFloat(tags['building:min_level'] ?? '');
+  if (levels > 0 && levels < 200) return Math.round(levels);
+  const height = parseFloat((tags['min_height'] ?? '').replace(',', '.'));
+  if (height > 0 && height < 700) return Math.round(height / 3.2);
+  return null;
+}
+
+/**
+ * What OSM says a footprint with these tags is (map-footprints.ts), null for
+ * none: any `building` value, on the ground or not, and any `building:part`.
+ * `building=no` says the area is no building; it counts only as the part it
+ * may also be. Below the ground (`location=underground`, `layer` < 0) wins
+ * over the value.
+ */
+export function footprintKindOf(tags: Readonly<Record<string, string>>): FootprintKind | null {
+  const b = tags['building'];
+  const part = tags['building:part'];
+  const building = !!b && b !== 'no';
+  if (!building && (!part || part === 'no')) return null;
+  if (tags['location'] === 'underground' || parseInt(tags['layer'] ?? '0', 10) < 0) return 'underground';
+  if (!building) return 'part';
+  return NOT_ON_GROUND.has(b) ? 'offGround' : 'ground';
+}
+
 /** Whether a footprint with these tags stands on the ground as a building of its own */
 export function isGroundBuilding(tags: Readonly<Record<string, string>>): boolean {
-  const b = tags['building'];
-  if (!b || NOT_ON_GROUND.has(b)) return false;
-  if (tags['location'] === 'underground' || parseInt(tags['layer'] ?? '0', 10) < 0) return false;
-  return true;
+  return footprintKindOf(tags) === 'ground';
 }
 
 /**

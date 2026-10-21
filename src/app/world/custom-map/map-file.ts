@@ -34,7 +34,7 @@ import {
 import { MAP_ID_PATTERN } from './map-create';
 import { mapRepairs, prefabProblems } from './map-repair';
 import { MapFileError } from './map-file-kind';
-import { footprintsWellFormed } from './map-footprints';
+import { FOOTPRINTS_FORMAT, footprintsWellFormed } from './map-footprints';
 import type { MapFilePart, MapProblem, MapProblemPart, MapText } from './map-text';
 
 export type { MapProblem, MapProblemPart } from './map-text';
@@ -541,12 +541,12 @@ function splitDocument(doc: CustomMapDocument): { json: Record<string, unknown>;
     };
     return { ...p, stamp };
   });
-  // Footprints whose rings do not hold are not written: reading would leave them out all the same
-  const rings = doc.footprints?.rings;
+  // Footprints of another format or whose rings do not hold are not written: reading would leave them out all the same
+  const rings = doc.footprints?.format === FOOTPRINTS_FORMAT ? doc.footprints.rings : undefined;
   const footprints = rings && isTyped(rings, 'Int16Array') && rings.length && footprintsWellFormed(rings) ? ref(FOOTPRINTS_ENTRY) : undefined;
   if (footprints) editorBinaries.push([FOOTPRINTS_ENTRY, int16Bytes(rings!)]);
   // No key at all without prefabs or footprints: files of maps without them stay as they were
-  const json = { ...doc, terrain, prefabs: prefabs?.length ? prefabs : undefined, footprints: footprints && { rings: footprints } };
+  const json = { ...doc, terrain, prefabs: prefabs?.length ? prefabs : undefined, footprints: footprints && { format: FOOTPRINTS_FORMAT, rings: footprints } };
   return { json: json as unknown as Record<string, unknown>, binaries, editorBinaries };
 }
 
@@ -601,13 +601,13 @@ function joinDocument(json: Record<string, unknown>, entries: Record<string, Uin
   } else {
     delete doc.prefabs;
   }
-  // The footprints are no part of the world either: missing or cut, they are left out
+  // The footprints are no part of the world either: missing, cut or of another format (E290's first had none), they are left out
   const footprints = (doc as unknown as Record<string, unknown>)['footprints'];
-  const ringsRef = isRecord(footprints) ? footprints['rings'] : undefined;
+  const ringsRef = isRecord(footprints) && footprints['format'] === FOOTPRINTS_FORMAT ? footprints['rings'] : undefined;
   const ringsName = isRecord(ringsRef) && typeof ringsRef['$bin'] === 'string' ? ringsRef['$bin'] : null;
   const ringBytes = ringsName ? entries[ringsName] : undefined;
   const rings = ringBytes && ringBytes.length % 2 === 0 ? bytesToInt16(ringBytes) : null;
-  if (rings && rings.length && footprintsWellFormed(rings)) doc.footprints = { rings };
+  if (rings && rings.length && footprintsWellFormed(rings)) doc.footprints = { format: FOOTPRINTS_FORMAT, rings };
   else delete doc.footprints;
   doc.objects ??= [];
   doc.paths ??= { nodes: [], edges: [] };

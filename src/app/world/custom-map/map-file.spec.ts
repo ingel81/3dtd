@@ -14,7 +14,7 @@ import {
 } from './map-file';
 import { MapFileError } from './map-file-kind';
 import { mapRepairs } from './map-repair';
-import { packFootprints, readFootprints } from './map-footprints';
+import { FOOTPRINTS_FORMAT, packFootprints, readFootprints } from './map-footprints';
 import { en } from '../../i18n/messages/en';
 import { mapProblemText } from './map-text';
 import { words, errorWords } from './testing/map-words';
@@ -360,21 +360,30 @@ describe('map file', () => {
     const doc = sample();
     const hash = await contentHash(doc);
     const ring = [{ x: -3, y: 2 }, { x: 4.5, y: 2 }, { x: 4.5, y: 9.2 }, { x: -3, y: 9.2 }];
-    doc.footprints = packFootprints([{ points: ring, levels: 4 }]);
+    doc.footprints = packFootprints([{ points: ring, holes: [[{ x: 0, y: 4 }, { x: 2, y: 4 }, { x: 2, y: 6 }]], levels: 4, kind: 'part', minLevel: 1, dropped: null }]);
     expect(words(validateMapDocument(doc))).toEqual([]);
     expect(await contentHash(doc)).toBe(hash);
     const bytes = packMapFile(doc);
     expect(Object.keys(unzipSync(bytes))).toContain('osm/footprints.i16');
     const { doc: back } = unpackMapFile(bytes);
     expect(back.footprints!.rings).toBeInstanceOf(Int16Array);
-    expect(readFootprints(back.footprints!)).toEqual([{ points: ring, levels: 4 }]);
+    expect(back.footprints!.format).toBe(FOOTPRINTS_FORMAT);
+    expect(readFootprints(back.footprints!)).toEqual([{ points: ring, holes: [[{ x: 0, y: 4 }, { x: 2, y: 4 }, { x: 2, y: 6 }]], levels: 4, minLevel: 1, kind: 'part', dropped: null }]);
     expect(await contentHash(back)).toBe(hash);
     // A map without them writes no key
     delete back.footprints;
     expect(JSON.parse(new TextDecoder().decode(unzipSync(packMapFile(back))['map.json']))).not.toHaveProperty('footprints');
     // Cut rings are not written; a file whose entry is missing reads without them
-    doc.footprints = { rings: doc.footprints.rings.subarray(0, 5) };
+    const whole = doc.footprints;
+    doc.footprints = { format: FOOTPRINTS_FORMAT, rings: whole.rings.subarray(0, 5) };
     expect(unpackMapFile(packMapFile(doc)).doc.footprints).toBeUndefined();
+    // Another format (the first had none in the field) is neither written nor read
+    doc.footprints = { format: 1, rings: whole.rings };
+    expect(unpackMapFile(packMapFile(doc)).doc.footprints).toBeUndefined();
+    const json = JSON.parse(new TextDecoder().decode(unzipSync(bytes)['map.json']));
+    const older = unzipSync(bytes);
+    older['map.json'] = new TextEncoder().encode(JSON.stringify({ ...json, footprints: { rings: json.footprints.rings } }));
+    expect(unpackMapFile(zipSync(older)).doc.footprints).toBeUndefined();
     const entries = unzipSync(bytes);
     delete entries['osm/footprints.i16'];
     expect(unpackMapFile(zipSync(entries)).doc.footprints).toBeUndefined();

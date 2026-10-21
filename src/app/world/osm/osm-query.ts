@@ -22,16 +22,17 @@ import {
  * so a frame kept from an older query is downloaded again and has what the
  * world reads now. Raise it whenever the query asks for more.
  */
-export const OSM_QUERY_VERSION = 3;
+export const OSM_QUERY_VERSION = 4;
 
 /**
  * Ways and multipolygons the world reads, by key: the land, water, roads and
  * buildings, and the places people go (shops, inns, offices, sights; round 2,
  * docs/OSM_WORLD_ROUND2_PLAN.md), also where they are a building or an area
- * without `building`, and paved squares drawn as areas (`area:highway`)
+ * without `building`, paved squares drawn as areas (`area:highway`), and the
+ * parts of buildings (`building:part`, for the developer layer of footprints, TODO E290)
  */
 const WAY_KEYS = [
-  'highway', 'building', 'landuse', 'natural', 'leisure', 'waterway', 'water', 'railway', 'barrier', 'man_made',
+  'highway', 'building', 'building:part', 'landuse', 'natural', 'leisure', 'waterway', 'water', 'railway', 'barrier', 'man_made',
   'amenity', 'power', 'shop', 'tourism', 'historic', 'craft', 'office', 'healthcare', 'area:highway',
 ] as const;
 

@@ -3804,7 +3804,7 @@ export const en = {
       dumpTip: 'Download state dump (JSON)',
       dumpLabel: 'Download state dump',
       dump: 'Dump',
-      footprintsTip: 'OSM footprints the map was made from, over its buildings near the routes',
+      footprintsTip: 'All OSM footprints of the map over its buildings: teal on the ground, brass building parts, green underground, orange not on the ground (ruins, bridges), light edges courtyards, red left out when the map was made',
       footprints: 'OSM',
       cameraInfo: 'Camera info',
       camera: 'Camera',

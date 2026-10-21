@@ -3562,7 +3562,7 @@ export const de: Messages = {
       dumpTip: 'Zustand herunterladen (JSON)',
       dumpLabel: 'Zustand herunterladen',
       dump: 'Dump',
-      footprintsTip: 'OSM-Grundrisse, aus denen die Karte gebaut ist, über ihren Gebäuden an den Routen',
+      footprintsTip: 'Alle OSM-Grundrisse der Karte über ihren Gebäuden: türkis am Boden, messingfarben Gebäudeteile, grün unterirdisch, orange nicht am Boden (Ruinen, Brücken), helle Kanten Höfe, rot beim Bau weggelassen',
       footprints: 'OSM',
       cameraInfo: 'Kameradaten',
       camera: 'Kamera',

@@ -38,15 +38,16 @@ function routeLength(path: readonly { lat: number; lon: number }[]): number {
 export const BUILDING_RELOAD_DELAY_MS = 1500;
 
 /**
- * OSM building footprints within BUILDING_CORRIDOR_RADIUS of the routes, and
- * only those: on the tiles loaded once the routes have settled
- * (routesChanged; the minimap draws them, TODO E142) or on the first
- * toggle-on; an OSM world's kept footprints (the developer layer, TODO E290)
- * only while the layer is on, so they cost nothing else. Shown while the
- * layer is on, drawn again after tile loads. They belong to the routes and
- * the place they were loaded for: when either changes (another place, a new
- * or moved spawn) they leave the map and those of the new routes load.
- * Dropped on dispose.
+ * OSM building footprints. On the tiles those within
+ * BUILDING_CORRIDOR_RADIUS of the routes, and only those: loaded once the
+ * routes have settled (routesChanged; the minimap draws them, TODO E142) or
+ * on the first toggle-on; they belong to the routes and the place they were
+ * loaded for: when either changes (another place, a new or moved spawn) they
+ * leave the map and those of the new routes load. An OSM world's kept
+ * footprints (the developer layer, TODO E290) are all of the map's, routes
+ * or none, loaded on the first toggle-on, so they cost nothing while the
+ * layer stays off. Shown while the layer is on, drawn again after tile
+ * loads. Dropped on dispose.
  */
 export class BuildingOverlay {
   /** Cached building footprints of the route corridor */
@@ -125,11 +126,16 @@ export class BuildingOverlay {
 
   /** Whether the world's footprints load ahead of the layer: those fetched for a place (the minimap draws them) */
   private fetchedAhead(): boolean {
+    return this.source() === 'fetched';
+  }
+
+  /** Where the world's footprints come from (WorldStreetSource.footprints) */
+  private source(): 'fetched' | 'kept' | 'none' {
     try {
-      return this.deps.streets().footprints === 'fetched';
+      return this.deps.streets().footprints;
     } catch {
       // The world closed in the meantime
-      return false;
+      return 'none';
     }
   }
 
@@ -147,10 +153,12 @@ export class BuildingOverlay {
    * The routes and the place, as far as they decide which buildings are near:
    * each route's ends and its length to ROUTE_KEY_STEP_M. Not its waypoints:
    * the corridor fit splits the segments of the same route after measuring.
+   * Footprints a world keeps are all of them: the place alone.
    */
   private routesKey(): string {
     const base = this.deps.store.baseCoords();
     const at = (p: { lat: number; lon: number }) => `${p.lat.toFixed(5)},${p.lon.toFixed(5)}`;
+    if (this.source() === 'kept') return `${at(base)}|kept`;
     const routes = [...this.deps.pathRoute.getCachedPaths()]
       .filter(([, path]) => path.length > 0)
       .map(([id, path]) => `${id}:${at(path[0])}:${at(path[path.length - 1])}:${Math.round(routeLength(path) / ROUTE_KEY_STEP_M)}`)
@@ -169,8 +177,9 @@ export class BuildingOverlay {
     this.deps.pathRoute.getCachedPaths().forEach((path) => {
       routes.push(path.map(p => ({ lat: p.lat, lon: p.lon })));
     });
-    // No routes yet: nothing to load; the next toggle-on or change of the routes asks again.
-    if (routes.length === 0) return;
+    // No routes yet: nothing near them to load; the next toggle-on or change of the routes asks again.
+    // Footprints the world keeps are all of them, routes or none
+    if (routes.length === 0 && this.source() !== 'kept') return;
 
     const key = this.routesKey();
     // The same routes asked for already

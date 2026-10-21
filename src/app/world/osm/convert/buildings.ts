@@ -35,12 +35,12 @@ import { groundRing, type GroundBox } from '../../custom-map/object-ground';
 import type { ObjectFooting } from '../../custom-map/render/objects/object-seat';
 import { EdgeIndex } from '../../../map-ops/path-graph';
 import { objectsOnPaths, PATH_WALL_SHARE } from '../../../map-ops/validation/map-validation';
-import { BUILDING_MODELS, buildingKind, buildingLandOf, buildingLevels, isGroundBuilding, KIND_MODELS, ROW_ENDS, type BuildingKind, type BuildingModel } from '../building-tags';
+import { BUILDING_MODELS, buildingKind, buildingLandOf, buildingLevels, buildingMinLevel, footprintKindOf, isGroundBuilding, KIND_MODELS, ROW_ENDS, type BuildingKind, type BuildingModel } from '../building-tags';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
 import { ringArea } from '../square-clip';
 import { convexHull, pointInRing } from './raster';
 import { MASS_ASSET, type MapFootprints, type MapMass } from '../../custom-map/map-document';
-import { packFootprints } from '../../custom-map/map-footprints';
+import { packFootprints, type FootprintDrop, type FootprintRing } from '../../custom-map/map-footprints';
 import { massBox, massDistance, massRadius, massTriangles } from '../../custom-map/object-mass';
 import { toModel } from '../../custom-map/object-ground';
 import { clipOffRoads, raiseMass } from './building-mass';
@@ -90,7 +90,7 @@ export interface BuildingReport {
   /** Footprints (some part of them) that took another kind's models ("garage>carport"), or none ("shed>none") */
   fallbacks: Record<string, number>;
   /** Footprints left out and why */
-  dropped: { tiny: number; noModel: number; roads: number; water: number; hq: number; budget: number };
+  dropped: Record<FootprintDrop, number>;
   /** Models shrunk off a road */
   shrunk: number;
   /** Pads cut into the slope, the deepest cut (m), retaining walls */
@@ -112,6 +112,8 @@ export interface BuildingResult {
   objects: MapObject[];
   report: BuildingReport;
   warnings: ImportNote[];
+  /** The outer rings (of `features.areas`) left out and why, as `report.dropped` counts them: for osmFootprints */
+  droppedRings: Map<readonly MapPoint[], FootprintDrop>;
 }
 
 /**
@@ -211,6 +213,8 @@ interface Placement {
 
 interface Footprint {
   id: number;
+  /** Its outer ring in `features` */
+  ring: readonly MapPoint[];
   kind: BuildingKind;
   area: number;
   centre: MapPoint;
@@ -221,16 +225,23 @@ interface Footprint {
 }
 
 /**
- * Every footprint the buildings read, as OSM has it (each outer ring, its
- * storeys), also those left out: what the map keeps for the developer layer
+ * Every footprint OSM has in the frame, as it has it: each outer ring with
+ * its courtyards, storeys and kind (footprintKindOf: also parts, those
+ * below or off the ground), and why the import built nothing on one
+ * (`dropped`, placeBuildings). What the map keeps for the developer layer
  * that lays them over the buildings made of them (TODO E290)
  */
-export function osmFootprints(features: OsmFeatures): MapFootprints {
-  const rings: { points: MapPoint[]; levels: number | null }[] = [];
+export function osmFootprints(features: OsmFeatures, dropped: ReadonlyMap<readonly MapPoint[], FootprintDrop> = new Map()): MapFootprints {
+  const rings: FootprintRing[] = [];
   for (const area of features.areas) {
-    if (!area.tags['building'] || !isGroundBuilding(area.tags)) continue;
+    const kind = footprintKindOf(area.tags);
+    if (!kind) continue;
     const levels = buildingLevels(area.tags);
-    for (const points of area.outer) rings.push({ points, levels });
+    const minLevel = buildingMinLevel(area.tags);
+    for (const points of area.outer) {
+      const holes = area.inner.filter((r) => pointInRing(r[0], points));
+      rings.push({ points, holes, levels, minLevel, kind, dropped: dropped.get(points) ?? null });
+    }
   }
   return packFootprints(rings);
 }
@@ -280,6 +291,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
   const oldTown = findOldTown(features, doc.terrain.width);
   report.oldTown = oldTown.reasons;
 
+  const droppedRings = new Map<readonly MapPoint[], FootprintDrop>();
   let seen = 0;
   for (const area of features.areas) {
     if (options.onShare && ++seen % 256 === 0) options.onShare((0.9 * seen) / features.areas.length);
@@ -287,6 +299,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     report.footprints++;
     if (area.area < MIN_AREA) {
       report.dropped.tiny++;
+      for (const outer of area.outer) droppedRings.set(outer, 'tiny');
       continue;
     }
     for (const outer of area.outer) {
@@ -294,6 +307,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       const ringA = Math.abs(ringArea(outer)) - holes.reduce((s, r) => s + Math.abs(ringArea(r)), 0);
       if (ringA < MIN_AREA) {
         report.dropped.tiny++;
+        droppedRings.set(outer, 'tiny');
         continue;
       }
       const rect = minAreaRect(outer);
@@ -361,7 +375,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
             report.masses++;
             if (pl.scale < 1) report.shrunk++;
             const cost = costOf(MASS_ASSET, catalog, doc) + massTriangles(raised.mass);
-            footprints.push({ id: area.id, kind, area: ringA, centre, placements: [pl], cost, tint: raised.tint });
+            footprints.push({ id: area.id, ring: outer, kind, area: ringA, centre, placements: [pl], cost, tint: raised.tint });
             continue;
           }
           why ??= blocked;
@@ -369,14 +383,16 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       }
       if (!placements.length) {
         report.dropped.noModel++;
+        droppedRings.set(outer, 'noModel');
         continue;
       }
       if (!kept.length) {
         report.dropped[why ?? 'roads']++;
+        droppedRings.set(outer, why ?? 'roads');
         continue;
       }
       const cost = kept.reduce((s, pl) => s + costOf(pl.asset, catalog, doc), 0);
-      footprints.push({ id: area.id, kind, area: ringA, centre, placements: kept, cost, tint: TINTED_KINDS.has(kind) ? BUILDING_TINTS[hashId(area.id) % BUILDING_TINTS.length] : null });
+      footprints.push({ id: area.id, ring: outer, kind, area: ringA, centre, placements: kept, cost, tint: TINTED_KINDS.has(kind) ? BUILDING_TINTS[hashId(area.id) % BUILDING_TINTS.length] : null });
     }
   }
 
@@ -393,6 +409,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       cost -= f.cost;
     }
     report.dropped.budget = gone.size;
+    for (const f of gone) droppedRings.set(f.ring, 'budget');
     if (gone.size) warnings.push({ key: 'buildingsLeftOut', v: { count: gone.size, percent: Math.round((budget / SCENE_BUDGET) * 100) } });
     footprints.splice(0, footprints.length, ...footprints.filter((f) => !gone.has(f)));
   }
@@ -452,7 +469,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
   report.cost = Math.round(objects.reduce((s, o) => s + costOf(o.asset, catalog, doc) + (o.mass ? massTriangles(o.mass) : 0), 0));
   report.costShare = Math.round((report.cost / SCENE_BUDGET) * 1000) / 1000;
   report.missing = [...missing.entries()].sort((p, q) => q[1] - p[1]).map(([kind, count]) => ({ kind, count }));
-  return { objects, report, warnings };
+  return { objects, report, warnings, droppedRings };
 }
 
 function costOf(asset: string, catalog: ReadonlyMap<string, BuildingCatalogEntry> | null, doc: CustomMapDocument): number {

@@ -721,21 +721,23 @@ export interface CustomMapDocument {
    */
   prefabs?: MapPrefab[];
   /**
-   * The building footprints an OSM world's import read (map-footprints.ts),
-   * for the developer layer that lays them over the buildings made of them
+   * The building footprints OSM has in an OSM world's frame, of any kind
+   * (map-footprints.ts), for the developer layer that lays them over the buildings made of them
    * (TODO E290); the game's rules never see them. Not part of the content hash
    */
   footprints?: MapFootprints;
 }
 
 /**
- * Building footprints as OpenStreetMap has them, each outer ring once, in
- * one array: per ring its point count n, its storeys (building:levels or
- * height, 0 when OSM says neither), then n points as x, y in decimetres
- * (map-footprints.ts reads and writes it). Int16: up to 3.2 km off the
- * middle, past every map's edge
+ * Building footprints as OpenStreetMap has them, in one array: per ring its
+ * point count n, its storeys (building:levels or height, 0 when OSM says
+ * neither), a word of info (kind, why the import left it out, lowest
+ * storey), then n points as x, y in decimetres; a courtyard follows its
+ * ring (map-footprints.ts reads and writes it, `format` its version).
+ * Int16: up to 3.2 km off the middle, past every map's edge
  */
 export interface MapFootprints {
+  format: number;
   rings: Int16Array;
 }
 

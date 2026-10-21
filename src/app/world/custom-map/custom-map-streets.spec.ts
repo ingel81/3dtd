@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CustomMapStreets, type StreetMap } from './custom-map-streets';
 import { MAP_METERS_PER_DEGREE as M } from './map-document';
 import { packFootprints } from './map-footprints';
+import type { WorldStreetSource } from '../world-provider';
 
 const map = (footprints?: StreetMap['footprints']): StreetMap => ({
   paths: { nodes: [], edges: [] },
@@ -9,24 +10,42 @@ const map = (footprints?: StreetMap['footprints']): StreetMap => ({
   ...(footprints ? { footprints } : {}),
 });
 
+const metres = (nodes: readonly { lat: number; lon: number }[]) =>
+  nodes.map((n) => ({ x: Math.round(n.lon * M * 10) / 10, y: Math.round(n.lat * M * 10) / 10 }));
+
 /** A map's footprints as the street source hands them to the building layer (TODO E290) */
 describe('CustomMapStreets footprints', () => {
   const near = [{ x: 20, y: 10 }, { x: 30, y: 10 }, { x: 30, y: 18 }, { x: 20, y: 18 }];
-  const far = [{ x: 20, y: 90 }, { x: 30, y: 90 }, { x: 30, y: 98 }, { x: 20, y: 98 }];
+  const far = [{ x: 20, y: 190 }, { x: 40, y: 190 }, { x: 40, y: 198 }, { x: 20, y: 198 }];
+  const court = [{ x: 24, y: 192 }, { x: 28, y: 192 }, { x: 28, y: 196 }];
   const route = [{ lat: 0, lon: 0 }, { lat: 0, lon: 100 / M }];
 
   it('keeps none on a map without them', async () => {
     const streets = new CustomMapStreets(map());
     expect(streets.footprints).toBe('none');
-    expect(await streets.loadBuildingsNearRoutes([route], 25)).toEqual({ buildings: [] });
+    expect(await streets.loadBuildingsNearRoutes()).toEqual({ buildings: [] });
   });
 
-  it('hands an OSM world the footprints near the routes in the frame of its streets, the tiles default storeys where OSM gives none', async () => {
-    const streets = new CustomMapStreets(map(packFootprints([{ points: near, levels: 0 }, { points: far, levels: 5 }])));
+  it('hands an OSM world all of its footprints, far from the routes and without any, in the frame of its streets, with what they are', async () => {
+    const streets = new CustomMapStreets(map(packFootprints([
+      { points: near, levels: 0, kind: 'ground', dropped: 'water' },
+      { points: far, holes: [court], levels: 5, kind: 'ground' },
+      { points: near, levels: 0, minLevel: 3, kind: 'part' },
+      { points: far, levels: null, kind: 'underground' },
+    ])));
     expect(streets.footprints).toBe('kept');
-    const { buildings } = await streets.loadBuildingsNearRoutes([route], 25);
-    expect(buildings).toHaveLength(1);
-    expect(buildings[0].levels).toBe(2);
-    expect(buildings[0].nodes.map((n) => ({ x: Math.round(n.lon * M * 10) / 10, y: Math.round(n.lat * M * 10) / 10 }))).toEqual(near);
+    const { buildings } = await streets.loadBuildingsNearRoutes();
+    expect(buildings.map((b) => [b.kind, b.dropped, b.levels, b.minLevel, b.holes!.length])).toEqual([
+      // The tiles' default storeys where OSM gives none; a part high up stands a storey over its foot
+      ['ground', 'water', 2, 0, 0],
+      ['ground', null, 5, 0, 1],
+      ['part', null, 4, 3, 0],
+      ['underground', null, 2, 0, 0],
+    ]);
+    expect(metres(buildings[0].nodes)).toEqual(near);
+    expect(metres(buildings[1].holes![0])).toEqual(court);
+    // The routes do not narrow them down (the game asks with its routes and the tiles' corridor)
+    const source: WorldStreetSource = streets;
+    expect((await source.loadBuildingsNearRoutes([route], 25)).buildings).toHaveLength(4);
   });
 });

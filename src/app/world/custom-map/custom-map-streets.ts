@@ -3,7 +3,7 @@ import type { BuildingData, BuildingFootprint } from '../../services/location/os
 import { StreetRouter } from '../../services/location/street-router';
 import type { WorldStreetSource } from '../world-provider';
 import { MAP_METERS_PER_DEGREE, type CustomMapDocument, type MapPathKind } from './map-document';
-import { footprintsNearRoutes, readFootprints, type MapFootprint } from './map-footprints';
+import { readFootprints, type MapFootprint } from './map-footprints';
 
 /**
  * What the street network reads of a map: its paths and its size (an OSM world's frame has no more before the
@@ -63,22 +63,29 @@ export class CustomMapStreets extends StreetRouter implements WorldStreetSource 
   }
 
   /**
-   * The footprints an OSM world kept that come within `radiusMeters` of the
-   * routes, in the frame of its streets; none on other maps (their
+   * All the footprints an OSM world kept, not only those near the routes:
+   * on a map of its own making the layer is a developer tool for the whole
+   * map (TODO E290). In the frame of its streets, with their kind,
+   * courtyards and why the import left one out; none on other maps (their
    * buildings are objects of the map). Nothing is fetched
    */
-  loadBuildingsNearRoutes(routes: readonly (readonly { lat: number; lon: number }[])[], radiusMeters: number): Promise<BuildingData> {
+  loadBuildingsNearRoutes(): Promise<BuildingData> {
     const kept = this.doc.footprints;
     if (!kept) return Promise.resolve({ buildings: [] });
     this.footprintList ??= readFootprints(kept);
     const M = MAP_METERS_PER_DEGREE;
-    const lines = routes.map((route) => route.map((p) => ({ x: p.lon * M, y: p.lat * M })));
     let id = 1;
-    const buildings = footprintsNearRoutes(this.footprintList, lines, radiusMeters).map((fp): BuildingFootprint => ({
+    const nodes = (ring: readonly { x: number; y: number }[]) => ring.map((p) => ({ id: id++, lat: p.y / M, lon: p.x / M }));
+    const buildings = this.footprintList.map((fp): BuildingFootprint => ({
       id: id++,
       type: 'yes',
-      levels: fp.levels || DEFAULT_LEVELS,
-      nodes: fp.points.map((p) => ({ id: id++, lat: p.y / M, lon: p.x / M })),
+      // A part high up stands at least a storey over its foot
+      levels: Math.max(fp.levels || DEFAULT_LEVELS, fp.minLevel + 1),
+      nodes: nodes(fp.points),
+      kind: fp.kind,
+      holes: fp.holes.map(nodes),
+      minLevel: fp.minLevel,
+      dropped: fp.dropped,
     }));
     return Promise.resolve({ buildings });
   }

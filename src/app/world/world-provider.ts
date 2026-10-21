@@ -198,7 +198,11 @@ export interface WorldStreetSource {
    * them, TODO E290), `none` (buildings of the world's own making)
    */
   readonly footprints: 'fetched' | 'kept' | 'none';
-  /** Building footprints near the routes: the tiles' from Overpass, an OSM world's from its map, none where there are none */
+  /**
+   * Building footprints near the routes: the tiles' from Overpass; a world
+   * that keeps its own gives all of them, whatever the routes (an OSM
+   * world's, the whole map); none where there are none
+   */
   loadBuildingsNearRoutes(routes: readonly (readonly { lat: number; lon: number }[])[], radiusMeters: number): Promise<BuildingData>;
   /** The label of a spawn at a point: its street's name, or `name` where streets have none to tell */
   spawnLabel(network: StreetNetwork, lat: number, lon: number, name: string): string;
