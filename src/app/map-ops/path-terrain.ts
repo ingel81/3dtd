@@ -32,7 +32,10 @@ export function flattenUnderPaths(
     const line = edgePolyline(paths, edge);
     if (line.length < 2) continue;
     const profile = heightProfile(terrain, line, options.smoothing);
-    const reach = edge.width / 2 + options.shoulder;
+    // Level all the road draws, its pavements too: beyond the carriageway they lay on the shoulder, and in a cutting
+    // they climbed its bank in shards
+    const half = edge.width / 2 + Math.max(0, edge.sidewalk ?? 0);
+    const reach = half + options.shoulder;
     const r = boundsRect(terrain, line, reach);
     beforeWrite?.(r);
     const g = terrain.grid;
@@ -41,9 +44,48 @@ export function flattenUnderPaths(
         const p = { x: sampleX(terrain, i), y: sampleY(terrain, j) };
         const hit = nearestOnPolyline(line, p);
         if (!hit || hit.dist >= reach) continue;
-        const w = hit.dist <= edge.width / 2 ? 1 : brushWeight(hit.dist - edge.width / 2, options.shoulder, 1);
+        const w = hit.dist <= half ? 1 : brushWeight(hit.dist - half, options.shoulder, 1);
         const k = j * g.columns + i;
         const target = profile.at(hit.along);
+        g.heights[k] += (target - g.heights[k]) * w;
+      }
+    }
+    rect = rectUnion(rect, r);
+  }
+  return rect;
+}
+
+/**
+ * Levels the ground round the nodes where ways meet (three or more, or two
+ * of different width) to the height at the node, as far as the junction's
+ * surface reaches (the widest way's half with its pavements and a kerb's
+ * radius) and fading over the shoulder beyond. Each way levels its own band
+ * only: between two of them meeting at an angle, and where a footway climbs
+ * a bank from a road in a cutting, the junction's kerbs lay on ground none
+ * of them levelled and the surface followed it up in shards. Returns the
+ * touched samples
+ */
+export function flattenJunctions(terrain: MapTerrain, paths: MapPaths, edges: readonly MapPathEdge[], options: FlattenOptions = DEFAULT_FLATTEN): GridRect | null {
+  const at = new Map<string, MapPathEdge[]>();
+  for (const e of edges) for (const n of [e.a, e.b]) at.set(n, [...(at.get(n) ?? []), e]);
+  const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
+  const g = terrain.grid;
+  let rect: GridRect | null = null;
+  for (const [id, list] of at) {
+    const node = nodes.get(id);
+    if (!node || list.length < 2) continue;
+    const halves = list.map((e) => e.width / 2 + Math.max(0, e.sidewalk ?? 0));
+    if (list.length === 2 && Math.abs(halves[0] - halves[1]) < 0.3) continue;
+    const full = Math.max(...halves) + 1;
+    const reach = full + options.shoulder;
+    const target = heightAt(terrain, node.x, node.y);
+    const r = boundsRect(terrain, [node], reach);
+    for (let j = r.j0; j <= r.j1; j++) {
+      for (let i = r.i0; i <= r.i1; i++) {
+        const d = Math.hypot(sampleX(terrain, i) - node.x, sampleY(terrain, j) - node.y);
+        if (d >= reach) continue;
+        const w = d <= full ? 1 : brushWeight(d - full, options.shoulder, 1);
+        const k = j * g.columns + i;
         g.heights[k] += (target - g.heights[k]) * w;
       }
     }

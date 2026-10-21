@@ -20,10 +20,10 @@
  * (convert/underground.ts): only tunnels through the ground get portals. A square's outline (`area=yes`) is pulled off the walls of
  * the houses round it (square-outlines.ts).
  */
-import { flattenUnderPaths } from '../../../map-ops/path-terrain';
+import { flattenJunctions, flattenUnderPaths } from '../../../map-ops/path-terrain';
 import { MAX_LAYERS, readWeights, writeWeights } from '../../../map-ops/paint-ops';
 import { fitSplatMaps, type MapPathEdge, type MapPathNode, type MapPaths, type MapPoint, type MapTerrain } from '../../custom-map/map-document';
-import type { OsmFeatures } from '../osm-parse';
+import type { OsmFeatures, OsmWay } from '../osm-parse';
 import { bridgeStyle, roadTags, sidewalkTag, type RoadSurface } from '../osm-tags';
 import { roadPaintBands } from '../../custom-map/render/paths/road-style';
 import { pullDeadEnds, pullOutlines } from './square-outlines';
@@ -45,6 +45,8 @@ export interface RoadStats {
   cutAtEdge: number;
   /** Tunnel ways kept as plain roads and paths: footways and paths, and roads in tunnels shorter than MIN_TUNNEL_M */
   openTunnels: number;
+  /** Footway and path tunnels kept under a track field: underpasses, see underpasses() */
+  underpasses: number;
   /** Edges through buildings (passages, `covered`), and points of squares' outlines pulled off the walls (square-outlines.ts) */
   covered: number;
   outlinePulled: number;
@@ -106,10 +108,12 @@ export function buildRoads(features: OsmFeatures): RoadBuild {
     .filter((r): r is { way: typeof r.way; tags: NonNullable<typeof r.tags> } => r.tags !== null);
   // Tunnels under buildings first: passages covered, car parks down to their entrances
   const { roads, ramps, report: underground } = sortUnderground(read, features);
-  const stats: RoadStats = { ways: 0, tunnels: 0, tunnelM: 0, nodes: 0, edges: 0, bridges: 0, km: { road: 0, path: 0, bridge: 0 }, kmByType: {}, cutAtEdge: 0, openTunnels: 0, covered: 0, outlinePulled: 0, endsPulled: 0, underground };
+  const stats: RoadStats = { ways: 0, tunnels: 0, tunnelM: 0, nodes: 0, edges: 0, bridges: 0, km: { road: 0, path: 0, bridge: 0 }, kmByType: {}, cutAtEdge: 0, openTunnels: 0, underpasses: 0, covered: 0, outlinePulled: 0, endsPulled: 0, underground };
   const { tunnels, mouths, short } = findTunnels(roads.filter((r) => r.tags.kind === 'road'), lim);
+  const under = underpasses(roads.filter((r) => r.tags.tunnel && r.tags.kind === 'path').map((r) => r.way), features);
+  stats.underpasses = under.size;
   for (const r of roads) {
-    if (!r.tags.tunnel || (r.tags.kind === 'road' && !short.has(r.way))) continue;
+    if (!r.tags.tunnel || (r.tags.kind === 'road' && !short.has(r.way)) || under.has(r.way)) continue;
     r.tags = { ...r.tags, tunnel: false };
     stats.openTunnels++;
   }
@@ -252,6 +256,83 @@ export function findTunnels(
 }
 
 /** The point `along` metres down `line` */
+/** Railways that run over what they cross (not in a tunnel, not gone) */
+const RAILS_OVER = new Set(['rail', 'light_rail', 'tram', 'subway', 'narrow_gauge', 'funicular', 'monorail', 'preserved', 'disused']);
+/** Tracks a path tunnel passes under, at least, to run under a track field (a station's) rather than a line */
+const TRACK_FIELD = 3;
+
+/**
+ * The footway and path tunnels under a track field: a station's subway,
+ * passing under TRACK_FIELD tracks or more. They stay tunnel edges, out of
+ * the picture and out of the levelling, their stairs ending at the mouths,
+ * and so does every path tunnel joined to one (the stairs and spurs down to
+ * it, which cross nothing themselves); no portals (those come with road
+ * tunnels only, which gave a footway underpass a portal at every spur).
+ * Opened like a path under one or two tracks (each track gets a bridge of
+ * its own over it, rails.ts), the levelling cut it into the track bed as a
+ * trench right across the station, an abutment of a bridge at every track
+ */
+function underpasses(tunnels: readonly OsmWay[], features: OsmFeatures): Set<OsmWay> {
+  const out = new Set<OsmWay>();
+  if (!tunnels.length) return out;
+  const over = features.ways.filter((w) => {
+    if (w.tags['tunnel'] && w.tags['tunnel'] !== 'no') return false;
+    return RAILS_OVER.has(w.tags['railway'] ?? '');
+  });
+  for (const t of tunnels) {
+    const tp = t.points;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const p of tp) {
+      if (!p) continue;
+      x0 = Math.min(x0, p.x);
+      y0 = Math.min(y0, p.y);
+      x1 = Math.max(x1, p.x);
+      y1 = Math.max(y1, p.y);
+    }
+    let tracks = 0;
+    for (const w of over) {
+      crossing: for (let k = 1; k < w.points.length; k++) {
+        const c = w.points[k - 1];
+        const d = w.points[k];
+        if (!c || !d || Math.max(c.x, d.x) < x0 || Math.min(c.x, d.x) > x1 || Math.max(c.y, d.y) < y0 || Math.min(c.y, d.y) > y1) continue;
+        for (let i = 1; i < tp.length; i++) {
+          const a = tp[i - 1];
+          const b = tp[i];
+          if (a && b && segmentsCross(a, b, c, d)) {
+            tracks++;
+            break crossing;
+          }
+        }
+      }
+    }
+    if (tracks >= TRACK_FIELD) out.add(t);
+  }
+  // The stairs and spurs of an underpass go with it: path tunnels sharing a node with one kept, as far as they reach
+  const byNode = new Map<number, OsmWay[]>();
+  for (const t of tunnels) for (const id of t.nodes) byNode.set(id, [...(byNode.get(id) ?? []), t]);
+  const queue = [...out];
+  while (queue.length) {
+    const t = queue.pop()!;
+    for (const id of t.nodes) {
+      for (const o of byNode.get(id) ?? []) {
+        if (out.has(o)) continue;
+        out.add(o);
+        queue.push(o);
+      }
+    }
+  }
+  return out;
+}
+
+/** Whether segment ab crosses segment cd (touching at an end does not count) */
+function segmentsCross(a: MapPoint, b: MapPoint, c: MapPoint, d: MapPoint): boolean {
+  const den = (b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x);
+  if (Math.abs(den) < 1e-12) return false;
+  const t = ((c.x - a.x) * (d.y - c.y) - (c.y - a.y) * (d.x - c.x)) / den;
+  const u = ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x)) / den;
+  return t > 1e-9 && t < 1 - 1e-9 && u > 1e-9 && u < 1 - 1e-9;
+}
+
 function pointAlong(line: readonly MapPoint[], along: number): MapPoint {
   let walked = 0;
   for (let k = 1; k < line.length; k++) {
@@ -404,8 +485,9 @@ export function levelRoads(terrain: MapTerrain, paths: MapPaths): void {
   const edges = paths.edges
     .filter((e) => e.kind !== 'bridge' && !e.tunnel)
     .sort((a, b) => (a.kind === b.kind ? a.width - b.width : a.kind === 'path' ? -1 : 1));
-  // flattenUnderPaths levels the edges in the order of the list it is given
+  // flattenUnderPaths levels the edges in the order of the list it is given; the junctions after, on their ground
   flattenUnderPaths(terrain, { nodes: paths.nodes, edges }, null, ROAD_LEVELLING);
+  flattenJunctions(terrain, paths, edges, ROAD_LEVELLING);
 }
 
 /** Metres a painted road fades into the ground beside it */

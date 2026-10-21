@@ -108,6 +108,28 @@ describe('OSM roads', () => {
     expect(paths.edges.find((e) => e.street === 'service')).toMatchObject({ kind: 'road', surface: 'asphalt' });
   });
 
+  it('keeps a footway under a track field a tunnel with the stairs down to it, no portal; one under a single track stays open', () => {
+    const f = parseOsm({
+      elements: [
+        // Three tracks across x = 40, 50 and 60, the subway under them from west to east, its stairs north at its end
+        way(1, { railway: 'rail' }, [[50, -100, 1], [50, 100, 2]]),
+        way(2, { railway: 'rail' }, [[60, -100, 3], [60, 100, 4]]),
+        way(7, { railway: 'rail' }, [[40, -100, 11], [40, 100, 12]]),
+        way(3, { highway: 'footway', tunnel: 'yes', layer: '-1' }, [[0, 0, 5], [100, 0, 6]]),
+        way(4, { highway: 'steps', tunnel: 'yes', layer: '-1' }, [[100, 0, 6], [100, 15, 7]]),
+        way(5, { highway: 'footway' }, [[100, 15, 7], [150, 15, 8]]),
+        // A path under a single track at x = 300 (its own bridge, rails.ts)
+        way(8, { railway: 'rail' }, [[300, -100, 13], [300, 100, 14]]),
+        way(6, { highway: 'path', tunnel: 'yes' }, [[280, 0, 9], [320, 0, 10]]),
+      ],
+    }, frame, 1200);
+    const { paths, stats, mouths } = buildRoads(f);
+    expect(stats).toMatchObject({ underpasses: 2, openTunnels: 1 });
+    expect(mouths).toEqual([]);
+    expect(paths.edges.filter((e) => e.tunnel).map((e) => e.street).sort()).toEqual(['footway', 'steps']);
+    expect(paths.edges.find((e) => e.street === 'path')!.tunnel).toBeUndefined();
+  });
+
   it('neither levels nor paints a tunnel', () => {
     const doc = createMapDocument({ id: 't', name: 't', width: 200, depth: 200, cellSize: 2, splatResolution: 256, starter: false });
     const t = doc.terrain;
