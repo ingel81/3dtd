@@ -69,6 +69,11 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       dunkle Naht dazwischen, Ufer und Vegetation mitten im Wasser. Ebenso zwei Striche, die sich berühren oder kreuzen
       (User erwartet bei genauem Kreuzen ein Gesamtgewässer als Kreuz; testet das noch im Editor). Soll: eine
       gemeinsame Wasserfläche. Plan: docs/WATER_NETWORK_PLAN.md (mit E283).
+- [ ] **E290 OSM-Gebäude als Ebene in OSM-Welten (Debug)** (User 2026-10-21): Auf echten Orten (Tiles) blendet die
+      Schnellaktion „Gebäude“ die OSM-Grundrisse im Routenkorridor ein (`services/world/building-overlay.ts`,
+      `uiStore.buildingsVisible`). In OSM-generierten Welten fehlt das (dort sind Gebäude Teil der Welt). Soll: dieselbe
+      Ebene als Debug-Werkzeug auch dort, um gebaute Gebäude mit den OSM-Grundrissen zu vergleichen (Quelle: die beim
+      Import gelesenen Grundrisse). Kein Parallelsystem: vorhandene Ebene und Darstellung wiederverwenden.
 - [ ] **E285 Weinberge: Rebzeilen** (User 2026-10-20): Zeilen stehen schräg und sind in kurze Stücke zerhackt. Soll:
       gerade, parallel, durchgehend über die Parzelle, in der Falllinie den Hang hoch, meist rechtwinklig zur
       erschließenden Straße; auf flachem Gelände rechtwinklig zur nächsten Straße.
