@@ -526,7 +526,17 @@ function trimJunction(c: MapPoint, list: End[]): void {
     const b = list[(k + 1) % n];
     let gap = b.angle - a.angle;
     if (gap <= 0) gap += Math.PI * 2;
-    // Nearly straight on, or the outside of a bend: the kerbs meet at the node
+    // Nearly straight on, or the outside of a bend: the kerbs meet at the node. A road going on at another width
+    // tapers instead: both trimmed by twice the change and a metre, the junction's straight kerbs run across
+    // (they stepped at the node, a tooth in the kerb at every change of width)
+    if (n === 2 && gap > Math.PI * 0.94) {
+      const taper = Math.abs(a.chain.half - b.chain.half);
+      if (taper > 0.3) {
+        trims[k] = Math.max(trims[k], taper * 2 + 1);
+        trims[(k + 1) % n] = Math.max(trims[(k + 1) % n], taper * 2 + 1);
+      }
+      continue;
+    }
     if (gap > Math.PI * 0.94 || n === 1) continue;
     const corner = kerbCorner(c, a, b);
     if (!corner) continue;

@@ -110,6 +110,39 @@ describe('road network', () => {
     }
   });
 
+  it('tapers a road that goes on at another width: its kerb runs across, no tooth at the node', () => {
+    const net = buildRoadNetwork(
+      paths(
+        [
+          { a: 'w', b: 'c', street: 'residential', width: 9, sidewalk: 1.8 },
+          { a: 'c', b: 'e', street: 'residential', width: 6, sidewalk: 1.8 },
+        ],
+        [['w', -100, 0], ['c', 0, 0], ['e', 100, 0]],
+      ),
+    );
+    // The outline's northern edge, sampled along: it falls from 6.3 m (4.5 + 1.8) to 4.8 m (3 + 1.8) once, never back
+    const tris = triangles(net);
+    const inside = (x: number, y: number) =>
+      tris.some(([a, b, c]) => {
+        const d = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+        if (Math.abs(d) < 1e-9) return false;
+        const u = ((b[0] - x) * (c[1] - y) - (b[1] - y) * (c[0] - x)) / d;
+        const v = ((c[0] - x) * (a[1] - y) - (c[1] - y) * (a[0] - x)) / d;
+        return u >= -1e-6 && v >= -1e-6 && u + v <= 1 + 1e-6;
+      });
+    const top = (x: number) => {
+      let y = 8;
+      while (y > 0 && !inside(x, y)) y -= 0.05;
+      return y;
+    };
+    const tops = [-8, -6, -4, -2, 0, 2, 4, 6, 8].map(top);
+    for (let k = 1; k < tops.length; k++) expect(tops[k]).toBeLessThanOrEqual(tops[k - 1] + 1e-3);
+    expect(tops[0]).toBeCloseTo(6.3, 1);
+    expect(tops.at(-1)).toBeCloseTo(4.8, 1);
+    // Tapered over metres, not stepped at the node
+    expect(tops.filter((t) => t > 4.85 && t < 6.25).length).toBeGreaterThan(1);
+  });
+
   it('runs edges of one look on as one ribbon, its distance along going on', () => {
     const net = buildRoadNetwork(paths([{ a: 'a', b: 'b' }, { a: 'c', b: 'b' }], [['a', 0, 0], ['b', 50, 0], ['c', 100, 0]]));
     const along = net.tiles.flatMap((t) => Array.from({ length: t.road.length / 4 }, (_, k) => t.road[k * 4 + 1]));
