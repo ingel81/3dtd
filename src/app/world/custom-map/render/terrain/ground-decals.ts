@@ -6,8 +6,9 @@ import {
   PlaneGeometry,
   Vector3,
 } from 'three';
-import type { CustomMapDocument, MapObject } from '../../map-document';
+import type { CustomMapDocument, MapObject, MapPoint, MapSurface } from '../../map-document';
 import type { CatalogObject } from '../asset-catalog';
+import { PAVED_SURFACES } from '../paths/road-style';
 import { SHADER_NOISE } from '../shader-noise';
 import { addHeightFog } from '../environment/height-fog';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from './height-texture';
@@ -264,8 +265,8 @@ function hash(seed: number): number {
   return s - Math.floor(s);
 }
 
-/** What decals are planned from: the objects shown, the paths, the weather and biome */
-export type DecalSource = Pick<CustomMapDocument, 'objects' | 'paths' | 'environment'>;
+/** What decals are planned from: the objects shown, the paths, the weather and biome, the surfaces drawn on the ground */
+export type DecalSource = Pick<CustomMapDocument, 'objects' | 'paths' | 'environment'> & Partial<Pick<CustomMapDocument, 'surfaces'>>;
 
 /** A road or path as segments with its width, in a grid for the door paths' search */
 interface WaySegments {
@@ -284,7 +285,8 @@ function waySegments(doc: DecalSource): WaySegments {
     const b = nodes.get(edge.b);
     if (!a || !b) continue;
     const line = [a, ...(edge.via ?? []), b];
-    for (let k = 0; k < line.length - 1; k++) out.push(line[k].x, line[k].y, line[k + 1].x, line[k + 1].y, edge.width / 2);
+    // To the edge of its pavements: a way's ground is all of it
+    for (let k = 0; k < line.length - 1; k++) out.push(line[k].x, line[k].y, line[k + 1].x, line[k + 1].y, edge.width / 2 + (edge.sidewalk ?? 0));
   }
   const seg = Float32Array.from(out);
   const cells = new Map<number, number[]>();
@@ -401,15 +403,19 @@ export function planDecals(doc: DecalSource, entries: Map<string, CatalogObject>
         // One broadleaf tree in two drops a carpet of leaves around its trunk
         out.push({ x: o.x, y: o.y, size: r, rotation: h * 6.28, kind: DecalKind.Leaves });
       }
-    } else if (e.category === 'building' && !o.mass && !tags.includes('moon') && !tags.includes('mars')) {
+    } else if (e.category === 'building' && !o.mass && e.blocksLos !== false && !tags.includes('moon') && !tags.includes('mars')) {
+      // One sees through a carport, a canopy or a lean-to: no door to tread a path from (a station's car parks and
+      // canopies laid brown tracks across the platforms)
       doorPath(out, o, e, (ways ??= waySegments(doc)));
     }
   }
-  // Along roads and paths: worn patches at their edges every 9 to 15 m, puddles in the wet; beyond a road's pavement
-  // (the road surface draws it over the ground: a patch under it showed through as a dark stain on the paving)
+  // Along unpaved roads and paths: worn patches at their edges every 9 to 15 m, puddles in the wet; beyond a road's
+  // pavement (the road surface draws it over the ground: a patch under it showed through as a dark stain on the
+  // paving). A paved road with its kerbs wears no soil beside it: in a town every street and footway laid them, on
+  // the squares, car parks and the next road
   const nodes = new Map(doc.paths.nodes.map((n) => [n.id, n]));
   for (const edge of doc.paths.edges) {
-    if (edge.kind === 'bridge' || edge.tunnel) continue;
+    if (edge.kind === 'bridge' || edge.tunnel || (edge.surface && PAVED_SURFACES.has(edge.surface))) continue;
     const a = nodes.get(edge.a);
     const b = nodes.get(edge.b);
     if (!a || !b) continue;
@@ -434,5 +440,64 @@ export function planDecals(doc: DecalSource, entries: Map<string, CatalogObject>
       walked -= len;
     }
   }
-  return out;
+  return onBareGround(out, doc, ways ?? waySegments(doc));
+}
+
+/**
+ * The decals of trodden ground that lie on bare ground: none whose middle is
+ * on a way (its carriageway and pavements; the patches of one way fell on
+ * the next) or on a surface drawn on the ground (a square, a car park, a
+ * pitch). Leaves, needles and the snow under trees stay
+ */
+function onBareGround(decals: Decal[], doc: DecalSource, ways: WaySegments): Decal[] {
+  const surfaces = new SurfaceIndex(doc.surfaces ?? []);
+  return decals.filter((d) => {
+    if (d.kind !== DecalKind.Soil && d.kind !== DecalKind.Path && d.kind !== DecalKind.Puddle) return true;
+    const edge = nearestWayEdge(ways, d.x, d.y);
+    if (edge && edge.d === 0) return false;
+    return !surfaces.covers(d.x, d.y);
+  });
+}
+
+/** The surfaces' outlines by grid cell, for whether a point lies on one */
+class SurfaceIndex {
+  private readonly cells = new Map<number, MapSurface[]>();
+
+  constructor(surfaces: readonly MapSurface[]) {
+    for (const s of surfaces) {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const p of s.outer) {
+        x0 = Math.min(x0, p.x);
+        y0 = Math.min(y0, p.y);
+        x1 = Math.max(x1, p.x);
+        y1 = Math.max(y1, p.y);
+      }
+      for (let cx = Math.floor(x0 / CELL); cx <= Math.floor(x1 / CELL); cx++) {
+        for (let cy = Math.floor(y0 / CELL); cy <= Math.floor(y1 / CELL); cy++) {
+          const key = cx * 65536 + cy;
+          let list = this.cells.get(key);
+          if (!list) this.cells.set(key, (list = []));
+          list.push(s);
+        }
+      }
+    }
+  }
+
+  covers(x: number, y: number): boolean {
+    for (const s of this.cells.get(Math.floor(x / CELL) * 65536 + Math.floor(y / CELL)) ?? []) {
+      if (inside(s.outer, x, y) && !(s.holes ?? []).some((h) => inside(h, x, y))) return true;
+    }
+    return false;
+  }
+}
+
+/** Whether (x, y) lies inside the ring (even-odd) */
+function inside(ring: readonly MapPoint[], x: number, y: number): boolean {
+  let hit = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i];
+    const b = ring[j];
+    if (a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) hit = !hit;
+  }
+  return hit;
 }

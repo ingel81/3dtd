@@ -36,6 +36,27 @@ describe('planDecals', () => {
     expect(planDecals(paved, entries).filter((d) => d.kind === DecalKind.Soil).every((d) => Math.abs(d.y) > 5.6)).toBe(true);
   });
 
+  it('wears no soil beside a paved road, none on another way and none on a surface drawn on the ground', () => {
+    const paved = doc();
+    paved.paths.edges[0].surface = 'asphalt';
+    expect(planDecals(paved, entries).some((d) => d.kind === DecalKind.Soil)).toBe(false);
+    // A dirt track 4 m north of a paved road: its southern patches would lie on the road
+    const both = doc();
+    both.paths.nodes.push({ id: 'c', x: -80, y: 7 }, { id: 'd', x: 80, y: 7 });
+    both.paths.edges[0].surface = 'asphalt';
+    both.paths.edges.push({ id: 'f', a: 'c', b: 'd', width: 2, kind: 'path' });
+    const soil = planDecals(both, entries).filter((d) => d.kind === DecalKind.Soil);
+    expect(soil.length).toBeGreaterThan(3);
+    expect(soil.every((d) => d.y > 3)).toBe(true);
+    // A car park north of the road takes the patches and the house's trodden path that would lie on it
+    const park = doc();
+    park.objects = [{ id: 'h', asset: 'house', x: 10, y: 14, z: 0, rotation: Math.PI, scale: 1 }];
+    park.surfaces = [{ id: 's', material: 'asphalt', outer: [{ x: -80, y: 3 }, { x: 80, y: 3 }, { x: 80, y: 12 }, { x: -80, y: 12 }] }];
+    const left = planDecals(park, entries).filter((d) => d.kind === DecalKind.Soil || d.kind === DecalKind.Path);
+    expect(left.some((d) => d.y > 3 && d.y < 12)).toBe(false);
+    expect(left.some((d) => d.y < -3)).toBe(true);
+  });
+
   it('drops leaves under broadleaf trees, not under conifers, and puddles only in the wet', () => {
     const d = doc();
     d.objects = Array.from({ length: 40 }, (_, k) => ({ id: `t${k}`, asset: k % 2 ? 'oak' : 'pine', x: -60 + k * 3, y: 50, z: 0, rotation: 0, scale: 1 }));

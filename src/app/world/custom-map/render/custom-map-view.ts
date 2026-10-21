@@ -1822,7 +1822,7 @@ export class CustomMapView {
     if (this.disposed) return;
     const objects = this.shownObjects();
     this.decalsFor = { objects, count: objects.length, paths: this.doc.paths, edges: this.doc.paths.edges.length };
-    this.decals.set({ objects, paths: this.doc.paths, environment: this.env }, new Map(catalog.objects.map((o) => [o.id, o])));
+    this.decals.set({ objects, paths: this.doc.paths, environment: this.env, surfaces: this.doc.surfaces }, new Map(catalog.objects.map((o) => [o.id, o])));
   }
 
   /**
