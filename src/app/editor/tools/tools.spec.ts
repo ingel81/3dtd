@@ -131,7 +131,8 @@ describe('editor tools', () => {
     const first = near().length;
     expect(first).toBeGreaterThan(5);
     strokeAt(5);
-    expect(closest()).toBeGreaterThanOrEqual(spacing - 1e-6);
+    // Spaced before positions are kept to the centimetre: two can come up to √2 cm closer
+    expect(closest()).toBeGreaterThanOrEqual(spacing - 0.015);
     ed.undo();
     ed.undo();
     expect(near()).toHaveLength(0);
