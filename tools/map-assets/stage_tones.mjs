@@ -131,7 +131,8 @@ for (const o of objects) {
       const bias = li === 0 ? 50 : (D - r) / Math.sqrt(lo * hi);
       const pixels = await page.evaluate(async ([bias, li]) => {
         const p = globalThis.__mapPreview;
-        p.view.objects.setDetail({ lodBias: bias, impostorFrom: 380 });
+        // Drawn however small it gets (drawPixels): only the level is forced
+        p.view.objects.setDetail({ lodBias: bias, impostorFrom: 380, drawPixels: 0.01 });
         // Until the object shows one level alone (a band settles at rest)
         const b = p.view.objects.batches.find((x) => x.objects.length);
         for (let k = 0; k < 60 && (k < 4 || b.nextOf[0] !== -2); k++) await new Promise((done) => requestAnimationFrame(done));

@@ -61,7 +61,7 @@ describe.skipIf(mode !== 'osm')('OSM world dump', () => {
         { id: `osm-${place.name}`, name: `OSM ${place.name}`, sideM: side, costs: assetCosts(catalog.objects, 2400), catalog: buildingCatalog(catalog.objects), materials: catalog.materials.map((m) => m.id) },
       );
       const area = doc.terrain.width * doc.terrain.depth;
-      const scene = Math.round(sceneCost(doc.objects, (asset) => objectCost(catalog.objects.find((o) => o.id === asset), area)));
+      const scene = Math.round(sceneCost(doc.objects, (asset, grouped) => objectCost(catalog.objects.find((o) => o.id === asset), area, grouped)));
       const convertMs = Math.round(performance.now() - t0);
       const t1 = performance.now();
       const file = packMapFile(doc);

@@ -727,7 +727,7 @@ export const en = {
     qualityTitle: 'Picture quality',
     quality: {
       auto: { label: 'Auto', hint: 'Picked for your graphics card and checked once; custom maps a level lower' },
-      low: { label: 'Low', hint: 'Lower resolution that adapts, FXAA, coarser tiles; on custom maps no grass and a short draw distance' },
+      low: { label: 'Low', hint: 'Lower resolution that adapts, FXAA, coarser tiles; on custom maps no grass, small things only near' },
       medium: { label: 'Medium', hint: 'Adapting resolution, FXAA; on custom maps less grass and detail' },
       high: { label: 'High', hint: 'The full picture: sharp, MSAA; on custom maps shadows 4096 and every map effect' },
       ultra: { label: 'Ultra', hint: 'Finer tiles; on custom maps more grass and detail, softer shadows' },
@@ -752,9 +752,9 @@ export const en = {
       shadows: { label: 'Shadows', hint: "Sharpness of the sun's shadows", option: (px: number, softer: boolean) => `${f.int(px)} px${softer ? ', softer' : ''}` },
       farDetail: {
         label: 'Far detail',
-        hint: 'How far objects keep their detail and the ground its layers',
-        option: (bias: number, flatFrom: number, simpleFrom: number) =>
-          `${f.num(bias)}x draw distance, flat trees from ${f.int(flatFrom)} m, simpler ground from ${f.int(simpleFrom)} m`,
+        hint: 'How far objects keep their detail, how small they get before they go, and how far the ground keeps its layers',
+        option: (bias: number, pixels: number, flatFrom: number, simpleFrom: number) =>
+          `${f.num(bias)}x detail distance, objects down to ${f.num(pixels)} px, flat trees from ${f.int(flatFrom)} m, simpler ground from ${f.int(simpleFrom)} m`,
       },
       grass: {
         label: 'Grass',

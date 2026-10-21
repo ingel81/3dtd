@@ -629,7 +629,6 @@ function placeholderEntry(id: string): CatalogObject {
     scaleRange: [1, 1],
     randomRotation: true,
     wind: 0,
-    drawDistance: 1500,
   };
 }
 

@@ -22,7 +22,6 @@ const base: Omit<CatalogObject, 'id' | 'name'> = {
   scaleRange: [1, 1],
   randomRotation: false,
   wind: 0,
-  drawDistance: 1000,
 };
 
 const catalog: AssetCatalog = {

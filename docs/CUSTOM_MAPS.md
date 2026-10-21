@@ -577,8 +577,9 @@ Je Asset, Detailstufe und Modellteil ein `InstancedMesh` für die ganze Karte; d
 Liste von Instanzen (`instance-list.ts`: Matrix, Farbe, Auflösung im Band, eigene Attribute je Slot). Jedes Objekt
 zeigt die Stufe, die seine **Größe im Bild** verlangt: sein Begrenzungsradius durch den Abstand, gegen den Bildanteil
 `screen` der `lod`-Modelle des Katalogs (eine Garage nimmt ihr LOD-Modell näher als eine Schule), ein **Impostor**
-für ferne Bäume ab 380 m, nichts hinter der Sichtweite (`drawDistance`). Ein weiteres Sichtfeld als 60° schaltet
-entsprechend näher. Sichtblocker (Katalog `blocksLos`, je Objekt überschreibbar) liegen in `losBlockers`.
+für ferne Bäume ab 380 m, nichts, sobald sein Radius im Bild unter die Pixelgrenze der Stufe fällt (`drawPixels`,
+[RENDER_QUALITY.md](RENDER_QUALITY.md); die Stücke einer Linie mit der Größe der ganzen Linie). Ein weiteres Sichtfeld
+als 60° schaltet entsprechend näher. Sichtblocker (Katalog `blocksLos`, je Objekt überschreibbar) liegen in `losBlockers`.
 
 **Draw Calls (V2, ersetzt Zellen und gepackte Assets):** Ein Stufenwechsel verschiebt eine oder zwei Instanzen in der
 Liste der Stufe (der letzte seiner Abteilung füllt die Lücke), nie die Liste; hochgeladen wird je Bild ein Bereich je
@@ -643,7 +644,7 @@ Demo-Tal 290 → 155 ([BENCHMARKS.md](BENCHMARKS.md#bildkosten-grafik-benchmark)
 Rauheit und Metall (Vertex-Attribut `roughMetal`) zeichnet die Hafenstadt 122 Calls, ein Bürohaus 5 statt 10 Teile.
 
 **Weicher Stufenwechsel (E154, OP-H5, `lod-fade.ts`):** um jede Umschaltdistanz liegt ein Band von 12 % der
-Distanz, ebenso an der Sichtweite. Im Band zeigt ein Objekt beide Stufen, die eine löst sich in einem festen
+Distanz, ebenso an der Pixelgrenze. Im Band zeigt ein Objekt beide Stufen, die eine löst sich in einem festen
 Bildschirm-Dither auf, die andere erscheint im ergänzenden Muster: jedes Pixel zeigt genau eine, nichts springt.
 Jedes Objekt blendet nach seinem eigenen Abstand. Der Wert liegt je Instanz im Attribut `lodFade` einer leichten
 Geometrie je Mesh, die Puffer des Modells teilt (`fadeGeometry`). Schatten dithern nicht: es wirft die Stufe mit dem
@@ -720,7 +721,7 @@ Katalog-`wind` und Modellhöhe: ein schlanker 18-m-Baum etwa 1 m, eine Eiche (12
 Pflanzen schwingen im Verhältnis stärker. Alle Detailstufen eines Modells schwingen mit derselben Rechnung (kein
 Sprung beim Stufenwechsel); Impostoren ab 380 m stehen still. Seitliches Biegen senkt die Spitze etwas (Länge bleibt). Laubkarten (`foliage-*`) behalten ihre
 Normalen auch auf der Rückseite (three dreht sie bei doppelseitigen Materialien um, das machte Kartenrücken schwarz),
-werden alpha-getestet mit Alpha-to-Coverage und blenden aus, wenn man sie von der Kante sieht oder sie die Sichtweite
+werden alpha-getestet mit Alpha-to-Coverage und blenden aus, wenn man sie von der Kante sieht oder sie die Pixelgrenze
 erreichen; Wasserfall-Karten (`foliage-waterfall*`) fließen, leuchtende Laubkarten (Flammen) flackern. Windstärke und
 Ausblendung sind Uniforms, alle Assets teilen sich wenige Shader-Programme. Vegetation bekommt je Instanz eine
 leicht andere Helligkeit, einen Farbton und eine Größe (Bäume 0,88 bis 1,12, Pflanzen 0,92 bis 1,08), Bäume dazu eine
@@ -1327,7 +1328,7 @@ Bestand baut der Asset-Worker aus; Stand beim Schreiben:
   den Texturmitteln des vollen Modells per `match_lods.py`, sonst springt die Farbe beim Stufenwechsel: die fünf
   Altstadthäuser trugen bis E265 noch den ersten Schätzwert des Baus, Dächer lachsfarben statt dunkelrot, Wände
   blass; `packed-models.spec.ts` meldet einen LOD, über den das Skript nicht lief); `screen` ist der Anteil an der Bildhöhe, unter
-  dem sie übernimmt (Radius durch halbe Bildhöhe im Abstand, Sichtfeld 60°), gebaut aus 350 m bzw. 40 % der Sichtweite
+  dem sie übernimmt (Radius durch halbe Bildhöhe im Abstand, Sichtfeld 60°), gebaut aus 350 m bzw. 40 % der Distanz zur Pixelgrenze
   für ein Objekt in Asset-Größe; 34 ein Licht (`light`), 40 Effekte (`effects`); 10 schwimmen (`float`: Boote, Schiff, Bojen, Seerosen, Eisscholle,
   Steg, Pier; Ursprung des Modells ist die Wasserlinie, ihr z zählt ab dem Spiegel unter ihnen, auf trockenem Boden ab
   dem Boden; eine Wassertiefe in z hebt sie in die Luft, das meldet die Prüfung `object-floating`). 9 stehen absichtlich
@@ -1361,7 +1362,7 @@ mit 2000 Gegnern 359 fps mit Karte, 941 ohne; mit 5000 Gegnern 268 fps mit, 393 
 1,2 bis 1,7 ms je Frame, fast alles GPU: `update()` braucht 0,02 ms Hauptthread.
 
 **Szenenkosten** (`render/objects/scene-cost.ts`): was die Objekte einer Karte das Bild kosten, etwa Dreiecke im Bild
-je Objekt (Modell, LOD-Modelle und Impostor in ihren Bändern bis zur Sichtweite, jedes Band mit dem Anteil der Karte
+je Objekt (Modell, LOD-Modelle und Impostor in ihren Bändern bis zur Pixelgrenze, jedes Band mit dem Anteil der Karte
 darin, dazu 2 Punkte je Instanz und die Partikel der Effekte). 100 % sind 12 Mio. Punkte (`SCENE_BUDGET`), geeicht 2026-10-15: dort braucht die teuerste Ansicht 3 ms GPU auf
 dem Entwicklungsrechner (BENCHMARKS.md, „Eigene Karten und Szenenkosten“). Das Map-Panel des Editors zeigt sie, der Check warnt
 darüber, die mitgelieferten Karten bleiben unter 80 %. Formel, Kalibrierung und was nachzumessen ist:

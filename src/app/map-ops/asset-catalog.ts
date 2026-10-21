@@ -58,7 +58,7 @@ export interface ObjectAssetEntry {
   signs?: boolean;
   /** Biomes and brush roles from the catalogue (temperate, swamp, shore, scree …) */
   tags?: string[];
-  /** What the renderer draws of it (triangles, detail levels, draw distance, effects), for the scene cost; none for an unknown asset */
+  /** What the renderer draws of it (triangles, detail levels, effects), for the scene cost; none for an unknown asset */
   drawing?: CostEntry;
 }
 
@@ -114,7 +114,7 @@ export async function loadAssetCatalog(library = MapAssetLibrary.shared()): Prom
 interface RawCatalog {
   materials?: (Partial<GroundMaterialEntry> & { id: string; average?: string; files?: { color?: string } })[];
   objects?: (Partial<ObjectAssetEntry> &
-    Partial<Pick<CatalogObject, 'drawDistance' | 'triangles' | 'lod' | 'far' | 'effects' | 'aloft' | 'stilts' | 'roadThrough' | 'spin' | 'signPanel' | 'row'>> & { id: string; footprint?: number; file?: string; category?: string })[];
+    Partial<Pick<CatalogObject, 'triangles' | 'lod' | 'far' | 'effects' | 'aloft' | 'stilts' | 'roadThrough' | 'spin' | 'signPanel' | 'row'>> & { id: string; footprint?: number; file?: string; category?: string })[];
 }
 
 const CATEGORY_NAMES: Record<string, string> = {
@@ -176,14 +176,13 @@ export function normalizeCatalog(json: RawCatalog, assetsUrl: string): MapAssetC
         signs: !!o.signPanel || undefined,
         tags: o.tags?.length ? [...o.tags] : undefined,
         drawing:
-          o.drawDistance === undefined
+          o.file === undefined
             ? undefined
             : {
                 category: (o.category ?? 'prop') as CatalogObject['category'],
                 height: o.height ?? 2,
                 footprint: o.radius ?? o.footprint,
-                drawDistance: o.drawDistance,
-                file: o.file ?? '',
+                file: o.file,
                 triangles: o.triangles,
                 lod: o.lod,
                 far: o.far,

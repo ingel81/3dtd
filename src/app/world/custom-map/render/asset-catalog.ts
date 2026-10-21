@@ -174,8 +174,6 @@ export interface CatalogObject {
   randomRotation: boolean;
   /** Wind sway strength, 0 = rigid, 1 = a slender tree */
   wind: number;
-  /** Beyond this camera distance in metres the object is not drawn */
-  drawDistance: number;
   /** Where the model came from (licence record) */
   source?: string;
   tags?: string[];
@@ -305,12 +303,35 @@ export function objectRadius(entry: Pick<CatalogObject, 'footprint' | 'height'>)
   return Math.max(entry.footprint, entry.height * 0.6);
 }
 
-/** The camera distance at which an object of radius `radius` fills `screen` of the view's height */
 /** Red, green and blue factors of a detail stage's colours (CatalogObject `lod`, `far`) */
 export type StageTone = [number, number, number];
 
+/** The camera distance at which an object of radius `radius` fills `screen` of the view's height */
 export function screenDistance(radius: number, screen: number): number {
   return radius / (screen * LOD_TAN_HALF_FOV);
+}
+
+/**
+ * The view height a pixel limit is counted in (render-quality.ts
+ * `drawPixels`): 1080 lines, whatever the window. One distance per object
+ * for the picture, the towers' sight and the scene cost; a smaller window
+ * draws a little smaller things, a bigger one a little bigger
+ */
+export const PIXEL_LINES = 1080;
+
+/** The camera distance at which an object of radius `radius` is `pixels` pixels in radius on a PIXEL_LINES view */
+export function pixelDistance(radius: number, pixels: number): number {
+  return screenDistance(radius, pixels / (PIXEL_LINES / 2));
+}
+
+/**
+ * Walls and structures that share a group are the pieces of one line (a
+ * wall, a fence, a track): they draw while the whole line is above the
+ * pixel limit, not each piece, so a line does not end in the distance
+ * where its pieces get small (object-layer.ts lineSpheres, scene-cost.ts)
+ */
+export function linePiece(category: CatalogObject['category'], grouped: boolean): boolean {
+  return grouped && (category === 'wall' || category === 'structure');
 }
 
 export interface AssetCatalog {

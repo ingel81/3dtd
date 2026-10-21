@@ -34,18 +34,18 @@ import stage_tones  # noqa: E402
 PACK = os.path.join(HERE, '..', 'model-pack')
 
 DEFAULTS = {
-    'tree': {'blocksLos': True, 'blocksBuild': True, 'scaleRange': [0.8, 1.2], 'randomRotation': True, 'wind': 0.5, 'drawDistance': 2500},
-    'plant': {'blocksLos': False, 'blocksBuild': False, 'scaleRange': [0.7, 1.3], 'randomRotation': True, 'wind': 0.6, 'drawDistance': 300},
-    'rock': {'blocksLos': False, 'blocksBuild': True, 'scaleRange': [0.7, 1.4], 'randomRotation': True, 'wind': 0, 'drawDistance': 800},
-    'building': {'blocksLos': True, 'blocksBuild': True, 'scaleRange': [1, 1], 'randomRotation': False, 'wind': 0, 'drawDistance': 3000},
-    'wall': {'blocksLos': True, 'blocksBuild': True, 'scaleRange': [1, 1], 'randomRotation': False, 'wind': 0, 'drawDistance': 1500},
-    'prop': {'blocksLos': False, 'blocksBuild': True, 'scaleRange': [0.9, 1.1], 'randomRotation': True, 'wind': 0, 'drawDistance': 500},
-    'structure': {'blocksLos': False, 'blocksBuild': False, 'scaleRange': [1, 1], 'randomRotation': False, 'wind': 0, 'drawDistance': 3000},
-    'fx': {'blocksLos': False, 'blocksBuild': False, 'scaleRange': [0.7, 1.5], 'randomRotation': True, 'wind': 0, 'drawDistance': 1500},
+    'tree': {'blocksLos': True, 'blocksBuild': True, 'scaleRange': [0.8, 1.2], 'randomRotation': True, 'wind': 0.5},
+    'plant': {'blocksLos': False, 'blocksBuild': False, 'scaleRange': [0.7, 1.3], 'randomRotation': True, 'wind': 0.6},
+    'rock': {'blocksLos': False, 'blocksBuild': True, 'scaleRange': [0.7, 1.4], 'randomRotation': True, 'wind': 0},
+    'building': {'blocksLos': True, 'blocksBuild': True, 'scaleRange': [1, 1], 'randomRotation': False, 'wind': 0},
+    'wall': {'blocksLos': True, 'blocksBuild': True, 'scaleRange': [1, 1], 'randomRotation': False, 'wind': 0},
+    'prop': {'blocksLos': False, 'blocksBuild': True, 'scaleRange': [0.9, 1.1], 'randomRotation': True, 'wind': 0},
+    'structure': {'blocksLos': False, 'blocksBuild': False, 'scaleRange': [1, 1], 'randomRotation': False, 'wind': 0},
+    'fx': {'blocksLos': False, 'blocksBuild': False, 'scaleRange': [0.7, 1.5], 'randomRotation': True, 'wind': 0},
 }
 # Share of the half extent that counts as occupied ground (a crown overhangs, a trunk does not)
 FOOTPRINT_SHARE = {'tree': 0.3, 'plant': 0.6}
-# The builders' LOD copies take over at this camera distance (small plants at 0.4 of their draw distance) for an
+# The builders' LOD copies take over at this camera distance (small plants at 0.4 of where they go, DRAW_PIXELS) for an
 # object of the asset's size at scale 1. The catalogue keeps it as the share of the screen's height the object
 # fills there (`screen`): a smaller object switches nearer, a bigger one farther (object-layer.ts)
 LOD_DISTANCE = 350
@@ -53,6 +53,9 @@ LOD_DISTANCE = 350
 BUILDING_LOD_DISTANCE = 140
 # Half the vertical field of view of the game camera (60 degrees), as object-layer.ts LOD_TAN_HALF_FOV
 TAN_HALF_FOV = math.tan(math.radians(30))
+# Objects go once their radius is this many pixels of a 1080-line view, at High (render-quality.ts drawPixels,
+# asset-catalog.ts pixelDistance)
+DRAW_PIXELS = 1.5
 # A building's box (objects/far-boxes.ts) takes over where it fills less than this share of the screen's height
 FAR_SCREEN = 0.045
 # Trees with a hand-built far copy (objects.json lodSharesTextures) take it nearer: the impostor keeps its distance
@@ -60,7 +63,7 @@ FAR_SCREEN = 0.045
 # back (which drew a million triangles more on Demo Valley)
 TREE_LOD_DISTANCE = 175
 ORDER = ['id', 'name', 'category', 'file', 'footprint', 'height', 'base', 'box', 'roof', 'blocksLos', 'blocksBuild', 'scaleRange',
-         'randomRotation', 'wind', 'drawDistance', 'float', 'aloft', 'stilts', 'roadThrough', 'groundCut', 'spin', 'rotor', 'cable', 'grip', 'row', 'variants', 'signPanel', 'grime', 'tags', 'effects', 'light', 'textures', 'lod', 'far', 'source']
+         'randomRotation', 'wind', 'float', 'aloft', 'stilts', 'roadThrough', 'groundCut', 'spin', 'rotor', 'cable', 'grip', 'row', 'variants', 'signPanel', 'grime', 'tags', 'effects', 'light', 'textures', 'lod', 'far', 'source']
 
 
 def lod_screen(e, distance):
@@ -122,14 +125,13 @@ def main():
             e['roof'] = roofs[o['id']]
         if e['category'] == 'rock' and 'blocksLos' not in o:
             e['blocksLos'] = e['height'] >= 1.8
-        if 'drawDistance' not in o and e['category'] in ('rock', 'prop') and e['height'] >= 3:
-            e['drawDistance'] = 2500
         lod_file = os.path.join(out, 'models', o['id'] + '-lod1.glb')
         if 'lod' not in o and (o['id'] + '-lod1' in report or (not (kept and 'lod' in kept) and os.path.exists(lod_file))):
-            # Decimated copy from the builders (export_lod) or make_far_lods.mjs; small plants vanish at their draw distance:
+            # Decimated copy from the builders (export_lod) or make_far_lods.mjs; small plants go at the pixel limit:
             # switch well before that
             distance = BUILDING_LOD_DISTANCE if e['category'] == 'building' else TREE_LOD_DISTANCE if o.get('lodSharesTextures') else LOD_DISTANCE
-            e['lod'] = [{'file': f'models/{o["id"]}-lod1.glb', 'screen': lod_screen(e, min(distance, round(e['drawDistance'] * 0.4)))}]
+            gone = max(e['footprint'], e['height'] * 0.6) / (DRAW_PIXELS / 540 * TAN_HALF_FOV)
+            e['lod'] = [{'file': f'models/{o["id"]}-lod1.glb', 'screen': lod_screen(e, min(distance, round(gone * 0.4)))}]
         elif kept and 'lod' in kept and 'lod' not in o:
             e['lod'] = kept['lod']
         if o['id'] in farboxes:

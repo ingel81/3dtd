@@ -18,7 +18,6 @@ const piece = (id: string): CatalogObject => ({
   scaleRange: [1, 1],
   randomRotation: false,
   wind: 0,
-  drawDistance: 1000,
 });
 
 describe('BridgeLayer', () => {

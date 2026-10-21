@@ -28,7 +28,6 @@ const catalog: AssetCatalog = {
       scaleRange: [1, 1],
       randomRotation: false,
       wind: 0,
-      drawDistance: 5000,
       lod: [{ file: 'post-far.glb', screen: 6 / (100 * Math.tan(Math.PI / 6)) }],
     },
   ],

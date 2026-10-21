@@ -221,7 +221,7 @@ export class SettingsSectionsComponent {
     const steps = t.settings.steps;
     return [
       stepRow(t, 'shadows', (k) => steps.shadows.option(k.customMaps.shadowMapSize, k.customMaps.shadowRadius > 1.5)),
-      stepRow(t, 'farDetail', (k) => steps.farDetail.option(k.customMaps.lodBias, k.customMaps.impostorFrom, k.customMaps.farSingle)),
+      stepRow(t, 'farDetail', (k) => steps.farDetail.option(k.customMaps.lodBias, k.customMaps.drawPixels, k.customMaps.impostorFrom, k.customMaps.farSingle)),
       stepRow(t, 'grass', (k) => steps.grass.option(k.customMaps.grassBlades, k.customMaps.grassFarBlades), (k) => !k.customMaps.grassBlades),
     ];
   });

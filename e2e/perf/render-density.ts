@@ -3,7 +3,7 @@
 // hidden, the share of instances outside the view frustum and behind buildings (a depth image of the buildings
 // from the camera, tested per instance's bounding sphere as a Hi-Z culler would), what a culled instance list
 // would save on the GPU (the lists compacted to what is in view, measured), objects smaller than a few pixels, a
-// forced shadow map, the objects past their draw distance and the main thread's time for detail levels. Variants
+// forced shadow map, the objects under the pixel limit and the main thread's time for detail levels. Variants
 // are measured in turns and pooled (the GPU's clock drifts over a run). Prints a summary, writes everything as JSON.
 // The page under test is the probe's: it wraps the renderer, the view's update and the meshes' onBeforeRender.
 //
@@ -310,8 +310,8 @@ async function measure(args: PageArgs): Promise<unknown> {
   recording = false;
   const info = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
   renderer.info.autoReset = true;
-  // The map's placed objects per category and how many of them show no level at all from here (past the asset's
-  // draw distance): what a fixed drawDistance leaves out (object-layer.ts levelOf, -1 hidden)
+  // The map's placed objects per category and how many of them show no level at all from here (smaller than the
+  // pixel limit; a line's piece past its line's): what the pixel limit leaves out (object-layer.ts levelOf, -1 hidden)
   const placed: Record<string, { objects: number; shown: number; beyond: number }> = {};
   for (const b of view.objects?.batches ?? []) {
     if (b.ruin) continue;

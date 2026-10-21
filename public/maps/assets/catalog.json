@@ -2664,7 +2664,6 @@
       ],
       "randomRotation": true,
       "wind": 0.5,
-      "drawDistance": 2500,
       "tags": [
         "temperate"
       ],
@@ -2711,7 +2710,6 @@
       ],
       "randomRotation": true,
       "wind": 0.7,
-      "drawDistance": 2500,
       "tags": [
         "temperate"
       ],
@@ -2758,7 +2756,6 @@
       ],
       "randomRotation": true,
       "wind": 0.35,
-      "drawDistance": 2500,
       "tags": [
         "temperate",
         "mountain",
@@ -2807,7 +2804,6 @@
       ],
       "randomRotation": true,
       "wind": 0.35,
-      "drawDistance": 2500,
       "tags": [
         "temperate",
         "mountain",
@@ -2856,7 +2852,6 @@
       ],
       "randomRotation": true,
       "wind": 0.15,
-      "drawDistance": 2500,
       "tags": [
         "swamp",
         "autumn",
@@ -2886,7 +2881,6 @@
       ],
       "randomRotation": true,
       "wind": 0.5,
-      "drawDistance": 600,
       "tags": [
         "temperate",
         "village",
@@ -2917,7 +2911,6 @@
       ],
       "randomRotation": true,
       "wind": 0.6,
-      "drawDistance": 250,
       "tags": [
         "temperate",
         "swamp",
@@ -2946,7 +2939,6 @@
       ],
       "randomRotation": true,
       "wind": 1.0,
-      "drawDistance": 140,
       "tags": [
         "temperate"
       ],
@@ -2971,7 +2963,6 @@
       ],
       "randomRotation": true,
       "wind": 1.0,
-      "drawDistance": 140,
       "tags": [
         "temperate",
         "village"
@@ -2997,7 +2988,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "temperate",
         "undergrowth"
@@ -3028,7 +3018,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "temperate"
       ],
@@ -3060,7 +3049,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "temperate",
         "mountain",
@@ -3094,7 +3082,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "temperate",
         "mountain"
@@ -3149,7 +3136,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "village"
       ],
@@ -3257,7 +3243,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "village"
       ],
@@ -3365,7 +3350,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "village"
       ],
@@ -3457,7 +3441,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "castle",
         "autumn"
@@ -3496,7 +3479,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "village",
         "castle"
@@ -3543,7 +3525,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "village"
       ],
@@ -3583,7 +3564,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "village"
       ],
@@ -3613,7 +3593,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "village"
       ],
@@ -3640,7 +3619,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "village"
       ],
@@ -3676,7 +3654,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "village"
       ],
@@ -3713,7 +3690,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "village"
       ],
@@ -3743,7 +3719,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "mountain",
         "castle",
@@ -3777,7 +3752,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "volcanic",
         "hell"
@@ -3806,7 +3780,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "city",
         "wasteland"
@@ -3838,7 +3811,6 @@
       ],
       "randomRotation": true,
       "wind": 0.5,
-      "drawDistance": 2500,
       "tags": [
         "autumn"
       ],
@@ -3885,7 +3857,6 @@
       ],
       "randomRotation": true,
       "wind": 0.5,
-      "drawDistance": 2500,
       "tags": [
         "temperate",
         "village"
@@ -3933,7 +3904,6 @@
       ],
       "randomRotation": true,
       "wind": 0.5,
-      "drawDistance": 2500,
       "tags": [
         "temperate"
       ],
@@ -3980,7 +3950,6 @@
       ],
       "randomRotation": true,
       "wind": 0.5,
-      "drawDistance": 2500,
       "tags": [
         "autumn"
       ],
@@ -4027,7 +3996,6 @@
       ],
       "randomRotation": true,
       "wind": 0.5,
-      "drawDistance": 2500,
       "tags": [
         "autumn",
         "castle"
@@ -4075,7 +4043,6 @@
       ],
       "randomRotation": true,
       "wind": 0.7,
-      "drawDistance": 2500,
       "tags": [
         "autumn"
       ],
@@ -4122,7 +4089,6 @@
       ],
       "randomRotation": true,
       "wind": 0.8,
-      "drawDistance": 2500,
       "tags": [
         "swamp",
         "temperate"
@@ -4151,7 +4117,6 @@
       ],
       "randomRotation": true,
       "wind": 0.35,
-      "drawDistance": 2500,
       "tags": [
         "swamp",
         "coast"
@@ -4199,7 +4164,6 @@
       ],
       "randomRotation": true,
       "wind": 0.1,
-      "drawDistance": 2500,
       "tags": [
         "swamp"
       ],
@@ -4226,7 +4190,6 @@
       ],
       "randomRotation": true,
       "wind": 0.1,
-      "drawDistance": 2500,
       "tags": [
         "desert",
         "winter",
@@ -4256,7 +4219,6 @@
       ],
       "randomRotation": true,
       "wind": 0.3,
-      "drawDistance": 2500,
       "tags": [
         "winter",
         "mountain",
@@ -4305,7 +4267,6 @@
       ],
       "randomRotation": true,
       "wind": 0.3,
-      "drawDistance": 2500,
       "tags": [
         "winter",
         "mountain",
@@ -4354,7 +4315,6 @@
       ],
       "randomRotation": true,
       "wind": 0.4,
-      "drawDistance": 2500,
       "tags": [
         "temperate",
         "mountain",
@@ -4403,7 +4363,6 @@
       ],
       "randomRotation": true,
       "wind": 0.35,
-      "drawDistance": 2500,
       "tags": [
         "winter",
         "mountain",
@@ -4451,7 +4410,6 @@
       ],
       "randomRotation": true,
       "wind": 0.6,
-      "drawDistance": 2500,
       "tags": [
         "coast",
         "desert"
@@ -4480,7 +4438,6 @@
       ],
       "randomRotation": true,
       "wind": 0.7,
-      "drawDistance": 2500,
       "tags": [
         "coast",
         "desert"
@@ -4509,7 +4466,6 @@
       ],
       "randomRotation": true,
       "wind": 0.5,
-      "drawDistance": 2500,
       "tags": [
         "desert"
       ],
@@ -4537,7 +4493,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "desert"
       ],
@@ -4562,7 +4517,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "desert"
       ],
@@ -4587,7 +4541,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "desert"
       ],
@@ -4612,7 +4565,6 @@
       ],
       "randomRotation": true,
       "wind": 0.1,
-      "drawDistance": 2500,
       "tags": [
         "desert"
       ],
@@ -4654,7 +4606,6 @@
       ],
       "randomRotation": true,
       "wind": 0.1,
-      "drawDistance": 2500,
       "tags": [
         "desert"
       ],
@@ -4693,7 +4644,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "desert"
       ],
@@ -4732,7 +4682,6 @@
       ],
       "randomRotation": true,
       "wind": 0.4,
-      "drawDistance": 300,
       "tags": [
         "desert"
       ],
@@ -4761,7 +4710,6 @@
       ],
       "randomRotation": true,
       "wind": 0.4,
-      "drawDistance": 2500,
       "tags": [
         "desert"
       ],
@@ -4800,7 +4748,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 300,
       "tags": [
         "desert"
       ],
@@ -4839,7 +4786,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 300,
       "tags": [
         "desert",
         "coast"
@@ -4879,7 +4825,6 @@
       ],
       "randomRotation": true,
       "wind": 0.4,
-      "drawDistance": 300,
       "tags": [
         "desert",
         "coast"
@@ -4919,7 +4864,6 @@
       ],
       "randomRotation": true,
       "wind": 0.4,
-      "drawDistance": 300,
       "tags": [
         "desert"
       ],
@@ -4958,7 +4902,6 @@
       ],
       "randomRotation": true,
       "wind": 0.4,
-      "drawDistance": 600,
       "tags": [
         "temperate",
         "coast",
@@ -4989,7 +4932,6 @@
       ],
       "randomRotation": true,
       "wind": 0.4,
-      "drawDistance": 600,
       "tags": [
         "temperate",
         "coast",
@@ -5020,7 +4962,6 @@
       ],
       "randomRotation": true,
       "wind": 0.5,
-      "drawDistance": 600,
       "tags": [
         "autumn",
         "undergrowth"
@@ -5050,7 +4991,6 @@
       ],
       "randomRotation": true,
       "wind": 0.5,
-      "drawDistance": 600,
       "tags": [
         "castle",
         "swamp",
@@ -5087,7 +5027,6 @@
       ],
       "randomRotation": false,
       "wind": 0.15,
-      "drawDistance": 1200,
       "tags": [
         "village",
         "castle"
@@ -5147,7 +5086,6 @@
       ],
       "randomRotation": false,
       "wind": 0.15,
-      "drawDistance": 1200,
       "tags": [
         "village",
         "castle"
@@ -5201,7 +5139,6 @@
       ],
       "randomRotation": true,
       "wind": 0.6,
-      "drawDistance": 300,
       "tags": [
         "temperate",
         "swamp",
@@ -5242,7 +5179,6 @@
       ],
       "randomRotation": true,
       "wind": 0.6,
-      "drawDistance": 300,
       "tags": [
         "temperate",
         "village",
@@ -5283,7 +5219,6 @@
       ],
       "randomRotation": true,
       "wind": 1.0,
-      "drawDistance": 140,
       "tags": [
         "temperate",
         "mountain",
@@ -5310,7 +5245,6 @@
       ],
       "randomRotation": true,
       "wind": 1.0,
-      "drawDistance": 140,
       "tags": [
         "desert",
         "autumn",
@@ -5337,7 +5271,6 @@
       ],
       "randomRotation": true,
       "wind": 1.0,
-      "drawDistance": 140,
       "tags": [
         "autumn"
       ],
@@ -5362,7 +5295,6 @@
       ],
       "randomRotation": true,
       "wind": 0.6,
-      "drawDistance": 140,
       "tags": [
         "winter",
         "mountain",
@@ -5389,7 +5321,6 @@
       ],
       "randomRotation": true,
       "wind": 0.9,
-      "drawDistance": 140,
       "tags": [
         "swamp",
         "shore"
@@ -5415,7 +5346,6 @@
       ],
       "randomRotation": true,
       "wind": 0.9,
-      "drawDistance": 400,
       "tags": [
         "swamp",
         "temperate",
@@ -5443,7 +5373,6 @@
       ],
       "randomRotation": true,
       "wind": 0.9,
-      "drawDistance": 500,
       "tags": [
         "swamp",
         "shore"
@@ -5469,7 +5398,6 @@
       ],
       "randomRotation": true,
       "wind": 0.8,
-      "drawDistance": 500,
       "tags": [
         "village"
       ],
@@ -5494,7 +5422,6 @@
       ],
       "randomRotation": true,
       "wind": 1.0,
-      "drawDistance": 140,
       "tags": [
         "temperate",
         "village"
@@ -5520,7 +5447,6 @@
       ],
       "randomRotation": true,
       "wind": 1.0,
-      "drawDistance": 140,
       "tags": [
         "temperate",
         "mountain"
@@ -5546,7 +5472,6 @@
       ],
       "randomRotation": true,
       "wind": 1.0,
-      "drawDistance": 140,
       "tags": [
         "temperate",
         "desert"
@@ -5572,7 +5497,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 400,
       "float": true,
       "tags": [
         "swamp",
@@ -5601,7 +5525,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 150,
       "tags": [
         "temperate",
         "autumn",
@@ -5626,7 +5549,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 150,
       "tags": [
         "autumn",
         "swamp",
@@ -5650,7 +5572,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 400,
       "tags": [
         "swamp",
         "crystal"
@@ -5679,7 +5600,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "swamp",
         "crystal"
@@ -5717,7 +5637,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "temperate",
         "swamp",
@@ -5758,7 +5677,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "temperate",
         "swamp",
@@ -5799,7 +5717,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "temperate",
         "swamp",
@@ -5840,7 +5757,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 250,
       "tags": [
         "temperate",
         "swamp",
@@ -5881,7 +5797,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 200,
       "tags": [
         "temperate",
         "autumn",
@@ -5928,7 +5843,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "temperate",
         "mountain",
@@ -5975,7 +5889,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "mountain",
         "temperate"
@@ -6020,7 +5933,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "mountain",
         "temperate",
@@ -6066,7 +5978,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "temperate",
         "coast",
@@ -6112,7 +6023,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "desert"
       ],
@@ -6156,7 +6066,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "desert"
       ],
@@ -6200,7 +6109,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "desert",
         "coast"
@@ -6245,7 +6153,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "desert"
       ],
@@ -6289,7 +6196,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "volcanic",
         "coast",
@@ -6335,7 +6241,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "volcanic",
         "coast",
@@ -6381,7 +6286,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "winter",
         "mountain",
@@ -6427,7 +6331,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "volcanic",
         "hell"
@@ -6472,7 +6375,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "volcanic",
         "hell"
@@ -6517,7 +6419,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "volcanic",
         "scree"
@@ -6562,7 +6463,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "temperate",
         "swamp",
@@ -6608,7 +6508,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "temperate",
         "swamp",
@@ -6654,7 +6553,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "temperate",
         "swamp",
@@ -6700,7 +6598,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "temperate",
         "swamp"
@@ -6745,7 +6642,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 250,
       "tags": [
         "temperate",
         "desert",
@@ -6788,7 +6684,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "coast",
         "shore"
@@ -6828,7 +6723,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "mountain"
       ],
@@ -6867,7 +6761,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "mountain"
       ],
@@ -6906,7 +6799,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "mountain"
       ],
@@ -6945,7 +6837,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "mountain"
       ],
@@ -6984,7 +6875,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "desert"
       ],
@@ -7023,7 +6913,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "volcanic",
         "coast",
@@ -7064,7 +6953,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "coast"
       ],
@@ -7103,7 +6991,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "desert",
         "hell",
@@ -7149,7 +7036,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "desert"
       ],
@@ -7193,7 +7079,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "desert"
       ],
@@ -7232,7 +7117,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "desert"
       ],
@@ -7271,7 +7155,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 2500,
       "roadThrough": true,
       "tags": [
         "desert",
@@ -7312,7 +7195,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "desert",
         "mars"
@@ -7358,7 +7240,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "crystal",
         "mountain"
@@ -7391,7 +7272,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "volcanic",
         "coast",
@@ -7425,7 +7305,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "crystal"
       ],
@@ -7472,7 +7351,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "crystal"
       ],
@@ -7519,7 +7397,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "winter",
         "crystal",
@@ -7563,7 +7440,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "volcanic",
         "hell"
@@ -7640,7 +7516,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "castle"
       ],
@@ -7696,7 +7571,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "castle"
       ],
@@ -7752,7 +7626,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "castle"
       ],
@@ -7808,7 +7681,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "castle"
       ],
@@ -7864,7 +7736,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "castle"
       ],
@@ -7920,7 +7791,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "castle"
       ],
@@ -7976,7 +7846,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "castle"
       ],
@@ -8031,7 +7900,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "castle"
       ],
@@ -8086,7 +7954,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "castle"
       ],
@@ -8172,7 +8039,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "castle"
       ],
@@ -8228,7 +8094,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "roadThrough": true,
       "tags": [
         "castle"
@@ -8315,7 +8180,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "castle"
       ],
@@ -8374,7 +8238,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "castle"
       ],
@@ -8429,7 +8292,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "village",
         "autumn"
@@ -8533,7 +8395,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "village",
         "mountain"
@@ -8642,7 +8503,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "village"
       ],
@@ -8750,7 +8610,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "winter",
         "village"
@@ -8857,7 +8716,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "winter",
         "village",
@@ -8970,7 +8828,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "mountain",
         "village",
@@ -9075,7 +8932,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "winter",
         "mountain",
@@ -9183,7 +9039,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "winter",
         "village"
@@ -9279,7 +9134,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "rotor": 14,
       "tags": [
         "village",
@@ -9389,7 +9243,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "rotor": 11,
       "tags": [
         "village"
@@ -9457,7 +9310,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "village",
         "castle",
@@ -9548,7 +9400,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "village",
         "swamp",
@@ -9627,7 +9478,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 3000,
       "spin": 10,
       "tags": [
         "coast"
@@ -9693,7 +9543,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "stilts": true,
       "tags": [
         "swamp",
@@ -9772,7 +9621,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "swamp",
         "desert",
@@ -9848,7 +9696,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "desert"
       ],
@@ -9925,7 +9772,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "desert"
       ],
@@ -9987,7 +9833,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "village",
         "desert"
@@ -10022,7 +9867,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "village",
         "coast"
@@ -10057,7 +9901,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "village",
         "desert",
@@ -10090,7 +9933,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1200,
       "tags": [
         "castle",
         "desert",
@@ -10123,7 +9965,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "aloft": true,
       "tags": [
         "village",
@@ -10169,7 +10010,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "aloft": true,
       "tags": [
         "village",
@@ -10204,7 +10044,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "swamp",
         "coast",
@@ -10237,7 +10076,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "swamp",
         "coast"
@@ -10269,7 +10107,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "float": true,
       "tags": [
         "coast",
@@ -10314,7 +10151,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "float": true,
       "tags": [
         "coast",
@@ -10364,7 +10200,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "village",
         "swamp",
@@ -10415,7 +10250,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "roadThrough": true,
       "tags": [
         "village",
@@ -10467,7 +10301,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "village",
         "winter"
@@ -10514,7 +10347,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "village",
         "mountain",
@@ -10562,7 +10394,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 800,
       "roadThrough": true,
       "tags": [
         "village"
@@ -10609,7 +10440,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "village",
         "mountain",
@@ -10657,7 +10487,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "village",
         "mountain",
@@ -10715,7 +10544,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "castle",
         "coast"
@@ -10773,7 +10601,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "castle",
         "coast"
@@ -10822,7 +10649,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "roadThrough": true,
       "tags": [
         "castle"
@@ -10862,7 +10688,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "castle"
       ],
@@ -10916,7 +10741,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "castle",
         "autumn",
@@ -10973,7 +10797,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "desert",
         "arena",
@@ -11033,7 +10856,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "roadThrough": true,
       "tags": [
         "castle",
@@ -11076,7 +10898,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "desert",
         "arena"
@@ -11105,7 +10926,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "village",
         "mountain",
@@ -11145,7 +10965,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "village",
         "swamp",
@@ -11179,7 +10998,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "castle",
         "village",
@@ -11223,7 +11041,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "variants": 4,
       "tags": [
         "temperate",
@@ -11270,7 +11087,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "variants": 4,
       "tags": [
         "temperate",
@@ -11317,7 +11133,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "variants": 4,
       "tags": [
         "temperate",
@@ -11364,7 +11179,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "temperate",
         "village",
@@ -11389,7 +11203,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "temperate",
         "village",
@@ -11414,7 +11227,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "temperate",
         "village",
@@ -11439,7 +11251,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "temperate",
         "autumn",
@@ -11464,7 +11275,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "temperate",
         "autumn",
@@ -11489,7 +11299,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "castle",
         "arena"
@@ -11532,7 +11341,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1200,
       "tags": [
         "castle",
         "swamp",
@@ -11579,7 +11387,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1200,
       "tags": [
         "castle",
         "arena",
@@ -11628,7 +11435,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1200,
       "tags": [
         "village",
         "mountain",
@@ -11690,7 +11496,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "village",
         "winter",
@@ -11731,7 +11536,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "mountain",
         "temperate",
@@ -11759,7 +11563,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "mountain"
       ],
@@ -11785,7 +11588,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "village"
       ],
@@ -11827,7 +11629,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1000,
       "tags": [
         "village",
         "autumn"
@@ -11858,7 +11659,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "village",
         "autumn"
@@ -11886,7 +11686,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "village",
         "winter",
@@ -11918,7 +11717,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "village",
         "castle"
@@ -11946,7 +11744,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "castle",
         "arena"
@@ -11974,7 +11771,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "village",
         "mountain",
@@ -12003,7 +11799,6 @@
       ],
       "randomRotation": false,
       "wind": 0.3,
-      "drawDistance": 1500,
       "tags": [
         "castle",
         "arena"
@@ -12032,7 +11827,6 @@
       ],
       "randomRotation": false,
       "wind": 0.3,
-      "drawDistance": 1500,
       "tags": [
         "castle",
         "arena"
@@ -12061,7 +11855,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "desert",
         "volcanic",
@@ -12086,7 +11879,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "village",
         "castle"
@@ -12114,7 +11906,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "village",
         "coast"
@@ -12142,7 +11933,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "village",
         "coast"
@@ -12170,7 +11960,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "village",
         "coast",
@@ -12218,7 +12007,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "village",
         "coast"
@@ -12246,7 +12034,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "village",
         "coast"
@@ -12274,7 +12061,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 250,
       "tags": [
         "village"
       ],
@@ -12301,7 +12087,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 250,
       "tags": [
         "village"
       ],
@@ -12328,7 +12113,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 300,
       "tags": [
         "village",
         "swamp",
@@ -12367,7 +12151,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1000,
       "tags": [
         "castle",
         "coast"
@@ -12407,7 +12190,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 400,
       "tags": [
         "castle",
         "coast",
@@ -12448,7 +12230,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 250,
       "tags": [
         "castle",
         "arena"
@@ -12479,7 +12260,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 400,
       "tags": [
         "village",
         "castle"
@@ -12507,7 +12287,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 300,
       "tags": [
         "village"
       ],
@@ -12546,7 +12325,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 250,
       "tags": [
         "village",
         "desert"
@@ -12574,7 +12352,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 400,
       "tags": [
         "village",
         "castle"
@@ -12602,7 +12379,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 200,
       "tags": [
         "mountain",
         "crystal",
@@ -12637,7 +12413,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "float": true,
       "tags": [
         "coast"
@@ -12705,7 +12480,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "city"
       ],
@@ -12797,7 +12571,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "city"
       ],
@@ -12889,7 +12662,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "wasteland"
       ],
@@ -12947,7 +12719,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "city",
         "village"
@@ -13040,7 +12811,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "city",
         "village"
@@ -13133,7 +12903,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "wasteland"
       ],
@@ -13191,7 +12960,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "wasteland"
       ],
@@ -13277,7 +13045,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "city"
       ],
@@ -13369,7 +13136,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "city"
       ],
@@ -13458,7 +13224,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "wasteland"
       ],
@@ -13532,7 +13297,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "city",
         "coast"
@@ -13560,7 +13324,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "city",
         "coast"
@@ -13588,7 +13351,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "city",
         "coast",
@@ -13617,7 +13379,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "wasteland"
       ],
@@ -13644,7 +13405,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "city"
       ],
@@ -13681,7 +13441,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "city"
       ],
@@ -13718,7 +13477,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "city"
       ],
@@ -13755,7 +13513,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "city"
       ],
@@ -13792,7 +13549,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "wasteland"
       ],
@@ -13832,7 +13588,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "wasteland"
       ],
@@ -13872,7 +13627,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "wasteland",
         "hell"
@@ -13901,7 +13655,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "wasteland"
       ],
@@ -13941,7 +13694,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 900,
       "tags": [
         "city",
         "village",
@@ -13980,7 +13732,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 900,
       "tags": [
         "wasteland",
         "desert"
@@ -14021,7 +13772,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "city"
       ],
@@ -14058,7 +13808,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "wasteland"
       ],
@@ -14098,7 +13847,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "city"
       ],
@@ -14135,7 +13883,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "wasteland",
         "hell"
@@ -14176,7 +13923,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "wasteland"
       ],
@@ -14204,7 +13950,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "wasteland",
         "hell"
@@ -14233,7 +13978,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "city",
         "wasteland"
@@ -14273,7 +14017,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1000,
       "tags": [
         "city"
       ],
@@ -14301,7 +14044,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1000,
       "tags": [
         "city"
       ],
@@ -14346,7 +14088,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 400,
       "tags": [
         "city",
         "village"
@@ -14374,7 +14115,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "city"
       ],
@@ -14396,7 +14136,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 300,
       "tags": [
         "city"
       ],
@@ -14423,7 +14162,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 300,
       "tags": [
         "city",
         "wasteland"
@@ -14451,7 +14189,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 400,
       "tags": [
         "city"
       ],
@@ -14484,7 +14221,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "city",
         "wasteland"
@@ -14530,7 +14266,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "city",
         "wasteland"
@@ -14576,7 +14311,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "city",
         "wasteland",
@@ -14611,7 +14345,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "city",
         "wasteland"
@@ -14637,7 +14370,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "aloft": true,
       "tags": [
         "city",
@@ -14669,7 +14401,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "city",
         "village"
@@ -14712,7 +14443,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1200,
       "tags": [
         "wasteland"
       ],
@@ -14759,7 +14489,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "wasteland",
         "city"
@@ -14799,7 +14528,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "wasteland"
       ],
@@ -14839,7 +14567,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "wasteland"
       ],
@@ -14884,7 +14611,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "wasteland",
         "desert"
@@ -14930,7 +14656,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "wasteland"
       ],
@@ -14975,7 +14700,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "wasteland",
         "coast"
@@ -15003,7 +14727,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "wasteland"
       ],
@@ -15031,7 +14754,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "wasteland"
       ],
@@ -15065,7 +14787,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 300,
       "tags": [
         "wasteland",
         "city"
@@ -15093,7 +14814,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "wasteland"
       ],
@@ -15141,7 +14861,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 200,
       "tags": [
         "wasteland"
       ],
@@ -15168,7 +14887,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 200,
       "tags": [
         "wasteland",
         "city"
@@ -15196,7 +14914,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 400,
       "tags": [
         "wasteland"
       ],
@@ -15223,7 +14940,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 400,
       "tags": [
         "wasteland",
         "arctic"
@@ -15278,7 +14994,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "moon",
         "mars",
@@ -15339,7 +15054,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "moon",
         "mars"
@@ -15411,7 +15125,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "moon",
         "mars"
@@ -15452,7 +15165,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "moon",
         "mars"
@@ -15505,7 +15217,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "moon",
         "mars"
@@ -15558,7 +15269,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "mars"
       ],
@@ -15595,7 +15305,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "spin": 6,
       "tags": [
         "moon",
@@ -15620,7 +15329,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "moon",
         "mars",
@@ -15652,7 +15360,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "moon",
         "mars"
@@ -15679,7 +15386,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "mars"
       ],
@@ -15721,7 +15427,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1200,
       "tags": [
         "moon",
         "mars"
@@ -15760,7 +15465,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "moon",
         "mars",
@@ -15788,7 +15492,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "moon",
         "mars"
@@ -15814,7 +15517,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "moon",
         "mars",
@@ -15849,7 +15551,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "moon"
       ],
@@ -15888,7 +15589,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "mars"
       ],
@@ -15932,7 +15632,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "moon"
       ],
@@ -15976,7 +15675,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "moon"
       ],
@@ -16020,7 +15718,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "moon"
       ],
@@ -16064,7 +15761,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "mars"
       ],
@@ -16108,7 +15804,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "mars"
       ],
@@ -16152,7 +15847,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "mars"
       ],
@@ -16191,7 +15885,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "mars"
       ],
@@ -16245,7 +15938,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "arctic",
         "winter"
@@ -16286,7 +15978,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "arctic",
         "moon",
@@ -16347,7 +16038,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "rotor": 4,
       "tags": [
         "arctic",
@@ -16376,7 +16066,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "float": true,
       "tags": [
         "arctic"
@@ -16419,7 +16108,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "arctic"
       ],
@@ -16444,7 +16132,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "arctic"
       ],
@@ -16481,7 +16168,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "arctic",
         "winter"
@@ -16512,7 +16198,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "arctic",
         "winter",
@@ -16559,7 +16244,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "arctic",
         "crystal"
@@ -16596,7 +16280,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "arctic",
         "winter"
@@ -16624,7 +16307,6 @@
       ],
       "randomRotation": true,
       "wind": 0.05,
-      "drawDistance": 2500,
       "tags": [
         "hell",
         "wasteland",
@@ -16653,7 +16335,6 @@
       ],
       "randomRotation": true,
       "wind": 0.1,
-      "drawDistance": 500,
       "tags": [
         "hell",
         "wasteland"
@@ -16694,7 +16375,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "hell",
         "castle"
@@ -16747,7 +16427,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "roadThrough": true,
       "tags": [
         "hell"
@@ -16805,7 +16484,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "hell",
         "castle",
@@ -16846,7 +16524,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "hell",
         "wasteland",
@@ -16892,7 +16569,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "hell",
         "volcanic"
@@ -16945,7 +16621,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "hell",
         "volcanic"
@@ -16998,7 +16673,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "hell",
         "volcanic"
@@ -17031,7 +16705,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "hell",
         "volcanic"
@@ -17059,7 +16732,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "aloft": true,
       "tags": [
         "mountain",
@@ -17119,7 +16791,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "mountain",
         "village"
@@ -17231,7 +16902,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "mountain",
         "winter"
@@ -17336,7 +17006,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "mountain"
       ],
@@ -17380,7 +17049,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "mountain",
         "arctic"
@@ -17421,7 +17089,6 @@
       ],
       "randomRotation": true,
       "wind": 0.3,
-      "drawDistance": 2500,
       "tags": [
         "swamp"
       ],
@@ -17449,7 +17116,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "desert"
       ],
@@ -17504,7 +17170,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "desert",
         "arena"
@@ -17548,7 +17213,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1200,
       "tags": [
         "desert"
       ],
@@ -17594,7 +17258,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "mountain",
         "village"
@@ -17706,7 +17369,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "mountain",
         "winter"
@@ -17821,7 +17483,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "mountain",
         "village"
@@ -17920,7 +17581,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "mountain",
         "winter"
@@ -18013,7 +17673,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "mountain",
         "village"
@@ -18073,7 +17732,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "mountain",
         "village"
@@ -18132,7 +17790,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "mountain",
         "winter"
@@ -18179,7 +17836,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "mountain",
         "winter"
@@ -18205,7 +17861,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "aloft": true,
       "grip": 4.4,
       "tags": [
@@ -18233,7 +17888,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 2500,
       "aloft": true,
       "cable": {
         "gauge": 5.2,
@@ -18261,7 +17915,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 2500,
       "aloft": true,
       "cable": {
         "gauge": 5.2,
@@ -18289,7 +17942,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 2500,
       "aloft": true,
       "cable": {
         "gauge": 5.2,
@@ -18317,7 +17969,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "swamp",
         "coast"
@@ -18371,7 +18022,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "swamp",
         "hell"
@@ -18452,7 +18102,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "swamp",
         "hell"
@@ -18497,7 +18146,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "swamp",
         "coast",
@@ -18527,7 +18175,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "float": true,
       "tags": [
         "coast",
@@ -18557,7 +18204,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "float": true,
       "tags": [
         "coast"
@@ -18618,7 +18264,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "desert",
         "arena"
@@ -18662,7 +18307,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "desert"
       ],
@@ -18691,7 +18335,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 300,
       "tags": [
         "desert"
       ],
@@ -18723,7 +18366,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 400,
       "tags": [
         "desert",
         "village",
@@ -18757,7 +18399,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "coast"
       ],
@@ -18785,7 +18426,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 2000,
       "tags": [
         "coast"
       ],
@@ -18828,7 +18468,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "coast",
         "city"
@@ -18857,7 +18496,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "float": true,
       "tags": [
         "coast",
@@ -18917,7 +18555,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "coast",
         "swamp"
@@ -18975,7 +18612,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1200,
       "float": true,
       "tags": [
         "coast"
@@ -19008,7 +18644,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1200,
       "float": true,
       "tags": [
         "coast"
@@ -19041,7 +18676,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 300,
       "tags": [
         "winter",
         "arctic"
@@ -19070,7 +18704,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "winter",
         "arctic"
@@ -19105,7 +18738,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "winter",
         "mountain"
@@ -19143,7 +18775,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1000,
       "tags": [
         "winter",
         "arctic"
@@ -19191,7 +18822,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "volcanic",
         "hell"
@@ -19217,7 +18847,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "aloft": true,
       "tags": [
         "volcanic",
@@ -19269,7 +18898,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "volcanic",
         "village",
@@ -19370,7 +18998,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "castle",
         "autumn"
@@ -19415,7 +19042,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "castle",
         "autumn"
@@ -19464,7 +19090,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "roadThrough": true,
       "tags": [
         "castle",
@@ -19506,7 +19131,6 @@
       ],
       "randomRotation": true,
       "wind": 0.2,
-      "drawDistance": 400,
       "tags": [
         "autumn",
         "castle"
@@ -19536,7 +19160,6 @@
       ],
       "randomRotation": true,
       "wind": 0.5,
-      "drawDistance": 2500,
       "tags": [
         "city",
         "village"
@@ -19599,7 +19222,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "city"
       ],
@@ -19676,7 +19298,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "city"
       ],
@@ -19698,7 +19319,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 400,
       "tags": [
         "city"
       ],
@@ -19726,7 +19346,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "wasteland",
         "swamp"
@@ -19766,7 +19385,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "wasteland",
         "city"
@@ -19794,7 +19412,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "wasteland"
       ],
@@ -19821,7 +19438,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1200,
       "tags": [
         "hell",
         "castle",
@@ -19856,7 +19472,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 150,
       "tags": [
         "temperate",
         "coast",
@@ -19903,7 +19518,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 300,
       "tags": [
         "mountain",
         "temperate",
@@ -19938,7 +19552,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 250,
       "tags": [
         "temperate",
         "swamp",
@@ -19973,7 +19586,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 250,
       "tags": [
         "desert",
         "mars",
@@ -20007,7 +19619,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 250,
       "tags": [
         "volcanic",
         "hell",
@@ -20046,7 +19657,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "groundCut": [
         4,
         3.4,
@@ -20110,7 +19720,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "groundCut": [
         4,
         4.2,
@@ -20175,7 +19784,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "castle",
         "autumn"
@@ -20223,7 +19831,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "mountain",
         "arctic",
@@ -20271,7 +19878,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "mountain",
         "arctic"
@@ -20301,7 +19907,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "mountain",
         "winter",
@@ -20343,7 +19948,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "mountain"
       ],
@@ -20380,7 +19984,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "mountain",
         "winter"
@@ -20412,7 +20015,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "coast"
       ],
@@ -20470,7 +20072,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "moon",
         "mars"
@@ -20516,7 +20117,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "hell",
         "volcanic"
@@ -20545,7 +20145,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "moon",
         "mars",
@@ -20582,7 +20181,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "moon",
         "mars",
@@ -20632,7 +20230,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "village",
         "temperate",
@@ -20723,7 +20320,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "village",
         "winter",
@@ -20811,7 +20407,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "swamp",
         "temperate",
@@ -20856,7 +20451,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "castle",
         "autumn",
@@ -20916,7 +20510,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 2500,
       "tags": [
         "castle"
       ],
@@ -20971,7 +20564,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "city",
         "wasteland"
@@ -21014,7 +20606,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "swamp",
         "temperate",
@@ -21046,7 +20637,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "village",
         "volcanic",
@@ -21079,7 +20669,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "volcanic",
         "wasteland",
@@ -21112,7 +20701,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "volcanic",
         "hell",
@@ -21143,7 +20731,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "swamp",
         "mountain",
@@ -21174,7 +20761,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "autumn",
         "temperate"
@@ -21205,7 +20791,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "winter",
         "arctic",
@@ -21236,7 +20821,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "crystal",
         "arena"
@@ -21266,7 +20850,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "mountain",
         "temperate",
@@ -21296,7 +20879,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "temperate",
         "mountain",
@@ -21331,7 +20913,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "moon",
         "mars",
@@ -21363,7 +20944,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "coast",
         "beach",
@@ -21394,7 +20974,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "hell",
         "volcanic",
@@ -21449,7 +21028,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -21539,7 +21117,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -21629,7 +21206,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -21720,7 +21296,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -21810,7 +21385,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -21900,7 +21474,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -21990,7 +21563,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -22080,7 +21652,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city",
@@ -22174,7 +21745,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city",
@@ -22268,7 +21838,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city",
@@ -22362,7 +21931,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city",
@@ -22456,7 +22024,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city",
@@ -22550,7 +22117,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -22643,7 +22209,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city",
@@ -22729,7 +22294,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -22819,7 +22383,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city",
@@ -22909,7 +22472,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "city"
       ],
@@ -22990,7 +22552,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "city"
       ],
@@ -23071,7 +22632,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "city"
       ],
@@ -23154,7 +22714,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -23245,7 +22804,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -23336,7 +22894,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -23427,7 +22984,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -23518,7 +23074,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -23610,7 +23165,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -23702,7 +23256,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -23794,7 +23347,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -23886,7 +23438,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -23977,7 +23528,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -24069,7 +23619,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -24160,7 +23709,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -24253,7 +23801,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -24346,7 +23893,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -24439,7 +23985,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city",
@@ -24536,7 +24081,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -24628,7 +24172,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -24719,7 +24262,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city",
@@ -24810,7 +24352,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -24901,7 +24442,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -24995,7 +24535,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "city",
         "village",
@@ -25080,7 +24619,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -25162,7 +24700,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city",
@@ -25242,7 +24779,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "signPanel": {
         "at": [
           -1.2,
@@ -25343,7 +24879,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "village",
@@ -25437,7 +24972,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "village",
         "temperate",
@@ -25529,7 +25063,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city",
@@ -25619,7 +25152,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city",
@@ -25705,7 +25237,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "grime": true,
       "tags": [
         "city"
@@ -25799,7 +25330,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "signPanel": {
         "at": [
           -1.8,
@@ -25888,7 +25418,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "tags": [
         "city"
       ],
@@ -25948,7 +25477,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "city",
         "temperate"
@@ -25999,7 +25527,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "city",
         "temperate"
@@ -26050,7 +25577,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "city",
         "temperate"
@@ -26101,7 +25627,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "city",
         "temperate"
@@ -26146,7 +25671,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1200,
       "roadThrough": true,
       "tags": [
         "city",
@@ -26192,7 +25716,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1200,
       "roadThrough": true,
       "tags": [
         "city",
@@ -26238,7 +25761,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 700,
       "tags": [
         "city",
         "temperate"
@@ -26279,7 +25801,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 700,
       "tags": [
         "city",
         "temperate"
@@ -26320,7 +25841,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 700,
       "tags": [
         "city",
         "temperate"
@@ -26361,7 +25881,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 2500,
       "aloft": true,
       "tags": [
         "city",
@@ -26407,7 +25926,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 2500,
       "aloft": true,
       "tags": [
         "city",
@@ -26453,7 +25971,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 2500,
       "roadThrough": true,
       "tags": [
         "city",
@@ -26498,7 +26015,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 2500,
       "roadThrough": true,
       "tags": [
         "city",
@@ -26552,7 +26068,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "city"
       ],
@@ -26583,7 +26098,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1200,
       "groundCut": [
         1.6,
         1,
@@ -26632,7 +26146,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1200,
       "groundCut": [
         1.6,
         1,
@@ -26669,7 +26182,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1200,
       "tags": [
         "city"
       ],
@@ -26703,7 +26215,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "city"
       ],
@@ -26731,7 +26242,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "city"
       ],
@@ -26756,7 +26266,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "groundCut": [
         6,
         1,
@@ -26794,7 +26303,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1500,
       "tags": [
         "city"
       ],
@@ -26822,7 +26330,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 800,
       "tags": [
         "city"
       ],
@@ -26874,7 +26381,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 4000,
       "tags": [
         "city",
         "temperate",
@@ -26916,7 +26422,6 @@
       ],
       "randomRotation": false,
       "wind": 0.3,
-      "drawDistance": 900,
       "row": 10,
       "tags": [
         "temperate",
@@ -26977,7 +26482,6 @@
       ],
       "randomRotation": true,
       "wind": 0.5,
-      "drawDistance": 2500,
       "tags": [
         "temperate",
         "village"
@@ -27025,7 +26529,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "city",
         "village"
@@ -27054,7 +26557,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "city",
         "village"
@@ -27095,7 +26597,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 700,
       "tags": [
         "city",
         "village"
@@ -27130,7 +26631,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 1200,
       "tags": [
         "city",
         "village"
@@ -27159,7 +26659,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "city",
         "village"
@@ -27204,7 +26703,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "city",
         "village"
@@ -27231,7 +26729,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "city",
         "village",
@@ -27274,7 +26771,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 400,
       "tags": [
         "city",
         "village"
@@ -27303,7 +26799,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "city",
         "village"
@@ -27330,7 +26825,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "city",
         "village"
@@ -27372,7 +26866,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "city"
       ],
@@ -27400,7 +26893,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "city",
         "village"
@@ -27445,7 +26937,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 400,
       "tags": [
         "city",
         "village"
@@ -27486,7 +26977,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 300,
       "tags": [
         "city",
         "village"
@@ -27524,7 +27014,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 400,
       "tags": [
         "city",
         "village"
@@ -27565,7 +27054,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 300,
       "tags": [
         "city"
       ],
@@ -27602,7 +27090,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 700,
       "tags": [
         "city"
       ],
@@ -27640,7 +27127,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "city",
         "village"
@@ -27669,7 +27155,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "village",
         "temperate",
@@ -27702,7 +27187,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 300,
       "tags": [
         "city",
         "village"
@@ -27733,7 +27217,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 250,
       "tags": [
         "city",
         "coast"
@@ -27759,7 +27242,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 300,
       "tags": [
         "city",
         "village"
@@ -27788,7 +27270,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 300,
       "tags": [
         "city",
         "village"
@@ -27826,7 +27307,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 400,
       "tags": [
         "city",
         "village",
@@ -27859,7 +27339,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 600,
       "aloft": true,
       "tags": [
         "city",
@@ -27889,7 +27368,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 700,
       "aloft": true,
       "tags": [
         "city",
@@ -27919,7 +27397,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 600,
       "aloft": true,
       "tags": [
         "city",
@@ -27946,7 +27423,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 500,
       "aloft": true,
       "signPanel": {
         "at": [
@@ -27982,7 +27458,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 400,
       "aloft": true,
       "signPanel": {
         "at": [
@@ -28038,7 +27513,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 3000,
       "float": true,
       "tags": [
         "coast",
@@ -28084,7 +27558,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 300,
       "tags": [
         "temperate",
         "city",
@@ -28114,7 +27587,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 500,
       "tags": [
         "city",
         "village"
@@ -28143,7 +27615,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 250,
       "tags": [
         "city",
         "village"
@@ -28169,7 +27640,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 300,
       "tags": [
         "city"
       ],
@@ -28197,7 +27667,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 400,
       "tags": [
         "city",
         "village"
@@ -28235,7 +27704,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 400,
       "tags": [
         "city",
         "village"
@@ -28261,7 +27729,6 @@
       ],
       "randomRotation": false,
       "wind": 0,
-      "drawDistance": 600,
       "tags": [
         "city",
         "village"
@@ -28287,7 +27754,6 @@
       ],
       "randomRotation": true,
       "wind": 0,
-      "drawDistance": 250,
       "tags": [
         "city",
         "village"

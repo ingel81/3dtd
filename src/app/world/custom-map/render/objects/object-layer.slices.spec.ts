@@ -25,7 +25,6 @@ const entry = (id: string) => ({
   scaleRange: [1, 1] as [number, number],
   randomRotation: false,
   wind: 0,
-  drawDistance: 5000,
 });
 const catalog: AssetCatalog = { version: 1, materials: [], objects: ['crate', 'barrel', 'sack'].map(entry) };
 

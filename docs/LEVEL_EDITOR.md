@@ -637,10 +637,11 @@ hält die mitgelieferten Karten unter 80 %. Ein Punkt ist etwa ein Dreieck im Bi
 - Je Objekt die Dreiecke seines Modells, seiner LOD-Modelle (`lod` im Katalog) und, bei Bäumen und Felsen ab 1,5 m,
   des Impostors (4 Dreiecke ab `max(letzte LOD-Distanz × 1,5, Höhe × 25, 380 m)`), wie `object-layer.ts` sie zeichnet;
   die LOD-Distanz ist dort, wo ein Objekt in Asset-Größe den Bildanteil `screen` seines `lod`-Eintrags füllt,
-  bis zur Sichtweite (`drawDistance`); Stufe High (`lodBias` 1, Impostor ab 380 m)
+  bis zur Pixelgrenze (Radius im Bild 1,5 px einer Ansicht mit 1080 Zeilen, `pixelDistance`; die Stücke einer Linie,
+  Mauern und Bauwerke in einer Gruppe, bis zum Kartenrand); Stufe High (`lodBias` 1, Impostor ab 380 m)
 - Jedes Band zählt mit dem Anteil der Karte, der darin liegt: Kreisring um die Kamera, höchstens die ganze Karte
   (`(min(A, π b²) − min(A, π a²)) / A`, A = Breite × Tiefe). Ein Haus, gezeichnet bis 3 km, zählt auf jeder Karte
-  voll; ein Grasbüschel mit 10 Dreiecken bis 140 m auf einer Large-Karte 0,15
+  voll; ein Grasbüschel mit 10 Dreiecken bis 187 m (0,3 m Radius) auf einer Large-Karte 0,26
 - dazu 2 Punkte je Objekt (Instanz, Einsortieren, Schatten) und 20 je Partikel pro Sekunde eines Effekts; ein Modell
   ohne gezählte Dreiecke oder ein unbekanntes Asset zählt 500 Dreiecke bis 500 m
 - Die Dreiecke schreibt `tools/map-assets/count_triangles.py` (`triangles` je Objekt und je `lod`) in `catalog.json`,

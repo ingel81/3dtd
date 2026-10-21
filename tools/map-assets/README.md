@@ -122,7 +122,8 @@ Rand (Höhe unter einem Zehntel der Breite) ist eine Unterseite und bekommt eine
 ist der unten offene Haufen `namaqualand_boulder_02` (`rock-large`, `rock-sandstone-large`) geschlossen.
 
 `objects.json` hält je Objekt, was ein Mensch entscheidet: Name, Kategorie, Biom-Tags, Lizenzquelle und, wo der
-Kategorie-Standard nicht passt, Sichtlinie, Bauverbot, Wind, Sichtweite, Skalierbereich. Fußabdruck und Höhe misst
+Kategorie-Standard nicht passt, Sichtlinie, Bauverbot, Wind, Skalierbereich (wie weit ein Objekt gezeichnet wird,
+folgt aus seiner Größe, `drawPixels` in `render-quality.ts`). Fußabdruck und Höhe misst
 `pack_models.py`, solange `objects.json` sie nicht setzt. Material- und Objekt-Ids teilen sich einen Namensraum.
 
 Biom-Tags: `temperate`, `autumn`, `winter`, `mountain`, `desert`, `swamp`, `coast`, `volcanic`, `village`, `castle`,

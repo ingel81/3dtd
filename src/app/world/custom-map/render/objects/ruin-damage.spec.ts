@@ -28,7 +28,6 @@ const entry = (id: string, category: CatalogObject['category'], file: string, ex
   scaleRange: [1, 1],
   randomRotation: false,
   wind: 0,
-  drawDistance: 3000,
   ...extra,
 });
 

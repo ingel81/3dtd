@@ -18,7 +18,6 @@ const house: CatalogObject = {
   scaleRange: [1, 1],
   randomRotation: false,
   wind: 0,
-  drawDistance: 5000,
   far: { screen: 6 / (300 * Math.tan(Math.PI / 6)), tile: 0, box: [0, 0, 4, 3, -1, 10], top: [6, 6, 6, 9, 9, 9, 6, 6, 6] },
 };
 const catalog: AssetCatalog = { version: 1, materials: [], objects: [house, { ...house, id: 'shed', far: undefined }] };

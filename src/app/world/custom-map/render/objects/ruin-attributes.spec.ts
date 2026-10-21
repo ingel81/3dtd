@@ -39,7 +39,6 @@ const entry = (id: string, extra: Partial<CatalogObject> = {}): CatalogObject =>
   scaleRange: [1, 1],
   randomRotation: false,
   wind: 0,
-  drawDistance: 3000,
   ...extra,
 });
 

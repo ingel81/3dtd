@@ -19,7 +19,6 @@ function object(id: string, footprint: number, tags: string[] = []): CatalogObje
     scaleRange: [1, 1],
     randomRotation: false,
     wind: 0,
-    drawDistance: 100,
     tags,
   };
 }
@@ -35,11 +34,10 @@ describe('shipped asset catalogue', () => {
     for (const o of shipped.objects) for (const l of o.lod ?? []) expect(existsSync(ROOT + l.file), l.file).toBe(true);
   });
 
-  it('gives every object a size, a draw distance and at least one biome tag', () => {
+  it('gives every object a size and at least one biome tag', () => {
     for (const o of shipped.objects as (CatalogObject & { tags?: string[] })[]) {
       expect(o.footprint, o.id).toBeGreaterThan(0);
       expect(o.height, o.id).toBeGreaterThan(0);
-      expect(o.drawDistance, o.id).toBeGreaterThan(0);
       expect(o.tags?.length ?? 0, o.id).toBeGreaterThan(0);
     }
   });

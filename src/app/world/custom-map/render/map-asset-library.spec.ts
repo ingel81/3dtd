@@ -34,7 +34,6 @@ const catalog = {
       scaleRange: [0.8, 1.2],
       randomRotation: true,
       wind: 0.6,
-      drawDistance: 1500,
     },
   ],
 };

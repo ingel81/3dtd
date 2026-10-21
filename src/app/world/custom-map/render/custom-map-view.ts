@@ -1925,8 +1925,8 @@ export class CustomMapView {
     this.reflection.scale = q.waterReflection;
     this.reflection.every = q.waterReflectionEvery;
     this.setEffects(effectsOfQuality(q));
-    this.objects.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
-    this.edgeTrees.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom });
+    this.objects.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom, drawPixels: q.drawPixels });
+    this.edgeTrees.setDetail({ lodBias: q.lodBias, impostorFrom: q.impostorFrom, drawPixels: q.drawPixels });
     this.terrain.grass.setQuality(q.grassBlades, q.grassDistance, q.grassFarBlades, q.grassFarDistance);
     this.environment.weather.setShare(q.particles);
     this.environment.lightning.setDetail(q.particles);

@@ -2,7 +2,7 @@
 // triangles, its top a 3 x 3 grid of heights (a flat roof, a gable either way, a hip, a shed), its four walls
 // and its top textured with the model seen square on from that side, five tiles of TILE px in one atlas for all
 // buildings. A model the box cannot stand for (an L, a tower beside a hall, a spire) gets none and keeps its
-// LOD model to its draw distance.
+// LOD model until it goes at the pixel limit.
 //
 // Writes tools/map-assets/farboxes.json (update_catalog.py puts it into the catalogue as `far`) and
 // public/maps/assets/models/far-boxes.ktx2 (tools/model-pack/encode-image.mjs, UASTC; each tile unsharp-masked,

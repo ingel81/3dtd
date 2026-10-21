@@ -22,7 +22,8 @@ import {
   type MeshStandardMaterial,
 } from 'three';
 import type { MapObject } from '../../map-document';
-import { LOD_TAN_HALF_FOV, screenDistance, type AssetCatalog, type CatalogObject, type StageTone } from '../asset-catalog';
+import { linePiece, LOD_TAN_HALF_FOV, objectRadius, pixelDistance, screenDistance, type AssetCatalog, type CatalogObject, type StageTone } from '../asset-catalog';
+import { QUALITY_TABLE } from '../../../../three-engine/render-quality';
 import type { HeightField } from '../height-field';
 import type { LodModel, MapAssetLibrary, ModelPart, ObjectModel } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
@@ -39,6 +40,7 @@ import { addRotorTurn, DEFAULT_ROTOR, isRotor, rotorDepthMaterial, rotorGeometry
 import { addNightWindows, isWindowGlass } from './night-windows';
 import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, holdBlend, REST_S, SETTLE_S, settleBlend, type LodBlend } from './lod-fade';
 import { InstanceList, type InstanceSource } from './instance-list';
+import { LineSpheres } from './line-spheres';
 import { MassLayer } from './mass-layer';
 import { FAR_BLOCKING, FAR_OPEN, FarBoxes } from './far-boxes';
 import { ImpostorDraws } from './impostor-array';
@@ -59,8 +61,10 @@ import { addDamage, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMate
  * level its own size on screen asks for: its bounding radius over its
  * distance against the screen share of the catalogue's `lod` models (a
  * garage takes its LOD model nearer than a school), an impostor for far
- * trees, nothing past the asset's draw distance. Around each switch a band
- * shows both levels dissolving into each other (lod-fade.ts). A level
+ * trees, nothing once its radius on screen falls under the quality level's
+ * pixel limit (a piece of a line by the whole line's, line-spheres.ts).
+ * Around each switch a band shows both levels dissolving into each other
+ * (lod-fade.ts). A level
  * switch moves an instance or two in the level's list, never the list. The
  * 192 m cells this replaced drew a town of OSM in 8 900 meshes, each asset's
  * level and part once per cell, and switched whole cells at once.
@@ -74,10 +78,10 @@ import { addDamage, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMate
  *   more) with the level that covers more of their pixels in a band
  * - sight blockers (trees, big rocks, buildings) live in the LOS group: the
  *   LOS cube renders from the towers with its own frustum, and sees the
- *   level the camera chose
+ *   level the camera chose; they draw to High's pixel limit on every level
  *
  * Trees and plants sway in the wind, foliage cards keep their normals and
- * fade when seen edge-on or near their draw distance, waterfall cards flow
+ * fade when seen edge-on or near their pixel limit, waterfall cards flow
  * and flames flicker (all in objectMaterial). Vegetation gets a brightness
  * hue and size per instance, trees also a lean, autumn foliage a wider
  * turn of colour (instance-variation.ts), so a forest of one model does
@@ -93,7 +97,7 @@ import { addDamage, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMate
  * damage in the shader (ruin-damage.ts), both sides drawn, its stage and
  * ruin per instance. Intact buildings keep their programs, front faces and
  * early depth; the ruins cost a draw call per asset and level, not per
- * ruin. A ruin shows its models to its draw distance, no far box.
+ * ruin. A ruin shows its models to the pixel limit, no far box.
  */
 
 /** Distance from the point at `at` in `xyz` to `p`; not Math.hypot, a builtin call whose result V8 boxes, per object and frame */
@@ -114,6 +118,8 @@ const BUILD_SLICE_MS = 8;
 const SLABS_MS = 4;
 /** Strongest glow of an object surface (emissive colour times intensity, linear) */
 const MAX_EMISSIVE = 0.55;
+/** Sight blockers draw to High's pixel limit on every level: what the towers' sight sees does not depend on it */
+const LOS_DRAW_PIXELS = QUALITY_TABLE.high.customMaps.drawPixels;
 /** Instances an asset's lists have room for: half again of its objects, at least 16, so a brush adds without building anew */
 function listCapacity(n: number): number {
   return Math.max(16, Math.ceil(n * 1.5));
@@ -166,6 +172,8 @@ interface AssetBatch {
   source: InstanceSource;
   /** Bounding sphere centre and radius per object (4 per object) */
   spheres: Float32Array;
+  /** The sphere of the line each object is a piece of (4 per object, line-spheres.ts), radius 0 for none */
+  lines: Float32Array;
   /** Bounds of every object, the frustum test of each of the asset's meshes */
   bounds: Sphere;
   boundsStale: boolean;
@@ -305,15 +313,17 @@ export class MapObjectLayer {
   /** Objects within this distance of the focus cast shadows */
   shadowRadius = 400;
   /**
-   * The quality level's part (render-quality.ts): detail switches and the
-   * draw distance of objects that do not block sight times `lodBias`,
-   * impostors from `impostorFrom` m. High (1, 380 m) is the picture as
-   * before the levels. Sight blockers keep their draw distance: what the
-   * line of sight sees does not depend on the level
+   * The quality level's part (render-quality.ts): detail switches times
+   * `lodBias`, impostors from `impostorFrom` m, objects that do not block
+   * sight drawn down to `drawPixels` on screen. Sight blockers draw to
+   * High's pixel limit (LOS_DRAW_PIXELS): what the line of sight sees does
+   * not depend on the level
    */
-  private detail = { lodBias: 1, impostorFrom: 380 };
-  /** Fade ranges of the card materials with the draw distance they were made for */
-  private readonly fades: { range: Vector2; drawDistance: number }[] = [];
+  private detail = { lodBias: 1, impostorFrom: 380, drawPixels: QUALITY_TABLE.high.customMaps.drawPixels };
+  /** Fade ranges of the card materials with the radius of the asset they were made for */
+  private readonly fades: { range: Vector2; radius: number }[] = [];
+  /** The lines the walls and structures of a group make (asset-catalog.ts linePiece) */
+  private readonly lineSpheres = new LineSpheres();
   /** Counts every change the sun's shadow map shows: instances moved, casters switched */
   version = 0;
   /** The buildings raised from their footprint */
@@ -683,6 +693,7 @@ export class MapObjectLayer {
     const b = slot.batch;
     const i = slot.index;
     this.byId.delete(id);
+    this.lineSpheres.remove(id);
     this.leaveLevels(b, i);
     const last = b.objects.length - 1;
     if (i !== last) {
@@ -692,6 +703,7 @@ export class MapObjectLayer {
       b.source.colors?.copyWithin(i * 3, last * 3, last * 3 + 3);
       if (b.damage) for (const a of b.damage) a.copyWithin(i * 4, last * 4, last * 4 + 4);
       b.spheres.copyWithin(i * 4, last * 4, last * 4 + 4);
+      b.lines.copyWithin(i * 4, last * 4, last * 4 + 4);
       b.levelOf[i] = b.levelOf[last];
       b.nextOf[i] = b.nextOf[last];
       b.fadeOf[i] = b.fadeOf[last];
@@ -905,17 +917,25 @@ export class MapObjectLayer {
   }
 
   /** The quality level's detail (see `detail`); every object takes its level again */
-  setDetail(detail: { lodBias: number; impostorFrom: number }): void {
-    if (detail.lodBias === this.detail.lodBias && detail.impostorFrom === this.detail.impostorFrom) return;
+  setDetail(detail: { lodBias: number; impostorFrom: number; drawPixels: number }): void {
+    const now = this.detail;
+    if (detail.lodBias === now.lodBias && detail.impostorFrom === now.impostorFrom && detail.drawPixels === now.drawPixels) return;
     this.detail = { ...detail };
-    for (const f of this.fades) f.range.set(f.drawDistance * detail.lodBias * 0.55, f.drawDistance * detail.lodBias);
+    for (const f of this.fades) this.setFadeRange(f.range, f.radius);
     this.applyLevels(true);
+  }
+
+  /** A card material's fade: from 0.55 of the distance where an object of `radius` reaches the pixel limit to there */
+  private setFadeRange(range: Vector2, radius: number): Vector2 {
+    const end = pixelDistance(radius, this.detail.drawPixels);
+    return range.set(end * 0.55, end);
   }
 
   private clear(): void {
     for (const b of this.batches) this.disposeBatch(b);
     this.batches = [];
     this.byId.clear();
+    this.lineSpheres.clear();
   }
 
   /** The shadow material of every ruin mesh, made with the first */
@@ -1003,6 +1023,7 @@ export class MapObjectLayer {
       capacity,
       source: { matrices: new Float32Array(capacity * 16), colors: tinted ? new Float32Array(capacity * 3) : null, ...(damage ? { extras: damage } : {}) },
       spheres: new Float32Array(capacity * 4),
+      lines: new Float32Array(capacity * 4),
       bounds: new Sphere(),
       boundsStale: true,
       levelOf: new Int8Array(capacity).fill(-1),
@@ -1138,6 +1159,7 @@ export class MapObjectLayer {
       b.source.extras = b.damage;
     }
     b.spheres = keep(b.spheres, 4, 0);
+    b.lines = keep(b.lines, 4, 0);
     b.levelOf = keep(b.levelOf, 1, -1).fill(-1, 0, n);
     b.nextOf = keep(b.nextOf, 1, NO_NEXT).fill(NO_NEXT, 0, n);
     b.fadeOf = keep(b.fadeOf, 1, 0);
@@ -1171,22 +1193,28 @@ export class MapObjectLayer {
 
   /**
    * Per object that is due (or every one, `force`): the level for its size
-   * on screen, hidden beyond the draw distance, shadows only near the focus.
+   * on screen, hidden under the pixel limit, shadows only near the focus.
    * Then the lists go up and the meshes draw what their lists hold
    */
   private applyLevels(force: boolean): void {
     if (force) this.version++;
-    const { lodBias, impostorFrom } = this.detail;
+    if (this.lineSpheres.due) this.refreshLines();
+    const { lodBias, impostorFrom, drawPixels } = this.detail;
     const travel = this.travel;
     const blend = this.blend;
     for (const b of this.batches) {
-      const draw = b.blocksLos ? b.entry.drawDistance : b.entry.drawDistance * lodBias;
+      // Metres of camera distance per metre of radius where an object reaches the pixel limit
+      const reach = pixelDistance(this.viewScale, b.blocksLos ? LOS_DRAW_PIXELS : drawPixels);
       const sp = b.spheres;
+      const lines = b.lines;
       for (let i = 0; i < b.objects.length; i++) {
         if (!force && b.dueAt[i] > travel) continue;
         const s = i * 4;
         const r = sp[s + 3];
         const d = Math.max(0, distance(sp, s, this.camPos) - r);
+        // A piece of a line draws as long as its line: the line's limit, counted from the piece
+        const lr = lines[s + 3];
+        const draw = lr > 0 ? d + lr * reach - Math.max(0, distance(lines, s, this.camPos) - lr) : r * reach;
         blendAt(b.levels, d, r * this.viewScale, draw, lodBias, impostorFrom, blend);
         // Held on the level it showed alone when it came into this band, or last settled on in it (holdBlend): a
         // zoom by a notch lands objects inside a band, which then showed the other level till the band settled back
@@ -1231,6 +1259,29 @@ export class MapObjectLayer {
     }
     if (this.sharedBoundsStale) this.updateSharedBounds();
     for (const draws of this.sharedDraws()) draws.sync();
+  }
+
+  /** The lines whose pieces changed take their spheres anew; their pieces are looked at again */
+  private refreshLines(): void {
+    this.lineSpheres.refresh(
+      (id, out) => {
+        const slot = this.byId.get(id);
+        if (!slot) return false;
+        out.set(slot.batch.spheres.subarray(slot.index * 4, slot.index * 4 + 4));
+        return true;
+      },
+      (id, x, y, z, r) => {
+        const slot = this.byId.get(id);
+        if (!slot) return;
+        const at = slot.index * 4;
+        const lines = slot.batch.lines;
+        lines[at] = x;
+        lines[at + 1] = y;
+        lines[at + 2] = z;
+        lines[at + 3] = r;
+        slot.batch.dueAt[slot.index] = -Infinity;
+      },
+    );
   }
 
   /** The shared draws' bounds: per list, those of every asset that fills it */
@@ -1324,6 +1375,8 @@ export class MapObjectLayer {
     if (lift === 0) return false;
     b.source.matrices[at] = y;
     b.spheres[i * 4 + 1] += lift;
+    // Its line's sphere follows
+    if (b.lines[i * 4 + 3] > 0) this.lineSpheres.set(o.id, o.group!);
     // A ruin's damage holds its heights (break line, bite, top, floors): one that sank takes them along
     if (b.damage) this.writeDamageOf(b, i);
     return true;
@@ -1367,6 +1420,10 @@ export class MapObjectLayer {
     b.spheres[i * 4 + 1] = this.tmpPos.y + (b.model.height * s) / 2;
     b.spheres[i * 4 + 2] = this.tmpPos.z;
     b.spheres[i * 4 + 3] = radius;
+    // A piece of a line: the line's sphere comes with the next pass (applyLevels)
+    const line = linePiece(e.category, !!o.group) ? o.group! : null;
+    this.lineSpheres.set(o.id, line);
+    if (!line) b.lines[i * 4 + 3] = 0;
     const colors = b.source.colors;
     if (colors) {
       const c = o.tint ? new Color(o.tint) : null;
@@ -1484,7 +1541,7 @@ export class MapObjectLayer {
     const bob = !!entry.float && entry.category !== 'structure';
     // Several looks in one atlas (a herd of several breeds): only for objects that stay where they are
     const variants = !card && !bob && (entry.variants ?? 1) > 1 ? entry.variants! : 1;
-    const key = `${source.uuid}|${entry.grime ? 1 : 0}|${crownWarp ? 1 : 0}|${wind}|${wind > 0 ? entry.height : 0}|${card ? entry.drawDistance : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin || rotor ? period : 0}|${rotor ? 1 : 0}|${variants}|${ruin ? 1 : 0}|${tone ? tone.join(',') : ''}`;
+    const key = `${source.uuid}|${entry.grime ? 1 : 0}|${crownWarp ? 1 : 0}|${wind}|${wind > 0 ? entry.height : 0}|${card ? objectRadius(entry) : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin || rotor ? period : 0}|${rotor ? 1 : 0}|${variants}|${ruin ? 1 : 0}|${tone ? tone.join(',') : ''}`;
     const cached = this.materials.get(key);
     if (cached) return cached;
     // Always an own copy: the library's material is shared (other views, the editor's thumbnails)
@@ -1508,16 +1565,15 @@ export class MapObjectLayer {
       this.materials.set(key, m);
       return m;
     }
-    const bias = this.detail.lodBias;
     const local = {
       // Sway at the top in a strong wind, and the height it is measured at (model metres)
       uWindBend: { value: windSwayAtTop(wind, entry.height) },
       uWindHeight: { value: Math.max(entry.height, 0.3) },
-      uFadeRange: { value: new Vector2(entry.drawDistance * bias * 0.55, entry.drawDistance * bias) },
+      uFadeRange: { value: this.setFadeRange(new Vector2(), objectRadius(entry)) },
       // Seconds a turn of the spinning or rotor parts
       uSpinPeriod: { value: Math.max(0.5, period) },
     };
-    if (card) this.fades.push({ range: local.uFadeRange.value, drawDistance: entry.drawDistance });
+    if (card) this.fades.push({ range: local.uFadeRange.value, radius: objectRadius(entry) });
     const variant = `${crownWarp ? 't' : ''}${wind > 0 ? 'w' : ''}${card ? 'c' : ''}${waterfall ? 'f' : ''}${flame ? 'l' : ''}${bob ? 'b' : ''}${cloth ? 'k' : ''}${spin ? 's' : ''}${rotor ? 'r' : ''}`;
     m.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, WIND_UNIFORMS);

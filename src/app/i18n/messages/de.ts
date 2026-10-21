@@ -533,7 +533,7 @@ export const de: Messages = {
     qualityTitle: 'Bildqualität',
     quality: {
       auto: { label: 'Auto', hint: 'Passend zur Grafikkarte gewählt und einmal geprüft; eigene Karten eine Stufe niedriger' },
-      low: { label: 'Niedrig', hint: 'Geringere, anpassende Auflösung, FXAA, gröbere Tiles; auf eigenen Karten kein Gras und kurze Sichtweite' },
+      low: { label: 'Niedrig', hint: 'Geringere, anpassende Auflösung, FXAA, gröbere Tiles; auf eigenen Karten kein Gras, Kleinkram nur nah' },
       medium: { label: 'Mittel', hint: 'Anpassende Auflösung, FXAA; auf eigenen Karten weniger Gras und Details' },
       high: { label: 'Hoch', hint: 'Das volle Bild: scharf, MSAA; auf eigenen Karten Schatten 4096 und jeder Karteneffekt' },
       ultra: { label: 'Ultra', hint: 'Feinere Tiles; auf eigenen Karten mehr Gras und Details, weichere Schatten' },
@@ -555,9 +555,9 @@ export const de: Messages = {
       shadows: { label: 'Schatten', hint: 'Schärfe der Sonnenschatten', option: (px, softer) => `${f.int(px)} px${softer ? ', weicher' : ''}` },
       farDetail: {
         label: 'Fernsicht',
-        hint: 'Wie weit Objekte ihre Details behalten und der Boden seine Schichten',
-        option: (bias, flatFrom, simpleFrom) =>
-          `${f.num(bias)}x Sichtweite, flache Bäume ab ${f.int(flatFrom)} m, einfacher Boden ab ${f.int(simpleFrom)} m`,
+        hint: 'Wie weit Objekte ihre Details behalten, wie klein sie werden, bevor sie gehen, und wie weit der Boden seine Schichten behält',
+        option: (bias, pixels, flatFrom, simpleFrom) =>
+          `${f.num(bias)}x Detailweite, Objekte bis ${f.num(pixels)} px, flache Bäume ab ${f.int(flatFrom)} m, einfacher Boden ab ${f.int(simpleFrom)} m`,
       },
       grass: {
         label: 'Gras',
@@ -2865,8 +2865,8 @@ export const de: Messages = {
       objects: (n) => `${f.int(n)} Objekte`,
       sceneOver: 'Mehr, als eine Karte flüssig zeichnet: zuerst Gebäude, Bäume und Requisiten ausdünnen, Gras und Blumen kosten wenig.',
       fileOver: 'Zu groß zum Senden im Koop: nur Spieler, die die Karte haben, können beitreten.',
-      noteUnsaved: 'Szenenlast: was die Objekte zeichnen, nach Dreiecken und Sichtweite; bis 100 % bleibt die Karte flüssig. Speichern (Strg+S) misst die Datei; Koop sendet bis 32 MB.',
-      noteSaved: 'Szenenlast: was die Objekte zeichnen, nach Dreiecken und Sichtweite; bis 100 % bleibt die Karte flüssig. Die Datei vom letzten Strg+S (automatisches Speichern packt leichter); Koop sendet bis 32 MB.',
+      noteUnsaved: 'Szenenlast: was die Objekte zeichnen, nach Dreiecken und wie weit sie zu sehen sind; bis 100 % bleibt die Karte flüssig. Speichern (Strg+S) misst die Datei; Koop sendet bis 32 MB.',
+      noteSaved: 'Szenenlast: was die Objekte zeichnen, nach Dreiecken und wie weit sie zu sehen sind; bis 100 % bleibt die Karte flüssig. Die Datei vom letzten Strg+S (automatisches Speichern packt leichter); Koop sendet bis 32 MB.',
     },
     history: {
       title: 'Verlauf',

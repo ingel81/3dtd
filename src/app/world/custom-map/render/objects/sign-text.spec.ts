@@ -16,7 +16,6 @@ const board: CatalogObject = {
   scaleRange: [1, 1],
   randomRotation: false,
   wind: 0,
-  drawDistance: 500,
   aloft: true,
   signPanel: { at: [0, 0.3, 0.05], width: 2.4, height: 0.48 },
 };

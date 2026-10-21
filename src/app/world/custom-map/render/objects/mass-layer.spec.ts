@@ -32,7 +32,6 @@ const entry = (id: string, category: CatalogObject['category'], file: string): C
   scaleRange: [1, 1],
   randomRotation: false,
   wind: 0,
-  drawDistance: 3000,
 });
 
 const catalog: AssetCatalog = { version: 1, materials: [], objects: [entry(MASS_ASSET, 'building', 'kit.glb'), entry('box', 'building', 'box.glb')] };

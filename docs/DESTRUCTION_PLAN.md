@@ -248,7 +248,7 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   Ruinen-Batch des Assets (`render/objects/object-layer.ts`, `setDamage`): dieselben Modelle und LOD-Stufen, beidseitig
   (`DoubleSide`), mit dem Schaden im Shader (`render/objects/ruin-damage.ts`). Intakte Gebäude behalten ihre Programme,
   `FrontSide` und Early-Z und zahlen nichts; die Ruinen kosten einen Draw Call je Asset und Stufe, nicht je Ruine. Eine
-  Ruine zeigt ihr Modell bis zur Sichtweite, ohne Impostor oder Fern-Kasten. Gebäude aus dem eigenen Grundriss
+  Ruine zeigt ihr Modell bis zur Pixelgrenze, ohne Impostor oder Fern-Kasten. Gebäude aus dem eigenen Grundriss
   (`mass-layer.ts`) gehen ebenso: ihre Instanzen schrumpfen im intakten Batch auf null, die Ruinen werden als kleiner
   eigener Batch neu gebaut (eine Handvoll Gebäude, nicht die Karte); eine Wand eines Gefallenen wird an der Bruchkante in
   Stumpf und Oberteil geteilt, dazu an drei Höhen darüber (`collapseCuts`): eine Wand ist ein Quad, ein Dreieck fällt

@@ -5,7 +5,7 @@ import { BufferGeometry, InstancedBufferAttribute, type Material } from 'three';
  * OP-H5): around each switch distance a band where an object shows both
  * levels, the outgoing one dissolving and the incoming one appearing in a
  * complementary screen-space dither, so every pixel shows exactly one of
- * them and nothing pops. The same at the draw distance, where the object
+ * them and nothing pops. The same where the object goes (its pixel limit): there it
  * dissolves into nothing. Per instance the fade lives in a `lodFade`
  * attribute (fadeGeometry): 0 shows the object whole, t in (0, 1) drops a
  * share t of its pixels (outgoing), t - 1 keeps a share t (incoming).
@@ -42,7 +42,7 @@ export function levelStart(level: FadeLevel, radius: number, lodBias: number, im
 }
 
 /**
- * The level for distance `d`: -1 beyond the draw distance, else the last
+ * The level for distance `d`: -1 beyond `draw` (where the object goes), else the last
  * level whose start it passed
  */
 export function levelAt(levels: readonly FadeLevel[], d: number, radius: number, draw: number, lodBias: number, impostorFrom: number): number {
@@ -66,8 +66,8 @@ export interface LodBlend {
 
 /**
  * The levels to show at distance `d` for an object of `radius` metres:
- * `level`, and inside a band `next` (the level beyond, -1 for none at the
- * draw distance) with `t` from 0 at the band's near edge to 1 at its far
+ * `level`, and inside a band `next` (the level beyond, -1 for none at
+ * `draw`, where it goes) with `t` from 0 at the band's near edge to 1 at its far
  * edge; outside a band `next` is null. `slack` is the distance to the
  * nearest band: the object layer looks at the object again only once the
  * camera moved that far. Written into `out`: the object layer asks for every
@@ -84,7 +84,7 @@ export function blendAt(
   out: LodBlend = { level: 0, next: null, t: 0, slack: 0 },
 ): LodBlend {
   let slack = Infinity;
-  // The switch distances in order, the draw distance last
+  // The switch distances in order, where the object goes last
   for (let l = 1; l <= levels.length; l++) {
     const last = l === levels.length;
     const at = last ? draw : levelStart(levels[l], radius, lodBias, impostorFrom);

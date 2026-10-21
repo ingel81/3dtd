@@ -5,7 +5,7 @@
  *
  * - `general`: every world (render resolution with its dynamic range,
  *   antialiasing, whether bloom may run, places for the shots' light)
- * - `customMaps`: custom maps only (shadow map, detail and draw distance,
+ * - `customMaps`: custom maps only (shadow map, detail and the pixel limit,
  *   impostors, grass, the map's particles and point lights)
  * - `tiles`: the 3D tiles only (their detail target)
  *
@@ -54,8 +54,15 @@ export interface CustomMapQuality {
   shadowMapSize: number;
   /** PCF spread of the shadow edge, texels */
   shadowRadius: number;
-  /** Factor on the distances where objects switch detail and stop being drawn */
+  /** Factor on the distances where objects switch detail */
   lodBias: number;
+  /**
+   * Objects are drawn while their bounding radius on screen is at least this
+   * many pixels of a 1080-line view (asset-catalog.ts pixelDistance): big
+   * things to the map's edge, small ones only near; the pieces of a line
+   * by the whole line's size. Sight blockers draw as at High on every level
+   */
+  drawPixels: number;
   /** Trees and big rocks become flat impostors from this distance, m */
   impostorFrom: number;
   /** Grass blades around the camera (0: no grass) and up to which camera distance they show, m */
@@ -131,7 +138,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     level: 'low',
     general: { scale: 0.6, dynamic: { min: 0.5, max: 0.8 }, pixelRatioCap: 1, antialias: 'fxaa', bloom: false, shotLights: 0 },
     customMaps: {
-      pixelRatioCap: 1, shadowMapSize: 1024, shadowRadius: 1.5, lodBias: 0.5, impostorFrom: 200,
+      pixelRatioCap: 1, shadowMapSize: 1024, shadowRadius: 1.5, lodBias: 0.5, drawPixels: 3, impostorFrom: 200,
       grassBlades: 0, grassDistance: 0, grassFarBlades: 0, grassFarDistance: 0, particles: 0.4, pointLights: 2, life: 0,
       farSingle: 80, farFlat: 220, steepNear: 0, refraction: false, seaWaves: false, lavaGlow: false, waterDetail: false, waterReflection: 0, waterReflectionEvery: 1, shadowCascade: false, plantSway: 1, lightningFlash: 1,
     },
@@ -141,7 +148,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     level: 'medium',
     general: { scale: 0.8, dynamic: { min: 0.6, max: 1 }, pixelRatioCap: 1, antialias: 'fxaa', bloom: true, shotLights: 8 },
     customMaps: {
-      pixelRatioCap: 1, shadowMapSize: 2048, shadowRadius: 1.5, lodBias: 0.75, impostorFrom: 280,
+      pixelRatioCap: 1, shadowMapSize: 2048, shadowRadius: 1.5, lodBias: 0.75, drawPixels: 2, impostorFrom: 280,
       grassBlades: 35_000, grassDistance: 90, grassFarBlades: 30_000, grassFarDistance: 200, particles: 0.7, pointLights: 4, life: 0.7,
       farSingle: 110, farFlat: 300, steepNear: 110, refraction: false, seaWaves: true, lavaGlow: false, waterDetail: true, waterReflection: 0, waterReflectionEvery: 1, shadowCascade: true, plantSway: 1, lightningFlash: 1,
     },
@@ -151,7 +158,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     level: 'high',
     general: { scale: 1, dynamic: null, pixelRatioCap: 2, antialias: 'msaa', bloom: true, shotLights: 16 },
     customMaps: {
-      pixelRatioCap: 1.5, shadowMapSize: 4096, shadowRadius: 1.5, lodBias: 1, impostorFrom: 380,
+      pixelRatioCap: 1.5, shadowMapSize: 4096, shadowRadius: 1.5, lodBias: 1, drawPixels: 1.5, impostorFrom: 380,
       grassBlades: 70_000, grassDistance: 140, grassFarBlades: 60_000, grassFarDistance: 300, particles: 1, pointLights: 6, life: 1,
       farSingle: 150, farFlat: 400, steepNear: 150, refraction: true, seaWaves: true, lavaGlow: true, waterDetail: true, waterReflection: 0.35, waterReflectionEvery: 2, shadowCascade: true, plantSway: 1, lightningFlash: 1,
     },
@@ -161,7 +168,7 @@ export const QUALITY_TABLE: Readonly<Record<QualityLevel, QualityKnobs>> = {
     level: 'ultra',
     general: { scale: 1, dynamic: null, pixelRatioCap: 2, antialias: 'msaa', bloom: true, shotLights: 32 },
     customMaps: {
-      pixelRatioCap: 2, shadowMapSize: 4096, shadowRadius: 2.5, lodBias: 1.25, impostorFrom: 500,
+      pixelRatioCap: 2, shadowMapSize: 4096, shadowRadius: 2.5, lodBias: 1.25, drawPixels: 1, impostorFrom: 500,
       grassBlades: 100_000, grassDistance: 180, grassFarBlades: 90_000, grassFarDistance: 400, particles: 1, pointLights: 6, life: 1,
       farSingle: 220, farFlat: 600, steepNear: 220, refraction: true, seaWaves: true, lavaGlow: true, waterDetail: true, waterReflection: 0.5, waterReflectionEvery: 1, shadowCascade: true, plantSway: 1, lightningFlash: 1,
     },
@@ -188,7 +195,7 @@ export function higherLevel(level: QualityLevel): QualityLevel {
  * Parts of the picture the player sets on top of the level (E156), each for
  * one world. A step takes its part from that level's row of the table:
  * `tileDetail` the tiles' detail target (real places), `shadows` the shadow
- * map, `farDetail` detail and draw distance, impostors and where the ground
+ * map, `farDetail` detail and the pixel limit, impostors and where the ground
  * gets cheaper, `grass` blades and their distance (custom maps). A switch
  * turns one of the map's effects on or off (map-effects.ts).
  */
@@ -210,7 +217,7 @@ export type QualityOverride = QualityStep | QualitySwitch;
 /** The custom-map knobs a step takes from its level's row */
 const STEP_KNOBS: Record<Exclude<QualityStep, 'tileDetail'>, readonly (keyof CustomMapQuality)[]> = {
   shadows: ['shadowMapSize', 'shadowRadius'],
-  farDetail: ['lodBias', 'impostorFrom', 'farSingle', 'farFlat', 'steepNear'],
+  farDetail: ['lodBias', 'drawPixels', 'impostorFrom', 'farSingle', 'farFlat', 'steepNear'],
   grass: ['grassBlades', 'grassDistance', 'grassFarBlades', 'grassFarDistance'],
 };
 const QUALITY_STEPS: readonly QualityStep[] = ['tileDetail', 'shadows', 'farDetail', 'grass'];

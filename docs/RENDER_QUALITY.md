@@ -33,7 +33,8 @@ Abschnitt mit dem, was dort wirklich wirkt, und zuletzt „Everywhere“:
 | Licht durch Munition, Plätze (`shotLights`, [SHOT_LIGHTS.md](SHOT_LIGHTS.md)) | allgemein | aus | 8 | 16 | 32 |
 | Auflösungsdeckel | eigene Karten | DPR 1 | DPR 1 | DPR 1,5 | DPR 2 |
 | Schattenkarte | eigene Karten | 1024 | 2048 | 4096 | 4096, weicher (PCF 2,5) |
-| LOD-Bias, Sichtweite | eigene Karten | 0,5× | 0,75× | 1× | 1,25× |
+| LOD-Bias (Detailweite) | eigene Karten | 0,5× | 0,75× | 1× | 1,25× |
+| Pixelgrenze (`drawPixels`, Radius im Bild, 1080 Zeilen) | eigene Karten | 3 px | 2 px | 1,5 px | 1 px |
 | Impostor ab | eigene Karten | 200 m | 280 m | 380 m | 500 m |
 | Gras nah | eigene Karten | aus | 35 000 Halme bis 90 m | 70 000 bis 140 m | 100 000 bis 180 m |
 | Grasring fern | eigene Karten | aus | 30 000 Halme bis 200 m | 60 000 bis 300 m | 90 000 bis 400 m |
@@ -62,8 +63,14 @@ Abschnitt mit dem, was dort wirklich wirkt, und zuletzt „Everywhere“:
   bleibt fest: eine andere Stufe schaltet kein Programm um. Low hat keins (auch kein Mündungslicht auf den Towern,
   das früher ein PointLight gab). Die Lampenlichter einer Karte belegen ihre Plätze zuerst, auch auf Low; die
   Schüsse nehmen die übrigen (höchstens 32 zusammen). Messung und Begründung in [SHOT_LIGHTS.md](SHOT_LIGHTS.md).
-- **Sichtlinie:** Objekte, die die Sicht blockieren, behalten ihre Sichtweite; der LOD-Bias verkürzt nur die Sichtweite
-  von Deko. Was die LOS sieht, hängt so nicht an der Stufe. `errorTarget` ändert nicht die Verfeinerung des
+- **Pixelgrenze** (E304, `drawPixels`): ein Objekt wird gezeichnet, solange sein Begrenzungsradius im Bild mindestens
+  so viele Pixel einer Ansicht mit 1080 Zeilen hat (`asset-catalog.ts` `pixelDistance`, unabhängig von der
+  Fenstergröße). Große Dinge bleiben bis zum Kartenrand, Kleinkram geht nah; die Stücke einer Linie (Mauern und
+  Bauwerke einer Gruppe: Gleise, Zäune, Hecken) zählen mit der Größe der ganzen Linie (`line-spheres.ts`). Ersetzt die
+  feste Sichtweite je Asset (`drawDistance`) und den Faktor des LOD-Bias darauf. Messung in
+  [RENDER_DENSITY_PLAN.md](RENDER_DENSITY_PLAN.md), Abschnitt 2.9.
+- **Sichtlinie:** Objekte, die die Sicht blockieren, gehen auf jeder Stufe an der Pixelgrenze von High (1,5 px); der
+  LOD-Bias und die Pixelgrenze der Stufe wirken nur auf Deko. Was die LOS sieht, hängt so nicht an der Stufe. `errorTarget` ändert nicht die Verfeinerung des
   Routenkorridors (eigener Zielwert in Metern, `route-corridor-region.ts`).
 - **Effekte der eigenen Karten** (`map-effects.ts`, Kosten in [CUSTOM_MAPS.md](CUSTOM_MAPS.md)): High hat sie alle an,
   das Bild von vor den Stufen hatte sie noch nicht. Der Boden wird ab `farSingle` mit einer Schicht und ab `farFlat`
@@ -80,7 +87,7 @@ keine Zwischenwerte:
 |---|---|---|
 | `tileDetail` | echte Orte | `errorTarget` |
 | `shadows` | eigene Karten | `shadowMapSize`, `shadowRadius` |
-| `farDetail` | eigene Karten | `lodBias`, `impostorFrom`, `farSingle`, `farFlat`, `steepNear` |
+| `farDetail` | eigene Karten | `lodBias`, `drawPixels`, `impostorFrom`, `farSingle`, `farFlat`, `steepNear` |
 | `grass` | eigene Karten | `grassBlades`, `grassDistance`, `grassFarBlades`, `grassFarDistance` (Low: „Off“, kein Gras) |
 | `refraction`, `seaWaves`, `lavaGlow`, `shadowCascade` | eigene Karten | Schalter, an oder aus |
 

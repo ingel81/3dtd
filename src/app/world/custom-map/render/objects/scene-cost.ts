@@ -1,4 +1,5 @@
-import { objectRadius, screenDistance, type CatalogObject } from '../asset-catalog';
+import { QUALITY_TABLE } from '../../../../three-engine/render-quality';
+import { linePiece, objectRadius, pixelDistance, screenDistance, type CatalogObject } from '../asset-catalog';
 import type { MapMass } from '../../map-document';
 import { massTriangles } from '../../object-mass';
 
@@ -6,11 +7,13 @@ import { massTriangles } from '../../object-mass';
  * What a map's objects cost the picture, in points: per object about the
  * triangles it puts on screen with the camera somewhere over the map. An
  * object draws its model near the camera, its LOD models farther out, trees
- * and big rocks an impostor beyond that, and nothing past its draw distance
- * (object-layer.ts). Each band's triangles count with the share of the map
+ * and big rocks an impostor beyond that, and nothing once it is smaller on
+ * screen than the pixel limit (object-layer.ts, render-quality.ts
+ * `drawPixels`); the pieces of a line draw as far as the line, which on any
+ * map is the whole map. Each band's triangles count with the share of the map
  * that lies within it (a disc around the camera, at most the whole map): on
  * a Small map a house drawn to 3 km is always in view and costs its 3 800
- * triangles, a grass tuft of 10 triangles that fades at 140 m costs a
+ * triangles, a grass tuft of 10 triangles that goes at 187 m costs a
  * fraction of one on a Large map, plus what every instance costs on top. The
  * Map panel and the map check hold the sum against SCENE_BUDGET
  * (docs/LEVEL_EDITOR.md, "Szenenkosten").
@@ -36,15 +39,17 @@ const IMPOSTOR_TRIANGLES = 4;
 const FAR_BOX_TRIANGLES = 24;
 /** Impostors start no nearer than this at the High quality level (render-quality.ts), m */
 const IMPOSTOR_FROM = 380;
+/** Objects draw down to this radius on screen at the High quality level, px (render-quality.ts) */
+const DRAW_PIXELS = QUALITY_TABLE.high.customMaps.drawPixels;
 /** Points per particle a second of an effect: sprites that live a few seconds and overdraw */
 const PARTICLE_COST = 20;
 /** Triangles of a model the catalogue has not counted */
 const UNKNOWN_TRIANGLES = 500;
 /** An asset the catalogue does not know: a mid-sized prop */
-const UNKNOWN: CostEntry = { category: 'prop', height: 2, drawDistance: 500, file: '?' };
+const UNKNOWN: CostEntry = { category: 'prop', height: 2, file: '?' };
 
 /** The catalogue fields the cost reads */
-export type CostEntry = Pick<CatalogObject, 'category' | 'height' | 'drawDistance' | 'file' | 'triangles' | 'lod' | 'effects'> & {
+export type CostEntry = Pick<CatalogObject, 'category' | 'height' | 'file' | 'triangles' | 'lod' | 'effects'> & {
   footprint?: number;
   far?: { screen: number };
 };
@@ -54,8 +59,11 @@ function ring(from: number, to: number, area: number): number {
   return (Math.min(area, Math.PI * to * to) - Math.min(area, Math.PI * from * from)) / area;
 }
 
-/** The points one object of this catalogue entry costs on a map of `area` m², at the High quality level */
-export function objectCost(entry: CostEntry | undefined, area: number): number {
+/**
+ * The points one object of this catalogue entry costs on a map of `area` m², at the High quality level;
+ * `grouped`: it shares a group with others, which makes a wall or structure a piece of a line (linePiece)
+ */
+export function objectCost(entry: CostEntry | undefined, area: number, grouped = false): number {
   entry ??= UNKNOWN;
   let cost = INSTANCE_COST;
   for (const e of entry.effects ?? []) cost += (e.rate ?? 1) * PARTICLE_COST;
@@ -72,24 +80,28 @@ export function objectCost(entry: CostEntry | undefined, area: number): number {
   // As levelsFor: a building's box where it fills its screen share
   if (entry.far) levels.push({ from: screenDistance(radius, entry.far.screen), triangles: FAR_BOX_TRIANGLES });
   levels.sort((a, b) => a.from - b.from);
+  // Drawn while its radius on screen stays above the pixel limit; a line's piece as far as its line
+  const draw = linePiece(entry.category, grouped) ? Infinity : pixelDistance(radius, DRAW_PIXELS);
   for (let l = 0; l < levels.length; l++) {
-    const to = Math.min(l + 1 < levels.length ? levels[l + 1].from : Infinity, entry.drawDistance);
+    const to = Math.min(l + 1 < levels.length ? levels[l + 1].from : Infinity, draw);
     cost += levels[l].triangles * ring(levels[l].from, to, area);
   }
   return cost;
 }
 
 /**
- * What a list of objects costs together, from the cost of each asset; a
- * building raised from its footprint (object-mass.ts) adds its own
- * triangles, drawn as far as any building (the whole map)
+ * What a list of objects costs together, from the cost of each asset alone
+ * and in a group (objectCost `grouped`); a building raised from its
+ * footprint (object-mass.ts) adds its own triangles, drawn as far as any
+ * building (the whole map)
  */
-export function sceneCost(objects: readonly { asset: string; mass?: MapMass }[], costOf: (asset: string) => number): number {
+export function sceneCost(objects: readonly { asset: string; mass?: MapMass; group?: string }[], costOf: (asset: string, grouped: boolean) => number): number {
   const known = new Map<string, number>();
   let sum = 0;
   for (const o of objects) {
-    let c = known.get(o.asset);
-    if (c === undefined) known.set(o.asset, (c = costOf(o.asset)));
+    const key = o.group ? `${o.asset}|g` : o.asset;
+    let c = known.get(key);
+    if (c === undefined) known.set(key, (c = costOf(o.asset, !!o.group)));
     sum += c + (o.mass ? massTriangles(o.mass) : 0);
   }
   return sum;
