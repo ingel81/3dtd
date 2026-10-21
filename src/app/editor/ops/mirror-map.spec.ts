@@ -50,6 +50,21 @@ describe('mirrorMap', () => {
     expect(mirrorMap(doc, 'none', { x: 0, y: 0 })).toEqual({ objects: 0, spawns: 0, roads: 0 });
     expect(contentBytes(doc)).toEqual(before);
   });
+  it('gives each road image an id of its own, none that a source road keeps', () => {
+    const doc = map();
+    // Two roads in the west: the first one's image must not take the second one's id
+    doc.paths = {
+      nodes: [{ id: 'n1', x: -90, y: -40 }, { id: 'n2', x: -60, y: -40 }, { id: 'n3', x: -90, y: 40 }, { id: 'n4', x: -60, y: 40 }],
+      edges: [{ id: 'e1', a: 'n1', b: 'n2', width: 8, kind: 'road' }, { id: 'e2', a: 'n3', b: 'n4', width: 8, kind: 'road' }],
+    };
+    mirrorMap(doc, 'x', { x: -50, y: 0 });
+    const ids = doc.paths.edges.map((e) => e.id);
+    expect(ids).toHaveLength(4);
+    expect(new Set(ids).size).toBe(4);
+    expect(ids.slice(0, 1)).toEqual(['e1']);
+    expect(ids).toContain('e2');
+  });
+
   it('adds no more spawn images than a map holds', () => {
     const doc = map();
     doc.spawns = Array.from({ length: 10 }, (_, k) => ({ id: `s${k}`, name: `S${k}`, x: -90 + k * 4, y: -60 }));

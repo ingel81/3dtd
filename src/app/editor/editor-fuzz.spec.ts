@@ -126,18 +126,18 @@ interface Run {
   editor: EditorDocument;
   steps: string[];
   states: Map<number, { bytes: Uint8Array; step: string }>;
-  /** Syncs the worker's mirror now and then (every time with `always`) and holds its file against the document's */
-  mirrored(where: string, always?: boolean): void;
+  /**
+   * Syncs the worker's mirror and holds its file against the document's, after every step: a step that leaves
+   * the document broken shows at once (a mirrored map's roads with one id twice went by on every other step)
+   */
+  mirrored(where: string): void;
 }
 
 /** The editor worker's mirror of `editor`, synced as the worker gets it (cloned, buffers moved) */
-function mirrorOf(editor: EditorDocument, seed: number): (where: string, always?: boolean) => void {
+function mirrorOf(editor: EditorDocument): (where: string) => void {
   const tracker = new MirrorTracker(editor);
   const mirror = new DocMirror();
-  // Its own dice: the run's stay as they were
-  const r = rng(seed * 31 + 5);
-  return (where, always = false) => {
-    if (!always && r() < 0.5) return;
+  return (where) => {
     const { sync, transfer } = tracker.sync();
     mirror.apply(structuredClone(sync, { transfer }));
     expect(same(packMapFile(mirror.doc, { level: 0 }), packMapFile(editor.doc, { level: 0 })), `the mirror's file, ${where}`).toBe(true);
@@ -152,7 +152,7 @@ function fuzz(seed: number, count: number): Run {
   const states = new Map<number, { bytes: Uint8Array; step: string }>();
   const doc = createMapDocument({ id: 'fuzz', name: 'Fuzz', width: 256, depth: 256, cellSize: 4, seed, ground: 'noise', relief: 6, now: new Date(0) });
   const editor = new EditorDocument(doc);
-  const mirrored = mirrorOf(editor, seed);
+  const mirrored = mirrorOf(editor);
   const ctx = context(editor);
   const tools = {
     terrain: new TerrainTool(),
@@ -621,7 +621,7 @@ describe('undo and redo under random work', () => {
         if (want) expect(same(contentBytes(editor.doc), want.bytes), `redo to step ${want.step}, ${where}`).toBe(true);
       }
       expect(same(contentBytes(editor.doc), end), `redo all, ${where}`).toBe(true);
-      mirrored(`redo all, ${where}`, true);
+      mirrored(`redo all, ${where}`);
     });
   }
 });

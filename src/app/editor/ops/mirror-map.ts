@@ -112,6 +112,14 @@ export function mirrorMap(doc: CustomMapDocument, mode: SymmetryMode, from: { x:
     return id;
   };
   const edges: MapPathEdge[] = [];
+  // A new edge's id lies above every id of the map's edges: the source's own join `edges` only as the loop reaches
+  // them, so an id taken from the list so far could be one of theirs (e3 twice)
+  const takenEdges: { id: string }[] = [...doc.paths.edges];
+  const edgeId = () => {
+    const id = newId('e', takenEdges);
+    takenEdges.push({ id });
+    return id;
+  };
   const seen = new Set<string>();
   const addEdge = (e: MapPathEdge) => {
     const key = [e.a, e.b].sort().join('|');
@@ -133,7 +141,7 @@ export function mirrorMap(doc: CustomMapDocument, mode: SymmetryMode, from: { x:
         if (!ia || !ib) return;
         // The image has no road brush record: the objects and kept ground in it are the source's; edited, it reads them off the map
         const { dress: _dress, ...plain } = e;
-        addEdge({ ...plain, id: newId('e', edges), a: ia, b: ib, ...(e.via ? { via: e.via.map((v) => img.point(v)).map((v) => ({ x: round(v.x), y: round(v.y) })) } : {}) });
+        addEdge({ ...plain, id: edgeId(), a: ia, b: ib, ...(e.via ? { via: e.via.map((v) => img.point(v)).map((v) => ({ x: round(v.x), y: round(v.y) })) } : {}) });
       });
     } else if (ina || inb) {
       // Across an axis: from the source end to its image in the sector the other end lies in
@@ -153,7 +161,7 @@ export function mirrorMap(doc: CustomMapDocument, mode: SymmetryMode, from: { x:
       const target = best > 0 ? nodeImage(s, best) : null;
       if (target) {
         const { via: _via, ...rest } = e;
-        addEdge({ ...rest, id: newId('e', edges), a: s.id, b: target });
+        addEdge({ ...rest, id: edgeId(), a: s.id, b: target });
       }
     }
   }
