@@ -413,23 +413,25 @@ function lineDistance(p: readonly [number, number], a: readonly [number, number]
   return Math.abs((p[0] - a[0]) * lz - (p[1] - a[1]) * lx) / l;
 }
 
-/** The part standing on the ground over the line a-b with the lowest eaves (the building itself without parts): its eaves and storeys */
+/**
+ * Where the building is lowest over the line a-b: at each point the top of
+ * its highest part there (a part on another one carries the building on
+ * over a low one), the lowest of those along the line, with that part's
+ * storeys (the building itself without parts)
+ */
 function lowestBody(mass: MapMass, a: readonly [number, number], b: readonly [number, number]): { height: number; floors: number } {
-  const bodies = massBodies(mass).filter((p) => (p.base ?? 0) <= 0.5);
+  const bodies = massBodies(mass);
   const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
   const steps = Math.max(2, Math.ceil(length));
-  let low: { height: number; floors: number } = { height: mass.height, floors: mass.floors };
-  let found = false;
-  for (let s = 0; s <= steps; s++) {
+  let low: { height: number; floors: number } | null = null;
+  for (let s = 1; s < steps; s++) {
     const x = a[0] + ((b[0] - a[0]) * s) / steps;
     const z = a[1] + ((b[1] - a[1]) * s) / steps;
-    for (const p of bodies) {
-      if (!ringsContain(p.rings, x, z) || (found && p.height >= low.height)) continue;
-      low = { height: p.height, floors: p.floors };
-      found = true;
-    }
+    let top: { height: number; floors: number } | null = null;
+    for (const p of bodies) if (ringsContain(p.rings, x, z) && (!top || p.height > top.height)) top = { height: p.height, floors: p.floors };
+    if (top && (!low || top.height < low.height)) low = top;
   }
-  return low;
+  return low ?? { height: mass.height, floors: mass.floors };
 }
 
 /** Whether the walls the line a-b passes through are stone (the part over its middle, else the building's) */
