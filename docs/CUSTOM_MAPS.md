@@ -766,7 +766,15 @@ Laden im Erdgeschoss (`shop`, Indizes der Außenwände: Schaufenster statt Fenst
 OSM `building:part`): je Teil eigene Ringe, Boden über dem Sitz (`base`), Wandhöhe, Geschosse ab dem Sitz (Fenster
 fluchten über gestapelte Teile), Dach, Fassade, Wand- und Dachfarbe; gezeichnet werden nur die Teile, die Ringe des
 Baus bleiben sein Grund (Sitz, Bauverbot, Straßen, Ruine). Ein Bau mit Teilen ist ein Objekt: Höhe und Dachraster
-nehmen den höchsten Teil je Stelle, bei Zerstörung fallen alle Teile mit. `massFronts` gibt die Außenwände auf der Karte mit Normale, Erdgeschoss- und Brüstungshöhe des ersten
+nehmen den höchsten Teil je Stelle, bei Zerstörung fallen alle Teile mit. **Öffnungen** (`openings`, E297
+Durchgänge, höchstens 32): je Öffnung eine Linie in den Achsen des Baus (von außen vor der Wand, durch die der Weg
+eintritt, bis außen hinter der, durch die er austritt, oder bis zu seinem Ende drinnen), lichte Breite, Oberkante über
+dem Sitz (`height`, beim Bogen der Scheitel), Art (`passage` Durchgang, `garage` Tiefgarageneinfahrt), Abschluss (`arch`
+Rundbogen, `flat` Sturz) und bei der Einfahrt der Boden unter dem Sitz (`floor`). Die Wände, die die Öffnung kreuzt,
+stehen in Stücken um sie (daneben die ganze Höhe, darüber Sturz oder Bogenstück, alles Teile auf dem Boden mit), innen
+Laibungen, Decke oder ein Gewölbe aus fünf Facetten und am blinden Ende eine Rückwand, die Einfahrt dunkel; gezeichnet
+mit den Wänden des Baus (`mass-openings.ts`), kein Modell. Die Rampe vor einer Einfahrt zählt nicht zum Grund, auf dem
+der Bau sitzt (`massOnRamp`). `massFronts` gibt die Außenwände auf der Karte mit Normale, Erdgeschoss- und Brüstungshöhe des ersten
 Stocks (`sill`) und Index (`edge`), etwa für Schilder. Was die Regeln brauchen, rechnet
 `object-mass.ts` aus den Ringen wie der Katalog für Modelle: Grundrechteck, Radius, Höhe und das Dachraster für Tower
 auf dem Dach (Hof ohne Dach). Bauverbot (`CustomMapSurface`) und Editor-Prüfung (`objectsOnPaths`) nehmen den Umriss,
@@ -776,7 +784,12 @@ als wenige instanzierte Grundformen: jede Wand eine Instanz eines Einheitsquads 
 der Wand und bis zur Traufe, ihre dritte Spalte ist die Außennormale), jedes Dachdreieck eine Instanz eines
 Einheitsdreiecks (affine Matrix, zweite Spalte die Dachnormale), Attika als nach innen gewandte Wand mit
 Betonabdeckung; ein Giebel ist ein Wandquad, dessen obere Ecken der Vertex-Shader zur Mitte zieht (auch im
-Schattenpass). Je Fassade, Abdeckung und Dachdeckung ein Mesh: eine Karte mit 2 000 solchen Bauten zeichnet in rund zehn
+Schattenpass), ein Keil (Decke und Gewölbe einer Öffnung) eins, dessen obere Ecken er zum Anfang zieht: ein Dreieck
+beliebiger Form aus Ecke und zwei Kanten. Die Stücke einer Wand um eine Öffnung zählen ihre Meter ab dem Anfang der
+ganzen Wand (`aWallC`), so stehen die Fenster wie ohne Öffnung, und Fenster, die die Öffnung oder ihre Rahmung
+schneiden würde, entfallen; die Rahmung (`aWallD`: Putzfasche mit Sturz, Rundbogen mit Keilsteinen, Schlussstein,
+Kämpfer und Eckquadern, Betonsturz der Einfahrt) und der offene Bogen (verworfene Fragmente) kommen aus demselben
+Programm. Je Fassade, Abdeckung und Dachdeckung ein Mesh: eine Karte mit 2 000 solchen Bauten zeichnet in rund zehn
 Calls (dazu der Schatten). Keine Detailstufen: Wand und Dach sind wenige Dreiecke, die Fenster kommen aus dem Shader
 (Geschosse und Achsen in Metern je Wand, mittig mit Rand an den Ecken; Rahmen, Fensterkreuz, Bank, Laibung, Jalousie,
 Sockel, Gesims, Ecklisenen, Schmutz über dem Sockel und unter den Bänken, Eingang mit Vordachschatten an langen

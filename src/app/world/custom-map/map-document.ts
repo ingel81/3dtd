@@ -341,6 +341,49 @@ export interface MapMass {
    * rings above stay its ground; at most MASS_MAX_PARTS (object-mass.ts)
    */
   parts?: MapMassPart[];
+  /**
+   * Ways through the building (MapMassOpening): its walls open where they
+   * cross, the room under them free; at most MASS_MAX_OPENINGS (object-mass.ts)
+   */
+  openings?: MapMassOpening[];
+}
+
+/**
+ * How an opening in a raised building's wall is closed at its head: a
+ * round arch (a stone gateway), a straight lintel (a town house's
+ * carriageway, a car park's entrance)
+ */
+export const MAP_MASS_HEADS = ['arch', 'flat'] as const;
+export type MapMassHead = (typeof MAP_MASS_HEADS)[number];
+
+/**
+ * What an opening is: a passage the way runs through (open at both walls,
+ * or ending at a back wall inside), a car park's entrance (a ramp down to
+ * an opening in the wall, dark behind, ending a few metres in)
+ */
+export const MAP_MASS_OPENINGS = ['passage', 'garage'] as const;
+export type MapMassOpeningKind = (typeof MAP_MASS_OPENINGS)[number];
+
+/**
+ * A way through a raised building (an OSM passage, `tunnel=building_passage`,
+ * `covered=yes`, a car park's entrance): the walls it crosses open over its
+ * width up to its height, the building stands on over it (the lintel or the
+ * arch, the storeys above), inside it the reveals, the ceiling or vault, a
+ * car park's dark back wall. Drawn by the mass layer with the building's
+ * own walls, no model; a part standing on the ground opens as the building
+ * does (MapMass.parts)
+ */
+export interface MapMassOpening {
+  /** Its centre line, model x, z at scale 1: from outside the wall it enters to outside the wall it leaves, or to where it ends inside */
+  line: [number, number, number, number];
+  /** Clear width, m */
+  width: number;
+  /** Its top over the seat, m: a passage's clear height, an arch's crown; a car park's may lie under the seat */
+  height: number;
+  kind: MapMassOpeningKind;
+  head: MapMassHead;
+  /** Its floor over the seat, m (a car park's ramp at the wall, under the seat); the walls' foot when missing */
+  floor?: number;
 }
 
 /**

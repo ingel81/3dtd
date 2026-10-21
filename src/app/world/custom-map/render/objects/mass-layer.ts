@@ -43,6 +43,7 @@ import { NIGHT_WINDOW_UNIFORMS } from './night-windows';
 import { seatHeight, type ObjectFooting } from './object-seat';
 import { rubbleMaterialOf } from '../../rubble-material';
 import type { RuinFootprint, RuinSlabs } from './ruin-slabs';
+import { FOUNDATION, openingInsides, pushWall, WALL_FACADE, WALL_GABLE, WALL_PLAIN, WALL_SHOP, type WallPiece } from './mass-openings';
 import { addDamage, collapseCuts, RUIN_HOLES, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, FELL_LONG_AGO, ruinSeed, ruinShape, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
 
 /**
@@ -76,8 +77,6 @@ import { addDamage, collapseCuts, RUIN_HOLES, DAMAGE_ATTRIBUTES, DAMAGE_LOS, dam
  * ruins are built anew on a change, a handful of buildings, not the map.
  */
 
-/** Metres the walls reach below the seat: the ground under a building on a slope (object-seat.ts) */
-const FOUNDATION = 1.5;
 /** Thickness of a flat roof's parapet, m */
 const PARAPET_THICKNESS = 0.3;
 /** How far a pitched roof reaches past the walls, m */
@@ -117,40 +116,9 @@ export function roofTintFactor(covering: Covering, tint: string, out: Color): Co
   return out;
 }
 
-/**
- * What a wall instance is: a facade with windows, a plain face (a parapet's
- * inside), a gable (its top drawn in to a point), a facade with a shop's
- * display windows on the ground floor (MapMass.shop)
- */
-const WALL_FACADE = 0;
-const WALL_PLAIN = 1;
-const WALL_GABLE = 2;
-const WALL_SHOP = 3;
-
 /** The kind of the facade wall `edge` of the outline (ring 0), else of a courtyard's */
 function facadeKind(m: MassBody, ring: number, edge: number): number {
   return ring === 0 && m.shop?.includes(edge) ? WALL_SHOP : WALL_FACADE;
-}
-
-/** One wall in the building's own frame at scale 1 */
-interface WallPiece {
-  /** Start on the ground line (x, z), unit direction along it, length, outward normal */
-  sx: number;
-  sz: number;
-  ax: number;
-  az: number;
-  length: number;
-  nx: number;
-  nz: number;
-  /** Bottom and top over the seat, m (the bottom below 0 for the foundation) */
-  bottom: number;
-  top: number;
-  kind: number;
-  /** Metres at the top without windows: the cornice, the parapet */
-  band: number;
-  /** A piece of a split wall (splitWalls): the whole wall's top, and minus the metres its bottom stands over the seat */
-  wallTop?: number;
-  lift?: number;
 }
 
 /** A roof triangle in the building's own frame: corners a, b, c (x, y, z) with their texture places in metres */
@@ -192,6 +160,8 @@ export function massShape(m: MassBody, seed = 0): MassShape {
   const inset = massInset(m);
   const apex = massApex(m);
   shape = pitched ? pitchedShape(m) : apex ? pyramidShape(m, apex) : inset ? mansardShape(m, inset.ring) : flatShape(m);
+  // The ways through the building it stands over: their reveals, ceilings, back walls (mass-openings.ts)
+  if (m.openings?.length) shape.walls.push(...openingInsides(m));
   shape.covering = !pitched && !inset && !apex ? 'flat' : m.roofCover ? COVER_COVERING[m.roofCover] : m.facade === 'metal' ? 'metal' : seed % 3 === 0 ? 'grey' : 'red';
   shapes.set(m, shape);
   return shape;
@@ -212,7 +182,7 @@ function flatShape(m: MassBody): MassShape {
     for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
       const e = edge(m, ring[j], ring[j + 1], ring[i], ring[i + 1]);
       if (!e) continue;
-      walls.push({ ...e, ...foot, top: m.height, kind: facadeKind(m, k, j / 2), band: MASS_PARAPET + 0.25 });
+      pushWall(walls, m, { ...e, ...foot, top: m.height, kind: facadeKind(m, k, j / 2), band: MASS_PARAPET + 0.25 });
       // The parapet's inside: a plain wall a parapet's thickness in, facing in; the coping across both
       const t = PARAPET_THICKNESS;
       const inner = { sx: e.sx - e.nx * t + e.ax * e.length, sz: e.sz - e.nz * t + e.az * e.length, ax: -e.ax, az: -e.az, length: e.length, nx: -e.nx, nz: -e.nz };
@@ -245,7 +215,7 @@ function mansardShape(m: MassBody, inner: readonly number[]): MassShape {
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
     const e = edge(m, r[2 * i], r[2 * i + 1], r[2 * j], r[2 * j + 1]);
-    if (e) walls.push({ ...e, ...foot, top: h, kind: facadeKind(m, 0, i), band: 0.3 });
+    if (e) pushWall(walls, m, { ...e, ...foot, top: h, kind: facadeKind(m, 0, i), band: 0.3 });
     // The slope over this wall: a quad from the eaves to the top's edge, its texture along the wall and up the slope
     const a = [r[2 * i], h, r[2 * i + 1]];
     const b = [r[2 * j], h, r[2 * j + 1]];
@@ -277,7 +247,7 @@ function pitchedShape(m: MassBody): MassShape {
   for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
     const e = edge(m, r[j], r[j + 1], r[i], r[i + 1]);
     if (!e) continue;
-    walls.push({ ...e, ...foot, top: h, kind: facadeKind(m, 0, j / 2), band: 0.3 });
+    pushWall(walls, m, { ...e, ...foot, top: h, kind: facadeKind(m, 0, j / 2), band: 0.3 });
     // The gable over an end wall (across the ridge: its normal along it)
     const end = Math.abs(e.nx * f.ux + e.nz * f.uz) > 0.5;
     if (end && m.roof === 'gable') walls.push({ ...e, bottom: h, top: h + ridge, kind: WALL_GABLE, band: 0 });
@@ -329,7 +299,7 @@ function pyramidShape(m: MassBody, apex: { x: number; z: number }): MassShape {
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
     const e = edge(m, r[2 * i], r[2 * i + 1], r[2 * j], r[2 * j + 1]);
-    if (e) walls.push({ ...e, ...foot, top: h, kind: facadeKind(m, 0, i), band: 0.3 });
+    if (e) pushWall(walls, m, { ...e, ...foot, top: h, kind: facadeKind(m, 0, i), band: 0.3 });
     // The slope over this wall: its texture along the wall and up the slope from its middle
     const ax = r[2 * i];
     const az = r[2 * i + 1];
@@ -808,7 +778,7 @@ export class MassLayer {
       DAMAGE_ATTRIBUTES.forEach((name, k) => mesh.geometry.setAttribute(name, new InstancedBufferAttribute(arrays[k], 4)));
       return arrays;
     };
-    const walls = new Map<MapMassFacade, { batch: Batch; a: Float32Array; b: Float32Array; damage: DamageArrays | null; n: number }>();
+    const walls = new Map<MapMassFacade, { batch: Batch; a: Float32Array; b: Float32Array; c: Float32Array; d: Float32Array; damage: DamageArrays | null; n: number }>();
     for (const [facade, count] of wallCount) {
       const surface = surfaces.get(FACADE_SURFACE[facade]);
       if (!surface || !count) continue;
@@ -816,12 +786,16 @@ export class MassLayer {
       const geometry = UNIT_QUAD.clone();
       const a = new Float32Array(count * 4);
       const b = new Float32Array(count * 4);
+      const c = new Float32Array(count * 4);
+      const d = new Float32Array(count * 4);
       geometry.setAttribute('aWall', new InstancedBufferAttribute(a, 4));
       geometry.setAttribute('aWallB', new InstancedBufferAttribute(b, 4));
+      geometry.setAttribute('aWallC', new InstancedBufferAttribute(c, 4));
+      geometry.setAttribute('aWallD', new InstancedBufferAttribute(d, 4));
       geometry.userData['owned'] = true;
       const mesh = new InstancedMesh(geometry, this.wallMaterial(facade, surface, surfaces.get('mass-plinth'), ruin), count);
       mesh.customDepthMaterial = ruin ? (this.ruinWallDepth ??= damageDepthMaterial('mass-wall', 'attribute vec4 aWallB;', GABLE_GLSL)) : this.depthMaterial;
-      walls.set(facade, { batch: { mesh, owners: [], part: `walls:${facade}` }, a, b, damage: damageOf(mesh, count), n: 0 });
+      walls.set(facade, { batch: { mesh, owners: [], part: `walls:${facade}` }, a, b, c, d, damage: damageOf(mesh, count), n: 0 });
     }
     const roofs = new Map<Covering, { batch: Batch; uv: Float32Array; damage: DamageArrays | null; n: number }>();
     for (const [covering, count] of roofCount) {
@@ -846,6 +820,7 @@ export class MassLayer {
     }
     const color = new Color();
     const tint = new Color();
+    const shaded = new Color();
     const roofTint = new Color();
     // Every batch's count before a building: its ranges are what it added
     const counters: { batch: Batch; n: () => number }[] = [
@@ -877,13 +852,25 @@ export class MassLayer {
         if (w) {
           for (const p of wallsOf(o, shape)) {
             const height = p.top - p.bottom;
-            this.local.set(p.ax * p.length, 0, p.nx, p.sx, 0, height, 0, p.bottom, p.az * p.length, 0, p.nz, p.sz, 0, 0, 0, 1);
+            if (p.corner) {
+              // A wedge or a vault's facet: its corner and edges, the normal square to them
+              const [ox, oy, oz] = p.corner;
+              const [ux, uy, uz] = p.e1!;
+              const [vx, vy, vz] = p.e2!;
+              this.local.set(ux, vx, p.nx, ox, uy, vy, p.ny ?? 0, oy, uz, vz, p.nz, oz, 0, 0, 0, 1);
+            } else {
+              this.local.set(p.ax * p.length, 0, p.nx, p.sx, 0, height, 0, p.bottom, p.az * p.length, 0, p.nz, p.sz, 0, 0, 0, 1);
+            }
             this.local.premultiply(this.m);
             w.batch.mesh.setMatrixAt(w.n, this.local);
-            w.batch.mesh.setColorAt(w.n, tint);
+            w.batch.mesh.setColorAt(w.n, p.shade === undefined ? tint : shaded.copy(tint).multiplyScalar(p.shade));
             // Length and height in metres (scaled), the foundation below the seat (a part's floor over it), the storeys
             w.a.set([p.length * scale, height * scale, (p.lift ?? Math.max(0, -p.bottom)) * scale, body.floors], w.n * 4);
             w.b.set([seed, p.kind, p.band * scale, p.kind === WALL_PLAIN ? 0 : Math.max(0, p.wallTop ?? p.top) * scale], w.n * 4);
+            // A wall in pieces: where along the whole wall it starts and how long that is; the opening beside it (mass-openings.ts)
+            const cut = p.cut;
+            w.c.set([(p.u0 ?? 0) * scale, (p.wallLength ?? 0) * scale, (cut?.mid ?? 0) * scale, (cut?.half ?? 0) * scale], w.n * 4);
+            w.d.set(cut ? [cut.top * scale, cut.rise * scale, cut.style, cut.floor * scale] : [0, 0, 0, 0], w.n * 4);
             if (r && w.damage) writeDamage(w.damage, w.n, r.stage, r.fallStart, r.shape);
             w.batch.owners.push(o);
             w.n++;
@@ -1123,7 +1110,8 @@ function disposeBatch(b: Batch): void {
 export function splitWalls(walls: readonly WallPiece[], at: number, gap: number): WallPiece[] {
   const out: WallPiece[] = [];
   for (const p of walls) {
-    if (p.kind === WALL_GABLE || p.bottom >= at - gap || p.top <= at + gap) {
+    // Gables and the wedges of an opening's ceiling stay whole
+    if (p.kind === WALL_GABLE || p.corner || p.bottom >= at - gap || p.top <= at + gap) {
       out.push(p);
       continue;
     }
@@ -1154,31 +1142,50 @@ function seedOf(id: string): number {
   return (h >>> 0) % 997;
 }
 
-/** A gable's quad drawn in to a triangle: its top corners meet in the middle */
+/**
+ * A gable's quad drawn in to a triangle: its top corners meet in the
+ * middle; a wedge's (mass-openings.ts WALL_WEDGE) meet at its start, the
+ * quad's corner and its two edges a triangle of any shape
+ */
 const GABLE_GLSL = /* glsl */ `
 if (abs(aWallB.y - 2.0) < 0.5 && transformed.y > 0.5) transformed.x = 0.5;
+if (abs(aWallB.y - 5.0) < 0.5 && transformed.y > 0.5) transformed.x = 0.0;
 `;
 
 const WALL_VERTEX_PARS = /* glsl */ `
 attribute vec4 aWall;
 attribute vec4 aWallB;
+attribute vec4 aWallC;
+attribute vec4 aWallD;
 uniform float uTile;
 varying vec2 vWallM;
 varying vec4 vWall;
 varying vec4 vWallB;
+varying vec4 vWallC;
+varying vec4 vWallD;
 `;
 
-/** Metres along the wall and over the seat; the surfaces read them in their own repeat */
+/**
+ * Metres along the wall and over the seat; the surfaces read them in their
+ * own repeat. A piece of a wall in pieces (an opening's, mass-openings.ts)
+ * counts from the whole wall's start and lays its windows out over the
+ * whole wall's length
+ */
 const WALL_UV_VERTEX = /* glsl */ `
 #include <uv_vertex>
 {
   // uv_vertex runs before begin_vertex: the gable's corners drawn in again here
   vec3 wallP = position;
   if (abs(aWallB.y - 2.0) < 0.5 && wallP.y > 0.5) wallP.x = 0.5;
-  vWallM = vec2(wallP.x * aWall.x, wallP.y * aWall.y - aWall.z);
+  if (abs(aWallB.y - 5.0) < 0.5 && wallP.y > 0.5) wallP.x = 0.0;
+  vWallM = vec2(aWallC.x + wallP.x * aWall.x, wallP.y * aWall.y - aWall.z);
   vWall = aWall;
+  if (aWallC.y > 0.0) vWall.x = aWallC.y;
   vWallB = aWallB;
-  vec2 wallUv = vec2(vWallM.x, vWallM.y + aWall.z) / uTile;
+  vWallC = aWallC;
+  vWallD = aWallD;
+  // The texture in metres over the seat: the pieces of a wall, a fallen wall's stump and what falls, meet without a seam
+  vec2 wallUv = vWallM / uTile;
   #ifdef USE_MAP
   vMapUv = wallUv;
   #endif
@@ -1199,6 +1206,8 @@ uniform float uFacade;
 varying vec2 vWallM;
 varying vec4 vWall;
 varying vec4 vWallB;
+varying vec4 vWallC;
+varying vec4 vWallD;
 uniform sampler2D uPlinthMap;
 uniform float uPlinthTile;
 uniform vec3 uPlinthColor;
@@ -1235,6 +1244,20 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
   float kind = vWallB.y;
   float band = vWallB.z;
   float top = vWallB.w;
+  // The opening the wall is cut round (mass-openings.ts): its middle and half width along the wall, its top, an
+  // arch's rise, its look (0 lintel, 1 round arch, 2 a car park's), its floor
+  float cutMid = vWallC.z;
+  float cutHalf = vWallC.w;
+  float cutTop = vWallD.x;
+  float cutRise = vWallD.y;
+  float cutStyle = vWallD.z;
+  float cutFloor = vWallD.w;
+  float cutSpring = cutTop - cutRise;
+  // An arch's head: the arch itself is open
+  if (abs(kind - 4.0) < 0.5 && cutHalf > 0.0) {
+    vec2 archQ = vec2((u - cutMid) / cutHalf, (v - cutSpring) / max(cutRise, 0.01));
+    if (dot(archQ, archQ) < 1.0) discard;
+  }
   float aa = max(max(fwidth(u), fwidth(v)), 1e-4);
   // Per facade (uFacade, MAP_MASS_FACADES' order): plinth height, bay, window width and height, the sill over the
   // storey's floor, frame colour
@@ -1264,9 +1287,11 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
   base *= 1.0 - 0.14 * exp(-max(v - plinthH, 0.0) / 0.7);
   float windows = 0.0;
   vec3 detail = base;
-  // A shop's wall is a facade too, with display windows on its ground floor
-  float shop = step(2.5, kind);
-  float facadeWall = max(step(kind, 0.5), shop);
+  // A shop's wall is a facade too, with display windows on its ground floor; an arch's head is facade, an
+  // opening's reveal plain with the plinth at its foot
+  float shop = 1.0 - step(0.5, abs(kind - 3.0));
+  float facadeWall = max(max(step(kind, 0.5), shop), 1.0 - step(0.5, abs(kind - 4.0)));
+  float revealWall = 1.0 - step(0.5, abs(kind - 6.0));
   if (facadeWall > 0.5 && v > plinthH) {
     float usable = max(top - plinthH - band, 0.5);
     float storey = usable / floors;
@@ -1308,6 +1333,13 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
     // An entrance on the ground floor of a long wall: the middle bay a door instead of a window
     float door = step(hall, 0.5) * step(k, 0.5) * step(10.0, L) * step(i, floor(n * 0.5)) * step(floor(n * 0.5), i)
       * step(0.45, massHash(vec3(floor(L * 10.0), seed, 3.0)));
+    if (cutHalf > 0.0) {
+      // No window or door the opening or its frame would cut: their bay's middle off its middle, their sill under its top
+      float off = abs(u - lu - cutMid);
+      float under = step(plinthH + k * storey + wb, cutTop + 0.35);
+      inBay *= 1.0 - step(off, cutHalf + ww * 0.5 + 0.45) * under;
+      door *= 1.0 - step(off, cutHalf + 1.15) * step(plinthH, cutTop + 0.5);
+    }
     if (door > 0.5) {
       float dw = 1.4;
       float dh = min(2.5, storey - 0.3);
@@ -1388,7 +1420,51 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
   // The plinth below, in the plinth's concrete
   vec3 plinthColor = texture2D(uPlinthMap, vWallM / uPlinthTile).rgb * uPlinthColor;
   float plinth = 1.0 - smoothstep(plinthH - aa, plinthH + aa, v);
-  plinth *= facadeWall;
+  // The opening's frame on the facade (its dressing replaces the plinth where it reaches down)
+  float dressed = 0.0;
+  if (cutHalf > 0.0 && facadeWall > 0.5) {
+    float du = abs(u - cutMid);
+    vec3 dress = min(base * 1.16 + 0.025, vec3(1.0));
+    vec3 joint = base * 0.62;
+    if (cutStyle > 1.5) {
+      // A car park's entrance: a concrete lintel over it, its edges in shade
+      float beam = massBox(du, -1.0, cutHalf + 0.3, aa) * massBox(v, cutTop, cutTop + 0.42, aa);
+      detail = mix(detail, plinthColor * 0.92, beam);
+      detail *= 1.0 - 0.3 * massBox(du, -1.0, cutHalf + 0.3, aa) * massBox(v, cutTop + 0.42, cutTop + 0.5, aa);
+      dressed = beam;
+    } else if (cutStyle > 0.5) {
+      // A round arch in stone: voussoirs round it with a keystone, quoins up the jambs, an impost at the springing
+      vec2 q = vec2((u - cutMid) / cutHalf, (v - cutSpring) / max(cutRise, 0.01));
+      float ring = (length(q) - 1.0) * cutRise;
+      float stones = 2.0 * floor(cutHalf * 1.6) + 7.0;
+      float a = atan(max(q.y, 0.0), q.x) / PI * stones;
+      float stone = floor(a);
+      float key = 1.0 - step(0.5, abs(stone - (stones - 1.0) * 0.5));
+      float voussoir = step(cutSpring, v) * massBox(ring, -0.02, 0.44 + 0.2 * key, aa);
+      // The joints between the voussoirs: metres along the arch to the nearest
+      float seam = 1.0 - smoothstep(0.0, 0.03, (0.5 - abs(fract(a) - 0.5)) * PI * (cutHalf + 0.2) / stones);
+      // Quoins: courses of 0.5 m, long and short in turn, up to the springing, a bed joint under each
+      float course = floor(v / 0.5);
+      float reach = mix(0.36, 0.58, mod(course, 2.0));
+      float quoin = massBox(du, cutHalf - 0.02, cutHalf + reach, aa) * massBox(v, -0.2, cutSpring, aa);
+      float bed = 1.0 - smoothstep(0.0, 0.03, fract(v / 0.5) * 0.5);
+      float impost = massBox(du, cutHalf - 0.02, cutHalf + 0.7, aa) * massBox(v, cutSpring - 0.22, cutSpring, aa);
+      dressed = max(max(voussoir, quoin), impost);
+      detail = mix(detail, dress * (0.96 + 0.08 * massHash(vec3(stone, course, seed))), dressed);
+      detail = mix(detail, dress * 1.05, impost);
+      detail *= 1.0 - 0.3 * massBox(du, cutHalf - 0.02, cutHalf + 0.7, aa) * massBox(v, cutSpring - 0.3, cutSpring - 0.22, aa);
+      detail = mix(detail, joint, 0.55 * (voussoir * seam + quoin * bed));
+    } else {
+      // A town house's carriageway: a plain band round it (a plaster facade's dressing), the lintel's shade inside
+      float fw = 0.3;
+      float jamb = massBox(du, cutHalf - 0.02, cutHalf + fw, aa) * massBox(v, plinthH, cutTop + fw, aa);
+      float head = massBox(du, -1.0, cutHalf + fw, aa) * massBox(v, cutTop - 0.02, cutTop + fw, aa);
+      dressed = max(jamb, head);
+      detail = mix(detail, dress, dressed);
+      detail *= 1.0 - 0.18 * massBox(du, cutHalf + fw, cutHalf + fw + 0.06, aa) * massBox(v, plinthH, cutTop + fw, aa);
+    }
+  }
+  plinth *= max(facadeWall * (1.0 - dressed), revealWall);
   // Far off a window is a few pixels: the facade's mean instead of its shimmer
   float far = smoothstep(0.06, 0.3, aa);
   vec3 mean = mix(base, vec3(0.12, 0.13, 0.14), 0.22 * facadeWall * step(plinthH, v));

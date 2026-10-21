@@ -1,6 +1,6 @@
 import type { MapObject } from '../../map-document';
-import { groundRing, type GroundBox } from '../../object-ground';
-import { massBox, massOf, massRadius } from '../../object-mass';
+import { groundRing, toModel, type GroundBox } from '../../object-ground';
+import { massBox, massOf, massOnRamp, massRadius } from '../../object-mass';
 import type { ObjectCategory } from '../asset-catalog';
 
 /** What standing an object on the map needs of its catalogue entry (a `CatalogObject` is one) */
@@ -52,7 +52,16 @@ export function seatHeight(
     // A raised building (object-mass.ts) on its outline's rectangle, not on its catalogue entry's
     const mass = massOf(o);
     const ring = mass ? groundRing(massRadius(mass), massBox(mass), o, RING) : groundRing(f.footprint, f.box, o, RING);
-    for (let k = 0; k < ring.length; k += 2) low = Math.min(low, groundAt(ring[k], ring[k + 1]));
+    const cos = Math.cos(o.rotation);
+    const sin = Math.sin(o.rotation);
+    for (let k = 0; k < ring.length; k += 2) {
+      // Not in the cutting of a car park's ramp before its entrance: the house stands on its ground, its entrance opens down
+      if (mass?.openings) {
+        const m = toModel(ring[k] - o.x, ring[k + 1] - o.y, cos, sin);
+        if (massOnRamp(mass, m.x / s, m.z / s)) continue;
+      }
+      low = Math.min(low, groundAt(ring[k], ring[k + 1]));
+    }
     return low;
   }
   return f.category === 'tree' ? ground - 0.15 * s : ground;

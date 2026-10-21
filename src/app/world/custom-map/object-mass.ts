@@ -8,11 +8,14 @@
 import {
   MAP_MASS_COVERS,
   MAP_MASS_FACADES,
+  MAP_MASS_HEADS,
+  MAP_MASS_OPENINGS,
   MAP_MASS_ROOFS,
   MASS_ASSET,
   type MapMass,
   type MapMassCover,
   type MapMassFacade,
+  type MapMassOpening,
   type MapMassRoof,
   type MapObject,
 } from './map-document';
@@ -33,6 +36,8 @@ const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFi
 
 /** Parts a raised building may have (MapMass.parts) */
 export const MASS_MAX_PARTS = 256;
+/** Openings a raised building may have (MapMass.openings) */
+export const MASS_MAX_OPENINGS = 32;
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
@@ -67,7 +72,25 @@ export function massProblem(m: unknown): MapText | null {
   if (shop !== undefined && (!Array.isArray(shop) || !shop.every((k) => Number.isInteger(k) && k >= 0 && k < (rings[0] as unknown[]).length / 2))) {
     return { key: 'massShop' };
   }
+  const openings = r['openings'];
+  if (openings !== undefined && (!Array.isArray(openings) || openings.length === 0 || openings.length > MASS_MAX_OPENINGS || !openings.every(isOpening))) {
+    return { key: 'massOpenings' };
+  }
   return null;
+}
+
+/** Whether `o` is a way through a building (MapMassOpening): a line, a door's width and height at least, a kind and a head */
+function isOpening(o: unknown): boolean {
+  if (typeof o !== 'object' || o === null) return false;
+  const r = o as Record<string, unknown>;
+  const line = r['line'];
+  if (!Array.isArray(line) || line.length !== 4 || !line.every(finite)) return false;
+  if (Math.hypot((line[2] as number) - (line[0] as number), (line[3] as number) - (line[1] as number)) < 0.5) return false;
+  if (!finite(r['width']) || (r['width'] as number) < 0.5 || (r['width'] as number) > 30) return false;
+  if (r['floor'] !== undefined && (!finite(r['floor']) || (r['floor'] as number) < -10 || (r['floor'] as number) > 0)) return false;
+  // At least a door's height over its floor (a car park's top may lie under the seat, its floor deeper)
+  if (!finite(r['height']) || (r['height'] as number) - ((r['floor'] as number | undefined) ?? 0) < 1.5 || (r['height'] as number) > 30) return false;
+  return MAP_MASS_OPENINGS.includes(r['kind'] as never) && MAP_MASS_HEADS.includes(r['head'] as never);
 }
 
 /** A ring of at least three x, z pairs */
@@ -112,9 +135,19 @@ export interface MassBody {
   tint?: string;
   roofTint?: string;
   roofCover?: MapMassCover;
+  /** The ways through the building (MapMass.openings): its walls open where they cross them */
+  openings?: readonly MapMassOpening[];
+  /**
+   * Of those, the ones whose insides it draws (their reveals, ceiling, back
+   * wall, in its walls' look): all of them for a building without parts,
+   * else each on the part standing on the ground over its inside
+   */
+  hosts?: readonly MapMassOpening[];
+  /** The building's ground (MapMass.rings) the openings' insides run through; its own rings when missing */
+  ground?: number[][];
 }
 
-const bodyCache = new WeakMap<MapMass, { rings: number[][]; parts: MapMass['parts']; bodies: readonly MassBody[] }>();
+const bodyCache = new WeakMap<MapMass, { rings: number[][]; parts: MapMass['parts']; openings: MapMass['openings']; bodies: readonly MassBody[] }>();
 
 /**
  * What a raised building is drawn as: its parts (each with the building's
@@ -124,14 +157,53 @@ const bodyCache = new WeakMap<MapMass, { rings: number[][]; parts: MapMass['part
 export function massBodies(m: MapMass): readonly MassBody[] {
   if (!m.parts?.length) return [m];
   const cached = bodyCache.get(m);
-  if (cached && cached.rings === m.rings && cached.parts === m.parts) return cached.bodies;
-  const bodies = m.parts.map((p): MassBody => {
+  if (cached && cached.rings === m.rings && cached.parts === m.parts && cached.openings === m.openings) return cached.bodies;
+  const parts = m.parts;
+  const openings = m.openings;
+  // Each opening's inside drawn by the part on the ground over it, else by the first on the ground, else the first
+  const ground = parts.map((part, k) => ((part.base ?? 0) <= 0.5 ? k : -1)).filter((k) => k >= 0);
+  const hostOf = openings?.map((o) => {
+    const p = openingInside(o);
+    return ground.find((k) => ringsContain(parts[k].rings, p.x, p.z)) ?? ground[0] ?? 0;
+  });
+  const bodies = parts.map((p, k): MassBody => {
     const roofTint = p.roofTint ?? m.roofTint;
     const roofCover = p.roofCover ?? m.roofCover;
-    return { ...p, facade: p.facade ?? m.facade, ...(roofTint ? { roofTint } : {}), ...(roofCover ? { roofCover } : {}) };
+    const ways = openings ? { openings, hosts: openings.filter((_, j) => hostOf![j] === k), ground: m.rings } : {};
+    return { ...p, facade: p.facade ?? m.facade, ...(roofTint ? { roofTint } : {}), ...(roofCover ? { roofCover } : {}), ...ways };
   });
-  bodyCache.set(m, { rings: m.rings, parts: m.parts, bodies });
+  bodyCache.set(m, { rings: m.rings, parts, openings, bodies });
   return bodies;
+}
+
+/** Metres beside a car park's entrance its ramp's cutting reaches (its sides, a slope as deep as the ramp), and before it */
+const RAMP_SIDE = 4.5;
+const RAMP_BEFORE = 12;
+
+/**
+ * Whether model point (x, z) at scale 1 lies in the cutting of a car park's
+ * ramp before one of the building's entrances (MapMass.openings, `garage`):
+ * ground the building does not stand on (object-seat.ts)
+ */
+export function massOnRamp(m: MapMass, x: number, z: number): boolean {
+  for (const o of m.openings ?? []) {
+    if (o.kind !== 'garage') continue;
+    const [ax, az, bx, bz] = o.line;
+    const l = Math.hypot(bx - ax, bz - az) || 1;
+    const dx = (bx - ax) / l;
+    const dz = (bz - az) / l;
+    const t = (x - ax) * dx + (z - az) * dz;
+    const s = Math.abs((x - ax) * dz - (z - az) * dx);
+    if (t >= -RAMP_BEFORE && t <= l && s <= o.width / 2 + RAMP_SIDE) return true;
+  }
+  return false;
+}
+
+/** A point inside the building on an opening's line: a passage's middle, near a car park's blind end */
+export function openingInside(o: MapMassOpening): { x: number; z: number } {
+  const [ax, az, bx, bz] = o.line;
+  const t = o.kind === 'garage' ? Math.max(0.5, 1 - 0.3 / Math.max(0.6, Math.hypot(bx - ax, bz - az))) : 0.5;
+  return { x: ax + (bx - ax) * t, z: az + (bz - az) * t };
 }
 
 /** The object's raised building, when it is one (the asset and a building) */
@@ -291,8 +363,12 @@ function bodyTriangles(m: MassBody): number {
 export function massTriangles(m: MapMass): number {
   let n = 0;
   for (const b of massBodies(m)) n += bodyTriangles(b);
-  return n;
+  // An opening: the walls it crosses in pieces round it, its reveals, its ceiling or vault (render/objects/mass-openings.ts)
+  return n + (m.openings?.length ?? 0) * OPENING_TRIANGLES;
 }
+
+/** Triangles an opening adds, about: two walls in four pieces each, two reveals, a vault of five facets in wedges */
+const OPENING_TRIANGLES = 48;
 
 /** Highest point of one body over the seat at scale 1, m */
 export function bodyTop(m: MassBody): number {

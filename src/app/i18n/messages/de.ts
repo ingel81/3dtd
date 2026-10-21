@@ -164,6 +164,7 @@ const mapFile: Messages['mapFile'] = {
     massFacade: () => 'sein Gebäude hat eine unbekannte Fassade',
     massShop: () => 'sein Gebäude hat kaputte Ladenwände',
     massParts: () => 'sein Gebäude hat kaputte Teile',
+    massOpenings: () => 'sein Gebäude hat kaputte Durchgänge',
     massColour: () => 'sein Gebäude hat eine kaputte Farbe',
     markingMiddle: () => 'die Linien brauchen eine Mitte und einen Winkel',
     markingSize: () => 'die Linien brauchen eine Länge und eine Breite über 0 bis 1000 m',

@@ -189,6 +189,67 @@ describe('mass layer: a building of parts (E297 L3)', () => {
   });
 });
 
+describe('mass layer: ways through a building (E297)', () => {
+  /** The courtyard block with an arched gateway through its south wing into the courtyard, and a car park's entrance in the north */
+  const gated: MapMass = {
+    ...court,
+    facade: 'plaster',
+    openings: [
+      { line: [0, -16, 0, -4], width: 4, height: 5, kind: 'passage', head: 'arch' },
+      { line: [12, 16, 12, 13], width: 4, height: 0.2, kind: 'garage', head: 'flat', floor: -2.2 },
+    ],
+  };
+
+  it('draws the openings with the building, in no mesh more; the pieces of a wall keep its metres, its insides their shade', async () => {
+    const heights = new Float32Array(4);
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights }, 1000, 1000);
+    const los = new Group();
+    const layer = new MassLayer(field, library(), los, () => null, () => undefined, { ruins: true });
+    await layer.setObjects([
+      { id: 'g1', asset: MASS_ASSET, x: 0, y: 0, z: 0, rotation: 0, scale: 1, mass: gated, tint: '#c65843' },
+      { id: 'm1', asset: MASS_ASSET, x: 100, y: 0, z: 0, rotation: 0, scale: 1, mass: court },
+    ]);
+    const shown = () => {
+      const meshes: InstancedMesh[] = [];
+      los.traverse((o) => o instanceof InstancedMesh && o.visible && meshes.push(o));
+      return meshes;
+    };
+    const intact = shown().filter((m) => (m.material as MeshStandardMaterial).side !== DoubleSide);
+    // One mesh of walls, the flat roofs, the copings: as without openings
+    expect(intact.length).toBe(3);
+    const walls = intact.find((m) => m.geometry.getAttribute('aWall'))!;
+    expect(walls.count).toBe(massShape(gated).walls.length + massShape(court).walls.length);
+    // Every piece of a wall in pieces keeps the whole wall's length; the openings' frames are on them
+    const c = walls.geometry.getAttribute('aWallC');
+    const d = walls.geometry.getAttribute('aWallD');
+    let pieces = 0;
+    let arches = 0;
+    let garages = 0;
+    for (let i = 0; i < walls.count; i++) {
+      if (c.getY(i) === 0) continue;
+      pieces++;
+      // The outline's 40 m wall, the courtyard's 20 m one
+      expect([20, 40]).toContain(Math.round(c.getY(i)));
+      if (d.getZ(i) === 1) arches++;
+      if (d.getZ(i) === 2) garages++;
+    }
+    expect(pieces).toBeGreaterThanOrEqual(6);
+    expect(arches).toBeGreaterThan(0);
+    expect(garages).toBeGreaterThan(0);
+    // The car park's inside dark, a passage's in the wall's colour, a little in shade
+    const colour = new Color();
+    const dark = Array.from({ length: walls.count }, (_, i) => walls.getColorAt(i, colour).r).filter((r) => r < 0.15);
+    expect(dark.length).toBeGreaterThanOrEqual(3);
+    // Destroyed: its pieces, wedges and all, fall with it
+    layer.setDamage([{ id: 'g1', stage: 3, fallStart: FELL_LONG_AGO }]);
+    const ruins = shown().filter((m) => (m.material as MeshStandardMaterial).side === DoubleSide);
+    const ruinWalls = ruins.find((m) => m.geometry.getAttribute('aWallC'))!;
+    expect(ruinWalls.count).toBeGreaterThanOrEqual(massShape(gated).walls.length);
+    expect(layer.ruinShapeOf('g1')).not.toBeNull();
+    layer.dispose();
+  });
+});
+
 describe('mass layer in the object layer', () => {
   it('draws raised buildings in a few instanced meshes in the LOS group, picks them, and takes them out again', async () => {
     const heights = new Float32Array(4);
