@@ -319,6 +319,7 @@ function objectProblem(o: unknown, ids: ReadonlySet<string>): MapText | null {
   const what: MapThing = { kind: 'object', id };
   if (typeof o['asset'] !== 'string' || !o['asset']) return { key: 'noAsset', v: { what } };
   if (![o['x'], o['y'], o['z'], o['rotation'], o['scale']].every(finite) || (o['scale'] as number) <= 0) return { key: 'badPlacement', v: { what } };
+  if (o['stretch'] !== undefined && (!finite(o['stretch']) || (o['stretch'] as number) <= 0)) return { key: 'badPlacement', v: { what } };
   if (o['group'] !== undefined && typeof o['group'] !== 'string') return { key: 'badGroup', v: { what } };
   if ((o['pitch'] !== undefined && !finite(o['pitch'])) || (o['roll'] !== undefined && !finite(o['roll']))) return { key: 'badTilt', v: { what } };
   if (o['mass'] !== undefined || o['asset'] === MASS_ASSET) {

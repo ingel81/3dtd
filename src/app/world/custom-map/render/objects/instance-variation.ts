@@ -103,6 +103,16 @@ export function instanceVariation(id: string, category: string, tags?: readonly 
   };
 }
 
+/**
+ * The key a length of row (catalogue `row`) takes its look from instead of
+ * its id: its direction and the line it lies on across it, to a metre, so the
+ * pieces of one row share a shade and the next row may differ
+ */
+export function rowLookKey(o: { x: number; y: number; rotation: number }): string {
+  const across = -o.x * Math.sin(o.rotation) + o.y * Math.cos(o.rotation);
+  return `row:${Math.round(o.rotation * 100)}:${Math.round(across)}`;
+}
+
 function fract(v: number): number {
   return v - Math.floor(v);
 }

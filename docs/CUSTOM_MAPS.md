@@ -749,7 +749,11 @@ dem Hang (`wallShear` in `object-seat.ts`): die Steigung zwischen dem Boden unte
 `box`) als Scherung der Instanzmatrix, Pfosten bleiben senkrecht, Latten und Fuß laufen am Boden entlang, der Fuß sitzt
 an beiden Enden 4 cm tief und sinkt mit, wo der Boden dazwischen tiefer liegt (Steigung höchstens 0,7). Vorher steckte
 ein Zaun am Hang mit einem Ende im Boden. Sichtsperren (Burgmauern, Palisaden) und was Tower trägt bleiben waagerecht:
-was Sichtlinie und Bauregeln sehen, ändert sich nicht. Die Größen im Katalog prüft `asset-scale.spec.ts` gegen die Welt
+was Sichtlinie und Bauregeln sehen, ändert sich nicht. Ein Stück Reihe (Katalog `row`: Länge entlang Modell-x, die
+Rebzeile `vine-row` mit 10 m) folgt dem Hang genauso und lässt sich entlang x strecken (`MapObject.stretch`, nur
+gezeichnet, das Spiel liest es nicht): Scherung und Kugelradius rechnen mit der gestreckten Länge, die Stücke einer
+Reihe haben keine Größenstreuung und teilen den Farbton ihrer Reihe (`rowLookKey`: Richtung und Linie quer dazu), so
+liest sich die Reihe als eine. Die Größen im Katalog prüft `asset-scale.spec.ts` gegen die Welt
 (Pilze eine Hand hoch, Laterne 3,4 bis 6 m, Bank, Auto, Fass, Zaun, Tür, Bäume); Pilze sind darauf kleiner gebaut
 (0,2 statt 0,5 m), die Laterne steht auf einem Pfosten von 14 statt 20 cm.
 

@@ -26706,6 +26706,7 @@
       "randomRotation": false,
       "wind": 0.3,
       "drawDistance": 900,
+      "row": 10,
       "tags": [
         "temperate",
         "village"

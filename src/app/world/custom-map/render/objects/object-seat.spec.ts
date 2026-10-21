@@ -25,4 +25,19 @@ describe('wallShear', () => {
     const lean = wallShear(fence, at(0, 0), (x) => (Math.abs(x) < 0.5 ? -0.5 : x > 0 ? 0 : 1))!;
     expect(lean.height).toBeCloseTo(0.5 - 1 - 0.04, 6);
   });
+
+  it('runs a stretched length of row down a slope with both end posts on the ground', () => {
+    // A vine row of 10 m stretched to 12.5 m, down ground that falls 0.4 m per metre along map x
+    const vine: ObjectFooting = { category: 'plant', footprint: 3.1, height: 2.1, row: 10 };
+    const ground = (x: number): number => 50 - 0.4 * x;
+    const o = { ...at(20, 0), asset: 'vine-row', stretch: 1.25 };
+    const lean = wallShear(vine, o, ground)!;
+    // The matrix shears model x, which the stretch makes 1.25 m of map a model metre: the slope times the stretch
+    expect(lean.shear).toBeCloseTo(0.4 * 1.25, 6);
+    // Model x of -+5 (the end posts) is map x 20 -+ 6.25 after the stretch: on the ground there, a few centimetres sunk
+    for (const m of [-5, 5]) expect(lean.height + lean.shear * m).toBeCloseTo(ground(20 - m * 1.25) - 0.04, 6);
+    // Across the slope it stands level, as a plant does without a row
+    expect(wallShear(vine, { ...o, rotation: Math.PI / 2 }, ground)).toBeNull();
+    expect(wallShear({ ...vine, row: undefined }, o, ground)).toBeNull();
+  });
 });

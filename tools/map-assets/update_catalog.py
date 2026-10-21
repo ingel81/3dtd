@@ -60,7 +60,7 @@ FAR_SCREEN = 0.045
 # back (which drew a million triangles more on Demo Valley)
 TREE_LOD_DISTANCE = 175
 ORDER = ['id', 'name', 'category', 'file', 'footprint', 'height', 'base', 'box', 'roof', 'blocksLos', 'blocksBuild', 'scaleRange',
-         'randomRotation', 'wind', 'drawDistance', 'float', 'aloft', 'stilts', 'roadThrough', 'groundCut', 'spin', 'rotor', 'cable', 'grip', 'variants', 'signPanel', 'grime', 'tags', 'effects', 'light', 'textures', 'lod', 'far', 'source']
+         'randomRotation', 'wind', 'drawDistance', 'float', 'aloft', 'stilts', 'roadThrough', 'groundCut', 'spin', 'rotor', 'cable', 'grip', 'row', 'variants', 'signPanel', 'grime', 'tags', 'effects', 'light', 'textures', 'lod', 'far', 'source']
 
 
 def lod_screen(e, distance):

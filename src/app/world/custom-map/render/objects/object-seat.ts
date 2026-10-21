@@ -22,6 +22,8 @@ export interface ObjectFooting {
   stilts?: boolean;
   /** Has a part that turns (catalogue `spin`, a radar dish's head): placing it levels the ground its sweep passes over */
   turns?: boolean;
+  /** A length of row along model x at scale 1 (catalogue `row`): it follows the ground along its length (wallShear) */
+  row?: number;
 }
 
 const RING: number[] = [];
@@ -66,17 +68,33 @@ const MAX_WALL_SHEAR = 0.7;
  * foot along the ground, and the height its origin stands at so its foot
  * lies on the ground at both ends (sunk where the ground between them dips).
  * On a slope a level fence stuck into the hill at one end and floated at
- * the other. Null for anything else, for a wall turned by hand (pitch,
+ * the other. A length of row (catalogue `row`, a vine row) follows the
+ * ground the same way over its length, stretched by the object's
+ * `stretch`. Null for anything else, for a wall turned by hand (pitch,
  * roll) and on level ground. The caller keeps sight blockers and what
  * towers stand on level: what the line of sight and the build rules see
- * stays as it was.
+ * stays as it was. `shear` is the matrix's (model y per model x): the
+ * slope times the stretch.
  */
 export function wallShear(
   f: ObjectFooting,
   o: MapObject,
   groundAt: (x: number, y: number) => number,
 ): { height: number; shear: number } | null {
-  if (f.category !== 'wall' || !f.box || o.pitch || o.roll) return null;
+  if (o.pitch || o.roll) return null;
+  // The ground line in model x: its middle (x, z) and half length at scale 1
+  let bx: number;
+  let bz: number;
+  let halfX: number;
+  let stretch = 1;
+  if (f.row) {
+    stretch = o.stretch || 1;
+    bx = 0;
+    bz = 0;
+    halfX = (f.row / 2) * stretch;
+  } else if (f.category === 'wall' && f.box) {
+    [bx, bz, halfX] = f.box;
+  } else return null;
   const s = o.scale || 1;
   const cos = Math.cos(o.rotation);
   const sin = Math.sin(o.rotation);
@@ -85,15 +103,15 @@ export function wallShear(
   const xy = -sin;
   const zx = -sin;
   const zy = cos;
-  const half = f.box[2] * s;
-  const cx = o.x + xx * f.box[0] * s + zx * f.box[1] * s;
-  const cy = o.y + xy * f.box[0] * s + zy * f.box[1] * s;
+  const half = halfX * s;
+  const cx = o.x + xx * bx * s + zx * bz * s;
+  const cy = o.y + xy * bx * s + zy * bz * s;
   const h0 = groundAt(cx - xx * half, cy - xy * half);
   const h1 = groundAt(cx + xx * half, cy + xy * half);
-  const shear = Math.min(MAX_WALL_SHEAR, Math.max(-MAX_WALL_SHEAR, (h1 - h0) / (2 * half)));
-  if (Math.abs(shear) < 0.005) return null;
+  const slope = Math.min(MAX_WALL_SHEAR, Math.max(-MAX_WALL_SHEAR, (h1 - h0) / (2 * half)));
+  if (Math.abs(slope) < 0.005) return null;
   // The foot's line through the middle of the ends, lowered where the ground in the middle lies below it
   const mid = (h0 + h1) / 2;
   const sink = Math.max(0, mid - groundAt(cx, cy)) + 0.04;
-  return { height: mid - shear * f.box[0] * s - sink, shear };
+  return { height: mid - slope * bx * s - sink, shear: slope * stretch };
 }

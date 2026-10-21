@@ -1,4 +1,4 @@
-import { instanceVariation } from './instance-variation';
+import { instanceVariation, rowLookKey } from './instance-variation';
 
 describe('instanceVariation', () => {
   const ids = Array.from({ length: 400 }, (_, k) => `o${k}`);
@@ -62,5 +62,14 @@ describe('instanceVariation', () => {
     expect(autumn[3].lean).toBe(green[3].lean);
     expect(autumn.some((v) => v.g / v.r < 0.75)).toBe(true);
     expect(autumn.some((v) => v.b / v.g < 0.8 && v.g / v.r > 0.9)).toBe(true);
+  });
+
+  it('gives the pieces of one row one look key, the next row another', () => {
+    // Three pieces 10 m apart along a row at 30 degrees, and a piece of the row 2.4 m beside it
+    const angle = Math.PI / 6;
+    const along = (s: number, b: number) => ({ x: Math.round((s * Math.cos(angle) - b * Math.sin(angle)) * 100) / 100, y: Math.round((s * Math.sin(angle) + b * Math.cos(angle)) * 100) / 100, rotation: Math.round(angle * 1000) / 1000 });
+    const keys = [0, 10, 20].map((s) => rowLookKey(along(s, 7.2)));
+    expect(new Set(keys).size).toBe(1);
+    expect(rowLookKey(along(10, 9.6))).not.toBe(keys[0]);
   });
 });

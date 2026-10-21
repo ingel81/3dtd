@@ -30,7 +30,7 @@ import { WIND_GLSL, WIND_UNIFORMS, windSwayAtTop } from '../environment/wind';
 import { mapToScene } from '../map-coords';
 import { seatHeight, wallShear } from './object-seat';
 import { addAtlasVariants } from './atlas-variants';
-import { instanceVariation } from './instance-variation';
+import { instanceVariation, rowLookKey } from './instance-variation';
 import type { ImpostorCache } from './impostor-cache';
 import { addVertexRoughMetal, mergeParts } from './merge-parts';
 import { clothGeometry, isCloth } from './cloth';
@@ -1334,16 +1334,18 @@ export class MapObjectLayer {
    * tower; what the line of sight and the build rules see stays level
    */
   private sheared(b: AssetBatch): boolean {
-    return b.entry.category === 'wall' && !b.blocksLos && !b.entry.roof;
+    return (b.entry.category === 'wall' && !b.blocksLos && !b.entry.roof) || !!b.entry.row;
   }
 
   /** Instance matrix, bounding sphere and colour of object i from the document */
   private writeInstance(b: AssetBatch, i: number): void {
     const o = b.objects[i];
     const e = b.entry;
-    // Vegetation varies in size and shade, trees also in lean (instance-variation.ts): in the matrix and colour only
-    const look = instanceVariation(o.id, e.category, e.tags);
-    const s = (o.scale || 1) * look.size;
+    // Vegetation varies in size and shade, trees also in lean (instance-variation.ts): in the matrix and colour only.
+    // The pieces of a row share their row's shade and keep their size, so the row reads as one
+    const look = instanceVariation(e.row ? rowLookKey(o) : o.id, e.category, e.tags);
+    const s = (o.scale || 1) * (e.row ? 1 : look.size);
+    const stretch = e.row ? o.stretch || 1 : 1;
     const lean = this.sheared(b) ? wallShear(e, o, this.groundOf(b)) : null;
     const ground = lean ? lean.height : seatHeight(e, o, this.groundOf(b), this.seatWater);
     mapToScene(o.x, o.y, ground + o.z, this.tmpPos);
@@ -1354,12 +1356,13 @@ export class MapObjectLayer {
       this.leanAxis.set(Math.sin(look.leanToward), 0, Math.cos(look.leanToward));
       this.tmpQuat.premultiply(this.tilt.setFromAxisAngle(this.leanAxis, look.lean));
     }
-    this.tmpScale.set(s * look.widthX, s, s * look.widthZ);
+    this.tmpScale.set(s * look.widthX * stretch, s, s * look.widthZ);
     this.tmpMatrix.compose(this.tmpPos, this.tmpQuat, this.tmpScale);
     // Along a slope (wallShear): model y rises with model x, the posts stay upright
     if (lean) this.tmpMatrix.multiply(this.shear.set(1, 0, 0, 0, lean.shear, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1));
     this.tmpMatrix.toArray(b.source.matrices, i * 16);
-    const radius = Math.max(e.footprint, b.model.height * 0.6) * s * Math.max(1, look.widthX, look.widthZ);
+    const reach = e.row ? Math.max(e.footprint, (e.row / 2) * stretch) : e.footprint;
+    const radius = Math.max(reach, b.model.height * 0.6) * s * Math.max(1, look.widthX, look.widthZ);
     b.spheres[i * 4] = this.tmpPos.x;
     b.spheres[i * 4 + 1] = this.tmpPos.y + (b.model.height * s) / 2;
     b.spheres[i * 4 + 2] = this.tmpPos.z;

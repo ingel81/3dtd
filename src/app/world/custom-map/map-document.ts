@@ -206,6 +206,13 @@ export interface MapObject {
   pitch?: number;
   roll?: number;
   scale: number;
+  /**
+   * A length of row (catalogue `row`, a vine row) drawn this much longer
+   * along its model x than its scale makes it, so its run ends where the
+   * row ends (an OSM world's vineyards, convert/crop-rows.ts). Default 1;
+   * only drawn, the game ignores it
+   */
+  stretch?: number;
   /** Overrides of the catalogue entry */
   blocksLos?: boolean;
   blocksBuild?: boolean;

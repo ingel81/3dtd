@@ -232,6 +232,13 @@ export interface CatalogObject {
   /** Metres from the origin up to where a hanging mover holds its rope (a gondola's grip); default its height */
   grip?: number;
   /**
+   * A length of row along model x, metres at scale 1, centred on the origin
+   * (a vine row): it runs along the ground like a fence (its posts upright,
+   * objects/object-seat.ts wallShear), and an object stretches it along x
+   * (MapObject.stretch) so a run of pieces ends where its row ends
+   */
+  row?: number;
+  /**
    * Looks of the model in its baked texture atlas (a grid, 2 x 2 for four):
    * each instance shows the one its place picks (objects/atlas-variants.ts),
    * a herd of one cow model shows several breeds
