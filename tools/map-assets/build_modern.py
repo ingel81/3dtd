@@ -13,7 +13,7 @@ import math
 import random
 
 import bmesh
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 from blender_kit import (CITY_FACADES, Nodes, Part, bake_surface, box, card, card_material, clear_scene, export_lod, finish, flat_material, hexa,
                          net_material, pbr_material, tilt, tube)
@@ -1719,6 +1719,14 @@ def subway_walls(wall, trim, length, width, top_at, foot=-SUBWAY_DEPTH - 0.2):
         box(trim, length / 2, y + s * 0.03, top_at, length + 0.02, 0.32, 0.08)
 
 
+def subway_turned(objects):
+    """A descent's objects, built along +X, turned to run along +Y: the model's -z, into the ground as a tunnel
+    portal's vault runs, so the catalogue's `groundCut` leaves the terrain out over it"""
+    for obj in objects:
+        obj.data.transform(Matrix.Rotation(math.pi / 2, 4, 'Z'))
+    return objects
+
+
 def subway_handrails(steel, points, width):
     """Handrails on both walls along `points` (x, z of the walking surface), 0.9 m above it, on brackets"""
     for s in (-1, 1):
@@ -1731,7 +1739,8 @@ def subway_handrails(steel, points, width):
 
 def subway_stairs(name, width=3.0):
     """Stairs down into a subway along +X, the top at the ground (z 0) at x 0: two flights of nine steps of
-    SUBWAY_RISE with a landing between, walls either side up to the ground with a coping, handrails"""
+    SUBWAY_RISE with a landing between, walls either side up to the ground with a coping, handrails; turned to
+    run along the model's -z (subway_turned)"""
     clear_scene()
     wall, trim, floor, steel = subway_parts()
     nosing = Part(flat_material('subway-nosing', (0.62, 0.6, 0.55), 0.6))
@@ -1754,13 +1763,13 @@ def subway_stairs(name, width=3.0):
     length = x + 1.0
     subway_walls(wall, trim, length, width, 0.1)
     subway_handrails(steel, rails, width)
-    export(name, [wall.to_object(name), trim.to_object(name + '-steps'), floor.to_object(name + '-floor'),
-                  nosing.to_object(name + '-nosing'), steel.to_object(name + '-rails')], lod=300)
+    export(name, subway_turned([wall.to_object(name), trim.to_object(name + '-steps'), floor.to_object(name + '-floor'),
+                                nosing.to_object(name + '-nosing'), steel.to_object(name + '-rails')]), lod=300)
 
 
 def subway_ramp(name, length=20.0, width=3.0):
     """Ramp down into a subway along +X, from the ground at x 0 to SUBWAY_DEPTH at `length`, walls and
-    handrails as the stairs have"""
+    handrails as the stairs have; turned to run along the model's -z (subway_turned)"""
     clear_scene()
     wall, trim, floor, steel = subway_parts()
     foot = -SUBWAY_DEPTH - 0.2
@@ -1773,14 +1782,14 @@ def subway_ramp(name, length=20.0, width=3.0):
     box(trim, length / 2, 0, foot, length, width, 0.05)
     subway_walls(wall, trim, length, width, 0.1)
     subway_handrails(steel, [(0.0, 0.0), (length / 2, -SUBWAY_DEPTH / 2), (length, -SUBWAY_DEPTH)], width)
-    export(name, [wall.to_object(name), trim.to_object(name + '-trim'), floor.to_object(name + '-floor'),
-                  steel.to_object(name + '-rails')])
+    export(name, subway_turned([wall.to_object(name), trim.to_object(name + '-trim'), floor.to_object(name + '-floor'),
+                                steel.to_object(name + '-rails')]))
 
 
 def subway_entrance(name, width=5.0, opening=3.0, high=2.5, depth=4.0):
     """The head wall at the foot of a descent, its front to -X at x 0, the floor at z 0: a concrete wall up to
     the ground above (SUBWAY_DEPTH and its coping) with the subway's opening, inside tiled walls and ceiling
-    and a slab floor going dark the further in, a black back"""
+    and a slab floor going dark the further in, a black back; turned with the stairs (front to +z, in along -z)"""
     clear_scene()
     wall, trim, floor, steel = subway_parts()
     tiles = Part(pbr_material('subway-tiles', 'rectangular_facade_tiles', (0.82, 0.84, 0.82)), uv_metres=2.0)
@@ -1802,8 +1811,8 @@ def subway_entrance(name, width=5.0, opening=3.0, high=2.5, depth=4.0):
     box(floor, lit / 2, 0, -0.2, lit, opening, 0.2)
     box(shade, (lit + depth) / 2, 0, -0.2, depth - lit, opening, 0.2)
     box(dark, depth + 0.05, 0, -0.2, 0.1, opening + 0.2, high + 0.3)
-    export(name, [wall.to_object(name), trim.to_object(name + '-trim'), floor.to_object(name + '-floor'),
-                  tiles.to_object(name + '-tiles'), shade.to_object(name + '-shade'), dark.to_object(name + '-dark')])
+    export(name, subway_turned([wall.to_object(name), trim.to_object(name + '-trim'), floor.to_object(name + '-floor'),
+                                tiles.to_object(name + '-tiles'), shade.to_object(name + '-shade'), dark.to_object(name + '-dark')]))
 
 
 def concrete_retaining_wall(name, length=6.0, height=3.0):

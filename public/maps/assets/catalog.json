@@ -26584,6 +26584,12 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 1200,
+      "groundCut": [
+        1.6,
+        1,
+        1,
+        7.9
+      ],
       "tags": [
         "city"
       ],
@@ -26594,7 +26600,7 @@
         "textures/concrete_slab_wall_arm_1k-7805e9abd8ae6b08.ktx2",
         "textures/concrete_slab_wall_diff_1k-cfdb0c7600de33e0.ktx2",
         "textures/concrete_slab_wall_nor_gl_1k-d4cfb606c06dd691.ktx2",
-        "textures/subway-stairs-ao-f52cb9f0c2b4a0c2.ktx2"
+        "textures/subway-stairs-ao-5668d1bfadb26947.ktx2"
       ],
       "lod": [
         {
@@ -26605,7 +26611,7 @@
             1.204,
             1.451
           ],
-          "triangles": 492
+          "triangles": 491
         }
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall"
@@ -26627,6 +26633,12 @@
       "randomRotation": false,
       "wind": 0,
       "drawDistance": 1200,
+      "groundCut": [
+        1.6,
+        1,
+        1,
+        20
+      ],
       "tags": [
         "city"
       ],
@@ -26637,7 +26649,7 @@
         "textures/concrete_slab_wall_arm_1k-7805e9abd8ae6b08.ktx2",
         "textures/concrete_slab_wall_diff_1k-cfdb0c7600de33e0.ktx2",
         "textures/concrete_slab_wall_nor_gl_1k-d4cfb606c06dd691.ktx2",
-        "textures/subway-ramp-ao-a2ce91482951fe57.ktx2"
+        "textures/subway-ramp-ao-b38fde0ac3cb758e.ktx2"
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall"
     },
@@ -26671,7 +26683,7 @@
         "textures/rectangular_facade_tiles_arm_1k-de0a18c6b5be76bd.ktx2",
         "textures/rectangular_facade_tiles_diff_1k-bce78c0a4a60c61c.ktx2",
         "textures/rectangular_facade_tiles_nor_gl_1k-911bf324bbf91330.ktx2",
-        "textures/subway-entrance-ao-6c5de762dbd24b25.ktx2"
+        "textures/subway-entrance-ao-d786242165135a04.ktx2"
       ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/rectangular_facade_tiles"
     },
