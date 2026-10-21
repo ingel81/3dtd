@@ -39,7 +39,8 @@ import { BUILDING_MODELS, buildingKind, buildingLandOf, buildingLevels, isGround
 import type { OsmArea, OsmFeatures } from '../osm-parse';
 import { ringArea } from '../square-clip';
 import { convexHull, pointInRing } from './raster';
-import { MASS_ASSET, type MapMass } from '../../custom-map/map-document';
+import { MASS_ASSET, type MapFootprints, type MapMass } from '../../custom-map/map-document';
+import { packFootprints } from '../../custom-map/map-footprints';
 import { massBox, massDistance, massRadius, massTriangles } from '../../custom-map/object-mass';
 import { toModel } from '../../custom-map/object-ground';
 import { clipOffRoads, raiseMass } from './building-mass';
@@ -217,6 +218,21 @@ interface Footprint {
   cost: number;
   /** The tint of its models, null for none */
   tint: string | null;
+}
+
+/**
+ * Every footprint the buildings read, as OSM has it (each outer ring, its
+ * storeys), also those left out: what the map keeps for the developer layer
+ * that lays them over the buildings made of them (TODO E290)
+ */
+export function osmFootprints(features: OsmFeatures): MapFootprints {
+  const rings: { points: MapPoint[]; levels: number | null }[] = [];
+  for (const area of features.areas) {
+    if (!area.tags['building'] || !isGroundBuilding(area.tags)) continue;
+    const levels = buildingLevels(area.tags);
+    for (const points of area.outer) rings.push({ points, levels });
+  }
+  return packFootprints(rings);
 }
 
 /** The buildings of `features` placed on `doc` (after the roads and the HQ): objects to add, the ground levelled under them */

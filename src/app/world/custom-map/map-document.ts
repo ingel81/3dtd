@@ -720,6 +720,23 @@ export interface CustomMapDocument {
    * them): they travel with its file. Not part of the content hash
    */
   prefabs?: MapPrefab[];
+  /**
+   * The building footprints an OSM world's import read (map-footprints.ts),
+   * for the developer layer that lays them over the buildings made of them
+   * (TODO E290); the game's rules never see them. Not part of the content hash
+   */
+  footprints?: MapFootprints;
+}
+
+/**
+ * Building footprints as OpenStreetMap has them, each outer ring once, in
+ * one array: per ring its point count n, its storeys (building:levels or
+ * height, 0 when OSM says neither), then n points as x, y in decimetres
+ * (map-footprints.ts reads and writes it). Int16: up to 3.2 km off the
+ * middle, past every map's edge
+ */
+export interface MapFootprints {
+  rings: Int16Array;
 }
 
 /** What a piece of a map holds, or what a paste takes of it */
@@ -830,7 +847,7 @@ export const MAP_SURFACE_MARKINGS = valuesOf<MapSurfaceMarkingKind>({
 export const MAP_WAVE_EVENT_KINDS = valuesOf<MapWaveEventKind>({ message: true, weather: true, time: true, portal: true, objects: true });
 
 /** Typed array check that holds across realms (structuredClone in a test DOM, workers) */
-export function isTypedArray(v: unknown, kind: 'Float32Array' | 'Uint8Array'): boolean {
+export function isTypedArray(v: unknown, kind: 'Float32Array' | 'Uint8Array' | 'Int16Array'): boolean {
   return Object.prototype.toString.call(v) === `[object ${kind}]`;
 }
 
@@ -844,6 +861,7 @@ export function documentTransferables(doc: CustomMapDocument): ArrayBuffer[] {
     arrays.push(stamp.heights, stamp.paint);
     if (stamp.water) arrays.push(stamp.water.mask);
   }
+  if (doc.footprints) arrays.push(doc.footprints.rings);
   const buffers = new Set<ArrayBuffer>();
   // A shared buffer cannot be handed over; checked across realms like isTypedArray
   for (const a of arrays) if (isArrayBuffer(a.buffer)) buffers.add(a.buffer);

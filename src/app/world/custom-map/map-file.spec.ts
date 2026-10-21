@@ -14,6 +14,7 @@ import {
 } from './map-file';
 import { MapFileError } from './map-file-kind';
 import { mapRepairs } from './map-repair';
+import { packFootprints, readFootprints } from './map-footprints';
 import { en } from '../../i18n/messages/en';
 import { mapProblemText } from './map-text';
 import { words, errorWords } from './testing/map-words';
@@ -353,6 +354,30 @@ describe('map file', () => {
     expect(words(validateMapDocument(doc))).toEqual([]);
     expect(soft(doc)).toEqual(['prefab 2: paint does not match its grid; it is left out']);
     expect(unpackMapFile(packMapFile(doc)).doc.prefabs!.map((p) => p.id)).toEqual(['pf-1']);
+  });
+
+  it('carries the footprints an OSM world keeps, outside the content hash, and leaves cut ones out (TODO E290)', async () => {
+    const doc = sample();
+    const hash = await contentHash(doc);
+    const ring = [{ x: -3, y: 2 }, { x: 4.5, y: 2 }, { x: 4.5, y: 9.2 }, { x: -3, y: 9.2 }];
+    doc.footprints = packFootprints([{ points: ring, levels: 4 }]);
+    expect(words(validateMapDocument(doc))).toEqual([]);
+    expect(await contentHash(doc)).toBe(hash);
+    const bytes = packMapFile(doc);
+    expect(Object.keys(unzipSync(bytes))).toContain('osm/footprints.i16');
+    const { doc: back } = unpackMapFile(bytes);
+    expect(back.footprints!.rings).toBeInstanceOf(Int16Array);
+    expect(readFootprints(back.footprints!)).toEqual([{ points: ring, levels: 4 }]);
+    expect(await contentHash(back)).toBe(hash);
+    // A map without them writes no key
+    delete back.footprints;
+    expect(JSON.parse(new TextDecoder().decode(unzipSync(packMapFile(back))['map.json']))).not.toHaveProperty('footprints');
+    // Cut rings are not written; a file whose entry is missing reads without them
+    doc.footprints = { rings: doc.footprints.rings.subarray(0, 5) };
+    expect(unpackMapFile(packMapFile(doc)).doc.footprints).toBeUndefined();
+    const entries = unzipSync(bytes);
+    delete entries['osm/footprints.i16'];
+    expect(unpackMapFile(zipSync(entries)).doc.footprints).toBeUndefined();
   });
 
   it('carries the wave events in the rules and checks their shape (TODO E170)', async () => {

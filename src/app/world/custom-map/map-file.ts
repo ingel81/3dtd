@@ -34,6 +34,7 @@ import {
 import { MAP_ID_PATTERN } from './map-create';
 import { mapRepairs, prefabProblems } from './map-repair';
 import { MapFileError } from './map-file-kind';
+import { footprintsWellFormed } from './map-footprints';
 import type { MapFilePart, MapProblem, MapProblemPart, MapText } from './map-text';
 
 export type { MapProblem, MapProblemPart } from './map-text';
@@ -75,6 +76,9 @@ const BIN = {
   water: 'terrain/water-mask.u8',
 } as const;
 
+/** Where an OSM world keeps the footprints its import read (CustomMapDocument.footprints), outside the content hash */
+const FOOTPRINTS_ENTRY = 'osm/footprints.i16';
+
 /**
  * Limits a file is read within, so a small zip that claims huge entries
  * cannot take the tab down: samples and splat texels per side, bytes per
@@ -92,6 +96,7 @@ function knownEntry(name: string): boolean {
   return (
     name === MAP_JSON_ENTRY ||
     name === MAP_PREVIEW_ENTRY ||
+    name === FOOTPRINTS_ENTRY ||
     (Object.values(BIN) as string[]).includes(name) ||
     /^terrain\/water-([1-9]\d?)-mask\.u8$/.test(name) ||
     /^prefabs\/\d{1,2}\/(heights\.f32|paint\.u8|water\.u8)$/.test(name)
@@ -250,8 +255,8 @@ export async function contentHash(doc: CustomMapDocument): Promise<string> {
 export function contentBytes(doc: CustomMapDocument): Uint8Array {
   const { json, binaries } = splitDocument(doc);
   // Neither the file's version nor its format is world content: a new file version keeps the hashes of unchanged maps.
-  // Nor are the prefabs the map keeps for its editor
-  const { version: _version, format: _format, prefabs: _prefabs, ...rest } = json;
+  // Nor are the prefabs the map keeps for its editor, nor the footprints an OSM world keeps for the developer layer
+  const { version: _version, format: _format, prefabs: _prefabs, footprints: _footprints, ...rest } = json;
   const world = { ...rest, meta: { id: doc.meta.id } };
   const head = strToU8(canonicalJson(world));
   let size = head.length;
@@ -498,7 +503,8 @@ function checkDocument(doc: CustomMapDocument, p: ProblemList): void {
 
 /**
  * The document as JSON with binary refs, and the binaries by zip path: the
- * world's, and the editor's own (the prefabs' arrays, outside the content hash)
+ * world's, and those outside the content hash (the editor's prefabs' arrays,
+ * an OSM world's footprints)
  */
 function splitDocument(doc: CustomMapDocument): { json: Record<string, unknown>; binaries: [string, Uint8Array][]; editorBinaries: [string, Uint8Array][] } {
   const t = doc.terrain;
@@ -535,8 +541,12 @@ function splitDocument(doc: CustomMapDocument): { json: Record<string, unknown>;
     };
     return { ...p, stamp };
   });
-  // No key at all without prefabs: files of maps without them stay as they were
-  const json = { ...doc, terrain, prefabs: prefabs?.length ? prefabs : undefined };
+  // Footprints whose rings do not hold are not written: reading would leave them out all the same
+  const rings = doc.footprints?.rings;
+  const footprints = rings && isTyped(rings, 'Int16Array') && rings.length && footprintsWellFormed(rings) ? ref(FOOTPRINTS_ENTRY) : undefined;
+  if (footprints) editorBinaries.push([FOOTPRINTS_ENTRY, int16Bytes(rings!)]);
+  // No key at all without prefabs or footprints: files of maps without them stay as they were
+  const json = { ...doc, terrain, prefabs: prefabs?.length ? prefabs : undefined, footprints: footprints && { rings: footprints } };
   return { json: json as unknown as Record<string, unknown>, binaries, editorBinaries };
 }
 
@@ -591,6 +601,14 @@ function joinDocument(json: Record<string, unknown>, entries: Record<string, Uin
   } else {
     delete doc.prefabs;
   }
+  // The footprints are no part of the world either: missing or cut, they are left out
+  const footprints = (doc as unknown as Record<string, unknown>)['footprints'];
+  const ringsRef = isRecord(footprints) ? footprints['rings'] : undefined;
+  const ringsName = isRecord(ringsRef) && typeof ringsRef['$bin'] === 'string' ? ringsRef['$bin'] : null;
+  const ringBytes = ringsName ? entries[ringsName] : undefined;
+  const rings = ringBytes && ringBytes.length % 2 === 0 ? bytesToInt16(ringBytes) : null;
+  if (rings && rings.length && footprintsWellFormed(rings)) doc.footprints = { rings };
+  else delete doc.footprints;
   doc.objects ??= [];
   doc.paths ??= { nodes: [], edges: [] };
   doc.spawns ??= [];
@@ -602,6 +620,23 @@ function floatBytes(a: Float32Array): Uint8Array {
   const out = new Uint8Array(a.length * 4);
   const view = new DataView(out.buffer);
   for (let k = 0; k < a.length; k++) view.setFloat32(k * 4, a[k], true);
+  return out;
+}
+
+function int16Bytes(a: Int16Array): Uint8Array {
+  if (LITTLE_ENDIAN) return new Uint8Array(a.buffer.slice(a.byteOffset, a.byteOffset + a.byteLength));
+  const out = new Uint8Array(a.length * 2);
+  const view = new DataView(out.buffer);
+  for (let k = 0; k < a.length; k++) view.setInt16(k * 2, a[k], true);
+  return out;
+}
+
+function bytesToInt16(b: Uint8Array): Int16Array {
+  const n = b.length / 2;
+  if (LITTLE_ENDIAN) return new Int16Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
+  const out = new Int16Array(n);
+  const view = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  for (let k = 0; k < n; k++) out[k] = view.getInt16(k * 2, true);
   return out;
 }
 

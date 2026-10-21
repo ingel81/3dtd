@@ -34,7 +34,7 @@ import { growLife, type LifeReport } from './convert/life';
 import { placeFurniture, type FurnitureReport } from './convert/furniture';
 import { levelRails, paintRails, planRails, railPaintMaterials, type RailGroundReport, type RailStats } from './convert/rails';
 import { placePois, type PoiReport } from './convert/pois';
-import { placeBuildings, type BuildingCatalogEntry, type BuildingReport } from './convert/buildings';
+import { osmFootprints, placeBuildings, type BuildingCatalogEntry, type BuildingReport } from './convert/buildings';
 import { layAreas, type AreaReport } from './convert/areas';
 import { spawnRoutes } from '../../map-ops/path-graph';
 import { OsmError } from './osm-error';
@@ -237,6 +237,8 @@ export function convertOsm(
   const buildings = placeBuildings(doc, features, { catalog: options.catalog, onShare: onShare && ((share) => onShare('buildings', share)) });
   doc.objects.push(...buildings.objects);
   warnings.push(...buildings.warnings);
+  // The footprints as OSM has them, for the developer layer over the buildings (TODO E290)
+  doc.footprints = osmFootprints(features);
   step('buildings');
 
   // Fences, walls, tracks, lamps and the points of the street, in their own share of the scene budget

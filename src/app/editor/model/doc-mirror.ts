@@ -16,7 +16,8 @@
  *     changed in place); the road nodes and edges the same way, those
  *     changed in place found by their fields (a change of the roads names
  *     none; a node dragged moves in place); the prefabs and the surfaces
- *     whole when they changed.
+ *     whole when they changed; an OSM world's footprints (no tool changes
+ *     them) whole when the list is another.
  *
  * Every part has a version (DocPart, doc-change.ts) that rises with each
  * change of it; the mirror holds the versions of the state it was told, and
@@ -27,7 +28,7 @@
  * its own (an undo snapshot or a worker's structured clone of a document
  * array would otherwise alias a buffer two threads write).
  */
-import type { CustomMapDocument, MapObject, MapPaths, MapPrefab, MapSurface, MapWater } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapFootprints, MapObject, MapPaths, MapPrefab, MapSurface, MapWater } from '../../world/custom-map/map-document';
 import type { GridRect } from '../../map-ops/grid';
 import { DOC_PARTS, changedParts, type DocChange, type DocPart } from './doc-change';
 import type { EditorDocument } from './editor-document';
@@ -75,6 +76,8 @@ export interface MirrorSync {
   prefabs?: MapPrefab[] | null;
   /** The surfaces whole when they changed; null for none */
   surfaces?: MapSurface[] | null;
+  /** An OSM world's footprints when they are others than sent last; null for none */
+  footprints?: MapFootprints | null;
 }
 
 /** What the mirror placed instead of what a sync brings apart from the shell */
@@ -98,6 +101,7 @@ export function shellOf(doc: CustomMapDocument): CustomMapDocument {
   const shell = { ...doc, terrain, objects: HOLE as unknown as MapObject[], paths: HOLE as unknown as MapPaths };
   if ('prefabs' in doc) shell.prefabs = HOLE as unknown as MapPrefab[];
   if ('surfaces' in doc) shell.surfaces = HOLE as unknown as MapSurface[];
+  if ('footprints' in doc) shell.footprints = HOLE as unknown as MapFootprints;
   return shell;
 }
 
@@ -271,6 +275,7 @@ interface Sent {
   pathsRef: MapPaths;
   prefabs: MapPrefab[] | undefined;
   surfaces: MapSurface[] | undefined;
+  footprints: MapFootprints | undefined;
 }
 
 /**
@@ -404,6 +409,7 @@ export class MirrorTracker {
     }
     if (!sent || this.prefabs || sent.prefabs !== doc.prefabs) sync.prefabs = doc.prefabs ?? null;
     if (!sent || this.surfaces || sent.surfaces !== doc.surfaces) sync.surfaces = doc.surfaces ?? null;
+    if (!sent || sent.footprints !== doc.footprints) sync.footprints = doc.footprints ?? null;
     this.sent = {
       doc,
       heights: g.heights,
@@ -417,6 +423,7 @@ export class MirrorTracker {
       pathsRef: p,
       prefabs: doc.prefabs,
       surfaces: doc.surfaces,
+      footprints: doc.footprints,
     };
     this.clear(g.columns, g.rows, res);
     return { sync, transfer };
@@ -478,6 +485,7 @@ export class DocMirror {
     }
     if ('prefabs' in doc) doc.prefabs = (sync.prefabs !== undefined ? sync.prefabs : was?.prefabs) ?? undefined;
     if ('surfaces' in doc) doc.surfaces = (sync.surfaces !== undefined ? sync.surfaces : was?.surfaces) ?? undefined;
+    if ('footprints' in doc) doc.footprints = (sync.footprints !== undefined ? sync.footprints : was?.footprints) ?? undefined;
     this.current = doc;
     this.state = sync.state;
     this.versions = sync.versions;

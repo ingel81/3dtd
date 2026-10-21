@@ -17,6 +17,8 @@ import type { CatalogObject } from '../custom-map/render/asset-catalog';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { mapRepairs } from '../custom-map/map-repair';
+import { readFootprints } from '../custom-map/map-footprints';
+import { unzipSync } from 'fflate';
 import { massTriangles } from '../custom-map/object-mass';
 import { en } from '../../i18n/messages/en';
 import { checkText } from '../../map-ops/validation/check-text';
@@ -106,6 +108,22 @@ describe('OSM world (frozen probe Miltenberg)', () => {
     expect(b.dropped.budget).toBe(0);
     expect(b.costShare).toBeCloseTo(b.cost / SCENE_BUDGET, 3);
     expect(b.missing.every((m) => m.count > 0)).toBe(true);
+  });
+
+  it('keeps every footprint it read, those left out too, as OSM has them, in the file but not in its world (TODO E290)', () => {
+    const { doc, report } = convertOsm(probe(), options);
+    const kept = readFootprints(doc.footprints!);
+    // Each outer ring of a footprint once: a multipolygon may bring more than one
+    expect(kept.length).toBeGreaterThanOrEqual(report.buildings.footprints);
+    expect(kept.length).toBeLessThan(report.buildings.footprints * 1.05);
+    expect(kept.some((f) => f.levels > 0)).toBe(true);
+    const half = options.sideM / 2 + 150;
+    for (const f of kept) for (const p of f.points) expect(Math.max(Math.abs(p.x), Math.abs(p.y))).toBeLessThan(half);
+    const entries = unzipSync(packMapFile(doc));
+    // 1 385 rings of about five points: 32 kB raw, some 26 kB more file (2 %)
+    expect(entries['osm/footprints.i16'].length).toBe(doc.footprints!.rings.byteLength);
+    expect(doc.footprints!.rings.byteLength).toBeLessThan(64_000);
+    expect(readFootprints(unpackMapFile(packMapFile(doc)).doc.footprints!)).toEqual(kept);
   });
 
   it('places no buildings without them in the data, and warns when it has no catalogue', () => {

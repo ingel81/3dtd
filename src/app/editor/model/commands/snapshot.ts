@@ -6,6 +6,7 @@
 import type {
   CustomMapDocument,
   MapEnvironment,
+  MapFootprints,
   MapGameplay,
   MapIntro,
   MapLife,
@@ -34,6 +35,7 @@ export interface DocParts {
   meta: MapMeta;
   terrain: MapTerrain;
   prefabs: MapPrefab[] | undefined;
+  footprints: MapFootprints | undefined;
 }
 
 /** The parts that make the map's content: every field of the document but its format, version and `meta` (id, name, dates) */
@@ -52,6 +54,7 @@ const CONTENT_PART: Record<ContentPart, true> = {
   surfaces: true,
   intro: true,
   prefabs: true,
+  footprints: true,
 };
 
 /**
@@ -74,6 +77,8 @@ const PART_CHANGE: Record<keyof DocParts, DocChange> = {
   meta: { meta: true },
   terrain: { terrain: true, layers: true, water: true },
   prefabs: { prefabs: true },
+  // No tool changes them and nothing draws them in the editor; the worker's mirror follows them by identity
+  footprints: {},
 };
 
 /** Swaps parts of the document between two copies */
@@ -148,6 +153,8 @@ function estimateBytes(parts: Partial<DocParts>): number {
       for (const body of t.waterBodies ?? []) n += body.mask.byteLength;
     } else if (Array.isArray(value) && (value[0] as MapPrefab | undefined)?.stamp) {
       for (const p of value as MapPrefab[]) n += p.stamp.heights.byteLength + p.stamp.paint.byteLength + (p.preview?.length ?? 0) + p.stamp.objects.length * 160;
+    } else if ((value as MapFootprints).rings) {
+      n += (value as MapFootprints).rings.byteLength;
     } else n += JSON.stringify(value).length;
   }
   return n;
