@@ -55,17 +55,9 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       2026-10-21: Stufe 1 auf next (fd30005d5, hochgezogene Gebäude 22 → 8 Programme, Leerlauf nach ready ruhig).
       **Pausiert** (User): Stufen 2-4 (Asset-Ruinen, Schatten-Zwillinge, zurück ins Laden) ruhen. Vor einer
       Fortsetzung erst next gegen 8276577a0 mit frischem Profil messen und zählen, ob die Ruinen fertig werden.
-- [ ] **E291 Route, Korridor und Sicht folgen dem Krater nicht** (User 2026-10-21, geprüft im Code): Gegner laufen durch den Krater (Simulation: Zellhöhe plus Stempelraster). Aber:
-      (1) die Korridor-Kacheln und die rote Routenlinie werden nur bei neuen Routen gebaut (`route-grid-viz.service.ts`
-      hört nur auf `onCellsChanged`), sie bleiben auf alter Höhe; (2) die Sicht der Tower ist ein Cache je Zelle aus
-      Bau oder Upgrade (`GlobalRouteGrid.registerTower`), kein Krater fragt sie neu an. Nur ein danach gebauter Tower
-      probt in der Mulde (`standHeight` liest das Stempelraster). DESTRUCTION_PLAN.md behauptet, ein neuer Krater lasse
-      die Tower in Reichweite neu anfragen; das ist nicht gebaut. Kosten, falls gewünscht: Kacheln/Linie im
-      Krater-Rechteck neu setzen (billig); Sicht entweder nur die betroffenen Zellen gegen den alten Cube neu proben
-      (billig, Kraterwand selbst verdeckt dann nicht) oder Cube der Tower in Reichweite neu rendern (je Tower ein
-      Cube-Render, bei Nuke-Dauerfeuer gedrosselt, z. B. höchstens einmal je Sekunde gesammelt).
-      Entschieden (User 2026-10-21): Kacheln und Linie im Krater-Rechteck neu setzen; die Tower in Reichweite rendern
-      ihren Cube neu, gesammelt höchstens einmal je Sekunde (die Kraterwand verdeckt richtig).
+      Befund 2026-10-21 (E291-Messung): der erste Sicht-Cube eines Towers, in dem eine Ruine zu sehen ist, dauert
+      einmal je Sitzung rund 310 ms (erster echter Draw der Ruinen-Programme im Treiber; Vorab-Übersetzen hilft nicht).
+      Lösung gehört hierher: Ruinen im Aufwärmen wirklich einmal zeichnen.
 - [ ] **E301 Wasser mit Volumen** (User 2026-10-21, zu E294): Wasser ist heute je Art eigene Regel (Flussnetz,
       Kratersee mit Füllstand und Überlauf, Rinne) und wird als flache Fläche gezeichnet, ohne Volumen. Erst ein Plan
       mit Messung, nichts bauen: (1) Optik mit Volumen bei gleichen Regeln (Tiefe färbt und trübt, Grund sichtbar,
@@ -220,8 +212,13 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ## 2. Gebaut, wartet auf Test
 
-### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q, R, S, T, U, V, W und X)
+### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q, R, S, T, U, V, W, X und Z)
 
+- [ ] **E291 Krater und Einstürze ändern Route und Sicht**: Korridor-Kacheln und rote Linie folgen dem Krater;
+      stehende Tower sehen nach Krater, Einsturz, Verschleiß-Loch oder Wellenobjekt neu (Cube neu, gesammelt höchstens
+      einmal je Sekunde, nicht im Bild des Ereignisses). Nuke-Dauerfeuer mit 30 Towern 0,18 ms je Bild (Z1 bis Z3).
+      Offen: in 24 Messläufen einmal Zeitüberschreitung beim Warten auf die Sicht frisch gesetzter Tower, nicht
+      nachgestellt. Doku: DESTRUCTION_PLAN.md, LOS_PIPELINE.md.
 - [ ] **E302 Gebaute Welten aufgeräumt** (Variante A): laufendes Spiel als ein Block oben, jede Karte einmal in ihrer
       Herkunftsgruppe (kein Zuletzt, Koop-Hosts nur wenn nicht leer), gewählte Karte als Platte mit Spielen, Bearbeiten
       und „...“-Menü; „zuletzt heute“ und „OSM“ klein in der Zeile (X1 bis X4). Doku: WORLDS_NAVIGATION_PLAN.md 3.1.

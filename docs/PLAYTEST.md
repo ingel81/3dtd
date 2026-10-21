@@ -702,6 +702,17 @@ Gruppen, Zeilen, Platte und Menü prüft `worlds-stage.scenario.spec.ts`; hier A
   Herunterladen.* Esc und ein Klick daneben schließen es, Esc lässt das Weltmenü offen; Löschen legt die Karte in den
   Papierkorb, der aufgeht.
 
+## Z Krater und Einstürze ändern Route und Sicht (2026-10-21, E291)
+
+Drosselung, Reichweite und Neuanfrage prüfen `world-sight-batch.spec.ts`, `tower-los-registry.spec.ts`,
+`route-line-layer.spec.ts`; hier das Auge. Ruined City, Routen an.
+
+- **Z1 Linie:** einen Atomschlag auf eine Route setzen. *Rote Linie und Korridor-Kacheln senken sich in die Mulde,
+  andere Linien bleiben, wo sie sind.*
+- **Z2 Sicht in die Mulde:** einen Tower an den Kraterrand stellen, ihn wählen. *Nach höchstens einer Sekunde zeigen
+  die Sichtzellen: tief in der Mulde hinter der Kraterwand sieht er nichts.*
+- **Z3 Lücke nach Einsturz:** ein Gebäude neben einem Tower einstürzen lassen. *Der Tower sieht durch die Lücke.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo
