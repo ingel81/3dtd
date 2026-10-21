@@ -6,11 +6,32 @@
  * its roof from `roof:shape`, else by kind (pitched only over a footprint
  * that is nearly its rectangle); its walls from `building:material`, else
  * by kind; its tint from `building:colour`, else one of its facade's.
+ *
+ * A footprint with parts (`building:part` inside it, Simple 3D Buildings;
+ * docs/OSM_LANDMARKS_PLAN.md L3) is raised as its parts: each its own
+ * outline in the building's frame, from `min_height` (or
+ * `building:min_level`) to `height` (or `building:levels`), its own roof
+ * from `roof:shape` and `roof:height`, its own walls and colours from
+ * `building:material`, `building:colour`, `roof:colour`, `roof:material`;
+ * the footprint gives the kind, the facade and the tint where a part has
+ * none, and where the parts leave much of it bare a part of its own fills it.
  */
-import type { MapMass, MapMassFacade, MapMassRoof, MapPoint } from '../../custom-map/map-document';
-import { insetOutline, MASS_MAX_POINTS, MASS_PARAPET, ringArea2, segmentDistance } from '../../custom-map/object-mass';
+import type { MapMass, MapMassCover, MapMassFacade, MapMassPart, MapMassRoof, MapPoint } from '../../custom-map/map-document';
+import {
+  insetOutline,
+  MASS_MAX_PARTS,
+  MASS_MAX_POINTS,
+  MASS_PARAPET,
+  massApex,
+  offsetRing,
+  ringArea2,
+  ringsContain,
+  segmentDistance,
+} from '../../custom-map/object-mass';
 import { toModel } from '../../custom-map/object-ground';
+import { minAreaRect } from '../../custom-map/map-surfaces';
 import { buildingLevels, type BuildingKind } from '../building-tags';
+import { ringArea } from '../square-clip';
 
 /** Points nearer than this (m) to the line of their neighbours go (Douglas-Peucker) */
 const SIMPLIFY_M = 0.35;
@@ -177,6 +198,45 @@ const NAMED: Readonly<Record<string, string>> = {
   green: '#8ea486',
   orange: '#e3a46c',
   pink: '#e8bcb0',
+  black: '#3a3a3a',
+  anthracite: '#383e42',
+  darkgrey: '#7a7a78',
+  darkgray: '#7a7a78',
+  lightgrey: '#d3d3d0',
+  lightgray: '#d3d3d0',
+  silver: '#c0c0c0',
+  antiquewhite: '#faebd7',
+  ivory: '#f8f6ec',
+  linen: '#f6f0e6',
+  wheat: '#f0dcb4',
+  tan: '#d2b48c',
+  khaki: '#d8cc98',
+  sandybrown: '#e4a868',
+  darkred: '#8b2f2a',
+  maroon: '#7a2c28',
+  sienna: '#a0522d',
+  salmon: '#e9967a',
+  ochre: '#d0a050',
+  copper: '#4a9a88',
+  teal: '#4a8a88',
+  darkgreen: '#4e6e48',
+  navy: '#3a4a6a',
+};
+
+/**
+ * Colour names on stone walls: the building stones of LANDMARK_TINTS, not
+ * paint (a castle `building:colour=red` is red sandstone, not a red wall)
+ */
+const STONE_NAMED: Readonly<Record<string, string>> = {
+  red: '#c98a72',
+  pink: '#d9a07f',
+  yellow: '#e2c9a4',
+  beige: '#e2c9a4',
+  cream: '#ece4d2',
+  white: '#ece4d2',
+  grey: '#cfc8bd',
+  gray: '#cfc8bd',
+  brown: '#b9a58c',
 };
 
 /** One raised building: its mass in the object's own axes, the object's place and turn, its tint */
@@ -200,8 +260,41 @@ export interface MassRect {
 }
 
 /**
+ * A part of a building in OSM (`building:part`) as the import reads it: its
+ * outline and courtyards in map space, its tags
+ */
+export interface OsmPart {
+  outer: readonly MapPoint[];
+  holes: readonly (readonly MapPoint[])[];
+  tags: Readonly<Record<string, string>>;
+}
+
+/** `building:part` values that show nothing outside: a lift's shaft, a room, a floor inside the building */
+const HIDDEN_PARTS: ReadonlySet<string> = new Set(['no', 'elevator', 'room', 'rooms', 'floor', 'level', 'corridor', 'shaft']);
+
+/** Whether a `building:part` stands to be seen: not hidden inside (HIDDEN_PARTS), not under the ground */
+export function isDrawnPart(tags: Readonly<Record<string, string>>): boolean {
+  const part = tags['building:part'];
+  return !!part && !HIDDEN_PARTS.has(part) && tags['location'] !== 'underground' && !(parseInt(tags['layer'] ?? '0', 10) < 0);
+}
+
+/** Share of the footprint its parts cover at least, else a part of its own fills the rest */
+const PARTS_COVER = 0.97;
+/** How far that filling part keeps inside the footprint's walls and off its courtyards, m: never in the plane of a part's wall */
+const FILL_INSET = 0.15;
+/** Points of the footprint the parts' cover is measured at, about */
+const COVER_SAMPLES = 600;
+
+/** `roof:shape` values drawn as a pitched roof over a rectangle: a ridge (gable) or hips all round */
+const GABLE_SHAPES: ReadonlySet<string> = new Set(['gabled', 'half-hipped', 'gambrel', 'round', 'saltbox', 'mansard']);
+const HIP_SHAPES: ReadonlySet<string> = new Set(['hipped', 'side_hipped']);
+/** `roof:shape` values drawn as a pyramid to one top (a helm; onion, dome and spire as such until L5) */
+const PYRAMID_SHAPES: ReadonlySet<string> = new Set(['pyramidal', 'cone', 'conical', 'onion', 'dome', 'spire', 'helm']);
+
+/**
  * The footprint (`outer` with its courtyards `holes`, in map space) raised
- * as a building of `kind`, laid in its rectangle's axes; null when nothing
+ * as a building of `kind`, laid in its rectangle's axes; with `parts`
+ * (building:part in it, isDrawnPart) raised as those; null when nothing
  * is left of it after simplifying
  */
 export function raiseMass(
@@ -213,6 +306,7 @@ export function raiseMass(
   area: number,
   salt: number,
   oldTown = false,
+  parts: readonly OsmPart[] = [],
 ): RaisedMass | null {
   // Model +x along the rectangle's side a (its axis u turned back), +z a quarter turn left of it in the map
   const front = { x: -rect.u.y, y: rect.u.x };
@@ -231,11 +325,42 @@ export function raiseMass(
   // A tower (tagged one, or much higher than wide: a town hall's or a gate's): stone, storeys of its own, a steep pyramid
   const tower = kind === 'tower' || (area < TOWER_AREA && levels.height > TOWER_SLENDER * Math.sqrt(area));
   if (tower) levels.floors = Math.max(levels.floors, Math.round(levels.height / 4));
+  const facade = tower && !MATERIALS[tags['building:material'] ?? ''] ? 'stone' : massFacade(tags, kind, oldTown);
+  const tint = massTint(tags, facade, salt, tower || LANDMARK_KINDS.has(kind) ? kind : null);
+  const roofColour = roofLook(tags);
+  const placed = { centre: rect.c, rotation, front, hw: rect.a / 2, hd: rect.b / 2, tint };
+  const drawn = parts.filter((p) => isDrawnPart(p.tags));
+  if (drawn.length) {
+    const mass = partsMass(outer, holes, local, drawn, kind, tags, area, levels, facade, roofColour);
+    if (!mass) return null;
+    // Untagged, the building takes the colours most of its parts have: the parts without (a stair tower) match them
+    const ownTint = tagColour(tags['building:colour'], facade === 'stone') ?? mostOf(mass.parts!.map((p) => p.tint));
+    if (ownTint) {
+      placed.tint = ownTint;
+      for (const p of mass.parts!) if (p.tint === ownTint) delete p.tint;
+    }
+    if (!mass.roofTint && !mass.roofCover) {
+      const look = mostOf(mass.parts!.map((p) => (p.roofTint || p.roofCover ? `${p.roofTint ?? ''}|${p.roofCover ?? ''}` : undefined)));
+      if (look) {
+        const [roofTint, roofCover] = look.split('|');
+        if (roofTint) mass.roofTint = roofTint;
+        if (roofCover) mass.roofCover = roofCover as MapMassCover;
+      }
+    }
+    for (const p of mass.parts!) {
+      if (p.roofTint === mass.roofTint && p.roofCover === mass.roofCover) {
+        delete p.roofTint;
+        delete p.roofCover;
+      }
+    }
+    return { mass, ...placed };
+  }
   const pitchDeg = tower ? TOWER_PITCH : roofPitch(tags, kind);
   const fill = area / Math.max(1e-6, rect.a * rect.b);
   let rings: number[][];
   let roof: MapMassRoof = 'flat';
   let ridge: number | undefined;
+  const tagged = parseFloat((tags['roof:height'] ?? '').replace(',', '.'));
   // An old town's houses are rarely square: a pitched roof over the rectangle of one that nearly fills it
   if (pitchDeg && !holes.length && fill >= (kind === 'oldtown' || tower ? PITCH_FILL_OLD : PITCH_FILL)) {
     // Nearly its rectangle: the rectangle itself under a ridge along its longer side
@@ -246,41 +371,346 @@ export function raiseMass(
       ? 'hip'
       : 'gable';
     const half = Math.min(rect.a, rect.b) / 2;
-    const tagged = parseFloat((tags['roof:height'] ?? '').replace(',', '.'));
     ridge = round2(tagged > 0 && tagged < 40 ? tagged : Math.min(tower ? 24 : 14, half * Math.tan((pitchDeg * Math.PI) / 180)));
   } else {
-    let tolerance = SIMPLIFY_M;
-    rings = [];
-    // Simplified more until the building has few enough points
-    for (let tries = 0; tries < 6; tries++, tolerance *= 1.8) {
-      const out = simplifyRing(outer, tolerance);
-      if (!out) return null;
-      rings = [local(out)];
-      for (const h of holes) {
-        const ring = simplifyRing(h, tolerance);
-        if (ring) rings.push(local(ring));
-      }
-      if (rings.reduce((s, r) => s + r.length / 2, 0) <= MASS_MAX_POINTS) break;
-    }
+    rings = simplifiedRings(outer, holes, local, 0);
+    if (!rings.length) return null;
+    const pyramid = PYRAMID_SHAPES.has(tags['roof:shape'] ?? '') && rings.length === 1 ? pyramidRidge(rings[0], tagged, pitchDeg || TOWER_PITCH, area) : null;
     // A kind with a pitched roof on a crooked outline: slopes from every wall up to a flat top (a mansard)
-    const inset = pitchDeg && rings.length === 1 ? insetOutline(rings[0]) : null;
-    if (inset) {
+    const inset = !pyramid && pitchDeg && rings.length === 1 ? insetOutline(rings[0]) : null;
+    if (pyramid) {
+      roof = 'pyramid';
+      ridge = pyramid;
+    } else if (inset) {
       roof = 'mansard';
-      ridge = round2(Math.min(MANSARD_RISE, inset.run * Math.tan((pitchDeg * Math.PI) / 180)));
+      ridge = mansardRidge(inset.run, tagged, pitchDeg);
     }
   }
   // A pitched roof's walls stop at the eaves; a flat one's go on to the parapet
   const height = round2(roof === 'flat' ? levels.height + MASS_PARAPET : levels.height);
-  const facade = tower && !MATERIALS[tags['building:material'] ?? ''] ? 'stone' : massFacade(tags, kind, oldTown);
   return {
-    mass: { rings, height, floors: levels.floors, roof, ...(ridge !== undefined ? { ridge } : {}), facade },
-    centre: rect.c,
-    rotation,
-    front,
-    hw: rect.a / 2,
-    hd: rect.b / 2,
-    tint: massTint(tags, facade, salt, tower || LANDMARK_KINDS.has(kind) ? kind : null),
+    mass: { rings, height, floors: levels.floors, roof, ...(ridge !== undefined ? { ridge } : {}), facade, ...(roof !== 'flat' ? roofColour : {}) },
+    ...placed,
   };
+}
+
+/**
+ * The outline and its courtyards in the building's axes, simplified, more
+ * until they leave `spare` of the points a building may have; none when the
+ * outline is gone
+ */
+function simplifiedRings(outer: readonly MapPoint[], holes: readonly (readonly MapPoint[])[], local: (ring: readonly MapPoint[]) => number[], used: number, tolerance = SIMPLIFY_M): number[][] {
+  let rings: number[][] = [];
+  for (let tries = 0; tries < 6; tries++, tolerance *= 1.8) {
+    const out = simplifyRing(outer, tolerance);
+    if (!out) return [];
+    rings = [local(out)];
+    for (const h of holes) {
+      const ring = simplifyRing(h, tolerance);
+      if (ring) rings.push(local(ring));
+    }
+    if (used + rings.reduce((s, r) => s + r.length / 2, 0) <= MASS_MAX_POINTS) break;
+  }
+  return rings;
+}
+
+/** A mansard's rise: the tagged `roof:height`, else as its pitch makes it over its run; at most MANSARD_RISE */
+function mansardRidge(run: number, tagged: number, pitchDeg: number): number {
+  return round2(Math.min(MANSARD_RISE, tagged > 0 ? tagged : run * Math.tan((pitchDeg * Math.PI) / 180)));
+}
+
+/** A pyramid's rise over an outline its middle sees whole (massApex): the tagged `roof:height`, else by its pitch over its mean radius; null for none */
+function pyramidRidge(ring: number[], tagged: number, pitchDeg: number, area: number): number | null {
+  const ridge = round2(Math.min(MAX_RIDGE, tagged > 0 ? tagged : Math.sqrt(area / Math.PI) * Math.tan((pitchDeg * Math.PI) / 180)));
+  return ridge > 0.2 && massApex({ rings: [ring], height: 1, floors: 1, roof: 'pyramid', ridge, facade: 'stone' }) ? ridge : null;
+}
+
+/** Highest roof a building or a part may have, m (map-repair.ts massProblem) */
+const MAX_RIDGE = 60;
+
+/** A number tag (`height`, `min_height`, `roof:height`, a comma for the point), null where missing or out of bounds */
+function metres(tags: Readonly<Record<string, string>>, key: string): number | null {
+  const v = parseFloat((tags[key] ?? '').replace(',', '.'));
+  return v > 0 && v < 700 ? v : null;
+}
+
+/** A count tag (`building:levels`, `building:min_level`), null where missing */
+function count(tags: Readonly<Record<string, string>>, key: string): number | null {
+  const v = parseFloat(tags[key] ?? '');
+  return v > 0 && v < 200 ? Math.round(v) : null;
+}
+
+/** The storey height of a kind, m */
+function storeyOf(kind: BuildingKind): number {
+  return kind === 'house' || kind === 'semi' || kind === 'terrace' || kind === 'apartments' || kind === 'oldtown'
+    ? HOME_STOREY
+    : kind === 'palace' || kind === 'castle' || kind === 'townhall' || kind === 'gate'
+      ? HALL_STOREY
+      : WORK_STOREY;
+}
+
+/**
+ * A footprint with parts raised as them (raiseMass): each part's own
+ * outline, floor, walls, roof and colours (partOf), the footprint's rings
+ * its ground, and where the parts leave more than 1 - PARTS_COVER of it
+ * bare a part of the footprint's own height fills it, drawn in from its
+ * walls. Null when no part stands
+ */
+function partsMass(
+  outer: readonly MapPoint[],
+  holes: readonly (readonly MapPoint[])[],
+  local: (ring: readonly MapPoint[]) => number[],
+  parts: readonly OsmPart[],
+  kind: BuildingKind,
+  tags: Readonly<Record<string, string>>,
+  area: number,
+  levels: { floors: number; height: number },
+  facade: MapMassFacade,
+  roofColour: Pick<MapMass, 'roofTint' | 'roofCover'>,
+): MapMass | null {
+  // The biggest first, as many as a building may have
+  const sorted = parts
+    .map((p) => ({ p, area: Math.abs(ringArea(p.outer)) - p.holes.reduce((s, h) => s + Math.abs(ringArea(h)), 0) }))
+    .filter((q) => q.area >= 1)
+    .sort((a, b) => b.area - a.area)
+    .slice(0, MASS_MAX_PARTS - 1);
+  for (let tolerance = SIMPLIFY_M, tries = 0; tries < 6; tolerance *= 1.8, tries++) {
+    const rings = simplifiedRings(outer, holes, local, 0, tolerance);
+    if (!rings.length) return null;
+    let points = rings.reduce((s, r) => s + r.length / 2, 0);
+    const own: MapMassPart[] = [];
+    for (const { p, area: partArea } of sorted) {
+      const part = partOf(p, partArea, local, kind, levels, facade, tolerance);
+      if (!part) continue;
+      own.push(part);
+      points += part.rings.reduce((s, r) => s + r.length / 2, 0);
+    }
+    if (!own.length) return null;
+    // What the parts leave bare of the footprint: filled by a part of its own, a little inside its walls
+    if (partsCover(rings, own) < PARTS_COVER) {
+      const fill = fillPart(rings, own, levels);
+      if (fill) {
+        own.push(fill);
+        points += fill.rings.reduce((s, r) => s + r.length / 2, 0);
+      }
+    }
+    if (points > MASS_MAX_POINTS && tries < 5) continue;
+    const height = round2(Math.max(...own.map((q) => q.height)));
+    return { rings, height, floors: levels.floors, roof: 'flat', facade, ...roofColour, parts: own };
+  }
+  return null;
+}
+
+/** Share of the footprint (rings in the building's axes) under its parts, on a raster of about COVER_SAMPLES points */
+export function partsCover(rings: readonly (readonly number[])[], parts: readonly Pick<MapMassPart, 'rings'>[]): number {
+  const r = rings[0];
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  for (let i = 0; i < r.length; i += 2) {
+    minX = Math.min(minX, r[i]);
+    maxX = Math.max(maxX, r[i]);
+    minZ = Math.min(minZ, r[i + 1]);
+    maxZ = Math.max(maxZ, r[i + 1]);
+  }
+  const cell = Math.max(0.25, Math.sqrt(((maxX - minX) * (maxZ - minZ)) / COVER_SAMPLES));
+  let inside = 0;
+  let covered = 0;
+  for (let z = minZ + cell / 2; z < maxZ; z += cell) {
+    for (let x = minX + cell / 2; x < maxX; x += cell) {
+      if (!ringsContain(rings, x, z)) continue;
+      inside++;
+      if (parts.some((p) => ringsContain(p.rings, x, z))) covered++;
+    }
+  }
+  return inside ? covered / inside : 1;
+}
+
+/**
+ * The part that fills what the parts leave bare: the footprint drawn in
+ * FILL_INSET from its walls (its courtyards out as far), flat, as high as
+ * the footprint's own walls but no higher than its lowest part on the
+ * ground; null where the drawn-in outline crosses itself
+ */
+function fillPart(rings: readonly number[][], parts: readonly MapMassPart[], levels: { floors: number; height: number }): MapMassPart | null {
+  const outer = offsetRing(rings[0], FILL_INSET);
+  if (!outer) return null;
+  const courts = rings.slice(1).map((h) => offsetRing(h, -FILL_INSET));
+  const ground = parts.filter((p) => !(p.base ?? 0)).map((p) => p.height);
+  const height = round2(Math.min(levels.height + MASS_PARAPET, ...ground));
+  if (height < 2) return null;
+  return { rings: [outer.map(round2), ...courts.filter((h): h is number[] => !!h).map((h) => h.map(round2))], height, floors: levels.floors, roof: 'flat' };
+}
+
+/**
+ * One `building:part` as a part of the raised building: its outline in the
+ * building's axes; its floor from `min_height` (or `building:min_level`
+ * storeys); its top from `height`, else `building:levels`, else the
+ * building's own (a tower a storey higher); its roof from `roof:shape` and
+ * `roof:height` (a pitched one over a part that nearly fills its rectangle,
+ * a pyramid over one its middle sees whole, else a mansard, else flat: a
+ * shape not drawn yet stands flat at half its roof's height); its storeys
+ * from `building:levels`; its walls and colours from `building:material`,
+ * `building:colour`, `roof:colour`, `roof:material`. Null where nothing of
+ * it stands
+ */
+function partOf(
+  part: OsmPart,
+  area: number,
+  local: (ring: readonly MapPoint[]) => number[],
+  kind: BuildingKind,
+  levels: { floors: number; height: number },
+  facade: MapMassFacade,
+  tolerance: number,
+): MapMassPart | null {
+  const t = part.tags;
+  const tower = t['man_made'] === 'tower' || t['building:part'] === 'tower' || !!t['tower:type'];
+  const storey = storeyOf(kind);
+  const shape = t['roof:shape'] ?? 'flat';
+  const pitchDeg = (() => {
+    const angle = parseFloat(t['roof:angle'] ?? '');
+    return angle > 5 && angle < 85 ? angle : tower ? TOWER_PITCH : (PITCH[kind] ?? 40);
+  })();
+  const tagged = metres(t, 'roof:height') ?? 0;
+  const rect = minAreaRect(part.outer);
+  const fill = area / Math.max(1e-6, rect.a * rect.b);
+  let rings: number[][];
+  let roof: MapMassRoof = 'flat';
+  let ridge = 0;
+  const pitched = GABLE_SHAPES.has(shape) || HIP_SHAPES.has(shape);
+  if (pitched && !part.holes.length && fill >= PITCH_FILL) {
+    // Nearly its rectangle: the rectangle under a ridge along its longer side, turned as the part lies
+    const v = { x: -rect.u.y, y: rect.u.x };
+    const corner = (sa: number, sb: number): MapPoint => ({ x: rect.c.x + (rect.u.x * rect.a * sa + v.x * rect.b * sb) / 2, y: rect.c.y + (rect.u.y * rect.a * sa + v.y * rect.b * sb) / 2 });
+    rings = [local([corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)])];
+    roof = HIP_SHAPES.has(shape) ? 'hip' : 'gable';
+    ridge = round2(Math.min(MAX_RIDGE, tagged || (Math.min(rect.a, rect.b) / 2) * Math.tan((pitchDeg * Math.PI) / 180)));
+  } else {
+    rings = simplifiedRings(part.outer, part.holes, local, 0, tolerance);
+    if (!rings.length) return null;
+    const pyramid = PYRAMID_SHAPES.has(shape) && rings.length === 1 ? pyramidRidge(rings[0], tagged, pitchDeg, area) : null;
+    const inset = !pyramid && pitched && rings.length === 1 ? insetOutline(rings[0]) : null;
+    if (pyramid) {
+      roof = 'pyramid';
+      ridge = pyramid;
+    } else if (inset) {
+      roof = 'mansard';
+      ridge = mansardRidge(inset.run, tagged, pitchDeg);
+    }
+  }
+  const height = metres(t, 'height');
+  const own = count(t, 'building:levels');
+  const minLevel = count(t, 'building:min_level');
+  const base = round2(metres(t, 'min_height') ?? (minLevel ? PLINTH + minLevel * storey : 0));
+  // The top of the walls: the tagged height less the roof drawn on it (a roof not drawn yet: half of it), else the storeys
+  let top = height !== null
+    ? height - (roof === 'flat' ? tagged / 2 : ridge)
+    : own !== null
+      ? PLINTH + own * storey
+      : levels.height + (tower ? storey : 0);
+  if (top < base + 1) {
+    // A roof taller than its part: the walls a metre at least, the roof the rest
+    top = base + 1;
+    if (height !== null && roof !== 'flat') ridge = round2(Math.max(0.5, height - top));
+  }
+  if (roof === 'flat') top += MASS_PARAPET;
+  const floors = Math.min(120, Math.max(1, own ?? Math.round((top - PLINTH) / storey)));
+  const wall = MATERIALS[t['building:material'] ?? t['building:facade:material'] ?? ''];
+  const tint = tagColour(t['building:colour'], (wall ?? facade) === 'stone');
+  const look = roofLook(t);
+  return {
+    rings,
+    ...(base > 0 ? { base } : {}),
+    height: round2(Math.min(400, top)),
+    floors,
+    roof,
+    ...(roof !== 'flat' ? { ridge } : {}),
+    ...(wall && wall !== facade ? { facade: wall } : {}),
+    ...(tint ? { tint } : {}),
+    ...look,
+  };
+}
+
+/** A roof's colour and covering from `roof:colour` and `roof:material` (MapMass.roofTint, roofCover); none untagged */
+export function roofLook(tags: Readonly<Record<string, string>>): Pick<MapMass, 'roofTint' | 'roofCover'> {
+  const roofTint = tagColour(tags['roof:colour'], false, true) ?? undefined;
+  const roofCover = ROOF_MATERIALS[tags['roof:material'] ?? ''] ?? (roofTint ? coverOfColour(roofTint) : undefined);
+  return { ...(roofTint ? { roofTint } : {}), ...(roofCover ? { roofCover } : {}) };
+}
+
+/** Coverings of `roof:material` values */
+const ROOF_MATERIALS: Readonly<Record<string, MapMassCover>> = {
+  roof_tiles: 'tiles',
+  tiles: 'tiles',
+  tile: 'tiles',
+  clay: 'tiles',
+  slate: 'slate',
+  shingles: 'slate',
+  stone: 'slate',
+  eternit: 'slate',
+  metal: 'metal',
+  copper: 'metal',
+  zinc: 'metal',
+  tin: 'metal',
+  lead: 'metal',
+  steel: 'metal',
+  metal_sheet: 'metal',
+};
+
+/** The covering a roof's colour suggests: red to brown clay tiles, green (copper) sheet metal, grey to black slate */
+function coverOfColour(hex: string): MapMassCover {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const sat = max > 0 ? (max - min) / max : 0;
+  if (sat < 0.25) return 'slate';
+  if (r >= g && r >= b) return 'tiles';
+  return g >= b || g > r ? 'metal' : 'slate';
+}
+
+/**
+ * A colour tag (`building:colour`, `roof:colour`) as #rrggbb: a hex colour
+ * or a known name; on stone (`stone`) the names are the colours of building
+ * stone (STONE_NAMED), not of paint; null for none
+ */
+export function tagColour(value: string | undefined, stone: boolean, roof = false): string | null {
+  const colour = (value ?? '').trim().toLowerCase();
+  if (/^#[0-9a-f]{6}$/.test(colour)) return colour;
+  if (/^#[0-9a-f]{3}$/.test(colour)) return `#${colour[1]}${colour[1]}${colour[2]}${colour[2]}${colour[3]}${colour[3]}`;
+  return (roof ? ROOF_NAMED[colour] : stone ? STONE_NAMED[colour] : undefined) ?? NAMED[colour] ?? null;
+}
+
+/**
+ * Colour names on roofs: slate, tiles and copper as they weather, not paint
+ * (a `roof:colour=grey` is a slate roof, darker than a grey wall)
+ */
+const ROOF_NAMED: Readonly<Record<string, string>> = {
+  grey: '#5f6368',
+  gray: '#5f6368',
+  darkgrey: '#45484d',
+  darkgray: '#45484d',
+  black: '#2f3134',
+  anthracite: '#383c40',
+  red: '#a4553f',
+  brown: '#7b513c',
+  green: '#5f8f78',
+  blue: '#4c5d78',
+};
+
+/** The value most of a list have (the first of those as many), undefined for none */
+function mostOf(values: readonly (string | undefined)[]): string | undefined {
+  const counts = new Map<string, number>();
+  let best: string | undefined;
+  for (const v of values) {
+    if (v === undefined) continue;
+    const n = (counts.get(v) ?? 0) + 1;
+    counts.set(v, n);
+    if (!best || n > counts.get(best)!) best = v;
+  }
+  return best;
 }
 
 /**
@@ -291,13 +721,14 @@ export function raiseMass(
  */
 export function massLevels(tags: Readonly<Record<string, string>>, kind: BuildingKind, area: number): { floors: number; height: number } {
   const own = KIND_LEVELS[kind];
-  const storey = kind === 'house' || kind === 'semi' || kind === 'terrace' || kind === 'apartments' || kind === 'oldtown'
-    ? HOME_STOREY
-    : kind === 'palace' || kind === 'castle' || kind === 'townhall' || kind === 'gate' ? HALL_STOREY : WORK_STOREY;
+  const storey = storeyOf(kind);
   const tagged = parseFloat((tags['height'] ?? '').replace(',', '.'));
   if (tagged > 0 && tagged < 400) {
     const roofHeight = parseFloat((tags['roof:height'] ?? '').replace(',', '.'));
     const walls = Math.max(2.2, tagged - (roofHeight > 0 && roofHeight < tagged ? roofHeight : 0));
+    // The storeys OSM counts where it does (a palace's three high ones under 19 m), else as many as fit
+    const counted = buildingLevels({ 'building:levels': tags['building:levels'] ?? '' });
+    if (counted !== null) return { floors: Math.min(120, counted), height: walls };
     return { floors: Math.max(1, Math.round(walls / ('hall' in own ? Math.max(walls, 4) : storey))), height: walls };
   }
   const levels = buildingLevels(tags);
@@ -338,10 +769,8 @@ export function massFacade(tags: Readonly<Record<string, string>>, kind: Buildin
  * kind) one of the building stones (LANDMARK_TINTS, a palace's PALACE_TINTS)
  */
 export function massTint(tags: Readonly<Record<string, string>>, facade: MapMassFacade, salt: number, landmark: BuildingKind | null = null): string | null {
-  const colour = (tags['building:colour'] ?? '').trim().toLowerCase();
-  if (/^#[0-9a-f]{6}$/.test(colour)) return colour;
-  if (/^#[0-9a-f]{3}$/.test(colour)) return `#${colour[1]}${colour[1]}${colour[2]}${colour[2]}${colour[3]}${colour[3]}`;
-  if (NAMED[colour]) return NAMED[colour];
+  const tagged = tagColour(tags['building:colour'], facade === 'stone');
+  if (tagged) return tagged;
   const list = landmark && facade === 'stone' ? (landmark === 'palace' ? PALACE_TINTS : LANDMARK_TINTS) : TINTS[facade];
   return list[salt % list.length];
 }
@@ -368,13 +797,16 @@ export const CLIP_LEAST = 0.3;
  * old town's houses stand at the edge of a street the map draws wider): each
  * road piece that comes nearer to the outline than its half width cuts the
  * outline along a line beside it, on the side of the building's middle.
- * Courtyards the cut reaches go. False (the building unchanged) when less
- * than `keep` of the ground would be left or nothing is left to cut.
+ * Courtyards the cut reaches go. Its parts are cut along the same lines,
+ * a part cut away goes. False (the building unchanged) when less than
+ * `keep` of the ground would be left or nothing is left to cut.
  */
 export function clipOffRoads(mass: MapMass, roads: readonly MassRoad[], keep = CLIP_KEEP): boolean {
   let outer = mass.rings[0];
   const before = Math.abs(ringArea2(outer));
   let holes = mass.rings.slice(1);
+  // What was done to the outline, once more for each part: a ring after it, null where nothing is left of it
+  const steps: ((ring: number[]) => number[] | null)[] = [];
   for (const r of roads) {
     const dx = r.bx - r.ax;
     const dz = r.bz - r.az;
@@ -388,15 +820,83 @@ export function clipOffRoads(mass: MapMass, roads: readonly MassRoad[], keep = C
       nx = -nx;
       nz = -nz;
     }
-    const cut = clipHalfPlane(outer, r.ax, r.az, nx, nz, r.half);
+    // Only where the building stands beside the road: a cut that would take what lies behind the line past either
+    // end of the piece (a big building whose corner a road leaves from) moves only the corners in its way off it
+    if (overreaches(outer, r, nx, nz, len)) {
+      const step = (ring: number[]) => pushedOff(ring, r, nx, nz, len);
+      outer = step(outer);
+      steps.push(step);
+      continue;
+    }
+    const step = (ring: number[]) => clipHalfPlane(ring, r.ax, r.az, nx, nz, r.half);
+    const cut = step(outer);
     if (!cut) return false;
     outer = cut;
-    holes = holes.filter((h) => ringRoadDistance(h, r) >= r.half && clipHalfPlane(h, r.ax, r.az, nx, nz, r.half)?.length === h.length);
+    holes = holes.filter((h) => ringRoadDistance(h, r) >= r.half && step(h)?.length === h.length);
+    steps.push(step);
   }
   if (outer === mass.rings[0]) return true;
   if (Math.abs(ringArea2(outer)) < before * keep) return false;
   mass.rings = [outer.map(round2), ...holes];
+  if (mass.parts) {
+    // The parts the same way: what lies past a cut goes, a part wholly past it with it
+    const parts: MapMassPart[] = [];
+    for (const p of mass.parts) {
+      let ring: number[] | null = p.rings[0];
+      let courts = p.rings.slice(1);
+      for (const step of steps) {
+        if (!ring) break;
+        ring = step(ring);
+        courts = courts.filter((h) => step(h)?.length === h.length);
+      }
+      if (!ring || Math.abs(ringArea2(ring)) < 1) continue;
+      // A part cut along a side keeps its roof (a rectangle stays one, a helm keeps its top); one cut askew stands flat (massPitched)
+      parts.push(ring === p.rings[0] ? p : { ...p, rings: [ring.map(round2), ...courts] });
+    }
+    if (parts.length) mass.parts = parts;
+    else delete mass.parts;
+  }
   return true;
+}
+
+/**
+ * Whether cutting a ring along road piece `r` (normal n towards the
+ * building's middle) would take a point that lies behind the road (farther
+ * than its half width and a little past its centre line) and beyond the
+ * piece's ends: the line runs on where the road does not
+ */
+function overreaches(ring: readonly number[], r: MassRoad, nx: number, nz: number, len: number): boolean {
+  const tx = (r.bx - r.ax) / len;
+  const tz = (r.bz - r.az) / len;
+  for (let i = 0; i < ring.length; i += 2) {
+    const dx = ring[i] - r.ax;
+    const dz = ring[i + 1] - r.az;
+    if (dx * nx + dz * nz >= -(r.half + OVERREACH_SLACK)) continue;
+    const t = dx * tx + dz * tz;
+    if (t < -r.half || t > len + r.half) return true;
+  }
+  return false;
+}
+
+/** Metres behind a road's band a cut may still take beside the road's ends */
+const OVERREACH_SLACK = 0.5;
+
+/** The ring with its points in the band of road piece `r` (within its half width, along its length) moved off it along n */
+function pushedOff(ring: number[], r: MassRoad, nx: number, nz: number, len: number): number[] {
+  const tx = (r.bx - r.ax) / len;
+  const tz = (r.bz - r.az) / len;
+  let out: number[] | null = null;
+  for (let i = 0; i < ring.length; i += 2) {
+    const dx = ring[i] - r.ax;
+    const dz = ring[i + 1] - r.az;
+    const s = dx * nx + dz * nz;
+    const t = dx * tx + dz * tz;
+    if (s >= r.half || s < -r.half || t < -r.half || t > len + r.half) continue;
+    out ??= [...ring];
+    out[i] += (r.half - s) * nx;
+    out[i + 1] += (r.half - s) * nz;
+  }
+  return out ?? ring;
 }
 
 /** Nearest approach (m) of a road piece's centre line to a ring's edges */

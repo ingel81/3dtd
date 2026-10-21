@@ -62,9 +62,9 @@ import { ringArea } from '../square-clip';
 import { convexHull, pointInRing } from './raster';
 import { MASS_ASSET, type MapFootprints, type MapMass } from '../../custom-map/map-document';
 import { packFootprints, type FootprintDrop, type FootprintRing } from '../../custom-map/map-footprints';
-import { massArea, massBox, massContains, massDistance, massRadius, massTriangles } from '../../custom-map/object-mass';
+import { massArea, massBodies, massBox, massDistance, massRadius, massTriangles, ringsContain } from '../../custom-map/object-mass';
 import { toModel } from '../../custom-map/object-ground';
-import { CLIP_KEEP, CLIP_LEAST, clipOffRoads, raiseMass } from './building-mass';
+import { CLIP_KEEP, CLIP_LEAST, clipOffRoads, isDrawnPart, raiseMass, type OsmPart } from './building-mass';
 import { findOldTown } from './old-town';
 import type { ImportNote } from '../../import-notes';
 
@@ -101,6 +101,9 @@ export interface BuildingReport {
   split: number;
   /** Footprints raised from their own outline (no model covers them well enough, building-mass.ts) */
   masses: number;
+  /** Of those, the ones raised as their OSM parts (`building:part`), and the parts (with the ones filling what they leave) */
+  withParts: number;
+  parts: number;
   /** Row modules at the end of their row, with windows in the gable no house abuts */
   rowEnds: number;
   /** Footprints in the old town, by why (old-town.ts): their own tags, an old-town area, inside the town wall, built densely */
@@ -302,6 +305,8 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     objects: 0,
     split: 0,
     masses: 0,
+    withParts: 0,
+    parts: 0,
     rowEnds: 0,
     oldTown: { tags: 0, area: 0, wall: 0, dense: 0 },
     rows: 0,
@@ -353,6 +358,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
   report.oldTown = oldTown.reasons;
 
   const droppedRings = new Map<readonly MapPoint[], FootprintDrop>();
+  const partsOf = partsByOutline(features);
   let seen = 0;
   for (const area of features.areas) {
     if (options.onShare && ++seen % 256 === 0) options.onShare((0.9 * seen) / features.areas.length);
@@ -382,6 +388,8 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       const kind = buildingKind(area.tags, ringA, aspect, land ? buildingLandOf(land) : null, median, holes.length > 0 || fill < WINGED_FILL, inOldTown, role);
       report.kinds[kind] = (report.kinds[kind] ?? 0) + 1;
       if (role.landmark) report.landmarks[role.landmark] = (report.landmarks[role.landmark] ?? 0) + 1;
+      // OSM's parts of it (Simple 3D Buildings): raised as them; the models only where that cannot stand (as below)
+      const ownParts = partsOf.get(outer) ?? [];
       // A ruin is raised from its outline and falls (the ruins of the raised buildings, no model's)
       const parts = role.ruin ? [] : fill < FILL_SPLIT ? splitFootprint(outer, holes, rect, ringA) : [rect];
       if (parts.length > 1) report.split++;
@@ -424,7 +432,9 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       // How the models fit the footprint: raised from its outline instead where they fit badly and that stands
       const cover = kept.length ? coverage(outer, holes, rect, (q) => kept.some((pl) => inBox(pl, q))) : 0;
       const over = kept.length ? overhang(outer, holes, kept, ringA) : 0;
-      const raised = cover >= MODEL_COVER && over <= MODEL_OVERHANG ? null : raiseMass(outer, holes, rect, kind, area.tags, ringA, hashId(area.id), inOldTown);
+      const raised = cover >= MODEL_COVER && over <= MODEL_OVERHANG && !ownParts.length
+        ? null
+        : raiseMass(outer, holes, rect, kind, area.tags, ringA, hashId(area.id), inOldTown, ownParts);
       // Raised as its rectangle (a pitched roof over a footprint that nearly fills it), it stands out as far as the
       // rectangle: models that cover as well and stand out no farther stay (a row of old-town houses)
       const asRect = raised?.mass.roof === 'gable' || raised?.mass.roof === 'hip';
@@ -446,6 +456,10 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
           report.masses++;
           if (pl.scale < 1) report.shrunk++;
           if (role.ruin) report.ruins++;
+          if (raised.mass.parts) {
+            report.withParts++;
+            report.parts += raised.mass.parts.length;
+          }
           const cost = costOf(MASS_ASSET, catalog, doc) + massTriangles(raised.mass);
           footprints.push({ id: area.id, ring: outer, kind, area: ringA, centre, placements: [pl], cost, tint: raised.tint, ruin: role.ruin });
           measure(ringA, ringA >= COVER_FROM ? coverage(outer, holes, rect, (q) => inMass(pl, raised.mass, q)) : 0, asRect ? Math.max(0, rectOver) : 0);
@@ -611,10 +625,13 @@ function inBox(pl: Placement, q: MapPoint): boolean {
   return Math.abs(b.s) <= pl.hw && Math.abs(b.t) <= pl.hd;
 }
 
-/** Whether map point `q` lies on a raised building's ground (its outline less its courtyards, at its scale) */
+/**
+ * Whether map point `q` lies under a raised building (its outline less its
+ * courtyards, at its scale; with parts, under one of them: what is built)
+ */
 function inMass(pl: Placement, mass: MapMass, q: MapPoint): boolean {
   const m = toModel(q.x - pl.p.x, q.y - pl.p.y, Math.cos(pl.rotation), Math.sin(pl.rotation));
-  return massContains(mass, m.x / pl.scale, m.z / pl.scale);
+  return massBodies(mass).some((b) => ringsContain(b.rings, m.x / pl.scale, m.z / pl.scale));
 }
 
 /** The coverage report of the footprints' covered shares and the models' shares outside them */
@@ -672,8 +689,13 @@ function massBlocked(
     return { ax: a.x, az: a.z, bx: b.x, bz: b.z, half: g.half + ROAD_GUARD };
   });
   const rings = mass.rings;
-  for (const keep of [CLIP_KEEP, CLIP_LEAST]) {
+  const parts = mass.parts;
+  const restore = () => {
     mass.rings = rings;
+    if (parts) mass.parts = parts;
+  };
+  for (const keep of [CLIP_KEEP, CLIP_LEAST]) {
+    restore();
     // Cut back further only to what is still a house
     const clipped = clipOffRoads(mass, pieces, keep);
     if (keep < CLIP_KEEP && (!clipped || massArea(mass) < CLIPPED_LEAST_M2)) continue;
@@ -686,7 +708,7 @@ function massBlocked(
       }
     }
   }
-  mass.rings = rings;
+  restore();
   return 'roads';
 }
 
@@ -1381,6 +1403,46 @@ class AreaIndex {
     }
     return best;
   }
+
+  /** The smallest outer ring a point lies in, its courtyards counted in */
+  outerAt(p: MapPoint): readonly MapPoint[] | null {
+    let best: readonly MapPoint[] | null = null;
+    let bestArea = Infinity;
+    for (const area of this.cells.get((Math.floor(p.x / this.cell) + 4096) * 8192 + (Math.floor(p.y / this.cell) + 4096)) ?? []) {
+      for (const r of area.outer) {
+        if (!pointInRing(p, r)) continue;
+        const a = Math.abs(ringArea(r));
+        if (a < bestArea) {
+          best = r;
+          bestArea = a;
+        }
+      }
+    }
+    return best;
+  }
+}
+
+/**
+ * The drawn parts (`building:part`, isDrawnPart) of each footprint, by its
+ * outer ring (docs/OSM_LANDMARKS_PLAN.md L3): a part belongs to the
+ * smallest outer ring of a building on the ground its middle lies in,
+ * courtyards counted in (a stair tower in the corner of the yard)
+ */
+export function partsByOutline(features: OsmFeatures): Map<readonly MapPoint[], OsmPart[]> {
+  const out = new Map<readonly MapPoint[], OsmPart[]>();
+  const parts = features.areas.filter((a) => footprintKindOf(a.tags) === 'part' && isDrawnPart(a.tags));
+  if (!parts.length) return out;
+  const outlines = new AreaIndex(features.areas.filter((a) => a.tags['building'] && isGroundBuilding(a.tags)));
+  for (const part of parts) {
+    for (const ring of part.outer) {
+      const owner = outlines.outerAt(ringMiddle(ring));
+      if (!owner) continue;
+      let list = out.get(owner);
+      if (!list) out.set(owner, (list = []));
+      list.push({ outer: ring, holes: part.inner.filter((h) => pointInRing(h[0], ring)), tags: part.tags });
+    }
+  }
+  return out;
 }
 
 const round1 = (v: number): number => Math.round(v * 10) / 10;
