@@ -11,6 +11,8 @@
  * <dir> holds per place `<name>.json` (the Overpass answer of osmWorldQuery)
  * and `dem/<name>-mapterhorn-z14.json` with `.f32` (a DemMosaic's fields and
  * its heights, Float32 little endian); a place without the heights is flat.
+ * OSM_SIDE=<m> makes a smaller square than the frame's (the coverage of
+ * docs/OSM_LANDMARKS_PLAN.md was measured on 600 m).
  * Runs only in vitest's "osm" mode, not with the normal test suite.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
@@ -35,6 +37,7 @@ const places = (process.env['OSM_PLACES'] ?? '').split(/\s+/).filter(Boolean).ma
   const [lat, lon] = at.split(',').map(Number);
   return { name, lat, lon };
 });
+const side = Number(process.env['OSM_SIDE']) || undefined;
 const outDir = resolve(__dirname, '../../tmp/osm-out');
 
 function readMosaic(name: string): DemMosaic | null {
@@ -55,7 +58,7 @@ describe.skipIf(mode !== 'osm')('OSM world dump', () => {
       const t0 = performance.now();
       const { doc, report } = convertOsm(
         { lat: place.lat, lon: place.lon, address: place.name, overpass, dem: readMosaic(place.name), fetchedAt: new Date().toISOString() },
-        { id: `osm-${place.name}`, name: `OSM ${place.name}`, costs: assetCosts(catalog.objects, 2400), catalog: buildingCatalog(catalog.objects), materials: catalog.materials.map((m) => m.id) },
+        { id: `osm-${place.name}`, name: `OSM ${place.name}`, sideM: side, costs: assetCosts(catalog.objects, 2400), catalog: buildingCatalog(catalog.objects), materials: catalog.materials.map((m) => m.id) },
       );
       const area = doc.terrain.width * doc.terrain.depth;
       const scene = Math.round(sceneCost(doc.objects, (asset) => objectCost(catalog.objects.find((o) => o.id === asset), area)));

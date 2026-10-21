@@ -41,7 +41,7 @@ import { ringArea } from '../square-clip';
 import { convexHull, pointInRing } from './raster';
 import { MASS_ASSET, type MapFootprints, type MapMass } from '../../custom-map/map-document';
 import { packFootprints, type FootprintDrop, type FootprintRing } from '../../custom-map/map-footprints';
-import { massBox, massDistance, massRadius, massTriangles } from '../../custom-map/object-mass';
+import { massBox, massContains, massDistance, massRadius, massTriangles } from '../../custom-map/object-mass';
 import { toModel } from '../../custom-map/object-ground';
 import { clipOffRoads, raiseMass } from './building-mass';
 import { findOldTown } from './old-town';
@@ -106,6 +106,25 @@ export interface BuildingReport {
    * (`house 10x4`), and how many
    */
   missing: { kind: string; count: number }[];
+  /** How well the built follows the footprints from COVER_FROM m² (FootprintCover), each left out as none */
+  coverage: CoverageReport;
+}
+
+/**
+ * How well the built follows OSM's footprints (docs/OSM_LANDMARKS_PLAN.md,
+ * "Abdeckung"): per outer ring of COVER_FROM m² or more, the share of it
+ * (less its courtyards) under the models' wall boxes or the raised
+ * building's outline, and the share of its area the models' boxes stand
+ * outside it. A footprint left out covers nothing
+ */
+export interface CoverageReport {
+  footprints: number;
+  /** Median of the covered shares (0 to 1) */
+  median: number;
+  /** Share of the footprints covered less than 70 % */
+  below70: number;
+  /** Share of the footprints whose models stand more than 10 % of its area outside it */
+  overhang10: number;
 }
 
 export interface BuildingResult {
@@ -177,6 +196,8 @@ const MASS_COVER = 0.6;
 const MASS_COVER_BIG = 0.75;
 const MASS_BIG_AREA = 250;
 const MASS_COVER_COURT = 0.9;
+/** Footprints from this size (m²) count in the coverage report */
+const COVER_FROM = 40;
 /** A footprint filling less of its turned rectangle than this has wings (buildingKind's `winged`) */
 const WINGED_FILL = 0.6;
 /**
@@ -267,6 +288,15 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     cost: 0,
     costShare: 0,
     missing: [],
+    coverage: { footprints: 0, median: 0, below70: 0, overhang10: 0 },
+  };
+  // Per footprint of COVER_FROM m² or more: its covered share and the models' share outside it
+  const covered: number[] = [];
+  const outside: number[] = [];
+  const measure = (ringA: number, cover: number, over: number) => {
+    if (ringA < COVER_FROM) return;
+    covered.push(cover);
+    outside.push(over);
   };
   const warnings: ImportNote[] = [];
   const catalog = options.catalog ? new Map(options.catalog.map((e) => [e.id, e])) : null;
@@ -355,7 +385,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
         kept.push(pl);
       }
       // What the models leave of the footprint: raised from its outline instead, where that stands
-      const cover = kept.length ? coverage(outer, holes, rect, kept) : 0;
+      const cover = kept.length ? coverage(outer, holes, rect, (q) => kept.some((pl) => inBox(pl, q))) : 0;
       if (cover < MASS_COVER || (ringA >= MASS_BIG_AREA && cover < MASS_COVER_BIG) || (holes.length > 0 && cover < MASS_COVER_COURT)) {
         const raised = raiseMass(outer, holes, rect, kind, area.tags, ringA, hashId(area.id));
         if (raised) {
@@ -376,6 +406,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
             if (pl.scale < 1) report.shrunk++;
             const cost = costOf(MASS_ASSET, catalog, doc) + massTriangles(raised.mass);
             footprints.push({ id: area.id, ring: outer, kind, area: ringA, centre, placements: [pl], cost, tint: raised.tint });
+            measure(ringA, ringA >= COVER_FROM ? coverage(outer, holes, rect, (q) => inMass(pl, raised.mass, q)) : 0, 0);
             continue;
           }
           why ??= blocked;
@@ -384,13 +415,16 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       if (!placements.length) {
         report.dropped.noModel++;
         droppedRings.set(outer, 'noModel');
+        measure(ringA, 0, 0);
         continue;
       }
       if (!kept.length) {
         report.dropped[why ?? 'roads']++;
         droppedRings.set(outer, why ?? 'roads');
+        measure(ringA, 0, 0);
         continue;
       }
+      measure(ringA, cover, ringA >= COVER_FROM ? overhang(outer, holes, kept, ringA) : 0);
       const cost = kept.reduce((s, pl) => s + costOf(pl.asset, catalog, doc), 0);
       footprints.push({ id: area.id, ring: outer, kind, area: ringA, centre, placements: kept, cost, tint: TINTED_KINDS.has(kind) ? BUILDING_TINTS[hashId(area.id) % BUILDING_TINTS.length] : null });
     }
@@ -469,6 +503,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
   report.cost = Math.round(objects.reduce((s, o) => s + costOf(o.asset, catalog, doc) + (o.mass ? massTriangles(o.mass) : 0), 0));
   report.costShare = Math.round((report.cost / SCENE_BUDGET) * 1000) / 1000;
   report.missing = [...missing.entries()].sort((p, q) => q[1] - p[1]).map(([kind, count]) => ({ kind, count }));
+  report.coverage = coverageReport(covered, outside);
   return { objects, report, warnings, droppedRings };
 }
 
@@ -484,10 +519,11 @@ function isWaterTags(tags: Readonly<Record<string, string>>): boolean {
 // ---- Raised buildings ----
 
 /**
- * Share of a footprint (outer less holes) the models' wall boxes cover:
- * points on a raster of its rectangle, about 300 of them on the footprint
+ * Share of a footprint (outer less holes) the built covers (`covers`, a map
+ * point): points on a raster of its rectangle, about 300 of them on the
+ * footprint
  */
-function coverage(outer: readonly MapPoint[], holes: readonly MapPoint[][], rect: Rect, kept: readonly Placement[]): number {
+function coverage(outer: readonly MapPoint[], holes: readonly MapPoint[][], rect: Rect, covers: (q: MapPoint) => boolean): number {
   const cell = Math.max(0.4, Math.sqrt((rect.a * rect.b) / 300));
   const v = { x: -rect.u.y, y: rect.u.x };
   let inside = 0;
@@ -497,10 +533,59 @@ function coverage(outer: readonly MapPoint[], holes: readonly MapPoint[][], rect
       const q = { x: rect.c.x + su * rect.u.x + sv * v.x, y: rect.c.y + su * rect.u.y + sv * v.y };
       if (!pointInRing(q, outer) || holes.some((h) => pointInRing(q, h))) continue;
       inside++;
-      if (kept.some((pl) => { const b = toBox(pl, q); return Math.abs(b.s) <= pl.hw && Math.abs(b.t) <= pl.hd; })) covered++;
+      if (covers(q)) covered++;
     }
   }
   return inside ? covered / inside : 0;
+}
+
+/**
+ * Share of a footprint's area (`area`, m²) the models' wall boxes stand
+ * outside it (beyond its outline or in a courtyard): points on a raster of
+ * each box, about 150 of them per box, a point under an earlier box once
+ */
+function overhang(outer: readonly MapPoint[], holes: readonly MapPoint[][], kept: readonly Placement[], area: number): number {
+  let out = 0;
+  kept.forEach((pl, k) => {
+    const cell = Math.max(0.3, Math.sqrt((4 * pl.hw * pl.hd) / 150));
+    const f = pl.front;
+    const r = rightOf(f);
+    for (let t = -pl.hd + cell / 2; t < pl.hd; t += cell) {
+      for (let s = -pl.hw + cell / 2; s < pl.hw; s += cell) {
+        const q = { x: pl.p.x + r.x * s + f.x * t, y: pl.p.y + r.y * s + f.y * t };
+        if (pointInRing(q, outer) && !holes.some((h) => pointInRing(q, h))) continue;
+        if (kept.some((o, j) => j < k && inBox(o, q))) continue;
+        out += cell * cell;
+      }
+    }
+  });
+  return area > 0 ? out / area : 0;
+}
+
+/** Whether map point `q` lies in a placement's wall box */
+function inBox(pl: Placement, q: MapPoint): boolean {
+  const b = toBox(pl, q);
+  return Math.abs(b.s) <= pl.hw && Math.abs(b.t) <= pl.hd;
+}
+
+/** Whether map point `q` lies on a raised building's ground (its outline less its courtyards, at its scale) */
+function inMass(pl: Placement, mass: MapMass, q: MapPoint): boolean {
+  const m = toModel(q.x - pl.p.x, q.y - pl.p.y, Math.cos(pl.rotation), Math.sin(pl.rotation));
+  return massContains(mass, m.x / pl.scale, m.z / pl.scale);
+}
+
+/** The coverage report of the footprints' covered shares and the models' shares outside them */
+function coverageReport(covered: readonly number[], outside: readonly number[]): CoverageReport {
+  const n = covered.length;
+  if (!n) return { footprints: 0, median: 0, below70: 0, overhang10: 0 };
+  const sorted = [...covered].sort((a, b) => a - b);
+  const share = (count: number) => Math.round((count / n) * 1000) / 1000;
+  return {
+    footprints: n,
+    median: Math.round(sorted[n >> 1] * 1000) / 1000,
+    below70: share(covered.filter((c) => c < 0.7).length),
+    overhang10: share(outside.filter((o) => o > 0.1).length),
+  };
 }
 
 /** Metres off a module's gable within which another building counts as abutting it */
