@@ -56,10 +56,17 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Abbrechen) ragt auf Deutsch links und rechts über den Rand der Platte.
 - [ ] **E282 Dialog „Karte von einem Ort“ (OSM-Rahmen)** (User 2026-10-20): Dass man das Quadrat verschieben kann, ist
       nicht erkennbar; beim Verschieben ploppt oben etwas auf und lädt nach, die Ansicht rutscht nach unten. UX überarbeiten.
+      Entschieden (2026-10-21): erst 2-3 animierte Varianten auf der Design-Leinwand, User wählt, dann bauen.
 - [ ] **E283 Fluss über Krater** (User 2026-10-20): Nach mehreren Atomschlägen auf einen Fluss bleibt die Wasserfläche auf
       alter Höhe schwebend über dem Krater; ebenso wölbt sich der Asphaltrand eines Parkplatzes als Bogen darüber
       (Flächen folgen dem Krater nicht). Vorschläge offen (User will „coole Lösung“): Krater läuft als Kratersee voll mit
       Wasserfall und Überlauf (Empfehlung), Verdampfen mit Dampfsäule und trockenem Bett, Kombination.
+      User 2026-10-21: erst komplett durchdenken, bevor gebaut wird. Der Fluss braucht eine Fließrichtung, der Krater
+      füllt sich als See und gibt beim Überlauf den Fluss stromab weiter. Zuerst Plan-Doc, dann Abstimmung.
+- [ ] **E288 Gemalte Flüsse vereinigen sich nicht** (User 2026-10-21, Editor): Zwei Flussstriche, die sich berühren oder
+      kreuzen, bleiben zwei getrennte Wasserflächen mit dunkler Naht dazwischen, Ufer und Vegetation stehen mitten im
+      Wasser. Soll: zusammenfließen (gemeinsame Fläche, Mündung bzw. Zusammenfluss). Gehört zum Wassernetz mit
+      Fließrichtung aus E283, im selben Plan-Doc durchdenken.
 - [ ] **E284 Zerstörungswerkzeug: Radius für Nuke** (User 2026-10-20): Regler für den Explosionsradius im
       Entwickler-Werkzeug „Zerstören“. Radius als optionales Feld des Debug-Treffer-Befehls durch die Sim (Krater,
       Gebäudeschaden, Effektgröße), Befehlsprüfung im Koop mitziehen. Klein bis mittel.
@@ -71,6 +78,7 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       waterwayOf). In Weinbergen sind es meist trockene, befestigte Betonrinnen, am Grund etwa 0,5 m. Vorschlag: drain als
       schmale Betonrinne (0,5 m oder width), trocken bzw. Rinnsal; ditch als trockener Erdgraben; Wasser nur bei Bach,
       Fluss, Kanal oder ausdrücklich nicht intermittent; intermittent=yes trocken zeichnen statt weglassen.
+      Entschieden (2026-10-21): Vorschlag so, mit Rinnsal in der Betonrinne.
 - [ ] **E275 Übergang vom Laden ins Spiel** (Zweitrechner 2026-10-20, Production, V-Sync, warmes Profil): in den ersten
       0,3 s nach ready ein Bild von 117-166 ms und einige von 33-50 ms (OSM und Ruined City). Darin erste Textur-Uploads
       (512×512, 650×426 mit Mipmaps, vermutlich Minimap oder UI) und eine Programmabfrage von 5,5 ms. Ursache im
