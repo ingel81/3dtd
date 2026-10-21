@@ -32,14 +32,16 @@
               [attr.aria-label]="t().hud.quick.routeGrid" [attr.aria-pressed]="uiStore.spatialGridDebugVisible()">
         <td-icon name="grid" [size]="18"></td-icon>
       </button>
-      <button class="td-icon-btn"
-              [class.is-on]="uiStore.buildingsVisible()"
-              (click)="uiStore.toggleBuildings(); buildingsToggled.emit()"
-              [matTooltip]="t().hud.quick.buildings"
-              matTooltipPosition="left"
-              [attr.aria-label]="t().hud.quick.buildings" [attr.aria-pressed]="uiStore.buildingsVisible()">
-        <td-icon name="tower" [size]="18"></td-icon>
-      </button>
+      @if (footprints() === 'fetched') {
+        <button class="td-icon-btn"
+                [class.is-on]="uiStore.buildingsVisible()"
+                (click)="uiStore.toggleBuildings(); buildingsToggled.emit()"
+                [matTooltip]="t().hud.quick.buildings"
+                matTooltipPosition="left"
+                [attr.aria-label]="t().hud.quick.buildings" [attr.aria-pressed]="uiStore.buildingsVisible()">
+          <td-icon name="tower" [size]="18"></td-icon>
+        </button>
+      }
       <button class="td-icon-btn"
               [class.is-on]="uiStore.streetsVisible()"
               (click)="uiStore.toggleStreets(); streetsToggled.emit()"
@@ -133,6 +135,18 @@
         <td-icon name="copy" [size]="18"></td-icon>
         <span class="td-caps">{{ d.dump }}</span>
       </button>
+      <!-- An OSM world's footprints over its buildings (the same layer as a real place's quick action) -->
+      @if (footprints() === 'kept') {
+        <button class="td-icon-btn qa-tile"
+                [class.is-on]="uiStore.buildingsVisible()"
+                (click)="uiStore.toggleBuildings(); buildingsToggled.emit()"
+                [matTooltip]="d.footprintsTip"
+                matTooltipPosition="left"
+                [attr.aria-label]="d.footprintsTip" [attr.aria-pressed]="uiStore.buildingsVisible()">
+          <td-icon name="tower" [size]="18"></td-icon>
+          <span class="td-caps">{{ d.footprints }}</span>
+        </button>
+      }
 
       <div class="td-caps qa-group">{{ d.groupView }}</div>
       <button class="td-icon-btn qa-tile"

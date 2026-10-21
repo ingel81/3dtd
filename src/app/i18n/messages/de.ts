@@ -3559,6 +3559,8 @@ export const de: Messages = {
       dumpTip: 'Zustand herunterladen (JSON)',
       dumpLabel: 'Zustand herunterladen',
       dump: 'Dump',
+      footprintsTip: 'OSM-Grundrisse, aus denen die Karte gebaut ist, über ihren Gebäuden an den Routen',
+      footprints: 'OSM',
       cameraInfo: 'Kameradaten',
       camera: 'Kamera',
       framing: 'Bildlinien',

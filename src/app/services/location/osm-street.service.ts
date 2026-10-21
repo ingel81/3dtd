@@ -146,6 +146,9 @@ export function parseStreetTags(tags: Record<string, string> | undefined): Stree
   providedIn: 'root',
 })
 export class OsmStreetService extends StreetRouter implements WorldStreetSource {
+  /** The place's footprints come from Overpass */
+  readonly footprints = 'fetched' as const;
+
   // IndexedDB cache service (replaces localStorage)
   private readonly streetCache = inject(StreetCacheService);
 

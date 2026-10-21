@@ -18,8 +18,9 @@ describe('BuildingOverlay', () => {
   let overlay: BuildingOverlay;
 
   function fakeDeps() {
-    // The world's streets: OSM on the tiles
+    // The world's streets: OSM on the tiles (an OSM world keeps its footprints: 'kept')
     const osm = {
+      footprints: 'fetched' as 'fetched' | 'kept' | 'none',
       loadBuildingsNearRoutes: vi.fn(async (_routes: unknown, _radius: number) => ({ buildings: ['near'] as unknown[] })),
     };
     return {
@@ -178,6 +179,30 @@ describe('BuildingOverlay', () => {
         // Other routes: not theirs any more
         cachedPaths = new Map([['spawn-1', OTHER]]);
         expect(overlay.footprints()).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('loads the footprints an OSM world keeps only while shown: nothing is built while the layer is off (TODO E290)', async () => {
+      deps.osm.footprints = 'kept';
+      vi.useFakeTimers();
+      try {
+        overlay.routesChanged();
+        await vi.advanceTimersByTimeAsync(BUILDING_RELOAD_DELAY_MS);
+        expect(deps.osm.loadBuildingsNearRoutes).not.toHaveBeenCalled();
+        expect(deps.buildingRendering.renderBuildings).not.toHaveBeenCalled();
+
+        deps.uiStore.buildingsVisible.set(true);
+        overlay.toggled();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(deps.buildingRendering.renderBuildings).toHaveBeenLastCalledWith(engine, ['near'], HQ, true);
+
+        // A new lane while shown: its footprints load by themselves
+        cachedPaths = new Map([['spawn-1', ROUTE], ['spawn-2', OTHER]]);
+        overlay.routesChanged();
+        await vi.advanceTimersByTimeAsync(BUILDING_RELOAD_DELAY_MS);
+        expect(deps.osm.loadBuildingsNearRoutes).toHaveBeenCalledTimes(2);
       } finally {
         vi.useRealTimers();
       }

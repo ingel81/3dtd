@@ -39,6 +39,9 @@ interface GraphNode {
  *   Overpass, no building footprints (the buildings are part of the terrain)
  */
 export class DevStreetProvider extends StreetRouter implements WorldStreetSource {
+  /** The buildings stand in the generated terrain; there is no footprint to show */
+  readonly footprints = 'none' as const;
+
   private network: StreetNetwork | null = null;
   private graph = new Map<number, GraphNode>();
   private nodeIdCounter = 1;

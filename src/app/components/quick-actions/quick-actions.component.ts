@@ -33,6 +33,12 @@ export class QuickActionsComponent {
 
   // Per-tower-LOS filter — icon + tooltip computed from the UIStore signal
   // so the button reflects the current mode (both / ground / air).
+  /**
+   * Where the world's building footprints come from (WorldStreetSource.footprints): fetched for a real place, a
+   * layer here; kept by an OSM world, a tile of the developer menu (TODO E290)
+   */
+  readonly footprints = computed(() => this.worldContext.provider()?.streets.footprints ?? 'none');
+
   readonly perTowerLosFilterIcon = computed<'layers' | 'grid' | 'gridAir'>(() => {
     const mode = this.uiStore.perTowerLosFilter();
     return mode === 'both' ? 'layers' : mode === 'ground' ? 'grid' : 'gridAir';

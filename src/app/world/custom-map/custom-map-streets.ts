@@ -1,11 +1,18 @@
 import type { Street, StreetNetwork, StreetNode } from '../../interfaces/street-network-provider.interface';
-import type { BuildingData } from '../../services/location/osm-street.service';
+import type { BuildingData, BuildingFootprint } from '../../services/location/osm-street.service';
 import { StreetRouter } from '../../services/location/street-router';
 import type { WorldStreetSource } from '../world-provider';
 import { MAP_METERS_PER_DEGREE, type CustomMapDocument, type MapPathKind } from './map-document';
+import { footprintsNearRoutes, readFootprints, type MapFootprint } from './map-footprints';
 
-/** What the street network reads of a map: its paths and its size (an OSM world's frame has no more before the making) */
-export type StreetMap = Pick<CustomMapDocument, 'paths'> & { terrain: Pick<CustomMapDocument['terrain'], 'width' | 'depth'> };
+/**
+ * What the street network reads of a map: its paths and its size (an OSM world's frame has no more before the
+ * making), and the footprints an OSM world kept
+ */
+export type StreetMap = Pick<CustomMapDocument, 'paths' | 'footprints'> & { terrain: Pick<CustomMapDocument['terrain'], 'width' | 'depth'> };
+
+/** Storeys a footprint is drawn with where OSM gives none (the tiles' default, OsmStreetService) */
+const DEFAULT_LEVELS = 2;
 
 /**
  * Street type per path kind: roads route first, paths and bridges as a road
@@ -27,10 +34,15 @@ const STREET_TYPE: Record<MapPathKind, string> = {
  */
 export class CustomMapStreets extends StreetRouter implements WorldStreetSource {
   readonly network: StreetNetwork;
+  /** An OSM world keeps the footprints its import read (TODO E290); other maps have none */
+  readonly footprints: 'kept' | 'none';
+  /** The kept footprints read back, on the first load of them */
+  private footprintList: MapFootprint[] | null = null;
 
-  constructor(doc: StreetMap) {
+  constructor(private readonly doc: StreetMap) {
     super();
     this.network = mapStreetNetwork(doc);
+    this.footprints = doc.footprints?.rings.length ? 'kept' : 'none';
   }
 
   prefetchStreets(): void {
@@ -50,9 +62,25 @@ export class CustomMapStreets extends StreetRouter implements WorldStreetSource 
     return network;
   }
 
-  /** Buildings are objects of the map */
-  loadBuildingsNearRoutes(): Promise<BuildingData> {
-    return Promise.resolve({ buildings: [] });
+  /**
+   * The footprints an OSM world kept that come within `radiusMeters` of the
+   * routes, in the frame of its streets; none on other maps (their
+   * buildings are objects of the map). Nothing is fetched
+   */
+  loadBuildingsNearRoutes(routes: readonly (readonly { lat: number; lon: number }[])[], radiusMeters: number): Promise<BuildingData> {
+    const kept = this.doc.footprints;
+    if (!kept) return Promise.resolve({ buildings: [] });
+    this.footprintList ??= readFootprints(kept);
+    const M = MAP_METERS_PER_DEGREE;
+    const lines = routes.map((route) => route.map((p) => ({ x: p.lon * M, y: p.lat * M })));
+    let id = 1;
+    const buildings = footprintsNearRoutes(this.footprintList, lines, radiusMeters).map((fp): BuildingFootprint => ({
+      id: id++,
+      type: 'yes',
+      levels: fp.levels || DEFAULT_LEVELS,
+      nodes: fp.points.map((p) => ({ id: id++, lat: p.y / M, lon: p.x / M })),
+    }));
+    return Promise.resolve({ buildings });
   }
 
   /** A map's spawns have names of their own; its roads have none */

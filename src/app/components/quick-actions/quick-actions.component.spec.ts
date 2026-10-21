@@ -65,4 +65,19 @@ describe('QuickActionsComponent', () => {
     expect(template).toContain("toggleMenu('dev')");
   });
 
+  it('offers the building footprints as a layer where they are fetched for a place, as a developer tile where an OSM world keeps them (TODO E290)', () => {
+    const quick = actions();
+    const world = TestBed.inject(WorldContext) as unknown as ReturnType<typeof fakeWorldContext>;
+    expect(quick.footprints()).toBe('none');
+    const seen = (['fetched', 'kept', 'none'] as const).map((footprints) => {
+      world.setProvider({ streets: { footprints } as never });
+      return quick.footprints();
+    });
+    expect(seen).toEqual(['fetched', 'kept', 'none']);
+    // Both buttons switch the one layer
+    expect(template).toContain("@if (footprints() === 'fetched')");
+    expect(template).toContain("@if (footprints() === 'kept')");
+    expect(template.match(/uiStore\.toggleBuildings\(\); buildingsToggled\.emit\(\)/g)).toHaveLength(2);
+  });
+
 });

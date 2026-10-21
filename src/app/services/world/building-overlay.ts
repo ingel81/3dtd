@@ -9,8 +9,8 @@ import type { ThreeTilesEngine } from '../../three-engine';
 
 /** What BuildingOverlay needs; VisualizationFacadeService passes its services. */
 export interface BuildingOverlayDeps {
-  /** The world's streets, looked up at each load: OSM on the tiles, none where buildings are part of the world */
-  streets: () => Pick<WorldStreetSource, 'loadBuildingsNearRoutes'>;
+  /** The world's streets, looked up at each load: Overpass on the tiles, an OSM world's kept footprints, none elsewhere */
+  streets: () => Pick<WorldStreetSource, 'loadBuildingsNearRoutes' | 'footprints'>;
   pathRoute: Pick<PathAndRouteService, 'getCachedPaths'>;
   buildingRendering: Pick<BuildingRenderingService, 'renderBuildings' | 'toggleVisibility' | 'reset' | 'clear'>;
   uiStore: Pick<UIStore, 'buildingsVisible'>;
@@ -39,8 +39,10 @@ export const BUILDING_RELOAD_DELAY_MS = 1500;
 
 /**
  * OSM building footprints within BUILDING_CORRIDOR_RADIUS of the routes, and
- * only those: loaded once the routes have settled (routesChanged; the
- * minimap draws them, TODO E142) or on the first toggle-on, shown while the
+ * only those: on the tiles loaded once the routes have settled
+ * (routesChanged; the minimap draws them, TODO E142) or on the first
+ * toggle-on; an OSM world's kept footprints (the developer layer, TODO E290)
+ * only while the layer is on, so they cost nothing else. Shown while the
  * layer is on, drawn again after tile loads. They belong to the routes and
  * the place they were loaded for: when either changes (another place, a new
  * or moved spawn) they leave the map and those of the new routes load.
@@ -74,13 +76,15 @@ export class BuildingOverlay {
    * The routes changed (PathAndRouteService.routesVersion): buildings of
    * other routes or another place leave the map; the new routes' buildings
    * load once the routes have settled, shown only while the layer is on.
+   * Footprints the world keeps load only while the layer is on (`toggled`).
    */
   routesChanged(): void {
     if (this.cachedBuildings && !this.loadedForNow()) this.drop();
     this.cancelReload();
     this.reloadTimer = setTimeout(() => {
       this.reloadTimer = null;
-      if (!this.loadedForNow()) this.loadAndRenderBuildings();
+      if (this.loadedForNow()) return;
+      if (this.deps.uiStore.buildingsVisible() || this.fetchedAhead()) this.loadAndRenderBuildings();
     }, BUILDING_RELOAD_DELAY_MS);
   }
 
@@ -117,6 +121,16 @@ export class BuildingOverlay {
     this.loadedFor = null;
     const engine = this.deps.engine();
     if (engine) this.deps.buildingRendering.clear(engine);
+  }
+
+  /** Whether the world's footprints load ahead of the layer: those fetched for a place (the minimap draws them) */
+  private fetchedAhead(): boolean {
+    try {
+      return this.deps.streets().footprints === 'fetched';
+    } catch {
+      // The world closed in the meantime
+      return false;
+    }
   }
 
   private cancelReload(): void {

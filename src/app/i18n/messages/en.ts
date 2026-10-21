@@ -3800,6 +3800,8 @@ export const en = {
       dumpTip: 'Download state dump (JSON)',
       dumpLabel: 'Download state dump',
       dump: 'Dump',
+      footprintsTip: 'OSM footprints the map was made from, over its buildings near the routes',
+      footprints: 'OSM',
       cameraInfo: 'Camera info',
       camera: 'Camera',
       framing: 'Framing guides',

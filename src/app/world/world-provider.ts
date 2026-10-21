@@ -189,7 +189,16 @@ export interface WorldStreetSource {
   /** The streets near the routes, for the overlay; a world that draws all of them gives the network back */
   filterStreetsNearRoutes(network: StreetNetwork, routes: { lat: number; lon: number }[][], corridorWidth?: number): StreetNetwork;
   haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number;
-  /** Building footprints near the routes (tiles: Overpass); none where buildings are part of the world */
+  /**
+   * Where loadBuildingsNearRoutes takes the footprints from, and so where
+   * their layer is offered: `fetched` for the place from a server (tiles:
+   * Overpass; loaded ahead once the routes settle, a layer of the quick
+   * actions), `kept` with the world (an OSM world's import; loaded only
+   * when shown, a developer tool to hold against the buildings made of
+   * them, TODO E290), `none` (buildings of the world's own making)
+   */
+  readonly footprints: 'fetched' | 'kept' | 'none';
+  /** Building footprints near the routes: the tiles' from Overpass, an OSM world's from its map, none where there are none */
   loadBuildingsNearRoutes(routes: readonly (readonly { lat: number; lon: number }[])[], radiusMeters: number): Promise<BuildingData>;
   /** The label of a spawn at a point: its street's name, or `name` where streets have none to tell */
   spawnLabel(network: StreetNetwork, lat: number, lon: number, name: string): string;
