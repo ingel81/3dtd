@@ -42,6 +42,9 @@ import { addDamage, collapseCuts, RUIN_HOLES, DAMAGE_ATTRIBUTES, DAMAGE_LOS, dam
  * side of a flat roof's parapet a wall turned inward and a coping on top.
  * A map of 2 000 such buildings draws in about ten calls (one per facade,
  * the coping, one per roof covering), as many again for the sun's shadow.
+ * The calls share their programs: the facade and whether a roof is flat are
+ * uniforms (uFacade, uFlatRoof), not variants of the shader, so all walls draw
+ * with one program and all roofs with another, intact or as ruins.
  *
  * The facades come from the shader, not from the model: storeys and bays
  * laid out in metres per wall (centred, with a margin at the corners),
@@ -67,7 +70,7 @@ const PARAPET_THICKNESS = 0.3;
 /** How far a pitched roof reaches past the walls, m */
 const EAVES = 0.4;
 
-/** Facade index of each look, the shader's MASS_FACADE */
+/** Facade index of each look, the shader's uFacade */
 const FACADE_INDEX: Readonly<Record<MapMassFacade, number>> = Object.fromEntries(MAP_MASS_FACADES.map((f, i) => [f, i])) as Record<MapMassFacade, number>;
 /** Kit material of each facade */
 const FACADE_SURFACE: Readonly<Record<MapMassFacade, string>> = {
@@ -921,8 +924,9 @@ export class MassLayer {
     const cached = this.materials.get(key);
     if (cached) return cached;
     const m = surface.material.clone();
-    m.defines = { ...(m.defines ?? {}), MASS_FACADE: FACADE_INDEX[facade] };
     const uniforms = {
+      // The facade's look: a uniform, not a define, so every facade draws with one program (E280)
+      uFacade: { value: FACADE_INDEX[facade] },
       uTile: { value: surface.tile },
       uPlinthMap: { value: (plinth?.material.map ?? surface.material.map) as Texture | null },
       uPlinthTile: { value: plinth?.tile ?? surface.tile },
@@ -941,7 +945,7 @@ export class MassLayer {
         .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>\nnormal = normalize(mix(normal, nonPerturbedNormal, massWindow));`)
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n${WALL_NIGHT_FRAGMENT}`);
     };
-    m.customProgramCacheKey = () => `mass-wall-${facade}`;
+    m.customProgramCacheKey = () => 'mass-wall';
     addHeightFog(m);
     if (ruin) asRuin(m);
     this.materials.set(key, m);
@@ -954,17 +958,18 @@ export class MassLayer {
     const cached = this.materials.get(key);
     if (cached) return cached;
     const m = surface.material.clone();
-    const uniforms = { uTile: { value: surface.tile } };
+    // Flat or not a uniform, not a variant of the shader: every covering draws with one program (E280)
+    const uniforms = { uTile: { value: surface.tile }, uFlatRoof: { value: covering === 'flat' ? 1 : 0 } };
     m.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms);
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', `#include <common>\nattribute vec3 aRoofUvA;\nattribute vec3 aRoofUv;\nuniform float uTile;\nvarying vec2 vRoofM;`)
         .replace('#include <uv_vertex>', ROOF_UV_VERTEX);
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', `#include <common>\nvarying vec2 vRoofM;`)
-        .replace('#include <color_fragment>', `#include <color_fragment>\n${covering === 'flat' ? FLAT_ROOF_FRAGMENT : ''}`);
+        .replace('#include <common>', `#include <common>\nvarying vec2 vRoofM;\nuniform float uFlatRoof;`)
+        .replace('#include <color_fragment>', `#include <color_fragment>\n${FLAT_ROOF_FRAGMENT}`);
     };
-    m.customProgramCacheKey = () => `mass-roof-${covering}`;
+    m.customProgramCacheKey = () => 'mass-roof';
     addHeightFog(m);
     if (ruin) asRuin(m);
     this.materials.set(key, m);
@@ -1104,7 +1109,7 @@ const WALL_UV_VERTEX = /* glsl */ `
 `;
 
 const WALL_FRAGMENT_PARS = /* glsl */ `
-#define MASS_FACADE_F float(MASS_FACADE)
+uniform float uFacade;
 varying vec2 vWallM;
 varying vec4 vWall;
 varying vec4 vWallB;
@@ -1145,24 +1150,27 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
   float band = vWallB.z;
   float top = vWallB.w;
   float aa = max(max(fwidth(u), fwidth(v)), 1e-4);
-  // Per facade: plinth height, bay, window width and height, the sill over the storey's floor, frame colour
-  #if MASS_FACADE == 0
-  float plinthH = 0.45; float bay = 2.9; float winW = 1.25; float winH = 1.45; float sill = 0.9; vec3 frame = vec3(0.92, 0.92, 0.9);
-  #elif MASS_FACADE == 1
-  float plinthH = 0.6; float bay = 1.6; float winW = 1.36; float winH = 1.55; float sill = 0.85; vec3 frame = vec3(0.16, 0.17, 0.18);
-  #elif MASS_FACADE == 2
-  float plinthH = 1.0; float bay = 5.0; float winW = 4.2; float winH = 1.1; float sill = 0.0; vec3 frame = vec3(0.2, 0.21, 0.22);
-  #elif MASS_FACADE == 3
-  float plinthH = 0.5; float bay = 2.7; float winW = 1.1; float winH = 1.6; float sill = 0.85; vec3 frame = vec3(0.9, 0.9, 0.88);
-  #elif MASS_FACADE == 4
-  float plinthH = 0.6; float bay = 3.6; float winW = 1.05; float winH = 2.0; float sill = 1.1; vec3 frame = vec3(0.3, 0.27, 0.24);
-  #else
+  // Per facade (uFacade, MAP_MASS_FACADES' order): plinth height, bay, window width and height, the sill over the
+  // storey's floor, frame colour
+  int facade = int(uFacade + 0.5);
   float plinthH = 0.5; float bay = 1.6; float winW = 0.85; float winH = 1.1; float sill = 0.85; vec3 frame = vec3(0.9, 0.88, 0.82);
-  #endif
+  if (facade == 0) {
+    plinthH = 0.45; bay = 2.9; winW = 1.25; winH = 1.45; sill = 0.9; frame = vec3(0.92, 0.92, 0.9);
+  } else if (facade == 1) {
+    plinthH = 0.6; bay = 1.6; winW = 1.36; winH = 1.55; sill = 0.85; frame = vec3(0.16, 0.17, 0.18);
+  } else if (facade == 2) {
+    plinthH = 1.0; bay = 5.0; winW = 4.2; winH = 1.1; sill = 0.0; frame = vec3(0.2, 0.21, 0.22);
+  } else if (facade == 3) {
+    plinthH = 0.5; bay = 2.7; winW = 1.1; winH = 1.6; sill = 0.85; frame = vec3(0.9, 0.9, 0.88);
+  } else if (facade == 4) {
+    plinthH = 0.6; bay = 3.6; winW = 1.05; winH = 2.0; sill = 1.1; frame = vec3(0.3, 0.27, 0.24);
+  }
   vec3 base = diffuseColor.rgb;
-  #if MASS_FACADE == 2 && defined(USE_COLOR)
-  // Sheet metal takes its tint as paint: the sheet's own colour out, its light and shade kept
-  base = vColor.rgb * dot(base / max(vColor.rgb, vec3(0.02)), vec3(0.299, 0.587, 0.114)) * 6.5;
+  #ifdef USE_COLOR
+  if (facade == 2) {
+    // Sheet metal takes its tint as paint: the sheet's own colour out, its light and shade kept
+    base = vColor.rgb * dot(base / max(vColor.rgb, vec3(0.02)), vec3(0.299, 0.587, 0.114)) * 6.5;
+  }
   #endif
   // A broad, slow patchiness and grime above the plinth: no two walls alike
   float patchy = massHash(floor(vec3(u * 0.25, v * 0.35, seed)));
@@ -1183,11 +1191,11 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
     float wh;
     if (hall > 0.5) {
       // A hall: one high row under the roof; stone walls tall windows from low down
-      #if MASS_FACADE == 4
-      wb = 2.2; wh = max(usable - 3.6, 1.5);
-      #else
-      wh = min(winH * 1.4, usable * 0.3); wb = usable - wh - 0.5;
-      #endif
+      if (facade == 4) {
+        wb = 2.2; wh = max(usable - 3.6, 1.5);
+      } else {
+        wh = min(winH * 1.4, usable * 0.3); wb = usable - wh - 0.5;
+      }
       inStorey = v - plinthH;
       k = 0.0;
     } else {
@@ -1220,17 +1228,16 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
       float glassDoor = massBox(lu, -dw * 0.5 + 0.1, dw * 0.5 - 0.1, aa) * massBox(inStorey, 0.15, dh - 0.12, aa);
       vec3 doorColor = mix(vec3(0.2, 0.13, 0.08), vec3(0.16, 0.17, 0.18), step(0.5, massHash(vec3(seed, 5.0, 1.0))));
       detail = mix(detail, frame, leaf);
-      detail = mix(detail, mix(doorColor, vec3(0.06, 0.07, 0.08), 0.5 * step(MASS_FACADE_F, 0.5)), glassDoor);
+      detail = mix(detail, mix(doorColor, vec3(0.06, 0.07, 0.08), 0.5 * step(uFacade, 0.5)), glassDoor);
       // A canopy's shadow over it
       detail *= 1.0 - 0.35 * massBox(lu, -dw * 0.5 - 0.3, dw * 0.5 + 0.3, aa) * massBox(inStorey, dh + 0.05, dh + 0.35, aa);
       massWindow = leaf;
       massGlass = glassDoor * 0.5;
       inBay = 0.0;
     }
-    #if MASS_FACADE == 5
     // Half-timbered storeys over the ground floor: sill and head plates, a post at every bay line, rails over
     // and under the windows, braces crossing the bays that have none
-    if (k > 0.5 && hall < 0.5 && wh > 0.3) {
+    if (facade == 5 && k > 0.5 && hall < 0.5 && wh > 0.3) {
       vec3 oak = vec3(0.16, 0.1, 0.065) * (0.8 + 0.4 * massHash(vec3(seed, 7.0, 2.0))) * (0.75 + 0.5 * dot(base, vec3(0.33)));
       float bw = 0.17;
       float lp = lu + bay * 0.5;
@@ -1245,22 +1252,18 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
       detail = mix(detail, oak, timber);
       inBay *= 1.0 - braced;
     }
-    #endif
     if (inBay > 0.5 && wh > 0.3) {
       float h = massHash(vec3(i, k, seed));
       // The opening, its frame and the glass inside
       float open = massBox(lu, -ww * 0.5, ww * 0.5, aa) * massBox(inStorey, wb, wb + wh, aa);
       float fw = 0.07;
       float glass = massBox(lu, -ww * 0.5 + fw, ww * 0.5 - fw, aa) * massBox(inStorey, wb + fw, wb + wh - fw, aa);
-      #if MASS_FACADE == 1 || MASS_FACADE == 2
-      // Ribbon windows: mullions every bay, here across the whole bay
-      #endif
-      #if MASS_FACADE == 4
-      // A round head on the tall windows of a stone wall
-      float arch = length(vec2(lu, max(inStorey - (wb + wh - ww * 0.5), 0.0)));
-      open *= 1.0 - smoothstep(ww * 0.5 - aa, ww * 0.5 + aa, arch);
-      glass *= 1.0 - smoothstep(ww * 0.5 - fw - aa, ww * 0.5 - fw + aa, arch);
-      #endif
+      if (facade == 4) {
+        // A round head on the tall windows of a stone wall
+        float arch = length(vec2(lu, max(inStorey - (wb + wh - ww * 0.5), 0.0)));
+        open *= 1.0 - smoothstep(ww * 0.5 - aa, ww * 0.5 + aa, arch);
+        glass *= 1.0 - smoothstep(ww * 0.5 - fw - aa, ww * 0.5 - fw + aa, arch);
+      }
       // Blinds part way down in some, the sky's sheen in the rest
       float blind = step(0.62, h) * massBox(inStorey, wb + wh - wh * (0.15 + 0.55 * fract(h * 13.7)), wb + wh + 1.0, aa);
       vec3 glassColor = mix(vec3(0.05, 0.065, 0.08), vec3(0.11, 0.12, 0.13), fract(h * 3.1));
@@ -1272,11 +1275,11 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
       detail = mix(detail, frame, open);
       detail = mix(detail, pane, glass);
       // Window crosses on homes: a mullion and a transom at two thirds
-      #if MASS_FACADE == 0 || MASS_FACADE == 3 || MASS_FACADE == 5
-      float bar = max(massBox(lu, -0.035, 0.035, aa), massBox(inStorey, wb + wh * 0.66 - 0.035, wb + wh * 0.66 + 0.035, aa)) * step(hall, 0.5) * (1.0 - display);
-      detail = mix(detail, frame, glass * bar);
-      glass *= 1.0 - bar;
-      #endif
+      if (facade == 0 || facade == 3 || facade == 5) {
+        float bar = max(massBox(lu, -0.035, 0.035, aa), massBox(inStorey, wb + wh * 0.66 - 0.035, wb + wh * 0.66 + 0.035, aa)) * step(hall, 0.5) * (1.0 - display);
+        detail = mix(detail, frame, glass * bar);
+        glass *= 1.0 - bar;
+      }
       massGlass = glass * (1.0 - blind);
       massWindow = open;
       // The sill under the window, a streak of grime under the sill
@@ -1293,9 +1296,7 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
     detail = mix(detail, detail * 1.12, cornice * step(0.2, band));
     detail *= 1.0 - 0.18 * massBox(v, top - band - 0.12, top - band, aa) * step(0.2, band);
     // Corner pilasters on plaster
-    #if MASS_FACADE == 0
-    detail *= 1.0 + 0.05 * (massBox(u, -1.0, 0.32, aa) + massBox(u, L - 0.32, L + 1.0, aa));
-    #endif
+    if (facade == 0) detail *= 1.0 + 0.05 * (massBox(u, -1.0, 0.32, aa) + massBox(u, L - 0.32, L + 1.0, aa));
   }
   // The plinth below, in the plinth's concrete
   vec3 plinthColor = texture2D(uPlinthMap, vWallM / uPlinthTile).rgb * uPlinthColor;
@@ -1347,7 +1348,7 @@ const ROOF_UV_VERTEX = /* glsl */ `
 
 /** A flat roof: its sheets in strips a metre wide, a few patched lighter */
 const FLAT_ROOF_FRAGMENT = /* glsl */ `
-{
+if (uFlatRoof > 0.5) {
   float strip = floor(vRoofM.x);
   float h = fract(sin(strip * 12.9898 + floor(vRoofM.y / 6.0) * 4.1414) * 43758.5453);
   diffuseColor.rgb *= 0.94 + 0.1 * h;
