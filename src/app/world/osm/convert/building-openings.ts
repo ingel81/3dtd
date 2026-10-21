@@ -19,6 +19,7 @@ import { heightAt } from '../../../map-ops/grid';
 import type { CustomMapDocument, MapMass, MapMassOpening, MapPathEdge, MapPoint } from '../../custom-map/map-document';
 import { toModel } from '../../custom-map/object-ground';
 import { MASS_MAX_OPENINGS, massBodies, ringsContain } from '../../custom-map/object-mass';
+import { OPENING_STUB } from './underground';
 
 /** Clear height of a passage by what runs through it, m: carriageways, pedestrian streets, footways */
 const DRIVE_HEIGHT = 3.8;
@@ -26,6 +27,8 @@ const STREET_HEIGHT = 3.4;
 const FOOT_HEIGHT = 2.9;
 /** A car park's entrance: clear height over its floor at the wall, m */
 const GARAGE_HEIGHT = 2.4;
+/** Metres a car park's stub may reach on to the wall of a building cut back off its drive */
+const GARAGE_REACH = 4;
 /** Ways cars drive through (OSM `highway`) */
 const DRIVES = new Set(['service', 'residential', 'living_street', 'unclassified', 'tertiary', 'secondary', 'primary', 'track', 'road']);
 /** Lowest opening worth cutting, m; an arch's springing at least, m */
@@ -65,6 +68,10 @@ interface CoveredWay {
   street: string;
   blind0: boolean;
   blind1: boolean;
+  /** Its own length, m, without the reach past its doors */
+  length: number;
+  /** A car park's stub's point GARAGE_REACH on past its end: the wall of a building cut back off its drive may lie there */
+  reach?: MapPoint;
   minX: number;
   maxX: number;
   minY: number;
@@ -116,12 +123,15 @@ export class CoveredWays {
       head = grow(head, false);
       const blind0 = (degree.get(head) ?? 0) <= 1;
       const blind1 = (degree.get(tail) ?? 0) <= 1;
+      const own = lineLength(points.map((p) => [p.x, p.y] as const));
       // On through its doors: the stretch under the building begins outside the wall
       if (!blind0) points = [reach(points[0], points[1], PAST_DOOR), ...points];
       if (!blind1) points = [...points, reach(points[points.length - 1], points[points.length - 2], PAST_DOOR)];
-      const xs = points.map((p) => p.x);
-      const ys = points.map((p) => p.y);
-      this.ways.push({ points, width: e.width, street: e.street ?? '', blind0, blind1, minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) });
+      const stub = blind1 && !blind0 && (e.street ?? '') === 'service' && own <= 3.5 && points.length >= 2;
+      const far = stub ? reach(points[points.length - 1], points[points.length - 2], GARAGE_REACH) : undefined;
+      const xs = [...points, ...(far ? [far] : [])].map((p) => p.x);
+      const ys = [...points, ...(far ? [far] : [])].map((p) => p.y);
+      this.ways.push({ points, width: e.width, street: e.street ?? '', blind0, blind1, length: own, ...(far ? { reach: far } : {}), minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) });
     }
   }
 
@@ -149,7 +159,7 @@ export class CoveredWays {
     const ways = this.ways.filter((w) => w.minX <= maxX && w.maxX >= minX && w.minY <= maxY && w.maxY >= minY);
     if (!ways.length) return false;
     const rings = [outer, ...holes].map((r) => r.flatMap((q) => [q.x, q.y]));
-    return ways.some((w) => stretches(w.points.map((q) => [q.x, q.y] as const), rings).some((s) => lineLength(s.points) >= 0.8));
+    return ways.some((w) => stretches((w.reach ? [...w.points, w.reach] : w.points).map((q) => [q.x, q.y] as const), rings).some((s) => lineLength(s.points) >= 0.8));
   }
 }
 
@@ -190,7 +200,23 @@ export function massOpenings(mass: MapMass, frame: OpeningFrame, ways: CoveredWa
       const m = toModel(p.x - frame.x, p.y - frame.y, cos, sin);
       return { x: m.x / scale, z: m.z / scale, map: p };
     });
-    for (const st of stretches(pts.map((p) => [p.x, p.z] as const), mass.rings)) {
+    let line = pts.map((p) => [p.x, p.z] as const);
+    let found = stretches(line, mass.rings);
+    // A car park's stub that ends in front of the wall (the building cut back off its drive): on to the wall and
+    // OPENING_STUB in, GARAGE_REACH at most
+    if (way.reach && !found.some((s) => s.end)) {
+      const far = toModel(way.reach.x - frame.x, way.reach.y - frame.y, cos, sin);
+      line = [...line, [far.x / scale, far.z / scale] as const];
+      found = stretches(line, mass.rings).map((s) => {
+        if (!s.end) return s;
+        const [ax, az] = s.points[0];
+        const [bx, bz] = s.points[s.points.length - 1];
+        const d = Math.hypot(bx - ax, bz - az);
+        if (d <= OPENING_STUB) return s;
+        return { ...s, points: [s.points[0], [ax + ((bx - ax) / d) * OPENING_STUB, az + ((bz - az) / d) * OPENING_STUB] as const] };
+      });
+    }
+    for (const st of found) {
       if (out.length >= MASS_MAX_OPENINGS) break;
       const blindStart = st.s0 === 0 && way.blind0;
       const blindEnd = st.end && way.blind1;
@@ -206,7 +232,8 @@ export function massOpenings(mass: MapMass, frame: OpeningFrame, ways: CoveredWa
         report.closed++;
         continue;
       }
-      const garage = blindEnd && !blindStart && way.street === 'service' && length <= 3.5;
+      // A car park's stub (underground.ts OPENING_STUB): a service way that ends a few metres in
+      const garage = blindEnd && !blindStart && way.street === 'service' && way.length <= 3.5;
       // As wide as the way and its bend, within the building's walls beside it (a way along a side wall)
       const beside = sideRoom(mass.rings, a, b, [st.wall0, st.wall1]);
       const width = Math.min(WIDTH_MAX, way.width + 0.5 + 2 * bend, 2 * (beside - SIDE_KEEP));
@@ -227,7 +254,9 @@ export function massOpenings(mass: MapMass, frame: OpeningFrame, ways: CoveredWa
       let opening: MapMassOpening | null;
       if (garage) {
         // Its floor on the ground for now: where the ramp meets the wall, under the seat once it stands (garageFloors)
-        opening = room >= GARAGE_HEIGHT ? { line, width: round2(width), height: GARAGE_HEIGHT, kind: 'garage', head: 'flat', floor: 0 } : null;
+        // Under an overhang (an open bay) its dark reaches up to the overhang's floor
+        const top = low.air ? Math.max(GARAGE_HEIGHT, low.top) : GARAGE_HEIGHT;
+        opening = room >= GARAGE_HEIGHT ? { line, width: round2(width), height: round2(top), kind: 'garage', head: 'flat', floor: 0 } : null;
       } else {
         const wanted = DRIVES.has(way.street) ? DRIVE_HEIGHT : way.street === 'pedestrian' ? STREET_HEIGHT : FOOT_HEIGHT;
         // A stone building takes a round arch, a gateway's width at least, its springing GATE_SPRING up as room allows; else a lintel
@@ -278,7 +307,8 @@ export function garageFloors(openings: readonly MapMassOpening[], frame: Opening
     const wall = pointOnMap(frame, [ax + (bx - ax) / l, az + (bz - az) / l], cos, sin, scale);
     const floor = Math.min(0, Math.max(-6, heightAt(ground, wall.x, wall.y) - seat));
     o.floor = round2(floor);
-    o.height = round2(floor + GARAGE_HEIGHT);
+    // An entrance in an open bay keeps the bay's height (massOpenings)
+    o.height = round2(Math.max(floor + GARAGE_HEIGHT, o.height > GARAGE_HEIGHT ? o.height : -Infinity));
   }
 }
 
@@ -421,11 +451,11 @@ function lineDistance(p: readonly [number, number], a: readonly [number, number]
  * `min_height`) leaves up to its floor. The lowest along the line (the
  * building itself without parts)
  */
-function lowestBody(mass: MapMass, a: readonly [number, number], b: readonly [number, number]): { top: number; height: number; floors: number } {
+function lowestBody(mass: MapMass, a: readonly [number, number], b: readonly [number, number]): { top: number; height: number; floors: number; air?: boolean } {
   const bodies = massBodies(mass);
   const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
   const steps = Math.max(2, Math.ceil(length));
-  let low: { top: number; height: number; floors: number } | null = null;
+  let low: { top: number; height: number; floors: number; air?: boolean } | null = null;
   for (let s = 1; s < steps; s++) {
     const x = a[0] + ((b[0] - a[0]) * s) / steps;
     const z = a[1] + ((b[1] - a[1]) * s) / steps;
@@ -440,7 +470,7 @@ function lowestBody(mass: MapMass, a: readonly [number, number], b: readonly [nu
     const groundTop = Math.max(0, ...ground.map((g) => g.height));
     for (const p of air) {
       if (p.base! <= groundTop + 1) continue;
-      if (!low || p.base! < low.top) low = { top: p.base!, height: p.height, floors: p.floors };
+      if (!low || p.base! < low.top) low = { top: p.base!, height: p.height, floors: p.floors, air: true };
     }
   }
   return low ?? { top: mass.height - OVER, height: mass.height, floors: mass.floors };

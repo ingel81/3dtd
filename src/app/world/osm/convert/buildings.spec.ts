@@ -342,6 +342,22 @@ describe('OSM buildings: placing', () => {
     expect(seat).toBeCloseTo(20, 1);
   });
 
+  it("opens a car park's entrance whose stub ends in front of the wall (the building cut back off its drive) (E297)", () => {
+    const { doc, features } = world([area(2, box({ x: 30, y: 30 }, 20, 12, 0), { building: 'apartments', 'building:levels': '4' })]);
+    doc.paths.nodes.push({ id: 'r0', x: 30, y: 4 }, { id: 'w', x: 30, y: 20.5 }, { id: 's', x: 30, y: 22.5 });
+    doc.paths.edges.push(
+      { id: 'ramp', a: 'r0', b: 'w', width: 4, kind: 'road', street: 'service' },
+      { id: 'stub', a: 'w', b: 's', width: 4, kind: 'road', street: 'service', covered: true },
+    );
+    const { objects } = placeBuildings(doc, features, { catalog });
+    const raised = objects.find((o) => o.group === 'osm-b2' && o.asset === MASS_ASSET)!;
+    const [entrance] = raised.mass!.openings!;
+    expect(entrance.kind).toBe('garage');
+    // From before the wall to 2 m in
+    const [ax, az, bx, bz] = entrance.line;
+    expect(Math.hypot(bx - ax, bz - az)).toBeCloseTo(3, 1);
+  });
+
   it('takes a model only where it covers 85 % and stands out 10 % at most, else raises the footprint (decision 1)', () => {
     // A house as the model is, and a trapezoid the same model would cover whole but stand a fifth outside
     const trapezoid: MapPoint[] = [{ x: 15, y: 10 }, { x: 25, y: 10 }, { x: 23.2, y: 18.6 }, { x: 16.8, y: 18.6 }];

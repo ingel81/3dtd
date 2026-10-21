@@ -366,9 +366,9 @@ export function openingInsides(m: MassBody): WallPiece[] {
       } else {
         quad(out, at(h, t0(h), g.top), at(h, t1(h), g.top), at(-h, t1(-h), g.top), at(-h, t0(-h), g.top), [0, -1, 0], ceiling);
       }
-      // A way that ends inside ends at a wall across it (a car park's in the dark)
+      // A way that ends inside ends at a wall across it (a car park's in the dark), unless it ends in another way
       for (const [blind, t, facing] of [[st.blind1, st.t1, -1], [st.blind0, st.t0, 1]] as const) {
-        if (!blind) continue;
+        if (!blind || inOther(at(0, t, 0), o, m.openings ?? [], ground, m.walls ?? ground)) continue;
         const p = at(-h, t, 0);
         const q = at(h, t, 0);
         out.push(upright(p[0], p[2], q[0], q[2], facing * g.dx, facing * g.dz, g.base, g.top, WALL_PLAIN, garage ? GARAGE_BACK_SHADE : PASSAGE_REVEAL_SHADE));
@@ -419,6 +419,18 @@ function open(
     left = next;
   }
   return left;
+}
+
+/** Whether point `p` (x, y, z) lies in the band of an opening other than `self`, a little wider (two ways that meet inside) */
+function inOther(p: readonly number[], self: MapMassOpening, all: readonly MapMassOpening[], ground: readonly number[][], walls: readonly (readonly number[])[]): boolean {
+  return all.some((other) => {
+    if (other === self) return false;
+    const o = openingGeometry(other, ground, walls);
+    if (!o.inside.length) return false;
+    const s = (p[0] - o.ex) * o.lx + (p[2] - o.ez) * o.lz;
+    const t = (p[0] - o.ex) * o.dx + (p[2] - o.ez) * o.dz;
+    return Math.abs(s) <= o.half + 0.5 && t >= o.tmin - 0.5 && t <= o.tmax + 0.5;
+  });
 }
 
 /** An upright plain piece from (px, pz) to (qx, qz), facing (nx, nz) */
