@@ -17,7 +17,8 @@
  * moves to its edge. The pieces of one line share a group (`osm-w<way id>`),
  * the editor moves them together. The pieces' scene cost is held to a share
  * of the budget: past it the lit-road lamps go first, then the points, then
- * the tracks; the lines go last.
+ * the lines; the tracks go last, whole (a station's field of tracks cut off
+ * in the middle by the walls and fences of a dense town read as no railway).
  */
 import { resample } from '../../../map-ops/lines';
 import { ObjectIds, objectsAlong, wallAlong, WALL_KITS, DEFAULT_LINE } from '../../../map-ops/object-ops';
@@ -231,7 +232,7 @@ export function placeFurniture(doc: CustomMapDocument, features: OsmFeatures, wa
 
   // The railway (convert/rails.ts): tracks, crossings, bridges, overhead line masts; a bed passes under road bridges
   for (const piece of railPieces(rails, t, doc.paths)) {
-    consider(piece.o, piece.source, 1, piece.group, true, { road: piece.onRoad ? 'all' : 'bridges', water: piece.overWater });
+    consider(piece.o, piece.source, -1, piece.group, true, { road: piece.onRoad ? 'all' : 'bridges', water: piece.overWater });
   }
 
   // Lines: barriers, city walls. A barrier stops at the roads, paths and track beds it meets (LineClearance)

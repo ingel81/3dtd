@@ -129,4 +129,17 @@ describe('OSM furniture', () => {
     placeFurniture(again.doc, again.features, again.water, { costOf });
     expect(again.doc.objects).toEqual(full.doc.objects);
   });
+
+  it('lays the tracks whole before the fences when the budget runs short', () => {
+    const ways = [way(1, { railway: 'rail' }, [{ x: -80, y: 30 }, { x: 40, y: 30 }]), way(2, { barrier: 'fence' }, [{ x: -60, y: -40 }, { x: -60, y: -90 }])];
+    const full = world(ways);
+    placeFurniture(full.doc, full.features, full.water, { costOf });
+    const track = full.doc.objects.filter((o) => o.asset.startsWith('rail-track')).length;
+    expect(track).toBeGreaterThan(3);
+    // Room for the track alone (and a piece of fence)
+    const tight = world(ways);
+    const report = placeFurniture(tight.doc, tight.features, tight.water, { costOf, budget: (track + 1) * 100 });
+    expect(tight.doc.objects.filter((o) => o.asset.startsWith('rail-track')).length).toBe(track);
+    expect(report.dropped.budget).toBeGreaterThan(0);
+  });
 });
