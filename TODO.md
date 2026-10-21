@@ -65,10 +65,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Krater-Rechteck neu setzen (billig); Sicht entweder nur die betroffenen Zellen gegen den alten Cube neu proben
       (billig, Kraterwand selbst verdeckt dann nicht) oder Cube der Tower in Reichweite neu rendern (je Tower ein
       Cube-Render, bei Nuke-Dauerfeuer gedrosselt, z. B. höchstens einmal je Sekunde gesammelt).
-- [ ] **E295 Editor: eine Quelle für Objekt-Ids** (aus E292, 2026-10-21): Ids kommen heute aus zwei Quellen, dem Zähler
-      des Editors und `ObjectIds` über die Liste (LandscapeContext, map-kit, mirror-map; vergibt per Undo
-      zurückgenommene Ids wieder). Seit E292 passen sie zusammen, eine einzige Quelle wäre sauberer. Dazu: der
-      Straßenpinsel legt bei „Draw a longer road“ trotzdem einen Schritt an (nur die Teilung); Enden erst auflösen.
 - [ ] **E297 Besondere Gebäude aus OSM (Schloss, Burg, Kirche, Sehenswürdigkeit …)** (User 2026-10-21, Schloss
       Johannisburg Aschaffenburg): OSM führt building=castle, historic=castle, castle_type=stately, tourism=attraction,
       roof:shape, building:levels, wikidata, Innenhof als Multipolygon, Ecktürme. Gebaut werden daraus sechs
@@ -264,6 +260,9 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 - [ ] **E281 Dialog „Lauf wartet“**: Knopf heißt nur „Weiterspielen“, Dialog-Fußzeilen dürfen umbrechen (User: ok).
 - [ ] **E292 Fuzz-Abweichungen im Editor**: `commit` einer Transaktion meldet ganz gesicherte Teile und neue/entfernte
       Objekte mit (Spiegel verpasste geteilte Straße, doppelte Objekt-Ids); Seeds 5000-5149 grün, kein Nachtest nötig.
+- [ ] **E295 Editor: eine Quelle für Objekt-Ids**: alle Wege im Editor (Werkzeuge, Pinsel, Map-Kit, Spiegeln,
+      Duplizieren) nehmen den Zähler des Dokuments, der nie zurückzählt; „Draw a longer road“ legt keinen Schritt mehr an.
+      Seeds 5000-5149 grün, kein Nachtest nötig.
 
 ### Runde 2026-10-20 (auf `next`, Nachtests in PLAYTEST.md N)
 

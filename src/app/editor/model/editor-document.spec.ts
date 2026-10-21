@@ -230,4 +230,15 @@ describe('EditorDocument object ids', () => {
     ed.replace(other);
     expect(ed.objectIds.take()).toBe('o13');
   });
+
+  it('does not count back after the list changed whole: an id taken back by an undo stays given', () => {
+    const ed = new EditorDocument(map(64));
+    ed.execute(ObjectsCommand.add('Add', ed.doc, [object(ed.objectIds.take())]));
+    ed.undo();
+    // A step over the whole list (a mirror, a script) names no ids: the list is read again, o1 is not in it any more
+    ed.execute(SnapshotCommand.record(ed.doc, 'Mirror', ['objects'], (d) => d.objects.push(object('tree'))));
+    expect(ed.objectIds.take()).toBe('o2');
+    ed.undo();
+    expect(ed.objectIds.take()).toBe('o3');
+  });
 });

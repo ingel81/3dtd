@@ -36,7 +36,6 @@ import { cliffAlong, coastAlong, formDab, type FormKind } from './landscape/shap
 import {
   alignedToSlope,
   ObjectGrid,
-  ObjectIds,
   scatterDab,
   settled,
   rockShape,
@@ -553,7 +552,7 @@ export class MapKit {
    * ground, water, objects, spawns, roads and rivers
    */
   mirrorMap(mode: SymmetryMode, from: MapPoint): MirrorResult {
-    const out = mirrorWholeMap(this.doc, mode, from);
+    const out = mirrorWholeMap(this.doc, mode, from, this.editor.objectIds);
     this.freeCheck = null;
     return out;
   }
@@ -864,7 +863,7 @@ export class MapKit {
   /** Place one object (and its symmetric images); a rock settles onto its plate as in the editor */
   place(asset: string, x: number, y: number, o: PlaceOptions = {}): MapObject {
     if (!this.catalog.objects.has(asset)) throw new Error(`${this.name}: ${this.catalog.unknown('asset', asset)}`);
-    const ids = new ObjectIds(this.doc.objects);
+    const ids = this.editor.objectIds;
     const rock = rockShape(this.catalog.object(asset));
     let object: MapObject = {
       id: ids.take(),
@@ -909,7 +908,7 @@ export class MapKit {
     const b = brushOf(brush);
     const random = rng(this.nextSeed());
     const grid = new ObjectGrid(8, this.doc.objects);
-    const ids = new ObjectIds(this.doc.objects);
+    const ids = this.editor.objectIds;
     const placed: MapObject[] = [];
     for (const c of dabs(where, b.radius / 2)) {
       for (let t = 0; t < hold; t += 0.1) {
@@ -987,7 +986,7 @@ export class MapKit {
   line(asset: string, line: readonly MapPoint[], o: Partial<LineOptions> & { alignToSlope?: boolean } = {}): MapObject[] {
     if (!this.catalog.objects.has(asset)) throw new Error(`${this.name}: ${this.catalog.unknown('asset', asset)}`);
     const t = this.doc.terrain;
-    const ids = new ObjectIds(this.doc.objects);
+    const ids = this.editor.objectIds;
     const options: LineOptions = { ...DEFAULT_LINE, ...o };
     const kit = wallKitOf(asset);
     const own = (

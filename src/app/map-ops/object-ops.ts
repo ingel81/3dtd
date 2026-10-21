@@ -487,10 +487,9 @@ export function objectsInBox(doc: CustomMapDocument, a: MapPoint, b: MapPoint): 
   return doc.objects.filter((o) => o.x >= x0 && o.x <= x1 && o.y >= y0 && o.y <= y1).map((o) => o.id);
 }
 
-/** Copies of objects with fresh ids, moved by `offset` */
-export function duplicateObjects(doc: CustomMapDocument, ids: readonly string[], offset: MapPoint): MapObject[] {
+/** Copies of objects with fresh ids (from `fresh`, in the editor its document's), moved by `offset` */
+export function duplicateObjects(doc: CustomMapDocument, ids: readonly string[], offset: MapPoint, fresh: ObjectIdSource): MapObject[] {
   const set = new Set(ids);
-  const fresh = new ObjectIds(doc.objects);
   return doc.objects
     .filter((o) => set.has(o.id))
     .map((o) => ({ ...o, id: fresh.take(), x: round(o.x + offset.x), y: round(o.y + offset.y) }));

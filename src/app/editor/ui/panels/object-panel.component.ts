@@ -340,7 +340,7 @@ export class ObjectPanelComponent {
     const ids = this.selected().map((o) => o.id);
     if (!editor || !ids.length) return;
     const step = Math.max(2, this.s().snap || 4);
-    const copies = duplicateObjects(editor.doc, ids, { x: step, y: -step });
+    const copies = duplicateObjects(editor.doc, ids, { x: step, y: -step }, editor.objectIds);
     this.session.edit(this.t().editor.objects.undo.changing, (e) => e.execute(ObjectsCommand.add(this.t().editor.objects.undo.duplicate, editor.doc, copies)));
     editor.select({ kind: 'objects', ids: copies.map((o) => o.id) });
   }

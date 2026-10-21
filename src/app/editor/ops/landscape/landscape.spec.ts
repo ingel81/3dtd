@@ -864,6 +864,26 @@ describe('river and road', () => {
     ed.undo();
     expect(ed.doc.paths.nodes.length).toBe(nodes);
   });
+
+  it('refuses a road whose ends meet in one node before it splits anything, and leaves no step', () => {
+    const ed = map();
+    const before = JSON.stringify(ed.doc.paths);
+    const steps = ed.historySteps;
+    const start = nearestOnEdges(ed.doc.paths, { x: 30, y: 0 })!.point;
+    // Both ends on the starter road a metre apart (the first would split it, the second take that junction), and both
+    // at one of its nodes
+    const node = ed.doc.paths.nodes[0];
+    for (const line of [
+      [{ x: start.x, y: start.y + 1 }, { x: start.x, y: start.y + 40 }, { x: start.x + 1, y: start.y + 1 }],
+      [{ x: node.x + 1, y: node.y }, { x: node.x + 30, y: node.y + 30 }, { x: node.x, y: node.y + 1 }],
+    ]) {
+      const stroke = new LandscapeContext(ed.begin('Road'), 3, catalog);
+      expect(buildRoad(stroke, line, DEFAULT_ROAD)).toBeNull();
+      stroke.finish();
+      expect(JSON.stringify(ed.doc.paths)).toBe(before);
+      expect(ed.historySteps).toBe(steps);
+    }
+  });
 });
 
 describe('rivers that meet (E288)', () => {

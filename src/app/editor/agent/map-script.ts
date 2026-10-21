@@ -535,7 +535,7 @@ export function applyCommand(kit: MapKit, command: ScriptCommand): unknown {
       return kit.line(args[0] as string, args[1] as MapPoint[], (args[2] ?? {}) as Parameters<MapKit['line']>[2]);
     case 'duplicate': {
       objectsOf(doc, args[0] as string[], 'duplicate');
-      const copies = duplicateObjects(doc, args[0] as string[], args[1] as MapPoint);
+      const copies = duplicateObjects(doc, args[0] as string[], args[1] as MapPoint, kit.editor.objectIds);
       doc.objects.push(...copies);
       return copies;
     }

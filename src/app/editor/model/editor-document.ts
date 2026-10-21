@@ -130,8 +130,10 @@ export class EditorDocument {
   private currentSelection: Selection = null;
   /** Counts every change told to the listeners (emit) */
   private changes = 0;
-  /** The next object id's number; 0 until first asked, and again after the list changed whole */
+  /** The next object id's number: past every id handed out or seen since the map was opened */
   private nextObject = 0;
+  /** The list changed whole (opened, a snapshot, its undo): the next id reads it again, never counting back */
+  private recount = true;
   /** Why the document is held, the latest hold first; empty when free */
   private holds: { reason: string }[] = [];
 
@@ -215,14 +217,17 @@ export class EditorDocument {
    * Fresh object ids `o<number>`, counted on past the highest the map holds:
    * the list is read once, then every change notice moves the count past the
    * ids it names, so a click to place reads no list. An id taken back by an
-   * undo is not handed out again.
+   * undo is not handed out again, not after a change of the whole list
+   * either. The one source of ids for everything that edits this document
+   * (tools, strokes, the map kit, mirror, duplicate, the agent)
    */
   readonly objectIds: ObjectIdSource = {
     take: () => {
-      if (!this.nextObject) {
+      if (this.recount) {
         let max = 0;
         for (const o of this.current.objects) max = Math.max(max, objectIdNumber(o.id));
-        this.nextObject = max + 1;
+        this.nextObject = Math.max(this.nextObject, max + 1);
+        this.recount = false;
       }
       return `o${this.nextObject++}`;
     },
@@ -270,6 +275,8 @@ export class EditorDocument {
     this.heldBytes = 0;
     this.state = this.nextState++;
     this.savedState = saved ? this.state : -1;
+    // Another map: its ids count from its own list
+    this.nextObject = 0;
     this.select(null);
     this.emit(WHOLE_MAP_CHANGE);
   }
@@ -361,8 +368,8 @@ export class EditorDocument {
   emit(change: DocChange): void {
     this.changes++;
     const objects = change.objects;
-    if (objects === 'all') this.nextObject = 0;
-    else if (objects && this.nextObject) {
+    if (objects === 'all') this.recount = true;
+    else if (objects && !this.recount) {
       // Ids made elsewhere (a script, the agent, a paste) count too
       for (const id of objects) this.nextObject = Math.max(this.nextObject, objectIdNumber(id) + 1);
     }

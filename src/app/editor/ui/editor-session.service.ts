@@ -378,7 +378,7 @@ export class EditorSession implements OnDestroy {
     }
     let mirrored: MirrorResult | null = null;
     this.edit(this.t().editor.session.mirroring, (e) => {
-      const step = mirrorCommand(e.doc, mode, this.viewHost.viewCenter() ?? e.doc.hq, this.t().editor.mapSteps.mirror);
+      const step = mirrorCommand(e.doc, mode, this.viewHost.viewCenter() ?? e.doc.hq, this.t().editor.mapSteps.mirror, e.objectIds);
       e.execute(step.command);
       mirrored = step.result;
     });

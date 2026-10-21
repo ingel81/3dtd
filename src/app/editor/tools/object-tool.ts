@@ -341,7 +341,7 @@ export class ObjectTool implements EditorTool {
     }
     if ((e.ctrlKey || e.metaKey) && k === 'd' && sel.length) {
       const step = Math.max(2, s.snap || 4);
-      const copies = duplicateObjects(ctx.editor.doc, sel, { x: step, y: -step });
+      const copies = duplicateObjects(ctx.editor.doc, sel, { x: step, y: -step }, ctx.editor.objectIds);
       ctx.editor.execute(ObjectsCommand.add(ctx.t().editor.objects.undo.duplicate, ctx.editor.doc, copies));
       ctx.editor.select({ kind: 'objects', ids: copies.map((o) => o.id) });
       return true;

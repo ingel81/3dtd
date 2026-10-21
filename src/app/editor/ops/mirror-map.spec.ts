@@ -2,6 +2,7 @@ import { createMapDocument } from '../../world/custom-map/map-create';
 import { contentBytes } from '../../world/custom-map/map-file';
 import { heightAt } from '../../map-ops/grid';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
+import { ObjectIds } from '../../map-ops/object-ops';
 import { mirrorMap } from './mirror-map';
 
 function map() {
@@ -25,7 +26,7 @@ describe('mirrorMap', () => {
       { id: 'o1', asset: 'tree', x: -40, y: 10, z: 0, rotation: 0.5, scale: 1, group: 'g1' },
       { id: 'o2', asset: 'rock', x: 60, y: 0, z: 0, rotation: 0, scale: 1 },
     );
-    const result = mirrorMap(doc, 'x', { x: -50, y: 0 });
+    const result = mirrorMap(doc, 'x', { x: -50, y: 0 }, new ObjectIds(doc.objects));
     for (const [x, y] of [[-50, 0], [-30, 20], [-70, -12]]) expect(heightAt(doc.terrain, -x, y)).toBeCloseTo(heightAt(doc.terrain, x, y), 4);
     // The eastern rock went, the tree has a mirror image turned the other way, in a group of its own
     expect(doc.objects.map((o) => [o.asset, o.x, o.y])).toEqual([['tree', -40, 10], ['tree', 40, 10]]);
@@ -44,10 +45,10 @@ describe('mirrorMap', () => {
   it('copies a quarter to the other three with Both, and does nothing without a symmetry', () => {
     const doc = map();
     doc.objects.push({ id: 'o1', asset: 'tree', x: -40, y: -30, z: 0, rotation: 0, scale: 1 });
-    mirrorMap(doc, 'xy', { x: -50, y: -50 });
+    mirrorMap(doc, 'xy', { x: -50, y: -50 }, new ObjectIds(doc.objects));
     expect(doc.objects.map((o) => `${o.x},${o.y}`).sort()).toEqual(['-40,-30', '-40,30', '40,-30', '40,30']);
     const before = contentBytes(doc);
-    expect(mirrorMap(doc, 'none', { x: 0, y: 0 })).toEqual({ objects: 0, spawns: 0, roads: 0 });
+    expect(mirrorMap(doc, 'none', { x: 0, y: 0 }, new ObjectIds(doc.objects))).toEqual({ objects: 0, spawns: 0, roads: 0 });
     expect(contentBytes(doc)).toEqual(before);
   });
   it('gives each road image an id of its own, none that a source road keeps', () => {
@@ -57,7 +58,7 @@ describe('mirrorMap', () => {
       nodes: [{ id: 'n1', x: -90, y: -40 }, { id: 'n2', x: -60, y: -40 }, { id: 'n3', x: -90, y: 40 }, { id: 'n4', x: -60, y: 40 }],
       edges: [{ id: 'e1', a: 'n1', b: 'n2', width: 8, kind: 'road' }, { id: 'e2', a: 'n3', b: 'n4', width: 8, kind: 'road' }],
     };
-    mirrorMap(doc, 'x', { x: -50, y: 0 });
+    mirrorMap(doc, 'x', { x: -50, y: 0 }, new ObjectIds(doc.objects));
     const ids = doc.paths.edges.map((e) => e.id);
     expect(ids).toHaveLength(4);
     expect(new Set(ids).size).toBe(4);
@@ -68,7 +69,7 @@ describe('mirrorMap', () => {
   it('adds no more spawn images than a map holds', () => {
     const doc = map();
     doc.spawns = Array.from({ length: 10 }, (_, k) => ({ id: `s${k}`, name: `S${k}`, x: -90 + k * 4, y: -60 }));
-    const result = mirrorMap(doc, 'xy', { x: -50, y: -50 });
+    const result = mirrorMap(doc, 'xy', { x: -50, y: -50 }, new ObjectIds(doc.objects));
     expect(doc.spawns.length).toBe(MAX_SPAWN_PORTALS);
     expect(result.spawns).toBe(MAX_SPAWN_PORTALS - 10);
     expect(result.spawnsLeftOut).toBe(30 - (MAX_SPAWN_PORTALS - 10));
@@ -76,7 +77,7 @@ describe('mirrorMap', () => {
   it('leaves the road brush record out of road images: its objects and kept ground belong to the source road', () => {
     const doc = map();
     doc.paths = { nodes: [{ id: 'n1', x: -80, y: -40 }, { id: 'n2', x: -20, y: -40 }], edges: [{ id: 'e1', a: 'n1', b: 'n2', width: 6, kind: 'road', dress: { adapt: true, lamps: true, fences: false, objects: [] } }] };
-    mirrorMap(doc, 'x', { x: -50, y: 0 });
+    mirrorMap(doc, 'x', { x: -50, y: 0 }, new ObjectIds(doc.objects));
     expect(doc.paths.edges).toHaveLength(2);
     expect(doc.paths.edges.find((e) => e.id === 'e1')!.dress).toBeDefined();
     expect(doc.paths.edges.find((e) => e.id !== 'e1')!.dress).toBeUndefined();
@@ -92,7 +93,7 @@ describe('mirrorMap', () => {
         { id: 'sound-1', kind: 'sound', shape: 'route', points: [{ x: -50, y: -50 }, { x: 50, y: -50 }], sound: 'stream' },
       ],
     };
-    const result = mirrorMap(doc, 'x', { x: -50, y: 0 });
+    const result = mirrorMap(doc, 'x', { x: -50, y: 0 }, new ObjectIds(doc.objects));
     expect(doc.life.density).toBe(1.2);
     expect(doc.life.areas?.map((a) => a.id)).toEqual(['birds-1', 'sound-1', 'birds-2']);
     expect(doc.life.areas?.[2]).toMatchObject({ species: 'gulls', points: [{ x: 40, y: 30 }, { x: 40, y: 0 }, { x: 80, y: 0 }] });
@@ -107,7 +108,7 @@ describe('mirrorMap', () => {
       { id: 'surface-2', material: 'sand', outer: box(40, 0, 80, 30) },
       { id: 'surface-3', material: 'paving', outer: box(-20, -60, 20, -40) },
     ];
-    const result = mirrorMap(doc, 'x', { x: -50, y: 0 });
+    const result = mirrorMap(doc, 'x', { x: -50, y: 0 }, new ObjectIds(doc.objects));
     expect(doc.surfaces.map((s) => s.id)).toEqual(['surface-1', 'surface-3', 'surface-2']);
     expect(doc.surfaces[2]).toMatchObject({ material: 'red-earth', marking: { kind: 'tennis', x: 70, y: 10, length: 40, width: 20 } });
     expect(Math.cos(doc.surfaces[2].marking!.angle - (Math.PI - 0.2))).toBeCloseTo(1, 3);

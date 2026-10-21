@@ -264,7 +264,7 @@ describe('objects', () => {
     const doc = flat();
     doc.objects.push({ id: 'o4', asset: 'a', x: 1, y: 1, z: 0, rotation: 0, scale: 1 }, { id: 'o9', asset: 'a', x: 50, y: 1, z: 0, rotation: 0, scale: 1 });
     expect(objectsInBox(doc, { x: -5, y: -5 }, { x: 5, y: 5 })).toEqual(['o4']);
-    const copies = duplicateObjects(doc, ['o4', 'o9'], { x: 2, y: 0 });
+    const copies = duplicateObjects(doc, ['o4', 'o9'], { x: 2, y: 0 }, new ObjectIds(doc.objects));
     expect(copies.map((o) => o.id)).toEqual(['o10', 'o11']);
     expect(copies[0].x).toBe(3);
   });

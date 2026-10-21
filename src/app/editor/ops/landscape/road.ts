@@ -54,9 +54,10 @@ export function buildRoad(stroke: LandscapeContext, drawn: readonly MapPoint[], 
   const doc = stroke.doc;
   const t = doc.terrain;
   if (drawn.length < 2 || polylineLength(drawn) < Math.max(6, options.width)) return null;
-  stroke.markPaths();
   const paths = doc.paths;
   const smooth = simplify(chaikin(drawn, 2), 1.5);
+  if (endsMeet(paths, smooth[0], smooth[smooth.length - 1], options.snap)) return null;
+  stroke.markPaths();
 
   const endNode = (p: MapPoint): string => {
     const node = nearestNode(paths, p, options.snap);
@@ -86,6 +87,21 @@ export function buildRoad(stroke: LandscapeContext, drawn: readonly MapPoint[], 
   const { lamps, fences } = dressEdge(stroke, edge, dress);
   stroke.changed({ paths: true });
   return { edgeId: edge.id, length: polylineLength(edgePolyline(paths, edge)), lamps, fences };
+}
+
+/**
+ * Whether a road's two ends would take the same node (buildRoad's endNode), found before anything changes: a road
+ * refused splits no edge and leaves no step. The first end takes a node within `snap`, else a new one where it meets
+ * an edge or where it lies; the second takes the nearest node within `snap`, the first end's new one among them
+ * (nearestNode keeps the later of equals, and a new node is the last)
+ */
+export function endsMeet(paths: MapPaths, first: MapPoint, last: MapPoint, snap: number): boolean {
+  const lastNode = nearestNode(paths, last, snap);
+  const firstNode = nearestNode(paths, first, snap);
+  if (firstNode) return lastNode === firstNode;
+  const at = nearestOnEdges(paths, first, snap * 0.7)?.point ?? first;
+  const d = Math.hypot(last.x - at.x, last.y - at.y);
+  return d <= snap && (!lastNode || d <= Math.hypot(last.x - lastNode.x, last.y - lastNode.y));
 }
 
 /** How far either side of a road the brush's embankment, cutting and paint reach */

@@ -5,6 +5,7 @@
  * the caller executes it) with what the player is told about it.
  */
 import type { CatalogIndex } from '../../map-ops/asset-catalog';
+import type { ObjectIdSource } from '../../map-ops/object-ops';
 import type { CustomMapDocument, MapEnvironment, MapGameplay, MapIntro, MapLife, MapMeta, MapPoint } from '../../world/custom-map/map-document';
 import type { EditCommand } from '../model/doc-change';
 import type { EditorDocument } from '../model/editor-document';
@@ -35,9 +36,15 @@ export function detailCommand(doc: CustomMapDocument, label: string): { command:
 }
 
 /** The whole map made symmetric from the part around `from` (ground, water, objects, spawns, roads, rivers, life) */
-export function mirrorCommand(doc: CustomMapDocument, mode: SymmetryMode, from: MapPoint, label: string): { command: EditCommand; result: MirrorResult } {
+export function mirrorCommand(
+  doc: CustomMapDocument,
+  mode: SymmetryMode,
+  from: MapPoint,
+  label: string,
+  ids: ObjectIdSource,
+): { command: EditCommand; result: MirrorResult } {
   let result: MirrorResult = { objects: 0, spawns: 0, roads: 0 };
-  const command = SnapshotCommand.record(doc, label, ['terrain', 'objects', 'paths', 'spawns', 'life', 'surfaces'], (d) => (result = mirrorMap(d, mode, from)));
+  const command = SnapshotCommand.record(doc, label, ['terrain', 'objects', 'paths', 'spawns', 'life', 'surfaces'], (d) => (result = mirrorMap(d, mode, from, ids)));
   return { command, result };
 }
 

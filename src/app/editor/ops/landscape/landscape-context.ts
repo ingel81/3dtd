@@ -15,7 +15,7 @@ import type { EditTransaction } from '../../model/edit-transaction';
 import type { GridRect } from '../../../map-ops/grid';
 import { BodyAddCommand, WaterSwapCommand } from '../../model/commands/terrain';
 import { MAX_LAYERS } from '../../../map-ops/paint-ops';
-import { ObjectGrid, ObjectIds, rockShape, settled } from '../../../map-ops/object-ops';
+import { ObjectGrid, rockShape, settled, type ObjectIdSource } from '../../../map-ops/object-ops';
 import { BODY_COLORS, emptyWater } from '../../../map-ops/water-ops';
 import { MAX_WATER_BODIES } from '../../../world/custom-map/map-file';
 import { mirrorDab, objectImages, sameSector, symmetryImages, type SymmetryMode } from '../symmetry';
@@ -183,7 +183,7 @@ export class LandscapeContext extends LandQuery {
   /** Whether the stroke painted the main water's mask (only then do its images get it) */
   private waterTouched = false;
   readonly grid: ObjectGrid;
-  private readonly ids: ObjectIds;
+  private readonly ids: ObjectIdSource;
   /** The stroke adds to the ground (a mountain, a crater): a symmetric image takes the change on its own ground */
   heightsAdd = false;
   /**
@@ -226,7 +226,7 @@ export class LandscapeContext extends LandQuery {
     // The layer list as it was: a full one reuses only layers from before the stroke (unusedLayer)
     tx.snapshot('layers');
     this.grid = new ObjectGrid(8, doc.objects);
-    this.ids = new ObjectIds(doc.objects);
+    this.ids = tx.editor.objectIds;
   }
 
   override refreshRoads(): void {

@@ -14,7 +14,7 @@
 import type { CustomMapDocument, MapLifeArea, MapPathEdge, MapPathNode, MapRiver, MapSpawn, MapSurface } from '../../world/custom-map/map-document';
 import { MAX_SPAWN_PORTALS } from '../../configs/marker-geometry.config';
 import { spawnName } from './marker-commands';
-import { ObjectIds } from '../../map-ops/object-ops';
+import type { ObjectIdSource } from '../../map-ops/object-ops';
 import { newId } from '../../map-ops/path-graph';
 import { MAX_LIFE_AREAS, newLifeId } from '../../world/custom-map/map-life';
 import { MAX_SURFACES, newSurfaceId } from '../../world/custom-map/map-surfaces';
@@ -36,7 +36,13 @@ const TAU = Math.PI * 2;
 const turn = (r: number) => Math.round((((r % TAU) + TAU) % TAU) * 1000) / 1000;
 const round = (v: number) => Math.round(v * 100) / 100;
 
-export function mirrorMap(doc: CustomMapDocument, mode: SymmetryMode, from: { x: number; y: number }): MirrorResult {
+export function mirrorMap(
+  doc: CustomMapDocument,
+  mode: SymmetryMode,
+  from: { x: number; y: number },
+  /** Ids of the images: in the editor its document's (EditorDocument.objectIds) */
+  ids: ObjectIdSource,
+): MirrorResult {
   if (mode === 'none') return { objects: 0, spawns: 0, roads: 0 };
   const t = doc.terrain;
   const g = t.grid;
@@ -58,7 +64,6 @@ export function mirrorMap(doc: CustomMapDocument, mode: SymmetryMode, from: { x:
   );
 
   // Objects: the source sector's and their images; a group of an image is a group of its own
-  const ids = new ObjectIds(doc.objects);
   const kept = doc.objects.filter(inSource);
   const objects = [...kept];
   images.slice(1).forEach((img, k) => {
