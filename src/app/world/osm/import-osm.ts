@@ -22,6 +22,7 @@ import type { OsmProgress } from './osm-progress';
 import { buildRoads, levelRoads, paintRoads, roadPaintMaterials, type RoadStats } from './convert/roads';
 import { sinkRamps } from './convert/underground';
 import { placeDescents } from './convert/subway-descents';
+import { placeRailWalls, type RailWallReport } from './convert/rail-walls';
 import { buildTunnels, seatPortals, type TunnelReport } from './convert/tunnels';
 import { layPavements, type PavementStats } from './convert/pavements';
 import { layPlots, type PlotReport } from './convert/plots';
@@ -114,7 +115,7 @@ export interface OsmImportReport {
   plots: PlotReport;
   tunnels: TunnelReport;
   /** The railway: lines, crossings, bridges, tunnels, and how its beds were levelled */
-  rails: RailStats & RailGroundReport;
+  rails: RailStats & RailGroundReport & { walls: RailWallReport };
   ground: GroundReport;
   water: WaterReport;
   plants: VegetationReport;
@@ -200,11 +201,15 @@ export function convertOsm(
   // The car parks' entrances down into the ground, on the levelled street
   sinkRamps(t0, roads.ramps);
   // After the roads: a level crossing takes the road's height; the beds keep off the road bands and the water
+  const beforeRails = Float32Array.from(t0.grid.heights);
   const railGround = levelRails(t0, rails, doc.paths, (k) => water.roads[k] === 1 || water.wet[k] === 1 || water.sea[k] === 1);
   settleWater(t0, water);
   seatPortals(t0, tunnels.objects);
   // The underpasses' stairs and ramps on the levelled ground, levelling it round them
   doc.objects.push(...placeDescents(t0, roads.descents));
+  // Walls where a road and a bed beside it lie on other levels: the step a wall, not rock
+  const railWalls = placeRailWalls(t0, rails, doc.paths, (k) => Math.abs(beforeRails[k] - t0.grid.heights[k]) > 0.05, features);
+  doc.objects.push(...railWalls.objects);
   step('level');
   // The land takes the layers the roads' surfaces and the water's shores leave
   const wetMaterials = (Object.keys(WATER_MATERIALS) as WaterPaintRole[]).filter((r) => water.paint[r].some((v) => v > 0)).map((r) => WATER_MATERIALS[r]);
@@ -297,7 +302,7 @@ export function convertOsm(
       roads: roads.stats,
       pavements,
       tunnels: tunnels.report,
-      rails: { ...rails.stats, ...railGround },
+      rails: { ...rails.stats, ...railGround, walls: railWalls.report },
       ground: ground.report,
       water: water.report,
       plants,
