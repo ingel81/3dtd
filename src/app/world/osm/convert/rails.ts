@@ -682,13 +682,20 @@ export function levelRails(terrain: MapTerrain, plan: RailPlan, paths: MapPaths,
       const k = Math.min(n - 2, Math.floor(f));
       return k < 0 ? base[0] : base[k] + (base[k + 1] - base[k]) * (f - k);
     };
-    // A bump of `d` metres over [from, to], ramped out on both sides
+    // A bump of `d` metres over [from, to], ramped out on both sides. Bumps up take the highest where they overlap,
+    // bumps down the lowest: two bridges side by side (a short one over a footway, then the long one over the
+    // river) raised the line between them twice, and it fell from that hump onto the deck at a tilt
+    const up = new Float32Array(n);
+    const down = new Float32Array(n);
     const bump = (from: number, to: number, d: number) => {
       const ramp = Math.max(RAMP_MIN, Math.min(RAMP_MAX, Math.abs(d) / RAMP_GRADE));
       for (let k = 0; k < n; k++) {
         const s = sAt(k);
         const off = s < from ? from - s : s > to ? s - to : 0;
-        if (off < ramp) out[k] += d * (1 - smooth(off / ramp));
+        if (off >= ramp) continue;
+        const v = d * (1 - smooth(off / ramp));
+        if (v > 0) up[k] = Math.max(up[k], v);
+        else down[k] = Math.min(down[k], v);
       }
     };
     for (const b of bridges) {
@@ -714,6 +721,7 @@ export function levelRails(terrain: MapTerrain, plan: RailPlan, paths: MapPaths,
         report.loweredM = Math.max(report.loweredM, -d);
       }
     }
+    for (let k = 0; k < n; k++) out[k] += up[k] + down[k];
     // Where the line runs in a road: STREET_SINK under it (the road's height at the line, held from the stretch's ends on)
     for (const st of plan.streets.filter((x) => x.chain === ci)) {
       for (let k = 0; k < n; k++) {

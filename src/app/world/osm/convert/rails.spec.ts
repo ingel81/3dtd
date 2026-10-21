@@ -269,6 +269,22 @@ describe('OSM railway', () => {
     expect(plan.stats.underpasses).toBe(2);
   });
 
+  it('raises a line over two bridges side by side as high as the higher needs, not the two added', () => {
+    // Two footway underpasses 14 m apart under the line: each wants its own bridge some metres up
+    const elements = [
+      way(1, { highway: 'footway', tunnel: 'yes', layer: '-1' }, [[-7, -15, 1], [-7, 15, 2]]),
+      way(2, { highway: 'footway', tunnel: 'yes', layer: '-1' }, [[7, -15, 3], [7, 15, 4]]),
+      way(10, { railway: 'rail' }, [[-190, 0, 11], [190, 0, 12]]),
+    ];
+    const { doc, plan } = world(elements, () => 0);
+    expect(plan.bridges).toHaveLength(2);
+    const report = levelRails(doc.terrain, plan, doc.paths);
+    const top = Math.max(...plan.chains[0].profile!);
+    // Before, between them the line stood at the sum of both raises
+    expect(top).toBeLessThanOrEqual(report.raisedM + 0.01);
+    expect(top).toBeGreaterThan(report.raisedM - 0.3);
+  });
+
   it('runs the track under a road bridge, keeping its bed there and sinking it where the deck is too low', () => {
     const elements = [
       way(1, { highway: 'secondary' }, [[0, -190, 1], [0, -20, 2]]),
