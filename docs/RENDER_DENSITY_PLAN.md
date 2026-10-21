@@ -1,7 +1,8 @@
 # Zeichendichte: viel mehr Objekte bei gleicher Leistung (Plan, 2026-10-21)
 
 **Status:** Plan mit Ausgangsmessung (Abschnitt 2), Entscheidungen in Abschnitt 10. Die ganze Würzburg-Karte nachgemessen
-(2.8); (b) Pixelgrenze gebaut 2026-10-21, vorher und nachher mit offenen Punkten in 2.9. TODO E304.
+(2.8); (b) Pixelgrenze gebaut 2026-10-21 (2.9), Sicht-Cube mit fester Stufe (2.10), (d) Linien als Element und Band
+(2.11). TODO E304.
 
 **Bezug:** [CUSTOM_WORLD_PERF_VISUAL_PLAN.md](CUSTOM_WORLD_PERF_VISUAL_PLAN.md) (V2: eine InstancedMesh je Asset,
 Stufe und Teil, LOD nach Bildanteil), [LEVEL_EDITOR.md](LEVEL_EDITOR.md#szenenkosten) (Szenenkosten, Budget),
@@ -436,6 +437,62 @@ Würzburg ist die ganze Welt aus 2.8. Ein Cube kostet jetzt aus jeder Pose dasse
 weil die Kamera dort viel weggelassen hatte. Die Auswahl je Cube läuft über alle Blocker der Karte (ein Abstand je
 Objekt, auf Würzburg rund 15 000), in der Hauptthread-Zeit enthalten. Bilder der Flächen (Kreuz der sechs, nah dunkel)
 für die ersten drei Spitzen je Pose: `tmp/e304-shots/a-*` im Worktree.
+
+### 2.11 Linien als Element und als Band (E304 (d), Entscheidung 4, 2026-10-22)
+
+**Gebaut, in zwei Schritten:**
+
+1. **Element „Linie“, Formatversion 5:** `CustomMapDocument.lines` (`MapLine`: Id und Verlauf) und `MapObject.line`
+   an jedem Stück. Die Stücke bleiben Objekte; Bauen, Sicht, Zerstörung, Koop und die Simulation sehen, was sie sahen.
+   Renderer und Kostenrechnung nehmen die Linie aus `MapObject.line` (vorher geraten aus Gruppe und Kategorie). Linien
+   legen der OSM-Import (Mauern, Zäune, Hecken und Gleise jeder Gruppe), der Linien-Pinsel und `MapKit.line` (je
+   Spiegelbild eine eigene), „Karte spiegeln“; Kopien, Stempel und Duplikate nehmen keine Linie mit. Migration von 4
+   leer, die mitgelieferten Karten neu gebacken (ihre Hashes bleiben: ihre Skripte legen noch keine Linien).
+2. **Band:** jedes Stück einer Mauer, eines Zauns oder eines Gleises (Katalog `wall`/`structure` mit `box` und
+   LOD-Modell) endet ab 3 px Radius (1080 Zeilen) in einem Kasten aus sechs Dreiecken, alle Assets in einem Draw
+   (`line-bands.ts`). Farben aus den LOD-Teilen, oben und seitlich. Die Kostenrechnung zählt das Band mit.
+
+**Folge im Import (Würzburg, 2.8):** mit den billigeren Fernstufen legt der Import unter denselben Teilbudgets mehr:
+Möblierung 18 528 statt 13 444 Stücke (Mauern 4 270 statt 1 893, Stützmauern 3 208 statt 1 869, Zäune 2 126 statt
+1 443, Hecken 486 statt 43, Stadtmauer 526 statt 284; Gleise unverändert alle), Autos 1 375 statt 1 275, Szenenkosten
+4,82 Mio. statt 5,06 Mio. 2 461 Linien mit 23 432 Stücken.
+
+**Messung** (dieselbe Probe; vorher Teil A mit der Karte aus 2.9 „neu importiert“, nachher diese Karte mit Linien und
+Bändern, also 5 044 Linienstücke mehr; Ruined City und Autumn Keep haben keine Linien und bleiben gleich, GPU innerhalb
+±0,15 ms):
+
+| Stufe | Ansicht | GPU ms | Dreiecke (Mio.) | Calls | Abgabe `render` ms | LOD-CPU ms Mittel / Max | Schatten-Neubau +ms | fehlen: Linien + Gleise | fehlen: übrige Objekte |
+|---|---|---|---|---|---|---|---|---|---|
+| high | start | 2,43 → 2,35 | 5,26 → 4,70 | 244 → 246 | 1,35 → 1,24 | 0,23 / 1,31 → 0,30 / 1,59 | 0,33 → 0,68 | 71 → 78 | 4402 → 4460 |
+| high | game | 3,43 → 3,47 | 6,54 → 6,16 | 342 → 351 | 2,89 → 3,28 | 0,35 / 1,34 → 0,47 / 1,65 | 1,53 → 1,56 | 63 → 66 | 3884 → 3879 |
+| high | low | 4,29 → 4,29 | 7,54 → 7,20 | 443 → 449 | 6,84 → 6,86 | 0,38 / 1,42 → 0,52 / 1,88 | 1,52 → 1,25 | 69 → 74 | 4112 → 4159 |
+| high | top | 3,27 → 3,12 | 4,66 → 3,82 | 312 → 309 | 1,18 → 1,17 | 0,17 / 0,91 → 0,19 / 1,06 | 0,69 → 0,58 | 325 → 416 | 8194 → 8277 |
+| high | street | 3,40 → 4,12 | 7,10 → 6,86 | 352 → 366 | 3,40 → 6,85 | 0,33 / 2,00 → 0,47 / 2,14 | 2,10 → 1,55 | 70 → 77 | 4229 → 4240 |
+| high | station | 3,38 → 3,32 | 5,45 → 4,92 | 255 → 269 | 2,82 → 3,13 | 0,39 / 1,28 → 0,47 / 1,54 | 1,07 → 1,20 | 35 → 69 | 4498 → 4527 |
+| ultra | start | 3,52 → 3,48 | 6,03 → 5,74 | 276 → 281 | 3,28 → 2,88 | 0,28 / 1,29 → 0,40 / 1,74 | 1,05 → 1,03 | 47 → 53 | 2480 → 2464 |
+| ultra | game | 4,12 → 4,16 | 8,31 → 8,21 | 386 → 398 | 6,88 → 6,83 | 0,42 / 1,32 → 0,60 / 1,80 | 2,04 → 3,26 | 42 → 44 | 2215 → 2192 |
+| ultra | low | 4,78 → 4,70 | 9,05 → 9,10 | 472 → 476 | 6,85 → 6,82 | 0,48 / 1,61 → 0,64 / 1,95 | 3,45 → 3,71 | 53 → 58 | 2271 → 2256 |
+| ultra | top | 3,32 → 3,23 | 4,89 → 4,08 | 358 → 356 | 1,84 → 1,58 | 0,21 / 1,04 → 0,24 / 1,24 | 0,74 → 0,72 | 130 → 178 | 7371 → 7447 |
+| ultra | street | 4,37 → 4,41 | 8,38 → 8,54 | 367 → 375 | 6,85 → 6,87 | 0,40 / 1,88 → 0,57 / 2,73 | 1,70 → 1,71 | 44 → 50 | 2190 → 2187 |
+| ultra | station | 3,48 → 3,48 | 6,31 → 5,91 | 319 → 330 | 2,92 → 2,99 | 0,47 / 1,50 → 0,56 / 1,62 | 1,34 → 1,44 | 7 → 31 | 3035 → 3057 |
+| low | start | 1,71 → 1,61 | 4,02 → 3,21 | 190 → 192 | 0,84 → 0,93 | 0,15 / 1,02 → 0,17 / 1,22 | 0,14 → 0,26 | 391 → 445 | 7441 → 7539 |
+| low | game | 2,24 → 2,14 | 4,25 → 3,48 | 250 → 252 | 1,24 → 1,20 | 0,22 / 1,21 → 0,25 / 1,30 | 0,24 → 0,35 | 339 → 389 | 7058 → 7164 |
+| low | low | 2,48 → 2,42 | 4,76 → 4,00 | 374 → 376 | 3,49 → 3,24 | 0,31 / 1,26 → 0,35 / 1,43 | 0,22 → 0,22 | 339 → 390 | 7150 → 7248 |
+| low | top | 1,66 → 1,47 | 4,45 → 3,62 | 281 → 273 | 0,86 → 0,80 | 0,16 / 1,05 → 0,16 / 1,19 | 0,19 → 0,12 | 1272 → 1430 | 9424 → 9506 |
+| low | street | 2,84 → 2,77 | 4,42 → 3,72 | 279 → 281 | 3,07 → 3,68 | 0,23 / 1,71 → 0,28 / 2,97 | 0,10 → 0,08 | 375 → 425 | 6901 → 7000 |
+| low | station | 1,81 → 1,71 | 3,60 → 2,83 | 180 → 186 | 0,95 → 0,93 | 0,25 / 1,31 → 0,27 / 1,38 | 0,15 → 0,22 | 481 → 567 | 8273 → 8371 |
+
+Trotz 5 000 Stücken mehr zeichnet Würzburg meist 0,1 bis 0,8 Mio. Dreiecke weniger (Ultra `low` und `street` +0,05
+und +0,16 Mio.), die GPU-Zeit bleibt gleich oder fällt (Low −0,06 bis −0,19 ms); `street` High +0,7 ms ist der Lauf mit
+der Abgabe an der Grenze von 6,8 ms (2.9). Die Stufenwahl kostet mit den zusätzlichen Objekten 0,02 bis 0,18 ms mehr im
+Mittel. „fehlen“ steigt leicht: die
+zusätzlichen Stücke einzelner kurzer Linien unter der Pixelgrenze.
+
+**Offen:** Gleise bekommen noch kein Band: ihre LOD-Modelle tragen Texturen (`rail-track-lod1` mit Farb-, Normal- und
+ORM-Textur), aus denen sich auf der CPU kein Mittel lesen lässt; sie zeichnen fern ihr LOD-Modell (116 Dreiecke). Ebenso
+Hecken und Maschendraht (ohne LOD). Weg: Farbmittel beim Packen der Modelle messen und im Katalog ablegen (z. B.
+`band.top`/`band.side`), dann greift `hasBand` auch für sie. Die Skripte der mitgelieferten Karten legen ihre Mauern noch
+Stück für Stück (Autumn Keep); als Linie hieße neuer Hash.
 
 ## 3. Wie andere es machen (belegt)
 

@@ -66,3 +66,17 @@ describe('sceneCost', () => {
     expect(asked).toEqual(['house', 'wall', 'wall+']);
   });
 });
+
+describe('objectCost of a line piece', () => {
+  it('counts a wall with a LOD model and a ground rectangle at six triangles past its band', () => {
+    const lod: CostEntry = { ...wall, box: [0, 0, 0.45, 0.1], lod: [{ file: 'l.glb', screen: 0.02, triangles: 50 }] };
+    // As a line's piece it is drawn over the whole map: model, LOD model, then the band from 3 px of 1080 lines
+    const r = 0.5;
+    const lodFrom = r / (0.02 * Math.tan(Math.PI / 6));
+    const bandFrom = r / ((3 / 540) * Math.tan(Math.PI / 6));
+    const disc = (d: number) => Math.min(LARGE, Math.PI * d * d) / LARGE;
+    expect(objectCost(lod, LARGE, true)).toBeCloseTo(2 + 200 * disc(lodFrom) + 50 * (disc(bandFrom) - disc(lodFrom)) + 6 * (1 - disc(bandFrom)), 3);
+    // Without a ground rectangle no band: its LOD model to the edge
+    expect(objectCost({ ...lod, box: undefined }, LARGE, true)).toBeCloseTo(2 + 200 * disc(lodFrom) + 50 * (1 - disc(lodFrom)), 3);
+  });
+});

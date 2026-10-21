@@ -66,7 +66,8 @@ Abschnitt mit dem, was dort wirklich wirkt, und zuletzt „Everywhere“:
 - **Pixelgrenze** (E304, `drawPixels`): ein Objekt wird gezeichnet, solange sein Begrenzungsradius im Bild mindestens
   so viele Pixel einer Ansicht mit 1080 Zeilen hat (`asset-catalog.ts` `pixelDistance`, unabhängig von der
   Fenstergröße). Große Dinge bleiben bis zum Kartenrand, Kleinkram geht nah; die Stücke einer Linie (`MapLine`:
-  Gleise, Mauern, Zäune, Hecken) zählen mit der Größe der ganzen Linie (`line-spheres.ts`). Ersetzt die
+  Gleise, Mauern, Zäune, Hecken) zählen mit der Größe der ganzen Linie (`line-spheres.ts`) und enden fern als Band
+  (`line-bands.ts`). Ersetzt die
   feste Sichtweite je Asset (`drawDistance`) und den Faktor des LOD-Bias darauf. Messung in
   [RENDER_DENSITY_PLAN.md](RENDER_DENSITY_PLAN.md), Abschnitt 2.9.
 - **Sichtlinie:** Objekte, die die Sicht blockieren, gehen auf jeder Stufe an der Pixelgrenze von High (1,5 px); der

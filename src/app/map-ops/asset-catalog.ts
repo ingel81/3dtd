@@ -182,6 +182,7 @@ export function normalizeCatalog(json: RawCatalog, assetsUrl: string): MapAssetC
                 category: (o.category ?? 'prop') as CatalogObject['category'],
                 height: o.height ?? 2,
                 footprint: o.radius ?? o.footprint,
+                box: o.box && [o.box[0], o.box[1], o.box[2], o.box[3]],
                 file: o.file,
                 triangles: o.triangles,
                 lod: o.lod,

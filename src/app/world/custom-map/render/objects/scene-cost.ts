@@ -1,5 +1,6 @@
 import { QUALITY_TABLE } from '../../../../three-engine/render-quality';
 import { objectRadius, pixelDistance, screenDistance, type CatalogObject } from '../asset-catalog';
+import { BAND_SCREEN, BAND_TRIANGLES, hasBand } from './line-bands';
 import type { MapMass } from '../../map-document';
 import { massTriangles } from '../../object-mass';
 
@@ -7,10 +8,11 @@ import { massTriangles } from '../../object-mass';
  * What a map's objects cost the picture, in points: per object about the
  * triangles it puts on screen with the camera somewhere over the map. An
  * object draws its model near the camera, its LOD models farther out, trees
- * and big rocks an impostor beyond that, and nothing once it is smaller on
- * screen than the pixel limit (object-layer.ts, render-quality.ts
- * `drawPixels`); the pieces of a line draw as far as the line, which on any
- * map is the whole map. Each band's triangles count with the share of the map
+ * and big rocks an impostor beyond that, walls and tracks a band of six
+ * triangles (line-bands.ts), and nothing once it is smaller on screen than
+ * the pixel limit (object-layer.ts, render-quality.ts `drawPixels`); the
+ * pieces of a line draw as far as the line, which on any map is the whole
+ * map. Each distance band's triangles count with the share of the map
  * that lies within it (a disc around the camera, at most the whole map): on
  * a Small map a house drawn to 3 km is always in view and costs its 3 800
  * triangles, a grass tuft of 10 triangles that goes at 187 m costs a
@@ -49,7 +51,7 @@ const UNKNOWN_TRIANGLES = 500;
 const UNKNOWN: CostEntry = { category: 'prop', height: 2, file: '?' };
 
 /** The catalogue fields the cost reads */
-export type CostEntry = Pick<CatalogObject, 'category' | 'height' | 'file' | 'triangles' | 'lod' | 'effects'> & {
+export type CostEntry = Pick<CatalogObject, 'category' | 'height' | 'file' | 'triangles' | 'lod' | 'effects' | 'box'> & {
   footprint?: number;
   far?: { screen: number };
 };
@@ -79,6 +81,8 @@ export function objectCost(entry: CostEntry | undefined, area: number, inLine = 
   }
   // As levelsFor: a building's box where it fills its screen share
   if (entry.far) levels.push({ from: screenDistance(radius, entry.far.screen), triangles: FAR_BOX_TRIANGLES });
+  // As levelsFor: a wall's or track's band after its LOD model (line-bands.ts)
+  if (hasBand(entry)) levels.push({ from: Math.max(screenDistance(radius, BAND_SCREEN), Math.max(...levels.map((l) => l.from)) * 1.2), triangles: BAND_TRIANGLES });
   levels.sort((a, b) => a.from - b.from);
   // Drawn while its radius on screen stays above the pixel limit; a line's piece as far as its line
   const draw = inLine ? Infinity : pixelDistance(radius, DRAW_PIXELS);

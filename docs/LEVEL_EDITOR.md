@@ -638,7 +638,8 @@ hält die mitgelieferten Karten unter 80 %. Ein Punkt ist etwa ein Dreieck im Bi
   des Impostors (4 Dreiecke ab `max(letzte LOD-Distanz × 1,5, Höhe × 25, 380 m)`), wie `object-layer.ts` sie zeichnet;
   die LOD-Distanz ist dort, wo ein Objekt in Asset-Größe den Bildanteil `screen` seines `lod`-Eintrags füllt,
   bis zur Pixelgrenze (Radius im Bild 1,5 px einer Ansicht mit 1080 Zeilen, `pixelDistance`; die Stücke einer Linie,
-  `MapObject.line`, bis zum Kartenrand); Stufe High (`lodBias` 1, Impostor ab 380 m)
+  `MapObject.line`, bis zum Kartenrand, ab 3 px als Band aus 6 Dreiecken, `line-bands.ts`); Stufe High (`lodBias` 1,
+  Impostor ab 380 m)
 - Jedes Band zählt mit dem Anteil der Karte, der darin liegt: Kreisring um die Kamera, höchstens die ganze Karte
   (`(min(A, π b²) − min(A, π a²)) / A`, A = Breite × Tiefe). Ein Haus, gezeichnet bis 3 km, zählt auf jeder Karte
   voll; ein Grasbüschel mit 10 Dreiecken bis 187 m (0,3 m Radius) auf einer Large-Karte 0,26

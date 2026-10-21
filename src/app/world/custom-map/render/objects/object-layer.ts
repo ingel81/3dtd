@@ -45,6 +45,7 @@ import { LineSpheres } from './line-spheres';
 import { MassLayer } from './mass-layer';
 import { FAR_BLOCKING, FAR_OPEN, FarBoxes } from './far-boxes';
 import { ImpostorDraws } from './impostor-array';
+import { BAND_BLOCKING, BAND_OPEN, BAND_SCREEN, hasBand, LineBands } from './line-bands';
 import type { SharedDraws } from './shared-draws';
 import { nextFrameOrTimeout } from '../../../../utils/next-frame';
 import { DESTRUCTIBLE_CATEGORIES } from '../../custom-map-destruction';
@@ -91,6 +92,10 @@ import { addDamage, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMate
  * turn of colour (instance-variation.ts), so a forest of one model does
  * not look cloned. Plain-coloured model parts of one look are merged into
  * one (merge-parts.ts).
+ *
+ * The pieces of walls, fences and tracks end in a band far off: a box of six
+ * triangles each, every asset's in one draw, so a line reads as one band to
+ * the map's edge (line-bands.ts).
  *
  * Buildings raised from their own footprint (MapObject.mass) have no model
  * of their own: the mass layer draws them (mass-layer.ts), every object
@@ -274,6 +279,8 @@ export class MapObjectLayer {
   private farAtlas: Promise<Texture | null> | null = null;
   /** Every impostor of the layer in a draw per view size and sight flag, once one comes (impostor-array.ts) */
   private impostorDraws: ImpostorDraws | null = null;
+  /** Every wall's, fence's and track's band in a draw per sight flag, once one comes (line-bands.ts) */
+  private bands: LineBands | null = null;
   /** An asset's bounds changed: the shared draws' bounds follow */
   private sharedBoundsStale = false;
   private disposed = false;
@@ -940,6 +947,7 @@ export class MapObjectLayer {
     for (const draws of this.sharedDraws()) draws.dispose();
     this.farBoxes = null;
     this.impostorDraws = null;
+    this.bands = null;
     this.group.removeFromParent();
     this.losStage.removeFromParent();
   }
@@ -1032,6 +1040,20 @@ export class MapObjectLayer {
         parts: [],
         shared: { draws: this.farBoxes, key: blocks ? FAR_BLOCKING : FAR_OPEN, extras: () => [row] },
       });
+    }
+    // A wall's, fence's or track's piece: far off a band of six triangles, every asset's in one mesh (line-bands.ts),
+    // after its LOD model, whose colours it takes
+    if (hasBand(entry) && lods.length && !model.placeholder) {
+      this.bands ??= new LineBands({ blocking: this.losGroup, open: this.group });
+      const r = this.bands.row(entry, model.height, lods[0].model.parts, lods[0].tone);
+      if (r !== null) {
+        const row = [r];
+        levels.push({
+          from: Math.max(screenDistance(1, BAND_SCREEN), levels[levels.length - 1].from * 1.2),
+          parts: [],
+          shared: { draws: this.bands, key: blocks ? BAND_BLOCKING : BAND_OPEN, extras: () => [row] },
+        });
+      }
     }
     return levels;
   }
@@ -1214,6 +1236,7 @@ export class MapObjectLayer {
     const out: SharedDraws[] = [];
     if (this.farBoxes) out.push(this.farBoxes);
     if (this.impostorDraws) out.push(this.impostorDraws);
+    if (this.bands) out.push(this.bands);
     return out;
   }
 
