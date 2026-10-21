@@ -52,8 +52,9 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Ruinen-Programm kostet dort einen langen Frame im GPU-Prozess, Pacing allein hilft nicht. Entschieden: Ruinen-
       Programme stark zusammenlegen (gemeinsames Material, Unterschiede über Uniforms/Attribute), dann wieder in die
       Ladezeit; nach ready kompiliert nichts mehr.
-- [ ] **E281 Dialog „Lauf wartet in …“** (User 2026-10-20): Die Knopfzeile (Beenden und starten, … weiterspielen,
-      Abbrechen) ragt auf Deutsch links und rechts über den Rand der Platte.
+      2026-10-21: Stufe 1 auf next (fd30005d5, hochgezogene Gebäude 22 → 8 Programme, Leerlauf nach ready ruhig).
+      **Pausiert** (User): Stufen 2-4 (Asset-Ruinen, Schatten-Zwillinge, zurück ins Laden) ruhen. Vor einer
+      Fortsetzung erst next gegen 8276577a0 mit frischem Profil messen und zählen, ob die Ruinen fertig werden.
 - [ ] **E282 Dialog „Karte von einem Ort“ (OSM-Rahmen)** (User 2026-10-20): Dass man das Quadrat verschieben kann, ist
       nicht erkennbar; beim Verschieben ploppt oben etwas auf und lädt nach, die Ansicht rutscht nach unten. UX überarbeiten.
       Entschieden (2026-10-21): erst 2-3 animierte Varianten auf der Design-Leinwand, User wählt, dann bauen.
@@ -229,10 +230,13 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ## 2. Gebaut, wartet auf Test
 
-### 2026-10-21 (Branch `e289-own-world-previews`, Nachtests in PLAYTEST.md O)
+### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11 und O)
 
 - [ ] **E289 Listenbilder eigener Karten**: eine Zeichnung für alle Karten (wie die mitgelieferten), bei jedem Speichern
       im Editor-Worker, beim OSM-Bau im OSM-Worker, für Karten ohne Bild nachträglich beim Listen (O1 bis O3).
+- [ ] **E284 Radius für Nuke**: Regler 5 bis 100 m im Werkzeug „Zerstören“, wirkt auf Einsturz,
+      Krater und Pilzwolke, als Feld `radius` von `debug:blast` mit Koop-Prüfung (PLAYTEST.md N11).
+- [ ] **E281 Dialog „Lauf wartet“**: Knopf heißt nur „Weiterspielen“, Dialog-Fußzeilen dürfen umbrechen (User: ok).
 
 ### Runde 2026-10-20 (auf `next`, Nachtests in PLAYTEST.md N)
 
@@ -257,8 +261,6 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       E245 Mehrsprachigkeit komplett (Wächter fürs ganze Spiel geschlossen, Kartennamen nie übersetzt).
       E279 Schuss auf einen gestorbenen Luftgegner platzt in der Luft statt am Boden; E278 Ortssuche mit Art und Lage je
       Treffer, Doppel zusammengefasst (Länder noch in Browsersprache); erster Fokus im Startmenü auf Weiterspielen.
-- [ ] **N7 Radius für Nuke** (2026-10-21): E284 Regler 5 bis 100 m im Werkzeug „Zerstören“, wirkt auf Einsturz,
-      Krater und Pilzwolke, als Feld `radius` von `debug:blast` mit Koop-Prüfung (PLAYTEST.md N11).
 
 ### Nachtschicht 2026-10-18/19 (auf `origin/next`, Nachtests in PLAYTEST.md K)
 
