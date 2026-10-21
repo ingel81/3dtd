@@ -21,7 +21,7 @@ import { RegionRecorder, type PatchArray } from './region-patch';
 import { CompoundCommand } from './commands/compound';
 import { ObjectsCommand } from './commands/objects';
 import { PatchCommand, patchArray, patchLayout, splatTargets, type PatchTarget } from './commands/patch';
-import { SnapshotCommand, type DocParts } from './commands/snapshot';
+import { SnapshotCommand, partsChange, type DocParts } from './commands/snapshot';
 import { GroundCommand, LayerListCommand, RiverListCommand, WaterStateCommand, groundState, waterState, type GroundState, type WaterState } from './commands/terrain';
 
 /**
@@ -177,13 +177,16 @@ export class EditTransaction {
   /**
    * Keeps the transaction as one step (refused while the document is held:
    * the map goes back and EditorHeldError is thrown). `report` is what the
-   * view hears with it, beyond what `changed` told it already. Null when
-   * nothing changed.
+   * view hears with it, beyond what `changed` told it already, and the
+   * parts kept whole are told with it too: an edit may change them in place
+   * in a way that tells nothing (a road brush that split a road and then
+   * found no road to draw), and what follows the document by its changes
+   * (the worker's mirror, the view) would miss them. Null when nothing changed.
    */
   commit(report: DocChange = {}): EditCommand | null {
     this.end();
     const command = this.build();
-    if (command) this.editor.push(command, report);
+    if (command) this.editor.push(command, this.partKeys.length ? mergeChanges(report, partsChange(this.partKeys)) : report);
     return command;
   }
 

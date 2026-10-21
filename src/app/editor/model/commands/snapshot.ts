@@ -126,14 +126,20 @@ export class SnapshotCommand implements EditCommand {
   }
 
   private write(doc: CustomMapDocument, parts: Partial<DocParts>): DocChange {
-    let change: DocChange = { ...this.extra };
-    for (const key of Object.keys(parts) as (keyof DocParts)[]) {
-      (doc as unknown as Record<string, unknown>)[key] = structuredClone(parts[key]);
-      change = mergeChanges(change, PART_CHANGE[key]);
-      if (key === 'terrain') change = { ...change, objects: 'all', paths: true, markers: true };
-    }
-    return change;
+    const keys = Object.keys(parts) as (keyof DocParts)[];
+    for (const key of keys) (doc as unknown as Record<string, unknown>)[key] = structuredClone(parts[key]);
+    return partsChange(keys, this.extra);
   }
+}
+
+/** What writing `keys` whole tells the view */
+export function partsChange(keys: readonly (keyof DocParts)[], extra: DocChange = {}): DocChange {
+  let change: DocChange = { ...extra };
+  for (const key of keys) {
+    change = mergeChanges(change, PART_CHANGE[key]);
+    if (key === 'terrain') change = { ...change, objects: 'all', paths: true, markers: true };
+  }
+  return change;
 }
 
 function pick<K extends keyof DocParts>(doc: CustomMapDocument, keys: readonly K[]): Partial<DocParts> {

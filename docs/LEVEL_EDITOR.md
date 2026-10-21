@@ -861,7 +861,9 @@ Wasserschritte der Panels. Sie schreibt direkt ins Dokument und sagt vorher, was
 (`touch`; `RegionRecorder` sichert jede 32 x 32-Kachel beim ersten Berühren), ganze Teile (`snapshot`: ein Teil des
 Dokuments, die Schichtliste, der Boden mit Schichten und Splat, alles Wasser, die Flüsse), neue und entfernte Objekte, einen
 schon getanen eigenen Schritt (ein neues Gewässer, `include`). `commit` legt alles als einen Schritt in den Verlauf (nur
-die berührten Kacheln, Vorher und Nachher), `abort` schreibt alles zurück und meldet es der Ansicht; Cancel eines Jobs,
+die berührten Kacheln, Vorher und Nachher) und meldet die ganz gesicherten Teile mit, auch wenn der Schritt sie ohne
+Meldung an Ort und Stelle änderte (eine Straße, die der Straßenpinsel teilte, bevor er keine zu ziehen fand): Ansicht und
+Worker-Spiegel folgen dem Dokument nur über die Meldungen. `abort` schreibt alles zurück und meldet es der Ansicht; Cancel eines Jobs,
 ein Fehler beim Abspielen und ein Gießen ohne Senke nehmen denselben Weg wie ein Undo. `editor.transact(label, parts,
 edit)` ist die Transaktion um eine einzelne Änderung. Einzelne fertige Befehle (`SnapshotCommand.record` für kleine
 Teile, `ObjectsCommand` für Objekte mit ihrer Stelle in der Liste) gehen weiter über `execute`. Der Verlauf hält
