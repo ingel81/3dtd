@@ -570,12 +570,17 @@ Richtung, durchgehende Zeilen, Ende an der Grenze und Bruch an einem Weg prüfen
 
 ## R OSM-Grundrisse in OSM-Welten (2026-10-21, E290)
 
-Nur neu gebaute OSM-Welten tragen die Grundrisse; ältere zeigen die Kachel nicht.
+Nur mit diesem Stand neu gebaute OSM-Welten tragen die Grundrisse; ältere (auch die mit dem ersten Format) zeigen die
+Kachel nicht.
 
 - **R1 Kachel und Ebene:** New game, „A map of a real place“, einen Ort mit Altstadt bauen (z. B. Miltenberg), im Spiel
-  unten rechts Entwickleroptionen › Karte › „OSM“. *Türkise Kästen mit Kanten über den Häusern an den roten Routen,
-  gut sichtbar auch hinter Dächern; nochmals klicken blendet sie aus. Im Ebenenmenü kein Knopf „Gebäude“.* Danach
-  vor Welle 1 eine weitere Spur öffnen, Ebene an: *nach gut einer Sekunde auch die Grundrisse an der neuen Route.*
+  unten rechts Entwickleroptionen › Karte › „OSM“. *Kästen mit Kanten über allen Häusern der Karte, auch fern der
+  Routen und am Kartenrand, sofort da; gut sichtbar auch hinter Dächern; nochmals klicken blendet sie aus. Im
+  Ebenenmenü kein Knopf „Gebäude“.* Danach vor Welle 1 eine weitere Spur öffnen: *die Grundrisse bleiben, wie sie sind.*
+- **R3 Arten:** wie R1, Maus auf die Kachel: *der Tooltip nennt die Farben.* Über der Altstadt umherfliegen: *Häuser
+  türkis, Gebäudeteile (Türme, Anbauten mit eigener Höhe) messingfarben, ein Hof als Loch mit hellen Kanten, an
+  Straßen oder beim HQ weggelassene Grundrisse rot, wo es welche gibt unterirdische grün und Ruinen orange flach am
+  Boden.* Nach Augenmaß: *die Farben sind gut auseinanderzuhalten.*
 - **R2 Echter Ort unverändert:** einen echten Ort (3D-Tiles) spielen, Ebenenmenü › „Gebäude“. *Wie bisher: Grundrisse
   an den Routen, im Entwicklermenü keine Kachel „OSM“.*
 

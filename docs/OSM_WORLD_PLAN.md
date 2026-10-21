@@ -905,18 +905,45 @@ den Grundrissen zu vergleichen.
 
 - **Quelle:** die Grundrisse gingen beim Import verloren. Ein Katalogmodell trägt nur Mitte, Drehung und Maßstab, ein
   Bau aus dem Grundriss (`mass`) seinen an Straßen beschnittenen Umriss; beides ist das Gebaute, nicht OSM. Deshalb
-  schreibt der Import jeden Grundriss, den die Gebäude lesen (`building` am Boden, auch die weggelassenen), als äußeren
-  Ring mit Geschossen in das neue optionale Feld `footprints` (Format in LEVEL_EDITOR.md, Datei). Miltenberg 1,2 km:
-  1 385 Ringe, 32 kB roh, die Datei wächst um rund 26 kB (2 %). Keine Overpass-Abfrage zur Laufzeit; der
-  Rahmenspeicher (`osm-frame-store.ts`) taugt nicht als Quelle (nur sechs Rahmen, 15 bis 40 MB je Stadt, fehlt auf
-  anderen Rechnern und im Koop).
+  schreibt der Import alle Grundrisse im Rahmen in das optionale Feld `footprints` (Format in LEVEL_EDITOR.md, Datei).
+  Keine Overpass-Abfrage zur Laufzeit; der Rahmenspeicher (`osm-frame-store.ts`) taugt nicht als Quelle (nur sechs
+  Rahmen, 15 bis 40 MB je Stadt, fehlt auf anderen Rechnern und im Koop).
+- **Was gespeichert wird (E290b, 2026-10-21):** alles, was OSM als Gebäude führt (`osmFootprints`, Art aus
+  `footprintKindOf` in `building-tags.ts`): jeder `building`-Wert und jedes `building:part`, je äußerer Ring mit seinen
+  Höfen (innere Ringe des Multipolygons, die in ihm liegen), Geschossen, unterstem Geschoss (`building:min_level`,
+  sonst `min_height`) und einer Art: `ground` (am Boden, woraus der Import baut), `part` (`building:part`),
+  `underground` (`location=underground` oder `layer` unter 0, gewinnt über den Wert), `offGround` (die Werte, die
+  `isGroundBuilding` nicht baut: bridge, ruins, collapsed, demolished, proposed, abandoned:yes, container, tent).
+  **`building=no`** zählt nicht: der Wert sagt ausdrücklich, dass die Fläche kein Gebäude ist; nur wenn dieselbe
+  Fläche `building:part` trägt, steht sie als Teil da. Dazu je Ring am Boden, warum der Import nichts darauf gebaut hat
+  (`tiny`, `noModel`, `roads`, `water`, `hq`, `budget`): `placeBuildings` merkt sich den Grund je äußerem Ring
+  (`droppedRings`) an derselben Stelle, an der es `report.dropped` zählt, kein zweites System. Die Abfrage holt dafür
+  auch `building:part` (`OSM_QUERY_VERSION` 4, gespeicherte Rahmen laden einmal neu), `isAreaTags` liest es als
+  Fläche; Gebäude, Grundstücke und Flächen lesen nur `building` und bleiben, wie sie waren. Ringe außerhalb von Int16
+  (über 3,2 km von der Mitte) kann es nicht geben: die Flächen sind auf den Rahmen geschnitten (höchstens 2,4 km Seite).
+- **Größe** (eingefrorene Probe Miltenberg 1,2 km, nur `building`): 1 385 Ringe, ein Hof, 10 weggelassene; roh 34,7 kB
+  statt 31,9 kB im ersten Format (ein Wort Info je Ring), die Datei wächst um 26 kB (2 %). Mit den echten
+  `building:part` Miltenbergs (Overpass 2026-10-21) 14 Teile mehr, roh 35,2 kB.
 - **Weg:** `WorldStreetSource.footprints` sagt, woher die Grundrisse kommen: `fetched` (Tiles, Overpass, wie bisher
   vorab geladen für die Minimap, Schnellaktion im Ebenenmenü), `kept` (OSM-Welt mit Feld, Kachel im Entwicklermenü),
-  `none` (DevWorld, eigene Karten, ältere OSM-Welten: kein Knopf). `CustomMapStreets.loadBuildingsNearRoutes` liest
-  das Feld beim ersten Einschalten und filtert auf den Korridor wie Overpass `around` (25 m um die Routen, Raster über
-  die Routenstücke, `footprintsNearRoutes`); `BuildingOverlay` und `BuildingRenderingService` zeichnen wie auf echten
-  Orten. Bei `kept` lädt und baut nichts vorab: ohne Einschalten kostet die Ebene nichts.
-- **Alte OSM-Welten** haben das Feld nicht; die Kachel erscheint erst nach einem Neubau.
+  `none` (DevWorld, eigene Karten, ältere OSM-Welten: kein Knopf). Auf echten Orten bleibt der Korridor (25 m um die
+  Routen, Overpass `around`). In OSM-Welten gibt `CustomMapStreets.loadBuildingsNearRoutes` alle Grundrisse der Karte,
+  gleich welche Routen (wie `filterStreetsNearRoutes`, das dort das ganze Netz gibt); `BuildingOverlay` schlüsselt sie
+  nur nach dem Ort, lädt sie auch ohne Route und behält sie bei neuen Spuren. Bei `kept` lädt und baut nichts vorab:
+  ohne Einschalten kostet die Ebene nichts.
+- **Darstellung** (`BuildingRenderingService`, Farben `FOOTPRINT_COLORS`, Tokens aus `td-theme.ts`): am Boden türkis
+  wie bisher, Teile messingfarben (`brass`) vom untersten Geschoss bis zu ihren Geschossen, unterirdisch grün
+  (`green`) und nicht am Boden orange (`warnOrange`) flach auf dem Boden ohne Wände, Höfe als Löcher im Dach mit
+  Wänden und hellen Kanten (`knobLight`), weggelassene rot (`dangerEdge`). Die Legende steht im Tooltip der Kachel.
+  Alles in zwei Objekten mit Farben je Ecke (Kanten, Fläche; die Fläche in einem Durchgang, `forceSinglePass`).
+- **Messung** (Dev-Build, Miltenberg mit Teilen, 1 399 Grundrisse): Zeichnen 9 bis 10 ms, Einschalten bis gezeichnet
+  rund 37 ms, 40 206 Kanten- und 51 918 Flächenecken, 2 Draw Calls mehr je Bild (185 auf 187), ausgeschaltet keiner.
+  Eine 2,4-km-Stadt (Miltenberg sechsfach gekachelt, 8 310 Grundrisse) baut in jsdom in 165 ms (Miltenberg dort
+  33 ms); im Browser nicht gemessen.
+- **Alte OSM-Welten** haben das Feld nicht oder im ersten Format ohne `format`; beides liest sich ohne Grundrisse, die
+  Kachel erscheint erst nach einem Neubau. Mitgelieferte Karten sind keine OSM-Welten und bleiben unverändert.
+- **Offen:** der Grund des Weglassens steht in den Daten, die Darstellung zeigt nur „weggelassen“ (rot); einzelne
+  Gründe bräuchten eine Auswahl oder Beschriftung.
 
 ## Altstadt, Reihenenden, Verwitterung, gebaut (2026-10-19, V10)
 

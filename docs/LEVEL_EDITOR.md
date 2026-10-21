@@ -728,9 +728,13 @@ Szenenkosten.
   (PNG als Data-URL) und das Stück; dessen Arrays liegen im Zip unter `prefabs/<k>/heights.f32`, `paint.u8` und
   `water.u8`. Nur der Editor liest sie, das Spiel nicht; sie zählen nicht zum `contentHash` (wie `meta.uid`), eine
   Karte ohne Prefabs schreibt kein Feld. Hebt die Version nicht
-- OSM-Grundrisse einer OSM-Welt (`footprints`, optional, E290): die Gebäudegrundrisse, die der Import gelesen hat,
-  als ein Int16-Array im Zip unter `osm/footprints.i16` (je Ring Punktzahl, Geschosse, dann x, y in Dezimetern;
-  `world/custom-map/map-footprints.ts`). Nur die Entwickler-Ebene „OSM“ liest sie, die Regeln des Spiels nicht; sie
+- OSM-Grundrisse einer OSM-Welt (`footprints`, optional, E290): alle Gebäudegrundrisse, die OSM im Rahmen führt
+  (`building`, `building:part`, auch unter und nicht am Boden), als ein Int16-Array im Zip unter
+  `osm/footprints.i16`, im Feld `{ format: 2, rings }`: je Ring Punktzahl, Geschosse, ein Wort Info (Bits 0-2 Art:
+  0 am Boden, 1 Teil, 2 unterirdisch, 3 nicht am Boden, 4 Hof; Bits 3-5 warum der Import ihn wegließ: 0 steht,
+  1 tiny, 2 noModel, 3 roads, 4 water, 5 hq, 6 budget; Bits 8-14 unterstes Geschoss), dann x, y in Dezimetern; ein Hof
+  folgt dem Ring, dessen Loch er ist (`world/custom-map/map-footprints.ts`). Ein Feld ohne `format: 2` (das erste
+  Format) liest sich ohne Grundrisse. Nur die Entwickler-Ebene „OSM“ liest sie, die Regeln des Spiels nicht; sie
   zählen nicht zum `contentHash`, kein Werkzeug ändert sie, der Spiegel im Editor-Worker bekommt sie nur, wenn die
   Liste eine andere ist. Abgeschnittene Ringe schreibt das Packen nicht, das Lesen lässt sie weg. Hebt die Version nicht
 - Kartendokument Version 3: bis zu zwölf Bodenschichten. Die Gewichte der Schichten 9 bis 12 liegen in einer dritten

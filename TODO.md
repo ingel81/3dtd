@@ -234,9 +234,10 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       10-20 s (Spielzeit), Überlauf an der tiefsten Kante oder neuer Bach bergab, Ketten, Lava erstarrt an Wasser,
       Fontäne/Dampf; nach Laden oder Sprung sofort voll. Plan docs/WATER_NETWORK_PLAN.md, Abnahme auf dem Board.
       Rest: Flächen folgen dem Krater (Schritt 3, Zweitrechner).
-- [ ] **E290 OSM-Grundrisse in OSM-Welten**: Kachel „OSM“ im Entwicklermenü legt die beim Import gelesenen Grundrisse
-      (neues Feld `footprints`, nur neu gebaute Welten) über die Häuser an den Routen, dieselbe Ebene wie die
-      Schnellaktion „Gebäude“ auf echten Orten (R1, R2). Doku: OSM_WORLD_PLAN.md.
+- [ ] **E290 OSM-Grundrisse in OSM-Welten**: Kachel „OSM“ im Entwicklermenü legt alle OSM-Grundrisse der Karte über
+      die Häuser (Feld `footprints` Format 2, nur neu gebaute Welten): am Boden türkis, Teile, unterirdisch, nicht am
+      Boden, Höfe und beim Bau weggelassene unterscheidbar; auf echten Orten wie bisher nur an den Routen (R1-R3).
+      Doku: OSM_WORLD_PLAN.md.
 - [ ] **E285 Weinberge: Rebzeilen**: gerade, parallel, durchgehend je Parzelle, am Hang in der Falllinie (folgen dem
       Boden), sonst rechtwinklig zur erschließenden Straße; Wege und Gräben brechen sie, Budget je ganzer Zeile (Q1 bis Q3).
 - [ ] **E288 Flüsse vereinigen sich**: Haarnadel eine Fläche, Kreuzung als Kreuz (höherer fällt im Knoten hinein),
