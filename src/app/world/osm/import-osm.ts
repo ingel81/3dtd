@@ -29,6 +29,7 @@ import { growVegetation, type VegetationReport } from './convert/vegetation';
 import { objectCost } from '../custom-map/render/objects/scene-cost';
 import { carveWater, layRunnels, paintWater, settleWater, WATER_MATERIALS, type WaterPaintRole, type WaterReport } from './convert/water';
 import { layOut, OsmLayout, type LayoutReport } from './convert/layout';
+import { mulberry32 } from '../../utils/game-rng';
 import { findLandmarks, spawnAnchors, type Landmark } from './convert/anchors';
 import { growLife, type LifeReport } from './convert/life';
 import { placeFurniture, type FurnitureReport } from './convert/furniture';
@@ -212,7 +213,9 @@ export function convertOsm(
   step('paint');
 
   const at = options.spawnsAt?.map((p) => frame.point(p));
-  const layout = layOut(doc, roads.names, { spawns: options.spawns ?? OSM_SPAWNS, at, place: input.place && frame.point(input.place), anchors: spawnAnchors(features) });
+  // Drawn spawns roll seeded dice: the same data makes the same map (the plants and furniture keep clear of their routes)
+  const random = mulberry32(Math.round(input.lat * 1e4) ^ Math.round(input.lon * 1e4));
+  const layout = layOut(doc, roads.names, { spawns: options.spawns ?? OSM_SPAWNS, at, place: input.place && frame.point(input.place), anchors: spawnAnchors(features), random });
   if (layout.spawns.length < layout.wanted) {
     warnings.push(at
       ? { key: 'spawnsLeftOut', v: { missing: layout.wanted - layout.spawns.length, wanted: layout.wanted } }

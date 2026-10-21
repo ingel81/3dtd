@@ -200,7 +200,7 @@ Code in `src/app/world/osm/` ohne Angular und DOM (Worker, Node, Specs), wie `wo
 | `convert/plots.ts` | Grundstücke der Wohnhäuser (Raster 1 m, bis 20 m vom Haus, Straßen mit Gehweg, Gleisbetten mit Schotterstreifen, andere Gebäude, Flächen und Wasser als Sperre; keine Hecke reicht über Straße, Weg oder Gleis): Vorgarten als Rasen (`grass-lush`), Garten dahinter (`grass-leafy`, wenn eine Schicht frei ist), Einfahrt aus `pavers` als Fläche, wo kein Weg gemappt ist, Hecken an Seiten und hinten, manche Vorgärten mit Staketenzaun; 5 % des Szenenbudgets. Läuft im Schritt `buildings` |
 | `convert/furniture.ts` | Zäune, Mauern, Hecken, Laternen, Kleinkram, Strommasten (gebaut O5) |
 | `convert/rails.ts` | Bahn: Linien, Bahnübergänge, Bahnbrücken, Straßenbrücken über der Bahn, Bahntunnel, Gleisbett, Stücke (E238) |
-| `convert/layout.ts` | HQ und Spawns (`StreetRouter` auf `mapStreetNetwork`), Kartenrahmen |
+| `convert/layout.ts` | HQ und Spawns (`StreetRouter` auf `mapStreetNetwork`), Kartenrahmen; ohne Spawns vom Rahmen zieht `convertOsm` sie mit einem aus dem Ort gesäten Würfel (`mulberry32`), sonst Math.random im Rahmen: gleiche Daten, gleiche Karte (E298) |
 | `import-osm.ts`, `osm-frame-core.ts`, `osm-frame-store.ts`, `osm.worker.ts`, `osm-frame-session.ts` | Ablauf, Bericht, Rahmen-Sitzung, Speicher je Rahmen, Worker, Abbruch |
 
 Dazu:

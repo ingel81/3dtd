@@ -432,6 +432,7 @@ export class StreetRouter {
    * @param maxDistance - Maximum distance from center in meters (default 1000m)
    * @param coverage - The area the world has ground in (an own tileset's): the range is
    *   capped to it and a node outside it is no candidate; null: anywhere
+   * @param random - The dice, 0..1 (an OSM world's build passes a seeded stream)
    * @returns A random spawn candidate or null if none found
    */
   findRandomStreetPoint(
@@ -441,6 +442,7 @@ export class StreetRouter {
     minDistance = 500,
     maxDistance = 1000,
     coverage: WorldCoverage | null = null,
+    random: () => number = Math.random,
   ): RandomSpawnCandidate | null {
     ({ min: minDistance, max: maxDistance } = coveredSpawnRange(coverage, { lat: centerLat, lon: centerLon }, minDistance, maxDistance));
 
@@ -473,8 +475,12 @@ export class StreetRouter {
       return null;
     }
 
-    // 2. Shuffle candidates
-    const shuffled = candidates.sort(() => Math.random() - 0.5);
+    // 2. Shuffle candidates (Fisher-Yates: a sort with a random comparison is neither even nor the same in every engine)
+    const shuffled = candidates;
+    for (let k = shuffled.length - 1; k > 0; k--) {
+      const m = Math.floor(random() * (k + 1));
+      [shuffled[k], shuffled[m]] = [shuffled[m], shuffled[k]];
+    }
 
     // 3. Check path validity for top candidates
     let testedCount = 0;

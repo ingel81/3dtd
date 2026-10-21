@@ -32,6 +32,8 @@ export interface LayoutOptions {
   place?: MapPoint;
   /** Where people arrive (convert/anchors.ts): drawn spawns prefer them, and a spawn near one takes its name */
   anchors?: readonly SpawnAnchor[];
+  /** The dice of drawn spawns, 0..1; Math.random when absent (the frame rolls again for the player) */
+  random?: () => number;
 }
 
 export interface LayoutReport {
@@ -95,13 +97,16 @@ export class OsmLayout {
 
   /**
    * `place`: where the HQ goes, map metres (the frame's square may stand off
-   * it); the map's middle when absent. `anchors`: where people arrive
+   * it); the map's middle when absent. `anchors`: where people arrive.
+   * `random`: the dice of `draw`; a stream seeded from the place makes the
+   * same map from the same data (convertOsm)
    */
   constructor(
     map: StreetMap,
     private readonly names: ReadonlyMap<string, string>,
     place: MapPoint = { x: 0, y: 0 },
     private readonly anchors: readonly SpawnAnchor[] = [],
+    private readonly random: () => number = Math.random,
   ) {
     const nodes = new Map(map.paths.nodes.map((n) => [n.id, n]));
     // A tunnel holds neither the HQ nor a spawn: both would stand in the hill
@@ -142,7 +147,7 @@ export class OsmLayout {
     const anchors = this.anchorOrder(hqPoint);
     for (let draw = 0; draw < count * DRAWS_PER_SPAWN && out.length < count; draw++) {
       // An anchor first for most spawns; the next one that stands apart from the others
-      if (anchors.length && Math.random() < ANCHOR_SHARE) {
+      if (anchors.length && this.random() < ANCHOR_SHARE) {
         let placed = false;
         while (anchors.length && !placed) {
           const a = anchors.shift()!;
@@ -150,7 +155,7 @@ export class OsmLayout {
         }
         if (placed) continue;
       }
-      const found = this.streets.findRandomStreetPoint(this.network, hq.lat, hq.lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, coverage);
+      const found = this.streets.findRandomStreetPoint(this.network, hq.lat, hq.lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, coverage, this.random);
       if (!found) break;
       const p = geoToMap(found.lat, found.lon);
       if (crowded(p)) continue;
@@ -167,7 +172,7 @@ export class OsmLayout {
   private anchorOrder(hq: MapPoint): { anchor: SpawnAnchor; foot: MapPoint; distance: number }[] {
     this.feet ??= this.anchorFeet(hq);
     return this.feet
-      .map((f) => ({ ...f, key: Math.pow(Math.random(), 1 / (ANCHOR_TIER_WEIGHT[f.anchor.tier] ?? 1)) }))
+      .map((f) => ({ ...f, key: Math.pow(this.random(), 1 / (ANCHOR_TIER_WEIGHT[f.anchor.tier] ?? 1)) }))
       .sort((a, b) => b.key - a.key);
   }
 
@@ -309,7 +314,7 @@ export class OsmLayout {
  * else drawn
  */
 export function layOut(doc: CustomMapDocument, names: ReadonlyMap<string, string>, options: LayoutOptions): LayoutReport {
-  const layout = new OsmLayout(doc, names, options.place, options.anchors);
+  const layout = new OsmLayout(doc, names, options.place, options.anchors, options.random);
   doc.hq = layout.hq ?? { x: 0, y: 0 };
   const wanted = options.at?.length ?? options.spawns;
   const report: LayoutReport = { hqShiftM: layout.hqShiftM, wanted, spawns: [] };

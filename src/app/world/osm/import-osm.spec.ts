@@ -1,6 +1,6 @@
 import { objectsInAir, validateMap } from '../../map-ops/validation/map-validation';
 import { routeBetween, spawnRoutes } from '../../map-ops/path-graph';
-import { packMapFile, unpackMapFile, validateMapDocument } from '../custom-map/map-file';
+import { contentHash, packMapFile, unpackMapFile, validateMapDocument } from '../custom-map/map-file';
 import { mapStreetNetwork } from '../custom-map/custom-map-streets';
 import { osmProbe as probe } from '../../../../tools/osm/osm-probe';
 import { convertOsm, osmMapNames } from './import-osm';
@@ -27,15 +27,22 @@ import { noteWords } from '../testing/note-words';
 const catalog = JSON.parse(readFileSync(join(__dirname, '../../../../public/maps/assets/catalog.json'), 'utf8'));
 
 describe('OSM world (frozen probe Miltenberg)', () => {
-  // Spawns are drawn as on the real places (Math.random); a fixed sequence keeps the scene the same
-  let seed = 1;
-  beforeEach(() => {
-    seed = 1;
-    vi.spyOn(Math, 'random').mockImplementation(() => (seed = (seed * 16807) % 2147483647) / 2147483647);
-  });
-  afterEach(() => vi.restoreAllMocks());
-
   const options = { sideM: 1200, splatResolution: 512, now: new Date('2026-10-15T00:00:00Z') };
+
+  it('makes the same map from the same data, byte for byte, without Math.random', async () => {
+    const costs = assetCosts(catalog.objects, 1200);
+    const once = convertOsm(probe(), { ...options, costs, catalog: buildingCatalog(catalog.objects) }).doc;
+    // The spawns roll dice seeded from the place: the dice of the page are never asked
+    const dice = vi.spyOn(Math, 'random').mockImplementation(() => {
+      throw new Error('Math.random in an OSM build');
+    });
+    const twice = convertOsm(probe(), { ...options, costs, catalog: buildingCatalog(catalog.objects) }).doc;
+    dice.mockRestore();
+    expect(twice.spawns).toEqual(once.spawns);
+    expect(twice.objects.length).toBe(once.objects.length);
+    expect(await contentHash(twice)).toBe(await contentHash(once));
+    expect(packMapFile(twice)).toEqual(packMapFile(once));
+  });
 
   it('makes a map that packs, reads back and passes the editor check without errors', () => {
     const { doc, report } = convertOsm(probe(), options);
@@ -280,14 +287,12 @@ describe('OSM world (frozen probe Miltenberg)', () => {
     expect(validateMap(doc).map((i) => i.code)).not.toContain('object-on-path');
     for (const o of doc.objects) expect(Math.hypot(o.x - doc.hq.x, o.y - doc.hq.y)).toBeGreaterThan(20);
     for (const o of doc.objects) for (const b of [t(doc).water, ...(t(doc).waterBodies ?? [])]) expect(b ? wetAt(doc, o, b.mask) : false).toBe(false);
-    seed = 1;
     expect(convertOsm(probe(), { ...options, costs: costs }).doc.objects).toEqual(doc.objects);
   });
 
   it('thins the plants far from the routes first when the budget runs short, and keeps the single trees', () => {
     const costs = assetCosts(catalog.objects, 1200);
     const full = convertOsm(probe(), { ...options, costs: costs });
-    seed = 1;
     // Each plant dearer, so that about a quarter of them fits
     const factor = (4 * PLANT_BUDGET_SHARE * SCENE_BUDGET) / full.report.plants.cost;
     const dear = Object.fromEntries(Object.entries(costs).map(([k, v]) => [k, v * factor]));

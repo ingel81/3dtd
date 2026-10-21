@@ -76,10 +76,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Plan und Entscheidungen (2026-10-21): docs/OSM_LANDMARKS_PLAN.md, ein Bauweg aus dem Grundriss für alle Häuser
       (Kontur stimmt, nicht generisch), Schritte L1-L8; Durchgänge als echte Aussparung, Ruinen als Ruine, fünf
       Fassadenfamilien, vor E280.
-- [ ] **E298 OSM-Welt-Bau nicht deterministisch** (Zweitrechner 2026-10-21, bei E285 gesehen, auch auf 14ca2cd43):
-      gleiche Eingabe (Overpass + Höhen) ergibt 47 568 bis 48 614 Rebstücke und 80 677 bis 80 685 Objekte. Vermutet:
-      ein zeit- oder zufallsabhängiges Budget im Pflanzen-/Objektschritt. Soll: gleiche Eingabe, gleiche Karte (Koop,
-      Vergleichbarkeit, Specs).
 - [ ] **E294 Kratersee im Editor** (2026-10-21, aus E283 ausgeklammert): Der Landschafts-Modus „crater“ schreibt nur
       Höhen, ohne Kraterliste und Spielzeit; im Editor füllt sich darum kein See. Eigener Schritt: Pinsel mit Vorschau
       (See gleich voll oder Füllen ohne Spielzeit).
@@ -267,6 +263,8 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 - [ ] **E295 Editor: eine Quelle für Objekt-Ids**: alle Wege im Editor (Werkzeuge, Pinsel, Map-Kit, Spiegeln,
       Duplizieren) nehmen den Zähler des Dokuments, der nie zurückzählt; „Draw a longer road“ legt keinen Schritt mehr an.
       Seeds 5000-5149 grün, kein Nachtest nötig.
+- [ ] **E298 OSM-Welt-Bau deterministisch**: Spawns ohne Wahl des Rahmens würfelten mit Math.random (Routen, daran
+      Pflanzen und Freiflächen); jetzt ein aus dem Ort gesäter Würfel, gleiche Daten ergeben die gleiche Karte. Kein Nachtest.
 
 ### Runde 2026-10-20 (auf `next`, Nachtests in PLAYTEST.md N)
 
