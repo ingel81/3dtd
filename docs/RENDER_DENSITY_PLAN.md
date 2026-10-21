@@ -580,26 +580,28 @@ CPU-Arbeit, genau dort, wo die Messung die Grenze zeigt (CPU je Objekt). Empfehl
 WebGL2-Bausteine (a) bis (d), die unter WebGPU bleiben (die Auswahl wandert dann nur von der CPU in den Compute-Pass),
 dann neu entscheiden (Entscheidung 6).
 
-## 10. Offene Entscheidungen
+## 10. Entscheidungen (User 2026-10-21)
 
-1. **Reihenfolge** (a) → (b) → (d) → (c) → (e), WebGPU danach neu bewerten. Empfehlung: so.
-2. **Sichtweite**: harte `drawDistance` für alle Objekte durch eine Pixelgrenze je Grafikstufe ersetzen (Größe statt
-   Asset-Tabelle), `drawDistance` bleibt nur als Obergrenze für Effekte und Sonderfälle. Empfehlung: ja.
-3. **HLOD-Kachelgröße**: 128 m (Empfehlung; Würzburg 2,4 km = 19 × 19 Kacheln, ein Neubau nach Zerstörung klein) oder
-   256 m (weniger Draws, teurerer Neubau).
-4. **Linien im Dokument**: (A) eigenes Element „Linie“ (Asset, Punkte, Höhe je Punkt), die Stücke entstehen beim Laden;
-   (B) die Stücke bleiben Objekte und tragen eine Linien-Kennung und Reihenfolge. Empfehlung: A (eine Wahrheit,
-   Bänder und Stücke aus derselben Linie, Editor bearbeitet Linien als Linien); verlangt Formatversion und Neubacken.
-5. **Sicht-Cube auf feste Stufe** statt der Stufe, die die Kamera gewählt hat. Empfehlung: ja, mit Messung der Kosten
-   je Cube vorher (Z6).
-6. **WebGPU**: jetzt nicht. Nach (a) bis (d) neu entscheiden; wenn ja, nur als ein `WebGPURenderer` für alle Welten mit
-   Backend je Welt-Art (Weg B in Abschnitt 9), nie zwei Shader-Sätze.
-7. **Boden** als eigener TODO-Punkt (größter GPU-Posten; frühe Tiefe, Fernring ohne Detailtexturen). Empfehlung: ja,
-   nach (a).
-8. **Verdeckung (e)** erst nach (c) und nur, wenn die Messung dann noch mehr als 0,2 ms in Straßenansichten zeigt.
-   Empfehlung: zurückstellen.
-9. **Abnahme-Hardware**: die RTX 5080 ist nicht der Maßstab für „gleiche Leistung“. Empfehlung: dieselbe Probe auf dem
-   Zweitrechner vor und nach jedem Schritt (Z7).
+1. **Reihenfolge, mit WebGPU:** WebGPU kommt sicher (zukunftssicherer, schneller, mehr möglich). Erst was den Umzug
+   übersteht: (b) Sichtweite nach Bildgröße, (d) Linien als Band, (c) HLOD je Kachel; dann der Umzug auf WebGPU (ein
+   `WebGPURenderer` für alle Welten, „Echte Orte“ über dessen WebGL2-Rückfall, alle Shader nach TSL, Weg B in
+   Abschnitt 9); danach (a) Ausklammern und (e) Verdeckung direkt auf der GPU (Compute, indirektes Zeichnen, Hi-Z).
+   Bis (a) deckelt die Pixelgrenze die Kosten. Vor dem Umzug eine Aufwandsschätzung.
+   Vor (b): die Budgetfrage auf der ganzen Würzburg-Karte nachmessen (die Ausgangsmessung lief auf drei Ausschnitten;
+   der Zweitrechner sah am Hauptbahnhof Gleise am Möblierungsbudget scheitern, E303).
+2. **Sichtweite:** Pixelgrenze je Grafikstufe statt fester `drawDistance`; die Kostenrechnung zieht mit.
+3. **Kacheln:** 128 m.
+4. **Linien im Dokument:** eigenes Element „Linie“, neue Formatversion, mitgelieferte Karten neu backen, keine
+   Altkarten-Rücksicht.
+5. **Sicht-Cube:** feste Detailstufe, Kosten je Cube vorher messen.
+6. **WebGPU:** siehe 1.
+7. **Boden:** eigener Punkt, zusammen mit dem WebGPU-Umzug (die Boden-Shader werden dabei ohnehin neu geschrieben).
+8. **Verdeckung:** nach dem Umzug, in WebGPU.
+9. **Abnahme:** dieselbe Probe auf dem Hauptrechner (RTX 5080) und dem Zweitrechner (RTX 3080 Ti) vor und nach jedem
+   Schritt; unter WebGPU mit installiertem Chrome.
+
+Branch: Das ganze Programm läuft auf einem eigenen Branch (`render/density`). `next` bleibt spielbar und bekommt nur
+Fixes; der Branch zieht `next` regelmäßig nach und kommt erst auf Zuruf des Users auf `next`.
 
 ## 11. Messwerkzeuge
 
