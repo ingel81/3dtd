@@ -579,6 +579,25 @@ Nur neu gebaute OSM-Welten tragen die Grundrisse; ältere zeigen die Kachel nich
 - **R2 Echter Ort unverändert:** einen echten Ort (3D-Tiles) spielen, Ebenenmenü › „Gebäude“. *Wie bisher: Grundrisse
   an den Routen, im Entwicklermenü keine Kachel „OSM“.*
 
+## S Rahmen der Karte von einem Ort (2026-10-21, E282)
+
+Variante B: der Rahmen steht fest in der Mitte, die Karte wird darunter gezogen. Rechnung (Zoom zur Kante, Tasten,
+Laden ohne Sprung, HQ in der Mitte) prüfen Specs (`osm-frame-view.spec.ts`, `osm-frame.scenario.spec.ts`); hier Hand
+und Auge. Globen › OpenStreetMap, einen Ort suchen (z. B. Miltenberg).
+
+- **S1 Öffnen:** *Unter dem Titel „Karte ziehen, bis der Rahmen sitzt. Das HQ steht in der Mitte.“, darunter sofort die
+  Karte mit dem Messingrahmen, im Rahmen ein Schleier „Straßen und Gebäude laden“ mit kleiner Mauer; die Schrittliste
+  steht unter der Karte. Ist der Ort da, verschwinden Schleier und Liste, Karte und Rahmen bleiben, wo sie waren.*
+- **S2 Ziehen:** in den Rahmen klicken und ziehen. *Greifhand, beim Ziehen geschlossen; die Karte gleitet unter dem
+  festen Rahmen, das HQ bleibt als Messingpunkt in der Mitte, die Routen sind weg. Losgelassen: Schleier im Rahmen,
+  oben und unten springt nichts; danach HQ und Routen neu, unter HQ „In der Mitte des Rahmens, … von der Adresse“.*
+  Weit ziehen: *die Karte hält an, wenn die Adresse nahe an den Rand käme.*
+- **S3 Spawn ziehen:** einen roten Spawn greifen und auf eine andere Straße ziehen. *Nur der Spawn wandert, die Karte
+  steht.*
+- **S4 Kante:** den Regler „Kante“ unter der Karte ziehen. *Der Rahmen bleibt gleich groß, die Karte zoomt, daneben
+  „1,8 km“ usw.; erst beim Loslassen lädt es (Schleier im Rahmen).* Dann die Karte anklicken und Pfeiltasten, Plus,
+  Minus drücken: *die Karte rückt, die Kante ändert sich; nach dem Loslassen der Taste lädt es.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo

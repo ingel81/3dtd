@@ -535,14 +535,28 @@ Datei.
 
 **Rahmen** (`components/osm-frame/`): steht im Menü an Stelle der Listen, im Editor in der rechten Spalte.
 
-- **Quadrat verschieben und skalieren** (E209, 2026-10-17; ersetzt „immer 2,4 km“ aus Entscheidung 2): das Quadrat
-  steht zuerst mit 2,4 km um den Ort. Seine Kante verschiebt es, seine Ecken skalieren es (die Ecke gegenüber bleibt
-  stehen), über der Nordkante steht die Seite („1.8 km“). Grenzen (`world/osm/osm-area.ts`, `fitArea`): Seite 1,2
-  bis 2,4 km in Schritten von 100 m (mehr ist für Format, Szenenbudget und Renderer nicht gemessen), der Ort, auf dem
-  das HQ steht, bleibt mindestens 200 m innen; beim Ziehen hält das Quadrat diese Grenzen sichtbar ein. Losgelassen
-  legt der Worker die Karte auf das neue Quadrat: Mitte der Karte ist die Mitte des Quadrats, das HQ geht auf die
-  Straße am Ort (`OsmImportInput.place`, `OsmLayout` mit Ort), die stehenden Spawns bleiben, wo sie passen, der Rest
-  wird neu gewürfelt (mit Hinweis). Die Daten eines Orts werden für mindestens 2,4 km geladen: ein Quadrat innerhalb
+- **Quadrat verschieben und skalieren** (E209, 2026-10-17; ersetzt „immer 2,4 km“ aus Entscheidung 2; Bedienung seit
+  E282, 2026-10-21, Variante B der Design-Leinwand): das Quadrat steht zuerst mit 2,4 km um den Ort. Es steht fest in
+  der Mitte der Karte (`td-crop`, 72 % der kürzeren Seite des Kastens, Land außen gedimmt); man zieht die Karte
+  darunter wie beim Zuschneiden eines Bildes (Greifhand, MapLibres `dragPan`), Pfeiltasten auf der fokussierten Karte
+  rücken sie um 100 m (mit Umschalt 500 m). Die Seite stellt der Regler „Side“ unter der Karte ein (daneben „1.8 km“),
+  Plus und Minus auf der Karte je 100 m. Entschieden: der Rahmen bleibt auf dem Bildschirm gleich groß, die Karte zoomt
+  (`zoomForSide` in `osm-frame-view.ts`: die Seite füllt die gemessene Breite des Rahmens; Mausrad, Pinch und
+  Doppelklick zoomen nicht). So bleibt das Ziehen bei jeder Seite gleich, der gedimmte Ring zeigt immer gleich viel
+  Umgebung, und es gibt keinen zweiten Modus, der ab einer Grenze vom Wachsen zum Zoomen umschaltet; die Seite steht als
+  Zahl neben dem Regler. Das HQ steht in der Mitte des Quadrats: zuerst auf der Adresse, nach „To <landmark>“ auf dem
+  Wahrzeichen (das Quadrat rückt dorthin), nach dem Ziehen dort, wohin die Mitte kam („In the middle of the square,
+  600 m from the address“). Während die Karte rückt, steht das HQ als Messingpunkt in der Mitte, Routen und das alte HQ
+  sind ausgeblendet. Grenzen (`world/osm/osm-area.ts`, `fitArea`): Seite 1,2 bis 2,4 km in Schritten von 100 m (mehr
+  ist für Format, Szenenbudget und Renderer nicht gemessen), die gesuchte Adresse bleibt mindestens 200 m innen; beim
+  Ziehen hält die Karte dort an (`transformConstrain`). Losgelassen (nach dem Ausgleiten der Karte, beim Loslassen
+  des Reglers oder der Taste) legt der Worker die Karte auf das neue Quadrat: Mitte der Karte ist die Mitte des
+  Quadrats, das HQ geht auf die Straße an der Mitte (`OsmImportInput.place`, `OsmLayout` mit Ort), die stehenden
+  Spawns bleiben, wo sie passen, der Rest wird neu gewürfelt (mit Hinweis). Das Laden zeigt ein Schleier im Rahmen
+  („Loading streets and buildings“, der Schritt, eine niedrige Mauer nach dem Gewicht der Schritte, `loadingView`,
+  Try again now und Cancel); oben klappt nichts auf, Liste und Knöpfe darunter bleiben stehen und sind gesperrt. Die
+  Karte steht schon beim ersten Öffnen um den Ort, der erste Ladevorgang zeigt denselben Schleier, die Schrittliste
+  steht unter der Karte. Ein Spawn unter dem Zeiger geht vor: er wird gezogen, die Karte steht. Die Daten eines Orts werden für mindestens 2,4 km geladen: ein Quadrat innerhalb
   der geladenen Daten schneidet nur zu (`areaWithin`), nichts wird abgerufen; erst ein Quadrat, das darüber
   hinausreicht, lädt 2,4 km um seine Mitte (Speicher je Rahmen, Overpass, mit derselben Ladezeile). Scheitert das
   Laden oder bricht der Spieler ab, steht das Quadrat wie vorher. Das Szenenbudget bleibt absolut (Pflanzen die Hälfte
@@ -551,7 +565,7 @@ Datei.
 
 - Flache Karte mit MapLibre GL 6.11 (BSD-3) und dem Stil „dark“ von OpenFreeMap (Vektorkacheln aus OSM, ohne
   Schlüssel, CORS offen); Straßen darin heller (`frameLight`, 45 %), damit ein Spawn seine Straße findet. Das Quadrat
-  der Karte (2,4 km) mit gedimmtem Land außen, HQ in Messing, Spawns rot mit Nummer und Route zum HQ, die gewählte
+  der Karte fest in der Mitte mit gedimmtem Land außen, HQ in Messing, Spawns rot mit Nummer und Route zum HQ, die gewählte
   dicker. Namensnennung von MapLibre unten rechts (OpenFreeMap, OpenMapTiles, OpenStreetMap), darunter die Daten der
   Karte selbst (OSM, Höhenquelle) und ihr Abrufdatum.
 - MapLibre wird nicht gebündelt: `angular.json` kopiert `maplibre-gl.mjs`, `-shared.mjs`, `-worker.mjs` und das CSS
@@ -569,7 +583,8 @@ Datei.
   Water, Ground, HQ and spawns, Buildings, Trees and details, Bake, jede mit Marke (+ fertig, > läuft, - wartet,
   ! gescheitert) wie die Ladeplatte, darüber der Schritt im Klartext mit Zusatz („Packing the map file, its picture and
   fingerprint“), Prozent und ein Balken nach dem Gewicht der Schritte (Richtwerte aus O1/O7), darunter „Stage 5 of 9 |
-  3 s“, mit Cancel. Beim Laden (Öffnen, neues Quadrat) Zeilen statt einer Ladezeile: Daten auf diesem Gerät, die
+  3 s“, mit Cancel. Beim ersten Laden unter der Karte Zeilen statt einer Ladezeile (ein neues Quadrat zeigt nur den
+  Schleier im Rahmen, E282): Daten auf diesem Gerät, die
   Overpass-Antwort („asking (6 s)“, dann „2.1 MB received“, gelesen als Strom) und die Höhenkacheln („6 of 9 tiles“;
   ohne Kacheln „none came, the ground will be flat“) nebeneinander, dann Straßen, HQ und Spawns; Wartezeiten und
   Wiederholungen der Server stehen darunter. Ein Ereignis je Schritt (`OsmProgress`: Schritt, Zustand, Anteil,

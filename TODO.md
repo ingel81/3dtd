@@ -55,9 +55,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       2026-10-21: Stufe 1 auf next (fd30005d5, hochgezogene Gebäude 22 → 8 Programme, Leerlauf nach ready ruhig).
       **Pausiert** (User): Stufen 2-4 (Asset-Ruinen, Schatten-Zwillinge, zurück ins Laden) ruhen. Vor einer
       Fortsetzung erst next gegen 8276577a0 mit frischem Profil messen und zählen, ob die Ruinen fertig werden.
-- [ ] **E282 Dialog „Karte von einem Ort“ (OSM-Rahmen)** (User 2026-10-20): Dass man das Quadrat verschieben kann, ist
-      nicht erkennbar; beim Verschieben ploppt oben etwas auf und lädt nach, die Ansicht rutscht nach unten. UX überarbeiten.
-      Entschieden (2026-10-21): erst 2-3 animierte Varianten auf der Design-Leinwand, User wählt, dann bauen.
 - [ ] **E291 Route, Korridor und Sicht folgen dem Krater nicht** (User 2026-10-21, geprüft im Code, noch nicht
       entschieden, ob und wie): Gegner laufen durch den Krater (Simulation: Zellhöhe plus Stempelraster). Aber:
       (1) die Korridor-Kacheln und die rote Routenlinie werden nur bei neuen Routen gebaut (`route-grid-viz.service.ts`
@@ -227,7 +224,11 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ## 2. Gebaut, wartet auf Test
 
-### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q und R)
+### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q, R und S)
+
+- [ ] **E282 Dialog „Karte von einem Ort“**: Variante B, Rahmen fest in der Mitte, Karte wird darunter gezogen, HQ in
+      der Mitte; Kante per Regler unter der Karte (Rahmen bleibt gleich groß, Karte zoomt), Pfeile und +/-; Laden als
+      Schleier im Rahmen, nichts springt; alte Rand-/Ecken-Logik entfernt (S1 bis S4). Doku: OSM_WORLD_PLAN.md.
 
 - [ ] **E283 Krater im Fluss**: Krater schneidet Fluss, Wasserfall hinein, Bett stromab trocken, Kratersee füllt in
       10-20 s (Spielzeit), Überlauf an der tiefsten Kante oder neuer Bach bergab, Ketten, Lava erstarrt an Wasser,
