@@ -580,6 +580,9 @@ CPU-Arbeit, genau dort, wo die Messung die Grenze zeigt (CPU je Objekt). Empfehl
 WebGL2-Bausteine (a) bis (d), die unter WebGPU bleiben (die Auswahl wandert dann nur von der CPU in den Compute-Pass),
 dann neu entscheiden (Entscheidung 6).
 
+Weitere Quelle für den Umzug (vom User, vor der Aufwandsschätzung lesen):
+[WebGPU three.js migration guide (utsubo)](https://www.utsubo.com/blog/webgpu-threejs-migration-guide).
+
 ## 10. Entscheidungen (User 2026-10-21)
 
 1. **Reihenfolge, mit WebGPU:** WebGPU kommt sicher (zukunftssicherer, schneller, mehr möglich). Erst was den Umzug
