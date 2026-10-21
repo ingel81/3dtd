@@ -486,9 +486,8 @@ function partsMass(
       points += part.rings.reduce((s, r) => s + r.length / 2, 0);
     }
     if (!own.length) return null;
-    // What the parts on the ground leave bare of the footprint (a part from a higher floor leaves the ground under it
-    // open): filled by a part of its own, a little inside its walls
-    if (partsCover(rings, own.filter((p) => !(p.base ?? 0))) < PARTS_COVER) {
+    // What the parts leave bare of the footprint: filled by a part of its own, a little inside its walls
+    if (partsCover(rings, own) < PARTS_COVER) {
       const fill = fillPart(rings, own, levels);
       if (fill) {
         own.push(fill);
@@ -532,17 +531,14 @@ export function partsCover(rings: readonly (readonly number[])[], parts: readonl
  * The part that fills what the parts leave bare: the footprint drawn in
  * FILL_INSET from its walls (its courtyards out as far), flat, as high as
  * the footprint's own walls but no higher than its lowest part on the
- * ground or the lowest floor of a part over the ground; null where the
- * drawn-in outline crosses itself
+ * ground; null where the drawn-in outline crosses itself
  */
 function fillPart(rings: readonly number[][], parts: readonly MapMassPart[], levels: { floors: number; height: number }): MapMassPart | null {
   const outer = offsetRing(rings[0], FILL_INSET);
   if (!outer) return null;
   const courts = rings.slice(1).map((h) => offsetRing(h, -FILL_INSET));
   const ground = parts.filter((p) => !(p.base ?? 0)).map((p) => p.height);
-  // Up to the floor of the lowest part standing on it, if that is lower
-  const over = parts.filter((p) => (p.base ?? 0) >= 2).map((p) => p.base!);
-  const height = round2(Math.min(levels.height + MASS_PARAPET, ...ground, ...over));
+  const height = round2(Math.min(levels.height + MASS_PARAPET, ...ground));
   if (height < 2) return null;
   return { rings: [outer.map(round2), ...courts.filter((h): h is number[] => !!h).map((h) => h.map(round2))], height, floors: levels.floors, roof: 'flat' };
 }
