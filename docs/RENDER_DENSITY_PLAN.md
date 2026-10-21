@@ -1,7 +1,7 @@
 # Zeichendichte: viel mehr Objekte bei gleicher Leistung (Plan, 2026-10-21)
 
-**Status:** Plan mit Ausgangsmessung, nichts am Spiel gebaut. TODO E304. Der User entscheidet die offenen Punkte
-(Abschnitt 10), danach Bau in der Reihenfolge von Abschnitt 6.
+**Status:** Plan mit Ausgangsmessung (Abschnitt 2), Entscheidungen in Abschnitt 10. Die ganze Würzburg-Karte nachgemessen
+(2.8); (b) Pixelgrenze gebaut 2026-10-21, vorher und nachher mit offenen Punkten in 2.9. TODO E304.
 
 **Bezug:** [CUSTOM_WORLD_PERF_VISUAL_PLAN.md](CUSTOM_WORLD_PERF_VISUAL_PLAN.md) (V2: eine InstancedMesh je Asset,
 Stufe und Teil, LOD nach Bildanteil), [LEVEL_EDITOR.md](LEVEL_EDITOR.md#szenenkosten) (Szenenkosten, Budget),
@@ -291,6 +291,116 @@ Altstadthaus `oldtown-gable-3` (0,27 Mio.) und die Autos (vier Farben, zusammen 
 **Folgerung für (b):** die Kostenrechnung entscheidet in OSM-Städten über das Bild, nicht die GPU: auf der ganzen Karte
 bleibt die GPU unter 4,2 ms, aber das Möblierungsbudget lässt Tausende Stücke gar nicht erst auf die Karte. Was (b)
 an der Rechnung ändert, ändert also, was der Import legt (Abschnitt 2.9).
+
+### 2.9 Pixelgrenze statt Sichtweite: vorher und nachher (E304 (b), 2026-10-21)
+
+Gebaut (b): ein Objekt wird gezeichnet, solange sein Begrenzungsradius im Bild mindestens `drawPixels` einer Ansicht mit
+1080 Zeilen hat (Low 3, Medium 2, High 1,5, Ultra 1 px, die Werte aus Abschnitt 8); `drawDistance` ist aus Katalog und
+Code verschwunden, `lodBias` wirkt nur noch auf die Detailstufen. Sichtblocker gehen auf jeder Stufe an der Grenze von
+High. Mauern und Bauwerke einer Gruppe (Gleise, Zäune, Hecken, Stützmauern, Stadtmauer) sind Stücke einer Linie und
+zählen mit der Größe der ganzen Linie (`line-spheres.ts`): so bleiben sie bis zum Kartenrand, ohne die Bänder aus (d).
+Die Kostenrechnung zählt jedes Objekt bis zu seiner Pixelgrenze bei High, ein Linienstück über die ganze Karte.
+
+Gemessen mit derselben Probe, gleicher Rechner, 1600 × 900. Die Würzburg-Zeilen zeichnen **dieselbe Kartendatei**
+(2.8, vor dem Umbau importiert), damit nur der Renderer wechselt. „fehlen“: platzierte Objekte, die von hier keine Stufe
+zeigen (vorher jenseits der Sichtweite, nachher unter der Pixelgrenze). Rauschen der GPU-Zeit zwischen zwei Läufen
+derselben Ansicht etwa ±0,15 ms (Ruined City im selben Build zweimal gemessen: 0,00 bis 0,10 ms Unterschied). Die
+Abgabe `render` lag auf Würzburg mehrfach bei genau 6,8 ms, vor und nach dem Umbau; der Wert ist dort keine Messung der
+Draws, sondern stößt an eine Grenze des Treibers oder der Bildfolge.
+
+**High**
+
+| Karte | Ansicht | GPU ms | Dreiecke (Mio.) | Calls | Abgabe `render` ms | LOD-CPU ms Mittel / Max | Schatten-Neubau +ms | fehlen: Linien + Gleise | fehlen: übrige Objekte |
+|---|---|---|---|---|---|---|---|---|---|
+| Ruined City | start | 1,30 → 1,32 | 1,84 → 2,01 | 103 → 98 | 0,41 → 0,39 | 0,07 / 0,55 → 0,04 / 0,35 | 0,25 → 0,27 | 0 → 0 | 6799 → 6269 |
+| Ruined City | game | 2,10 → 2,09 | 5,05 → 4,86 | 158 → 158 | 0,74 → 0,71 | 0,12 / 0,71 → 0,14 / 0,77 | 0,20 → 0,30 | 0 → 0 | 4088 → 3348 |
+| Ruined City | low | 1,49 → 1,64 | 2,65 → 2,70 | 140 → 139 | 0,60 → 0,61 | 0,11 / 0,59 → 0,11 / 0,58 | 0,24 → 0,36 | 0 → 0 | 6047 → 5428 |
+| Ruined City | top | 1,57 → 1,58 | 2,28 → 2,33 | 130 → 131 | 0,57 → 0,58 | 0,10 / 0,60 → 0,09 / 0,55 | 0,38 → 0,38 | 0 → 0 | 6273 → 5853 |
+| Ruined City | street | 2,12 → 2,10 | 7,30 → 7,04 | 120 → 120 | 0,56 → 0,56 | 0,11 / 0,82 → 0,13 / 1,17 | 0,70 → 0,70 | 0 → 0 | 2624 → 1389 |
+| Autumn Keep | start | 1,29 → 1,31 | 0,62 → 0,82 | 133 → 135 | 0,59 → 0,61 | 0,06 / 0,41 → 0,06 / 0,43 | 0,27 → 0,27 | 0 → 0 | 4664 → 4318 |
+| Autumn Keep | game | 2,27 → 2,26 | 3,33 → 3,39 | 174 → 174 | 0,90 → 0,88 | 0,12 / 0,53 → 0,09 / 0,60 | 0,39 → 0,50 | 0 → 0 | 1465 → 1399 |
+| Autumn Keep | low | 1,86 → 1,86 | 2,55 → 2,68 | 186 → 190 | 0,89 → 0,92 | 0,10 / 0,60 → 0,11 / 0,68 | 0,16 → 0,26 | 0 → 0 | 3517 → 2900 |
+| Autumn Keep | top | 1,67 → 1,71 | 0,86 → 1,11 | 158 → 164 | 0,72 → 0,77 | 0,08 / 0,48 → 0,08 / 0,51 | 0,31 → 0,33 | 0 → 0 | 4479 → 4090 |
+| Autumn Keep | street | 2,31 → 2,29 | 3,66 → 3,73 | 170 → 170 | 0,88 → 1,02 | 0,10 / 0,63 → 0,09 / 0,65 | 0,60 → 0,65 | 0 → 0 | 1213 → 1127 |
+| Würzburg | start | 2,25 → 2,75 | 4,12 → 6,39 | 208 → 244 | 0,92 → 1,19 | 0,36 / 1,48 → 0,25 / 1,35 | 0,70 → 0,70 | 5046 → 75 | 9609 → 4827 |
+| Würzburg | game | 3,39 → 3,42 | 5,60 → 7,85 | 328 → 342 | 3,48 → 3,69 | 0,47 / 1,82 → 0,39 / 1,46 | 1,55 → 1,84 | 4485 → 64 | 8834 → 4202 |
+| Würzburg | low | 4,15 → 4,59 | 6,59 → 8,78 | 421 → 440 | 6,84 → 6,83 | 0,53 / 1,93 → 0,41 / 1,60 | 1,51 → 1,35 | 4997 → 71 | 8791 → 4546 |
+| Würzburg | top | 2,98 → 3,44 | 2,98 → 4,93 | 277 → 324 | 0,86 → 1,34 | 0,26 / 1,46 → 0,20 / 1,07 | 0,44 → 0,80 | 17294 → 347 | 12053 → 9823 |
+| Würzburg | street | 3,35 → 4,41 | 6,39 → 8,39 | 344 → 363 | 3,29 → 6,86 | 0,44 / 1,80 → 0,36 / 2,12 | 1,69 → 1,43 | 4116 → 75 | 8155 → 4510 |
+| Würzburg | station | 3,28 → 3,38 | 4,51 → 6,61 | 239 → 251 | 2,78 → 2,71 | 0,40 / 1,46 → 0,39 / 1,62 | 0,94 → 1,25 | 6224 → 40 | 10318 → 4995 |
+
+**Ultra** (Würzburg; Ruined City und Autumn Keep wie bei High: GPU gleich innerhalb ±0,15 ms bis auf Autumn Keep
+`start` und `top`, +0,14 und +0,24 ms)
+
+| Karte | Ansicht | GPU ms | Dreiecke (Mio.) | Calls | Abgabe `render` ms | LOD-CPU ms Mittel / Max | Schatten-Neubau +ms | fehlen: Linien + Gleise | fehlen: übrige Objekte |
+|---|---|---|---|---|---|---|---|---|---|
+| Würzburg | start | 2,56 → 3,35 | 5,35 → 7,50 | 260 → 282 | 1,29 → 3,41 | 0,43 / 1,65 → 0,31 / 1,34 | 0,30 → 1,41 | 2428 → 50 | 7532 → 2458 |
+| Würzburg | game | 4,13 → 4,40 | 8,02 → 9,91 | 388 → 392 | 6,84 → 6,87 | 0,55 / 1,67 → 0,46 / 1,44 | 1,53 → 2,57 | 1943 → 42 | 6645 → 2213 |
+| Würzburg | low | 4,58 → 5,12 | 8,57 → 10,76 | 465 → 474 | 6,86 → 6,86 | 0,55 / 1,77 → 0,51 / 1,60 | 3,78 → 3,13 | 2254 → 55 | 6894 → 2266 |
+| Würzburg | top | 3,00 → 3,52 | 3,13 → 5,68 | 278 → 358 | 0,88 → 1,45 | 0,28 / 1,77 → 0,24 / 1,19 | 0,46 → 0,81 | 14261 → 143 | 12019 → 8258 |
+| Würzburg | street | 4,36 → 4,69 | 8,20 → 9,96 | 361 → 372 | 6,86 → 6,84 | 0,49 / 2,03 → 0,45 / 2,72 | 1,69 → 1,69 | 2054 → 48 | 6202 → 2218 |
+| Würzburg | station | 3,42 → 3,30 | 5,60 → 7,87 | 311 → 319 | 3,01 → 3,52 | 0,55 / 1,74 → 0,49 / 1,62 | 3,89 → 2,49 | 4170 → 11 | 9463 → 3060 |
+
+**Low** (Würzburg; Ruined City und Autumn Keep +0,02 bis +0,09 ms)
+
+| Karte | Ansicht | GPU ms | Dreiecke (Mio.) | Calls | Abgabe `render` ms | LOD-CPU ms Mittel / Max | Schatten-Neubau +ms | fehlen: Linien + Gleise | fehlen: übrige Objekte |
+|---|---|---|---|---|---|---|---|---|---|
+| Würzburg | start | 1,22 → 1,71 | 2,54 → 4,42 | 151 → 190 | 0,58 → 0,79 | 0,15 / 1,10 → 0,17 / 1,16 | 0,15 → 0,17 | 15388 → 404 | 11863 → 8882 |
+| Würzburg | game | 2,00 → 2,38 | 2,95 → 4,73 | 223 → 253 | 1,08 → 1,27 | 0,22 / 1,29 → 0,24 / 1,27 | 0,25 → 0,46 | 14333 → 348 | 11543 → 8427 |
+| Würzburg | low | 2,27 → 2,68 | 3,46 → 5,26 | 347 → 380 | 3,41 → 3,31 | 0,24 / 1,30 → 0,31 / 1,31 | 0,26 → 0,22 | 14609 → 351 | 11566 → 8472 |
+| Würzburg | top | 1,32 → 1,65 | 2,80 → 4,55 | 265 → 281 | 0,75 → 0,84 | 0,19 / 1,23 → 0,16 / 1,15 | 0,11 → 0,16 | 19065 → 1305 | 12212 → 11275 |
+| Würzburg | street | 2,60 → 2,88 | 3,08 → 4,87 | 262 → 291 | 2,59 → 2,45 | 0,26 / 3,77 → 0,26 / 1,99 | 0,13 → 0,09 | 14062 → 387 | 11342 → 8295 |
+| Würzburg | station | 1,51 → 1,85 | 2,56 → 3,94 | 158 → 180 | 0,78 → 0,90 | 0,23 / 1,35 → 0,27 / 1,34 | 0,23 → 0,08 | 12411 → 495 | 11622 → 9770 |
+
+**Würzburg neu importiert** (High, vorher wie oben, nachher die Karte, die der Import mit der neuen Rechnung legt):
+
+| Karte | Ansicht | GPU ms | Dreiecke (Mio.) | Calls | Abgabe `render` ms | LOD-CPU ms Mittel / Max | Schatten-Neubau +ms | fehlen: Linien + Gleise | fehlen: übrige Objekte |
+|---|---|---|---|---|---|---|---|---|---|
+| Würzburg | start | 2,25 → 2,44 | 4,12 → 5,26 | 208 → 244 | 0,92 → 1,18 | 0,36 / 1,48 → 0,22 / 1,30 | 0,70 → 0,39 | 5046 → 71 | 9609 → 4402 |
+| Würzburg | game | 3,39 → 3,45 | 5,60 → 6,54 | 328 → 342 | 3,48 → 3,39 | 0,47 / 1,82 → 0,35 / 1,32 | 1,55 → 1,65 | 4485 → 63 | 8834 → 3884 |
+| Würzburg | low | 4,15 → 4,32 | 6,59 → 7,54 | 421 → 443 | 6,84 → 6,86 | 0,53 / 1,93 → 0,36 / 1,52 | 1,51 → 1,28 | 4997 → 69 | 8791 → 4112 |
+| Würzburg | top | 2,98 → 3,29 | 2,98 → 4,66 | 277 → 312 | 0,86 → 1,08 | 0,26 / 1,46 → 0,17 / 1,35 | 0,44 → 0,70 | 17294 → 325 | 12053 → 8194 |
+| Würzburg | street | 3,35 → 3,48 | 6,39 → 7,10 | 344 → 352 | 3,29 → 3,39 | 0,44 / 1,80 → 0,31 / 1,87 | 1,69 → 1,46 | 4116 → 70 | 8155 → 4229 |
+| Würzburg | station | 3,28 → 3,38 | 4,51 → 5,45 | 239 → 255 | 2,78 → 2,98 | 0,40 / 1,46 → 0,36 / 1,29 | 0,94 → 1,05 | 6224 → 35 | 10318 → 4498 |
+
+**Was das heißt:**
+
+1. **Linien und Gleise bleiben.** Auf der ganzen Würzburg-Karte fehlen in der Spielansicht (High) 64 statt 4 485
+   Linien- und Gleisstücke, von oben 347 statt 17 294, auf Low 348 statt 14 333. Was noch fehlt, sind einzelne kurze
+   Stücke (eine Linie aus einem Stück zählt mit ihrer eigenen Größe). Auf Ruined City und Autumn Keep fehlte schon vorher
+   keine Linie.
+2. **Gleiche Kartendatei, mehr im Bild: GPU High +0,0 bis +0,5 ms, in der Straße +1,1 ms; Ultra −0,1 bis +0,8;
+   Low +0,3 bis +0,5.** Fast der ganze Zuwachs sind Autos und Zäune: die 3 128 Autos auf Parkplätzen (Radius 2,1 m)
+   zeichneten bis 800 m und gehen jetzt bei 1,3 km; in der Spielansicht +1,5 Mio. Dreiecke Autos, +0,45 Mio. Zäune
+   (`fence-picket`, `fence-wood`, früher 800 m, jetzt als Linie bis zum Rand). Auf den mitgelieferten Karten ändert sich
+   die GPU-Zeit nicht messbar; dort zeigt die Pixelgrenze mehr Kleinkram als vorher (Ruined City `street` fehlen 1 389
+   statt 2 624 Pflanzen und Props), weil viele Pflanzen und Props eine kurze Sichtweite hatten.
+3. **Mit dem neu gerechneten Import kommt Würzburg fast auf die Kosten von vorher**: GPU +0,06 bis +0,31 ms, `game`,
+   `street` und `station` +0,06 bis +0,13 (im Rauschen). Der Import legt unter denselben Teilbudgets weniger: Autos
+   1 275 statt 3 128 (Flächen-Budget, jetzt 1 853 Stück weggelassen), Möblierung 13 444 statt 14 696 Stücke (Mauern
+   1 893 statt 2 144, Zäune 1 443 statt 1 692, Stützmauern 1 869 statt 2 432, Hecken 43 statt 160, Stadtmauer 284 statt
+   356); Gleise unverändert alle. Szenenkosten 5,06 Mio. (42 %) statt 4,53 Mio.
+4. **CPU:** die Stufenwahl wird nicht teurer (Würzburg High 0,20 bis 0,41 ms im Mittel statt 0,26 bis 0,53); ein
+   Linienstück rechnet eine Distanz mehr, die Kugeln der Linien entstehen nur nach einer Änderung.
+5. **Szenenkosten der mitgelieferten Karten** (neue Rechnung): Ruined City 6,81 → 6,55 Mio., Autumn Keep 2,69 → 2,67,
+   Demo Valley 1,95 → 2,20, Mars Canyon 3,85 → 4,14, übrige ±0,03 Mio.; alle bleiben unter 55 % (Grenze 80 %).
+   `SCENE_BUDGET` ist nicht neu geeicht (Abschnitt 8 sah das vor): auf der ganzen Würzburg-Karte liegen 42 % bei 2,4 bis
+   4,6 ms GPU in der Vorschau.
+
+**Offen, zu entscheiden:**
+
+- **Pixelwerte je Stufe.** Gebaut sind die Vorschläge (3 / 2 / 1,5 / 1 px). Sie zeichnen auf eigenen Karten fast überall
+  weiter als die alten Sichtweiten. Die Entscheidung „bis (a) deckelt die Pixelgrenze die Kosten“ (Abschnitt 10) gilt mit
+  diesen Werten nur über die Kostenrechnung des Imports (Punkt 3), nicht für eine Kartendatei, die schon liegt
+  (Punkt 2). Wer bei gleicher Datei gleiche GPU-Zeit will, braucht höhere Werte (z. B. High 2 px) oder (a) zuerst.
+  Abnahme am Bild je Stufe: `tmp/e304-shots/` (Worktree).
+- **Teilbudgets des Imports.** Unverändert 15 % Möblierung, 10 % Flächen. Mit der neuen Rechnung bleiben 9 623
+  Möblierungsstücke weg (vorher 8 371), darunter 92 % der Hecken, 66 % der Mauern und 43 bis 48 % der Zäune, Stütz-
+  und Stadtmauern; das Szenenbudget ist dabei zu 58 % frei. Ein höherer Anteil für Linien hieße mehr Mauern, Zäune und Hecken bei mehr GPU-Zeit, bis (d) sie fern als
+  Bänder zeichnet.
+- **Sichtblocker und Sicht-Cube.** Blocker gehen bei 1,5 px (High), auch auf Low und Ultra. Ein kleiner Blocker (Fels
+  ab 1,8 m, Schuppen) fällt damit ab etwa 0,7 bis 1,2 km Kameraabstand aus dem Cube eines Towers; vorher an seiner
+  Sichtweite (Felsen 800 m). Die feste Stufe für den Cube (Entscheidung 5) löst das.
 
 ## 3. Wie andere es machen (belegt)
 
@@ -682,6 +792,7 @@ Fixes; der Branch zieht `next` regelmäßig nach und kommt erst auf Zuruf des Us
   Eine OSM-Welt entsteht mit `tools/osm/osm-world.spec.ts` (`OSM_RAW`, `OSM_PLACES`). Die ganze Würzburg-Welt (2.8):
   die Abfrage von `osmWorldQuery(osmQueryBox(49.7932, 9.9312, 2400, 100))` einmal an Overpass, die Antwort als
   `<OSM_RAW>/wuerzburgwelt.json`, dann `OSM_PLACES="wuerzburgwelt:49.7932,9.9312"`; die Probe kennt für
-  `osm-wuerzburgwelt` die Ansichten `street` und `station` (`VIEWS`).
+  `osm-wuerzburgwelt` die Ansichten `street` und `station` (`VIEWS`). Die Probe liefert `public/` aus dem Arbeitsbaum:
+  wer während eines Laufs den Katalog ändert, misst den Build mit dem neuen Katalog.
 - `e2e/perf/tsl-probe.ts` mit `e2e/perf/tsl-probe/index.html`: ein Shader in TSL auf beiden Backends (Abschnitt 9).
 - Für das ganze Spiel (mit Post-Processing, ohne Kamerawahl) bleibt `e2e/perf/render-bench.ts` (BENCHMARKS.md).
