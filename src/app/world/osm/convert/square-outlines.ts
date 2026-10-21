@@ -72,6 +72,65 @@ export function pullOutlines(paths: MapPaths, features: OsmFeatures): number {
   return moved;
 }
 
+/**
+ * Pulls the ends of roads and paths that end at a building (a lane up to a
+ * church's portal, a drive into a garage) off its wall, and the nodes of
+ * footways and pedestrian streets that OSM puts inside a building (the ways
+ * across a square meeting at a church's corner), as far as the outlines
+ * keep: the map's wider way would stand in the wall, and the building would
+ * be cut back along the way's whole line or shrunk (building-mass.ts
+ * clipOffRoads; the Würzburg Dom lost its west front so). An end is a node
+ * only one edge uses. A passage's door (a `covered` edge's end), a node of
+ * a tunnel, a bridge or a road for cars inside a building stay, and so does
+ * a node that would leave the map's square (|x|, |y| up to `lim`). The
+ * nodes moved
+ */
+export function pullDeadEnds(paths: MapPaths, features: OsmFeatures, lim = Infinity): number {
+  const uses = new Map<string, number>();
+  // Nodes that stay where OSM has them, wherever they are: a passage's, a tunnel's, a bridge's
+  const fixed = new Set<string>();
+  // Nodes of roads for cars: they move only as an end
+  const roads = new Set<string>();
+  for (const e of paths.edges) {
+    uses.set(e.a, (uses.get(e.a) ?? 0) + 1);
+    uses.set(e.b, (uses.get(e.b) ?? 0) + 1);
+    if (e.covered || e.tunnel || e.kind === 'bridge') {
+      fixed.add(e.a);
+      fixed.add(e.b);
+    } else if (e.kind === 'road' && !e.area && !FOOT_STREETS.has(e.street ?? '')) {
+      roads.add(e.a);
+      roads.add(e.b);
+    }
+  }
+  const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
+  let solids: SolidIndex | null = null;
+  const done = new Set<string>();
+  let moved = 0;
+  for (const e of paths.edges) {
+    if (e.area || e.covered) continue;
+    for (const id of [e.a, e.b]) {
+      const n = nodes.get(id);
+      if (!n || fixed.has(id) || done.has(id)) continue;
+      const end = uses.get(id) === 1;
+      // A way cut at the map's edge leaves it there
+      if ((!end && roads.has(id)) || Math.abs(n.x) >= lim - 0.5 || Math.abs(n.y) >= lim - 0.5) continue;
+      solids ??= new SolidIndex(features);
+      if (!end && !solids.inside(n)) continue;
+      done.add(id);
+      const to = pulledOff(n, e.width / 2 + OUTLINE_GUARD, solids);
+      // Not off the map: an end at its edge is where the way leaves it
+      if (!to || Math.abs(to.x) > lim || Math.abs(to.y) > lim) continue;
+      n.x = round2(to.x);
+      n.y = round2(to.y);
+      moved++;
+    }
+  }
+  return moved;
+}
+
+/** Street types (MapPathEdge.street) of the roads people walk on: their nodes leave a building like a footway's */
+const FOOT_STREETS: ReadonlySet<string> = new Set(['pedestrian', 'living_street', 'footway', 'path', 'steps', 'cycleway', 'track']);
+
 /** Where `p` goes to keep `clear` m off every building, null to stay (clear already, or nowhere better) */
 function pulledOff(p: MapPoint, clear: number, solids: SolidIndex): MapPoint | null {
   let at = p;

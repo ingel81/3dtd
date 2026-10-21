@@ -1,8 +1,10 @@
 import { createMapDocument } from '../../custom-map/map-create';
 import { components, routeBetween } from '../../../map-ops/path-graph';
-import { OsmFrame, parseOsm } from '../osm-parse';
+import type { MapPaths } from '../../custom-map/map-document';
+import { OsmFrame, parseOsm, type OsmArea, type OsmFeatures } from '../osm-parse';
 import type { OverpassElement } from '../overpass-client';
 import { buildRoads, clipPieces, levelRoads, paintRoads } from './roads';
+import { pullDeadEnds } from './square-outlines';
 
 const frame = new OsmFrame(48, 9);
 const g = (x: number, y: number) => frame.geo({ x, y });
@@ -168,5 +170,62 @@ describe('OSM roads', () => {
     expect(doc.paths.edges.map((e) => e.surface)).toEqual(['asphalt', 'sidewalk', 'sidewalk', 'sidewalk', 'sidewalk', 'cobblestone', 'gravel', 'dirt-path']);
     expect(paintRoads(doc.terrain, doc.paths)).toEqual(['asphalt', 'sidewalk', 'cobblestone', 'dirt-path', 'gravel']);
     expect(doc.terrain.layers.length).toBe(6);
+  });
+});
+
+describe('OSM roads at buildings (E297 L3)', () => {
+  /** A rectangle `a` by `b` round (x, y) as an OSM building of its own */
+  const building = (id: number, x: number, y: number, a: number, b: number, tags: Record<string, string>): OsmArea => ({
+    id,
+    from: 'way',
+    tags,
+    outer: [[{ x: x - a / 2, y: y - b / 2 }, { x: x + a / 2, y: y - b / 2 }, { x: x + a / 2, y: y + b / 2 }, { x: x - a / 2, y: y + b / 2 }]],
+    inner: [],
+    area: a * b,
+  });
+  const features = (areas: OsmArea[]): OsmFeatures => ({
+    frame,
+    half: 100,
+    ways: [],
+    areas,
+    points: [],
+    stats: { elements: 0, ways: 0, relations: 0, points: 0, areas: 0, forcedRings: 0, cutAreas: 0, turnedAreas: 0, areasOutside: 0 },
+  });
+
+  it('pulls the end of a lane off the wall it ends at and a footway junction out of a church, not a road junction or the map edge', () => {
+    const church = building(1, 0, 0, 30, 14, { building: 'church' });
+    const shed = building(2, -95, 50, 12, 8, { building: 'yes' });
+    const paths: MapPaths = {
+      nodes: [
+        { id: 'lane', x: 20, y: 0 },
+        { id: 'end', x: 14, y: 0 },
+        { id: 'f1', x: -20, y: 5 },
+        { id: 'fj', x: -12, y: 5 },
+        { id: 'f2', x: -12, y: 20 },
+        { id: 'r1', x: 5, y: -20 },
+        { id: 'rj', x: 5, y: -5 },
+        { id: 'r2', x: 20, y: -5 },
+        { id: 'edge', x: -99.5, y: 50 },
+        { id: 'in', x: -80, y: 50 },
+      ],
+      edges: [
+        { id: 'e1', a: 'lane', b: 'end', width: 4, kind: 'road', street: 'service' },
+        { id: 'e2', a: 'f1', b: 'fj', width: 2, kind: 'path', street: 'footway' },
+        { id: 'e3', a: 'fj', b: 'f2', width: 2, kind: 'path', street: 'footway' },
+        { id: 'e4', a: 'r1', b: 'rj', width: 6, kind: 'road', street: 'residential' },
+        { id: 'e5', a: 'rj', b: 'r2', width: 6, kind: 'road', street: 'residential' },
+        { id: 'e6', a: 'edge', b: 'in', width: 6, kind: 'road', street: 'residential' },
+      ],
+    };
+    expect(pullDeadEnds(paths, features([church, shed]), 99.5)).toBe(2);
+    const at = (id: string) => paths.nodes.find((n) => n.id === id)!;
+    // The lane ends 2.5 m off the east wall (its half width and the guard); the footways meet in front of the north wall
+    expect(at('end').x).toBeCloseTo(17.5);
+    expect(at('end').y).toBeCloseTo(0);
+    expect(Math.abs(at('fj').y)).toBeGreaterThanOrEqual(7 + 1.5 - 1e-6);
+    // The road junction inside stays where OSM has it (the building gives way), so does the way at the map's edge
+    expect(at('rj')).toMatchObject({ x: 5, y: -5 });
+    expect(at('edge')).toMatchObject({ x: -99.5, y: 50 });
+    expect(at('lane')).toMatchObject({ x: 20, y: 0 });
   });
 });

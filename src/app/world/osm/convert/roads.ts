@@ -24,7 +24,7 @@ import { fitSplatMaps, type MapPathEdge, type MapPathNode, type MapPaths, type M
 import type { OsmFeatures } from '../osm-parse';
 import { bridgeStyle, roadTags, sidewalkTag, type RoadSurface } from '../osm-tags';
 import { roadPaintBands } from '../../custom-map/render/paths/road-style';
-import { pullOutlines } from './square-outlines';
+import { pullDeadEnds, pullOutlines } from './square-outlines';
 
 export interface RoadStats {
   /** Road ways read, and the tunnels (ways joined end to end) kept as tunnel edges, with their length */
@@ -45,6 +45,8 @@ export interface RoadStats {
   /** Edges through buildings (passages, `covered`), and points of squares' outlines pulled off the walls (square-outlines.ts) */
   covered: number;
   outlinePulled: number;
+  /** Ends of roads and paths pulled off the building they end at (square-outlines.ts pullDeadEnds) */
+  endsPulled: number;
 }
 
 /** A tunnel's mouth inside the map: where its portal stands */
@@ -91,7 +93,7 @@ interface Vertex {
 /** The road ways of `features` as the map's path graph */
 export function buildRoads(features: OsmFeatures): RoadBuild {
   const lim = features.half - EDGE_INSET;
-  const stats: RoadStats = { ways: 0, tunnels: 0, tunnelM: 0, nodes: 0, edges: 0, bridges: 0, km: { road: 0, path: 0, bridge: 0 }, kmByType: {}, cutAtEdge: 0, openTunnels: 0, covered: 0, outlinePulled: 0 };
+  const stats: RoadStats = { ways: 0, tunnels: 0, tunnelM: 0, nodes: 0, edges: 0, bridges: 0, km: { road: 0, path: 0, bridge: 0 }, kmByType: {}, cutAtEdge: 0, openTunnels: 0, covered: 0, outlinePulled: 0, endsPulled: 0 };
   const roads = features.ways
     .filter((w) => w.nodes.length >= 2)
     .map((way) => ({ way, tags: roadTags(way.tags) }))
@@ -166,6 +168,8 @@ export function buildRoads(features: OsmFeatures): RoadBuild {
   const paths = { nodes: [...nodes.values()], edges };
   // The squares' outlines off the walls of the houses round them: they hold no building off
   stats.outlinePulled = pullOutlines(paths, features);
+  // A road that ends at a building ends in front of its wall: it cuts no building back along its line
+  stats.endsPulled = pullDeadEnds(paths, features, lim);
   stats.covered = edges.filter((e) => e.covered).length;
   stats.nodes = nodes.size;
   stats.edges = edges.length;
