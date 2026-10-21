@@ -578,8 +578,9 @@ Liste von Instanzen (`instance-list.ts`: Matrix, Farbe, Auflösung im Band, eige
 zeigt die Stufe, die seine **Größe im Bild** verlangt: sein Begrenzungsradius durch den Abstand, gegen den Bildanteil
 `screen` der `lod`-Modelle des Katalogs (eine Garage nimmt ihr LOD-Modell näher als eine Schule), ein **Impostor**
 für ferne Bäume ab 380 m, nichts, sobald sein Radius im Bild unter die Pixelgrenze der Stufe fällt (`drawPixels`,
-[RENDER_QUALITY.md](RENDER_QUALITY.md); die Stücke einer Linie mit der Größe der ganzen Linie). Ein weiteres Sichtfeld
-als 60° schaltet entsprechend näher. Sichtblocker (Katalog `blocksLos`, je Objekt überschreibbar) liegen in `losBlockers`.
+[RENDER_QUALITY.md](RENDER_QUALITY.md); die Stücke einer Linie (`MapLine`, `MapObject.line`) mit der Größe der ganzen
+Linie, `line-spheres.ts`). Ein weiteres Sichtfeld als 60° schaltet entsprechend näher. Sichtblocker (Katalog
+`blocksLos`, je Objekt überschreibbar) liegen in `losBlockers`.
 
 **Draw Calls (V2, ersetzt Zellen und gepackte Assets):** Ein Stufenwechsel verschiebt eine oder zwei Instanzen in der
 Liste der Stufe (der letzte seiner Abteilung füllt die Lücke), nie die Liste; hochgeladen wird je Bild ein Bereich je

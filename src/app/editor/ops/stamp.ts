@@ -382,7 +382,8 @@ export function pasteStamp(stroke: LandscapeContext, stamp: Stamp, center: MapPo
     for (const o of stamp.objects) {
       const p = place(o, center, cos, sin);
       if (Math.abs(p.x) > t.width / 2 - 1 || Math.abs(p.y) > t.depth / 2 - 1) continue;
-      const { group, ...plain } = o;
+      // A stamp keeps no lines: a piece of one stands alone where it lands
+      const { group, line: _line, ...plain } = o;
       const object: Omit<MapObject, 'id'> = { ...plain, x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100, rotation: Math.round((o.rotation + options.rotation) * 1000) / 1000 };
       if (whole) object.group = groupOf('');
       else if (group) object.group = groupOf(group);

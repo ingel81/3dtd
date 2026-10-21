@@ -17,6 +17,7 @@
  * then single objects.
  */
 import { CatalogIndex } from '../../map-ops/asset-catalog';
+import { linePiece } from '../../world/custom-map/render/asset-catalog';
 import { EditorDocument } from '../model/editor-document';
 import { heightAt, insideMap, nearestSample, slopeAt, type GridRect } from '../../map-ops/grid';
 import { contourRows } from '../../map-ops/contour-rows';
@@ -46,6 +47,8 @@ import {
   setDown,
   wallAlong,
   wallKitOf,
+  freeLineId,
+  lineOf,
   type LineOptions,
   type ScatterOptions,
   DEFAULT_LINE,
@@ -58,7 +61,7 @@ import { stampEntry } from '../model/stamp-store';
 import { MAX_LAYERS, autoPaint, defaultAutoRules, paintDab, readWeights, removeLayer, type AutoPaintRule } from '../../map-ops/paint-ops';
 import { addNode, connect, edgePolyline, nearestNode, nearestOnEdges, pointAt, polylineLength, spawnRoutes, splitEdge } from '../../map-ops/path-graph';
 import { flattenUnderPaths, paintUnderPaths } from '../../map-ops/path-terrain';
-import { lifeAreaImages, mirrorChange, objectImages, surfaceImages, symmetryImages, type SymmetryMode } from './symmetry';
+import { lifeAreaImages, lineImages, mirrorChange, objectImages, surfaceImages, symmetryImages, type SymmetryMode } from './symmetry';
 import { fitMarking, markingProblems, MAX_SURFACES, newSurfaceId, surfaceProblems } from '../../world/custom-map/map-surfaces';
 import { flattenDab, noiseDab, plateauDab, raiseDab, rampBetween, smoothDab, terraceDab, erodeDab } from '../../map-ops/terrain-ops';
 import { addPouredBodies, basinSpillHeight, BODY_COLORS, emptyWater, fillBasin, fillFromEdge, lakeDab, RIM_MARGIN, waterBody, waterMaskDab, wetSamples } from '../../map-ops/water-ops';
@@ -994,11 +997,15 @@ export class MapKit {
     const own = (
       kit ? wallAlong(line, kit, { corners: options.corners ?? 'blocks', front: options.front ?? 'left' }, ids) : objectsAlong(line, asset, options, ids, rng(this.nextSeed()))
     ).filter((p) => insideMap(t, p));
-    const images = this.symmetry === 'none' ? [] : objectImages(own, symmetryImages(this.symmetry, t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
+    // A wall's, fence's or track's pieces make a line (MapLine), each symmetric image its own
+    const symmetry = symmetryImages(this.symmetry, t.grid.columns === t.grid.rows);
+    const made = own.length ? lineOf(freeLineId(this.doc.lines), line, own, (a) => linePiece(this.catalog.object(a).footing?.category ?? 'prop')) : null;
+    const images = this.symmetry === 'none' ? [] : objectImages(own, symmetry, () => ids.take(), t.width / 2, t.depth / 2);
     const entry = this.catalog.object(asset);
     if (levelsGround(entry)) for (const p of [...own, ...images]) levelUnderBuilding(t, p, entry);
     const placed = [...own, ...images].map((p) => setDown(t, p, rockShape(entry), !!o.alignToSlope && !entry.float, entry.radius));
     this.doc.objects.push(...placed);
+    if (made) this.doc.lines = [...(this.doc.lines ?? []), made, ...lineImages([made], symmetry).filter((l) => images.some((p) => p.line === l.id))];
     this.freeCheck = null;
     return placed;
   }

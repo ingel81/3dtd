@@ -10,6 +10,7 @@ import type {
   MapGameplay,
   MapIntro,
   MapLife,
+  MapLine,
   MapMeta,
   MapObject,
   MapPaths,
@@ -36,6 +37,7 @@ export interface DocParts {
   terrain: MapTerrain;
   prefabs: MapPrefab[] | undefined;
   footprints: MapFootprints | undefined;
+  lines: MapLine[] | undefined;
 }
 
 /** The parts that make the map's content: every field of the document but its format, version and `meta` (id, name, dates) */
@@ -55,6 +57,7 @@ const CONTENT_PART: Record<ContentPart, true> = {
   intro: true,
   prefabs: true,
   footprints: true,
+  lines: true,
 };
 
 /**
@@ -79,6 +82,8 @@ const PART_CHANGE: Record<keyof DocParts, DocChange> = {
   prefabs: { prefabs: true },
   // No tool changes them and nothing draws them in the editor; the worker's mirror follows them by identity
   footprints: {},
+  // The pieces draw a line (MapObject.line); its course alone draws nothing
+  lines: {},
 };
 
 /** Swaps parts of the document between two copies */

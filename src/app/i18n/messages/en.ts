@@ -371,6 +371,7 @@ const MAP_THING: Record<MapThingKind, { one: string; a: string }> = {
   waveEvent: { one: 'wave event', a: 'a wave event' },
   building: { one: 'its building', a: 'its building' },
   marking: { one: 'the marking', a: 'the marking' },
+  line: { one: 'line', a: 'a line' },
 };
 
 /** Things that are one of their kind in a map: named without a number */
@@ -462,6 +463,7 @@ const mapFile = {
     noAsset: (v: { what: MapRef }) => `${mapRef(v.what)} has no asset`,
     badPlacement: (v: { what: MapRef }) => `${mapRef(v.what)} has a bad placement`,
     badGroup: (v: { what: MapRef }) => `${mapRef(v.what)} has a bad group`,
+    badLine: (v: { what: MapRef }) => `${mapRef(v.what)} names a bad line, it stands alone`,
     badTilt: (v: { what: MapRef }) => `${mapRef(v.what)} has a bad tilt`,
     noSize: (v: { what: MapRef }) => `${mapRef(v.what)} has no size`,
     badObject: (v: { what: MapRef }) => `${mapRef(v.what)} has a bad object`,

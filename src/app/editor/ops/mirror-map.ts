@@ -18,7 +18,7 @@ import type { ObjectIdSource } from '../../map-ops/object-ops';
 import { newId } from '../../map-ops/path-graph';
 import { MAX_LIFE_AREAS, newLifeId } from '../../world/custom-map/map-life';
 import { MAX_SURFACES, newSurfaceId } from '../../world/custom-map/map-surfaces';
-import { lifeAreaImages, mirrorChange, sameSector, surfaceImages, symmetryImages, type SymmetryMode } from './symmetry';
+import { lifeAreaImages, lineImages, mirrorChange, sameSector, surfaceImages, symmetryImages, type SymmetryMode } from './symmetry';
 
 export interface MirrorResult {
   objects: number;
@@ -72,10 +72,16 @@ export function mirrorMap(
       if (!inside(p) || Math.hypot(p.x - o.x, p.y - o.y) < 0.01) continue;
       const copy = { ...o, id: ids.take(), x: round(p.x), y: round(p.y), rotation: turn(img.turn(o.rotation)) };
       if (o.group) copy.group = `${o.group}m${k + 1}`;
+      if (o.line) copy.line = `${o.line}m${k + 1}`;
       objects.push(copy);
     }
   });
   doc.objects = objects;
+  // Lines: those a kept piece names, and their images that a copy names
+  const named = new Set(objects.map((o) => o.line).filter((l) => l !== undefined));
+  const lines = (doc.lines ?? []).filter((l) => named.has(l.id));
+  const lineCopies = lineImages(lines, images).filter((l) => named.has(l.id));
+  if (doc.lines) doc.lines = [...lines, ...lineCopies];
 
   // Spawns
   const spawns: MapSpawn[] = doc.spawns.filter(inSource);

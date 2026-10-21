@@ -49,6 +49,7 @@ const MAP_THING_DE: Record<MapThingDe['kind'], { one: string; a: string }> = {
   waveEvent: { one: 'Wellenereignis', a: 'ein Wellenereignis' },
   building: { one: 'sein Gebäude', a: 'sein Gebäude' },
   marking: { one: 'die Linien', a: 'die Linien' },
+  line: { one: 'Linie', a: 'eine Linie' },
 };
 const SOLE_THING_DE = new Set<MapThingDe['kind']>(['hq', 'water', 'building', 'marking']);
 const thingDe = (kind: MapThingDe['kind']) => MAP_THING_DE[kind] ?? { one: String(kind), a: String(kind) };
@@ -133,6 +134,7 @@ const mapFile: Messages['mapFile'] = {
     noAsset: (v) => `${mapRefDe(v.what)} hat kein Asset`,
     badPlacement: (v) => `${mapRefDe(v.what)} hat eine kaputte Lage`,
     badGroup: (v) => `${mapRefDe(v.what)} hat eine kaputte Gruppe`,
+    badLine: (v) => `${mapRefDe(v.what)} nennt eine kaputte Linie und steht allein`,
     badTilt: (v) => `${mapRefDe(v.what)} hat eine kaputte Neigung`,
     noSize: (v) => `${mapRefDe(v.what)} hat keine Größe`,
     badObject: (v) => `${mapRefDe(v.what)} hat ein kaputtes Objekt`,

@@ -79,7 +79,7 @@ describe('MapObjectLayer pixel limit', () => {
   it('draws the pieces of a line as long as the whole line, a piece alone by its own size', async () => {
     const layer = new MapObjectLayer(field(), library(), new Group());
     // A fence of 30 pieces along map x over 290 m, one piece alone beside it
-    const line = Array.from({ length: 30 }, (_, k) => at(`f${k}`, 'fence', k * 10, 0, { group: 'g' }));
+    const line = Array.from({ length: 30 }, (_, k) => at(`f${k}`, 'fence', k * 10, 0, { line: 'g' }));
     await layer.setObjects([...line, at('lone', 'fence', 0, 20)]);
     const look = viewer(layer);
     // 900 m off: past the lone piece's 624 m, the line's pieces stay
@@ -92,9 +92,9 @@ describe('MapObjectLayer pixel limit', () => {
     layer.removeObjects(['f1']);
     look(-900);
     expect(shown(layer.group, 'fence-decor')).toBe(0);
-    // Out of its group a piece is alone again; back in a long line it shows from afar
-    expect(layer.updateObjects([{ ...line[0], x: 0, group: undefined }])).toEqual([]);
-    await layer.addObjects([at('f40', 'fence', 400, 0, { group: 'h' }), at('f41', 'fence', 600, 0, { group: 'h' })]);
+    // Out of its line a piece is alone again; in a long line it shows from afar
+    expect(layer.updateObjects([{ ...line[0], x: 0, line: undefined }])).toEqual([]);
+    await layer.addObjects([at('f40', 'fence', 400, 0, { line: 'h' }), at('f41', 'fence', 600, 0, { line: 'h' })]);
     look(-901);
     expect(shown(layer.group, 'fence-decor')).toBe(2);
     layer.dispose();

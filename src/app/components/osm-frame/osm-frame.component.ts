@@ -8,6 +8,7 @@ import { MapAssetLibrary } from '../../world/custom-map/render/map-asset-library
 import type { CatalogObject } from '../../world/custom-map/render/asset-catalog';
 import { buildingCatalog } from '../../world/osm/convert/buildings';
 import { assetCosts } from '../../world/osm/convert/vegetation';
+import { lineAssets } from '../../world/custom-map/render/asset-catalog';
 import { OSM_SPAWNS, OSM_WORLD_SIDE, osmMapNames, type OsmImportReport } from '../../world/osm/import-osm';
 import type { FrameLandmark, FrameSpawn, GeoPoint, OsmFrameInfo, OsmOpenRequest } from '../../world/osm/osm-frame-core';
 import { loadingRows, loadingView, makingView, reduceProgress, type OsmDetail, type OsmLoadRow, type OsmProgress, type OsmProgressState, type OsmStepStatus } from '../../world/osm/osm-progress';
@@ -502,6 +503,7 @@ export class OsmFrameComponent implements OnInit, OnDestroy {
         this.spawns(),
         {
           id, name: names.name, costs: catalog && assetCosts(catalog, this.area()?.sideM ?? OSM_WORLD_SIDE), catalog: catalog && buildingCatalog(catalog),
+          lineAssets: catalog && lineAssets(catalog),
           destructible: this.destructible(),
           materials,
         },

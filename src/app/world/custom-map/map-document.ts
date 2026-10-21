@@ -16,10 +16,12 @@ export const MAP_FORMAT = '3dtd-map';
 /**
  * 2: optional `gameplay` rules (version 1 files have none and read unchanged).
  * 3: a third splat map for ground layers 9 to 12 (older files have at most 8 layers and read unchanged).
+ * 4: buildings raised from their footprint, surfaces, the storm weather.
+ * 5: lines (`lines`, MapObject.line): walls, fences, hedges and tracks as lines of pieces (older files have none).
  * When to raise it: docs/LEVEL_EDITOR.md, "Formatregeln" (a field an older game must not skip does; a new
  * value of a list or an optional look does not)
  */
-export const MAP_VERSION = 4;
+export const MAP_VERSION = 5;
 
 /** Metres per degree in the synthetic frame, the factor `geoToLocalSimple` uses at latitude 0 */
 export const MAP_METERS_PER_DEGREE = 111320;
@@ -252,6 +254,11 @@ export interface MapObject {
   damageSeed?: number;
   /** Objects with the same group are picked and moved together in the editor; the game ignores it */
   group?: string;
+  /**
+   * The line it is a piece of (CustomMapDocument.lines): a wall's, a fence's, a hedge's or a track's pieces draw
+   * while the whole line is above the pixel limit, and far off as the line's band (render/objects)
+   */
+  line?: string;
   /**
    * A building raised from its own footprint instead of a catalogue model
    * (asset MASS_ASSET, object-mass.ts): an OSM footprint no model fits
@@ -821,6 +828,16 @@ export type MapIntro =
   | { kind: 'path'; seconds: number; views: MapIntroView[] }
   | { kind: 'orbit'; seconds: number; radius: number; height: number; angle: number; sweep?: number };
 
+/**
+ * A line of pieces (a wall, a fence, a hedge, a track): its pieces are objects that name it (MapObject.line), laid
+ * along `points` (map metres, in the order they were laid). The pieces are what the game builds on, sees through
+ * and destroys; the line holds them together: they draw as long as the whole line does, far off as one band
+ */
+export interface MapLine {
+  id: string;
+  points: MapPoint[];
+}
+
 export interface CustomMapDocument {
   format: typeof MAP_FORMAT;
   version: number;
@@ -839,6 +856,8 @@ export interface CustomMapDocument {
   intro?: MapIntro;
   /** Surfaces over the ground (squares, pitches, car parks; map-surfaces.ts); optional, a game without them loses only the look */
   surfaces?: MapSurface[];
+  /** Lines of pieces (MapLine, version 5); optional */
+  lines?: MapLine[];
   /**
    * Prefabs and stamps kept with this map (the editor's; the game ignores
    * them): they travel with its file. Not part of the content hash

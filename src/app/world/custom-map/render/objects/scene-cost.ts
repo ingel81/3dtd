@@ -1,5 +1,5 @@
 import { QUALITY_TABLE } from '../../../../three-engine/render-quality';
-import { linePiece, objectRadius, pixelDistance, screenDistance, type CatalogObject } from '../asset-catalog';
+import { objectRadius, pixelDistance, screenDistance, type CatalogObject } from '../asset-catalog';
 import type { MapMass } from '../../map-document';
 import { massTriangles } from '../../object-mass';
 
@@ -61,9 +61,9 @@ function ring(from: number, to: number, area: number): number {
 
 /**
  * The points one object of this catalogue entry costs on a map of `area` m², at the High quality level;
- * `grouped`: it shares a group with others, which makes a wall or structure a piece of a line (linePiece)
+ * `inLine`: it is a piece of a line (MapObject.line), drawn as far as its line
  */
-export function objectCost(entry: CostEntry | undefined, area: number, grouped = false): number {
+export function objectCost(entry: CostEntry | undefined, area: number, inLine = false): number {
   entry ??= UNKNOWN;
   let cost = INSTANCE_COST;
   for (const e of entry.effects ?? []) cost += (e.rate ?? 1) * PARTICLE_COST;
@@ -81,7 +81,7 @@ export function objectCost(entry: CostEntry | undefined, area: number, grouped =
   if (entry.far) levels.push({ from: screenDistance(radius, entry.far.screen), triangles: FAR_BOX_TRIANGLES });
   levels.sort((a, b) => a.from - b.from);
   // Drawn while its radius on screen stays above the pixel limit; a line's piece as far as its line
-  const draw = linePiece(entry.category, grouped) ? Infinity : pixelDistance(radius, DRAW_PIXELS);
+  const draw = inLine ? Infinity : pixelDistance(radius, DRAW_PIXELS);
   for (let l = 0; l < levels.length; l++) {
     const to = Math.min(l + 1 < levels.length ? levels[l + 1].from : Infinity, draw);
     cost += levels[l].triangles * ring(levels[l].from, to, area);
@@ -91,17 +91,17 @@ export function objectCost(entry: CostEntry | undefined, area: number, grouped =
 
 /**
  * What a list of objects costs together, from the cost of each asset alone
- * and in a group (objectCost `grouped`); a building raised from its
+ * and as a piece of a line (objectCost `inLine`); a building raised from its
  * footprint (object-mass.ts) adds its own triangles, drawn as far as any
  * building (the whole map)
  */
-export function sceneCost(objects: readonly { asset: string; mass?: MapMass; group?: string }[], costOf: (asset: string, grouped: boolean) => number): number {
+export function sceneCost(objects: readonly { asset: string; mass?: MapMass; line?: string }[], costOf: (asset: string, inLine: boolean) => number): number {
   const known = new Map<string, number>();
   let sum = 0;
   for (const o of objects) {
-    const key = o.group ? `${o.asset}|g` : o.asset;
+    const key = o.line ? `${o.asset}|l` : o.asset;
     let c = known.get(key);
-    if (c === undefined) known.set(key, (c = costOf(o.asset, !!o.group)));
+    if (c === undefined) known.set(key, (c = costOf(o.asset, !!o.line)));
     sum += c + (o.mass ? massTriangles(o.mass) : 0);
   }
   return sum;

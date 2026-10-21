@@ -142,7 +142,7 @@ export interface ValidationOptions {
   /** Where towers may stand (computeBuildAreas, judged in a worker); without it the room along the lanes is not checked */
   buildAreas?: BuildAreas | null;
   /** What one object of an asset costs on this map (`assetCosts`); without it the scene cost is not checked */
-  costOf?: (asset: string, grouped: boolean) => number;
+  costOf?: (asset: string, inLine: boolean) => number;
 }
 
 export function validateMap(doc: CustomMapDocument, options: ValidationOptions = {}): MapIssue[] {

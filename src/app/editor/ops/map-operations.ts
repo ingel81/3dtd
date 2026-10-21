@@ -44,7 +44,7 @@ export function mirrorCommand(
   ids: ObjectIdSource,
 ): { command: EditCommand; result: MirrorResult } {
   let result: MirrorResult = { objects: 0, spawns: 0, roads: 0 };
-  const command = SnapshotCommand.record(doc, label, ['terrain', 'objects', 'paths', 'spawns', 'life', 'surfaces'], (d) => (result = mirrorMap(d, mode, from, ids)));
+  const command = SnapshotCommand.record(doc, label, ['terrain', 'objects', 'lines', 'paths', 'spawns', 'life', 'surfaces'], (d) => (result = mirrorMap(d, mode, from, ids)));
   return { command, result };
 }
 

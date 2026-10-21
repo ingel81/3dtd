@@ -325,13 +325,19 @@ export function pixelDistance(radius: number, pixels: number): number {
 }
 
 /**
- * Walls and structures that share a group are the pieces of one line (a
- * wall, a fence, a track): they draw while the whole line is above the
- * pixel limit, not each piece, so a line does not end in the distance
- * where its pieces get small (object-layer.ts lineSpheres, scene-cost.ts)
+ * Whether an asset of this category laid along a line makes a line of
+ * pieces (MapLine: a wall, a fence, a hedge, a track) and not a row of
+ * objects (trees, lamps): walls and structures. A line's pieces draw while
+ * the whole line is above the pixel limit, so a line does not end in the
+ * distance where its 4 m pieces get small (object-layer.ts, scene-cost.ts)
  */
-export function linePiece(category: CatalogObject['category'], grouped: boolean): boolean {
-  return grouped && (category === 'wall' || category === 'structure');
+export function linePiece(category: CatalogObject['category']): boolean {
+  return category === 'wall' || category === 'structure';
+}
+
+/** The ids of the catalogue's assets that lay as lines (linePiece) */
+export function lineAssets(objects: readonly Pick<CatalogObject, 'id' | 'category'>[]): string[] {
+  return objects.filter((o) => linePiece(o.category)).map((o) => o.id);
 }
 
 export interface AssetCatalog {

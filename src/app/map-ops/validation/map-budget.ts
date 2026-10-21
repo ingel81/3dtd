@@ -30,10 +30,10 @@ function line(kind: BudgetLine['kind'], used: number, limit: number, objects?: n
   return { kind, used, limit, objects, share, state: share > 1 ? 'over' : share >= WARN_SHARE ? 'warn' : 'ok' };
 }
 
-/** What one object of an asset costs on this map, alone or in a group (scene-cost.ts objectCost), by the editor's catalogue */
-export function assetCosts(catalog: CatalogIndex, doc: Pick<CustomMapDocument, 'terrain'>): (asset: string, grouped: boolean) => number {
+/** What one object of an asset costs on this map, alone or as a piece of a line (scene-cost.ts objectCost), by the editor's catalogue */
+export function assetCosts(catalog: CatalogIndex, doc: Pick<CustomMapDocument, 'terrain'>): (asset: string, inLine: boolean) => number {
   const area = doc.terrain.width * doc.terrain.depth;
-  return (asset, grouped) => objectCost(catalog.objects.get(asset)?.drawing, area, grouped);
+  return (asset, inLine) => objectCost(catalog.objects.get(asset)?.drawing, area, inLine);
 }
 
 /** The scene cost of a map's objects in points (scene-cost.ts) */

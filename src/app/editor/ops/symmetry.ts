@@ -17,7 +17,7 @@
  * exactly a sample; the 90 degree turn needs a square map. Objects, roads,
  * spawns and life areas are copied as things.
  */
-import type { CustomMapDocument, MapLifeArea, MapObject, MapPoint, MapSurface } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapLifeArea, MapLine, MapObject, MapPoint, MapSurface } from '../../world/custom-map/map-document';
 import { mergeChanges, type DocChange } from '../model/doc-change';
 import type { PatchTarget } from '../model/commands/patch';
 import type { EditTransaction } from '../model/edit-transaction';
@@ -354,9 +354,29 @@ export function objectImages<T extends MapObject>(objects: readonly T[], images:
       if (Math.hypot(p.x - o.x, p.y - o.y) < 0.01) return;
       const turn = img.turn(o.rotation);
       const copy = { ...o, id: take(), x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100, rotation: Math.round((((turn % TAU) + TAU) % TAU) * 1000) / 1000 };
-      // A group of an image is a group of its own (as Mirror now does)
+      // A group of an image is a group of its own (as Mirror now does), and a line its own line (lineImages)
       if (o.group) copy.group = `${o.group}m${k + 1}`;
+      if (o.line) copy.line = `${o.line}m${k + 1}`;
       out.push(copy);
+    });
+  }
+  return out;
+}
+
+/**
+ * The lines of objectImages' copies: each line's course mapped point by point
+ * (a mirror runs it backwards, as rivers), its id as the copies name it
+ */
+export function lineImages(lines: readonly MapLine[], images: readonly SymmetryImage[]): MapLine[] {
+  const out: MapLine[] = [];
+  for (const line of lines) {
+    images.slice(1).forEach((img, k) => {
+      const points = line.points.map((p) => {
+        const q = img.point(p);
+        return { x: Math.round(q.x * 100) / 100, y: Math.round(q.y * 100) / 100 };
+      });
+      if (img.flips) points.reverse();
+      out.push({ id: `${line.id}m${k + 1}`, points });
     });
   }
   return out;

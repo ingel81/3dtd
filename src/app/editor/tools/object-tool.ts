@@ -29,13 +29,18 @@ import {
   wallAlong,
   wallKitOf,
   freeGroup,
+  freeLineId,
+  lineOf,
   snapTo,
   roadFacing,
   withGroups,
 } from '../../map-ops/object-ops';
 import { levelForBuildings, withGround } from '../ops/object-commands';
 import { catalogName } from '../ops/describe';
-import { objectImages, sameSector, symmetryImages } from '../ops/symmetry';
+import { lineImages, objectImages, sameSector, symmetryImages } from '../ops/symmetry';
+import { SnapshotCommand } from '../model/commands/snapshot';
+import { CompoundCommand } from '../model/commands/compound';
+import { linePiece } from '../../world/custom-map/render/asset-catalog';
 import { edgePolyline, nearestOnEdges } from '../../map-ops/path-graph';
 import { TransformGizmo, gizmoAnchor, type GizmoHandle } from '../view/transform-gizmo';
 import { patch, type EditorTool, type ToolContext, type ToolPointer } from './tool';
@@ -506,12 +511,19 @@ export class ObjectTool implements EditorTool {
       if (kit) ctx.status(ctx.t().editor.objectTool.tooShort);
       return;
     }
-    const images = objectImages(own, symmetryImages(ctx.settings.symmetry(), t.grid.columns === t.grid.rows), () => ids.take(), t.width / 2, t.depth / 2);
+    // A wall's, fence's or track's pieces make a line (MapLine), each symmetric image its own
+    const symmetry = symmetryImages(ctx.settings.symmetry(), t.grid.columns === t.grid.rows);
+    const made = lineOf(freeLineId(doc.lines), line, own, (asset) => linePiece(ctx.catalog.object(asset).footing?.category ?? 'prop'));
+    const images = objectImages(own, symmetry, () => ids.take(), t.width / 2, t.depth / 2);
     const entry = ctx.catalog.object(s.asset!);
     const label = ctx.t().editor.objectTool.alongLine(kit ? ctx.t().editor.wallKits[kit.id] : catalogName(ctx.t(), ctx.catalog.object(s.asset!)));
     const ground = levelForBuildings(doc, label, [...own, ...images], entry);
     const placed = [...own, ...images].map((o) => setDown(t, o, rockShape(entry), s.alignToSlope && !entry.float, entry.radius));
-    ctx.editor.execute(withGround(label, ground, ObjectsCommand.add(label, doc, placed)));
+    const lines = made ? [made, ...lineImages([made], symmetry).filter((l) => images.some((o) => o.line === l.id))] : [];
+    const add = ObjectsCommand.add(label, doc, placed);
+    ctx.editor.execute(
+      withGround(label, ground, lines.length ? new CompoundCommand(label, [add, SnapshotCommand.record(doc, label, ['lines'], (d) => (d.lines = [...(d.lines ?? []), ...lines]))]) : add),
+    );
     ctx.status(ctx.t().editor.objectTool.placedAlong(placed.length, lineLength(line)));
   }
 

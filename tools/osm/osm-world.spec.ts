@@ -25,7 +25,7 @@ import { validateMap } from '../../src/app/map-ops/validation/map-validation';
 import { renderTopDown } from '../w3x/top-down';
 import { assetCosts } from '../../src/app/world/osm/convert/vegetation';
 import { buildingCatalog } from '../../src/app/world/osm/convert/buildings';
-import type { CatalogObject } from '../../src/app/world/custom-map/render/asset-catalog';
+import { lineAssets, type CatalogObject } from '../../src/app/world/custom-map/render/asset-catalog';
 import { objectCost, sceneCost } from '../../src/app/world/custom-map/render/objects/scene-cost';
 import { en } from '../../src/app/i18n/messages/en';
 import { checkText } from '../../src/app/map-ops/validation/check-text';
@@ -58,10 +58,10 @@ describe.skipIf(mode !== 'osm')('OSM world dump', () => {
       const t0 = performance.now();
       const { doc, report } = convertOsm(
         { lat: place.lat, lon: place.lon, address: place.name, overpass, dem: readMosaic(place.name), fetchedAt: new Date().toISOString() },
-        { id: `osm-${place.name}`, name: `OSM ${place.name}`, sideM: side, costs: assetCosts(catalog.objects, 2400), catalog: buildingCatalog(catalog.objects), materials: catalog.materials.map((m) => m.id) },
+        { id: `osm-${place.name}`, name: `OSM ${place.name}`, sideM: side, costs: assetCosts(catalog.objects, 2400), catalog: buildingCatalog(catalog.objects), lineAssets: lineAssets(catalog.objects), materials: catalog.materials.map((m) => m.id) },
       );
       const area = doc.terrain.width * doc.terrain.depth;
-      const scene = Math.round(sceneCost(doc.objects, (asset, grouped) => objectCost(catalog.objects.find((o) => o.id === asset), area, grouped)));
+      const scene = Math.round(sceneCost(doc.objects, (asset, inLine) => objectCost(catalog.objects.find((o) => o.id === asset), area, inLine)));
       const convertMs = Math.round(performance.now() - t0);
       const t1 = performance.now();
       const file = packMapFile(doc);

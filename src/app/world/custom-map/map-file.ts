@@ -56,6 +56,9 @@ export const MAP_MIGRATIONS: Readonly<Record<number, MapMigration>> = {
   // ground (surfaces) and the storm weather, all optional; a version 3 map has none of them. Optional fields that
   // come later and that the soft checks set right (map-repair.ts) fit into version 4 as well
   3: (json) => json,
+  // 4 to 5: version 5 carries lines (MapLine) and their pieces' `line`; a version 4 map has none, its walls and
+  // fences stay pieces of their own
+  4: (json) => json,
 };
 
 interface BinaryRef {

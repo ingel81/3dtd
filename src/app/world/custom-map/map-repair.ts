@@ -84,6 +84,7 @@ export function mapRepairs(doc: CustomMapDocument, fix = false): MapProblem[] {
   environmentRepairs(doc, fix, out);
   terrainRepairs(doc, fix, out);
   objectRepairs(doc, fix, out);
+  lineRepairs(doc, fix, out);
 
   const paths = doc.paths;
   if (paths && Array.isArray(paths.nodes) && Array.isArray(paths.edges)) {
@@ -259,6 +260,37 @@ function riverProblem(river: unknown): MapText | null {
   return null;
 }
 
+/** The lines (version 5): one without an id of its own or two points is left out; its pieces stand alone */
+function lineRepairs(doc: CustomMapDocument, fix: boolean, out: MapProblem[]): void {
+  if (doc.lines === undefined) return;
+  if (!Array.isArray(doc.lines)) {
+    out.push({ text: { key: 'list', v: { what: 'lines' } }, then: 'leftOut', part: 'lines' });
+    if (fix) delete doc.lines;
+    return;
+  }
+  const ids = new Set<string>();
+  const kept = doc.lines.filter((line) => {
+    const problem = lineProblem(line, ids);
+    if (problem) {
+      out.push({ text: problem, then: 'leftOut', part: 'lines' });
+      return false;
+    }
+    ids.add(line.id);
+    return true;
+  });
+  if (fix && kept.length !== doc.lines.length) doc.lines = kept;
+}
+
+function lineProblem(line: unknown, ids: ReadonlySet<string>): MapText | null {
+  if (!isObject(line)) return { key: 'notObject', v: { what: { kind: 'line' } } };
+  const { id, points } = line;
+  if (typeof id !== 'string' || !id || ids.has(id)) return { key: 'idTwice', v: { kind: 'line', id: String(id) } };
+  const what: MapThing = { kind: 'line', id };
+  if (!Array.isArray(points) || points.length < 2) return { key: 'twoPoints', v: { what } };
+  if (points.some((q) => !isObject(q) || ![q['x'], q['y']].every(finite))) return { key: 'badPoint', v: { what } };
+  return null;
+}
+
 function objectRepairs(doc: CustomMapDocument, fix: boolean, out: MapProblem[]): void {
   if (!Array.isArray(doc.objects)) return;
   const ids = new Set<string>();
@@ -292,6 +324,10 @@ function objectRepairs(doc: CustomMapDocument, fix: boolean, out: MapProblem[]):
     if (o.tint !== undefined && (typeof o.tint !== 'string' || !COLOR.test(o.tint))) {
       out.push({ text: { key: 'tintNone', v: { value: String(o.tint) }, of }, part: 'objects', at });
       if (fix) delete o.tint;
+    }
+    if (o.line !== undefined && (typeof o.line !== 'string' || !o.line)) {
+      out.push({ text: { key: 'badLine', v: { what: of } }, part: 'objects', at });
+      if (fix) delete o.line;
     }
     if (o.sign !== undefined && !goodSign(o.sign)) {
       out.push({ text: { key: 'sign', v: { max: MAX_SIGN_TEXT }, of }, part: 'objects', at });

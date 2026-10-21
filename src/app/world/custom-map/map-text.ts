@@ -20,7 +20,7 @@ export interface MapThing {
 
 export type MapThingKind =
   | 'node' | 'edge' | 'spawn' | 'hq' | 'water' | 'waterBody' | 'river' | 'object' | 'groundLayer' | 'lifeArea'
-  | 'surface' | 'prefab' | 'waveEvent' | 'building' | 'marking';
+  | 'surface' | 'prefab' | 'waveEvent' | 'building' | 'marking' | 'line';
 
 /** The unit after a range */
 export type MapUnit = 'none' | 'm' | 'percent' | 'degrees';

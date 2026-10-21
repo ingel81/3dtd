@@ -48,8 +48,6 @@ describe('objectCost', () => {
     const alone = pixelDistance(0.5, 1.5);
     expect(objectCost(wall, LARGE)).toBeCloseTo(2 + (200 * Math.PI * alone * alone) / LARGE, 3);
     expect(objectCost(wall, LARGE, true)).toBeCloseTo(2 + 200, 3);
-    // Only walls and structures make lines: a grouped plant still goes at its own size
-    expect(objectCost(tuft, LARGE, true)).toBeCloseTo(objectCost(tuft, LARGE));
   });
 
   it('counts a model without a triangle count, or an unknown asset, as 500 triangles', () => {
@@ -60,10 +58,10 @@ describe('objectCost', () => {
 });
 
 describe('sceneCost', () => {
-  it('sums every object by the cost of its asset, asking once per asset alone and once in a group', () => {
+  it('sums every object by the cost of its asset, asking once per asset alone and once as a piece of a line', () => {
     const asked: string[] = [];
-    const costOf = (a: string, grouped: boolean) => (asked.push(`${a}${grouped ? '+' : ''}`), a === 'house' ? 100 : grouped ? 5 : 1);
-    const objects = [{ asset: 'house' }, { asset: 'wall' }, { asset: 'wall', group: 'g1' }, { asset: 'wall', group: 'g2' }, { asset: 'house' }];
+    const costOf = (a: string, inLine: boolean) => (asked.push(`${a}${inLine ? '+' : ''}`), a === 'house' ? 100 : inLine ? 5 : 1);
+    const objects = [{ asset: 'house' }, { asset: 'wall' }, { asset: 'wall', line: 'l1' }, { asset: 'wall', line: 'l2' }, { asset: 'house' }];
     expect(sceneCost(objects, costOf)).toBe(211);
     expect(asked).toEqual(['house', 'wall', 'wall+']);
   });

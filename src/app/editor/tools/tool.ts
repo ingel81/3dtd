@@ -41,6 +41,7 @@ export const PART_TOOL: Record<MapProblemPart, ToolId> = {
   surfaces: 'surfaces',
   // An OSM world's footprints: no check names them, no tool changes them
   footprints: 'settings',
+  lines: 'objects',
 };
 
 export type WaterMode = 'fill' | 'pour' | 'lake' | 'paint' | 'erase' | 'river';

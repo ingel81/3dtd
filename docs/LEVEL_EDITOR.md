@@ -638,7 +638,7 @@ hält die mitgelieferten Karten unter 80 %. Ein Punkt ist etwa ein Dreieck im Bi
   des Impostors (4 Dreiecke ab `max(letzte LOD-Distanz × 1,5, Höhe × 25, 380 m)`), wie `object-layer.ts` sie zeichnet;
   die LOD-Distanz ist dort, wo ein Objekt in Asset-Größe den Bildanteil `screen` seines `lod`-Eintrags füllt,
   bis zur Pixelgrenze (Radius im Bild 1,5 px einer Ansicht mit 1080 Zeilen, `pixelDistance`; die Stücke einer Linie,
-  Mauern und Bauwerke in einer Gruppe, bis zum Kartenrand); Stufe High (`lodBias` 1, Impostor ab 380 m)
+  `MapObject.line`, bis zum Kartenrand); Stufe High (`lodBias` 1, Impostor ab 380 m)
 - Jedes Band zählt mit dem Anteil der Karte, der darin liegt: Kreisring um die Kamera, höchstens die ganze Karte
   (`(min(A, π b²) − min(A, π a²)) / A`, A = Breite × Tiefe). Ein Haus, gezeichnet bis 3 km, zählt auf jeder Karte
   voll; ein Grasbüschel mit 10 Dreiecken bis 187 m (0,3 m Radius) auf einer Large-Karte 0,26
@@ -1080,8 +1080,14 @@ der nicht aktualisiert hat):
    Ladetafel. **Version 4** (2026-10-18, einmal gesammelt): Bauten aus dem Grundriss (`MapObject.mass`), Flächen über
    dem Boden (`surfaces`) und das Wetter `storm`; alle optional, die Migration von 3 ist leer, der Inhalts-Hash
    unveränderter Karten bleibt (die Version zählt nicht zum Inhalt). Weitere optionale Felder, die die weiche Prüfung
-   (`map-repair.ts`) berichtigt oder weglässt (etwa Zerstörungsfelder), passen ohne neuen Sprung in Version 4; erst
-   eine neue harte Prüfung oder eine neue Bedeutung eines vorhandenen Felds hebt auf 5.
+   (`map-repair.ts`) berichtigt oder weglässt (etwa Zerstörungsfelder), passen ohne neuen Sprung in Version 4.
+   **Version 5** (2026-10-22, E304 (d), Entscheidung des Users): Linien (`lines`, `MapLine`: Id und Verlauf) und ihre
+   Stücke (`MapObject.line`). Die Stücke bleiben Objekte (bauen, Sicht, Zerstörung, Koop sehen nur sie), die Linie hält
+   sie zusammen: sie zeichnen, solange die ganze Linie über der Pixelgrenze liegt, und fern als Band. Die Migration von
+   4 ist leer (Mauern einer alten Datei bleiben einzelne Stücke); eine kaputte Linie fällt weg, ein Stück mit kaputter
+   `line` steht allein. Wer Linien legt: der OSM-Import (die Mauern, Zäune, Hecken und Gleise jeder Gruppe,
+   `linesOfGroups`), der Linien-Pinsel und `MapKit.line` (`lineOf`, je Spiegelbild eine eigene Linie). Kopien,
+   Stempel und Duplikate nehmen keine Linie mit.
 2. **Ohne Version.** Ein optionales Feld, dessen Fehlen nur das Bild oder den Ton ändert (`skyImage`, `planet`,
    `wind`, `life`, `intro`), und ein neuer Wert einer Liste (Himmel, Biom, Wetter, Wasser- und Flussart, Wegart,
    Brückenstil, Wellen-Ereignis, Leben, Vogelart, Spurregel `vacant`, Wellenquelle) heben die Version nicht. Ein

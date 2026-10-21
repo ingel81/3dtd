@@ -111,7 +111,8 @@ export function sameObject(a: MapObject, b: MapObject): boolean {
     a.tint === b.tint &&
     a.pitch === b.pitch &&
     a.roll === b.roll &&
-    a.group === b.group
+    a.group === b.group &&
+    a.line === b.line
   );
 }
 

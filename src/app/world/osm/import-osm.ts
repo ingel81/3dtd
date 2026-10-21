@@ -41,6 +41,7 @@ import { placePois, type PoiReport } from './convert/pois';
 import { osmFootprints, placeBuildings, type BuildingCatalogEntry, type BuildingReport } from './convert/buildings';
 import { layAreas, type AreaReport } from './convert/areas';
 import { spawnRoutes } from '../../map-ops/path-graph';
+import { linesOfGroups } from '../../map-ops/object-ops';
 import { OsmError } from './osm-error';
 import type { ImportNote } from '../import-notes';
 
@@ -97,6 +98,11 @@ export interface OsmImportOptions {
    * forests come out thinner)
    */
   costs?: Record<string, number>;
+  /**
+   * The assets that lay as lines (asset-catalog.ts linePiece: the catalogue's walls and structures): the pieces of
+   * each way, area and garden the import groups become a line of that group (MapLine). None: no lines
+   */
+  lineAssets?: readonly string[];
   /** The buildings take damage and fall, craters with them (MapGameplay.destructible, decided 2026-10-18: on unless the frame says no) */
   destructible?: boolean;
 }
@@ -268,6 +274,10 @@ export function convertOsm(
   // The houses' plots after the plants: the trees OSM maps in the gardens stand, hedges and driveways keep off them.
   // Front gardens and gardens painted, driveways, hedges and fences in their own share
   const plots = layPlots(doc, features, { costOf, hasMaterial: materials ? (m) => materials.has(m) : null, rails });
+  // The walls, fences, hedges and tracks of each way, area and garden as one line (they draw as long as it does)
+  const lineAssets = new Set(options.lineAssets ?? []);
+  const lines = linesOfGroups(doc.objects, (asset) => lineAssets.has(asset));
+  if (lines.length) doc.lines = lines;
   step('plants');
 
   // Boats, birds, the bell and the intro flight from the place's data, as life areas and an intro of any map

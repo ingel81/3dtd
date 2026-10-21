@@ -179,6 +179,21 @@ describe('map scripts', () => {
     expect(text).toMatch(/waves is \{ kind: 'budget' \}/);
   });
 
+  it('lays a wall along a line as a line of pieces, each symmetric image its own, and a row of rocks as objects', () => {
+    const kit = new MapKit(map(), index, { name: 't', seed: 7 });
+    const walls = kit.line('castle-wall', [{ x: -60, y: 20 }, { x: -20, y: 20 }]);
+    expect(walls.length).toBeGreaterThan(1);
+    expect(new Set(walls.map((o) => o.line))).toEqual(new Set(['l1']));
+    expect(kit.doc.lines).toEqual([{ id: 'l1', points: [{ x: -60, y: 20 }, { x: -20, y: 20 }] }]);
+    const rocks = kit.line('rock-small', [{ x: 20, y: 70 }, { x: 60, y: 70 }], { spacing: 6 });
+    expect(rocks.every((o) => o.line === undefined)).toBe(true);
+    kit.symmetry = 'x';
+    const mirrored = kit.line('castle-wall', [{ x: -60, y: -40 }, { x: -20, y: -40 }]);
+    expect(new Set(mirrored.map((o) => o.line))).toEqual(new Set(['l2', 'l2m1']));
+    // The image's course mirrored and run backwards, so the wall keeps its left side
+    expect(kit.doc.lines!.find((l) => l.id === 'l2m1')!.points).toEqual([{ x: 20, y: -40 }, { x: 60, y: -40 }]);
+  });
+
   it('levels the ground under a house a script places on a slope, not under a tree', () => {
     const kit = new MapKit(map(), index, { name: 't', seed: 7 });
     const g = kit.doc.terrain.grid;

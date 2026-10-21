@@ -22,7 +22,7 @@ import {
   type MeshStandardMaterial,
 } from 'three';
 import type { MapObject } from '../../map-document';
-import { linePiece, LOD_TAN_HALF_FOV, objectRadius, pixelDistance, screenDistance, type AssetCatalog, type CatalogObject, type StageTone } from '../asset-catalog';
+import { LOD_TAN_HALF_FOV, objectRadius, pixelDistance, screenDistance, type AssetCatalog, type CatalogObject, type StageTone } from '../asset-catalog';
 import { QUALITY_TABLE } from '../../../../three-engine/render-quality';
 import type { LosPrepare } from '../../../../three-engine/tower-shadow-mapper';
 import type { HeightField } from '../height-field';
@@ -336,7 +336,7 @@ export class MapObjectLayer {
   private detail = { lodBias: 1, impostorFrom: 380, drawPixels: QUALITY_TABLE.high.customMaps.drawPixels };
   /** Fade ranges of the card materials with the radius of the asset they were made for */
   private readonly fades: { range: Vector2; radius: number }[] = [];
-  /** The lines the walls and structures of a group make (asset-catalog.ts linePiece) */
+  /** The lines the pieces name (MapObject.line) */
   private readonly lineSpheres = new LineSpheres();
   /** The blockers as the LOS cube draws them (LosDraw), shown in its render only (tower-shadow-mapper.ts losOnly) */
   private readonly losStage = new Group();
@@ -1461,7 +1461,7 @@ export class MapObjectLayer {
     b.source.matrices[at] = y;
     b.spheres[i * 4 + 1] += lift;
     // Its line's sphere follows
-    if (b.lines[i * 4 + 3] > 0) this.lineSpheres.set(o.id, o.group!);
+    if (o.line) this.lineSpheres.set(o.id, o.line);
     // A ruin's damage holds its heights (break line, bite, top, floors): one that sank takes them along
     if (b.damage) this.writeDamageOf(b, i);
     return true;
@@ -1506,9 +1506,8 @@ export class MapObjectLayer {
     b.spheres[i * 4 + 2] = this.tmpPos.z;
     b.spheres[i * 4 + 3] = radius;
     // A piece of a line: the line's sphere comes with the next pass (applyLevels)
-    const line = linePiece(e.category, !!o.group) ? o.group! : null;
-    this.lineSpheres.set(o.id, line);
-    if (!line) b.lines[i * 4 + 3] = 0;
+    this.lineSpheres.set(o.id, o.line ?? null);
+    if (!o.line) b.lines[i * 4 + 3] = 0;
     const colors = b.source.colors;
     if (colors) {
       const c = o.tint ? new Color(o.tint) : null;

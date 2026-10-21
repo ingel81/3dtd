@@ -1,6 +1,6 @@
 /**
- * The bounding sphere of each line of the map's objects (asset-catalog.ts
- * linePiece: walls and structures sharing a group): its pieces draw while
+ * The bounding sphere of each line of the map's objects (MapLine, the
+ * pieces that name it in MapObject.line): its pieces draw while
  * the whole line is above the pixel limit (object-layer.ts applyLevels), so
  * a track or a wall does not break off in the distance where its 4 m pieces
  * get small. A line's sphere is worked out again only after one of its

@@ -279,19 +279,36 @@ describe('map file', () => {
     expect(words(validateMapDocument(doc))).toContain(`splat needs three maps of ${doc.terrain.splat.resolution} x ${doc.terrain.splat.resolution} RGBA`);
   });
 
-  it('reads a version 3 file unchanged and writes version 4: no raised buildings, no surfaces, the same content hash', async () => {
+  it('reads a version 3 or 4 file unchanged and writes version 5: no raised buildings, no surfaces, no lines, the same content hash', async () => {
     const doc = sample();
     const entries = unzipSync(packMapFile(doc));
     const json = JSON.parse(new TextDecoder().decode(entries['map.json']));
-    expect(json.version).toBe(4);
-    const v3 = zipSync({ ...entries, 'map.json': strToU8(JSON.stringify({ ...json, version: 3 })) });
-    const { doc: back, repaired } = unpackMapFile(v3);
-    expect(back.version).toBe(4);
-    expect(repaired).toEqual([]);
-    expect(back.objects).toEqual(doc.objects);
-    expect(back.surfaces).toBeUndefined();
-    // The version is no world content: the hash of the unchanged map stays
-    expect(await contentHash(back)).toBe(await contentHash(doc));
+    expect(json.version).toBe(5);
+    for (const version of [3, 4]) {
+      const old = zipSync({ ...entries, 'map.json': strToU8(JSON.stringify({ ...json, version })) });
+      const { doc: back, repaired } = unpackMapFile(old);
+      expect(back.version).toBe(5);
+      expect(repaired).toEqual([]);
+      expect(back.objects).toEqual(doc.objects);
+      expect(back.surfaces).toBeUndefined();
+      expect(back.lines).toBeUndefined();
+      // The version is no world content: the hash of the unchanged map stays
+      expect(await contentHash(back)).toBe(await contentHash(doc));
+    }
+  });
+
+  it('keeps lines and their pieces, leaves out a broken line and lets a piece with a bad line stand alone', () => {
+    const doc = sample();
+    doc.objects = [
+      { id: 'o1', asset: 'wall-stone', x: 0, y: 0, z: 0, rotation: 0, scale: 1, line: 'l1' },
+      { id: 'o2', asset: 'wall-stone', x: 4, y: 0, z: 0, rotation: 0, scale: 1, line: 7 as unknown as string },
+    ];
+    doc.lines = [{ id: 'l1', points: [{ x: -2, y: 0 }, { x: 6, y: 0 }] }, { id: 'l2', points: [{ x: 0, y: 0 }] }];
+    const { doc: back, repaired } = unpackMapFile(packMapFile(doc));
+    expect(back.lines).toEqual([{ id: 'l1', points: [{ x: -2, y: 0 }, { x: 6, y: 0 }] }]);
+    expect(back.objects[0].line).toBe('l1');
+    expect(back.objects[1].line).toBeUndefined();
+    expect(repaired.map((p) => p.text.key).sort()).toEqual(['badLine', 'twoPoints']);
   });
 
   it('reads a version 2 file unchanged: two splat maps, the same content hash', async () => {

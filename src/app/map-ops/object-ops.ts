@@ -4,7 +4,7 @@
  * snap and duplicates. Ids are `o<number>`, counted on from the highest.
  */
 import { standScale } from './tree-stands';
-import type { CustomMapDocument, MapObject, MapPaths, MapPoint, MapTerrain } from '../world/custom-map/map-document';
+import type { CustomMapDocument, MapLine, MapObject, MapPaths, MapPoint, MapTerrain } from '../world/custom-map/map-document';
 import { heightAt, slopeAt, insideMap, sampleRectAround, sampleX, sampleY, type GridRect } from './grid';
 import { waterLevelAt } from '../world/custom-map/water-level';
 import { boxDistance, groundRing, type GroundBox } from '../world/custom-map/object-ground';
@@ -487,12 +487,57 @@ export function objectsInBox(doc: CustomMapDocument, a: MapPoint, b: MapPoint): 
   return doc.objects.filter((o) => o.x >= x0 && o.x <= x1 && o.y >= y0 && o.y <= y1).map((o) => o.id);
 }
 
-/** Copies of objects with fresh ids (from `fresh`, in the editor its document's), moved by `offset` */
+/** Copies of objects with fresh ids (from `fresh`, in the editor its document's), moved by `offset`; a copied piece of a line stands alone */
 export function duplicateObjects(doc: CustomMapDocument, ids: readonly string[], offset: MapPoint, fresh: ObjectIdSource): MapObject[] {
   const set = new Set(ids);
   return doc.objects
     .filter((o) => set.has(o.id))
-    .map((o) => ({ ...o, id: fresh.take(), x: round(o.x + offset.x), y: round(o.y + offset.y) }));
+    .map(({ line: _line, ...o }) => ({ ...o, id: fresh.take(), x: round(o.x + offset.x), y: round(o.y + offset.y) }));
+}
+
+/**
+ * The line `id` of `pieces` laid along `points` (MapLine): the pieces `isLinePiece` takes name it (MapObject.line,
+ * written into them). Null when none does (a row of trees or lamps stays a row of objects)
+ */
+export function lineOf(id: string, points: readonly MapPoint[], pieces: MapObject[], isLinePiece: (asset: string) => boolean): MapLine | null {
+  let any = false;
+  for (const o of pieces) {
+    if (!isLinePiece(o.asset)) continue;
+    o.line = id;
+    any = true;
+  }
+  return any ? { id, points: points.map((p) => ({ x: round(p.x), y: round(p.y) })) } : null;
+}
+
+/**
+ * Lines from the groups of `objects` (an OSM world's: each way's, area's and garden's pieces share one): per group
+ * the pieces `isLinePiece` takes become one line of that name, its course their places in the list's order, as the
+ * import laid them
+ */
+export function linesOfGroups(objects: readonly MapObject[], isLinePiece: (asset: string) => boolean): MapLine[] {
+  const lines = new Map<string, MapLine>();
+  for (const o of objects) {
+    if (!o.group || !isLinePiece(o.asset)) continue;
+    let line = lines.get(o.group);
+    if (!line) lines.set(o.group, (line = { id: o.group, points: [] }));
+    o.line = o.group;
+    line.points.push({ x: o.x, y: o.y });
+  }
+  // A line of one piece holds its place twice: a line has two points
+  for (const line of lines.values()) if (line.points.length === 1) line.points.push({ ...line.points[0] });
+  return [...lines.values()];
+}
+
+/** A line id no line of `lines` has yet: l1, l2 … */
+export function freeLineId(lines: readonly MapLine[] | undefined, taken: ReadonlySet<string> = new Set()): string {
+  let max = 0;
+  for (const l of lines ?? []) {
+    const m = /^l(\d+)$/.exec(l.id);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  let n = max + 1;
+  while (taken.has(`l${n}`)) n++;
+  return `l${n}`;
 }
 
 export function snapTo(value: number, step: number): number {

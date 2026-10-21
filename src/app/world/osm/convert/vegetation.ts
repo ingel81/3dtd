@@ -21,6 +21,7 @@ import { ObjectIds } from '../../../map-ops/object-ops';
 import { spawnRoutes } from '../../../map-ops/path-graph';
 import type { CustomMapDocument, MapObject, MapPoint } from '../../custom-map/map-document';
 import { objectCost, SCENE_BUDGET, type CostEntry } from '../../custom-map/render/objects/scene-cost';
+import { linePiece } from '../../custom-map/render/asset-catalog';
 import type { LandClass } from '../land-tags';
 import { runs, type OsmFeatures } from '../osm-parse';
 import { LAND_CLASSES } from './ground';
@@ -401,14 +402,14 @@ export function growVegetation(doc: CustomMapDocument, features: OsmFeatures, la
 
 /**
  * Scene cost per plant, furniture, POI and area asset on an OSM world of side `side` from the catalogue's objects,
- * for the import's options. As in a group: the import groups the pieces of each line it lays (`osm-w`, `osm-a`,
- * `plot-b`), which draw as far as their line (scene-cost.ts objectCost)
+ * for the import's options. A wall's or structure's as a piece of a line: the import lays them as lines
+ * (import-osm.ts, linesOfGroups), which draw as far as the line (scene-cost.ts objectCost)
  */
 export function assetCosts(objects: readonly (CostEntry & { id: string })[], side: number): Record<string, number> {
   const out: Record<string, number> = {};
   const furniture = new Set([...FURNITURE_ASSETS, ...POI_ASSETS, ...AREA_ASSETS]);
   for (const o of objects) {
-    if (o.category === 'tree' || o.category === 'plant' || furniture.has(o.id)) out[o.id] = Math.round(objectCost(o, side * side, true) * 100) / 100;
+    if (o.category === 'tree' || o.category === 'plant' || furniture.has(o.id)) out[o.id] = Math.round(objectCost(o, side * side, linePiece(o.category)) * 100) / 100;
   }
   return out;
 }
