@@ -32,10 +32,8 @@ import { environmentAt, hiddenObjectsAt, messagesOf } from './wave-events';
 import { CustomMapDestruction, DESTRUCTIBLE_CATEGORIES, FALLEN_SCALE, passingObjectIds, type StructureEntry } from './custom-map-destruction';
 import { boxTarget, CraterObliteration, roundTarget, type ObliterationRect, type ObliterationTarget } from './crater-obliteration';
 import { CustomMapGroundDamage } from './custom-map-ground-damage';
-import { craterCuts, type CraterCut, type GroundGrid } from '../../map-ops/crater-water';
+import { CraterLakes, mapCraterSources, waterKindAt } from './crater-lakes';
 import type { CraterWaterEntry } from './render/water/crater-water';
-import { waterLevelAt } from './water-level';
-import { heightAt } from '../../map-ops/grid';
 import { renderMinimapPicture } from './custom-map-minimap';
 import { MapStore } from './map-store';
 import type { MapAssetLibrary } from './render/map-asset-library';
@@ -137,10 +135,10 @@ export class CustomMapWorld implements WorldProvider {
   private lastUpdate = 0;
   /** The game's clock, seconds: the sum of what the engine hands each update (paused 0, faster at 2x and 4x) */
   private gameClock = 0;
-  /** The craters' version the lakes in them were worked out for (CustomMapGroundDamage.craterVersion) */
+  /** The craters' version the lakes in them were worked out for (CustomMapGroundDamage.craterVersion; 0 without) */
   private craterWaterVersion = -1;
-  /** What each crater does to the rivers, by its middle, radius and depth: worked out once per crater */
-  private readonly craterCutCache = new Map<string, CraterCut[]>();
+  /** What each crater does to the rivers, the map's own (dug in the editor) and the impacts': worked out once per crater */
+  private readonly craterLakes = new CraterLakes();
   /** The craters' lakes worked out in the last frame, to build in this one */
   private craterWaterDue: CraterWaterEntry[] | null = null;
   private prepared = false;
@@ -234,7 +232,7 @@ export class CustomMapWorld implements WorldProvider {
         (x, y, radius, height, colour, count, seed) => this.view?.throwDebris(x, y, radius, height, colour, count, seed),
         (rect) => this.cratersChanged(rect),
         () => this.gameClock,
-        (x, y) => this.waterKindAt(x, y),
+        (x, y) => waterKindAt(this.doc.terrain, x, y),
       )
       : null;
     this.groundDamage = ground;
@@ -276,8 +274,9 @@ export class CustomMapWorld implements WorldProvider {
       impactMarks: this.groundDamage !== null,
       // Ruins likewise, standing on the map's own heights with the craters (a stump sinks at a rim), not on the rubble
       ...(this.structuresFall ? { ruins: true, standingGround: this.groundDamage?.standing ?? this.map.doc.terrain.grid } : {}),
-      // Craters may cut its rivers: their lakes and falls built with the map's
-      craterWater: this.groundDamage !== null && (this.doc.terrain.rivers?.length ?? 0) > 0,
+      // Craters may cut its rivers (an impact's, or one the map brought from the editor): their lakes and falls built
+      // with the map's
+      craterWater: (this.groundDamage !== null || (this.doc.terrain.craters?.length ?? 0) > 0) && (this.doc.terrain.rivers?.length ?? 0) > 0,
     });
     this.view = view;
     view.onImpact = (id, hit) => this.destruction?.impacted(id, hit);
@@ -429,42 +428,21 @@ export class CustomMapWorld implements WorldProvider {
   }
 
   /**
-   * The craters' lakes where they cut rivers (map-ops/crater-water.ts), once
-   * the craters changed and their ground is written: each crater worked out
-   * once (its middle, radius and depth), filling from when it was dug, full
-   * for one known before (a restore, a replay's jump)
+   * The craters' lakes where they cut rivers (crater-lakes.ts), once the
+   * craters changed and their ground is written: the map's own (dug in the
+   * editor) full from the start, an impact's filling from when it was dug,
+   * full for one known before (a restore, a replay's jump)
    */
   private refreshCraterWater(): void {
     const g = this.groundDamage;
-    const rivers = this.doc.terrain.rivers ?? [];
-    if (!g || !this.view || g.craterVersion === this.craterWaterVersion || g.pending > 0) return;
-    this.craterWaterVersion = g.craterVersion;
-    if (!rivers.length) return;
-    const t = this.doc.terrain;
-    const grid: GroundGrid = { columns: t.grid.columns, rows: t.grid.rows, cellSize: t.grid.cellSize, originX: -t.width / 2, originY: -t.depth / 2, heights: t.grid.heights };
-    const entries: CraterWaterEntry[] = [];
-    const seen = new Set<string>();
-    for (const [key, c] of g.craters()) {
-      const sig = `${key}:${c.radius}:${c.depthCm}`;
-      seen.add(sig);
-      let cuts = this.craterCutCache.get(sig);
-      if (!cuts) {
-        cuts = craterCuts(grid, rivers, c, (x, y) => this.waterKindAt(x, y));
-        this.craterCutCache.set(sig, cuts);
-      }
-      for (const cut of cuts) entries.push({ crater: c, cut, kind: rivers[cut.river].kind, start: g.dugAt(key) });
-    }
-    for (const sig of this.craterCutCache.keys()) if (!seen.has(sig)) this.craterCutCache.delete(sig);
+    const version = g?.craterVersion ?? 0;
+    if (!this.view || version === this.craterWaterVersion || (g && g.pending > 0)) return;
+    this.craterWaterVersion = version;
+    const sources = mapCraterSources(this.doc.terrain.craters);
+    if (g) for (const [key, c] of g.craters()) sources.push({ key: `${key}:${c.radius}:${c.depthCm}`, crater: c, start: g.dugAt(key) });
+    if (!sources.length) return;
     // Built in the next frame: the reckoning and the meshes each in a frame of their own
-    this.craterWaterDue = entries;
-  }
-
-  /** Water, lava or nothing at map metres (x, y) on the ground as it stands */
-  private waterKindAt(x: number, y: number): 'water' | 'lava' | null {
-    const t = this.doc.terrain;
-    const ground = heightAt(t, x, y);
-    if (waterLevelAt(t, x, y, ground, 'lava') !== null) return 'lava';
-    return waterLevelAt(t, x, y, ground) !== null ? 'water' : null;
+    this.craterWaterDue = this.craterLakes.entries(this.doc.terrain, sources);
   }
 
   /** The soundscape heard from the ground the camera looks at */

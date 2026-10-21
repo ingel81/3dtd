@@ -627,6 +627,18 @@ Nur neu gebaute OSM-Welten. Einteilung, Durchgang, Deckungsschwelle, Ruine und H
   die übrigen Schlossbauten stehen in Stein.* Notieren, ob Glut und Ruß an alten Ruinen stören und wie die Türme
   liegen.
 
+## U Kratersee im Editor (2026-10-21, E294)
+
+Ob ein Krater einen Fluss schneidet, wie hoch der See steht und wohin er überläuft, prüfen Specs (`crater-water.spec.ts`,
+`landscape.spec.ts`); hier das Auge. Editor, Mountain Pass öffnen, Landschaft › Krater, Pinselradius etwa 30.
+
+- **U1 Wasser:** den Pinsel auf den Bergbach halten (etwa drei Sekunden), loslassen. *Der Bach fällt über den Rand in
+  die Grube, ein See steigt in wenigen Sekunden, läuft über; wo er überläuft, rinnt ein neuer Bach ab, das Bett
+  darunter liegt trocken, bis das Wasser wiederkommt.* Strg+Z: *Grube und See weg, der Bach fließt wie vorher.*
+- **U2 Lava:** wie U1 auf Ember Crater an einem Lavastrom. *Die Lava füllt die Grube langsamer, mit Kruste; ihr
+  Überlauf erstarrt, wo er auf Wasser trifft.*
+- **U3 Spielen:** die Karte aus U1 speichern und spielen. *Der See steht von Anfang an voll da, mit Fall und Überlauf.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo

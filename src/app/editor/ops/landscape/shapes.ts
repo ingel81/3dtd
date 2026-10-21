@@ -13,6 +13,7 @@ import { HEIGHT_LIMITS } from '../../../map-ops/terrain-ops';
 import { FieldCache } from './field-cache';
 import { smooth } from '../../../map-ops/landscape-noise';
 import type { LandscapeContext } from './landscape-context';
+import { symmetryImages } from '../symmetry';
 
 /** Share per second a form closes toward its target */
 const FORM_RATE = 1.6;
@@ -272,4 +273,31 @@ export function coastAlong(stroke: LandscapeContext, line: readonly MapPoint[], 
     }
   }
   return rect;
+}
+
+/**
+ * Puts the crater a stroke dug into the map's list (MapTerrain.craters): its
+ * middle where the stroke began, its bowl's radius, and its symmetric images
+ * (the stroke dug them too). Where a crater stands already (its middle within
+ * half the radius) it is dug again: one entry, the larger radius. The editor
+ * and the game show its lake where it cuts a river (crater-lakes.ts)
+ */
+export function markCrater(stroke: LandscapeContext, brush: BrushSettings): void {
+  const at = stroke.anchor;
+  if (!at) return;
+  const t = stroke.doc.terrain;
+  const radius = Math.round(brush.radius * CRATER_SHARE * 100) / 100;
+  stroke.tx.snapshot('craters');
+  const craters = t.craters ? [...t.craters] : [];
+  for (const img of symmetryImages(stroke.symmetry, t.grid.columns === t.grid.rows)) {
+    const p = img.point(at);
+    if (Math.abs(p.x) > t.width / 2 || Math.abs(p.y) > t.depth / 2) continue;
+    const x = Math.round(p.x * 100) / 100;
+    const y = Math.round(p.y * 100) / 100;
+    const there = craters.findIndex((c) => Math.hypot(c.x - x, c.y - y) < Math.max(c.radius, radius) / 2);
+    if (there < 0) craters.push({ x, y, radius });
+    else craters[there] = { x, y, radius: Math.max(radius, craters[there].radius) };
+  }
+  t.craters = craters;
+  stroke.changed({ water: true });
 }

@@ -3,7 +3,7 @@
  * the ground layer list and paint, the water record and all water, the rivers. The terrain object itself stays,
  * so the renderer keeps its ground.
  */
-import { fitSplatMaps, type CustomMapDocument, type MapGroundLayer, type MapRiver, type MapTerrain, type MapWater } from '../../../world/custom-map/map-document';
+import { fitSplatMaps, type CustomMapDocument, type MapCrater, type MapGroundLayer, type MapRiver, type MapTerrain, type MapWater } from '../../../world/custom-map/map-document';
 import type { DocChange, EditCommand } from '../doc-change';
 
 /**
@@ -100,6 +100,34 @@ export class RiverListCommand implements EditCommand {
   revert(doc: CustomMapDocument): DocChange {
     return setRivers(doc, this.before);
   }
+}
+
+/** The list of craters dug in the editor (MapTerrain.craters), before and after */
+export class CraterListCommand implements EditCommand {
+  readonly bytes: number;
+
+  constructor(
+    readonly label: string,
+    private readonly before: readonly MapCrater[] | undefined,
+    private readonly after: readonly MapCrater[] | undefined,
+  ) {
+    this.bytes = 24 * ((before?.length ?? 0) + (after?.length ?? 0));
+  }
+
+  apply(doc: CustomMapDocument): DocChange {
+    return setCraters(doc, this.after);
+  }
+
+  revert(doc: CustomMapDocument): DocChange {
+    return setCraters(doc, this.before);
+  }
+}
+
+function setCraters(doc: CustomMapDocument, craters: readonly MapCrater[] | undefined): DocChange {
+  if (craters) doc.terrain.craters = craters.map((c) => ({ ...c }));
+  else delete doc.terrain.craters;
+  // Their lakes are water
+  return { water: true };
 }
 
 function setRivers(doc: CustomMapDocument, rivers: readonly MapRiver[] | undefined): DocChange {

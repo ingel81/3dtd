@@ -390,6 +390,10 @@ function checkDocument(doc: CustomMapDocument, p: ProblemList): void {
     p.push({ key: 'list', v: { what: 'terrain.rivers' } });
     return;
   }
+  if (t.craters !== undefined && !Array.isArray(t.craters)) {
+    p.push({ key: 'list', v: { what: 'terrain.craters' } });
+    return;
+  }
   for (const [k, body] of (t.waterBodies ?? []).entries()) {
     const what = { kind: 'waterBody' as const, id: k + 1 };
     if (!body || typeof body !== 'object') {

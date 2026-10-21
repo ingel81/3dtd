@@ -100,7 +100,17 @@ zum Vorschlag darunter:
 - **Lava trifft Wasser (F5):** läuft ein Lavasee über und erreicht sein Abfluss Wasser, erstarrt die Lava dort zu
   dunklem Gestein, Dampf steigt auf, sobald die Front ankommt.
 - **Krater in Flächengewässern:** geprüft, der Spiegel bleibt, der Krater zeigt sich als tiefere Stelle.
-- **Editor:** noch nicht; ein Kratersee im Editor (Pinsel und Vorschau ohne Spielzeit) ist ein eigener Schritt.
+- **Editor (E294, gebaut 2026-10-21):** der Landschafts-Modus „crater“ trägt den Krater am Ende des Strichs in die
+  Karte ein (`MapTerrain.craters`: Mitte, Radius bis zum Rand, mit den Bildern der Symmetrie; derselbe Ort noch einmal
+  gegraben bleibt ein Eintrag, der größere Radius). Die Grube steht schon im Boden. Editor und Spiel rechnen den See
+  mit derselben Logik (`world/custom-map/crater-lakes.ts` über `craterCuts`, gezeichnet von `CraterWaterLayer`). Im
+  Editor füllt er sich nach dem Loslassen auf einer eigenen Uhr, dreimal so schnell wie im Spiel (3 bis 7 s, Lava 10 bis
+  20 s): der Kartenbauer sieht die Reihenfolge (Fall über den Rand, See steigt, Überlauf, neuer Bach) ohne die Spielzeit
+  abzuwarten; ein sofort voller See verriete sie nicht. Neu gerechnet wird, wenn Boden oder Wasser 0,3 s stillstehen.
+  Krater, die die Karte beim Öffnen schon hat, stehen voll. Im Spiel steht ein Editor-Krater von Anfang an voll da,
+  neben den Kratern der Einschläge (auch ohne Zerstörung). Undo, Spiegeln, Speichern und Laden nehmen die Liste mit; ein
+  zugeschütteter Krater (Grund nicht unter dem Wasser, das hereinkommt) schneidet nichts mehr. Die Kraterliste ist
+  Darstellung: die Simulation und die Prüfung lesen sie nicht. Map-Kit und Agent tragen ihre Krater (noch) nicht ein.
 
 Der Vorschlag, wie er abgestimmt war:
 

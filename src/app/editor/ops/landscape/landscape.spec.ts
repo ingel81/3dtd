@@ -16,7 +16,8 @@ import { freeboard, riverPoints } from '../../../map-ops/river-levels';
 import { movePoint, simplifyRiver } from '../river-edit';
 import { buildRoad, DEFAULT_ROAD } from './road';
 import { citySlots, streetDistance } from './city';
-import { cliffAlong, craterProfile, formDab, formHeight } from './shapes';
+import { cliffAlong, craterProfile, formDab, formHeight, markCrater } from './shapes';
+import { CraterLakes, mapCraterSources } from '../../../world/custom-map/crater-lakes';
 import { cracksDab } from './cracks';
 import { readWeights } from '../../../map-ops/paint-ops';
 import { waterInAir } from '../../../map-ops/validation/map-validation';
@@ -883,6 +884,56 @@ describe('river and road', () => {
       expect(JSON.stringify(ed.doc.paths)).toBe(before);
       expect(ed.historySteps).toBe(steps);
     }
+  });
+});
+
+describe('craters dug in the editor (E294)', () => {
+  /** A map with a river down x = 0, a crater dug on it at (0, 0) by a held stroke */
+  function dug(symmetry: 'none' | 'x' = 'none', at = { x: 0, y: 0 }): EditorDocument {
+    const ed = map();
+    const r = new LandscapeContext(ed.begin('River'), 2, catalog);
+    carveRiver(r, [{ x: 0, y: -180 }, { x: 0, y: 0 }, { x: 0, y: 180 }], DEFAULT_RIVER);
+    r.finish();
+    const stroke = new LandscapeContext(ed.begin('Crater'), 4, catalog);
+    stroke.symmetry = symmetry;
+    for (let k = 0; k < 40; k++) stroke.changed({ heights: formDab(stroke, 'crater', at, brush, 0.1) }, at);
+    markCrater(stroke, brush);
+    stroke.finish();
+    return ed;
+  }
+
+  it('keeps the crater a stroke dug, and its lake cuts the river as an impact does', () => {
+    const ed = dug();
+    expect(ed.doc.terrain.craters).toEqual([{ x: 0, y: 0, radius: 24 }]);
+    const [entry] = new CraterLakes().entries(ed.doc.terrain, mapCraterSources(ed.doc.terrain.craters));
+    expect(entry.cut.river).toBe(0);
+    expect(entry.start).toBeNull();
+    expect(entry.cut.floor).toBeLessThan(entry.cut.levelIn - 2);
+    expect(entry.cut.level).toBeGreaterThan(entry.cut.floor);
+    expect(entry.cut.fillSeconds).toBeGreaterThanOrEqual(10);
+    // One undo takes the crater back with its bowl, a redo brings both
+    ed.undo();
+    expect(ed.doc.terrain.craters).toBeUndefined();
+    ed.redo();
+    expect(ed.doc.terrain.craters).toEqual([{ x: 0, y: 0, radius: 24 }]);
+  });
+
+  it('keeps a crater dug again in one place once, the larger, and its symmetric images with it', () => {
+    const ed = dug('x', { x: -60, y: 0 });
+    expect(ed.doc.terrain.craters).toEqual([{ x: -60, y: 0, radius: 24 }, { x: 60, y: 0, radius: 24 }]);
+    const stroke = new LandscapeContext(ed.begin('Crater'), 5, catalog);
+    stroke.anchor = { x: -58, y: 1, h: 0 };
+    markCrater(stroke, { ...brush, radius: 60 });
+    stroke.finish();
+    expect(ed.doc.terrain.craters).toEqual([{ x: -58, y: 1, radius: 36 }, { x: 60, y: 0, radius: 24 }]);
+  });
+
+  it('shows no lake where a crater was filled in again', () => {
+    const ed = dug();
+    const t = ed.doc.terrain;
+    const level = Math.max(...t.rivers![0].points.map((p) => p.height)) + 5;
+    t.grid.heights.fill(level);
+    expect(new CraterLakes().entries(t, mapCraterSources(t.craters))).toEqual([]);
   });
 });
 

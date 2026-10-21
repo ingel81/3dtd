@@ -188,6 +188,17 @@ export function mirrorMap(
     }
     t.rivers = rivers;
   }
+  // Craters: those in the source sector and their images; the bowls came with the ground
+  if (t.craters?.length) {
+    const craters = t.craters.filter(inSource);
+    for (const c of t.craters.filter(inSource)) {
+      for (const img of images.slice(1)) {
+        const p = img.point(c);
+        if (inside(p) && Math.hypot(p.x - c.x, p.y - c.y) >= 0.01) craters.push({ x: round(p.x), y: round(p.y), radius: c.radius });
+      }
+    }
+    t.craters = craters;
+  }
   // Life areas: like the rivers, by their points
   let lifeCount = 0;
   if (doc.life?.areas?.length) {

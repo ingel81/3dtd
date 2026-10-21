@@ -79,9 +79,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       L1 und L2 gebaut (2026-10-21, Nachtest PLAYTEST.md T): Durchgänge und Platzränder halten keine Häuser ab, Modelle
       nur bei 85 % Deckung und 10 % Überstand, eine Rolle für Wahrzeichen, Ruinen als Ruine, HQ nimmt kein Wahrzeichen;
       Schloss Johannisburg ein Bau mit Hof. Offen: L3-L8, Aussparung der Durchgänge (heute geschlossene Wand).
-- [ ] **E294 Kratersee im Editor** (2026-10-21, aus E283 ausgeklammert): Der Landschafts-Modus „crater“ schreibt nur
-      Höhen, ohne Kraterliste und Spielzeit; im Editor füllt sich darum kein See. Eigener Schritt: Pinsel mit Vorschau
-      (See gleich voll oder Füllen ohne Spielzeit).
 - [ ] **E275 Übergang vom Laden ins Spiel** (Zweitrechner 2026-10-20, Production, V-Sync, warmes Profil): in den ersten
       0,3 s nach ready ein Bild von 117-166 ms und einige von 33-50 ms (OSM und Ruined City). Darin erste Textur-Uploads
       (512×512, 650×426 mit Mipmaps, vermutlich Minimap oder UI) und eine Programmabfrage von 5,5 ms. Ursache im
@@ -234,7 +231,11 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 
 ## 2. Gebaut, wartet auf Test
 
-### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q, R und S)
+### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q, R, S und T)
+
+- [ ] **E294 Kratersee im Editor**: der Krater-Pinsel trägt den Krater in die Karte ein (`terrain.craters`); Wasser und
+      Lava tun im Editor, was sie im Spiel tun (Fall, See, Überlauf), dreimal so schnell; gespielt steht der See voll da
+      (U1 bis U3). Doku: WATER_NETWORK_PLAN.md.
 
 - [ ] **E282 Dialog „Karte von einem Ort“**: Variante B, Rahmen fest in der Mitte, Karte wird darunter gezogen, HQ in
       der Mitte; Kante per Regler unter der Karte (Rahmen bleibt gleich groß, Karte zoomt), Pfeile und +/-; Laden als

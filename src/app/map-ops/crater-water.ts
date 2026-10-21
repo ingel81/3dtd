@@ -115,7 +115,8 @@ export function craterCuts(
     const levelIn = line[entry].height;
     const levelOut = line[exit].height;
     const bowl = spill(ground, c);
-    if (!bowl) return;
+    // A bowl whose floor is not under the water coming in holds no lake: a crater filled in again (the editor's)
+    if (!bowl || bowl.floor > levelIn - PAST_WATER_M) return;
     // The spill in its own bed downstream: the lake rises with the river there; elsewhere to the spill
     const downstream = inBand(line, exit, line.length - 1, bowl.x, bowl.y, 2);
     const level = Math.min(levelIn, downstream ? Math.max(bowl.level, levelOut) : bowl.level);

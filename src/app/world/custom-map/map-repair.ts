@@ -231,6 +231,8 @@ function terrainRepairs(doc: CustomMapDocument, fix: boolean, out: MapProblem[])
     say({ key: 'unknownNow', v: { what: 'kind', value: String(body.kind), now: 'water' }, of: k ? { kind: 'waterBody', id: k } : { kind: 'water' } });
     if (fix) delete body.kind;
   });
+  // A crater without a finite middle or a radius is left out, without a word: nothing but its lake hangs on it
+  if (Array.isArray(t.craters) && fix) t.craters = t.craters.filter((c) => isObject(c) && Number.isFinite(c.x) && Number.isFinite(c.y) && Number.isFinite(c.radius) && c.radius > 0);
   if (!Array.isArray(t.rivers)) return;
   const kept = t.rivers.filter((river) => {
     const problem = riverProblem(river);

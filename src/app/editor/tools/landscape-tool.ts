@@ -15,7 +15,7 @@ import { LandscapeContext } from '../ops/landscape/landscape-context';
 import { MAX_LAYERS } from '../../map-ops/paint-ops';
 import { carveRiver } from '../ops/landscape/river';
 import { buildRoad } from '../ops/landscape/road';
-import { cliffAlong, formDab } from '../ops/landscape/shapes';
+import { cliffAlong, formDab, markCrater } from '../ops/landscape/shapes';
 import { symmetryImages } from '../ops/symmetry';
 import {
   LANDSCAPE_MODES,
@@ -172,6 +172,9 @@ export class LandscapeTool implements EditorTool {
       for (const l of lines) this.buildLine(stroke, l, ctx);
     } else if (s.mode === 'biome') {
       finishBiome(stroke, brush, biomeById(s.biome));
+    } else if (s.mode === 'crater') {
+      // Into the map's list: its lake where it cuts a river, in the editor and in the game
+      markCrater(stroke, brush);
     }
     const says = ctx.t().editor.landscape;
     const full = [...stroke.layersReused.map(says.layerUnused), ...stroke.layersShared.map(says.layerShared), ...stroke.layersFull.map(says.layerLeft)];

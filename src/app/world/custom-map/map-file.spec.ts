@@ -84,6 +84,9 @@ describe('map file limits', () => {
     const rivers = sample();
     (rivers.terrain as unknown as Record<string, unknown>)['rivers'] = { a: 1 };
     expect(words(validateMapDocument(rivers))).toContain('terrain.rivers must be a list');
+    const craters = sample();
+    (craters.terrain as unknown as Record<string, unknown>)['craters'] = 3;
+    expect(words(validateMapDocument(craters))).toContain('terrain.craters must be a list');
   });
 
   it('hashes the same world the same in every file version', async () => {
@@ -103,6 +106,14 @@ describe('map file', () => {
     expect(back.terrain.grid.heights).toBeInstanceOf(Float32Array);
     expect(back.terrain.water?.mask).toBeInstanceOf(Uint8Array);
     expect(backPreview).toEqual(preview);
+  });
+
+  it('round-trips the craters dug in the editor, and leaves a broken one out on reading', () => {
+    const doc = sample();
+    doc.terrain.craters = [{ x: 12.5, y: -4, radius: 24 }];
+    expect(unpackMapFile(packMapFile(doc)).doc.terrain.craters).toEqual([{ x: 12.5, y: -4, radius: 24 }]);
+    doc.terrain.craters.push({ x: Number.NaN, y: 0, radius: 3 }, { x: 0, y: 0, radius: 0 });
+    expect(unpackMapFile(packMapFile(doc)).doc.terrain.craters).toEqual([{ x: 12.5, y: -4, radius: 24 }]);
   });
 
   it('round-trips a map without water and without preview', () => {

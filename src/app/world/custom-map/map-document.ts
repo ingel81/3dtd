@@ -166,6 +166,20 @@ export interface MapRiver {
   color?: string;
 }
 
+/**
+ * A crater the editor's landscape brush dug: the ground holds its bowl.
+ * Where it cuts a river, the editor and the game show what the water does
+ * (map-ops/crater-water.ts: the lake, the fall over the lip, the dry bed,
+ * the spill), as for a crater an impact digs; in the game full from the start
+ */
+export interface MapCrater {
+  /** Middle, map metres */
+  x: number;
+  y: number;
+  /** The bowl's radius to its rim, m */
+  radius: number;
+}
+
 export interface MapTerrain {
   /** Extent in metres */
   width: number;
@@ -182,6 +196,8 @@ export interface MapTerrain {
   waterBodies?: MapWater[];
   /** Rivers and lava flows along a line, each point with its own width and surface height */
   rivers?: MapRiver[];
+  /** Craters dug in the editor (MapCrater), their lakes where they cut rivers */
+  craters?: MapCrater[];
   /** Slopes steeper than this (degrees) show the cliff material */
   cliffAngle: number;
   /** Material id for steep faces */

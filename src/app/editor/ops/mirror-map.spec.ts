@@ -42,6 +42,13 @@ describe('mirrorMap', () => {
     expect(new Set(doc.spawns.map((s) => s.id)).size).toBe(2);
   });
 
+  it('keeps the craters of the source half and adds their images, the bowls came with the ground', () => {
+    const doc = map();
+    doc.terrain.craters = [{ x: -40, y: 10, radius: 12 }, { x: 50, y: 0, radius: 8 }];
+    mirrorMap(doc, 'x', { x: -50, y: 0 }, new ObjectIds(doc.objects));
+    expect(doc.terrain.craters).toEqual([{ x: -40, y: 10, radius: 12 }, { x: 40, y: 10, radius: 12 }]);
+  });
+
   it('copies a quarter to the other three with Both, and does nothing without a symmetry', () => {
     const doc = map();
     doc.objects.push({ id: 'o1', asset: 'tree', x: -40, y: -30, z: 0, rotation: 0, scale: 1 });

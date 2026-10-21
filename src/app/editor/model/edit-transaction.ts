@@ -13,7 +13,7 @@
  *   tx.changed({ heights: rect });      // the view redraws it
  *   tx.commit();                        // or tx.abort()
  */
-import type { CustomMapDocument, MapGroundLayer, MapObject, MapRiver } from '../../world/custom-map/map-document';
+import type { CustomMapDocument, MapCrater, MapGroundLayer, MapObject, MapRiver } from '../../world/custom-map/map-document';
 import type { GridRect } from '../../map-ops/grid';
 import { mergeChanges, type DocChange, type EditCommand } from './doc-change';
 import type { EditorDocument } from './editor-document';
@@ -22,20 +22,22 @@ import { CompoundCommand } from './commands/compound';
 import { ObjectsCommand } from './commands/objects';
 import { PatchCommand, patchArray, patchLayout, splatTargets, type PatchTarget } from './commands/patch';
 import { SnapshotCommand, partsChange, type DocParts } from './commands/snapshot';
-import { GroundCommand, LayerListCommand, RiverListCommand, WaterStateCommand, groundState, waterState, type GroundState, type WaterState } from './commands/terrain';
+import { CraterListCommand, GroundCommand, LayerListCommand, RiverListCommand, WaterStateCommand, groundState, waterState, type GroundState, type WaterState } from './commands/terrain';
 
 /**
  * What a transaction can keep whole before it changes it: a part of the
  * document, or of its terrain: the layer list, the ground (layers, splat
- * maps and cliff together), all water (bodies, levels, masks), the rivers
+ * maps and cliff together), all water (bodies, levels, masks), the rivers,
+ * the craters dug in the editor
  */
-export type TxPart = keyof DocParts | 'layers' | 'ground' | 'water' | 'rivers';
+export type TxPart = keyof DocParts | 'layers' | 'ground' | 'water' | 'rivers' | 'craters';
 
 interface TxBefore {
   layers: MapGroundLayer[];
   ground: GroundState;
   water: WaterState;
   rivers: { list: MapRiver[] | undefined };
+  craters: { list: MapCrater[] | undefined };
 }
 
 export class EditTransaction {
@@ -118,6 +120,9 @@ export class EditTransaction {
           break;
         case 'rivers':
           this.terrainParts.rivers = { list: t.rivers ? structuredClone(t.rivers) : undefined };
+          break;
+        case 'craters':
+          this.terrainParts.craters = { list: t.craters?.map((c) => ({ ...c })) };
           break;
         default:
           if (part === 'objects' && (this.added.length || this.removed.length)) throw new Error('Objects are kept whole or added and removed, not both');
@@ -243,6 +248,7 @@ export class EditTransaction {
     if (before.ground) parts.push(new GroundCommand(label, before.ground, groundState(t)));
     if (before.water) parts.push(new WaterStateCommand(label, before.water, waterState(t)));
     if (before.rivers) parts.push(new RiverListCommand(label, before.rivers.list, t.rivers ? structuredClone(t.rivers) : undefined));
+    if (before.craters) parts.push(new CraterListCommand(label, before.craters.list, t.craters?.map((c) => ({ ...c }))));
     parts.push(...this.included);
     const patches = new PatchCommand(label, [...this.recorders].map(([target, recorder]) => ({ target, patches: recorder.finish() })));
     if (!patches.empty) parts.push(patches);

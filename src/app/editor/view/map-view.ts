@@ -17,6 +17,17 @@ import { bringMapToFront } from '../../world/custom-map/map-in-front';
 import type { ShotLights } from '../../three-engine/shot-lights/shot-lights';
 import { mapToScene as toScene } from '../../world/custom-map/render/map-coords';
 import type { GridRect } from '../../map-ops/grid';
+import { CraterLakes, mapCraterSources } from '../../world/custom-map/crater-lakes';
+
+/**
+ * How much faster than the game a crater's lake fills in the editor: the
+ * game's 10 to 20 s (lava three times that) in 3 to 7 s, so the map maker
+ * sees what the water does in its order (the fall over the lip, the lake
+ * rising, the spill, the stream running off) without waiting the game's time
+ */
+export const CRATER_PREVIEW_PACE = 3;
+/** Seconds the ground stands still before the craters' lakes are worked out again (not on every dab of a stroke) */
+const CRATER_SETTLE_S = 0.3;
 
 /** Scene position of a map point at a height */
 export function mapToScene(x: number, y: number, height: number, target = new Vector3()): Vector3 {
@@ -25,6 +36,14 @@ export function mapToScene(x: number, y: number, height: number, target = new Ve
 
 export class EditorMapView {
   readonly view: CustomMapView;
+  /** What the craters dug in the editor do to its rivers: the game's reckoning (crater-lakes.ts) */
+  private readonly craterLakes = new CraterLakes();
+  /** The clock the lakes fill on, seconds: the editor's own time at CRATER_PREVIEW_PACE */
+  private craterClock = 0;
+  /** When each crater was first seen, by its key; null for those the map came with (full) */
+  private readonly craterStarts = new Map<string, number | null>();
+  /** Seconds since the ground or the water last changed; null when the lakes are as the map stands */
+  private craterSettle: number | null = 0;
 
   constructor(
     private readonly doc: CustomMapDocument,
@@ -37,7 +56,10 @@ export class EditorMapView {
   ) {
     // The editor shows this map: the assets the test runs of it loaded stay
     bringMapToFront(doc.meta.id);
-    this.view = new CustomMapView(doc, MapAssetLibrary.shared(), { anisotropy: renderer.capabilities.getMaxAnisotropy(), renderer, groundBaker, lights });
+    // A crater may cut its rivers: the lakes' and falls' programs built with the map's
+    const craterWater = (doc.terrain.rivers?.length ?? 0) > 0;
+    this.view = new CustomMapView(doc, MapAssetLibrary.shared(), { anisotropy: renderer.capabilities.getMaxAnisotropy(), renderer, groundBaker, lights, craterWater });
+    for (const s of mapCraterSources(doc.terrain.craters)) this.craterStarts.set(s.key, null);
     this.view.attach(scene);
     this.view.environment.apply(scene, renderer);
   }
@@ -74,7 +96,27 @@ export class EditorMapView {
 
   /** Every frame; `focus` (scene space) is where the camera orbits, the sun's shadow box follows it */
   update(dt: number, camera: Camera, focus?: Vector3): void {
+    this.craterClock += dt * CRATER_PREVIEW_PACE;
+    if (this.craterSettle !== null && (this.craterSettle += dt) >= CRATER_SETTLE_S) this.refreshCraters();
+    this.view.setGameTime(this.craterClock);
     this.view.update(dt, camera, focus);
+  }
+
+  /** The ground, the water or the craters changed: their lakes are worked out again once the ground stands still */
+  cratersChanged(): void {
+    if (!this.doc.terrain.craters?.length && !this.craterStarts.size) return;
+    this.craterSettle = 0;
+  }
+
+  /** The craters' lakes as the map stands: a crater new since the map was opened fills from now */
+  private refreshCraters(): void {
+    this.craterSettle = null;
+    this.craterLakes.forget();
+    const sources = mapCraterSources(this.doc.terrain.craters).map((s) => {
+      if (!this.craterStarts.has(s.key)) this.craterStarts.set(s.key, this.craterClock);
+      return { ...s, start: this.craterStarts.get(s.key) ?? null };
+    });
+    this.view.setCraterWater(this.craterLakes.entries(this.doc.terrain, sources));
   }
 
   /** The layer list, a layer's material or the cliff material changed (splat weights follow) */
@@ -84,6 +126,7 @@ export class EditorMapView {
 
   /** Height samples changed */
   updateHeights(rect: GridRect): void {
+    this.cratersChanged();
     const t = this.doc.terrain;
     const cell = t.grid.cellSize;
     this.view.updateHeights(metres(t.width, t.depth, rect.i0 * cell, rect.j0 * cell, rect.i1 * cell, rect.j1 * cell));
@@ -99,6 +142,7 @@ export class EditorMapView {
 
   updateWater(): void {
     this.view.updateWater();
+    this.cratersChanged();
   }
 
   /** Only further body k (0..) changed, within `rect` (samples) */
