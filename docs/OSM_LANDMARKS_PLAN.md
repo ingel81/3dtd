@@ -1,6 +1,7 @@
 # Besondere Gebäude in OSM-Welten (Plan)
 
-**Status:** Plan, 2026-10-21 (TODO E297); L1 und L2 gebaut (2026-10-21, siehe „L1 und L2, gebaut“), L3 bis L8 offen
+**Status:** Plan, 2026-10-21 (TODO E297); L1 und L2 gebaut (2026-10-21, siehe „L1 und L2, gebaut“), L3 gebaut
+(2026-10-21, siehe „L3, gebaut“), L4 bis L8 offen
 **Bezug:** [OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md) (Gebäude, Bau aus dem Grundriss E235, Altstadt V10),
 [OSM_WORLD_ROUND2_PLAN.md](OSM_WORLD_ROUND2_PLAN.md) (Wahrzeichen als Anker, E240), [CUSTOM_MAPS.md](CUSTOM_MAPS.md)
 (Katalog, Renderer), [DESTRUCTION_PLAN.md](DESTRUCTION_PLAN.md) (Ruinen, Programme), TODO E280 (Ruinen-Programme)
@@ -340,7 +341,7 @@ Fragment-Shader). Messen: `map-load`-Probe vor und nach jedem Schritt auf dersel
 |---|---|---|
 | L1 | Wege durch Gebäude (`building_passage`, `covered`, Platzrand) und kein Rückfall auf schlechte Modelle; Deckung in den Bericht | gebaut |
 | L2 | Eine Rolle für Wahrzeichen (`building-tags.ts` statt `landmarkKind`), Ruinen nicht mehr weglassen, Anlagenfläche `historic=castle` lesen; HQ entfernt kein Wahrzeichen (Entscheidung 4) | gebaut |
-| L3 | Abfrage um `building:part` und `type=building` (Version des Rahmenspeichers hoch), Teile an den Grundriss hängen, `MapMass.parts` im Format, Editor und Prüfung | 2 Tage |
+| L3 | Abfrage um `building:part` und `type=building` (Version des Rahmenspeichers hoch), Teile an den Grundriss hängen, `MapMass.parts` im Format, Editor und Prüfung | gebaut (ohne `type=building`, siehe unten) |
 | L4 | Dach über beliebigem Umriss (Skelett), Satteldach und Walmdach für Flügel und Höfe, auch für gewöhnliche Häuser | 2 bis 3 Tage |
 | L5 | Dachaufsätze (Helm, Kegel, Zwiebel, Kuppel, Zinnen) und ihre Ruinenform im Dachprogramm | 2 Tage |
 | L6 | Fassadenfamilien im Wand-Shader (`baroque`, `gothic`, `rubble`, `block`, `house`), Dachfarben und -deckungen, Torbogen als Wandart | 3 Tage, mit Optikrunden |
@@ -465,7 +466,86 @@ Tönung der Wahrzeichen), `convert/anchors.ts` (liest die Rolle), `custom-map-st
 
 - Aussparung der Durchgänge (Torbogen zum Durchsehen, Entscheidung 2): heute laufen die Gegner unsichtbar durch die
   geschlossene Wand.
-- Dach: Bauten mit Hof und L-, U-Formen sind flach mit Attika (L4); das Schloss hat noch keine Türme und Hauben (L3,
-  L5).
+- Dach: Bauten mit Hof und L-, U-Formen sind flach mit Attika (L4); das Schloss hat noch keine Türme und Hauben (seit
+  L3 Türme, Hauben als Pyramide; ihre Formen L5).
 - Ruinen: eigener Zustand „alt“ ohne Glut und Ruß, Türme als Stumpf statt gekippt (Instanzwert, kein Programm).
 - Überstand der Altstadt-Rechtecke (siehe Messung), L4.
+
+## L3, gebaut (2026-10-21)
+
+Code: `map-document.ts` (`MapMassPart`, `MapMass.parts`, `roofTint`, `roofCover`, Dach `pyramid`), `object-mass.ts`
+(`massBodies`, Prüfung, Höhe und Dachraster über alle Teile, `massRectFrame`, `massApex`), `render/objects/mass-layer.ts`
+(Teile als Körper desselben Baus), `convert/building-mass.ts` (`partsMass`, `partOf`, Farben, `clipOffRoads`),
+`convert/buildings.ts` (`partsByOutline`, Bericht), `convert/square-outlines.ts` (`pullDeadEnds`), `convert/roads.ts`.
+Specs: `building-parts.spec.ts` (neu), `object-mass.spec.ts`, `mass-layer.spec.ts`.
+
+### Teile
+
+- **Abfrage:** `building:part` fragt die Abfrage seit E290 schon ab (Version bleibt, gespeicherte Rahmen haben die
+  Teile). **Abweichung:** `type=building`-Relationen werden nicht geholt; ein Teil hängt am kleinsten Außenring eines
+  Gebäudes, in dem seine Mitte liegt, Höfe mitgezählt (die Treppentürme des Schlosses stehen im Hof). Teile ohne
+  Außenwirkung (`elevator`, `room`, `floor`, `level`, `corridor`, `shaft`, unter der Erde) zählen nicht.
+- **Ein Bau, kein zweiter Weg:** `MapMass.parts` (Format 4, optional, geprüft in `massProblem`); gezeichnet werden die
+  Teile, die Ringe des Baus bleiben sein Grund (Sitz, Bauverbot, Straßen, Ruine). Ein Grundriss mit Teilen nimmt keine
+  Katalogmodelle, außer der Bau aus dem Grundriss kann nicht stehen (wie bisher Wasser, Straße).
+- **Höhe:** Boden aus `min_height`, sonst `building:min_level` Geschosse über dem Sockel; Oberkante aus `height` minus
+  dem gezeichneten Dach, sonst `building:levels`, sonst die des Gebäudes (ein Turm ein Geschoss mehr: die Treppentürme
+  ohne Höhe). Geschosse aus `building:levels`, gezählt ab dem Sitz, damit die Fenster gestapelter Teile fluchten.
+  `height` und `building:levels` zusammen: die Geschosse aus den Levels (die drei hohen Geschosse der Schlossflügel);
+  der Wand-Shader macht nur noch aus einem Geschoss eine Halle und gibt hohen Geschossen höhere Fenster (gleiches
+  Programm).
+- **Dächer:** `gabled`, `half-hipped`, `gambrel`, `round`, `saltbox`, `mansard` als Satteldach, `hipped` als Walm über
+  dem Rechteck des Teils in seiner eigenen Drehung (`massPitched` nimmt jetzt jedes gedrehte Rechteck), wenn der Teil
+  es zu 90 % füllt; sonst Mansarde (höchstens 7 m, die getaggte `roof:height` bis dahin). `pyramidal`, `cone`,
+  `onion`, `dome`, `spire`, `helm` als neue Dachform `pyramid` über jedem Umriss, den seine Mitte ganz sieht.
+  **Abweichung bis L5:** Zwiebel, Kuppel und Kegel stehen als Pyramide in ihrer Höhe. `skillion`,
+  `quadruple_saltbox`, `many` u. a. stehen flach in halber Dachhöhe (L4).
+- **Was die Teile nicht decken:** decken sie weniger als 97 % des Grundrisses, füllt ein eigener Teil den Rest: der
+  Grundriss 0,15 m eingerückt (nie in der Ebene einer Teilwand), flach, höchstens so hoch wie der niedrigste Teil am
+  Boden.
+- **Farben und Deckung:** `building:colour` je Teil (auf Stein die Farbnamen als Baustein: `red` roter Sandstein),
+  `roof:colour` (Namen als Schiefer, Ziegel, Kupfer), `roof:material` als Deckung (Ziegel, Schiefer, Blech); ein Bau
+  ohne eigene Farben nimmt die der meisten Teile, Teile ohne eigene erben sie. Die Dachfarbe ist eine Instanzfarbe
+  über dem Mittel der Deckung. Auch Bauten ohne Teile lesen jetzt `roof:colour`, `roof:material`, eine Pyramide aus
+  `roof:shape` und die `roof:height` einer Mansarde.
+- **Zerstörung:** ein Objekt, eine Ruine: die Bereiche jedes Batches gehören dem Bau (alle Teile verlassen die heilen
+  Batches), Bruchlinie und Höhe des Ruinenrahmens aus dem Bau samt Helmen, Wände gehobener Teile werden an der
+  Bruchlinie geteilt wie die übrigen. Ruinen aus OSM mit Teilen ebenso (`damage: 3`).
+- **Deckungsbericht:** ein Bau mit Teilen deckt, was unter seinen Teilen liegt; dazu `withParts`, `parts`.
+
+### Straßen an großen Bauten (Abweichung, nötig für den Dom)
+
+Am Würzburger Dom treffen sich zwei Wege des Kiliansplatzes (`highway=pedestrian`, linear) in einem Knoten im
+nördlichen Querhaus. Der Schnitt entlang der unendlichen Linie des einen Wegs nahm die Westfassade samt Türmen (21 %
+des Doms), mit Teilen danach die ganze Westseite. Zwei allgemeine Änderungen:
+
+- **Schnitt nur neben der Straße** (`clipOffRoads`): ein Schnitt, der hinter der Straße jenseits ihrer Enden etwas
+  nähme, schiebt stattdessen nur die Punkte im Band der Straße von ihr weg; die Teile gehen denselben Weg.
+- **Wegenden und Fußwegknoten aus Gebäuden** (`pullDeadEnds`, beim Bau des Straßennetzes): das Ende eines Wegs an
+  einer Wand und Knoten von Fuß- und Fußgängerwegen in einem Gebäude rücken wie die Platzränder vor die Wand (nicht
+  Knoten von Straßen für Autos, Tunnel, Brücken, Durchgänge, der Kartenrand). Würzburg 144, Aschaffenburg 9 Knoten.
+
+### Messung (600 m, ohne Höhen, Katalog wie im Spiel; Teile aus der Erhebung in die Rohdaten gemischt)
+
+| | Aschaffenburg vorher / nachher | Würzburg vorher / nachher |
+|---|---|---|
+| Bauten mit Teilen, Teile | – / 1, 18 | – / 34, 145 |
+| Dreiecke des Wahrzeichens | Schloss 280 / 446 | Dom 128 / 532 (vorher um 21 % beschnitten) |
+| Deckung unter 70 % | 1,3 / 0,9 % | 9,5 / 6,5 % |
+| weggelassen wegen Straßen | 1 / 1 | 33 / 29 |
+| Gebäudeschritt (jsdom, Einzellauf) | 92 / 70 ms | 228 / 174 ms |
+| Datei | 1,517 / 1,517 MB | 1,738 / 1,736 MB |
+
+Bild (`/map-preview`, Dev-Build, 1600 × 900): Draw Calls Schloss nah 187 / 187, Schlossecke 179 / 179, Schloss
+Übersicht 200 / 199, Dom 229 / 230, Dom nah 231 / 234; Dreiecke gleich bis +1,3 % (Dom: mehr Gebäude stehen);
+WebGL-Programme 83 / 83 und 84 / 84 (keine neuen). Bilder lokal `tmp/e297c/` im Worktree des Baus
+(`aschaffenburg-{schloss,nah,ecke,oben}-{before,after}.png`, `wuerzburg-{dom,domnah,oben}-{before,after}.png`).
+
+### Offen nach L3
+
+- L5: Zwiebel, Kuppel, Kegel, Helm als eigene Formen (heute Pyramide), Zinnen.
+- L4: Satteldach über nicht rechteckigen Flügeln (ein Schlossflügel steht als Mansarde, Dom-Seitenschiffe als
+  Pultdach flach).
+- L6: Fassaden der Wahrzeichen: der verputzte Dom zeigt Wohnhausfenster in 13 Reihen an den Türmen.
+- Teile, die sich in derselben Höhe überdecken, flimmern, wo ihre Wände in einer Ebene liegen (selten; OSM stapelt
+  mit `min_height`). Ein schwebender Teil (Boden über allen anderen) hat keine Unterseite.

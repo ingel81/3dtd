@@ -78,7 +78,10 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Fassadenfamilien, vor E280.
       L1 und L2 gebaut (2026-10-21, Nachtest PLAYTEST.md T): Durchgänge und Platzränder halten keine Häuser ab, Modelle
       nur bei 85 % Deckung und 10 % Überstand, eine Rolle für Wahrzeichen, Ruinen als Ruine, HQ nimmt kein Wahrzeichen;
-      Schloss Johannisburg ein Bau mit Hof. Offen: L3-L8, Aussparung der Durchgänge (heute geschlossene Wand).
+      Schloss Johannisburg ein Bau mit Hof. L3 gebaut (2026-10-21, Nachtest PLAYTEST.md T5-T7): Bauten aus ihren
+      `building:part` mit Höhe von bis, Dach, Farben, Deckung; Schloss mit Flügeln, Ecktürmen, Hauben (als Pyramide),
+      Dom mit Türmen; Wegenden und Fußwegknoten rücken aus Gebäuden. Offen: L4-L8, Aussparung der Durchgänge (heute
+      geschlossene Wand).
 - [ ] **E275 Übergang vom Laden ins Spiel** (Zweitrechner 2026-10-20, Production, V-Sync, warmes Profil): in den ersten
       0,3 s nach ready ein Bild von 117-166 ms und einige von 33-50 ms (OSM und Ruined City). Darin erste Textur-Uploads
       (512×512, 650×426 mit Mipmaps, vermutlich Minimap oder UI) und eine Programmabfrage von 5,5 ms. Ursache im

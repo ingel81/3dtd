@@ -607,10 +607,12 @@ und Auge. Globen › OpenStreetMap, einen Ort suchen (z. B. Miltenberg).
   „1,8 km“ usw.; erst beim Loslassen lädt es (Schleier im Rahmen).* Dann die Karte anklicken und Pfeiltasten, Plus,
   Minus drücken: *die Karte rückt, die Kante ändert sich; nach dem Loslassen der Taste lädt es.*
 
-## T Besondere Gebäude in OSM-Welten (2026-10-21, E297 L1 und L2)
+## T Besondere Gebäude in OSM-Welten (2026-10-21, E297 L1 bis L3)
 
 Nur neu gebaute OSM-Welten. Einteilung, Durchgang, Deckungsschwelle, Ruine und HQ prüfen Specs (`building-tags.spec.ts`,
-`buildings.spec.ts`, `roads.spec.ts`); hier Auge und Route. Dach, Türme und Fassadenfamilien kommen erst (L3 bis L6).
+`buildings.spec.ts`, `roads.spec.ts`), Teile mit Höhen, Abdeckung, Farben, Zerstörung und gleicher Bau auf jedem
+Rechner `building-parts.spec.ts`, `object-mass.spec.ts`, `mass-layer.spec.ts`; hier Auge und Route. Dächer über
+beliebigen Umrissen, Turmhelme als eigene Form und Fassadenfamilien kommen erst (L4 bis L6).
 
 - **T1 Schloss mit HQ im Hof:** New game, „A map of a real place“, `49.9763, 9.1414` (Schloss Johannisburg,
   Aschaffenburg), die Karte ziehen, bis das HQ (Mitte des Rahmens) im Schlosshof sitzt, bauen. *Das Schloss steht als ein Bau aus seinem Grundriss um den
@@ -626,6 +628,15 @@ Nur neu gebaute OSM-Welten. Einteilung, Durchgang, Deckungsschwelle, Ruine und H
   Ludwigsbau und andere mit `ruins=yes`) stehen von Anfang an als gefallene Ruinen mit Schutt, wie zerstörte Häuser;
   die übrigen Schlossbauten stehen in Stein.* Notieren, ob Glut und Ruß an alten Ruinen stören und wie die Türme
   liegen.
+- **T5 Schloss aus seinen Teilen (L3):** wie T1, das Schloss von außen an einer Ecke ansehen. *Vier Flügel mit
+  Satteldach (einer mit flacherem Mansarddach), an den Ecken höhere Türme, auf ihnen spitze Hauben bis 52 m (als
+  Pyramide, die Zwiebelform kommt mit L5); im Hof vier achteckige Treppentürme mit Pyramide; rote Sandsteinwände,
+  graue Schieferdächer.* Notieren, wo Teile flimmern oder Lücken zwischen Flügel und Turm klaffen.
+- **T6 Dom (L3):** wie T3, den Dom von Westen und von oben ansehen. *Zwei Westtürme mit dunklen Helmen bis 64 m, zwei
+  rote Osttürme mit grünen Kupferhelmen, Langhaus und Querhaus mit Satteldach, Vierung mit Pyramide; die Westfassade
+  steht ganz (vorher fehlte sie).* Notieren, wo Wege des Platzes in den Dom ragen.
+- **T7 Zerstörung eines Baus aus Teilen (L3):** in T5 einen Flügel des Schlosses beschießen, bis er fällt
+  (Zerstörung an). *Das ganze Schloss wird eine Ruine, Türme und Hauben fallen mit, nichts bleibt in der Luft stehen.*
 
 ## U Kratersee im Editor (2026-10-21, E294)
 
