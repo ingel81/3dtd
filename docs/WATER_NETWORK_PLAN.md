@@ -110,7 +110,10 @@ zum Vorschlag darunter:
   Krater, die die Karte beim Öffnen schon hat, stehen voll. Im Spiel steht ein Editor-Krater von Anfang an voll da,
   neben den Kratern der Einschläge (auch ohne Zerstörung). Undo, Spiegeln, Speichern und Laden nehmen die Liste mit; ein
   zugeschütteter Krater (Grund nicht unter dem Wasser, das hereinkommt) schneidet nichts mehr. Die Kraterliste ist
-  Darstellung: die Simulation und die Prüfung lesen sie nicht. Map-Kit und Agent tragen ihre Krater (noch) nicht ein.
+  Darstellung: die Simulation und die Prüfung lesen sie nicht. Map-Kit und Agent tragen ihre Krater ebenso ein
+  (`MapKit.form`, nach dem Strich wie der Pinsel; der Fingerabdruck des Agenten zählt die Liste mit). Die
+  mitgelieferten Karten mit Kratern (Ember Crater, Mars Canyon, Moon Base, Ruined City) führen die Liste seither; keiner
+  ihrer Krater schneidet einen Fluss.
 
 Der Vorschlag, wie er abgestimmt war:
 

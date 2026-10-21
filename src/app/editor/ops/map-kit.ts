@@ -32,7 +32,7 @@ import { LandQuery, LandscapeContext } from './landscape/landscape-context';
 import { resample, simplify } from '../../map-ops/lines';
 import { carveRiver, DEFAULT_RIVER, type RiverOptions, type RiverResult } from './landscape/river';
 import { buildRoad, DEFAULT_ROAD, type RoadOptions, type RoadResult } from './landscape/road';
-import { cliffAlong, coastAlong, formDab, type FormKind } from './landscape/shapes';
+import { cliffAlong, coastAlong, formDab, markCrater, type FormKind } from './landscape/shapes';
 import {
   alignedToSlope,
   ObjectGrid,
@@ -340,13 +340,15 @@ export class MapKit {
     });
   }
 
-  /** Mountain, valley, plateau, crater or dunes, held `hold` seconds per dab */
+  /** Mountain, valley, plateau, crater or dunes, held `hold` seconds per dab; a crater goes into the map's list */
   form(kind: FormKind, where: Where, brush: Brush, hold = 3): void {
     const b = brushOf(brush);
     this.stroke(kind, (s) => {
       for (const c of dabs(where, b.radius / 3)) {
         for (let t = 0; t < hold; t += 0.1) s.changed({ heights: formDab(s, kind, c, b, 0.1) }, c);
       }
+      // As the editor's brush puts it there when the stroke ends: its lake where it cuts a river
+      if (kind === 'crater') markCrater(s, b);
     });
   }
 

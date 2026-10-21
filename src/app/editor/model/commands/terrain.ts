@@ -102,7 +102,7 @@ export class RiverListCommand implements EditCommand {
   }
 }
 
-/** The list of craters dug in the editor (MapTerrain.craters), before and after */
+/** The list of craters dug (MapTerrain.craters), before and after */
 export class CraterListCommand implements EditCommand {
   readonly bytes: number;
 

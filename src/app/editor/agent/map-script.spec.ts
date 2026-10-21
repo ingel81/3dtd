@@ -459,3 +459,18 @@ describe('map scripts', () => {
     expect(typeof value.rivers[0].points[0].height).toBe('number');
   });
 });
+
+describe('craters a map script digs', () => {
+  it('keeps them in the map list, played the same, and the fingerprint knows them', async () => {
+    const doc = map();
+    const r = ok(run(`map.river([{ x: 0, y: -120 }, { x: 0, y: 120 }]); map.form('crater', { x: 0, y: 0 }, { radius: 40, strength: 1 }, 4);`, doc));
+    expect(doc.terrain.craters).toEqual([{ x: 0, y: 0, radius: 24 }]);
+    const editor = new EditorDocument(map());
+    const played = await playCommands(editor, index, r.commands, 7, { wait: async () => undefined });
+    expect(editor.doc.terrain.craters).toEqual([{ x: 0, y: 0, radius: 24 }]);
+    expect(played.fingerprint).toBe(r.fingerprint);
+    const without = structuredClone(editor.doc);
+    delete without.terrain.craters;
+    expect(contentFingerprint(without)).not.toBe(r.fingerprint);
+  });
+});

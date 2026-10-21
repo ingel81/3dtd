@@ -196,7 +196,7 @@ export interface MapTerrain {
   waterBodies?: MapWater[];
   /** Rivers and lava flows along a line, each point with its own width and surface height */
   rivers?: MapRiver[];
-  /** Craters dug in the editor (MapCrater), their lakes where they cut rivers */
+  /** Craters dug with the landscape brush, the map kit or a script (MapCrater), their lakes where they cut rivers */
   craters?: MapCrater[];
   /** Slopes steeper than this (degrees) show the cliff material */
   cliffAngle: number;

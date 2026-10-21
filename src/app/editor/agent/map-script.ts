@@ -188,7 +188,7 @@ export const SCRIPT_OPS: Readonly<Record<string, OpSpec>> = {
   // Landscape tool
   biome: { args: [a('id', one(BIOME_IDS)), a('where', WHERE), a('brush', BRUSH), a('hold', num(0.1, 5), true)], doc: 'Biome brush held `hold` s (0.6) per dab: ground, plants, rocks, houses of the biome' },
   biomeBand: { args: [a('id', one(BIOME_IDS)), a('minY', num(), true), a('maxY', num(), true)], doc: 'A biome over the whole map between two northings', wholeGround: true },
-  form: { args: [a('kind', one(FORMS)), a('where', WHERE), a('brush', BRUSH), a('hold', num(0.1, 10), true)], doc: 'Landform held `hold` s (3) per dab' },
+  form: { args: [a('kind', one(FORMS)), a('where', WHERE), a('brush', BRUSH), a('hold', num(0.1, 10), true)], doc: 'Landform held `hold` s (3) per dab; a crater goes into the map list, its lake where it cuts a river' },
   cliff: { args: [a('line', LINE), a('height', num(-200, 200)), a('reach', num(1, 200))], doc: 'Cliff edge: the ground left of the drawing direction rises by `height`' },
   erode: { args: [a('where', WHERE), a('brush', BRUSH), a('rounds', int(1, 30), true)], doc: 'Rain erosion along `where`' },
   cracks: { args: [a('where', WHERE), a('brush', BRUSH), a('hold', num(0.1, 5), true)], doc: 'Glow cracks' },

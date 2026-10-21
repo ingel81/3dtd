@@ -110,7 +110,7 @@
       "spawns": 3,
       "biome": "hell",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "72412f7b20ecdd5f605d909ab6e1277415120182d4ba69965c0fe54ed6369e92"
+      "contentHash": "adb633a34a16320b7be750c6d1c66dd5c451679d9e6c533126542b86a94a56fe"
     },
     {
       "id": "twin-gates",
@@ -138,7 +138,7 @@
       "spawns": 3,
       "biome": "moon",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "e09ad5d5a265053c810e8a717abb8fed9b3c7e28c8b878bf320ef170d4e83dea"
+      "contentHash": "82c996cbda11ac29561ca6c4d4c034e0ba957873359bda9c99475c765ffe76a7"
     },
     {
       "id": "mars-canyon",
@@ -152,7 +152,7 @@
       "spawns": 3,
       "biome": "mars",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "45dbbf3014a9113d352c8d4cf870f45eb49e91eccaf2aacdacec8a33c8b7cca0"
+      "contentHash": "c5e23e59d2797108eecdc7810a5400601a12d0ab6925197e9017b8017d72d122"
     },
     {
       "id": "ruined-city",
@@ -166,7 +166,7 @@
       "spawns": 3,
       "biome": "apocalypse",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "53e498152348585fd082c6b9bf5f810839abf306e8885c2d6c622ef049f76186"
+      "contentHash": "72737dd6c9b0007927245097262fb1e9b95115cbd815931355e5142cd40174b4"
     },
     {
       "id": "harbor-town",

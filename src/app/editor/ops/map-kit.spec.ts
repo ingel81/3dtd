@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { createMapDocument } from '../../world/custom-map/map-create';
 import { CatalogIndex, normalizeCatalog } from '../../map-ops/asset-catalog';
 import { heightAt } from '../../map-ops/grid';
+import { CraterLakes, mapCraterSources } from '../../world/custom-map/crater-lakes';
 import { MapKit } from './map-kit';
 import { readWeights } from '../../map-ops/paint-ops';
 import { waterInAir } from '../../map-ops/validation/map-validation';
@@ -180,5 +181,23 @@ describe('MapKit.place', () => {
     expect(Math.abs(tilted.pitch ?? 0)).toBeCloseTo(Math.atan(0.3), 1);
     // Afloat it stays level, as the Objects tool keeps it
     expect(k.place('rowboat', 40, 0, { align: true }).pitch ?? 0).toBe(0);
+  });
+});
+
+describe('MapKit.form crater', () => {
+  it('puts the crater it digs into the map list, its lake cutting the river as the editor brush does', () => {
+    const k = kit();
+    k.river([{ x: 0, y: -120 }, { x: 0, y: 0 }, { x: 0, y: 120 }]);
+    k.form('mountain', { x: 80, y: 80 }, { radius: 30 }, 1);
+    expect(k.doc.terrain.craters).toBeUndefined();
+    k.form('crater', { x: 0, y: 0 }, { radius: 40, strength: 1 }, 4);
+    expect(k.doc.terrain.craters).toEqual([{ x: 0, y: 0, radius: 24 }]);
+    const [entry] = new CraterLakes().entries(k.doc.terrain, mapCraterSources(k.doc.terrain.craters));
+    expect(entry.cut.river).toBe(0);
+    expect(entry.start).toBeNull();
+    expect(entry.cut.level).toBeGreaterThan(entry.cut.floor);
+    // Dug again in the same place: one entry, the larger
+    k.form('crater', { x: 2, y: 1 }, { radius: 60, strength: 1 }, 1);
+    expect(k.doc.terrain.craters).toEqual([{ x: 2, y: 1, radius: 36 }]);
   });
 });
