@@ -727,7 +727,11 @@ function emitJunction(c: MapPoint, list: End[], out: TileBuilder, styleOf: (s: R
       ring.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, edge: kerbEdge - (walkA + walkB) / 2, arm: k, side: false });
     }
   }
-  const centre: RingPoint = { x: c.x, y: c.y, edge: Math.min(...list.map((e) => e.chain.half - e.chain.walk)), arm: main, side: false };
+  // The node lies on the widest road, its kerbs that road's half carriageway away: the distance to the edge runs from
+  // there to the ring, so the kerbs cross the junction where that road's run. A narrower way's half (a footway
+  // joining) pulled them in towards the node, the pavement bulging into the carriageway on both sides of each
+  // junction like the teeth of a saw
+  const centre: RingPoint = { x: c.x, y: c.y, edge: m.chain.half - m.chain.walk, arm: main, side: false };
   // Fanned from the node, each triangle in one road's frame: near a road's end its texture takes over from the
   // junction's (the weight, 1 on the end section, 0 at the node and on the kerbs), so no seam shows at any end
   const verts: Vertex[] = [];

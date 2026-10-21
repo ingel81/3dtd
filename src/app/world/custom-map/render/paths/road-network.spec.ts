@@ -76,6 +76,40 @@ describe('road network', () => {
     expect(net.styles.every((s) => s.gutter)).toBe(true);
   });
 
+  it('keeps the kerbs where the road runs across a junction a footway joins: no pavement bulging into the carriageway', () => {
+    const net = buildRoadNetwork(
+      paths(
+        [
+          { a: 'w', b: 'c', street: 'secondary', width: 6, sidewalk: 1.8 },
+          { a: 'c', b: 'e', street: 'secondary', width: 6, sidewalk: 1.8 },
+          { a: 'c', b: 'n', kind: 'path', street: 'footway', width: 2.5 },
+        ],
+        [['w', -100, 0], ['c', 0, 0], ['e', 100, 0], ['n', 0, 60]],
+      ),
+    );
+    // The distance to the edge at a map point, from the triangle it lies in
+    const edgeAt = (x: number, y: number): number => {
+      for (const t of net.tiles) {
+        for (let k = 0; k < t.index.length; k += 3) {
+          const [i, j, l] = [t.index[k], t.index[k + 1], t.index[k + 2]];
+          const p = (n: number) => [t.position[n * 2], t.position[n * 2 + 1]];
+          const [a, b, c] = [p(i), p(j), p(l)];
+          const d = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+          const u = ((b[0] - x) * (c[1] - y) - (b[1] - y) * (c[0] - x)) / d;
+          const v = ((c[0] - x) * (a[1] - y) - (c[1] - y) * (a[0] - x)) / d;
+          if (u < -1e-6 || v < -1e-6 || u + v > 1 + 1e-6) continue;
+          return u * t.road[i * 4 + 2] + v * t.road[j * 4 + 2] + (1 - u - v) * t.road[l * 4 + 2];
+        }
+      }
+      return NaN;
+    };
+    // Across from the footway, through the junction: carriageway to 3 m, pavement beyond, as along the rest of the road
+    for (const x of [-3, -1, 0, 1, 3]) {
+      expect(edgeAt(x, -2.7)).toBeGreaterThan(0);
+      expect(edgeAt(x, -3.3)).toBeLessThan(0);
+    }
+  });
+
   it('runs edges of one look on as one ribbon, its distance along going on', () => {
     const net = buildRoadNetwork(paths([{ a: 'a', b: 'b' }, { a: 'c', b: 'b' }], [['a', 0, 0], ['b', 50, 0], ['c', 100, 0]]));
     const along = net.tiles.flatMap((t) => Array.from({ length: t.road.length / 4 }, (_, k) => t.road[k * 4 + 1]));
