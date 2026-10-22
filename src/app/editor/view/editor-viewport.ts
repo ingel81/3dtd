@@ -466,10 +466,14 @@ export class EditorViewport {
     this.overlay.setViewDistance(this.controller.current.distance);
     this.overlay.update(dt);
     this.view.view.setAnimationPaused(this.settings.view().still);
-    this.view.update(dt, this.camera, this.controller.current.target);
+    // The view updates once its programs are built, as the game's world does (CustomMapWorld.ready): its
+    // shadow build ran meanwhile and linked the depth programs in a frame, waiting on the compiles queued
+    // before them (1.6 s at a cold editor's start, E246)
+    const shown = this.warmup.shows(this.view);
+    if (shown) this.view.update(dt, this.camera, this.controller.current.target);
     this.extras.update(dt);
     this.lights.update(dt, this.camera);
-    if (this.warmup.shows(this.view)) this.renderer.render(this.scene, this.camera);
+    if (shown) this.renderer.render(this.scene, this.camera);
 
     this.reportHover(time, tp?.hit ?? null);
     this.reportStats(time);

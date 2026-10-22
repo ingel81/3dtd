@@ -54,7 +54,9 @@ ohne die Datei zu laden), bietet ein Banner „Fresh copy“ (neue Kopie, die al
   editor“), das Formular bleibt bis zum Wechsel gesperrt und springt nicht (früher schob eine eigene Zeile dafür die
   Liste über die Höhe, ein Rollbalken kam und ging und die Vorlagen sprangen von sechs auf fünf Spalten und zurück);
   bis die Ansicht ihre Programme übersetzt hat, steht dort „Preparing the view“; bis dahin zeichnet die Ansicht
-  nichts (vorher stand gut eine Sekunde der grüne Ersatzboden, bevor die Bodenfarben da waren), ein neu gebauter
+  nichts (vorher stand gut eine Sekunde der grüne Ersatzboden, bevor die Bodenfarben da waren) und läuft auch nicht
+  (`EditorMapView.update` erst danach, wie die Welt im Spiel: ihr Schattenbau linkte sonst die Tiefenprogramme im Bild,
+  bevor das Aufwärmen sie baute, kalt 1,6 s, E246), ein neu gebauter
   Boden (Größe geändert, Kontext zurück) behält bis dahin das letzte Bild
 - **New map, From a real place:** der zweite Start neben „A landscape“: Ortssuche, dann derselbe Rahmen wie im Menü
   (flache Karte mit dem 2,4-km-Quadrat, HQ, ziehbare Spawns, „Make the map“); die erzeugte Karte ist schon gespeichert
