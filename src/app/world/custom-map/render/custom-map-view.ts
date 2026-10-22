@@ -474,6 +474,10 @@ export class CustomMapView {
   ): Promise<number> {
     await Promise.all([this.ready, this.environment.envReady]);
     if (this.disposed) return 0;
+    // The weather's and the grass's cover of the whole map, here rather than with the first frames: an OSM
+    // world's (some thousand footprints and their rims) held the first frame after it stood 36 ms (E275)
+    if (this.coverDirty) await this.refreshCover();
+    if (this.disposed) return 0;
     // The ruins no building is in yet wait out of the scene: their programs are built after the game stands
     // (warmLater), not before it (E274: 52 of the 294 programs of an OSM world's load)
     this.warmContext = { renderer, scene, camera };

@@ -1451,7 +1451,9 @@ die normale Tiefe zurück, zwei Spieler sähen dann verschiedene Tiefenpuffer. N
 - Die Splat-Map ist eine Textur über die ganze Karte (keine virtuellen Kacheln); auf 2-km-Karten mit 1024er Splat
   sind das 2 m je Texel
 - Partikel und Wetter werfen keine Schatten; Regen, Schnee, Asche und Staub enden an Dächern und am Boden (CoverMap
-  über Gelände und Fußabdrücke der Gebäude), andere Partikel kennen das Gelände nicht
+  über Gelände und Fußabdrücke der Gebäude), andere Partikel kennen das Gelände nicht. Die ganze CoverMap baut
+  `CustomMapView.warmUp` beim Laden (auf einer OSM-Welt 36 ms; mit den ersten Bildern hielt sie das erste nach ready an,
+  E275), danach nur, was sich ändert
 - Lichter: höchstens 6 echte Lichter gleichzeitig (feste Lichter im Lichtpuffer), ohne Schatten. Alle Lichter (Laternen, Fackeln, Feuer, die
   Lavapunkte) sind dazu ins Land gebacken (`effects/lamp-light.ts`): zwei Texturen über die Karte (ein Texel je Meter,
   höchstens 512 je Seite, Half Float), ruhige und flackernde Lichter getrennt, je Licht ein umgekehrtes Quadrat von
