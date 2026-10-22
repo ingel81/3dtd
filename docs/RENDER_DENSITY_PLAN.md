@@ -1205,3 +1205,101 @@ wieder auf; die Kalenderzeit oben bleibt in der Größenordnung.
   Fernkästen, Bänder und Impostoren werfen auf dem Node-Pfad deshalb keinen Schatten. Lösung über
   `castShadowPositionNode` noch nicht gebaut.
 - **Optik:** nahe gleich, Node-Pfade 2 % heller, Nebelbänke dichter; Abnahme durch den User steht aus.
+
+### 12.2 Paket 14: woher die CPU-Kosten kommen (2026-10-22)
+
+Auftrag nach 12.1: vor jeder weiteren Portierung klären, warum der `WebGPURenderer` je Bild mehr CPU braucht und warum
+der Start auf dem WebGL-2-Backend so lange dauert. Gemessen auf Autumn Keep, Ansicht `keep`, Spiegelung aus, in der
+Dev-Vorschau (Port 4450, installiertes Chrome, Bildrate offen). Die Verhältnisse stimmen mit dem Produktions-Build aus
+12.1 überein (dort 0,88 gegen 2,08 ms). Werkzeuge in `tmp/webgpu/` des Worktrees: `instr.js` (Zeit je Teil des
+Draw-Pfads), `floor.js` (Draws ausblenden), `swap.js` (Materialien tauschen), `bundle.js`, `startprof.mjs`.
+
+**CPU je Draw.** Blendet man erst die Hälfte der Meshes aus und dann alle, wächst die Zeit je Bild linear mit den
+Draws:
+
+| Renderer | alle (196 Draws) | Hälfte | keine | je Draw |
+|---|---|---|---|---|
+| WebGL + GLSL (r186) | 0,91 ms | 0,45 ms | 0,04 ms | 4,5 µs |
+| WebGPURenderer, WebGPU (r186) | 2,00 ms | 0,99 ms | 0,09 ms | 9,8 µs |
+| WebGPURenderer, WebGPU (r187dev) | 1,65 ms | 0,86 ms | 0,07 ms | 8,1 µs |
+
+Feste Kosten je Bild (Pipeline-Ausgabe, leere Pässe) sind klein. Es kommt auf den Preis je Draw an.
+
+**Wohin ein Draw geht** (r186, jeder Teil des Draw-Pfads mit Zeitmessung umhüllt; die Hüllen kosten selbst rund
+1,5 ms, daher nur die Anteile lesen):
+
+| Teil | ms/Bild | Aufrufe/Bild | Anteil |
+|---|---|---|---|
+| Bindungen und Bind-Groups (`Bindings.updateForRender`: Uniform-Puffer prüfen und schreiben) | 1,62 | 195 | 43 % |
+| davon `queue.writeBuffer` | 0,66 | 782 | |
+| Node-Updates (`NodeManager.updateForRender`: Textur-, Referenz- und Uniform-Knoten je Objekt) | 0,78 | 195 | 21 % |
+| Projektion und Ausklammern (`_projectObject`) | 0,54 | 252 | 14 % |
+| Encoder (`backend.draw`: setPipeline, Vertex-Puffer, Bind-Groups, draw) | 0,27 | 195 | 7 % |
+| Geometrie und Attribute (`Geometries.updateForRender`) | 0,25 | 195 | 7 % |
+| `RenderObjects.get` (Cache-Schlüssel) | 0,13 | 195 | 3 % |
+| Pipeline-Suche (`Pipelines.updateForRender`) | 0,07 | 195 | 2 % |
+| `updateBefore`/`updateAfter` | 0,10 | 390 | 3 % |
+| unsere Hooks (`onBeforeRender` der Objekte, `view.update`) | 0,09 | | 2 % |
+
+Jeder Draw wird jedes Bild voll aufgefrischt (`RenderObjectRefreshType.FULL` für alle 196). Je Draw gehen im Mittel
+vier Schreibvorgänge an die GPU: der Objekt-Uniform-Block (500 bis 1 000 Byte: Modellmatrizen und unsere
+Material-Uniforms, die ohne `setGroup` im Objekt-Block landen), dazu rund 90 Attribut-Uploads je Bild. Pipeline-Suche
+und Material-Cache sind billig. Unser `setupPosition` läuft nur beim Bauen des Materials, `onRenderUpdate` einmal je
+Render, keins von beiden je Draw.
+
+**Wie viel davon aus unseren Node-Graphen kommt:** Für den Test wurden alle Materialien gegen ein schlichtes
+`MeshStandardNodeMaterial` getauscht, bei gleichen Draws und gleicher Geometrie:
+
+| Fall | WebGL | WebGPU |
+|---|---|---|
+| unsere Materialien | 1,28 ms | 2,63 ms |
+| ein gemeinsames schlichtes Material | 0,69 ms | 2,35 ms |
+| je Mesh ein eigenes schlichtes Material | 0,81 ms | 2,02 ms |
+
+(Hier ohne offene Bildrate gemessen, daher höher als oben; es zählen nur die Unterschiede.) Unsere Graphen kosten
+auf WebGPU 0,3 bis 0,6 ms, also 11 bis 23 %. Den großen Rest, rund 10 µs je Draw, braucht three r186 auch mit einem
+schlichten Material. Auf WebGL kosten unsere Materialien sogar mehr (0,5 bis 0,6 ms), dort ist der Grundpreis je
+Draw aber nur ein Drittel so hoch.
+
+**Hebel, jeder einzeln gemessen:**
+
+| Hebel | vorher | nachher | Befund |
+|---|---|---|---|
+| gemeinsame Uniforms (Nebel, Wind, Sonne) per `setGroup(renderGroup)` aus dem Objekt-Block | 1,97 ms | 2,80 ms | schlechter: jedes Material bekommt einen eigenen Render-Block, der je Render geprüft wird; verworfen |
+| ein Material für alle Meshes (Obergrenze für „gemeinsame Materialien“) | 2,63 ms | 2,35 ms | −11 %, die Optik ginge dabei verloren |
+| `BundleGroup` um alles Statische (114 von 196 Draws; Wasser, Partikel, Himmel bleiben draußen) | 2,69 ms | 2,37 ms | −12 %; mit r187dev 1,60 auf 1,44 ms. Mit Wasser im Bündel stürzt r186 ab (`copyFramebufferToTexture` im Bündel-Pass) |
+| `BundleGroup`, jedes Bild neu aufgenommen | 2,69 ms | 2,65 ms | kein Gewinn |
+| weniger Draws (Hälfte ausgeblendet) | 2,00 ms | 0,99 ms | linear, der einzige große Hebel |
+| three r187dev (Stand `dev` 4d485e4, nur zur Probe installiert) | 2,00 ms | 1,65 ms | −18 %: `Bindings._update` ohne Schlüssel-Allokationen, geteilte Node-Builds |
+
+Statische Bindungen gibt es in r186 nicht als Schalter: jeder Draw prüft seine Uniform-Gruppen. Bündel sind der
+eingebaute Weg dafür und bringen nur gut 10 %, weil auch gebündelte Objekte ihre Nodes und Bindungen weiter
+auffrischen.
+
+**Start auf dem WebGL-2-Backend** (r186, Profil von der Navigation bis „bereit“, 53 s):
+
+- 22 s in `WebGLBackend._completeCompile`, also im Verlinken der Programme. Das geschieht synchron beim ersten
+  Zeichnen jedes Objekts im Render-Loop, nicht im `compileAsync` der Aufwärmphase. `compileAsync` baut dort zwar die
+  Node-Graphen, die Programme aber erst der erste `render()`.
+- Rund 8 s für Node-Aufbau und Node-Updates (`NodeBuilder.build`, `updateNode`), rund 5 s für Bindungen.
+- Mit r187dev („Compile pipelines in parallel in compileAsync()“) fällt der Start von 75 s auf 14 s, auf WebGPU von
+  20 s auf 6,6 s (WebGL heute: 13 s). Die CPU je Bild auf dem WebGL-2-Backend fällt von 5,35 auf 2,05 ms.
+  Vorkompilieren hilft also, aber erst mit einem three, das die Programme dort wirklich parallel baut.
+
+**Ursache, kurz:** Der `WebGPURenderer` von three r186 kostet je Draw gut das Doppelte von `WebGLRenderer` (9,8 gegen
+4,5 µs). Rund 80 % davon trägt three selbst: Bindungen samt Uniform-Upload je Objekt, Node-Updates, Projektion.
+11 bis 23 % kommen aus unseren Node-Graphen. Dass WebGPU auf Treiberseite billiger ist, hilft nicht, weil die Zeit
+in JavaScript vor dem Encoder vergeht. r187dev holt knapp ein Fünftel zurück, Bündel ein Zehntel.
+
+**Was für CPU ≤ WebGL fehlt:** Bei 8 µs je Draw (r187) darf dieselbe Ansicht höchstens rund 110 statt 196 Draws
+haben. Wege dahin: Zusammenlegen (eine Instanzliste je Gelände- und Objektart statt je Stufe und Variante,
+Abschnitt 6), Bündel für das Statische und vor allem indirektes Zeichnen mit Compute-Culling (Entscheidung 1), das
+die Draws je Art auf einen festen kleinen Satz bringt. Ohne weniger Draws erreicht der Node-Renderer WebGL nicht,
+auch nicht mit r187 und Bündeln zusammen (geschätzt rund 1,45 gegen 0,91 ms).
+
+**Empfehlung: erst mit Compute.** Ein Umzug allein lohnt heute nicht: Das Spiel würde auf der CPU langsamer, bei
+gleicher GPU-Zeit. Sinnvoll wird er, sobald (a) three r187 erschienen ist (Start und WebGL-2-Rückfall werden damit
+brauchbar: 14 s, 2 ms) und (b) die Draws je Ansicht über Zusammenlegen und Compute-Culling etwa halbiert sind. Diese
+Arbeit lohnt sich auch für WebGL. Bis dahin den Branch `wt/webgpu` als Probe parken und die Zahlen mit r187 über
+`e2e/perf/webgpu-compare.ts` neu ziehen. Nebenbefund für beide Renderer: rund 90 Attribut-Uploads je Bild bei
+stehender Ansicht deuten auf Instanzlisten, die ohne Änderung neu hochladen; das prüfen.
