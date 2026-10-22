@@ -965,6 +965,20 @@ export class CustomMapView {
     };
   }
 
+  /**
+   * The shadow pass's programs of what casts among `objects` and under
+   * them (compileShadowTwins): the engine's stand-ins, a tower built and
+   * one under its scaffold (its clipped variant). The map's own shadow
+   * build draws them with programs three's pass in a warm-up frame does not
+   * build (no lights there), so a tower's first finished build linked one
+   * in its frame (E280, 54 ms)
+   */
+  compileCasters(renderer: WebGLRenderer, scene: Scene, camera: Camera, objects: readonly Object3D[]): Promise<unknown> {
+    const meshes: Mesh[] = [];
+    for (const root of objects) root.traverse((o) => { if (o instanceof Mesh && o.castShadow) meshes.push(o); });
+    return this.compileShadowTwins(renderer, scene, camera, meshes);
+  }
+
   /** The shadow pass's programs of the ruins' stand-ins (compileShadowTwins), with the first warm-up's renderer */
   private ruinShadows(meshes: readonly Object3D[]): Promise<unknown> {
     const at = this.warmContext;

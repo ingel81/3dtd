@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { Group, Mesh } from 'three';
+import { BackSide, BoxGeometry, Group, Mesh, MeshDepthMaterial, MeshStandardMaterial, PCFSoftShadowMap, PerspectiveCamera, Plane, Scene, type WebGLRenderer } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { createMapDocument } from '../map-create';
 import { CustomMapView } from './custom-map-view';
@@ -55,6 +55,40 @@ describe("the LOS cube's stand-ins", () => {
     expect(during).toEqual({ parent: inner, visible: true, other: null });
     expect(blocking.parent).toBeNull();
     expect(blocking.visible).toBe(false);
+    view.dispose();
+  });
+});
+
+describe("the casters' shadow programs", () => {
+  it('builds depth twins of what casts among the objects, clipped as theirs, for the lit scene and the lightless parts', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 100, depth: 100, cellSize: 2 });
+    const view = new CustomMapView(doc, offlineLibrary(), { grass: false });
+    await view.ready;
+    const compiled: { object: Group; scene: Scene }[] = [];
+    const renderer = {
+      shadowMap: { enabled: true, type: PCFSoftShadowMap },
+      getRenderTarget: () => null,
+      setRenderTarget: vi.fn(),
+      compileAsync: (object: Group, _camera: unknown, scene: Scene) => {
+        compiled.push({ object, scene });
+        return Promise.resolve(object);
+      },
+    } as unknown as WebGLRenderer;
+    const scene = new Scene();
+    // A tower under its scaffold: its material clipped by a plane; its turret casts nothing
+    const plane = new Plane();
+    const body = new Mesh(new BoxGeometry(), new MeshStandardMaterial({ clippingPlanes: [plane] }));
+    body.castShadow = true;
+    const turret = new Mesh(new BoxGeometry(), new MeshStandardMaterial());
+    const tower = new Group().add(body, turret);
+    await view.compileCasters(renderer, scene, new PerspectiveCamera(), [tower]);
+    expect(compiled.map((c) => c.scene === scene)).toEqual([true, false]);
+    const [twin] = compiled[0].object.children as Mesh<BoxGeometry, MeshDepthMaterial>[];
+    expect(compiled[0].object.children).toHaveLength(1);
+    expect(twin.geometry).toBe(body.geometry);
+    expect(twin.material.clippingPlanes).toEqual([plane]);
+    expect(twin.material.side).toBe(BackSide);
     view.dispose();
   });
 });

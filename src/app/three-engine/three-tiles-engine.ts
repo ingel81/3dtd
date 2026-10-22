@@ -1489,6 +1489,8 @@ export class ThreeTilesEngine {
     // meanwhile waited for the link on the main thread (the plinth's, 200 ms of the loading screen standing still)
     standIns.visible = false;
     this.scene.add(standIns);
+    // The world's shadow pass draws the casters among them with programs of its own (a tower once built)
+    const casters = this.world.compileCasters?.(this.renderer, this.scene, this.camera, standIns.children);
     const shadows = this.renderer.shadowMap;
     let warmup: SceneWarmupResult;
     this.warmingUp = true;
@@ -1515,6 +1517,7 @@ export class ThreeTilesEngine {
       this.scene.remove(standIns);
       this.world.invalidateShadows?.();
     }
+    await casters;
     if (this.disposed) return;
     const t0 = performance.now();
     await firstUsePrograms(this.renderer, () => this.disposed);
@@ -1657,6 +1660,8 @@ export class ThreeTilesEngine {
         if (gone()) return;
         await this.compileAhead(objects, gone, job.urgent);
         if (gone()) return;
+        await this.compileCasters(objects, gone, job.urgent);
+        if (gone()) return;
         this.warmed.add(key);
         count++;
       }
@@ -1704,6 +1709,20 @@ export class ThreeTilesEngine {
     for (const root of objects) for (const texture of boundTexturesOf(this.renderer, root)) textures.add(texture);
     if (!urgent) await pace();
     await uploadTextures(this.renderer, textures, gone);
+  }
+
+  /**
+   * The world's shadow programs for the casters among `objects`
+   * (WorldProvider.compileCasters), built off the frame and used once,
+   * paced as compileAhead paces
+   */
+  private async compileCasters(objects: Object3D[], gone: () => boolean, urgent: boolean): Promise<void> {
+    const built = this.world.compileCasters?.(this.renderer, this.scene, this.camera, objects);
+    if (!built) return;
+    await built;
+    if (gone()) return;
+    const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
+    await firstUsePrograms(this.renderer, gone, urgent ? nextFrame : () => this.quietMoment(gone));
   }
 
   /** What compileAhead compiles into while the frame draws the scene into a target (a pixel; never drawn to) */

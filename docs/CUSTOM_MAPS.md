@@ -1214,8 +1214,11 @@ eines Gegners sich von der Kamera abwendet (`uRimLight` in `vat-material.ts`, St
 beleuchteten, detailreichen Boden abheben. Tiles und DevWorld behalten das Aussehen (Stärke 0).
 
 **Schatten für Tower, Gegner und Held** (`WorldCapabilities.groundShadows`, nur eigene Karten): Tower werfen ihren
-Körper in die gecachte Schattenkarte der Sonne (der drehende Turm nicht), die Karte rendert neu, wenn ein Tower kommt
-oder geht (`WorldProvider.invalidateShadows`). Gegner am Boden bekommen weiche runde Blob-Schatten, je Gegnertyp ein
+Körper in die gecachte Schattenkarte der Sonne (der drehende Turm nicht), die Karte rendert neu, wenn ein Tower kommt,
+geht oder sein Bau endet (bis dahin schneidet ihn das Gerüst ab; `WorldProvider.invalidateShadows`). Ihre
+Tiefenprogramme, mit und ohne die Ebene des Gerüsts, baut die Engine vorab als Schattenzwillinge der Karte
+(`WorldProvider.compileCasters`): für die ersten Tower im Aufwärmen, für die übrigen in `runWarmQueue`; sonst linkte
+der erste Schattenneubau nach einem Bauende eins im Bild (E280). Gegner am Boden bekommen weiche runde Blob-Schatten, je Gegnertyp ein
 zweites instanziertes Netz, das Matrizen und Gleitversatz des Typs mitbenutzt (keine Arbeit auf der CPU je Frame,
 `blob-shadow.ts`); Luftgegner keinen; der Held einen eigenen. Tiles und DevWorld bleiben ohne.
 

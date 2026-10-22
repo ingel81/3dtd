@@ -1,5 +1,5 @@
 import type { Signal } from '@angular/core';
-import type { Group, Matrix4, Object3D, PerspectiveCamera, Raycaster, Scene, Texture, Vector2, Vector3, Vector4, WebGLRenderer } from 'three';
+import type { Camera, Group, Matrix4, Object3D, PerspectiveCamera, Raycaster, Scene, Texture, Vector2, Vector3, Vector4, WebGLRenderer } from 'three';
 import type { LaneChoice } from './custom-map/lane-choice';
 import type { StructureStage } from '../configs/destruction.config';
 import type { RubbleMaterial } from './custom-map/rubble-material';
@@ -396,6 +396,13 @@ export interface WorldProvider {
   setDrawSuppressed(suppressed: boolean): void;
   /** Something that casts into the world's cached shadows changed (a tower built or gone); worlds with groundShadows */
   invalidateShadows?(): void;
+  /**
+   * Builds, off the main thread, the programs the world's shadow pass draws
+   * the casters among `objects` with (the engine's stand-ins: a tower built
+   * and one under its scaffold), for `scene`'s lights as its frames draw
+   * it. Resolves once they are built. Worlds with groundShadows
+   */
+  compileCasters?(renderer: WebGLRenderer, scene: Scene, camera: Camera, objects: readonly Object3D[]): Promise<unknown>;
   /** The ground's heights for shaders that lie on it (the units' blob shadows); worlds with groundShadows, null before it stands */
   groundHeights?(): GroundHeights | null;
   /** The group the tower line-of-sight cube renders as blockers, a direct child of the scene */

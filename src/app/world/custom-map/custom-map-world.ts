@@ -1,6 +1,6 @@
 import { isDevMode } from '@angular/core';
 import { defaultOpenLanes, laneChoiceOf, laneChoiceProblem, type LaneChoice } from './lane-choice';
-import { type Group, type Matrix4, type Object3D, type PerspectiveCamera, type Scene, Vector3, type WebGLRenderer, WebGLRenderTarget } from 'three';
+import { type Camera, type Group, type Matrix4, type Object3D, type PerspectiveCamera, type Scene, Vector3, type WebGLRenderer, WebGLRenderTarget } from 'three';
 import { STORM_STRIKE_LIGHT } from '../../configs/shot-lights.config';
 import type { CameraBounds, CameraRig } from '../../three-engine/camera-rig';
 import { EllipsoidSync } from '../../three-engine/ellipsoid-sync';
@@ -489,6 +489,10 @@ export class CustomMapWorld implements WorldProvider {
   /** A tower came or went: the map's cached sun shadow map renders again */
   invalidateShadows(): void {
     this.view?.environment.invalidateShadows();
+  }
+
+  compileCasters(renderer: WebGLRenderer, scene: Scene, camera: Camera, objects: readonly Object3D[]): Promise<unknown> {
+    return this.view?.compileCasters(renderer, scene, camera, objects) ?? Promise.resolve();
   }
 
   warmLater(...args: Parameters<CustomMapView['warmLater']>): ReturnType<CustomMapView['warmLater']> {
