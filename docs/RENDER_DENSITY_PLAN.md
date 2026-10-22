@@ -1088,4 +1088,120 @@ schrittweiser Umzug im spielbaren Stand geht nicht):
   wie WebGPU. Playwrights Chromium bekommt kein WebGPU-Gerät: Proben und E2E auf dem Chrome-Kanal, Electron-Version
   prüfen.
 - **Schätzung.** Gezählt ist Text, nicht Komplexität; die Spanne trägt das. Eine Nachschätzung nach Paket 1 bis 3
-  (rund ein Fünftel der Arbeit) zeigt, ob die Raten halten.
+  (rund ein Fünftel der Arbeit) zeigt, ob die Raten halten. Die Probe in 12.1 ist diese Nachschätzung.
+
+### 12.1 Probe: Autumn Keep auf dem WebGPURenderer (2026-10-22)
+
+Ein Worker hat die Pakete 1 bis 5 für **eine** Karte gebaut (Branch `wt/webgpu`, auf `next` f98421a10), um die
+Schätzung oben an echter Arbeit zu prüfen. `/map-preview?renderer=webgpu` zeichnet mit `WebGPURenderer` auf WebGPU,
+`?renderer=webgpu-gl` mit demselben Renderer auf seinem WebGL-2-Backend (`forceWebGL`), ohne Angabe wie bisher mit
+`WebGLRenderer` und GLSL (`three-engine/render-backend.ts`). Das Spiel selbst bleibt auf WebGL.
+
+**Gebaut** (20 Dateien `*.tsl.ts`, rund 4 800 Zeilen TSL, dazu Weichen in den GLSL-Dateien):
+
+- Kern: Renderer-Leihe im `RendererHost`, `RenderPipeline` mit der Farbabstimmung der Karte als Ausgabe-Node,
+  Höhennebel als `scene.fogNode`, Wind, Rauschen, Höhentextur.
+- Himmel mit Bake, Gelände mit Schürze und Fernboden, Splat-Array, Gras, Decals, drapierte Wege, Wasser (Körper,
+  Brechung über `viewportSharedTexture`), Objektmaterialien (Wind, Karten, Flammen, Stoff, Rotor, Atlas-Varianten,
+  Nachtfenster, LOD-Blende), Impostoren mit Bake in TSL und Textur-Arrays, Fernkästen, Bänder, Partikel, Lichthöfe,
+  Vögel.
+- Messwerkzeug: `__mapPreview.measure(frames)` und `measureSync(frames)` (`preview/frame-timing.ts`),
+  `e2e/perf/webgpu-compare.ts`.
+
+**Fehlt noch auf dieser Karte:** Wasserspiegelung (auf dem Node-Pfad abgeschaltet), Wetter und Blitze (bleiben GLSL,
+auf Autumn Keep nicht aktiv), Ton-Probe der Impostoren, Schatten von Impostoren, Fernkästen und Bändern (der
+Schattenpass des Node-Renderers übernimmt `positionNode`, nicht `setupPosition`; die Vorlagen lägen dort an der
+falschen Stelle), bewegte Rotor-Schatten, Ruinen, Flüsse, Lava, Eis, Meer, Planet und Polarlicht, Flächen-Optik.
+Auf dem WebGL-2-Backend fehlen die Impostoren ganz (siehe Risiken).
+
+**Bilder** (gleiche Ansicht, Stufe High, Spiegelung aus), im Worktree unter
+`tmp/webgpu-shots/autumn-keep-{keep,valley}-{webgl,webgpu-gl,webgpu}.png`. Die Node-Pfade sind im Mittel um 2 von
+255 Stufen heller (RGB-Mittel 118/112/83 gegen 120/115/87), mittlere Abweichung je Pixel 4 (WebGPU) bzw. 5 (WebGL 2).
+Sichtbar: Nebelbänke deutlich dichter und heller, Impostor-Bäume etwas dunkler (ohne Ton-Probe), ferne Bäume werfen
+keinen Schatten auf die Hänge. Sonst gleiche Formen und Farben.
+
+**Messung** (Hauptrechner, installiertes Chrome, Produktions-Build, 1600 × 900, Bildrate offen, je Renderer und
+Ansicht 3 Runden zu 240 Bildern in frischem Browser, Median der Runden; `keep` die Burg von Südwesten, `valley` das
+Tal von weit draußen):
+
+| Renderer | Ansicht | CPU ms/Bild (p95) | GPU ms | Bild allein ms | Draws | Dreiecke | Start bis bereit |
+|---|---|---|---|---|---|---|---|
+| WebGL + GLSL | keep | 0,88 (2,9) | 1,42 | 3,4 | 195 | 3,13 M | 13 s |
+| WebGL + GLSL | valley | 0,93 (4,3) | 1,39 | 3,4 | 182 | 1,00 M | 14 s |
+| WebGPURenderer, WebGL 2 | keep | 5,19 (6,8) | 2,50 | – | 194 | 3,22 M | 72 s |
+| WebGPURenderer, WebGL 2 | valley | 6,39 (9,0) | 2,35 | – | 181 | 1,36 M | 58 s |
+| WebGPURenderer, WebGPU | keep | 2,08 (4,2) | – | 6,0 | 196 | 3,13 M | 21 s |
+| WebGPURenderer, WebGPU | valley | 1,93 (4,3) | – | 4,0 | 183 | 1,00 M | 21 s |
+
+CPU: Update der Ansicht plus Render-Aufruf. GPU: Timer-Query (WebGL) bzw. die Timestamps des Renderers (WebGL-2-
+Backend). Auf WebGPU lesen die Pass-Timestamps unter Dawn/D3D12 fast null, auch ohne Quantisierung; dort steht nur
+„Bild allein“: ein Bild auf leerer GPU vom Update bis zum Ende der Arbeit (`measureSync`, enthält CPU und Wartezeit,
+eine obere Schranke). Mit derselben Methode liegt WebGL bei 3,4 ms; auf dem WebGL-2-Backend misst sie nichts
+Brauchbares. Mit Spiegelung (Stufe High wie im Spiel) zeichnet WebGL in `keep` 294 Draws und 4,43 M Dreiecke bei
+1,7 ms CPU und 1,7 ms GPU.
+
+Gelesen:
+
+- **Die GPU gewinnt nichts.** Gleiche Draws und Dreiecke; die obere Schranke auf WebGPU liegt über der von WebGL.
+  Wie in Abschnitt 9 erwartet: ein Gewinn käme erst mit Compute-Culling und indirektem Zeichnen.
+- **Die CPU wird teurer:** WebGPU braucht je Bild gut das Doppelte (2,0 gegen 0,9 ms bei gleichen 195 Draws), das
+  WebGL-2-Backend das Sechs- bis Siebenfache. Der Node-Renderer kostet je Draw mehr als `WebGLRenderer`; das trifft
+  genau unsere Grenze (CPU je Objekt, Abschnitt 2.7).
+- **Start:** Pipelines auf WebGPU 21 s gegen 13 s; auf dem WebGL-2-Backend 58 bis 72 s, für einen Rückfall so nicht
+  brauchbar.
+- **3DTilesRendererJS 0.5.2** lädt und zeichnet Google-Tiles (über Cesium Ion) unter `WebGPURenderer` auf WebGPU, in
+  einer Probe ohne Angular (`tmp/webgpu/tiles-probe.mjs`, Bild `tmp/webgpu-shots/tiles-webgpu.png`, 238 Kacheln,
+  1,3 ms CPU). Die Plugins brauchen `three` als volles Modul (sie importieren `WebGLRenderer`); `TilesFadePlugin`
+  patcht per `onBeforeCompile` und blendet dort nicht. Unsere eigenen Tile-Patches sind nicht geprüft.
+
+**Aufwand, tatsächlich gegen geschätzt.** Die Probe deckt von den Paketen 1 bis 5 etwa die Hälfte (Kern nur für die
+Vorschau, Gelände und Objekte weitgehend, Himmel ohne Planet, Wasser ohne Spiegel) und brauchte einen Worker-Lauf von
+rund dreieinhalb Stunden (Commits 07:12 bis 10:19, Basis 06:50), ohne Optik-Abnahme durch den User. Die Schätzung
+oben setzt für 1 bis 5 zusammen 35 bis 51 AT an, die Hälfte davon 17 bis 25 AT. Das reine Portieren geht damit um ein
+Vielfaches schneller als geschätzt; was die Probe nicht enthält, sind Abnahme-Runden je Karte, Randfälle und das
+Spiel. Die Nachschätzung unten senkt die Portier-Pakete deshalb nur etwa um die Hälfte und nicht im gemessenen
+Verhältnis. Die Zeit ging in TSL-Fallen statt in Textmenge:
+Knoten, die zuerst in einem `If`-Zweig gebaut werden, bleiben anderswo leer (`.toVar()` davor); `positionNode` wirkt
+nach dem Instancing (eigenes Instancing in `setupPosition`); `onRenderUpdate` an Basis-Texturknoten feuert nie; eine
+Array-Textur ohne Daten bleibt 1 × 1; Bindungen hängen an der Textur-UUID; Render-Targets liegen auf WebGPU
+zeilenweise von oben; opake Materialien schreiben Alpha 1, auch beim Kopieren; `alphaToCoverage` ohne MSAA-Ziel lässt
+die ganze Karte stehen.
+
+**Nachschätzung** (Rest nach der Probe, AT eines Workers):
+
+| # | Paket | vorher | jetzt | Grund |
+|---|---|---|---|---|
+| 1 | Renderer-Kern | 5 bis 7 | 4 bis 6 | Vorschau läuft; Spielhost, Gerätverlust, E273-Kniffe offen |
+| 2 | Gemeinsame Bausteine | 4 bis 6 | 2 bis 3 | Nebel, Wind, LOD-Blende, Nachtfenster stehen; Lampen- und Schusslicht offen |
+| 3 | Gelände | 8 bis 12 | 4 bis 6 | Splat, Chunks, Gras, Decals, Wege stehen; Flächen, Scheiben offen |
+| 4 | Objekte | 10 bis 14 | 6 bis 9 | Ruinen, Bauten aus dem Grundriss, Schatten der Vorlagen offen |
+| 5 | Himmel, Licht, Wasser | 8 bis 12 | 5 bis 8 | Spiegel, Wetter, Blitze, Flüsse, Lava, Eis, Meer offen |
+| 6 | Spiel-Renderer | 14 bis 20 | 12 bis 18 | Muster für Partikel und Höfe belegt, die Menge bleibt |
+| 7 | Post-Processing | 3 bis 5 | 2 bis 4 | Ausgabe-Node mit Farbabstimmung läuft |
+| 8 | Sicht-Cube | 5 bis 8 | 5 bis 8 | nicht angefasst |
+| 9 | Render-Targets, Auslesen | 3 bis 5 | 3 bis 5 | Bake in Targets belegt; Array-Kopie auf WebGL 2 kaputt |
+| 10 | Globus | 4 bis 6 | 4 bis 6 | nicht angefasst |
+| 11 | Echte Orte | 4 bis 8 | 3 bis 6 | Tiles zeichnen auf WebGPU; eigene Patches offen |
+| 12 | Rest | 4 bis 6 | 4 bis 6 | nicht angefasst |
+| 13 | Proben und Abnahme | 6 bis 9 | 8 bis 12 | GPU-Zeit auf WebGPU braucht eigene Methode, zwei Backends |
+| 14 | **neu:** CPU-Kosten des Node-Renderers, Start auf WebGL 2 | | 5 bis 10 | Ergebnis offen, siehe Risiken |
+
+**Summe neu: 67 bis 107 AT Rest** (vorher 78 bis 118 gesamt). Das schnellere Portieren zehrt das neue Paket 14
+wieder auf; die Kalenderzeit oben bleibt in der Größenordnung.
+
+**Risiken, neu oder bestätigt:**
+
+- **CPU je Draw.** Auf WebGPU doppelt, auf dem WebGL-2-Backend sechs- bis siebenfach so teuer wie heute, bei unserer
+  CPU-Grenze. Ohne Compute-Culling und weniger Draws (Abschnitt 6) wird das Spiel durch den Umzug langsamer. Vor
+  einem Umzug klären, woher die Kosten kommen (three r186, unsere Node-Graphen, Bindungen je Draw).
+- **Der WebGL-2-Rückfall taugt so nicht:** 58 bis 72 s bis bereit und 5 bis 6 ms CPU je Bild. Für Linux und ältere
+  Geräte bliebe nur der heutige `WebGLRenderer`, also zwei Shader-Welten nebeneinander.
+- **Fehler in three r186 auf dem WebGL-2-Backend:** `copyTextureToTexture` von 2D in ein Array behandelt die Quelle
+  als Array (`isSrc3D` prüft `dstTexture.isArrayTexture`), daher dort keine Impostoren; dazu „vertex shader input type
+  does not match“ bei einem Teil der Draws. Melden oder umgehen.
+- **GPU-Zeit auf WebGPU** nicht über Timestamps messbar (fast null unter Dawn/D3D12 in Chrome); Abnahme-Messungen
+  brauchen `measureSync` oder einen externen Profiler.
+- **Schatten instanzierter Vorlagen:** der Schattenpass nimmt `positionNode`, nicht das eigene `setupPosition`;
+  Fernkästen, Bänder und Impostoren werfen auf dem Node-Pfad deshalb keinen Schatten. Lösung über
+  `castShadowPositionNode` noch nicht gebaut.
+- **Optik:** nahe gleich, Node-Pfade 2 % heller, Nebelbänke dichter; Abnahme durch den User steht aus.
