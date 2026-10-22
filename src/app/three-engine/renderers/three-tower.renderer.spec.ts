@@ -566,6 +566,44 @@ describe('ThreeTowerRenderer path swap', () => {
   });
 });
 
+describe('ThreeTowerRenderer build shadows', () => {
+  const assetManager = {
+    loadModel: async () => ({ animations: [] }),
+    cloneModel: () => {
+      const model = new Group();
+      model.add(new Mesh(new BoxGeometry(), new MeshStandardMaterial()));
+      return model;
+    },
+  };
+  const sync = { geoToLocal: () => new Vector3() };
+
+  it("renders the cached shadows again when a tower's build ends, not while it grows", async () => {
+    const renderer = new ThreeTowerRenderer(new Scene(), sync as never, assetManager as never);
+    renderer.setShadowCasting(true);
+    await renderer.create('a', 'archer', 0, 0, 0, 0, placedAim('archer', 0, null));
+    const changed = vi.fn();
+    renderer.onShadowsChanged = changed;
+    renderer.setBuild('a', 5000, 5000);
+    renderer.setBuild('a', 2500, 5000);
+    renderer.updateBuilds(1000);
+    expect(changed).not.toHaveBeenCalled();
+    renderer.setBuild('a', 0, 5000);
+    expect(changed).toHaveBeenCalledTimes(1);
+    renderer.setBuild('a', 0, 5000);
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves them alone in a world without cast shadows', async () => {
+    const renderer = new ThreeTowerRenderer(new Scene(), sync as never, assetManager as never);
+    await renderer.create('a', 'archer', 0, 0, 0, 0, placedAim('archer', 0, null));
+    const changed = vi.fn();
+    renderer.onShadowsChanged = changed;
+    renderer.setBuild('a', 5000, 5000);
+    renderer.setBuild('a', 0, 5000);
+    expect(changed).not.toHaveBeenCalled();
+  });
+});
+
 describe('ThreeTowerRenderer warm-up', () => {
   it('builds the see-through build preview of each tower type with the placed models', () => {
     const assetManager = {

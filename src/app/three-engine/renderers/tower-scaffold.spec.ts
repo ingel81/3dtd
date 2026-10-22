@@ -51,7 +51,9 @@ describe('TowerBuild', () => {
     expect(material.clippingPlanes).not.toBeNull();
     expect(plane.constant).toBeLessThanOrEqual(10);
 
+    expect(build.built).toBe(false);
     build.set(0, 5000);
+    expect(build.built).toBe(true);
     expect(material.clippingPlanes).toBeNull();
     build.update(SCAFFOLD_DISMANTLE_MS);
     expect(build.finished).toBe(true);

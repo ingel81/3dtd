@@ -565,7 +565,10 @@ export class ThreeTowerRenderer {
     }
     const build = this.builds.get(id);
     if (build) {
+      const built = build.built;
       build.set(remainingMs, totalMs);
+      // The cached shadow map drew the tower cut off at its course: it casts whole now
+      if (!built && build.built && this.shadowCasting) this.onShadowsChanged?.();
     } else if (remainingMs > 0) {
       this.builds.set(id, new TowerBuild(this.scene, data.mesh, data.typeConfig.footprintRadius, remainingMs, totalMs));
     }

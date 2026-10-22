@@ -206,6 +206,11 @@ export class TowerBuild {
     else this.applyHeight();
   }
 
+  /** The build is over (the simulation's end came): the whole model shows, the scaffold comes down */
+  get built(): boolean {
+    return this.dismantleMs !== null;
+  }
+
   get finished(): boolean {
     return this.dismantleMs !== null && this.dismantleMs >= SCAFFOLD_DISMANTLE_MS;
   }
