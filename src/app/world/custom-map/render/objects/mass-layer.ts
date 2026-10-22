@@ -1500,8 +1500,8 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
         open *= 1.0 - smoothstep(ww * 0.5 - aa, ww * 0.5 + aa, arch);
         glass *= 1.0 - smoothstep(ww * 0.5 - fw - aa, ww * 0.5 - fw + aa, arch);
       }
-      // Blinds part way down in some, the sky's sheen in the rest
-      float blind = step(0.62, h) * massBox(inStorey, wb + wh - wh * (0.15 + 0.55 * fract(h * 13.7)), wb + wh + 1.0, aa);
+      // Blinds part way down in some homes and offices (never in a hall's tall windows), the sky's sheen in the rest
+      float blind = step(0.62, h) * step(hall, 0.5) * massBox(inStorey, wb + wh - wh * (0.15 + 0.55 * fract(h * 13.7)), wb + wh + 1.0, aa);
       vec3 glassColor = mix(vec3(0.05, 0.065, 0.08), vec3(0.11, 0.12, 0.13), fract(h * 3.1));
       vec3 blindColor = mix(vec3(0.82, 0.8, 0.74), vec3(0.62, 0.6, 0.56), fract(h * 5.3));
       vec3 pane = mix(glassColor, blindColor, blind);
