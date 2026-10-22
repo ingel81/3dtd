@@ -297,7 +297,16 @@ Raum dazwischen, ihr Belag läuft vom breitesten Band weiter und geht zu jedem a
 (jedes Dreieck der Kreuzung trägt die Koordinaten seines Arms und ein Gewicht, 1 an dessen Endquerschnitt, 0 am Knoten
 und an den Bordsteinen): keine Naht an einem Arm. Bordsteine laufen um die Ecken, an denen ein Arm einen hat.
 Überlappen sich zwei Bänder ohne gemeinsamen Knoten (ein Gehweg in die Breite einer Straße gezeichnet), liegt die
-höhere Straßenklasse oben (Rang 0 Pfad bis 7 Autobahn, je Rang ein paar Millimeter mehr zur Kamera hin). Ein Pfad, an dessen Ende nichts anschließt, endet rund.
+höhere Straßenklasse oben (Rang 0 Pfad bis 7 Autobahn, je Rang ein paar Millimeter mehr zur Kamera hin); innerhalb
+eines Rangs hat jedes Band und jede Kreuzung eine Reihenfolge aus ihrer Kennung (16 Stufen zu einem Sechzehntel Rang,
+`orderOf`, die oberen Bits des Aussehens): zwei Gehwege, die sich kreuzen, lagen auf den Dreiecken des Geländes in
+einer Tiefe und flimmerten. Knoten, die ein kurzes Band (bis 16 m) verbindet, dessen Kreuzungen an beiden Enden
+zusammen mehr Platz wollen als es hat (ihre Kürzungen über neun Zehntel seiner Länge), sind eine Kreuzung
+(`clusterJunctions`: kürzeste zuerst, höchstens 24 m Ausdehnung, Mitte der Knoten als Fächerpunkt, jeder Arm von seinem
+Knoten aus gekürzt); das Band dazwischen entfällt, seine Fläche deckt die Kreuzung. Vorher lagen zwei Kreuzungen
+übereinander, ihre Bordsteine quer über der Fahrbahn der anderen. Läuft der Umriss einer solchen Kreuzung nicht einmal
+um ihre Mitte (Straßen ihrer Knoten nebeneinander, etwa Zufahrten an einer Kreuzung zweier Hauptstraßen), bleiben
+es einzelne Kreuzungen (`outlineAround`). Ein Pfad, an dessen Ende nichts anschließt, endet rund.
 Das Aussehen folgt der Straßenart (`street`): Spurlinien auf Autobahnen, Rand- und gestrichelte Mittellinie auf
 Haupt- und Kreisstraßen (`primary`, `secondary`), Mittellinie auf `tertiary`, keine in Wohnstraßen, deren Asphalt in
 einen Bordstein mit einer Rinne aus Pflastersteinen ausläuft; Fahrspuren dunkler, Flickstellen, Querrisse und eine

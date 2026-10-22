@@ -104,6 +104,9 @@ export function styleKey(s: RoadStyle): string {
   return `${s.surface}|${s.markings}|${s.lanes}|${s.gutter ? 1 : 0}|${s.wear}|${s.junction ? 1 : 0}|${s.rank}`;
 }
 
+/** The look's step of a ribbon's order within its rank (bits 20 to 23) */
+export const ORDER_STEP = 1 << 20;
+
 /** Surfaces one map's road textures can hold (4 bits of the code) */
 export const MAX_ROAD_SURFACES = 15;
 
@@ -111,7 +114,9 @@ export const MAX_ROAD_SURFACES = 15;
  * A look packed into one exact float for the vertices (road-surface.ts
  * decodes it): the surface's layer in the road textures (4 bits, 15 none),
  * markings (2), lanes (3), gutter, sealed asphalt, junction (1 each), wear
- * in 32 steps (5), rank (3): 20 bits, no table and no limit on looks
+ * in 32 steps (5), rank (3): 20 bits, no table and no limit on looks. Each
+ * ribbon and junction adds its order within the rank on top (4 bits,
+ * ORDER_STEP, road-network.ts): 24 bits, still exact in a float
  */
 export function encodeRoadStyle(s: RoadStyle, layer: number): number {
   const marks = { none: 0, centre: 1, 'centre-edges': 2, lanes: 3 }[s.markings];

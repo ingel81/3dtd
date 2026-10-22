@@ -1,6 +1,6 @@
 import type { MapPathEdge, MapPaths, MapPoint } from '../../map-document';
 import { edgePolyline, type RoadCover } from './path-mask';
-import { encodeRoadStyle, PAVED_SURFACES, roadStyle, styleKey, type RoadStyle } from './road-style';
+import { encodeRoadStyle, ORDER_STEP, PAVED_SURFACES, roadStyle, styleKey, type RoadStyle } from './road-style';
 import { DRAPE_TILE, drapeTileKey } from '../drape/draped-layer';
 import { conformDraped, type DrapedGeometry, type DrapeGround, type DrapeRect } from '../drape/draped-refine';
 
@@ -108,6 +108,8 @@ interface Chain {
   /** Cross sections at both ends of the drawn ribbon, right to left seen along the ribbon */
   ends: [Section | null, Section | null];
   cap: [boolean, boolean];
+  /** Inside a junction of several nodes (too short for a ribbon between them): the junction's surface covers it */
+  inner: boolean;
 }
 
 interface Vertex {
@@ -128,6 +130,9 @@ type Section = Vertex[];
 interface End {
   chain: Chain;
   start: boolean;
+  /** Its node */
+  x: number;
+  y: number;
   /** Unit direction away from the node */
   dx: number;
   dy: number;
@@ -279,8 +284,11 @@ export class RoadNetworkBuilder {
   private readonly tileItems = new Map<string, Set<string>>();
   /** Each item's box (x0, y0, x1, y1, map metres): what a change of the ground reaches */
   private readonly boxes = new Map<string, [number, number, number, number]>();
-  /** The roads' ends at each junction laid, to lay it again on new ground */
+  /** The roads' ends at each junction laid (by its node, a cluster's least), to lay it again on new ground */
   private readonly junctionEnds = new Map<string, { node: MapPoint; ends: End[] }>();
+  /** The cluster each node of a junction of several nodes is in (its least node), and their nodes */
+  private readonly clusterOf = new Map<string, string>();
+  private readonly members = new Map<string, string[]>();
   /** Items laid flat, to lay onto the ground later (layOnGround), with the edges they share */
   private readonly unlaid = new Map<string, number[]>();
   /** Tiles of items laid onto the ground since the last time layOnGround gave them */
@@ -399,16 +407,17 @@ export class RoadNetworkBuilder {
       this.chains.set(c.id, c);
     }
 
-    // Trims and round ends at every node a new chain ends at, then the geometry
-    const junctions = new Set<string>();
-    for (const c of made) c.nodes.forEach((n) => junctions.add(n));
-    for (const n of touched) junctions.add(n);
-    // Trims of the kept chains at those nodes, to see whether they moved
-    const trimsBefore = new Map<Chain, [number, number]>();
-    for (const c of this.chains.values()) if (junctions.has(c.nodes[0]) || junctions.has(c.nodes[1])) trimsBefore.set(c, [...c.trim]);
-    const ends = new Map<string, End[]>();
-    for (const node of junctions) {
-      const list: End[] = [];
+    // The junctions at every node a new chain ends at, then the geometry. Nodes a short chain joins, too close for a
+    // ribbon between their junctions, are one junction (a cluster): with the nodes clustered with them before
+    const lay = new Set<string>();
+    for (const c of made) c.nodes.forEach((n) => lay.add(n));
+    for (const n of touched) lay.add(n);
+    for (const n of [...lay]) for (const m of this.members.get(this.clusterOf.get(n) ?? '') ?? []) lay.add(m);
+    const endsAt = new Map<string, End[]>();
+    const endsOf = (node: string): End[] => {
+      let list = endsAt.get(node);
+      if (list) return list;
+      list = [];
       for (const e of at.get(node) ?? []) {
         const c = this.chainOf.get(e.id);
         if (!c) continue;
@@ -418,32 +427,71 @@ export class RoadNetworkBuilder {
           list.push(endOf(c, start));
         }
       }
-      ends.set(node, list);
-      if (list.length === 1) {
+      endsAt.set(node, list);
+      return list;
+    };
+    // A cluster whose outline would fold over its middle (roads from its nodes side by side, crossing each other's
+    // ends) is laid as its nodes alone
+    const clusters = clusterJunctions(lay, endsOf).flatMap((group) => {
+      if (group.length === 1) return [group];
+      const inside = new Set(group);
+      const list = group.flatMap((n) => endsOf(n)).filter((e) => !(inside.has(e.chain.nodes[0]) && inside.has(e.chain.nodes[1])));
+      const centre = clusterCentre(group.map((n) => nodes.get(n)!));
+      const trims = list.map((e) => [...e.chain.trim] as [number, number]);
+      trimJunction(centre, list);
+      const fits = list.length > 1 && outlineAround(centre, list);
+      list.forEach((e, k) => (e.chain.trim = trims[k]));
+      return fits ? [group] : group.map((n) => [n]);
+    });
+    // Trims of the kept chains at those nodes, to see whether they moved, and whether they were inside a cluster
+    const laid = new Set(clusters.flat());
+    const before = new Map<Chain, [number, number, boolean]>();
+    for (const c of this.chains.values()) if (laid.has(c.nodes[0]) || laid.has(c.nodes[1])) before.set(c, [c.trim[0], c.trim[1], c.inner]);
+    for (const nodeList of clusters) {
+      const key = nodeList.reduce((p, q) => (q < p ? q : p));
+      // The clusters these nodes were in go
+      for (const n of nodeList) {
+        const was = this.clusterOf.get(n) ?? n;
+        this.dropItem(`j${was}`, rebuilt);
+        this.junctionEnds.delete(was);
+        for (const m of this.members.get(was) ?? []) if (this.clusterOf.get(m) === was) this.clusterOf.delete(m);
+        this.members.delete(was);
+      }
+      const inside = new Set(nodeList);
+      const list: End[] = [];
+      for (const n of nodeList) {
+        for (const e of endsOf(n)) {
+          const inner = inside.has(e.chain.nodes[0]) && inside.has(e.chain.nodes[1]) && nodeList.length > 1;
+          e.chain.inner = inner;
+          if (!inner) list.push(e);
+        }
+      }
+      if (nodeList.length > 1) {
+        this.members.set(key, nodeList);
+        for (const n of nodeList) this.clusterOf.set(n, key);
+      }
+      if (list.length === 1 && nodeList.length === 1) {
         const e = list[0];
         // A path that ends with nothing else there gets a round end; a road ends square
-        e.chain.cap[e.start ? 0 : 1] = e.chain.edge.kind === 'path' && !others.has(node);
+        e.chain.cap[e.start ? 0 : 1] = e.chain.edge.kind === 'path' && !others.has(key);
       } else if (list.length > 1) {
-        trimJunction(nodes.get(node)!, list);
+        const centre = clusterCentre(nodeList.map((n) => nodes.get(n)!));
+        trimJunction(centre, list);
+        this.junctionEnds.set(key, { node: centre, ends: list });
       }
     }
-    // A kept chain whose trim moved (it ends at a junction laid again) is laid again too
+    // A kept chain whose trim moved (it ends at a junction laid again) or that went in or out of a cluster is laid again
     const fresh = new Set(made);
-    for (const [c, trim] of trimsBefore) {
-      if (fresh.has(c) || (trim[0] === c.trim[0] && trim[1] === c.trim[1])) continue;
+    for (const [c, was] of before) {
+      if (fresh.has(c) || (was[0] === c.trim[0] && was[1] === c.trim[1] && was[2] === c.inner)) continue;
       this.dropItem(`c${c.id}`, rebuilt);
       made.push(c);
     }
-    for (const c of made) this.putItem(`c${c.id}`, (out) => emitRibbon(c, out), rebuilt);
-    for (const node of junctions) {
-      this.dropItem(`j${node}`, rebuilt);
-      this.junctionEnds.delete(node);
-      const list = ends.get(node) ?? [];
-      if (list.length > 1) {
-        const at = nodes.get(node)!;
-        this.junctionEnds.set(node, { node: at, ends: list });
-        this.putItem(`j${node}`, (out) => emitJunction(at, list, out, this.styleOf), rebuilt);
-      }
+    for (const c of made) if (!c.inner) this.putItem(`c${c.id}`, (out) => emitRibbon(c, out), rebuilt);
+    for (const nodeList of clusters) {
+      const key = nodeList.reduce((p, q) => (q < p ? q : p));
+      const j = this.junctionEnds.get(key);
+      if (j) this.putItem(`j${key}`, (out) => emitJunction(j.node, j.ends, out, this.styleOf), rebuilt);
     }
     return this.network(rebuilt);
   }
@@ -462,7 +510,7 @@ export class RoadNetworkBuilder {
       // The ribbons first: their end sections are what the junctions join
       for (const c of this.chains.values()) {
         const item = `c${c.id}`;
-        if (!reached(item)) continue;
+        if (c.inner || !reached(item)) continue;
         this.dropItem(item, rebuilt);
         this.putItem(item, (out) => emitRibbon(c, out), rebuilt);
       }
@@ -570,10 +618,11 @@ export class RoadNetworkBuilder {
       length: dist[dist.length - 1] - dist[0],
       half,
       walk,
-      style: this.styleOf(roadStyle(first)),
+      style: this.styleOf(roadStyle(first)) + orderOf(ids.reduce((a, b) => (b < a ? b : a))),
       trim: [0, 0],
       ends: [null, null],
       cap: [false, false],
+      inner: false,
     };
     for (const id of ids) this.chainOf.set(id, chain);
     return chain;
@@ -664,21 +713,35 @@ function endOf(chain: Chain, start: boolean): End {
   const reach = Math.min(3, chain.length * 0.3);
   const q = pointAt(chain, chain.at[0] + (start ? reach : chain.length - reach));
   const l = Math.hypot(q.x - p.x, q.y - p.y) || 1;
-  const end: End = { chain, start, dx: (q.x - p.x) / l, dy: (q.y - p.y) / l, angle: 0 };
+  const end: End = { chain, start, x: p.x, y: p.y, dx: (q.x - p.x) / l, dy: (q.y - p.y) / l, angle: 0 };
   end.angle = Math.atan2(end.dy, end.dx);
   return end;
 }
 
-/** Trim lengths of the roads meeting at a junction: past where each road's kerb meets the next, plus a kerb radius */
+/**
+ * Trim lengths of the roads meeting at a junction: past where each road's kerb meets the next, plus a kerb radius.
+ * The ends in counter-clockwise order around `c` (a cluster's ends start at their own nodes)
+ */
 function trimJunction(c: MapPoint, list: End[]): void {
+  const trims = wantedTrims(c, list);
+  const widest = Math.max(...list.map((e) => e.chain.half));
+  list.forEach((e, k) => {
+    const limit = Math.min(e.chain.length * 0.45, widest * 4 + 6);
+    e.chain.trim[e.start ? 0 : 1] = Math.max(0, Math.min(limit, trims[k]));
+  });
+}
+
+/** The trims a junction's ends want (trimJunction, before the limits), the list sorted counter-clockwise around `c` */
+function wantedTrims(c: MapPoint, list: End[]): number[] {
+  // Around the centre by a point some metres out along each road: ends from nodes a few metres apart sort as seen
+  for (const e of list) e.angle = Math.atan2(e.y + e.dy * 8 - c.y, e.x + e.dx * 8 - c.x);
   list.sort((a, b) => a.angle - b.angle);
   const n = list.length;
   const trims = list.map(() => 0);
-  const widest = Math.max(...list.map((e) => e.chain.half));
   for (let k = 0; k < n; k++) {
     const a = list[k];
     const b = list[(k + 1) % n];
-    let gap = b.angle - a.angle;
+    let gap = Math.atan2(b.dy, b.dx) - Math.atan2(a.dy, a.dx);
     if (gap <= 0) gap += Math.PI * 2;
     // Nearly straight on, or the outside of a bend: the kerbs meet at the node. A road going on at another width
     // tapers instead: both trimmed by twice the change and a metre, the junction's straight kerbs run across
@@ -692,40 +755,167 @@ function trimJunction(c: MapPoint, list: End[]): void {
       continue;
     }
     if (gap > Math.PI * 0.94 || n === 1) continue;
-    const corner = kerbCorner(c, a, b);
+    const corner = kerbCorner(a, b);
     if (!corner) continue;
     const radius = Math.min(6, Math.max(0.5, Math.min(a.chain.half, b.chain.half) * 0.8 + (a.chain.edge.kind === 'path' ? 0 : 1)));
     trims[k] = Math.max(trims[k], corner.t + radius);
     trims[(k + 1) % n] = Math.max(trims[(k + 1) % n], corner.s + radius);
   }
-  list.forEach((e, k) => {
-    const limit = Math.min(e.chain.length * 0.45, widest * 4 + 6);
-    e.chain.trim[e.start ? 0 : 1] = Math.max(0, Math.min(limit, trims[k]));
-  });
+  return trims;
+}
+
+/** Longest chain between two junctions that may join them into one */
+const CLUSTER_CHAIN = 16;
+/** Widest a junction of several nodes may grow (its nodes' box, metres) */
+const CLUSTER_SPAN = 24;
+
+/**
+ * The junctions to lay at `lay`'s nodes: a node alone, or several a short
+ * chain joins where their junctions want more room than the chain has
+ * (their trims together past nine tenths of it, wantedTrims): a ribbon
+ * there would be a sliver, the two junctions' kerbs crossing each other's
+ * surface. Grows over such chains to nodes beyond `lay`; shortest chains
+ * first, a cluster no wider than CLUSTER_SPAN. Each list sorted
+ */
+function clusterJunctions(lay: ReadonlySet<string>, endsOf: (node: string) => End[]): string[][] {
+  const wanted = new Map<string, Map<End, number>>();
+  const wants = (node: string): Map<End, number> => {
+    let m = wanted.get(node);
+    if (!m) {
+      const list = endsOf(node);
+      m = new Map();
+      if (list.length > 1) {
+        const sorted = [...list];
+        const trims = wantedTrims(list[0], sorted);
+        sorted.forEach((e, k) => m!.set(e, trims[k]));
+      }
+      wanted.set(node, m);
+    }
+    return m;
+  };
+  // The short chains reachable from the nodes to lay, each once, shortest first
+  const short: { chain: Chain; a: string; b: string }[] = [];
+  const seen = new Set<Chain>();
+  const nodes = new Set(lay);
+  const queue = [...lay];
+  while (queue.length) {
+    const node = queue.pop()!;
+    for (const e of endsOf(node)) {
+      const c = e.chain;
+      if (seen.has(c)) continue;
+      seen.add(c);
+      const [a, b] = c.nodes;
+      if (a === b || c.length > CLUSTER_CHAIN) continue;
+      const ea = endsOf(a).find((x) => x.chain === c && x.start);
+      const eb = endsOf(b).find((x) => x.chain === c && !x.start);
+      if (!ea || !eb || endsOf(a).length < 2 || endsOf(b).length < 2) continue;
+      if ((wants(a).get(ea) ?? 0) + (wants(b).get(eb) ?? 0) <= c.length * 0.9) continue;
+      short.push({ chain: c, a, b });
+      for (const n of [a, b]) {
+        if (nodes.has(n)) continue;
+        nodes.add(n);
+        queue.push(n);
+      }
+    }
+  }
+  short.sort((p, q) => p.chain.length - q.chain.length);
+  // Union, keeping each cluster's box within the span
+  const parent = new Map<string, string>();
+  const box = new Map<string, [number, number, number, number]>();
+  const root = (n: string): string => {
+    let r = n;
+    while (parent.get(r) !== undefined && parent.get(r) !== r) r = parent.get(r)!;
+    return r;
+  };
+  const point = (n: string): MapPoint => {
+    for (const e of endsOf(n)) return { x: e.x, y: e.y };
+    return { x: 0, y: 0 };
+  };
+  for (const n of nodes) {
+    parent.set(n, n);
+    const p = point(n);
+    box.set(n, [p.x, p.y, p.x, p.y]);
+  }
+  for (const { a, b } of short) {
+    const ra = root(a);
+    const rb = root(b);
+    if (ra === rb) continue;
+    const p = box.get(ra)!;
+    const q = box.get(rb)!;
+    const joined: [number, number, number, number] = [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[2], q[2]), Math.max(p[3], q[3])];
+    if (Math.hypot(joined[2] - joined[0], joined[3] - joined[1]) > CLUSTER_SPAN) continue;
+    parent.set(rb, ra);
+    box.set(ra, joined);
+  }
+  const groups = new Map<string, string[]>();
+  for (const n of nodes) {
+    const r = root(n);
+    const g = groups.get(r);
+    if (g) g.push(n);
+    else groups.set(r, [n]);
+  }
+  return [...groups.values()].map((g) => g.sort());
+}
+
+/**
+ * Whether a junction's outline (its roads' end sections in order, sorted by
+ * trimJunction) runs once round its middle, counter-clockwise: a fan from
+ * the middle covers it without a fold
+ */
+function outlineAround(c: MapPoint, list: readonly End[]): boolean {
+  const ring: MapPoint[] = [];
+  for (const e of list) {
+    const chain = e.chain;
+    const d = e.start ? chain.at[0] + chain.trim[0] : chain.at[0] + chain.length - chain.trim[1];
+    const p = pointAt(chain, d);
+    // Right, then left, looking away from the node
+    const s = e.start ? 1 : -1;
+    const t = tangentAt(chain, d);
+    ring.push({ x: p.x + t.y * chain.half * s, y: p.y - t.x * chain.half * s }, { x: p.x - t.y * chain.half * s, y: p.y + t.x * chain.half * s });
+  }
+  let turn = 0;
+  for (let k = 0; k < ring.length; k++) {
+    const p = ring[k];
+    const q = ring[(k + 1) % ring.length];
+    if ((p.x - c.x) * (q.y - c.y) - (p.y - c.y) * (q.x - c.x) <= 0) return false;
+    turn += Math.atan2((p.x - c.x) * (q.y - c.y) - (p.y - c.y) * (q.x - c.x), (p.x - c.x) * (q.x - c.x) + (p.y - c.y) * (q.y - c.y));
+  }
+  return Math.abs(turn - Math.PI * 2) < 0.01;
+}
+
+/** The middle of a junction's nodes */
+function clusterCentre(points: readonly MapPoint[]): MapPoint {
+  let x = 0;
+  let y = 0;
+  for (const p of points) {
+    x += p.x;
+    y += p.y;
+  }
+  return { x: x / points.length, y: y / points.length };
 }
 
 /**
  * Where road a's left kerb meets road b's right kerb (b the next road
- * counter-clockwise), as distances along each from the node; null when they
- * do not meet in front of the node
+ * counter-clockwise), as distances along each from its node; null when they
+ * do not meet in front of both
  */
-function kerbCorner(c: MapPoint, a: End, b: End): { t: number; s: number; x: number; y: number } | null {
+function kerbCorner(a: End, b: End): { t: number; s: number; x: number; y: number } | null {
   const ha = a.chain.half;
   const hb = b.chain.half;
-  // a's left kerb: c + na * ha + da * t; b's right kerb: c - nb * hb + db * s
+  // a's left kerb: pa + na * ha + da * t; b's right kerb: pb - nb * hb + db * s
   const nax = -a.dy;
   const nay = a.dx;
   const nbx = -b.dy;
   const nby = b.dx;
-  const rx = -nbx * hb - nax * ha;
-  const ry = -nby * hb - nay * ha;
+  const rx = b.x - nbx * hb - (a.x + nax * ha);
+  const ry = b.y - nby * hb - (a.y + nay * ha);
   // da * t - db * s = r
   const det = a.dx * -b.dy - a.dy * -b.dx;
   if (Math.abs(det) < 1e-6) return null;
   const t = (rx * -b.dy - ry * -b.dx) / det;
   const s = (a.dx * ry - a.dy * rx) / det;
   if (t < -1e-6 || s < -1e-6) return null;
-  return { t: Math.max(0, t), s: Math.max(0, s), x: c.x + nax * ha + a.dx * t, y: c.y + nay * ha + a.dy * t };
+  return { t: Math.max(0, t), s: Math.max(0, s), x: a.x + nax * ha + a.dx * t, y: a.y + nay * ha + a.dy * t };
 }
 
 /** The ribbon of a chain between its trims, with its round ends, into the tiles; keeps its end sections for the junctions */
@@ -847,7 +1037,7 @@ function emitJunction(c: MapPoint, list: End[], out: TileBuilder, styleOf: (s: R
   const m = list[main];
   const look = roadStyle(m.chain.edge, true);
   look.gutter ||= list.some((e) => roadStyle(e.chain.edge).gutter);
-  const style = styleOf(look);
+  const style = styleOf(look) + orderOf(`j${c.x},${c.y}`);
   // Each road's frame at its end: the middle of its end section and its direction there (the ribbon's own)
   const frames = sides.map((side) => side![(side!.length - 1) / 2]);
   const wears = list.map((e) => Math.round(roadStyle(e.chain.edge).wear * 31));
@@ -991,6 +1181,20 @@ function segmentAt(at: readonly number[], d: number): number {
     else hi = mid;
   }
   return lo;
+}
+
+/**
+ * Where two ribbons or junctions of one rank overlap without meeting (a
+ * footway crossing another, a slip road over a street's pavement), which
+ * lies over which: an order within the rank from an id (0 to 15, in the
+ * look's top bits, ORDER_STEP; road-surface.ts draws each step a little
+ * nearer). On the ground's own triangles two of one rank would lie at one
+ * depth and fight
+ */
+function orderOf(id: string): number {
+  let h = 2166136261;
+  for (let k = 0; k < id.length; k++) h = Math.imul(h ^ id.charCodeAt(k), 16777619);
+  return ((h >>> 0) % 16) * ORDER_STEP;
 }
 
 /** A chain's start of distance along, from its edges' ids (the least): 0.5 to 997 m */

@@ -307,3 +307,55 @@ describe('road network on the ground', () => {
     expect(builder.layOnGround(0)!.tiles).toEqual([]);
   });
 });
+
+describe('road network, junctions close together', () => {
+  it('lays two side roads a few metres apart as one junction: no sliver of ribbon between, no fold', () => {
+    // A main road with a side road to the north at x = 0 and one to the south at x = 5
+    const net = buildRoadNetwork(
+      paths(
+        [
+          { a: 'w', b: 'p', street: 'secondary', width: 9 },
+          { a: 'p', b: 'q', street: 'secondary', width: 9 },
+          { a: 'q', b: 'e', street: 'secondary', width: 9 },
+          { a: 'p', b: 'n', street: 'residential', width: 6 },
+          { a: 'q', b: 's', street: 'residential', width: 6 },
+        ],
+        [['w', -100, 0], ['p', 0, 0], ['q', 5, 0], ['e', 100, 0], ['n', 0, 100], ['s', 5, -100]],
+      ),
+    );
+    const tris = triangles(net);
+    for (const t of tris) expect(area(t)).toBeGreaterThan(-1e-6);
+    // Between the two nodes only the junction's surface (bit 11 of the look), no ribbon of the main road
+    let between = 0;
+    for (const t of net.tiles) {
+      for (let k = 0; k < t.index.length; k += 3) {
+        const [a, b, c] = [t.index[k], t.index[k + 1], t.index[k + 2]];
+        const x = (t.position[a * 2] + t.position[b * 2] + t.position[c * 2]) / 3;
+        const y = (t.position[a * 2 + 1] + t.position[b * 2 + 1] + t.position[c * 2 + 1]) / 3;
+        if (Math.abs(x - 2.5) > 2 || Math.abs(y) > 4) continue;
+        between++;
+        expect(Math.floor(t.road[a * 4 + 3] / 2048) % 2).toBe(1);
+      }
+    }
+    expect(between).toBeGreaterThan(0);
+    // The paved area stays whole: the four roads and the junction, give or take the kerbs
+    const total = tris.reduce((s, t) => s + area(t), 0);
+    expect(total).toBeGreaterThan(200 * 9 + 2 * 95 * 6 - 20);
+    expect(total).toBeLessThan(200 * 9 + 2 * 100 * 6 + 60);
+  });
+
+  it('gives roads of one rank that overlap without meeting an order, so they never lie at one depth', () => {
+    const net = buildRoadNetwork(
+      paths(
+        [
+          { a: 'a', b: 'b', kind: 'path', width: 2, surface: 'sidewalk' },
+          { a: 'c', b: 'd', kind: 'path', width: 2, surface: 'sidewalk' },
+        ],
+        [['a', -20, 0], ['b', 20, 0], ['c', 0, -20], ['d', 0, 20]],
+      ),
+    );
+    const orders = new Set<number>();
+    for (const t of net.tiles) for (let k = 3; k < t.road.length; k += 4) orders.add(Math.floor(t.road[k] / 1048576));
+    expect(orders.size).toBe(2);
+  });
+});

@@ -395,12 +395,13 @@ vec3 drapeNormal = roadNormal;
 /** The roads' part of their draped material: attributes, rank from the look's top bits, the look */
 function roadLook(sidewalk: { value: number }): DrapeLook {
   return {
-    key: 'custom-map-roads-3',
+    key: 'custom-map-roads-4',
     uniforms: { uRoadSidewalk: sidewalk },
     vertexPars: ROAD_VERTEX_PARS,
     vertex: ROAD_VERTEX,
-    // A higher road a little more than a lower one where two overlap without meeting (RoadStyle.rank, the code's top bits)
-    rank: 'floor((aRoad.w + 0.5) / 131072.0)',
+    // A higher road a little more than a lower one where two overlap without meeting (RoadStyle.rank, the code's top
+    // bits), and of one rank by their order in sixteenths (ORDER_STEP)
+    rank: 'mod(floor((aRoad.w + 0.5) / 131072.0), 8.0) + floor((aRoad.w + 0.5) / 1048576.0) / 16.0',
     pull: ROAD_PULL,
     fragmentPars: ROAD_FRAGMENT_PARS,
     fragment: ROAD_SAMPLE,
