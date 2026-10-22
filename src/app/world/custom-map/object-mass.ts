@@ -152,6 +152,10 @@ export interface MassBody {
    * else each on the part standing on the ground over its inside
    */
   hosts?: readonly MapMassOpening[];
+  /** Metres of basement under its floor (MapObject.basement): its walls reach that much further down */
+  basement?: number;
+  /** Only the basement under a catalogue model (its wall box): walls up to the model's floor, no roof */
+  cellar?: boolean;
   /** The building's ground (MapMass.rings) the openings' insides run through; its own rings when missing */
   ground?: number[][];
   /** The rings of all its building's parts: an opening reaches out to a part's wall a little past the ground */

@@ -469,7 +469,8 @@ export class MapObjectLayer {
     // Raised buildings damaged before they were built take their damage along
     const hurt = masses.filter((o) => this.damaged.has(o.id)).map((o) => ({ id: o.id, ...this.damaged.get(o.id)! }));
     if (hurt.length) this.masses.setDamage(hurt);
-    const shown = this.masses.setObjects(masses);
+    // The basements under catalogue models draw there too, the models here
+    const shown = this.masses.setObjects(objects.filter(MassLayer.draws));
     if (masses.length) objects = objects.filter((o) => !MassLayer.owns(o));
     const catalog = await this.assets.catalog();
     const groups = groupByAsset(catalog, objects, this.damaged);
@@ -527,6 +528,8 @@ export class MapObjectLayer {
    */
   updateObjects(objects: readonly MapObject[]): MapObject[] {
     const rest: MapObject[] = [];
+    const cellars: MapObject[] = [];
+    const cellarsGone: string[] = [];
     let changed = false;
     for (const o of objects) {
       const slot = this.byId.get(o.id);
@@ -541,11 +544,15 @@ export class MapObjectLayer {
         rest.push(o);
         continue;
       }
+      // Its basement (MapObject.basement) moves with it in the mass layer
+      if (MassLayer.cellar(o)) cellars.push(o);
+      else if (this.masses.hasCellar(o.id)) cellarsGone.push(o.id);
       b.objects[slot.index] = o;
       this.writeInstance(b, slot.index);
       this.rewrite(b, slot.index);
       changed = true;
     }
+    if (cellars.length || cellarsGone.length) void this.masses.change(cellars, cellarsGone);
     if (changed) {
       this.version++;
       this.applyLevels(false);
@@ -556,12 +563,14 @@ export class MapObjectLayer {
   /** Adds objects (an asset new to the map loads its model first). Resolves when they show. */
   async addObjects(objects: MapObject[]): Promise<void> {
     if (!objects.length) return;
-    const masses = objects.filter(MassLayer.owns);
-    if (masses.length) {
-      objects = objects.filter((o) => !MassLayer.owns(o));
-      await Promise.all([this.masses.change(masses, []), this.addObjects(objects)]);
-      return;
-    }
+    // Raised buildings and the basements under catalogue models (MapObject.basement) to the mass layer, the models here
+    const masses = objects.filter(MassLayer.draws);
+    await Promise.all([masses.length ? this.masses.change(masses, []) : null, this.addCatalogued(objects.filter((o) => !MassLayer.owns(o)))]);
+  }
+
+  /** Adds catalogue models (not raised buildings) to their batches */
+  private async addCatalogued(objects: MapObject[]): Promise<void> {
+    if (!objects.length) return;
     // New ones after the batches setObjects is building: an asset it has not built yet would get a second batch
     while (this.building) await this.building;
     const generation = this.generation;
@@ -797,7 +806,7 @@ export class MapObjectLayer {
 
   /** Removes objects by id: each leaves the lists it is in, the asset's last object fills its place */
   removeObjects(ids: string[]): void {
-    const masses = ids.filter((id) => this.masses.has(id));
+    const masses = ids.filter((id) => this.masses.has(id) || this.masses.hasCellar(id));
     if (masses.length) void this.masses.remove(masses);
     for (const id of ids) {
       this.dropSlabs(id);

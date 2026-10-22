@@ -853,6 +853,17 @@ Katalogeintrags `building-mass` (je Oberfläche ein Quadrat so breit wie eine Wi
 der Objektebene (`MapObjectLayer`) laufen sie über dieselben Aufrufe (Setzen, Ändern, Picken, Höhen); eine Änderung
 baut alle Bauten neu (wenige ms), eine Höhenänderung verschiebt nur die betroffenen Instanzen.
 
+**Kellergeschoss am Hang** (`MapObject.basement`, Meter): ein Gebäude steht mit seinem Boden (Ursprung, um `z`
+gehoben) über einem Kellergeschoss, dessen Wände bis zum Sitz hinab reichen (`object-seat.ts`) und talseitig zu sehen
+sind. Ein Bau aus dem Grundriss verlängert dafür die Wände seiner Körper am Boden (`basementBodies`), unter einem
+Katalogmodell zeichnet die Massenebene einen Kellerkörper aus dessen Wandkasten (Katalog `box`, 0,1 m größer, über das
+eigene Fundament des Modells, bis 0,2 m in das Modell hinein; `cellarBody`, kein Dach); das Modell selbst bleibt in
+seiner Charge. Dieselben Wand-Instanzen, kein Programm mehr: der Shader liest die Kellertiefe aus dem Fuß der Wand
+(`aWall.z` weniger Fundament) und malt den Keller im Putz der Fassade, etwas dunkler und grauer; ab 1,2 m Tiefe je
+Achse ein Kellerfenster hoch in der Wand (je tiefer, desto größer), in der mittleren Achse eine Tür oder ein
+Garagentor, wo das Gelände vor der Wandmitte (`aWallD.y`, beim Bau gemessen) mindestens 2,4 m unter dem Boden liegt.
+Die Prüfung „in der Luft“ misst den Fuß unter dem Keller. Ohne `basement` bleibt alles wie vorher.
+
 **Schilder** (`sign-text.ts`, `sign-icons.ts`): ein Objekt mit `sign: { text?, icon? }` schreibt auf die Schildfläche
 seines Modells (Katalog `signPanel`: Mitte, Breite, Höhe im Modellrahmen, Blickrichtung, `sides: 2` für ein hängendes
 Schild, `ink`). Wort in der Spielschrift (Barlow Semi Condensed 700, höchstens 24 Zeichen) und Piktogramm (rund 40,

@@ -5,7 +5,7 @@ import { massArea, massBodies, massContains } from '../../object-mass';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import { HeightField } from '../height-field';
 import { MapAssetLibrary } from '../map-asset-library';
-import { MassLayer, massShape } from './mass-layer';
+import { basementBodies, cellarBody, MassLayer, massShape } from './mass-layer';
 import { FELL_LONG_AGO } from './ruin-damage';
 import { MapObjectLayer } from './object-layer';
 
@@ -34,7 +34,7 @@ const entry = (id: string, category: CatalogObject['category'], file: string): C
   wind: 0,
 });
 
-const catalog: AssetCatalog = { version: 1, materials: [], objects: [entry(MASS_ASSET, 'building', 'kit.glb'), entry('box', 'building', 'box.glb')] };
+const catalog: AssetCatalog = { version: 1, materials: [], objects: [entry(MASS_ASSET, 'building', 'kit.glb'), entry('box', 'building', 'box.glb'), { ...entry('house', 'building', 'box.glb'), box: [0, 0.5, 4, 3] }] };
 
 /** The kit: one square per surface as wide as its texture's repeat; a box for the other asset */
 function library(): MapAssetLibrary {
@@ -80,6 +80,25 @@ describe('mass layer: the shape of a raised building', () => {
     }
     expect(roof).toBeCloseTo(massArea(court));
     expect(shape.covering).toBe('flat');
+  });
+
+  it('reaches a building on a basement down to its seat, and walls a catalogue model\'s basement round its wall box', () => {
+    const [body] = basementBodies(massBodies(court), 3);
+    const walls = massShape(body).walls.filter((w) => w.kind === 0);
+    expect(walls.every((w) => w.bottom === -1.5 - 3)).toBe(true);
+    // Without one as it was
+    expect(massShape(massBodies(court)[0]).walls.filter((w) => w.kind === 0).every((w) => w.bottom === -1.5)).toBe(true);
+    const cellar = massShape(cellarBody([0, 0.5, 4, 3], 2.5));
+    expect(cellar.walls.length).toBe(4);
+    expect(cellar.roof).toEqual([]);
+    expect(cellar.caps).toEqual([]);
+    for (const w of cellar.walls) {
+      expect(w.bottom).toBe(-1.5 - 2.5);
+      expect(w.top).toBeGreaterThan(0);
+      expect(w.top).toBeLessThan(0.5);
+    }
+    // A little past the box on each side, over the model's own foundation
+    expect(cellar.walls.map((w) => w.length).sort((p, q) => p - q)).toEqual([6.2, 6.2, 8.2, 8.2].map((v) => expect.closeTo(v, 5)));
   });
 
   it('raises a mansard: walls to the eaves, steep slopes from past them, the top flat', () => {
@@ -321,6 +340,32 @@ describe('mass layer in the object layer', () => {
     const left: InstancedMesh[] = [];
     los.traverse((o) => o instanceof InstancedMesh && (o.material as MeshStandardMaterial).name?.startsWith('mass-') && left.push(o));
     expect(left.length).toBe(0);
+    layer.dispose();
+  });
+
+  it('draws the basement under a catalogue model with the raised buildings, moves it with the model and takes it out', async () => {
+    const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
+    const los = new Group();
+    const layer = new MapObjectLayer(field, library(), los);
+    const house: MapObject = { id: 'h1', asset: 'house', x: 0, y: 0, z: 2.5, basement: 2.5, rotation: 0, scale: 1 };
+    await layer.setObjects([house, { id: 'h2', asset: 'house', x: 50, y: 0, z: 0, rotation: 0, scale: 1 }]);
+    const walls = (): InstancedMesh[] => {
+      const out: InstancedMesh[] = [];
+      los.traverse((o) => o instanceof InstancedMesh && (o.material as MeshStandardMaterial).name?.startsWith('mass-') && out.push(o));
+      return out;
+    };
+    // One house's basement: four walls in one mesh, its model drawn as ever
+    let meshes = walls();
+    expect(meshes.reduce((s, m) => s + m.count, 0)).toBe(4);
+    const x0 = meshes[0].instanceMatrix.array[12];
+    // Moved in place as a model; its basement goes along
+    expect(layer.updateObjects([{ ...house, x: 20 }])).toEqual([]);
+    await new Promise((r) => setTimeout(r, 0));
+    meshes = walls();
+    expect(meshes[0].instanceMatrix.array[12]).not.toBeCloseTo(x0);
+    layer.removeObjects(['h1']);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(walls().reduce((s, m) => s + m.count, 0)).toBe(0);
     layer.dispose();
   });
 });

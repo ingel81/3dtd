@@ -672,7 +672,8 @@ export function objectsInAir(doc: CustomMapDocument, footingOf: (asset: string) 
     if (!f || f.category === 'fx' || f.aloft) continue;
     const s = o.scale || 1;
     const seat = seatHeight(f, o, ground, water);
-    const solid = { o, reach: f.footprint * s, foot: seat + o.z, top: seat + o.z + f.height * s };
+    // A building's basement (MapObject.basement) reaches down from its floor to the seat
+    const solid = { o, reach: f.footprint * s, foot: seat + o.z - (o.basement ?? 0), top: seat + o.z + f.height * s };
     solids.push(solid);
     let gap: number;
     if (f.base && !f.float) gap = undersideGap(t, o, f.base);

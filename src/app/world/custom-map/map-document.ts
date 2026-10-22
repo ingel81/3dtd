@@ -231,6 +231,13 @@ export interface MapObject {
    * only drawn, the game ignores it
    */
   stretch?: number;
+  /**
+   * A building on a slope: metres of a basement storey under its floor (its
+   * origin, lifted by `z` to the ground at its entrance), whose walls reach
+   * down to the seat and show on the valley side with cellar windows and a
+   * door (render/objects/mass-layer.ts). Default 0
+   */
+  basement?: number;
   /** Overrides of the catalogue entry */
   blocksLos?: boolean;
   blocksBuild?: boolean;
