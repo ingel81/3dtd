@@ -124,8 +124,10 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       (c) HLOD je Kachel, (e) Verdeckung; WebGPU kurz betrachtet (TSL-Probe). Entschieden (User 2026-10-21, Plan Abschnitt 10): (b), (d), (c), dann
       WebGPU-Umzug mit Boden, dann (a) und (e) auf der GPU; Pixelgrenze, Kacheln 128 m, Linie als Element, Sicht-Cube
       feste Stufe, Abnahme auf beiden Rechnern. Gebaut (b), (d), Sicht-Cube (Abschnitt 2 unten); (c) HLOD gemessen und
-      verworfen (User 2026-10-22). Nächster Schritt: WebGPU-Probepaket (Renderer-Kern plus eine eigene Karte
-      vollständig sichtbar, dann neu schätzen; Schätzung Plan Abschnitt 12), auf eigenem Branch.
+      verworfen (User 2026-10-22). WebGPU-Probe gebaut und gemessen (Plan 12.1, 12.2): je Draw doppelte CPU in three
+      r186, geparkt bis three r187 und halbierte Draws (User 2026-10-22, 12.3); Branch `render/webgpu` lokal.
+      Optimierungen ab jetzt WebGPU-tauglich bauen (12.3). Nächster Schritt: Attribut-Uploads je Bild bei stehender
+      Ansicht (rund 90) abstellen.
 - [ ] **E184 Mitgelieferte Karten imposanter** (User, 2026-10-15): die meisten Karten sind noch zu langweilig, es muss
       deutlich mehr gehen (Kulisse, Höhenunterschiede, Blickpunkte, Wahrzeichen, dichtere und abwechslungsreichere
       Gestaltung). Bekannte Stellen aus dem Showreel: Wald in Autumn Keep trüb und aus der Distanz braun, Burg in der

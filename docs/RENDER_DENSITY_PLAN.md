@@ -1300,6 +1300,20 @@ auch nicht mit r187 und Bündeln zusammen (geschätzt rund 1,45 gegen 0,91 ms).
 **Empfehlung: erst mit Compute.** Ein Umzug allein lohnt heute nicht: Das Spiel würde auf der CPU langsamer, bei
 gleicher GPU-Zeit. Sinnvoll wird er, sobald (a) three r187 erschienen ist (Start und WebGL-2-Rückfall werden damit
 brauchbar: 14 s, 2 ms) und (b) die Draws je Ansicht über Zusammenlegen und Compute-Culling etwa halbiert sind. Diese
-Arbeit lohnt sich auch für WebGL. Bis dahin den Branch `wt/webgpu` als Probe parken und die Zahlen mit r187 über
-`e2e/perf/webgpu-compare.ts` neu ziehen. Nebenbefund für beide Renderer: rund 90 Attribut-Uploads je Bild bei
+Arbeit lohnt sich auch für WebGL. Bis dahin den Branch `render/webgpu` (lokal, `wt/webgpu`) als Probe parken und die Zahlen mit r187 über
+`e2e/perf/webgpu-compare.ts` (liegt nur auf dem Branch) neu ziehen. Nebenbefund für beide Renderer: rund 90 Attribut-Uploads je Bild bei
 stehender Ansicht deuten auf Instanzlisten, die ohne Änderung neu hochladen; das prüfen.
+
+### 12.3 Entscheid und Leitlinie (User 2026-10-22)
+
+Der Umzug ist **geparkt**. Wieder aufnehmen, wenn three r187 erschienen ist und die Draws je Ansicht etwa halbiert
+sind (12.2). Bis dahin gilt für jede Optimierung am heutigen `WebGLRenderer`: so bauen, dass der spätere Umzug
+möglichst glatt geht.
+
+- Daten in großen, langlebigen Puffern mit Teil-Updates (`addUpdateRange`) statt vieler kleiner oder neu angelegter.
+- Instanzlisten so anlegen, dass Compute-Culling und indirektes Zeichnen später darauf aufsetzen können: eine Liste
+  je Art, Instanzdaten als Attribute oder Textur, nicht als Uniform je Objekt.
+- Weniger Draws durch Zusammenlegen; das ist auf beiden Renderern der größte Hebel.
+- Keine neuen `onBeforeCompile`- oder GLSL-Patches, wo es vermeidbar ist; neue Shader-Logik klein und an einer
+  Stelle, damit sie sich nach TSL übertragen lässt.
+- Keine Abhängigkeit von WebGL-only-Funktionen (`gl_VertexID`-Tricks, Punktgrößen über 1 px, Readback im Bild).
