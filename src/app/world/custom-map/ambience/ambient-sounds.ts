@@ -37,6 +37,8 @@ export interface AmbientSound {
   /** Further recordings of it (files as `file`), played in turn with it */
   variants?: readonly string[];
   calls?: AmbientCalls;
+  /** Metres an area of it is heard beyond its outline or its line, unless the area sets its own `reach`; AREA_REACH without */
+  reach?: number;
 }
 
 const CALLS = 'assets/sounds/ambient/calls/';
@@ -58,7 +60,7 @@ const LOOPS = {
     },
   },
   'night-insects': { file: 'assets/sounds/ambient/night-insects.mp3', gain: 0.3 },
-  stream: { file: 'assets/sounds/ambient/stream.mp3', variants: ['assets/sounds/ambient/stream-2.mp3'], gain: 0.4 },
+  stream: { file: 'assets/sounds/ambient/stream.mp3', variants: ['assets/sounds/ambient/stream-2.mp3'], gain: 0.15, reach: 35 },
   surf: { file: 'assets/sounds/ambient/surf.mp3', variants: ['assets/sounds/ambient/surf-2.mp3'], gain: 0.7 },
   swamp: { file: 'assets/sounds/ambient/swamp.mp3', gain: 0.55 },
   lava: { file: 'assets/sounds/ambient/lava.mp3', gain: 0.6 },

@@ -294,7 +294,7 @@ export class Soundscape {
       else if (v.area) {
         const d = nearestOnShape(v.area, listener.at.x, listener.at.y, this.near);
         const up = Math.max(0, listener.height - AREA_NEAR_HEIGHT) * AREA_HEIGHT_SHARE;
-        const f = Math.max(0, 1 - Math.hypot(d, up) / (v.area.reach ?? AREA_REACH));
+        const f = Math.max(0, 1 - Math.hypot(d, up) / (v.area.reach ?? entry?.reach ?? AREA_REACH));
         heard = v.volume * lift * f * f;
         if (d > 1) {
           const dx = (this.near.x - listener.at.x) / d;

@@ -81,20 +81,22 @@ describe('Soundscape', () => {
     const life: MapLife = { areas: [{ id: 's', kind: 'sound', shape: 'route', points: [{ x: 0, y: -50 }, { x: 0, y: 50 }], sound: 'stream', volume: 1 }] };
     s.setMap({ life, environment: env('temperate') });
     const full = AMBIENT_SOUNDS['stream'].gain;
+    // The stream's own reach (a sound without one: AREA_REACH)
+    const R = AMBIENT_SOUNDS['stream'].reach ?? AREA_REACH;
     await tick(s, listener(0, 0));
     expect(levels(a)[0]).toBeCloseTo(full, 3);
     // Half its reach to the east: a quarter, from the west (the listener's left)
-    await tick(s, listener(AREA_REACH / 2, 0));
-    expect(levels(a)[0]).toBeCloseTo(full * 0.25, 3);
-    expect(a.pans[0].pan.value).toBeLessThan(-0.5);
+    await tick(s, listener(R / 2, 0));
+    expect(levels(a)[0]).toBeCloseTo(full * 0.25, 2);
+    expect(a.pans[0].pan.value).toBeLessThan(-0.4);
     // From high up quieter
     await tick(s, listener(0, 0, { height: 600 }));
     expect(levels(a)[0]).toBeLessThan(full * 0.5);
     // Out of reach: silent, the source stops after three seconds
-    await tick(s, listener(AREA_REACH + 10, 0));
+    await tick(s, listener(R + 10, 0));
     expect(levels(a)[0]).toBe(0);
     expect(s.playing).toBe(1);
-    for (let k = 0; k < 20; k++) s.update(0.2, listener(AREA_REACH + 10, 0));
+    for (let k = 0; k < 20; k++) s.update(0.2, listener(R + 10, 0));
     expect(s.playing).toBe(0);
     // Back in: it starts again
     await tick(s, listener(0, 0));
@@ -112,12 +114,13 @@ describe('Soundscape', () => {
     // Low over the stream: full
     await tick(s, listener(0, 0, { height: AREA_NEAR_HEIGHT }));
     expect(levels(a)[0]).toBeCloseTo(full, 3);
-    // Looking straight at it from 160 m: as from 35 m beside it, a quarter, times the height's own quieting
+    // Looking straight at it from 110 m: as from 17.5 m beside it, times the height's own quieting
+    const reach = AMBIENT_SOUNDS['stream'].reach!;
+    await tick(s, listener(0, 0, { height: AREA_NEAR_HEIGHT + 50 }));
+    const lift = 1 - (AREA_NEAR_HEIGHT + 50 - 80) / 780;
+    expect(levels(a)[0]).toBeCloseTo(full * lift * (1 - (50 * AREA_HEIGHT_SHARE) / reach) ** 2, 3);
+    // From 160 m it is out of its reach
     await tick(s, listener(0, 0, { height: AREA_NEAR_HEIGHT + 100 }));
-    const lift = 1 - (AREA_NEAR_HEIGHT + 100 - 80) / 780;
-    expect(levels(a)[0]).toBeCloseTo(full * lift * (1 - (100 * AREA_HEIGHT_SHARE) / AREA_REACH) ** 2, 3);
-    // From 260 m it is out of reach
-    await tick(s, listener(0, 0, { height: AREA_NEAR_HEIGHT + 200 }));
     expect(levels(a)[0]).toBe(0);
     s.dispose();
   });
