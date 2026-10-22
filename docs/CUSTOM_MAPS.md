@@ -279,7 +279,14 @@ auf einer 1024-m-Karte mit 220 Straßen 1,4 ms je Bild, auf einem Netz von 7 500
 die Maske. Brücken (`kind: 'bridge'`) bekommen ein Deck aus instanzierten `bridge-deck`-Stücken zwischen den Uferhöhen, mit
 leichtem Bogen und mindestens 1 m über dem Wasser. `style: 'stone' | 'concrete' | 'lava'` an der Kante nimmt
 `bridge-deck-stone`, `bridge-deck-concrete` (Asphalt auf Betonplatte, Geländer) bzw. `bridge-deck-lava`; fehlt das
-Stück im Katalog, bleibt es beim Holzdeck.
+Stück im Katalog, bleibt es beim Holzdeck. Die Stücke legt `paths/path-bridges.ts` als gelegte Objekte
+(`LaidObject`, `MapObjectLayer.setLaid`) in den Objekt-Layer, nicht ins Dokument: fest auf der Deckhöhe (ein Krater am
+Ende senkt sie nicht), so lang wie ihr Teil der Kante und so breit wie die Kante, jede Brücke eine Linie. Damit
+gelten für sie Ausklammern je Stück, Pixelgrenze der ganzen Brücke, LOD-Stufe (`-lod1`, nicht beim Lava-Stück: seine
+Glutfugen lassen sich nicht abtönen) und Schatten nur nahe am Fokus. Decks sperren die Sicht (`blocksLos`): der
+Sicht-Cube zeichnet sie voll, ein Tower sieht nicht durch eine Brücke auf die Straße darunter
+([LOS_PIPELINE.md](LOS_PIPELINE.md)). Der Editor greift die Kante, nicht ein Stück. Würzburg (785 Stücke): 0,43 Mio.
+Dreiecke weniger je Ansicht, gleiche Draws (2026-10-22).
 Eine Kante mit `surface` (ein Bodenmaterial, OSM-Welten: Asphalt, Pflaster, Kies) lässt die Maske aus. Ist der Belag
 befestigt (Asphalt, Beton, Pflaster, Kopfstein, Platten: `PAVED_SURFACES` in `paths/road-style.ts`), liegt die Straße
 als eigene Fläche über dem Boden (`paths/road-network.ts`, `paths/road-surface.ts`): ein Band je Straße mit

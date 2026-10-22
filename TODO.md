@@ -127,10 +127,8 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       verworfen (User 2026-10-22). WebGPU-Probe gebaut und gemessen (Plan 12.1, 12.2): je Draw doppelte CPU in three
       r186, geparkt bis three r187 und halbierte Draws (User 2026-10-22, 12.3); Branch `render/webgpu` lokal.
       Optimierungen ab jetzt WebGPU-tauglich bauen (12.3). Attribut-Uploads bei stehender Ansicht: auf WebGL keine
-      (2026-10-22, Plan 12.2), die rund 90 kommen aus dem WebGPU-Backend von r186. Offen: Brückendecks
-      (`path-bridges.ts`) ohne Ausklammern, Pixelgrenze und LOD, Würzburg 785 Stücke in 8 Draws mit 0,61 Mio.
-      Dreiecken samt Schatten, ein Steinstück 1 012 Dreiecke; Weg: Deckstücke wie die Linienstücke durch den
-      Objekt-Layer (Breite je Instanz, Band in der Ferne), kein eigenes Ausklammern daneben.
+      (2026-10-22, Plan 12.2), die rund 90 kommen aus dem WebGPU-Backend von r186. Brückendecks gebaut
+      (Abschnitt 2).
 - [ ] **E184 Mitgelieferte Karten imposanter** (User, 2026-10-15): die meisten Karten sind noch zu langweilig, es muss
       deutlich mehr gehen (Kulisse, Höhenunterschiede, Blickpunkte, Wahrzeichen, dichtere und abwechslungsreichere
       Gestaltung). Bekannte Stellen aus dem Showreel: Wald in Autumn Keep trüb und aus der Distanz braun, Burg in der
@@ -232,6 +230,8 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 - [ ] **E304 Zeichendichte, Teil 1**: Objekte gehen an einer Pixelgrenze je Grafikstufe statt fester Sichtweite;
       Linien (Mauern, Zäune, Hecken, Gleise) als Kartenelement, Formatversion 5, fern als Band; Sicht-Cube der Tower
       mit fester Stufe, unabhängig von der Kamera (AB1 bis AB4).
+- [ ] **E304 Brückendecks**: Deckstücke als gelegte Objekte im Objekt-Layer (Ausklammern, Pixelgrenze, LOD,
+      Schatten nahe am Fokus), Decks sperren die Sicht der Tower; Würzburg 0,43 Mio. Dreiecke weniger je Ansicht (AB5).
 
 ### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q, R, S, T, U, V, W, X, Y, Z und AA)
 

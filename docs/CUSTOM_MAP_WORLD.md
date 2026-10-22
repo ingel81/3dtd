@@ -386,7 +386,8 @@ dem Build fehlt, aus dem `public/maps` des Checkouts (`mapDataRoot` in `createAp
   nicht mehr; echte Orte und DevWorld nutzen `HeightField` nicht
 - Brücken: Kanten der Art `bridge` tragen ein Deck (`bridge-decks.ts`, dasselbe für Renderer, Spiel und Editor:
   Enden über dem Wasser, leichter Bogen); `topY` der Spalte und die Straßenhöhe liegen darauf, `groundY` bleibt der
-  Boden darunter
+  Boden darunter; das Deck sperrt die Sicht der Tower wie ein Objekt (seine Stücke liegen im Objekt-Layer,
+  [CUSTOM_MAPS.md](CUSTOM_MAPS.md))
 - Sichtlinie über das Gelände (Schritte von einer halben Zelle); Objekte sieht der Sichtlinien-Würfel
 - Kein Streaming, keine LOD-Stufen, kein Messen der Straßenbreite (die Kanten haben ihre Breite)
 - `buildBlocker` sagt, warum ein Tower nicht stehen darf, `null` wo er darf. Die Platzierungsregel fragt mit

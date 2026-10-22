@@ -775,6 +775,10 @@ das Auge. Würzburg neu bauen (`49.7932, 9.9312`), eigene Karten mit Version 4 l
   oder Reichweite upgraden. *Sichtzellen gleich wie mit naher Kamera.*
 - **AB4 Linie im Editor:** mit dem Linien-Pinsel eine Mauer ziehen, Symmetrie x, Undo/Redo, „Karte spiegeln“; ein
   Mauerstück per Explosion zerstören und von fern ansehen. *Nichts bricht, Lücke im Band.*
+- **AB5 Brücken:** Würzburg, die großen Mainbrücken nah und von weit oben, langsam heranzoomen. *Deck,
+  Geländer und Stege wie vorher, kein Farbsprung beim Wechsel aufs LOD, keine Lücke zwischen den Stücken.* Tower am
+  Ufer neben einer Brücke bauen, deren Straße darunter die Route nimmt. *Sichtzellen unter dem Deck verdeckt, auf
+  dem Deck sichtbar.* Im Editor eine Brücke ziehen und anklicken. *Die Kante wird gewählt, das Deck folgt.*
 
 ## Eichtabelle
 
