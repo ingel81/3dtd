@@ -518,6 +518,57 @@ Die Gleise sind der Posten: fern 6 statt 116 Dreiecke je Stück, von oben 0,57 M
 überall 0,3 bis 0,6 Mio. Ruined City und Autumn Keep zeichnen dieselben Dreiecke. Die Stufenwahl kostet auf Würzburg
 0,05 bis 0,23 ms mehr im Mittel (mehr Stücke haben eine Stufe mehr). Bilder `tmp/e304-shots/b2-*` (Worktree).
 
+### 2.12 HLOD je 128-m-Kachel: gebaut, gemessen, verworfen (E304 (c), 2026-10-22)
+
+**Gebaut war (zurückgenommen):** Objekte, deren letzte Stufe ein Fernkasten oder ein Band war, lagen zusätzlich in
+Kacheln von 128 m (Entscheidung 3). Ein Worker backte je Kachel aus dem, was der Layer übergab (Matrizen, Farben,
+Zahlen des Assets), ihre Kästen Vertex für Vertex wie `far-boxes.ts` und ihre Bänder, gerade Läufe der Stücke einer
+Linie zu einem Band. Je Art (Kästen, Bänder) und Sichtflag ein Puffer und ein Draw für alle Kacheln; der Index wurde
+beim Ein- und Ausschalten aus den Indizes der Kacheln neu zusammengesetzt (kein `WEBGL_multi_draw`). Eine Kachel
+zeichnete hinter dem Bandende der letzten Stufe aller ihrer Objekte und außerhalb der Schattenreichweite; ihre Objekte
+verließen dann ihre Listen. Eine Änderung (Editor, Zerstörung, Höhen) nahm die Kachel heraus, bis der neue Bake da war
+(300 ms Verzug). Der Sicht-Cube sah keine Kachel. Bäume (Impostoren) und Bauten aus dem Grundriss waren nicht in den
+Kacheln.
+
+**Messung** (High, dieselbe Sitzung, vorher Stand von 2.11 Schritt 3, Würzburg die neu importierte Karte von dort, die
+Lastkarte `big:1201:80000`; Autumn Keep nicht im Nachher-Lauf):
+
+| Karte | Ansicht | GPU ms | Dreiecke (Mio.) | Calls | LOD-CPU ms Mittel / Max | fehlen: Linien + Gleise | fehlen: übrige Objekte |
+|---|---|---|---|---|---|---|---|
+| Ruined City | game | 2,08 → 2,08 | 4,86 → 4,86 | 158 → 158 | 0,14 / 0,78 → 0,14 / 0,81 | 0 → 0 | 3348 → 3348 |
+| Würzburg | start | 2,37 → 2,33 | 4,55 → 4,54 | 245 → 249 | 0,44 / 1,95 → 0,48 / 2,18 | 78 → 60 | 4444 → 4414 |
+| Würzburg | game | 3,46 → 3,46 | 6,05 → 6,03 | 353 → 357 | 0,57 / 1,98 → 0,65 / 2,12 | 66 → 57 | 3873 → 3850 |
+| Würzburg | low | 4,28 → 4,27 | 6,98 → 6,97 | 453 → 457 | 0,74 / 2,35 → 0,82 / 2,43 | 74 → 61 | 4152 → 4110 |
+| Würzburg | top | 3,00 → 2,95 | 3,25 → 3,21 | 304 → 308 | 0,20 / 1,22 → 0,20 / 1,40 | 444 → 213 | 8300 → 7831 |
+| Würzburg | street | 4,10 → 4,06 | 6,75 → 6,74 | 365 → 369 | 0,59 / 2,59 → 0,65 / 4,15 | 77 → 63 | 4225 → 4190 |
+| Würzburg | station | 3,36 → 3,29 | 4,80 → 4,79 | 266 → 270 | 0,54 / 1,71 → 0,55 / 1,97 | 77 → 11 | 4550 → 4365 |
+| Lastkarte | game | 1,71 → 1,65 | 4,03 → 4,03 | 73 → 74 | 0,41 / 2,73 → 0,48 / 1,87 | 0 → 0 | 29483 → 29483 |
+| Lastkarte | low | 2,13 → 2,09 | 5,21 → 5,22 | 116 → 117 | 0,43 / 2,47 → 0,43 / 2,29 | 0 → 0 | 29325 → 29325 |
+
+**Was das heißt, ehrlich:** Auf diesen Karten bringt HLOD kaum etwas. GPU −0,00 bis −0,07 ms (im Rauschen), 0,01 bis
+0,04 Mio. Dreiecke weniger (die Läufe der Bänder), vier Calls mehr (die vier Kachel-Draws, solange noch Einzelobjekte
+in Fernstufen zeichnen). Die Stufenwahl kostet im Mittel 0,00 bis 0,08 ms mehr, die Spitze beim Flug in die Straße
+4,2 statt 2,6 ms (Kacheln, die ausgehen, bringen ihre Objekte in einem Bild in ihre Listen zurück). Der Grund: nach (b)
+und (d) waren die Fernstufen schon billig (6 bis 24 Dreiecke je Objekt in einem geteilten Draw), und ein fernes Objekt
+wurde dank `slack` ohnehin selten angesehen; der Plan nahm für (c) noch die Fernstufen vor (b) und (d) an. Sichtbar
+gewinnt nur „fehlen“: in einer Kachel zeichnet alles bis zum Rand (von oben 213 statt 444 Linienstücke weg, 469 übrige
+Objekte mehr im Bild). Ein Bild zeigt keinen Unterschied (`tmp/e304-shots/c-*` im Worktree). Low und Ultra sind
+nicht neu gemessen: zwischen zwei Sitzungen wich die GPU-Zeit auf den unveränderten Karten um bis zu 0,3 ms ab; die
+Dreiecke folgen High (Würzburg Low −0,00 bis −0,04 Mio.).
+
+**Was es lohnend gemacht hätte:** HLOD lohnt erst, wenn die Kachel mehr einspart als die Instanzen: ein Kronendach je Kachel
+statt Impostoren (Würzburg 8 808 Bäume), Bauten aus dem Grundriss in die Kacheln, oder Kästen benachbarter Gebäude
+eines Blocks zusammengefasst. Sonst bleibt der Baustein Vorbereitung für WebGPU (dort ersetzt indirektes Zeichnen das
+Neusetzen des Index).
+
+**Entscheidung (User 2026-10-22):** verworfen, der Code ist zurückgenommen (Abschnitt 10, Punkt 12).
+
+**Lehre:** Eine Fernstufe je Kachel lohnt nur, wenn sie weniger zeichnet als die Summe ihrer Objekte, nicht wenn sie
+dieselben Dreiecke anders verpackt. Fernkästen und Bänder in einem geteilten instanzierten Draw kosten fern schon fast
+nichts, und `slack` hält die Stufenwahl ferner Objekte klein; was eine Kachel ein- und ausschaltet, bringt neue Spitzen
+in die Stufenwahl. Vor einem neuen Anlauf erst messen, was ein Kronendach oder ein Häuserblock gegenüber den Impostoren
+und Fernkästen spart.
+
 ## 3. Wie andere es machen (belegt)
 
 - **Cities: Skylines (2015)**: zwei Detailstufen je Asset, die ferne etwa ein Fünftel der Dreiecke; die
@@ -657,6 +708,8 @@ Kalibrierung 1 bis 2 AT, Editor-Anzeige 1 AT.
 1,5 px ist ohnehin kaum zu sehen, aber die Grenze wird je Stufe am Bild abgenommen.
 
 ### (c) HLOD: Fernstufe je Kachel für Statisches
+
+**Verworfen (Abschnitt 10, Punkt 12; Messung in 2.12).** Der Plan unten bleibt als Begründung stehen.
 
 **Was:** Je Kachel (128 m, Entscheidung 3) ein zusammengebackenes Mesh für alles Statische, das ab einer Distanz
 nicht mehr einzeln gezeichnet werden muss: Gebäude als Fernkästen (es gibt sie schon, `far-boxes.ts`, aber je Instanz),
@@ -898,6 +951,10 @@ Weitere Quelle für den Umzug (vom User, vor der Aufwandsschätzung lesen):
    Schritt; unter WebGPU mit installiertem Chrome.
 10. **Pixelwerte (nach 2.9):** wie gebaut, Low 3, Medium 2, High 1,5, Ultra 1 px.
 11. **Teilbudgets des OSM-Imports (nach 2.9):** bleiben bei 15 % Möblierung und 10 % Flächen, bis HLOD (c) Platz schafft.
+12. **HLOD-Kacheln (nach 2.12, 2026-10-22):** verworfen. Gebaut und gemessen brachten sie auf Würzburg und der
+    Lastkarte keinen Gewinn (GPU im Rauschen, Spitzen in der Stufenwahl), der Code ist zurückgenommen. Ein Kronendach je
+    Kachel statt Impostoren und zusammengefasste Häuserblöcke bleiben Idee für nach dem WebGPU-Umzug. Damit gilt Punkt 11
+    weiter, ohne Wartezeit auf (c).
 
 Branch: Das ganze Programm läuft auf einem eigenen Branch (`render/density`). `next` bleibt spielbar und bekommt nur
 Fixes; der Branch zieht `next` regelmäßig nach und kommt erst auf Zuruf des Users auf `next`.
