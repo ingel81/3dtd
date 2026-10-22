@@ -17,12 +17,13 @@ import { mergeDraped, refineDraped, takeSplitting, triangleBuckets, type DrapedG
  *     surface), each tile fitted to the heights for culling and fitted again
  *     when the ground moves;
  *   - the vertices take their height from the terrain's height texture, so
- *     a brush moves the surface with the ground without a rebuild, and their
- *     normal from the terrain's grid; where a crater sank the ground between
- *     them, the triangles over it leave their tile for a patch of the tile
- *     where they are split closer (refreshBounds with `sunk`,
- *     draped-refine.ts), so the surface follows it into the pit: a draw call
- *     more per tile a crater hit, the tile's own buffers kept;
+ *     a brush moves the surface with the ground, and their normal from the
+ *     terrain's grid; between them a kind's triangles lie on
+ *     the ground's own (cut where it bends, draped-refine.ts); where a
+ *     crater sank the ground, the triangles over it leave their tile for a
+ *     patch of the tile where they are cut along the ground's grid
+ *     (refreshBounds with `sunk`), so the surface follows it into the pit: a
+ *     draw call more per tile a crater hit, the tile's own buffers kept;
  *   - they are drawn a little towards the camera (more with distance)
  *     instead of lifted: the surface never fights the ground it lies on and
  *     does not float over it seen from the side. Of two that overlap, the
@@ -177,7 +178,7 @@ export class DrapedTiles {
 
   /**
    * Heights changed inside a map rectangle (all when omitted): the tiles there fit their bounds again. `sunk`:
-   * craters sank the ground there; the tiles' triangles over it are split closer (draped-refine.ts), so the
+   * craters sank the ground there; the tiles' triangles over it are cut along the ground (draped-refine.ts), so the
    * surface follows the ground into the pit instead of spanning it
    */
   refreshBounds(rect?: { minX: number; minY: number; maxX: number; maxY: number }, sunk = false): void {
@@ -219,7 +220,6 @@ export class DrapedTiles {
       return 0;
     }
     const start = performance.now();
-    const heightAt = (x: number, y: number) => this.field.heightAt(x, y);
     let done = 0;
     for (const [key, step] of this.sunk) {
       if ((done > 0 || !atLeastOne) && performance.now() - start >= budgetMs) break;
@@ -233,10 +233,10 @@ export class DrapedTiles {
       const rect = step.rect;
       // First step: the triangles over the pit out of the tile (drawn as nothing there once its index goes up)
       if (step.taken === undefined) {
-        step.taken = takeSplitting(tile, rect, heightAt, this.field.cellSize, entry.buckets);
+        step.taken = takeSplitting(tile, rect, this.field, entry.buckets);
         continue;
       }
-      // Second step: into its patch, split closer, shown with the tile's index
+      // Second step: into its patch, cut along the ground, shown with the tile's index
       this.sunk.delete(key);
       if (step.again) this.sunk.set(key, { rect, taken: undefined, again: false });
       {
@@ -244,7 +244,7 @@ export class DrapedTiles {
         if (taken) mesh.geometry.index!.needsUpdate = true;
         const had = entry.patch?.geometry ?? null;
         const joined = had && taken ? mergeDraped(had, taken) : (had ?? taken);
-        const refined = joined && refineDraped(joined, rect, heightAt, this.field.cellSize);
+        const refined = joined && refineDraped(joined, rect, this.field);
         if (refined || taken) {
           entry.patch?.mesh.geometry.dispose();
           entry.patch?.mesh.removeFromParent();

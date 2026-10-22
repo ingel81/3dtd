@@ -215,13 +215,14 @@ export class MapTerrainLayer {
     const generation = ++this.generation;
     // The roads first: the mask leaves the ground under their surface to them. The mask is painted while the
     // materials load, off the page's thread where there is a baker; new layers keep it. A task of its own: the
-    // road network of a big map (some 300 ms) held the view's construction otherwise
+    // road network of a big map held the view's construction otherwise. The roads go onto the ground a few
+    // milliseconds a task while the materials load (RoadSurfaceLayer.load)
     await new Promise((resolve) => setTimeout(resolve));
     if (generation !== this.generation) return;
-    this.roads.set(paths);
+    const laying = this.roads.load(paths);
     const painting = this.pathMask ? null : this.bakePathMask(paths);
     const { ids, slots } = assignLayerSlots(t);
-    const [{ arrays, materials: pixels }, catalog] = await Promise.all([loadMaterialArrays(assets, ids, anisotropy), assets.catalog()]);
+    const [{ arrays, materials: pixels }, catalog] = await Promise.all([loadMaterialArrays(assets, ids, anisotropy), assets.catalog(), laying]);
     const scales = ids.map((id) => {
       const layer = t.layers.find((l) => l.material === id && l.scale);
       return layer?.scale ?? catalog.materials.find((m) => m.id === id)?.scale ?? 4;

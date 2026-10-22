@@ -5,7 +5,7 @@ import type { MapAssetLibrary } from '../map-asset-library';
 import type { HeightField } from '../height-field';
 import type { HeightTexture } from '../terrain/height-texture';
 import { DrapedMaterial, DrapedTextures, DrapedTiles, type DrapeLook } from '../drape/draped-layer';
-import { RoadNetworkBuilder, type RoadTile } from './road-network';
+import { RoadNetworkBuilder, type RoadNetwork, type RoadTile } from './road-network';
 import { MAX_ROAD_SURFACES } from './road-style';
 
 /**
@@ -28,15 +28,19 @@ import { MAX_ROAD_SURFACES } from './road-style';
 
 /** How far a road is drawn towards the camera; more per rank, where two roads overlap without meeting */
 const ROAD_PULL = { base: 0.03, perMetre: 0.004, rank: 0.004, rankPerMetre: 0.00004 };
+/** Milliseconds a task lays roads onto the ground while a map opens (RoadSurfaceLayer.load) */
+const LAY_SLICE_MS = 12;
 
 export class RoadSurfaceLayer {
   readonly material: RoadSurfaceMaterial;
   private readonly tiles: DrapedTiles;
   private readonly textures: DrapedTextures;
-  /** The network as laid, kept between changes (it lays again only what a change reaches) */
-  private network = new RoadNetworkBuilder();
+  /** The network as laid, kept between changes (it lays again only what a change reaches), on the ground's triangles */
+  private readonly network: RoadNetworkBuilder;
+  private disposed = false;
 
   constructor(field: HeightField, heights: HeightTexture, gridNormals: Texture) {
+    this.network = new RoadNetworkBuilder(field);
     this.material = new RoadSurfaceMaterial(heights, gridNormals, field);
     this.tiles = new DrapedTiles(field, this.material, 'custom-map-roads');
     this.textures = new DrapedTextures(this.material, MAX_ROAD_SURFACES);
@@ -54,10 +58,33 @@ export class RoadSurfaceLayer {
   /**
    * The roads of `paths`: after the first build only the tiles a change
    * reaches are built again (RoadNetworkBuilder): a node dragged in the
-   * editor lays the ribbons through it and its junctions, not the map
+   * editor lays the ribbons through it and its junctions, not the map.
+   * `later`: laid flat for now, onto the ground by `layOnGround`
    */
-  set(paths: MapPaths): void {
-    const net = this.network.update(paths);
+  set(paths: MapPaths, later = false): void {
+    this.show(this.network.update(paths, later));
+  }
+
+  /**
+   * The roads of a map as it opens: laid at once, and onto the ground a few
+   * milliseconds a task (RoadNetworkBuilder.layOnGround; a big map's take
+   * most of a second, which held the page in one task); resolves once all
+   * lie on it
+   */
+  async load(paths: MapPaths): Promise<void> {
+    this.set(paths, true);
+    for (;;) {
+      const net = this.network.layOnGround(LAY_SLICE_MS);
+      if (net) {
+        this.show(net);
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve));
+      if (this.disposed) return;
+    }
+  }
+
+  private show(net: RoadNetwork): void {
     for (const tile of net.tiles) this.tiles.set(drapedRoadTile(tile));
     this.tiles.group.visible = this.tiles.size > 0;
     // The surfaces only ever grow at the end (RoadNetworkBuilder): the layers loaded keep their place, a new one
@@ -71,7 +98,6 @@ export class RoadSurfaceLayer {
     return this.network.covers();
   }
 
-  /** Heights changed inside a map rectangle (all when omitted): the tiles there fit their bounds again */
   /** Craters may sink the ground: the tiles get ready to follow (DrapedTiles.prepareForCraters) */
   prepareForCraters(): void {
     this.tiles.prepareForCraters();
@@ -82,11 +108,20 @@ export class RoadSurfaceLayer {
     return this.tiles.followCraters(budgetMs, atLeastOne);
   }
 
+  /**
+   * Heights changed inside a map rectangle (all when omitted): the ribbons
+   * and junctions there are laid again on the new ground
+   * (RoadNetworkBuilder.reground), the tiles fit their bounds again.
+   * Craters (`sunk`): nothing laid again, the tiles' triangles over the pit
+   * are cut along it (DrapedTiles.refreshBounds)
+   */
   refreshBounds(rect?: { minX: number; minY: number; maxX: number; maxY: number }, sunk = false): void {
+    if (!(sunk && rect)) for (const tile of this.network.reground(rect).tiles) this.tiles.set(drapedRoadTile(tile));
     this.tiles.refreshBounds(rect, sunk);
   }
 
   dispose(): void {
+    this.disposed = true;
     this.textures.dispose();
     this.tiles.clear();
     this.material.dispose();

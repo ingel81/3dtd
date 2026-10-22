@@ -2,6 +2,7 @@ import type { MapPathEdge, MapPaths, MapPoint } from '../../map-document';
 import { edgePolyline, type RoadCover } from './path-mask';
 import { encodeRoadStyle, PAVED_SURFACES, roadStyle, styleKey, type RoadStyle } from './road-style';
 import { DRAPE_TILE, drapeTileKey } from '../drape/draped-layer';
+import { conformDraped, type DrapedGeometry, type DrapeGround, type DrapeRect } from '../drape/draped-refine';
 
 /**
  * The paved roads of a map as one surface (RoadSurfaceLayer draws it): a
@@ -24,14 +25,26 @@ import { DRAPE_TILE, drapeTileKey } from '../drape/draped-layer';
  *
  * Map space throughout: x east, y north, triangles counter-clockwise seen
  * from above (front faces up once in the scene, map-coords.ts). Heights come
- * from the terrain in the vertex shader, so the surface follows every edit.
- * The vertices go into tiles of TILE metres, a mesh each, for culling.
+ * from the terrain in the vertex shader; with the ground given, the
+ * triangles of each ribbon and junction are cut where the ground bends under
+ * them (drape/draped-refine.ts), so between its vertices the surface lies on
+ * the terrain's own triangles and the ground never comes through. Where a
+ * ribbon meets its junction, both carry the same points on their shared
+ * edges (the ribbon's end section), no crack between them. When the ground
+ * changes (a brush), `reground` lays again what lies there. A whole map
+ * (`update` with `later`) is laid flat at once and onto the ground a few
+ * milliseconds at a time (`layOnGround`): a big map's roads take most of a
+ * second. The vertices go into tiles of TILE metres, a mesh each, for
+ * culling.
  */
 
 /** Metres a side of a tile: the draped surfaces' (drape/draped-layer.ts) */
 export const ROAD_TILE = DRAPE_TILE;
-/** Longest step between cross sections along a road: the terrain's cell, so the surface lies on it */
-const STEP = 2;
+/**
+ * Longest step between cross sections along a road. The ground is followed by cutting the triangles where it bends
+ * (conformDraped), not by the sections: on ground that is one plane a road is a few long quads
+ */
+const STEP = 6;
 /** Longest ribbon piece in one tile, metres */
 const PIECE = 48;
 /** Metres a cover (RoadNetworkBuilder.covers) stays inside a ribbon's edges: the ground's mask is read between texels */
@@ -123,11 +136,11 @@ interface End {
 
 /** A tile's vertices and triangles as they grow */
 class TileData {
-  v = new Float32Array(64);
-  r = new Float32Array(128);
-  d = new Float32Array(64);
-  a = new Float32Array(128);
-  i = new Uint32Array(192);
+  v: Float32Array = new Float32Array(64);
+  r: Float32Array = new Float32Array(128);
+  d: Float32Array = new Float32Array(64);
+  a: Float32Array = new Float32Array(128);
+  i: Uint32Array = new Uint32Array(192);
   vertices = 0;
   indices = 0;
 
@@ -157,6 +170,27 @@ class TileData {
     this.i[this.indices++] = b;
     this.i[this.indices++] = c;
   }
+
+  /** Its vertices and triangles as a draped geometry (views, no copy) */
+  geometry(): DrapedGeometry {
+    const n = this.vertices;
+    return {
+      position: this.v.subarray(0, n * 2),
+      attributes: { r: { array: this.r.subarray(0, n * 4), itemSize: 4 }, d: { array: this.d.subarray(0, n * 2), itemSize: 2 }, a: { array: this.a.subarray(0, n * 4), itemSize: 4 } },
+      index: this.i.subarray(0, this.indices),
+    };
+  }
+
+  /** Takes a draped geometry's vertices and triangles (its own `geometry` laid onto the ground) */
+  take(g: DrapedGeometry): void {
+    this.v = g.position;
+    this.r = g.attributes['r'].array;
+    this.d = g.attributes['d'].array;
+    this.a = g.attributes['a'].array;
+    this.i = g.index;
+    this.vertices = g.position.length / 2;
+    this.indices = g.index.length;
+  }
 }
 
 function grow<T extends Float32Array | Uint32Array>(a: T): T {
@@ -168,6 +202,15 @@ function grow<T extends Float32Array | Uint32Array>(a: T): T {
 /** The geometry of one ribbon or junction, by the tiles its pieces start in */
 class TileBuilder {
   readonly tiles = new Map<string, TileData>();
+  /** Edges shared with another item (x0, y0, x1, y1 each, as the vertices keep them): a ribbon's end sections */
+  readonly shared: number[] = [];
+
+  /** The edges between the points of a cross section, as shared with the item at its other side */
+  share(section: readonly Vertex[]): void {
+    for (let k = 0; k + 1 < section.length; k++) {
+      this.shared.push(Math.fround(section[k].x), Math.fround(section[k].y), Math.fround(section[k + 1].x), Math.fround(section[k + 1].y));
+    }
+  }
 
   /** The tile holding a map point */
   tileAt(p: MapPoint): TileData {
@@ -234,9 +277,22 @@ export class RoadNetworkBuilder {
   private readonly pieces = new Map<string, Map<string, TileData>>();
   /** Items with pieces in each tile */
   private readonly tileItems = new Map<string, Set<string>>();
+  /** Each item's box (x0, y0, x1, y1, map metres): what a change of the ground reaches */
+  private readonly boxes = new Map<string, [number, number, number, number]>();
+  /** The roads' ends at each junction laid, to lay it again on new ground */
+  private readonly junctionEnds = new Map<string, { node: MapPoint; ends: End[] }>();
+  /** Items laid flat, to lay onto the ground later (layOnGround), with the edges they share */
+  private readonly unlaid = new Map<string, number[]>();
+  /** Tiles of items laid onto the ground since the last time layOnGround gave them */
+  private readonly relaid = new Set<string>();
+  /** Items laid now go flat into `unlaid` (update with `later`) */
+  private later = false;
   private readonly styles: RoadStyle[] = [];
   private readonly surfaces: string[] = [];
   private readonly codes = new Map<string, number>();
+
+  /** @param ground The terrain the roads lie on: their triangles are cut where it bends (none: flat between their vertices) */
+  constructor(private readonly ground: DrapeGround | null = null) {}
 
   /**
    * Where the surface hides the ground (the path mask's covers): each
@@ -248,8 +304,41 @@ export class RoadNetworkBuilder {
     return out;
   }
 
-  /** The paths as they are now: lays what changed, returns the tiles rebuilt */
-  update(paths: MapPaths): RoadNetwork {
+  /**
+   * The paths as they are now: lays what changed, returns the tiles rebuilt.
+   * `later`: flat for now, onto the ground with layOnGround
+   */
+  update(paths: MapPaths, later = false): RoadNetwork {
+    this.later = later && !!this.ground;
+    try {
+      return this.lay(paths);
+    } finally {
+      this.later = false;
+    }
+  }
+
+  /**
+   * Lays the items `update` left flat onto the ground until `budgetMs` are
+   * spent (one at least); once none is left, the tiles they are in (else
+   * null: more to lay)
+   */
+  layOnGround(budgetMs: number): RoadNetwork | null {
+    const start = performance.now();
+    let laid = 0;
+    for (const [item, shared] of this.unlaid) {
+      if (laid++ && performance.now() - start >= budgetMs) return null;
+      this.unlaid.delete(item);
+      const tiles = this.pieces.get(item);
+      if (!tiles) continue;
+      this.conform(tiles, shared);
+      for (const key of tiles.keys()) this.relaid.add(key);
+    }
+    const net = this.network(new Set(this.relaid));
+    this.relaid.clear();
+    return net;
+  }
+
+  private lay(paths: MapPaths): RoadNetwork {
     const nodes = new Map<string, MapPoint>(paths.nodes.map((n) => [n.id, n]));
     // The edges that changed, came or went, and the nodes they touch
     const touched = new Set<string>();
@@ -348,9 +437,60 @@ export class RoadNetworkBuilder {
     for (const c of made) this.putItem(`c${c.id}`, (out) => emitRibbon(c, out), rebuilt);
     for (const node of junctions) {
       this.dropItem(`j${node}`, rebuilt);
+      this.junctionEnds.delete(node);
       const list = ends.get(node) ?? [];
-      if (list.length > 1) this.putItem(`j${node}`, (out) => emitJunction(nodes.get(node)!, list, out, this.styleOf), rebuilt);
+      if (list.length > 1) {
+        const at = nodes.get(node)!;
+        this.junctionEnds.set(node, { node: at, ends: list });
+        this.putItem(`j${node}`, (out) => emitJunction(at, list, out, this.styleOf), rebuilt);
+      }
     }
+    return this.network(rebuilt);
+  }
+
+  /**
+   * The ground changed in a map rectangle (all when omitted): the ribbons and
+   * junctions there are laid again on it; the tiles rebuilt
+   */
+  reground(rect?: DrapeRect): RoadNetwork {
+    const rebuilt = new Set<string>();
+    if (this.ground) {
+      const reached = (item: string) => {
+        const b = this.boxes.get(item);
+        return !!b && (!rect || (b[0] <= rect.maxX && b[2] >= rect.minX && b[1] <= rect.maxY && b[3] >= rect.minY));
+      };
+      // The ribbons first: their end sections are what the junctions join
+      for (const c of this.chains.values()) {
+        const item = `c${c.id}`;
+        if (!reached(item)) continue;
+        this.dropItem(item, rebuilt);
+        this.putItem(item, (out) => emitRibbon(c, out), rebuilt);
+      }
+      for (const [node, j] of this.junctionEnds) {
+        const item = `j${node}`;
+        if (!reached(item)) continue;
+        this.dropItem(item, rebuilt);
+        this.putItem(item, (out) => emitJunction(j.node, j.ends, out, this.styleOf), rebuilt);
+      }
+    }
+    return this.network(rebuilt);
+  }
+
+  /**
+   * An item's tiles onto the ground's triangles, all together (an edge two of its pieces share takes the same points
+   * in both), its edges shared with other items with their points whatever its triangles there need
+   */
+  private conform(tiles: Map<string, TileData>, shared: readonly number[]): void {
+    if (!this.ground) return;
+    const list = [...tiles.values()];
+    conformDraped(
+      list.map((t) => t.geometry()),
+      this.ground,
+      { forced: shared },
+    ).forEach((g, k) => g && list[k].take(g));
+  }
+
+  private network(rebuilt: Set<string>): RoadNetwork {
     return { tiles: [...rebuilt].map((key) => this.assemble(key)), styles: [...this.styles], surfaces: [...this.surfaces], sidewalk: this.surfaces.indexOf(SIDEWALK_SURFACE) };
   }
 
@@ -447,12 +587,26 @@ export class RoadNetworkBuilder {
       rebuilt.add(key);
     }
     this.pieces.delete(item);
+    this.boxes.delete(item);
+    this.unlaid.delete(item);
   }
 
   private putItem(item: string, emit: (out: TileBuilder) => void, rebuilt: Set<string>): void {
     const out = new TileBuilder();
     emit(out);
     if (!out.tiles.size) return;
+    const box: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const t of out.tiles.values()) {
+      for (let k = 0; k < t.vertices * 2; k += 2) {
+        box[0] = Math.min(box[0], t.v[k]);
+        box[1] = Math.min(box[1], t.v[k + 1]);
+        box[2] = Math.max(box[2], t.v[k]);
+        box[3] = Math.max(box[3], t.v[k + 1]);
+      }
+    }
+    this.boxes.set(item, box);
+    if (this.later) this.unlaid.set(item, out.shared);
+    else this.conform(out.tiles, out.shared);
     this.pieces.set(item, out.tiles);
     for (const key of out.tiles.keys()) {
       let set = this.tileItems.get(key);
@@ -594,8 +748,8 @@ function emitRibbon(chain: Chain, out: TileBuilder): void {
   }
   if (to <= from) stops.length = 1;
   const h = chain.half;
-  // The ground under a road is levelled flat across: three columns carry a road up to 9 m, five a wider one
-  const columns = h <= 4.5 ? [-1, 0, 1] : [-1, -0.5, 0, 0.5, 1];
+  // Three columns: the distance to the edge peaks in the middle (the ground's bends cut the triangles, conformDraped)
+  const columns = [-1, 0, 1];
   const sections: Section[] = stops.map((d) => {
     const p = pointAt(chain, d);
     const t = tangentAt(chain, d);
@@ -614,6 +768,8 @@ function emitRibbon(chain: Chain, out: TileBuilder): void {
     }));
   });
   chain.ends = [sections[0], sections[sections.length - 1]];
+  out.share(sections[0]);
+  if (sections.length > 1) out.share(sections[sections.length - 1]);
   // Pieces of at most PIECE metres, each into the tile it starts in
   const w = columns.length;
   let first = 0;
@@ -636,17 +792,22 @@ function emitRibbon(chain: Chain, out: TileBuilder): void {
   if (chain.cap[1]) emitCap(sections[sections.length - 1], 1, out);
 }
 
-/** A half disc beyond an end section: `sign` +1 beyond the ribbon's end, -1 before its start */
+/**
+ * A half disc beyond an end section: `sign` +1 beyond the ribbon's end, -1
+ * before its start. Its straight side is the section itself, every point of
+ * it: the cap and the ribbon meet on the same vertices, no crack once both
+ * lie on the ground's triangles
+ */
 function emitCap(section: Section, sign: number, out: TileBuilder): void {
   const mid = section[(section.length - 1) / 2];
   const h = (section[section.length - 1].across - section[0].across) / 2;
-  const verts: Vertex[] = [mid];
-  // From the right edge round the far side to the left one (counter-clockwise beyond the end, clockwise before the start)
-  for (let k = 0; k <= CURVE_POINTS * 2; k++) {
+  // From the right edge round the far side to the left one, then back along the section
+  const ring: Vertex[] = [section[0]];
+  for (let k = 1; k < CURVE_POINTS * 2; k++) {
     const a = (k / (CURVE_POINTS * 2)) * Math.PI;
     const across = -Math.cos(a) * h;
     const ahead = Math.sin(a) * h * sign;
-    verts.push({
+    ring.push({
       x: mid.x + mid.dx * ahead - mid.dy * across,
       y: mid.y + mid.dy * ahead + mid.dx * across,
       across,
@@ -657,12 +818,17 @@ function emitCap(section: Section, sign: number, out: TileBuilder): void {
       dy: mid.dy,
     });
   }
+  for (let k = section.length - 1; k > 0; k--) ring.push(section[k]);
+  // Fanned from the far side's middle (counter-clockwise beyond the end, clockwise before the start)
+  const apex = CURVE_POINTS;
   const tris: number[] = [];
-  for (let k = 1; k < verts.length - 1; k++) {
-    if (sign > 0) tris.push(0, k, k + 1);
-    else tris.push(0, k + 1, k);
+  for (let k = 0; k < ring.length; k++) {
+    const next = (k + 1) % ring.length;
+    if (k === apex || next === apex) continue;
+    if (sign > 0) tris.push(apex, k, next);
+    else tris.push(apex, next, k);
   }
-  out.add(verts, tris);
+  out.add(ring, tris);
 }
 
 /** The surface between the ends of the roads at a junction, fanned from its node */
@@ -720,6 +886,7 @@ function emitJunction(c: MapPoint, list: End[], out: TileBuilder, styleOf: (s: R
     const kerbEdge = look.gutter && !kerbs[k] && !kerbs[(k + 1) % n] ? 0.6 : 0;
     const side = sides[k]!;
     for (const v of side) ring.push({ x: v.x, y: v.y, edge: v.edge, arm: k, side: true });
+    out.share(side);
     const a = side[side.length - 1];
     const b = sides[(k + 1) % n]![0];
     const cross = lineMeet(a, list[k], b, list[(k + 1) % n]);

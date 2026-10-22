@@ -305,13 +305,29 @@ vergossene Mittelnaht, mit der Abnutzung zur kleineren Straßenart mehr. Markier
 für alle Straßen, ein Mesh je 512-m-Kachel; die Texturen sind die Bodenmaterialien des Katalogs als eigenes Array
 (nur die Beläge, die die Karte nutzt), Markierungen und Abnutzung zeichnet der Shader aus den Straßenkoordinaten
 (quer, längs, Abstand zur Kante, Aussehen in einer Zahl gepackt). Ab etwa 12 cm je Pixel entfallen die feinen Details
-(eine Texturabfrage). Die Höhe nimmt jeder Vertex aus der Höhentextur des Geländes (ein Pinsel braucht keinen Neubau),
+(eine Texturabfrage). Die Höhe nimmt jeder Vertex aus der Höhentextur des Geländes,
 gezeichnet wird er ein Stück zur Kamera hin statt angehoben (3 cm bis 200 m Abstand, darüber wachsend, wo das Gelände
-gröber wird), so kämpft die Fläche nicht mit dem Boden und schwebt von der Seite nicht. Nach dem ersten Bau
-(Miltenberg rund 40 bis 60 ms, 160 000 Vertices) legt `RoadNetworkBuilder` bei einer Änderung nur neu, was sie
+gröber wird), so kämpft die Fläche nicht mit dem Boden und schwebt von der Seite nicht.
+**Auf dem Gelände** (`drape/draped-refine.ts`, `conformDraped`): Zwischen seinen Ecken ist ein Dreieck eben, das Gelände
+knickt an jeder Rasterlinie und an der Diagonale jeder Zelle. Über Kuppen, Mulden und an steilen Gassen stand das
+Gelände bis 3,4 m über der Fahrbahn (Fächer der Kreuzungen über 20 m, Bänder am Hang) und zeigte sich als graue,
+beim Bewegen flackernde Flecken (unter der Decke zeichnet es nur Grau). Jetzt wird ein Dreieck, von dem das Gelände
+mehr als 1,2 cm abweicht (`REFINE_TOLERANCE`), an den Linien geschnitten, an denen das Gelände knickt: das schlimmste
+Stück an der Linie durch seinen schlimmsten Punkt (Rasterlinie; eine Diagonale nur innerhalb ihrer Zelle, sonst
+zuerst die Zellseite), bis jedes Stück anliegt. Jede neue Ecke liegt dort, wo eine Kante eine Linie des Geländes
+kreuzt, oder auf einem Rasterpunkt; ein Dreieck mit einer solchen Ecke auf einer Seite (der Nachbar wurde dort
+geschnitten) nimmt sie mit auf (Fächer), so bleibt kein Riss, und seine Teile liegen innerhalb von 2,4 cm, unter dem
+Zug von 3 cm. Bänder und Kreuzungen werden je für sich gelegt; ihre gemeinsamen Endquerschnitte tragen alle
+Kreuzungspunkte des Geländes auf beiden Seiten. Bänder haben dafür nur drei Spalten und höchstens 6 m Schritt, ebenes
+Gelände braucht keine Teilung. Erlenbach (2,4 km, Hanglage): 220 000 Dreiecke, davon 20 700 mit Gelände mehr als 3 cm
+darüber; aufgelegt 540 000, keins. Beim Öffnen einer Karte liegt das Netz sofort flach und kommt in Aufgaben zu 12 ms
+auf das Gelände (`RoadSurfaceLayer.load`, `layOnGround`), während die Materialien laden (Erlenbach rund 0,8 s
+Rechnung, vorher in einer Aufgabe 0,1 s ohne Auflegen). Ändert ein Pinsel die Höhen, legt `reground` die Bänder und
+Kreuzungen im Rechteck neu auf; Krater gehen ihren eigenen Weg (Flächen, unten). Nach dem ersten Bau legt
+`RoadNetworkBuilder` bei einer Änderung nur neu, was sie
 erreicht: die Bänder mit einer geänderten Kante, die Bänder, die an deren Enden anschließen (ihre Kürzung kann sich
 ändern), und die Kreuzungen an deren Enden; eine neu gebaute Kachel setzt sich aus den behaltenen Stücken aller
-Bänder und Kreuzungen darin zusammen. Einen Knoten ziehen kostet so in Miltenberg rund 3 ms je Schritt. Ein Belag ohne Befestigung (Kies,
+Bänder und Kreuzungen darin zusammen. Ein Belag ohne Befestigung (Kies,
 Erde) ist in die Bodenfarbe gemalt und zeigt sich statt Kopfsteinen und Spurrillen. Das Auflegen selbst (Kacheln,
 Höhe aus der Höhentextur, Zug zur Kamera, Material-Array, Nebel) teilen Straßen und Flächen in `drape/draped-layer.ts`
 (unten, „Flächen“). Unter der Mitte einer

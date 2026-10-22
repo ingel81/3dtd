@@ -141,9 +141,9 @@ Kratern, statt ihre alte Form zu behalten. Eigener kleiner Schritt, unabhängig 
 Gebaut so (2026-10-21): Straßen und Flächen (`render/drape/draped-layer.ts`, auch Rinnen) nahmen ihre Höhe schon
 im Shader aus der Höhentextur; der Bogen kam von weit auseinander liegenden Ecken (quer über eine Straße bis 4,5 m,
 Kreuzungen und Enden als Fächer, flache Flächen in 64-m-Zellen). Nach einem Krater (`updateHeights` mit `sunk`)
-wandern die Dreiecke über der Grube, deren Grund mehr als 10 cm von ihrer Ebene abweicht, aus ihrer Kachel (dort
-entartet, ihre Puffer bleiben) in einen Flicken der Kachel und werden bis auf die Rasterzelle geteilt
-(`draped-refine.ts`): ein Draw Call mehr je getroffener Kachel. Je Kachel ein Index der Dreiecke nach Lage (beim
+wandern die Dreiecke über der Grube, deren Grund mehr als 1,2 cm von ihrer Ebene abweicht, aus ihrer Kachel (dort
+entartet, ihre Puffer bleiben) in einen Flicken der Kachel und werden an den Linien des Geländes geschnitten
+(`draped-refine.ts`, dasselbe Auflegen wie das der Straßen, CUSTOM_MAPS.md): ein Draw Call mehr je getroffener Kachel. Je Kachel ein Index der Dreiecke nach Lage (beim
 Laden gebaut, nur auf Karten mit Kratern), damit ein Krater nur die Dreiecke in seiner Nähe ansieht. Die Box der
 Kachel wächst nur um die Höhen im Rechteck. Brücken behalten bei Kratern ihre Fahrbahn. Die Pfad-Maske folgt
 ohnehin (sie liegt im Gelände-Shader). Routenkorridor, rote Routenlinie und Tower-Sicht (E291) nicht berührt.

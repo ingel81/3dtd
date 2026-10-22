@@ -1,4 +1,6 @@
 import type { MapPathEdge, MapPaths } from '../../map-document';
+import { gridHeightAt } from '../height-field';
+import { REFINE_TOLERANCE, type DrapeGround } from '../drape/draped-refine';
 import { buildRoadNetwork, RoadNetworkBuilder, type RoadNetwork, type RoadTile } from './road-network';
 
 function paths(edges: Partial<MapPathEdge>[], nodes: [string, number, number][]): MapPaths {
@@ -205,5 +207,103 @@ describe('road network, rebuilt in part', () => {
     }
     // Nothing changed: nothing laid
     expect(builder.update(moved).tiles).toEqual([]);
+  });
+});
+
+describe('road network on the ground', () => {
+  /** Rolling ground with a crest across x = 0, 2 m cells over 512 m */
+  function hills(): DrapeGround {
+    const columns = 257;
+    const heights = new Float32Array(columns * columns);
+    for (let j = 0; j < columns; j++) {
+      for (let i = 0; i < columns; i++) heights[j * columns + i] = 4 - Math.abs(i * 2 - 256) / 8 + Math.sin(j * 0.35) * 2 + Math.cos(i * 0.29) * 1.5;
+    }
+    const grid = { columns, rows: columns, cellSize: 2, heights };
+    return { grid, originX: -256, originY: -256, heightAt: (x, y) => gridHeightAt(grid, -256, -256, x, y) };
+  }
+  const tJunction = () =>
+    paths(
+      [
+        { a: 'c', b: 'e', street: 'secondary', width: 9 },
+        { a: 'w', b: 'c', street: 'secondary', width: 9 },
+        { a: 'c', b: 'n', street: 'residential', width: 6, sidewalk: 2 },
+      ],
+      [['c', 0, 0], ['e', 100, 0], ['w', -100, 0], ['n', 0, 100]],
+    );
+
+  it('lays ribbons and junctions onto the ground: none of it stands off by more than twice the tolerance', () => {
+    const ground = hills();
+    const flat = buildRoadNetwork(tJunction());
+    const laid = new RoadNetworkBuilder(ground).update(tJunction());
+    let before = 0;
+    let after = 0;
+    for (const [net, add] of [[flat, (d: number) => (before = Math.max(before, d))], [laid, (d: number) => (after = Math.max(after, d))]] as const) {
+      for (const t of triangles(net)) {
+        const h = t.map(([x, y]) => ground.heightAt(x, y));
+        for (const [u, v] of [[0.25, 0.25], [0.5, 0.25], [0.25, 0.5], [0.33, 0.33], [0.5, 0], [0, 0.5], [0.5, 0.5]]) {
+          const w = 1 - u - v;
+          const x = t[0][0] * w + t[1][0] * u + t[2][0] * v;
+          const y = t[0][1] * w + t[1][1] * u + t[2][1] * v;
+          add(Math.abs(ground.heightAt(x, y) - (h[0] * w + h[1] * u + h[2] * v)));
+        }
+      }
+    }
+    expect(before).toBeGreaterThan(0.1);
+    expect(after).toBeLessThanOrEqual(2 * REFINE_TOLERANCE + 1e-4);
+    // Still faces up, the same paved area
+    const area0 = triangles(flat).reduce((s, t) => s + area(t), 0);
+    const area1 = triangles(laid).reduce((s, t) => s + area(t), 0);
+    expect(area1).toBeCloseTo(area0, 0);
+    for (const t of triangles(laid)) expect(area(t)).toBeGreaterThan(-1e-6);
+  });
+
+  it('leaves no crack: no corner of a triangle lies inside a side of another (a ribbon, its junction, its pieces)', () => {
+    const tris = triangles(new RoadNetworkBuilder(hills()).update(tJunction()));
+    const corners = new Map<string, [number, number]>();
+    for (const t of tris) for (const p of t) corners.set(p.join(','), p);
+    let inside = 0;
+    for (const t of tris) {
+      for (let e = 0; e < 3; e++) {
+        const [px, py] = t[e];
+        const [qx, qy] = t[(e + 1) % 3];
+        const len = Math.hypot(qx - px, qy - py);
+        for (const [x, y] of corners.values()) {
+          if (Math.abs((x - px) * (qy - py) - (y - py) * (qx - px)) > 1e-4 * len) continue;
+          const u = ((x - px) * (qx - px) + (y - py) * (qy - py)) / (len * len);
+          if (u * len > 1e-3 && (1 - u) * len > 1e-3) { inside++; console.log("TJ", x, y, "on", px, py, qx, qy); }
+        }
+      }
+    }
+    expect(tris.length).toBeGreaterThan(300);
+    expect(inside).toBe(0);
+  });
+
+  it('lays again what the ground changed under, and only that', () => {
+    const ground = hills();
+    const builder = new RoadNetworkBuilder(ground);
+    const count = (net: RoadNetwork) => net.tiles.reduce((s, t) => s + t.index.length, 0);
+    const hilly = count(builder.update(tJunction()));
+    expect(builder.reground({ minX: 300, minY: 300, maxX: 310, maxY: 310 }).tiles).toEqual([]);
+    expect(builder.reground({ minX: 40, minY: -10, maxX: 60, maxY: 10 }).tiles.length).toBeGreaterThan(0);
+    // The ground levelled and laid again: nothing left to cut but the shared end sections' points
+    ground.grid.heights.fill(1);
+    const again = builder.reground();
+    expect(count(again)).toBeLessThan(hilly / 2);
+    expect(count(again)).toBeGreaterThanOrEqual(count(buildRoadNetwork(tJunction())));
+  });
+
+  it('lays a whole map flat at once and onto the ground a few at a time, as laid at once', () => {
+    const now = new RoadNetworkBuilder(hills()).update(tJunction());
+    const builder = new RoadNetworkBuilder(hills());
+    const flat = builder.update(tJunction(), true);
+    expect(flat.tiles.reduce((s, t) => s + t.index.length, 0)).toBe(buildRoadNetwork(tJunction()).tiles.reduce((s, t) => s + t.index.length, 0));
+    let net: RoadNetwork | null = null;
+    let calls = 0;
+    while (!(net = builder.layOnGround(0))) calls++;
+    // One item a call at a budget of nothing: the three ribbons and the junction
+    expect(calls).toBe(3);
+    const sorted = (n: RoadNetwork) => triangles(n).map((t) => t.flat().map((v) => v.toFixed(4)).join(',')).sort();
+    expect(sorted(net)).toEqual(sorted(now));
+    expect(builder.layOnGround(0)!.tiles).toEqual([]);
   });
 });
