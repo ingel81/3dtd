@@ -969,6 +969,11 @@ export class GlobalRouteGrid {
     return this.estimateTerrainY(localX, localZ);
   }
 
+  /** Where the enemies stand in a cell, with the craters and rubble (standHeight): what tower sight samples above */
+  getCellStandY(cell: RouteCell): number {
+    return this.standHeight(cell);
+  }
+
   /** getGroundLocalYAt() with the craters and rubble under the routes (StampField): where the enemies stand */
   getStandLocalYAt(localX: number, localZ: number): number | null {
     const y = this.getGroundLocalYAt(localX, localZ);

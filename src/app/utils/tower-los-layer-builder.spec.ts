@@ -96,6 +96,29 @@ describe('TowerLosLayerBuilder', () => {
     });
   });
 
+  it('stands plates and samples where the enemies stand, a crater under the cell included', () => {
+    const cells = [cell(0, 0, 10), cell(2, 0, 12)];
+    const pit = new Map([[cells[1], 4]]);
+    layer = TowerLosLayerBuilder.build({
+      cells, towerTip: new Vector3(0, 20, 0), groundRange: 30, airRange: 40,
+      canTargetGround: true, canTargetAir: true, cubemap, cubemapFarDistance: 40, gridCellSize: 2,
+      standY: (c) => pit.get(c) ?? c.terrainHeight,
+    });
+    const l = layer!;
+    const groundY = l.groundMesh.geometry.getAttribute('aSampleY') as InstancedBufferAttribute;
+    const plate = new Matrix4();
+    l.groundMesh.getMatrixAt(1, plate);
+    expect(new Vector3().setFromMatrixPosition(plate).y).toBeCloseTo(4 + LOS_VIZ_CONFIG.cellYOffset);
+    expect(groundY.getX(1)).toBeCloseTo(4 + LOS_VIZ_CONFIG.groundSampleYOffset);
+    expect(groundY.getX(0)).toBeCloseTo(10 + LOS_VIZ_CONFIG.groundSampleYOffset);
+
+    // The crater deepens: the same cells set again stand lower
+    pit.set(cells[1], 1);
+    l.setCells(cells);
+    l.groundMesh.getMatrixAt(1, plate);
+    expect(new Vector3().setFromMatrixPosition(plate).y).toBeCloseTo(1 + LOS_VIZ_CONFIG.cellYOffset);
+  });
+
   it('shows both layers for a mixed tower and follows the filter', () => {
     const l = build(true, true);
     expect([l.groundMesh.visible, l.airMesh.visible]).toEqual([true, true]);

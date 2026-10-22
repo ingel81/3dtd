@@ -71,7 +71,7 @@ describe('TowerSelectionService', () => {
         { provide: EngineInitializationService, useValue: { getEngine: () => engine } },
         {
           provide: GlobalRouteGridService,
-          useValue: { isInitialized: () => true, getCellsInRange: () => [{}], getCellSize: () => 2 },
+          useValue: { isInitialized: () => true, getCellsInRange: () => [{}], getCellSize: () => 2, onStampsChanged: () => () => undefined },
         },
       ],
     });

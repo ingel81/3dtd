@@ -9,6 +9,7 @@ import { TowerLosViz } from '../utils/tower-los-viz';
 import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import type { Tower } from '../entities/tower.entity';
 import type { TowerTypeId } from '../configs/tower-types.config';
+import type { RouteCell } from '../utils/route-cell';
 
 /**
  * The selected tower (docs/SIM_WORKER.md: selection is main-thread UI
@@ -30,11 +31,15 @@ export class TowerSelectionService {
   private readonly sim = inject(SimClient);
 
   private viz: TowerLosViz | null = null;
+  /** The cells the view shows, set again when a crater or rubble changes the ground under them */
+  private vizCells: RouteCell[] = [];
   /** Per-tower LOS filter of the view (UIStore.perTowerLosFilter), kept for the next one built */
   private losFilterMode: 'both' | 'ground' | 'air' = 'both';
 
   constructor() {
     this.mirror.onTowerChange((change) => this.onTowerChange(change));
+    // The plates stand where the enemies stand: a crater or rubble moves them (the sight follows by onTowerChange)
+    this.grid.onStampsChanged(() => this.viz?.setCells(this.vizCells));
     // The store may have dropped the selection on this reset already (resetGameState), the view is still here
     this.sim.bus.onLive('game:reset', () => {
       this.select(null);
@@ -116,6 +121,7 @@ export class TowerSelectionService {
     if (!blockerGroup) return;
     const cells = this.grid.getCellsInRange(local.x, local.z, range);
     if (cells.length === 0) return;
+    this.vizCells = cells;
     this.viz = new TowerLosViz({
       cells,
       towerTip,
@@ -129,6 +135,7 @@ export class TowerSelectionService {
       gridCellSize: this.grid.getCellSize(),
       shadowMapper: engine.getTowerShadowMapper(),
       blockerGroup,
+      standY: (cell) => this.grid.getCellStandY(cell),
     });
     this.viz.setFilterMode(this.losFilterMode);
     this.viz.addTo(engine.getScene());
@@ -137,5 +144,6 @@ export class TowerSelectionService {
   private disposeViz(): void {
     this.viz?.dispose();
     this.viz = null;
+    this.vizCells = [];
   }
 }

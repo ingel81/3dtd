@@ -23,6 +23,8 @@ export interface TowerLosVizOptions {
   blockerGroup: Object3D;
   /** Zellen, die `moveTo` später setzen kann (losLayerCapacity), mindestens `cells.length` */
   capacity?: number;
+  /** Where the enemies stand in a cell, see TowerLosLayerOptions.standY */
+  standY?: (cell: RouteCell) => number;
 }
 
 /**
@@ -68,6 +70,7 @@ export class TowerLosViz {
       cubemapFarDistance: this.shadowMapper.getFarDistance(),
       gridCellSize: opts.gridCellSize,
       capacity: opts.capacity,
+      standY: opts.standY,
     });
 
     if (this.layer) {
@@ -102,6 +105,12 @@ export class TowerLosViz {
     if (this.disposed) return;
     this.layer?.setCells(cells);
     this.updateTowerTip(tip);
+  }
+
+  /** Dieselben Zellen neu setzen (der Boden darunter hat sich durch Krater oder Schutt geändert), ohne Cube-Render */
+  setCells(cells: readonly RouteCell[]): void {
+    if (this.disposed) return;
+    this.layer?.setCells(cells);
   }
 
   /** Zeigen oder verbergen, ohne etwas abzubauen (Build-Vorschau auf einem ungültigen Platz). */

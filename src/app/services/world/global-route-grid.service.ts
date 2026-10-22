@@ -128,6 +128,11 @@ export class GlobalRouteGridService {
     if (span) for (const listener of this.stampListeners) listener(span);
   }
 
+  /** See GlobalRouteGrid.getCellStandY */
+  getCellStandY(cell: RouteCell): number {
+    return this.grid.getCellStandY(cell);
+  }
+
   /** See GlobalRouteGrid.getStandLocalYAt */
   getStandLocalYAt(localX: number, localZ: number): number | null {
     return this.grid.getStandLocalYAt(localX, localZ);

@@ -12,7 +12,7 @@ import { Injector, runInInjectionContext, signal, type ElementRef, type QueryLis
 import { LosDebuggerComponent } from './los-debugger.component';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { LosDebugService, type HoveredPixelState } from '../../services/debug/los-debug.service';
-import type { RouteCell } from '../../utils/route-cell';
+import { getAirTargetY, getGroundTargetY, type RouteCell } from '../../utils/route-cell';
 
 /**
  * The readout under the cube faces of the LOS debugger (pixelRgb,
@@ -61,7 +61,10 @@ describe('LosDebuggerComponent, the readout under the faces', () => {
         { provide: DebugWindowService, useValue: {} },
         {
           provide: LosDebugService,
-          useValue: { ...losDebug, getFaceSize: () => SIZE, getMapper: () => mapper, setEnabled: vi.fn() },
+          useValue: {
+            ...losDebug, getFaceSize: () => SIZE, getMapper: () => mapper, setEnabled: vi.fn(),
+            cellTargetY: (cell: RouteCell, layer: 'ground' | 'air') => layer === 'air' ? getAirTargetY(cell) : getGroundTargetY(cell),
+          },
         },
       ],
     });

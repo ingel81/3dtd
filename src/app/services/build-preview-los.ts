@@ -124,6 +124,7 @@ export class BuildPreviewLos {
       shadowMapper: engine.getTowerShadowMapper(),
       blockerGroup,
       capacity: losLayerCapacity(range, this.grid.getCellSize()),
+      standY: (cell) => this.grid.getCellStandY(cell),
     });
     this.vizKey = key;
     // Apply current per-tower-LOS filter directly — the reactive effect

@@ -41,6 +41,11 @@ export interface TowerLosLayerOptions {
    * wie `setCells` später setzen kann (losLayerCapacity für eine Reichweite)
    */
   capacity?: number;
+  /**
+   * Where the enemies stand in a cell, with the craters and rubble
+   * (GlobalRouteGridService.getCellStandY); without it the ground as built
+   */
+  standY?: (cell: RouteCell) => number;
 }
 
 /**
@@ -237,6 +242,7 @@ export class TowerLosLayerBuilder {
     const tBuildStart = performance.now();
     const { cells, towerTip, groundRange, airRange, canTargetGround, canTargetAir,
             cubemap, cubemapFarDistance, gridCellSize } = opts;
+    const standY = opts.standY ?? ((cell: RouteCell) => cell.terrainHeight);
 
     if (cells.length === 0) return null;
 
@@ -335,19 +341,20 @@ export class TowerLosLayerBuilder {
       for (let i = 0; i < next.length; i++) {
         const cell = next[i];
         // Ground-Mesh sitzt knapp über dem Boden (z-fighting-Schutz)
-        const groundMeshY = cell.terrainHeight + LOS_VIZ_CONFIG.cellYOffset;
+        const ground = standY(cell);
+        const groundMeshY = ground + LOS_VIZ_CONFIG.cellYOffset;
         matrix.setPosition(cell.x, groundMeshY, cell.z);
         groundMesh.setMatrixAt(i, matrix);
 
         // Air-Mesh sitzt direkt auf dem Air-Sample-Punkt — visualisiert
         // EXAKT wo die Cubemap-Sample-Position liegt. Single source of
         // truth: getAirTargetY (siehe route-cell.ts).
-        const airMeshY = getAirTargetY(cell);
+        const airMeshY = getAirTargetY(cell, ground);
         matrix.setPosition(cell.x, airMeshY, cell.z);
         airMesh.setMatrixAt(i, matrix);
 
         // Gesampelt wird wie im LOS-Resolve (getGroundTargetY).
-        groundSampleAttr.setX(i, getGroundTargetY(cell));
+        groundSampleAttr.setX(i, getGroundTargetY(cell, ground));
         airSampleAttr.setX(i, airMeshY);
       }
       groundMesh.count = next.length;

@@ -65,6 +65,7 @@ const HOVER_MARKER_GEOMETRY = shareGpu(new SphereGeometry(0.8, 12, 8));
 export class LosDebugService {
   private engine: ThreeTilesEngine | null = null;
   private globalRouteGrid: GlobalRouteGridService | null = null;
+  private unsubscribeStamps: (() => void) | null = null;
   private readonly store = inject(TowerDefenseStore);
   private readonly selection = inject(TowerSelectionService);
 
@@ -146,6 +147,13 @@ export class LosDebugService {
   initialize(engine: ThreeTilesEngine, globalRouteGrid: GlobalRouteGridService): void {
     this.engine = engine;
     this.globalRouteGrid = globalRouteGrid;
+    // A crater or rubble moves the cells' sample points: their pixels follow
+    this.unsubscribeStamps?.();
+    this.unsubscribeStamps = globalRouteGrid.onStampsChanged(() => {
+      const t = this._activeTower();
+      if (t && this._enabled()) this.rebuildCellEntries(t);
+      this.updateHoverMarker();
+    });
     // If a tower is already selected at init time pull its state.
     this.follow(this.store.selectedTower());
   }
@@ -261,6 +269,12 @@ export class LosDebugService {
     this._towerTip.set(new Vector3(localPos.x, tipY, localPos.z));
   }
 
+  /** A cell's sample point of `layer`, above where the enemies stand with the craters and rubble (as the LOS resolve) */
+  cellTargetY(cell: RouteCell, layer: 'ground' | 'air'): number {
+    const ground = this.globalRouteGrid?.getCellStandY(cell) ?? cell.terrainHeight;
+    return layer === 'air' ? getAirTargetY(cell, ground) : getGroundTargetY(cell, ground);
+  }
+
   private rebuildCellEntries(tower: Tower): void {
     if (!this.globalRouteGrid || !this.engine) return;
     const tip = this._towerTip();
@@ -275,8 +289,8 @@ export class LosDebugService {
     const entries: CellPixelEntry[] = new Array(cells.length);
     for (let i = 0; i < cells.length; i++) {
       const cell = cells[i];
-      const groundY = getGroundTargetY(cell);
-      const airY = getAirTargetY(cell);
+      const groundY = this.cellTargetY(cell, 'ground');
+      const airY = this.cellTargetY(cell, 'air');
       const groundPixel = directionToFacePixel(
         cell.x - tip.x,
         groundY - tip.y,
@@ -307,7 +321,7 @@ export class LosDebugService {
     this.ensureHoverMarker();
     if (!this.hoverMarker) return;
     const layer = this._activeLayer();
-    const y = layer === 'air' ? getAirTargetY(cell) : getGroundTargetY(cell);
+    const y = this.cellTargetY(cell, layer);
     this.hoverMarker.position.set(cell.x, y, cell.z);
     this.hoverMarker.visible = true;
   }
