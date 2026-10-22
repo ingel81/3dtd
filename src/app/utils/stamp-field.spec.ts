@@ -30,6 +30,28 @@ describe('StampField (docs/DESTRUCTION_PLAN.md)', () => {
     expect(field.brakeAt(1000, 0)).toBe(1);
   });
 
+  it("reads between the cells' middles for drawing: on a crater's wall within a fifth of a metre of its shape, not a cell's step of a metre and more (heightBetween)", () => {
+    const field = new StampField(SPAN);
+    // As deep as a crater of its radius goes (CRATERS.maxDepthPerRadiusCm), its wall at its steepest
+    const crater = { x: 1, z: -3, radius: 25, depthCm: 1000 };
+    field.crater(crater, 1);
+    // At a cell's middle the same as the cell
+    expect(field.heightBetween(mid(7.3), mid(-2.1))).toBeCloseTo(field.heightAt(7.3, -2.1), 6);
+    let stepped = 0;
+    let between = 0;
+    for (let x = -40; x < 40; x += 0.37) {
+      for (let z = -40; z < 40; z += 0.41) {
+        const shape = craterCm((x - crater.x) ** 2 + (z - crater.z) ** 2, crater.radius, crater.depthCm) / 100;
+        stepped = Math.max(stepped, Math.abs(field.heightAt(x, z) - shape));
+        between = Math.max(between, Math.abs(field.heightBetween(x, z) - shape));
+      }
+    }
+    expect(stepped).toBeGreaterThan(1);
+    expect(between).toBeLessThan(0.2);
+    // Off the field nothing, at its edge running out to nothing
+    expect(field.heightBetween(1000, 0)).toBe(0);
+  });
+
   it('comes to the same cells in any order and back to flat when every stamp is taken away again', () => {
     const a = new StampField(SPAN);
     const b = new StampField(SPAN);

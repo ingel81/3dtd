@@ -101,6 +101,31 @@ export class StampField {
     return (this.cell(x, z) >> 1) / 100;
   }
 
+  /**
+   * heightAt between the cells' middles (bilinear, 0 off the field): what the
+   * drawn ground shows, which takes the same shapes on its own finer grid.
+   * heightAt holds a cell's middle over its whole 2 m, a step of up to a
+   * metre and more on a crater's wall. For drawing only; the simulation
+   * reads heightAt
+   */
+  heightBetween(x: number, z: number): number {
+    const fx = x / STAMP_CELL_M - 0.5 - this.minIx;
+    const fz = z / STAMP_CELL_M - 0.5 - this.minIz;
+    const i = Math.floor(fx);
+    const j = Math.floor(fz);
+    const u = fx - i;
+    const v = fz - j;
+    const a = this.cellAt(i, j) * (1 - u) + this.cellAt(i + 1, j) * u;
+    const b = this.cellAt(i, j + 1) * (1 - u) + this.cellAt(i + 1, j + 1) * u;
+    return (a * (1 - v) + b * v) / 100;
+  }
+
+  /** The ground's centimetres of the field's cell (i, j), 0 off the field */
+  private cellAt(i: number, j: number): number {
+    if (i < 0 || j < 0 || i >= this.columns || j >= this.rows) return 0;
+    return this.packed[j * this.columns + i] >> 1;
+  }
+
   /** The share of its pace an enemy walks at local (x, z): RUBBLE.brake on rubble that slows, else 1 */
   brakeAt(x: number, z: number): number {
     return (this.cell(x, z) & BRAKE_BIT) !== 0 ? RUBBLE.brake : 1;

@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Group, ShaderLib, Vector3, type WebGLProgramParametersWithUniforms, type WebGLRenderer } from 'three';
 import { RouteLineLayer } from './route-line-layer';
+import { HeightField } from '../../world/custom-map/render/height-field';
+import { HeightTexture } from '../../world/custom-map/render/terrain/height-texture';
+import { ImpactMarks } from '../../world/custom-map/render/terrain/impact-marks';
+import { GroundDecals } from '../../world/custom-map/render/terrain/ground-decals';
 import { createPortalClipUniforms } from '../../three-engine/renderers/portal-clip';
 
 const points = [new Vector3(0, 1, 0), new Vector3(10, 1, 0), new Vector3(10, 2, 10)];
@@ -32,6 +36,17 @@ describe('RouteLineLayer', () => {
     expect(shader.fragmentShader).toContain('if (portalClipAhead(vPortalClipPos) < 0.0) discard;');
   });
 
+  it("draws after the marks on the ground: they write no depth, a crater's mark drawn later hid the line in it", () => {
+    const layer = new RouteLineLayer();
+    layer.add(new Group(), points, 0xff0000, true, clip);
+    const heights = new HeightTexture(new HeightField({ columns: 3, rows: 3, cellSize: 10, heights: new Float32Array(9) }, 20, 20));
+    const marks = new ImpactMarks(heights);
+    const decals = new GroundDecals(heights);
+    expect(marks.mesh.material.depthWrite).toBe(false);
+    expect(layer.all[0].renderOrder).toBeGreaterThan(marks.mesh.renderOrder);
+    expect(layer.all[0].renderOrder).toBeGreaterThan(decals.mesh.renderOrder);
+  });
+
   it('shows and hides every line', () => {
     const layer = new RouteLineLayer();
     const overlay = new Group();
@@ -58,7 +73,7 @@ describe('RouteLineLayer', () => {
 
   it('stands on the craters under the route, every metre over them, and draws again only the lines that cross a change (E291)', () => {
     const crater = { x: 20, z: 0, r: 3, depth: 2 };
-    let stamps: { heightAt(x: number, z: number): number } | null = null;
+    let stamps: { heightBetween(x: number, z: number): number } | null = null;
     const layer = new RouteLineLayer(() => stamps);
     const overlay = new Group();
     const across = [new Vector3(0, 1, 0), new Vector3(40, 1, 0)];
@@ -73,7 +88,7 @@ describe('RouteLineLayer', () => {
     expect(ys(0)).toEqual([[0, 1]]);
     const besideGeometry = layer.all[1].geometry;
 
-    stamps = { heightAt: (x, z) => (Math.hypot(x - crater.x, z - crater.z) < crater.r ? -crater.depth : 0) };
+    stamps = { heightBetween: (x, z) => (Math.hypot(x - crater.x, z - crater.z) < crater.r ? -crater.depth : 0) };
     layer.restand({ minX: 16, minZ: -4, maxX: 24, maxZ: 4 });
     const pts = ys(0);
     // A metre a step over the 40 m, down into the crater and up again

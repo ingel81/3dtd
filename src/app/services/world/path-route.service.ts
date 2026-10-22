@@ -299,11 +299,12 @@ export class PathAndRouteService {
   private readonly routeLines = new RouteLineLayer(() => this.globalRouteGrid.getGrid().stampField);
 
   constructor() {
-    // The lines follow the craters and rubble where they change (E291)
+    // The lines follow the craters and rubble where they change (E291), a cell
+    // round it too: they read the field between the cells' middles
     this.globalRouteGrid.onStampsChanged((span) => {
       const size = this.globalRouteGrid.getCellSize();
       this.routeLines.restand(
-        span && { minX: span.minIx * size, minZ: span.minIz * size, maxX: (span.maxIx + 1) * size, maxZ: (span.maxIz + 1) * size },
+        span && { minX: (span.minIx - 1) * size, minZ: (span.minIz - 1) * size, maxX: (span.maxIx + 2) * size, maxZ: (span.maxIz + 2) * size },
       );
     });
   }

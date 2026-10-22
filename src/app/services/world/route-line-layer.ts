@@ -4,9 +4,9 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { clipLineMaterial, type PortalClipUniforms } from '../../three-engine/renderers/portal-clip';
 
-/** Metres the ground at local (x, z) stands off the built ground (the craters and rubble, StampField.heightAt) */
+/** Metres the ground at local (x, z) stands off the built ground (the craters and rubble, StampField.heightBetween) */
 export interface GroundOffset {
-  heightAt(x: number, z: number): number;
+  heightBetween(x: number, z: number): number;
 }
 
 /** A rectangle in the local frame */
@@ -21,13 +21,22 @@ export interface LocalRect {
 export const LINE_STAMP_STEP_M = 1;
 
 /**
+ * The lines' place among the transparent things drawn: after the marks on
+ * the custom map's ground (its decals 1, the craters' marks 2,
+ * ground-decals.ts and impact-marks.ts). Those write no depth, so drawn
+ * after the line they paint over it: in a crater its mark hid the line.
+ */
+export const ROUTE_LINE_RENDER_ORDER = 3;
+
+/**
  * The route lines PathAndRouteService draws, one Line2 per spawn route, in
  * the engine's overlay group. Line2 because it keeps its pixel width.
  *
  * Each line keeps the points it was drawn through (on the ground as built,
  * lifted) and stands on the craters and rubble under the routes
- * (`offset`, the main grid's StampField): a stretch over a stamp is drawn
- * every LINE_STAMP_STEP_M at the ground there, the rest through its points.
+ * (`offset`, the main grid's StampField between its cells): a stretch over
+ * a stamp is drawn every LINE_STAMP_STEP_M at the ground there, the rest
+ * through its points.
  * When the stamps change, `restand` draws again only the lines that cross
  * the changed rectangle.
  */
@@ -73,7 +82,7 @@ export class RouteLineLayer {
     const routeLine = new Line2(geometry, material);
     routeLine.computeLineDistances(); // Required for Line2
     routeLine.visible = visible;
-    routeLine.renderOrder = 1;
+    routeLine.renderOrder = ROUTE_LINE_RENDER_ORDER;
     routeLine.frustumCulled = false; // Prevent disappearing at certain angles
 
     overlayGroup.add(routeLine);
@@ -109,7 +118,7 @@ export class RouteLineLayer {
     }
     for (let i = 0; i < base.length; i++) {
       const a = base[i];
-      out.push(a.x, a.y + offset.heightAt(a.x, a.z), a.z);
+      out.push(a.x, a.y + offset.heightBetween(a.x, a.z), a.z);
       const b = base[i + 1];
       if (!b) break;
       const steps = Math.floor(Math.hypot(b.x - a.x, b.z - a.z) / LINE_STAMP_STEP_M);
@@ -117,14 +126,14 @@ export class RouteLineLayer {
       let stamped = false;
       for (let n = 1; n < steps && !stamped; n++) {
         const f = n / steps;
-        stamped = offset.heightAt(a.x + (b.x - a.x) * f, a.z + (b.z - a.z) * f) !== 0;
+        stamped = offset.heightBetween(a.x + (b.x - a.x) * f, a.z + (b.z - a.z) * f) !== 0;
       }
       if (!stamped) continue;
       for (let n = 1; n < steps; n++) {
         const f = n / steps;
         const x = a.x + (b.x - a.x) * f;
         const z = a.z + (b.z - a.z) * f;
-        out.push(x, a.y + (b.y - a.y) * f + offset.heightAt(x, z), z);
+        out.push(x, a.y + (b.y - a.y) * f + offset.heightBetween(x, z), z);
       }
     }
     return out;
