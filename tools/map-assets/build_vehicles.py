@@ -1,7 +1,8 @@
 """Vehicles of the map asset catalogue (loaded by build_models.py).
 
 Car, pickup truck, box truck, bus and a tank, each whole and as a rusted
-or burnt-out wreck. Bodies are side profiles extruded across the width,
+or burnt-out wreck; whole cars in three bodies (hatchback, saloon, estate:
+passenger_car) with their glasshouse, pillars and glossy paint. Bodies are side profiles extruded across the width,
 tapered above the belt line, with wheel arches cut by booleans, rounded
 by a bevel and shaded smooth by angle; glass, pillars, bumpers, grille,
 number plates, mirrors, door seams, lights and wheels are separate parts.
@@ -192,6 +193,113 @@ def car(name, paint, state='whole'):
     vehicle(name, SEDAN, SEDAN_GLASS, SEDAN_ROOF, 4.4, 1.8, [(-1.35, 0.33), (1.35, 0.33)], 0.33, paint, state, seams=(-0.55, 0.45, 1.3))
 
 
+# Passenger cars (whole): (length, width, body, glass, roof, pillars, wheels, wheel radius, door seams). The body is
+# rounded at the nose and tail, the glasshouse a dark prism under a curved roof, broken by pillars in the paint;
+# pillars are (y, z) pairs of their foot and top on the glass's side. Front at -y
+CARS = {
+    'hatch': (4.05, 1.76,
+              [(-2.0, 0.27), (2.0, 0.27), (2.04, 0.42), (2.06, 0.66), (2.03, 0.88), (1.95, 0.97), (1.0, 0.99), (-0.55, 0.97),
+               (-1.1, 0.93), (-1.55, 0.87), (-1.85, 0.79), (-2.0, 0.68), (-2.05, 0.52), (-2.04, 0.38)],
+              [(-0.62, 0.95), (1.93, 0.97), (1.62, 1.44), (0.15, 1.46)],
+              [(0.1, 1.43), (0.85, 1.455), (1.66, 1.42), (1.64, 1.5), (0.85, 1.535), (0.13, 1.51)],
+              [((-0.62, 0.95), (0.15, 1.46)), ((0.72, 0.97), (0.72, 1.45)), ((1.93, 0.97), (1.62, 1.44))],
+              [(-1.28, 0.31), (1.32, 0.31)], 0.31, (-0.55, 0.72, 0.88)),
+    'sedan': (4.6, 1.8,
+              [(-2.3, 0.28), (2.3, 0.28), (2.34, 0.45), (2.34, 0.7), (2.29, 0.86), (2.16, 0.93), (1.4, 0.96), (-0.68, 0.95),
+               (-1.25, 0.91), (-1.75, 0.85), (-2.1, 0.77), (-2.28, 0.66), (-2.34, 0.5), (-2.33, 0.38)],
+              [(-0.7, 0.93), (1.5, 0.95), (0.98, 1.41), (0.0, 1.43)],
+              [(-0.05, 1.4), (0.5, 1.425), (1.03, 1.39), (1.01, 1.47), (0.5, 1.505), (-0.02, 1.48)],
+              [((-0.7, 0.93), (0.0, 1.43)), ((0.48, 0.95), (0.48, 1.42)), ((1.5, 0.95), (0.98, 1.41))],
+              [(-1.45, 0.32), (1.42, 0.32)], 0.32, (-0.66, 0.48, 0.98)),
+    'estate': (4.7, 1.82,
+               [(-2.35, 0.28), (2.35, 0.28), (2.38, 0.45), (2.39, 0.74), (2.35, 0.93), (2.24, 0.99), (1.4, 0.99), (-0.7, 0.96),
+                (-1.28, 0.92), (-1.78, 0.86), (-2.13, 0.78), (-2.31, 0.67), (-2.38, 0.51), (-2.37, 0.38)],
+               [(-0.72, 0.95), (2.27, 0.98), (2.15, 1.45), (0.0, 1.47)],
+               [(-0.05, 1.44), (1.1, 1.465), (2.2, 1.43), (2.19, 1.51), (1.1, 1.545), (-0.02, 1.52)],
+               [((-0.72, 0.95), (0.0, 1.47)), ((0.5, 0.97), (0.5, 1.46)), ((1.45, 0.98), (1.45, 1.46)), ((2.27, 0.98), (2.15, 1.45))],
+               [(-1.47, 0.32), (1.45, 0.32)], 0.32, (-0.68, 0.5, 1.0)),
+}
+
+
+def passenger_car(name, paint, kind, metallic=0.35):
+    """A whole car of CARS[kind]: glossy paint, the glasshouse with its pillars, a body-coloured bumper over a dark
+    lip, lamps set into the rounded nose and tail, door seams and handles, mirrors, plates, wheels"""
+    L, W, profile, greenhouse, roof, pillars, wheels, wheel_r, seams = CARS[kind]
+    clear_scene()
+    belt, taper = 0.9, 0.8
+    body_mat = flat_material('paint-' + '-'.join('%.2f' % c for c in paint) + '-%.2f' % metallic, paint, 0.2, metallic)
+    body = Part(body_mat)
+    paint_part = Part(body_mat, bevel=0.012)
+    glass = Part(flat_material('car-glass-tint', (0.06, 0.075, 0.09), 0.04, 0.7), smooth=True)
+    trim = Part(flat_material('car-trim', (0.06, 0.06, 0.065), 0.5, 0.3), bevel=0.02)
+    fine = Part(trim.material)
+    chrome = Part(flat_material('car-chrome', (0.7, 0.71, 0.72), 0.18, 1.0))
+    tyre = Part(flat_material('tyre', (0.035, 0.035, 0.035), 0.9), smooth=True)
+    rim = Part(flat_material('rim', (0.55, 0.56, 0.58), 0.35, 0.85))
+    profile_solid(body, profile, W, taper_from=belt + 0.02, taper=0.9)
+    glass_w = W - 0.12
+    profile_solid(glass, greenhouse, glass_w, taper_from=belt, taper=taper)
+    top = max(z for _, z in greenhouse)
+
+    def half(z):
+        """Half width of the glasshouse at height z"""
+        f = min(1.0, max(0.0, (z - belt) / max(1e-3, top - belt)))
+        return glass_w / 2 * (1 - (1 - taper) * f)
+
+    profile_solid(paint_part, roof, half(top) * 2 + 0.06, None)
+    # Pillars in the paint on both sides, standing a little proud of the glass
+    for (y0, z0), (y1, z1) in pillars:
+        for sx in (-1, 1):
+            a = Vector((sx * (half(z0) + 0.012), y0, z0))
+            b = Vector((sx * (half(z1) + 0.012), y1, z1 + 0.03))
+            oriented_box(paint_part, a, b, 0.09)
+    # Bumpers: paint over a dark lip; a grille slot in front, plates, a chrome strip at the tail
+    for sy in (-1, 1):
+        y = sy * (L / 2 - 0.02)
+        box(paint_part, 0, y, 0.3, W - 0.06, 0.16, 0.24)
+        box(trim, 0, y + sy * 0.03, 0.22, W - 0.2, 0.12, 0.1)
+        box(chrome, 0, sy * (L / 2 + 0.065), 0.42, 0.52, 0.01, 0.12)
+    # The nose's and the tail's face at the lamps' height (the profile's points there)
+    nose = min(y for y, z in profile if abs(z - 0.55) < 0.13)
+    tail_y = max(y for y, z in profile if abs(z - 0.7) < 0.13)
+    box(fine, 0, nose + 0.01, 0.44, W * 0.4, 0.06, 0.12)
+    box(chrome, 0, L / 2 + 0.055, 0.7, W * 0.5, 0.01, 0.02)
+    # Door seams, handles, a dark sill between the arches, mirrors at the A-pillars
+    side = W / 2 + 0.003
+    for y in seams:
+        for sx in (-1, 1):
+            box(fine, sx * side, y, 0.34, 0.01, 0.018, belt - 0.36)
+    for y in seams[:-1]:
+        for sx in (-1, 1):
+            box(chrome, sx * (side + 0.008), y + 0.28, belt - 0.12, 0.02, 0.16, 0.035)
+    for sx in (-1, 1):
+        box(trim, sx * (W / 2 - 0.01), (wheels[0][0] + wheels[1][0]) / 2, 0.24, 0.05, wheels[1][0] - wheels[0][0] - 2 * (wheel_r + 0.1), 0.1)
+        ya = greenhouse[0][0] + 0.18
+        oriented_box(fine, Vector((sx * (half(belt) + 0.02), ya, belt + 0.06)), Vector((sx * (W / 2 + 0.12), ya + 0.02, belt + 0.06)), 0.03)
+        box(paint_part, sx * (W / 2 + 0.12), ya + 0.03, belt + 0.01, 0.1, 0.07, 0.11)
+    for y, z in wheels:
+        for sx in (-1, 1):
+            wheel(tyre, rim, (sx * (W / 2 - 0.13), y, z), wheel_r)
+    objects = []
+    body_obj = body.to_object(name)
+    cut_arches(body_obj, wheels, wheel_r + 0.07, W)
+    round_body(body_obj, 0.06, 3)
+    objects.append(body_obj)
+    g = glass.to_object(name + '-glass')
+    round_body(g, 0.03, 2)
+    objects += [g, paint_part.to_object(name + '-paint')]
+    # Lamps: one each side under the hood's edge, two clusters at the tail
+    head = Part(flat_material('headlight', (1.0, 0.96, 0.85), 0.2, emission=(1.0, 0.95, 0.8), strength=0.4))
+    tail = Part(flat_material('taillight', (0.6, 0.05, 0.04), 0.3, emission=(0.8, 0.05, 0.03), strength=0.3))
+    for sx in (-1, 1):
+        box(head, sx * (W / 2 - 0.3), nose + 0.02, 0.54, 0.38, 0.08, 0.11, rot=sx * 0.1)
+        box(tail, sx * (W / 2 - 0.22), tail_y - 0.02, 0.68, 0.36, 0.08, 0.12)
+    objects += [head.to_object(name + '-head'), tail.to_object(name + '-tail')]
+    objects += [trim.to_object(name + '-trim'), fine.to_object(name + '-fine'), chrome.to_object(name + '-chrome'),
+                tyre.to_object(name + '-tyres'), rim.to_object(name + '-rims')]
+    export(name, objects)
+
+
 def pickup(name, paint, state='whole'):
     def bed(body, glass, trim, fine, panel):
         for sx in (-1, 1):
@@ -293,10 +401,10 @@ def tank(name, state='rust'):
 def models():
     red, blue, white, green, yellow = (0.55, 0.06, 0.05), (0.08, 0.2, 0.45), (0.86, 0.86, 0.84), (0.15, 0.3, 0.18), (0.8, 0.6, 0.08)
     return {
-        'car-red': lambda: car('car-red', red),
-        'car-blue': lambda: car('car-blue', blue),
-        'car-white': lambda: car('car-white', white),
-        'car-grey': lambda: car('car-grey', (0.4, 0.41, 0.43)),
+        'car-red': lambda: passenger_car('car-red', (0.5, 0.05, 0.05), 'hatch', 0.2),
+        'car-blue': lambda: passenger_car('car-blue', (0.06, 0.16, 0.36), 'estate', 0.55),
+        'car-white': lambda: passenger_car('car-white', white, 'sedan', 0.05),
+        'car-grey': lambda: passenger_car('car-grey', (0.34, 0.35, 0.37), 'hatch', 0.7),
         'car-wreck': lambda: car('car-wreck', red, 'rust'),
         'car-wreck-b': lambda: car('car-wreck-b', blue, 'rust'),
         'car-burnt': lambda: car('car-burnt', red, 'burnt'),

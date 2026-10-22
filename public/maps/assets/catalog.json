@@ -13690,9 +13690,9 @@
       "name": "Car (red)",
       "category": "prop",
       "file": "models/car-red.glb",
-      "triangles": 2056,
+      "triangles": 3132,
       "footprint": 2.1,
-      "height": 1.4,
+      "height": 1.5,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -13705,18 +13705,18 @@
         "city"
       ],
       "textures": [
-        "textures/car-blue-ao-c9481e1929b907fb.ktx2"
+        "textures/car-grey-ao-17b4ba86bffc23f2.ktx2"
       ],
       "lod": [
         {
           "file": "models/car-red-lod1.glb",
-          "screen": 0.0114,
-          "triangles": 708,
+          "screen": 0.0104,
           "tone": [
-            0.971,
-            0.83,
-            0.862
-          ]
+            0.987,
+            0.965,
+            0.952
+          ],
+          "triangles": 1074
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py)"
@@ -13726,9 +13726,9 @@
       "name": "Car (blue)",
       "category": "prop",
       "file": "models/car-blue.glb",
-      "triangles": 2056,
+      "triangles": 3204,
       "footprint": 2.1,
-      "height": 1.4,
+      "height": 1.5,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -13741,18 +13741,18 @@
         "city"
       ],
       "textures": [
-        "textures/car-blue-ao-c9481e1929b907fb.ktx2"
+        "textures/car-blue-ao-9be7f68266b3c7cd.ktx2"
       ],
       "lod": [
         {
           "file": "models/car-blue-lod1.glb",
-          "screen": 0.0114,
-          "triangles": 708,
+          "screen": 0.0104,
           "tone": [
-            0.841,
-            0.915,
-            0.937
-          ]
+            0.98,
+            0.97,
+            0.956
+          ],
+          "triangles": 1108
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py)"
@@ -13762,9 +13762,9 @@
       "name": "Car (white)",
       "category": "prop",
       "file": "models/car-white.glb",
-      "triangles": 2056,
+      "triangles": 3116,
       "footprint": 2.1,
-      "height": 1.4,
+      "height": 1.5,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -13777,18 +13777,18 @@
         "city"
       ],
       "textures": [
-        "textures/car-blue-ao-c9481e1929b907fb.ktx2"
+        "textures/car-white-ao-db3accf16776d0a1.ktx2"
       ],
       "lod": [
         {
           "file": "models/car-white-lod1.glb",
-          "screen": 0.0114,
-          "triangles": 708,
+          "screen": 0.0104,
           "tone": [
-            0.964,
-            0.966,
-            0.967
-          ]
+            0.962,
+            0.963,
+            0.957
+          ],
+          "triangles": 1076
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py)"
@@ -13798,9 +13798,9 @@
       "name": "Car (grey)",
       "category": "prop",
       "file": "models/car-grey.glb",
-      "triangles": 2056,
+      "triangles": 3132,
       "footprint": 2.1,
-      "height": 1.4,
+      "height": 1.5,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -13813,18 +13813,18 @@
         "city"
       ],
       "textures": [
-        "textures/car-blue-ao-c9481e1929b907fb.ktx2"
+        "textures/car-grey-ao-17b4ba86bffc23f2.ktx2"
       ],
       "lod": [
         {
           "file": "models/car-grey-lod1.glb",
-          "screen": 0.0114,
-          "triangles": 708,
+          "screen": 0.0104,
           "tone": [
+            0.948,
             0.953,
-            0.945,
-            0.95
-          ]
+            0.953
+          ],
+          "triangles": 1074
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py)"
