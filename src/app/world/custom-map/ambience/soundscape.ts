@@ -33,6 +33,15 @@ export const AREA_REACH = LIFE_SOUND_REACH.default;
 /** How often the gains follow the listener, seconds, and how fast they glide */
 const STEP = 0.1;
 const GLIDE = 0.35;
+/**
+ * An area's sound is heard by the distance from the camera, not from the
+ * ground it looks at alone: up to AREA_NEAR_HEIGHT m over it the ground
+ * point counts, above that each metre higher counts AREA_HEIGHT_SHARE of a
+ * metre off. A stream is loud by its bank and gone from high up, where the
+ * point the camera looks at slides over it as the view tilts.
+ */
+export const AREA_NEAR_HEIGHT = 60;
+export const AREA_HEIGHT_SHARE = 0.35;
 /** Seconds a silent voice keeps its source before it stops */
 const SILENT_STOP = 3;
 /** Seconds two variants of a sound overlap, and how far ahead the next one is scheduled */
@@ -284,7 +293,8 @@ export class Soundscape {
       else if (v.weather) heard = v.volume * Math.max(lift, WEATHER_LIFT);
       else if (v.area) {
         const d = nearestOnShape(v.area, listener.at.x, listener.at.y, this.near);
-        const f = Math.max(0, 1 - d / (v.area.reach ?? AREA_REACH));
+        const up = Math.max(0, listener.height - AREA_NEAR_HEIGHT) * AREA_HEIGHT_SHARE;
+        const f = Math.max(0, 1 - Math.hypot(d, up) / (v.area.reach ?? AREA_REACH));
         heard = v.volume * lift * f * f;
         if (d > 1) {
           const dx = (this.near.x - listener.at.x) / d;

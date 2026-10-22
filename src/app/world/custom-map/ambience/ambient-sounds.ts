@@ -58,7 +58,7 @@ const LOOPS = {
     },
   },
   'night-insects': { file: 'assets/sounds/ambient/night-insects.mp3', gain: 0.3 },
-  stream: { file: 'assets/sounds/ambient/stream.mp3', variants: ['assets/sounds/ambient/stream-2.mp3'], gain: 0.6 },
+  stream: { file: 'assets/sounds/ambient/stream.mp3', variants: ['assets/sounds/ambient/stream-2.mp3'], gain: 0.4 },
   surf: { file: 'assets/sounds/ambient/surf.mp3', variants: ['assets/sounds/ambient/surf-2.mp3'], gain: 0.7 },
   swamp: { file: 'assets/sounds/ambient/swamp.mp3', gain: 0.55 },
   lava: { file: 'assets/sounds/ambient/lava.mp3', gain: 0.6 },

@@ -3,7 +3,7 @@ import type { MapEnvironment, MapLife } from '../map-document';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { AMBIENT_SOUNDS, THUNDER_SOUNDS, WEATHER_BEDS, WAVE_SOUNDS, ambienceSounds, soundFiles, thunderKind } from './ambient-sounds';
-import { AMBIENT_LEVEL, AREA_REACH, CROSSFADE, LOOP_PAD, SPEED_OF_SOUND, Soundscape, type SoundscapeListener } from './soundscape';
+import { AMBIENT_LEVEL, AREA_HEIGHT_SHARE, AREA_NEAR_HEIGHT, AREA_REACH, CROSSFADE, LOOP_PAD, SPEED_OF_SOUND, Soundscape, type SoundscapeListener } from './soundscape';
 
 /** Just enough Web Audio for the soundscape: gains and pans hold their last target, sources say whether they play */
 function fakeAudio() {
@@ -99,6 +99,26 @@ describe('Soundscape', () => {
     // Back in: it starts again
     await tick(s, listener(0, 0));
     expect(s.playing).toBe(1);
+    s.dispose();
+  });
+
+  it('hears an area from the camera: from high up over it as from beside it, far off silent', async () => {
+    const a = fakeAudio();
+    const s = new Soundscape(a, () => Promise.resolve({ duration: 16.2 } as unknown as AudioBuffer));
+    s.setVolume(1);
+    const life: MapLife = { areas: [{ id: 's', kind: 'sound', shape: 'route', points: [{ x: 0, y: -50 }, { x: 0, y: 50 }], sound: 'stream', volume: 1 }] };
+    s.setMap({ life, environment: env('temperate') });
+    const full = AMBIENT_SOUNDS['stream'].gain;
+    // Low over the stream: full
+    await tick(s, listener(0, 0, { height: AREA_NEAR_HEIGHT }));
+    expect(levels(a)[0]).toBeCloseTo(full, 3);
+    // Looking straight at it from 160 m: as from 35 m beside it, a quarter, times the height's own quieting
+    await tick(s, listener(0, 0, { height: AREA_NEAR_HEIGHT + 100 }));
+    const lift = 1 - (AREA_NEAR_HEIGHT + 100 - 80) / 780;
+    expect(levels(a)[0]).toBeCloseTo(full * lift * (1 - (100 * AREA_HEIGHT_SHARE) / AREA_REACH) ** 2, 3);
+    // From 260 m it is out of reach
+    await tick(s, listener(0, 0, { height: AREA_NEAR_HEIGHT + 200 }));
+    expect(levels(a)[0]).toBe(0);
     s.dispose();
   });
 
