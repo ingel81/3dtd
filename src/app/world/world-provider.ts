@@ -375,6 +375,13 @@ export interface WorldProvider {
    * world shows what it has
    */
   withAllShown?<T>(run: () => T): T;
+  /**
+   * Runs `run` with what the world keeps out of the scene until it is needed
+   * and the line-of-sight cube draws then (a destructible map's ruins) among
+   * the sight blockers, inside withAllShown: the cube's warm-up
+   * (TowerShadowMapper.warmUp) draws each once. Missing: nothing kept out
+   */
+  withLosStandIns?<T>(run: () => T): T;
   /** A new origin (a change of place) */
   setOrigin(lat: number, lon: number, height: number): void;
   /**

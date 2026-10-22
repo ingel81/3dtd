@@ -1402,7 +1402,11 @@ export class ThreeTilesEngine {
   private drawHidden(): void {
     const losBlockers = () => {
       const blockers = this.world.losBlockers();
-      if (blockers) this.getTowerShadowMapper().warmUp(this.camera.position, blockers);
+      if (!blockers) return;
+      // With what the world keeps out of the scene for later but the cube draws then (a map's ruins)
+      const warm = () => this.getTowerShadowMapper().warmUp(this.camera.position, blockers);
+      if (this.world.withLosStandIns) this.world.withLosStandIns(warm);
+      else warm();
     };
     if (this.world.withAllShown) {
       this.world.withAllShown(() => {

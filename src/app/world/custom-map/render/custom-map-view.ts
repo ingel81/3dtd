@@ -759,6 +759,38 @@ export class CustomMapView {
   }
 
   /**
+   * Runs `run` with the parked ruins (parkRuins) that block the sight hung
+   * back under the sight blockers and shown, for the LOS cube's warm-up
+   * inside withAllShown (its placeholders give each one instance): their
+   * distance programs are built and drawn once while loading. Their own
+   * programs stay for later (warmLater). Drawn first in a tower's cube in the
+   * game, they held that frame 170 ms (production build; 310 in a dev build, E280)
+   */
+  withLosStandIns<T>(run: () => T): T {
+    const hung: { mesh: Object3D; visible: boolean }[] = [];
+    for (const { mesh, parent } of this.parked ?? []) {
+      if (mesh.parent || !this.blocksSight(parent)) continue;
+      parent.add(mesh);
+      hung.push({ mesh, visible: mesh.visible });
+      mesh.visible = true;
+    }
+    try {
+      return run();
+    } finally {
+      for (const { mesh, visible } of hung) {
+        mesh.visible = visible;
+        mesh.removeFromParent();
+      }
+    }
+  }
+
+  /** Whether `o` lies in the sight blockers (what the LOS cube draws) */
+  private blocksSight(o: Object3D | null): boolean {
+    for (; o; o = o.parent) if (o === this.losBlockers) return true;
+    return false;
+  }
+
+  /**
    * Shows or hides everything in the air: weather and ambient particles
    * (rain, snow, embers, ash, dust), object effects and light glows. For
    * renders that are not the player's view, like a top-down minimap, where the

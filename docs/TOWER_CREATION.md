@@ -484,7 +484,9 @@ Pfad-Tausch, Pfad-Anbau), und `warmUpObjects` gibt Stellvertreter in die Szene: 
 Gerüst, Ringe und Marker, die durchscheinende Bauvorschau jedes Typs (`buildPreviewModel`, auch für die Bauvorschau
 selbst) mit ihrem Sockel und den Zellplatten der Sichtlinie; dazu Sockel, Tentakel, Ooze-Band und Held. Sie werden
 für die Bilder kompiliert und einmal winzig gezeichnet, der Sichtlinien-Würfel rendert einmal
-(`TowerShadowMapper.warmUp`). Ein neuer Tower-Teil mit eigenem Material gehört dort hinein, sonst baut sein erster
+(`TowerShadowMapper.warmUp`), mit dem, was die Welt bis zum Bedarf aus der Szene nimmt und der Würfel dann zeichnet
+(`WorldProvider.withLosStandIns`: die geparkten Ruinen einer eigenen Karte, je eine Instanz; ihr erster Würfel im Spiel
+hielt sonst einmal je Sitzung 170 bis 310 ms, E280). Ein neuer Tower-Teil mit eigenem Material gehört dort hinein, sonst baut sein erster
 Einsatz die Programme im Bild (vorher Bogenschütze 250 ms, Tentakel 470 ms beim ersten Bau, die Bauvorschau 250 bis
 550 ms bei der ersten Wahl, E258).
 

@@ -383,6 +383,10 @@ export class CustomMapWorld implements WorldProvider {
     return this.view ? this.view.withAllShown(run) : run();
   }
 
+  withLosStandIns<T>(run: () => T): T {
+    return this.view ? this.view.withLosStandIns(run) : run();
+  }
+
   setOrigin(lat: number, lon: number, height: number): void {
     this.sync.setOrigin(lat, lon, height);
     this.frame.setOrigin(lat, lon);
