@@ -38,7 +38,8 @@ const RING: number[] = [];
  * unit of scale under the lowest ground round its trunk, a plant at the
  * lowest ground under its patch (TRUNK_SHARE, PATCH_SHARE: on a bank its
  * downhill side reaches the ground instead of hanging in the air, uphill it
- * grows out of the slope); anything else on the ground under its middle.
+ * grows out of the slope; SINK_MOST at most); anything else on the ground
+ * under its middle.
  * The editor's check measures from the same height.
  */
 export function seatHeight(
@@ -67,9 +68,9 @@ export function seatHeight(
     }
     return low;
   }
-  if (f.category === 'tree') return lowestRound(ground, TRUNK_SHARE * f.footprint * s, o, groundAt) - 0.15 * s;
+  if (f.category === 'tree') return Math.max(ground - SINK_MOST * s, lowestRound(ground, TRUNK_SHARE * f.footprint * s, o, groundAt)) - 0.15 * s;
   // A length of row follows the ground along its length (wallShear), across it the ground under its middle
-  if (f.category === 'plant' && !f.row) return lowestRound(ground, PATCH_SHARE * f.footprint * s, o, groundAt);
+  if (f.category === 'plant' && !f.row) return Math.max(ground - SINK_MOST * s, lowestRound(ground, PATCH_SHARE * f.footprint * s, o, groundAt));
   return ground;
 }
 
@@ -78,6 +79,9 @@ const TRUNK_SHARE = 0.4;
 
 /** Share of a plant's footprint its patch covers at the ground (grass, reeds, shrubs thin out towards the edge) */
 const PATCH_SHARE = 0.7;
+
+/** Metres per unit of scale a tree or plant sinks below the ground under its middle at most: at a cliff's edge it keeps its place */
+const SINK_MOST = 1.2;
 
 /** The lowest of `ground` and the ground at eight points on a circle of radius `r` round the object */
 function lowestRound(ground: number, r: number, o: MapObject, groundAt: (x: number, y: number) => number): number {

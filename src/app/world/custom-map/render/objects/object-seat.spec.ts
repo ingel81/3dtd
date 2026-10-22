@@ -53,6 +53,8 @@ describe('seatHeight', () => {
     expect(seatHeight(tree, { ...at(0, 0), scale: 2 }, bank, water)).toBeCloseTo(-0.96 - 0.3, 6);
     // On level ground as before
     expect(seatHeight(tree, at(0, 0), () => 4, water)).toBeCloseTo(4 - 0.15, 6);
+    // At a cliff's edge (5 m down just past its middle) it keeps its place: 1.2 m per unit of scale at most
+    expect(seatHeight(tree, at(0, 0), (x) => (x > 0.1 ? -5 : 0), water)).toBeCloseTo(-1.2 - 0.15, 6);
   });
 
   it('stands a plant at the lowest ground under its patch, a length of row under its middle', () => {
