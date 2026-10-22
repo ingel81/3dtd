@@ -30,9 +30,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
 
 ### Reste der Nachtschicht 2026-10-18/19
 
-- [ ] **E246 Rest**: nach dem Leeren der Kartenbibliothek dekodiert sie Bilder statt KTX2 (Probe: 34 beim ersten,
-      18 beim zweiten Teststart, vermutlich noch WebP-Bäume); beim Öffnen des Editors linkt ein Tiefenprogramm im Bild
-      (`MeshDepthMaterial` bzw. `far-box-depth`, 210 bis 280 ms).
 - [ ] **E251 Laden nach Bedarf, Rest**: Freischalten im Lauf per Probe geprüft (0 Links, längstes Bild 14 ms; ein
       Zeitvorteil des Vorziehens ist nicht nachweisbar); rund 65 Links direkt bei ready (Grafikstufen noch im
       Aufwärmen, zu E246); Bildspitzen unter Ruhe nachmessen (`tmp/plan/r6/MESSUNGEN_SPAETER.md`).
@@ -57,7 +54,11 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Fortsetzung erst next gegen 8276577a0 mit frischem Profil messen und zählen, ob die Ruinen fertig werden.
       Befund 2026-10-21 (E291-Messung): der erste Sicht-Cube eines Towers, in dem eine Ruine zu sehen ist, dauert
       einmal je Sitzung rund 310 ms (erster echter Draw der Ruinen-Programme im Treiber; Vorab-Übersetzen hilft nicht).
-      Lösung gehört hierher: Ruinen im Aufwärmen wirklich einmal zeichnen.
+      Lösung gehört hierher: Ruinen im Aufwärmen wirklich einmal zeichnen. Gebaut 2026-10-22 (Abschnitt 2); offen
+      bleibt ein Bild von ~54 ms beim ersten Fall, auch vor dem Fix: ein nicht instanziertes Schatten-Tiefenprogramm
+      (MeshDepth ohne Instancing) rund 565 ms nach dem ersten Treffer, Werfer unbekannt (vermutlich ein kurzlebiges
+      Objekt der Fall-Show; finden: linkProgram im Dev-Build fangen, im Schattenpass das Objekt loggen). Hintergrund-
+      Ruinenbau nach ready auf OSM: kalt 22 Bilder über 33 ms in 1,5 s, warm 7.
 - [ ] **E301 Wasser mit Volumen** (User 2026-10-21, zu E294): Wasser ist heute je Art eigene Regel (Flussnetz,
       Kratersee mit Füllstand und Überlauf, Rinne) und wird als flache Fläche gezeichnet, ohne Volumen. Erst ein Plan
       mit Messung, nichts bauen: (1) Optik mit Volumen bei gleichen Regeln (Tiefe färbt und trübt, Grund sichtbar,
@@ -91,6 +92,10 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       0,3 s nach ready ein Bild von 117-166 ms und einige von 33-50 ms (OSM und Ruined City). Darin erste Textur-Uploads
       (512×512, 650×426 mit Mipmaps, vermutlich Minimap oder UI) und eine Programmabfrage von 5,5 ms. Ursache im
       letzten Ladeschritt und den ersten Draws; ab 0,5 s nach ready kein Bild über 30 ms mehr (nach E272).
+      2026-10-22 gebaut (Abschnitt 2): Minimap-Bild im Laden und asynchron gelesen, synthetische Klänge je eine Aufgabe
+      im Laden; die 650×426-Ziele sind Bloom-Mips ohne Upload-Kosten. Offen: im warmen OSM-Laden in 2 von 3 Läufen ein
+      Bild von 100-200 ms rund 70-180 ms nach ready ohne GL-Aufrufe, verteilt auf viele Aufgaben (Start der ~100
+      gehaltenen Audio-Ladevorgänge ~16 ms, getUniforms ~12 ms, erste Renders, Angular), keine Einzelursache.
 - [ ] **E273 Karten-Shader dominieren das Laden** (Messbasis Zweitrechner 2026-10-20, mit Texturen, warmes Profil):
       ready Ruined City 11,5 s, davon 8,7 s Karten-Shader; OSM Miltenberg 18,9 s, davon 13,8 s. Der GPU-Programmcache
       greift dort offenbar kaum. Ursache offen. Daneben: Wellenstart in der Belagerung ohne V-Sync je Lauf ein Bild
@@ -230,6 +235,9 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 - [ ] **E304 Zeichendichte, Teil 1**: Objekte gehen an einer Pixelgrenze je Grafikstufe statt fester Sichtweite;
       Linien (Mauern, Zäune, Hecken, Gleise) als Kartenelement, Formatversion 5, fern als Band; Sicht-Cube der Tower
       mit fester Stufe, unabhängig von der Kamera (AB1 bis AB4).
+- [ ] **E280, E275, E246 Laden und Aufwärmen**: Sicht-Cube zeichnet im Laden die geparkten Ruinen einmal (erster
+      Fall in Sicht 170 → 54 ms), Minimap-Bild und synthetische Klänge im Laden (OSM kalt erstes Bild 161 → 67 ms),
+      Editor aktualisiert die Ansicht erst nach dem Aufwärmen (kalt 1,6 s Standbild weg); Dekodierungen gewollt (AB6-AB8).
 - [ ] **E304 Brückendecks**: Deckstücke als gelegte Objekte im Objekt-Layer (Ausklammern, Pixelgrenze, LOD,
       Schatten nahe am Fokus), Decks sperren die Sicht der Tower; Würzburg 0,43 Mio. Dreiecke weniger je Ansicht (AB5).
 

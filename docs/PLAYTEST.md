@@ -779,6 +779,11 @@ das Auge. Würzburg neu bauen (`49.7932, 9.9312`), eigene Karten mit Version 4 l
   Geländer und Stege wie vorher, kein Farbsprung beim Wechsel aufs LOD, keine Lücke zwischen den Stücken.* Tower am
   Ufer neben einer Brücke bauen, deren Straße darunter die Route nimmt. *Sichtzellen unter dem Deck verdeckt, auf
   dem Deck sichtbar.* Im Editor eine Brücke ziehen und anklicken. *Die Kante wird gewählt, das Deck folgt.*
+- **AB6 Erster Fall in Sicht:** eigene Karte mit Zerstörung (OSM-Stadt), Tower bauen, ein Gebäude in seiner Sicht
+  fällen. *Kein Ruckler beim ersten Fall.*
+- **AB7 Übergang ins Spiel:** OSM-Karte laden. *Minikarte erscheint ohne Ruck, das Spiel startet ohne Hänger.*
+- **AB8 Editor kalt:** nach einem Update den Editor mit Demo Valley öffnen. *Kein langes Standbild, bevor die Ansicht
+  erscheint.*
 
 ## Eichtabelle
 
