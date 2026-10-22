@@ -89,4 +89,23 @@ describe('OSM parse', () => {
     expect(forest.area).toBeCloseTo(200 * 200 - 20 * 20, -1);
     expect(f.stats.forcedRings).toBe(0);
   });
+
+  it('keeps a building across the edge whole where its middle lies in the map, else leaves it out; a field is cut', () => {
+    const g = (x: number, y: number) => at(x, y);
+    const ring = (id: number, x0: number, x1: number, tags: Record<string, string>) => ({
+      type: 'way' as const,
+      id,
+      nodes: [id * 10, id * 10 + 1, id * 10 + 2, id * 10 + 3, id * 10],
+      geometry: [g(x0, 0), g(x1, 0), g(x1, 10), g(x0, 10), g(x0, 0)],
+      tags,
+    });
+    const data: OverpassResponse = { elements: [ring(1, 92, 104, { building: 'house' }), ring(2, 97, 113, { building: 'house' }), ring(3, 92, 104, { landuse: 'meadow' })] };
+    const f = parseOsm(data, frame, 100);
+    const inside = f.areas.find((a) => a.id === 1)!;
+    expect(Math.max(...inside.outer[0].map((p) => p.x))).toBeCloseTo(104, 3);
+    expect(inside.area).toBeCloseTo(120, 0);
+    expect(f.areas.some((a) => a.id === 2)).toBe(false);
+    const field = f.areas.find((a) => a.id === 3)!;
+    expect(field.area).toBeCloseTo(80, 0);
+  });
 });

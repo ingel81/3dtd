@@ -842,6 +842,8 @@ eingefrorenen Probe (Katalog-Modelle, keine Objekte auf Straßen oder in der Luf
   - Erlenbach, Miltenberg, Oberbergen: Stützmauern 2 121, 2 129, 407 → 1 117, 1 177, 316; Gebäude mit Mauern in
     Erlenbach 887 → 449; Gebäude über einem Keller 2 275, 3 198, 919 (tiefster 7,4, 9,1, 6,3 m; tiefer als 6 m nur,
     wo die Schnitte der Nachbarn den Sitz senkten).
+  - **Kartenrand:** ein Grundriss über dem Rand bleibt ganz, wenn seine Mitte in der Karte liegt (der Rest steht auf
+    dem Vorland), sonst entfällt er (`osm-parse.ts`); geschnitten stand er halbiert am Rand.
 - **Gruppen:** alle Modelle und Mauern eines Grundrisses tragen `group: osm-b<OSM-Id>`, der Editor verschiebt sie
   zusammen.
 

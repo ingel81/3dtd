@@ -9,7 +9,8 @@
  * as null. A line keeps its runs of points; a ring cut so keeps its runs as
  * chains (both ends outside the box), and every area is cut to the map's
  * square (square-clip.ts), so one that reaches past the map ends at its edge
- * and one around the whole map covers it. Where the chains leave open which
+ * and one around the whole map covers it; a building across the edge stays
+ * whole where its middle lies in the map and is left out where it does not. Where the chains leave open which
  * side of them the area lies, the buildings and roads say it for water.
  */
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
@@ -17,7 +18,7 @@ import type { MapPoint } from '../custom-map/map-document';
 import { landClassOf, waterClassOf } from './land-tags';
 import type { OverpassResponse } from './overpass-client';
 import { fillRings, texelGrid, type RasterGrid } from './convert/raster';
-import { clipArea } from './square-clip';
+import { clipArea, ringArea } from './square-clip';
 
 /** The map's centre and its projection: flat metres, exact enough over a few kilometres */
 export class OsmFrame {
@@ -155,6 +156,22 @@ export function parseOsm(data: OverpassResponse, frame: OsmFrame, half: number):
           return turned;
         }
       : undefined;
+    // A building stands whole or not at all: one across the square's edge keeps its rings where its middle lies in
+    // the map (its rest on the land beyond the border), else it is left out; cut, it stood sliced at the edge
+    if ((tags['building'] || tags['building:part']) && !chains.length && outer.rings.length) {
+      const points = outer.rings.flat();
+      if (points.some((p) => Math.abs(p.x) > half || Math.abs(p.y) > half)) {
+        const mx = (Math.min(...points.map((p) => p.x)) + Math.max(...points.map((p) => p.x))) / 2;
+        const my = (Math.min(...points.map((p) => p.y)) + Math.max(...points.map((p) => p.y))) / 2;
+        if (Math.abs(mx) > half || Math.abs(my) > half) {
+          stats.areasOutside++;
+          return;
+        }
+        const size = (rings: MapPoint[][]) => rings.reduce((s, r) => s + Math.abs(ringArea(r)), 0);
+        areas.push({ id, from, tags, outer: outer.rings, inner: inner.rings, area: size(outer.rings) - size(inner.rings) });
+        return;
+      }
+    }
     const cut = clipArea(outer.rings, inner.rings, chains, half, turn);
     if (!cut) {
       stats.areasOutside++;
