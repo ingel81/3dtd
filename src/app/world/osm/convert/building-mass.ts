@@ -407,6 +407,12 @@ export function raiseMass(
   }
   // A sloped roof's walls stop at the eaves; a flat one's go on to the parapet
   const height = round2(roof === 'flat' ? levels.height + MASS_PARAPET : levels.height);
+  const steeple = kind === 'church' ? steepleOf(outer, holes, rect, area, tags, local, levels.height) : null;
+  if (steeple) {
+    const nave: MapMassPart = { rings, height, floors: levels.floors, roof, ...(fit ? fit.fields : {}) };
+    const parts = [nave, steeple];
+    return { mass: { rings, height: round2(Math.max(height, steeple.height)), floors: levels.floors, roof: 'flat', facade, ...roofColour, parts }, ...placed };
+  }
   return {
     mass: { rings, height, floors: levels.floors, roof, ...(fit ? fit.fields : {}), facade, ...(roof !== 'flat' ? roofColour : {}) },
     ...placed,
@@ -442,6 +448,53 @@ function roofOf(tags: Readonly<Record<string, string>>, kind: BuildingKind, towe
   else if (kind === 'house' || kind === 'semi' || kind === 'terrace') roof = salt % 3 === 0 ? 'hip' : salt % 7 === 1 ? 'halfhip' : 'gable';
   else if (kind === 'palace' || kind === 'castle' || kind === 'townhall' || kind === 'station') roof = 'hip';
   return { roof, pitch: own ?? pitch };
+}
+
+/** A church's footprint at least this big (m²) and this full of its rectangle gets a steeple when OSM draws none */
+const STEEPLE_AREA = 250;
+const STEEPLE_FILL = 0.8;
+/** The steeple's side: this share of the nave's width, within these metres */
+const STEEPLE_SHARE = 0.55;
+const STEEPLE_SIDE = [4.5, 8] as const;
+/** Its walls this many times the nave's, at least and at most these metres; its helm this many times its side */
+const STEEPLE_RISE = 2.2;
+const STEEPLE_HEIGHT = [20, 42] as const;
+const STEEPLE_HELM = 2.4;
+
+/**
+ * The steeple of a church OSM gives only its outline (no `building:part`):
+ * a square stone tower at the nave's west end, inside its footprint, with a
+ * steep helm, as most village and town churches stand. Null for a small or
+ * irregular footprint, a ruin, and a nave no longer than wide
+ */
+function steepleOf(
+  outer: readonly MapPoint[],
+  holes: readonly (readonly MapPoint[])[],
+  rect: MassRect,
+  area: number,
+  tags: Readonly<Record<string, string>>,
+  local: (ring: readonly MapPoint[]) => number[],
+  naveHeight: number,
+): MapMassPart | null {
+  if (area < STEEPLE_AREA || area / (rect.a * rect.b) < STEEPLE_FILL || holes.length) return null;
+  if (tags['ruins'] || tags['building'] === 'ruins' || tags['historic'] === 'ruins') return null;
+  const long = Math.max(rect.a, rect.b);
+  const wide = Math.min(rect.a, rect.b);
+  if (long < wide * 1.3) return null;
+  // The nave's axis, towards the west (map x is east)
+  let axis = rect.a >= rect.b ? rect.u : { x: -rect.u.y, y: rect.u.x };
+  if (axis.x > 0) axis = { x: -axis.x, y: -axis.y };
+  const across = { x: -axis.y, y: axis.x };
+  const side = round2(Math.min(STEEPLE_SIDE[1], Math.max(STEEPLE_SIDE[0], wide * STEEPLE_SHARE)));
+  const reach = long / 2 - side / 2;
+  const mid = { x: rect.c.x + axis.x * reach, y: rect.c.y + axis.y * reach };
+  const corner = (along: number, out: number): MapPoint => ({
+    x: mid.x + (axis.x * along + across.x * out) * side * 0.5,
+    y: mid.y + (axis.y * along + across.y * out) * side * 0.5,
+  });
+  const ring = local([corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)]);
+  const height = round2(Math.min(STEEPLE_HEIGHT[1], Math.max(STEEPLE_HEIGHT[0], naveHeight * STEEPLE_RISE)));
+  return { rings: [ring], height, floors: Math.max(1, Math.round(height / 4)), roof: 'pyramid', ridge: round2(side * STEEPLE_HELM), facade: 'stone' };
 }
 
 /** A sloped roof's fields on a building or a part (MapMass.ridge, roofDirection, roofAcross) and its rise */
