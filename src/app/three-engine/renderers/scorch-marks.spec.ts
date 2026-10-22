@@ -7,7 +7,7 @@ import { ScorchMarks, type ScorchGround } from './scorch-marks';
 const grid: ScorchGround = {
   getCellAt: (x, z) =>
     x >= 0 && x < 40 && z >= 0 && z < 40 ? { key: Math.floor(x / 2) * 1000 + Math.floor(z / 2) } : undefined,
-  getGroundLocalYAt: () => 5,
+  getStandLocalYAt: () => 5,
 };
 
 describe('ScorchMarks', () => {
@@ -29,6 +29,29 @@ describe('ScorchMarks', () => {
     const matrix = marks.decals.instancedMesh.instanceMatrix.array;
     return Math.hypot(matrix[index * 16], matrix[index * 16 + 1], matrix[index * 16 + 2]);
   };
+
+  it('sinks the marks with a crater dug under them, and lays new ones on its floor', () => {
+    let floor = 5;
+    let stampsChanged: (() => void) | null = null;
+    const marks = new ScorchMarks(new PlaneGeometry(2, 2));
+    marks.setGround({
+      getCellAt: grid.getCellAt,
+      getStandLocalYAt: (x) => (x < 10 ? floor : 5),
+      onStampsChanged: (l) => ((stampsChanged = l), () => (stampsChanged = null)),
+    });
+    const yOf = (index: number) => marks.decals.instancedMesh.instanceMatrix.array[index * 16 + 13];
+    marks.mark(1, 5, 1, 'rocket', 0);
+    marks.mark(21, 5, 1, 'rocket', 0);
+    floor = 2;
+    stampsChanged!();
+    expect(yOf(0)).toBeCloseTo(2 + SCORCH_DECAL_CONFIG.heightOffset);
+    expect(yOf(1)).toBeCloseTo(5 + SCORCH_DECAL_CONFIG.heightOffset);
+    // A hit down in the crater is near its floor: it burns a mark there
+    expect(marks.mark(3, 2.5, 1, 'rocket', 0)).toBe(true);
+    expect(yOf(2)).toBeCloseTo(2 + SCORCH_DECAL_CONFIG.heightOffset);
+    marks.dispose();
+    expect(stampsChanged).toBeNull();
+  });
 
   it('burns the beam trail wider and darker than a rocket, in a mark of its own beside the guns', () => {
     const { marks, opacity } = create();
@@ -93,7 +116,7 @@ describe('ScorchMarks', () => {
     const { marks } = create();
     expect(marks.mark(-5, 5, 1, 'cannon', 0)).toBe(false);
     expect(marks.mark(1, 5 + SCORCH_DECAL_CONFIG.maxHeightAboveGround + 1, 1, 'rocket', 0)).toBe(false);
-    marks.setGround({ getCellAt: grid.getCellAt, getGroundLocalYAt: () => null });
+    marks.setGround({ getCellAt: grid.getCellAt, getStandLocalYAt: () => null });
     expect(marks.mark(1, 5, 1, 'cannon', 0)).toBe(false);
     marks.setGround(null);
     expect(marks.mark(1, 5, 1, 'cannon', 0)).toBe(false);

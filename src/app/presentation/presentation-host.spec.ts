@@ -121,7 +121,7 @@ describe('PresentationHost', () => {
       tower: (id) => towers.get(id) ?? null,
       scalars: { players: ['p1'], localPlayerId: 'p1', mannedTowers: [null] } as unknown as SimScalars,
     };
-    const ground = { getGroundLocalYAt: () => 5, getCellAt: () => undefined };
+    const ground = { getGroundLocalYAt: () => 5, getStandLocalYAt: () => 5, getCellAt: () => undefined };
     host = new PresentationHost({ engine: engine as unknown as ThreeTilesEngine, bus, source, ground });
   });
 

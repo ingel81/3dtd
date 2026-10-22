@@ -40,7 +40,7 @@ const TRAIL: TrailParticleConfig = {
 /** Every point lies on the route, its ground at 0. */
 const FLAT_ROUTE: ScorchGround = {
   getCellAt: (x, z) => ({ key: Math.round(x) * 1000 + Math.round(z) }),
-  getGroundLocalYAt: () => 0,
+  getStandLocalYAt: () => 0,
 };
 
 const SPLASH: GooSplash = { size: 2, stretch: 1, rotation: 0, variation: 0.5, color: 0x6fe021 };

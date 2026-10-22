@@ -30,6 +30,7 @@ import { iceDecal, iceExplosion } from './ice-effects';
 import { SiegeEffects } from './siege-effects';
 import { TOWER_TYPES, type TowerTypeId } from '../configs/tower-types.config';
 import type { ScorchGround } from '../three-engine/renderers/scorch-marks';
+import type { PresentationGround } from './ooze-presenter';
 
 /** What the presentation reads of the mirror (sim/client/mirror): enemy views, shadow towers, the last scalars */
 export interface PresentationSource {
@@ -44,7 +45,7 @@ export interface PresentationHostOptions {
   bus: MainEventBus;
   source: PresentationSource;
   /** The main thread's route grid: ground of the oozes, the heroes, the scorch marks, the beam, the ability loops */
-  ground: ScorchGround;
+  ground: ScorchGround & PresentationGround;
   /** The same grid, whose sight probes stand on the craters and rubble the simulation's enemies walk on */
   stampGround?: StampGround;
   /** The mirror's towers: the drawn ground under them holds when craters and rubble come (WorldDamagePresenter) */

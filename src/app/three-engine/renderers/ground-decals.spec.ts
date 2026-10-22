@@ -9,7 +9,7 @@ import { DISPLAY_OUTPUT_GLSL } from './display-output';
 /** Every point lies on the route, its ground at 0. */
 const FLAT_ROUTE: ScorchGround = {
   getCellAt: (x, z) => ({ key: Math.round(x) * 1000 + Math.round(z) }),
-  getGroundLocalYAt: () => 0,
+  getStandLocalYAt: () => 0,
 };
 
 /** Twice as long as wide, unturned */

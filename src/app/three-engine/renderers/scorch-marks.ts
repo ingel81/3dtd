@@ -4,12 +4,15 @@ import { DecalInstanceManager } from './decal-instance.manager';
 import { createScorchDecalShader } from './decal-shaders';
 
 /**
- * Ground the marks sit on: route cells for the one-per-cell rule and their
- * terrain height. GlobalRouteGridService provides both.
+ * Ground the marks sit on: route cells for the one-per-cell rule and the
+ * height the enemies stand on there, craters and rubble with it.
+ * GlobalRouteGridService provides both.
  */
 export interface ScorchGround {
   getCellAt(localX: number, localZ: number): { key: number } | undefined;
-  getGroundLocalYAt(localX: number, localZ: number): number | null;
+  getStandLocalYAt(localX: number, localZ: number): number | null;
+  /** Hear when craters or rubble change the ground; returns the unsubscribe */
+  onStampsChanged?(listener: () => void): () => void;
 }
 
 /**
@@ -21,6 +24,7 @@ export interface ScorchGround {
 export class ScorchMarks {
   readonly decals: DecalInstanceManager;
   private ground: ScorchGround | null = null;
+  private unsubscribeStamps: (() => void) | null = null;
   private readonly position = new Vector3();
   private readonly color = new Color();
 
@@ -33,7 +37,21 @@ export class ScorchMarks {
 
   /** Route grid to put marks on; null (the default) leaves no marks. */
   setGround(ground: ScorchGround | null): void {
+    this.unsubscribeStamps?.();
     this.ground = ground;
+    // A crater under marks laid before it: they sink with the ground instead of hanging where it was
+    this.unsubscribeStamps = ground?.onStampsChanged?.(() => this.reseat()) ?? null;
+  }
+
+  /** Every mark onto the ground as it stands now */
+  private reseat(): void {
+    const ground = this.ground;
+    if (!ground || this.decals.count === 0) return;
+    const offset = SCORCH_DECAL_CONFIG.heightOffset;
+    this.decals.moveVertically((x, z) => {
+      const y = ground.getStandLocalYAt(x, z);
+      return y === null ? null : y + offset;
+    });
   }
 
   /**
@@ -53,7 +71,7 @@ export class ScorchMarks {
 
     const cell = ground.getCellAt(localX, localZ);
     if (!cell) return false;
-    const groundY = ground.getGroundLocalYAt(localX, localZ);
+    const groundY = ground.getStandLocalYAt(localX, localZ);
     if (groundY === null || localY - groundY > cfg.maxHeightAboveGround) return false;
 
     const style: ScorchStyle = cfg.sources[source];
@@ -95,6 +113,8 @@ export class ScorchMarks {
   }
 
   dispose(): void {
+    this.unsubscribeStamps?.();
+    this.unsubscribeStamps = null;
     this.decals.dispose();
   }
 }

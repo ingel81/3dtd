@@ -201,6 +201,23 @@ export class DecalInstanceManager {
   }
 
   /**
+   * Every decal to the height `y` gives at its place (local x, z), turn and
+   * size kept; one for which it has none stays where it is
+   */
+  moveVertically(y: (x: number, z: number) => number | null): void {
+    const m = this.instancedMesh.instanceMatrix.array;
+    let moved = false;
+    for (const instance of this.instances.values()) {
+      const at = instance.index * 16;
+      const to = y(m[at + 12], m[at + 14]);
+      if (to === null || to === m[at + 13]) continue;
+      m[at + 13] = to;
+      moved = true;
+    }
+    if (moved) this.instancedMesh.instanceMatrix.needsUpdate = true;
+  }
+
+  /**
    * Get instance by ID
    */
   getInstance(id: string): DecalInstance | undefined {
