@@ -39,7 +39,7 @@ import { clothGeometry, isCloth } from './cloth';
 import { DEFAULT_SPIN, SPIN_GLSL } from './spin';
 import { addRotorTurn, DEFAULT_ROTOR, isRotor, rotorDepthMaterial, rotorGeometry, rotorHub } from './rotor';
 import { addNightWindows, isWindowGlass } from './night-windows';
-import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, holdBlend, REST_S, SETTLE_S, settleBlend, type LodBlend } from './lod-fade';
+import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, holdBlend, levelStart, REST_S, SETTLE_S, settleBlend, type LodBlend } from './lod-fade';
 import { InstanceList, type InstanceSource } from './instance-list';
 import { LineSpheres } from './line-spheres';
 import { MassLayer } from './mass-layer';
@@ -176,6 +176,8 @@ interface AssetBatch {
   blocksLos: boolean;
   /** The asset's damaged objects (setDamage): damage in the shader, both sides drawn */
   ruin: boolean;
+  /** Its impostor's level, -1 without */
+  impostorAt: number;
   /** A ruin batch's damage per object (writeDamage), its lists' extras */
   damage: DamageArrays | null;
   /** Plants of 0.8 m and less cast no shadow */
@@ -1168,6 +1170,7 @@ export class MapObjectLayer {
     const vegetation = entry.category === 'tree' || entry.category === 'plant';
     const tinted = vegetation || objects.some((o) => o.tint);
     const damage: DamageArrays | null = ruin ? damageArrays(capacity) : null;
+    const levels = this.levelsFor(model, lods, blocksLos, ruin);
     const b: AssetBatch = {
       entry,
       model,
@@ -1177,7 +1180,8 @@ export class MapObjectLayer {
       damage,
       casts: entry.category !== 'plant' || entry.height > 0.8,
       objects: objects.slice(),
-      levels: this.levelsFor(model, lods, blocksLos, ruin),
+      levels,
+      impostorAt: levels.findIndex((l) => l.impostor),
       draws: [],
       los: null,
       capacity,
@@ -1425,7 +1429,10 @@ export class MapObjectLayer {
         const d = Math.max(0, distance(sp, s, this.camPos) - r);
         // A piece of a line draws as long as its line: the line's limit, counted from the piece
         const lr = lines[s + 3];
-        const draw = lr > 0 ? d + lr * reach - Math.max(0, distance(lines, s, this.camPos) - lr) : r * reach;
+        let draw = lr > 0 ? d + lr * reach - Math.max(0, distance(lines, s, this.camPos) - lr) : r * reach;
+        // A tilted object (a felled tree) goes where its impostor would come: that is the model upright
+        const o = b.objects[i];
+        if ((o.pitch || o.roll) && b.impostorAt >= 0) draw = Math.min(draw, levelStart(b.levels[b.impostorAt], r * this.viewScale, lodBias, impostorFrom));
         blendAt(b.levels, d, r * this.viewScale, draw, lodBias, impostorFrom, blend);
         // Held on the level it showed alone when it came into this band, or last settled on in it (holdBlend): a
         // zoom by a notch lands objects inside a band, which then showed the other level till the band settled back
@@ -1633,7 +1640,8 @@ export class MapObjectLayer {
     const reach = e.row
       ? Math.max(e.footprint, (e.row / 2) * stretch)
       : at !== null ? Math.hypot(e.footprint * stretch, breadth / 2) : e.footprint;
-    const radius = Math.max(reach, b.model.height * 0.6) * s * Math.max(1, look.widthX, look.widthZ);
+    // A tilted one (a felled tree) reaches its height out from its foot
+    const radius = Math.max(reach, b.model.height * (o.pitch || o.roll ? 1.2 : 0.6)) * s * Math.max(1, look.widthX, look.widthZ);
     b.spheres[i * 4] = this.tmpPos.x;
     b.spheres[i * 4 + 1] = this.tmpPos.y + (b.model.height * s) / 2;
     b.spheres[i * 4 + 2] = this.tmpPos.z;

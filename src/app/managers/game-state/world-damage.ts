@@ -30,6 +30,8 @@ export interface WorldDamageHost {
 
 /** A crater's reach past its radius, for the towers that see anew (impact-stamp CRATER_REACH_SQ, rounded up) */
 const CRATER_SIGHT_REACH = 1.35;
+/** Metres past a crater's reach a tree it felled may stand (half its crown): the towers there look again */
+const FELLED_SIGHT_M = 4;
 
 /**
  * What the fight does to a destructible world, in the simulation
@@ -212,9 +214,12 @@ export class WorldDamage {
     if (!dug) return;
     const touched = this.changed(dug, field);
     const e = this.craters.entry(dug.index);
-    // A new crater under the routes (one in the place of the smallest too): the towers probe the enemies' new ground
-    // (a deeper one, a few cm more, does not ask)
-    if (touched && (!dug.before || dug.before[0] !== e[0] || dug.before[1] !== e[1])) this.host.seeAround(e[0] / 10, e[1] / 10, (e[2] / 10) * CRATER_SIGHT_REACH);
+    // A new or a wider crater (one in the place of the smallest too): the towers near it look again, under the routes
+    // at the enemies' new ground, beside them past the trees its blast felled (crater-obliteration.ts, derived from
+    // the craters on the main thread). A deeper one, a few cm more, does not ask
+    if (!dug.before || dug.before[0] !== e[0] || dug.before[1] !== e[1] || dug.before[2] !== e[2]) {
+      this.host.seeAround(e[0] / 10, e[1] / 10, (e[2] / 10) * CRATER_SIGHT_REACH + (touched ? 0 : FELLED_SIGHT_M));
+    }
   }
 
   /** Crater `dug.index` changed: its stamp out of `field` as it was and in as it is, the op; whether it reached the field */

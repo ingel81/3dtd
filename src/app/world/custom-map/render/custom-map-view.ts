@@ -91,6 +91,14 @@ const BIRD_BIOMES: ReadonlySet<MapBiome> = new Set(['temperate', 'mountain', 'sw
 /** Woods for fireflies and open land for birds are counted in squares of this size, metres; a wood has this many trees */
 /** Milliseconds at least between two rebuilds of contact shadows and effects while objects keep changing */
 const EDIT_REFRESH_MS = 120;
+/** A felled tree falls over this many game seconds, from a tilt it starts at to the one it lies at (radians: its crown on the ground) */
+const FALL_SECONDS = 1.4;
+const FALL_FIRST = 0.02;
+const FELLED_PITCH = 1.4;
+/** Share of its crown's radius (catalogue footprint) a felled tree lies lifted on its branches */
+const FELLED_LIFT = 0.45;
+/** A felled tree's withered leaves and dull trunk */
+const FELLED_TINT = '#b29e72';
 const WOOD_CELL = 30;
 const WOOD_TREES = 6;
 /** Shore samples for fireflies every this many metres, and at most this many swarms */
@@ -291,6 +299,10 @@ export class CustomMapView {
   private visible: ((o: MapObject) => boolean) | null = null;
   /** Objects a crater wiped out (setGone) */
   private readonly gone = new Set<string>();
+  /** Trees a blast felled (setFelled): the way they fall, map radians, and the game second they began to (null: lying) */
+  private readonly felled = new Map<string, { heading: number; start: number | null }>();
+  /** Of those, the ones still falling */
+  private readonly falling = new Set<string>();
   /** The ruins' smouldering nests as last set (refreshEmbers) */
   private embersKey: string | null = null;
   /** The objects shown, by id, as they were last shown: a change finds what it replaces (objectsChanged) */
@@ -836,6 +848,7 @@ export class CustomMapView {
   update(dtSeconds: number, camera: Camera, focus?: Vector3): void {
     if (this.disposed) return;
     const t0 = performance.now();
+    this.fallTrees();
     if (this.flyingDebris) this.flyingDebris.time += dtSeconds;
     if (this.options.ruins) {
       DAMAGE_UNIFORMS.uDamageTime.value = this.damageTime += dtSeconds;
@@ -1407,7 +1420,7 @@ export class CustomMapView {
     // One pass over the map's objects for the few that changed, no map over all of them
     const wanted = new Set(ids);
     const now = new Map<string, MapObject>();
-    for (const o of this.doc.objects) if (wanted.has(o.id)) now.set(o.id, o);
+    for (const o of this.doc.objects) if (wanted.has(o.id)) now.set(o.id, this.drawnAs(o));
     const added: MapObject[] = [];
     const removed: MapObject[] = [];
     const moved: MapObject[] = [];
@@ -1437,10 +1450,77 @@ export class CustomMapView {
     return this.addObjects(added);
   }
 
-  /** The objects the view shows: the document's, less the hidden ones */
+  /** The objects the view shows: the document's, less the hidden ones, the felled trees lying */
   private shownObjects(): MapObject[] {
-    if (!this.visible && !this.gone.size) return this.doc.objects;
-    return (this.shownList ??= this.doc.objects.filter((o) => this.shows(o)));
+    if (!this.visible && !this.gone.size && !this.felled.size) return this.doc.objects;
+    return (this.shownList ??= this.doc.objects.filter((o) => this.shows(o)).map((o) => this.drawnAs(o)));
+  }
+
+  /**
+   * Object `o` as drawn: a felled tree turned to the way it falls (model +z,
+   * object-ground.ts) and tipped over about its foot, slowly at first and
+   * then faster, to lie across the ground in a withered tint, blocking
+   * neither sight nor building (the same instanced batches, no draw of its own)
+   */
+  private drawnAs(o: MapObject): MapObject {
+    const f = this.felled.get(o.id);
+    if (!f) return o;
+    const t = f.start === null ? 1 : Math.min(1, Math.max(0, (this.gameNow - f.start) / FALL_SECONDS));
+    const k = t * t;
+    // Down, it rests on its crown's branches: its foot lifted by part of the crown's width
+    const crown = (this.entries?.map.get(o.asset)?.footprint ?? 2) * (o.scale || 1);
+    return { ...o, z: o.z + crown * FELLED_LIFT * k, rotation: f.heading - Math.PI / 2, pitch: Math.max(FALL_FIRST, FELLED_PITCH * k), roll: undefined, blocksLos: false, blocksBuild: false, tint: FELLED_TINT };
+  }
+
+  /**
+   * Trees a blast felled (crater-obliteration.ts) lie down, each away from
+   * its blast (`heading`, map radians), falling over FALL_SECONDS of game
+   * time when `now` (else lying already: a load, a seek); those standing
+   * again (`rose`) stand up
+   */
+  setFelled(felled: readonly { id: string; heading: number; now: boolean }[], rose: readonly string[]): void {
+    if (!felled.length && !rose.length) return;
+    for (const f of felled) {
+      this.felled.set(f.id, { heading: f.heading, start: f.now ? this.gameNow : null });
+      if (f.now) this.falling.add(f.id);
+      else this.falling.delete(f.id);
+    }
+    for (const id of rose) {
+      this.felled.delete(id);
+      this.falling.delete(id);
+    }
+    this.shownList = null;
+    void this.objectsChanged([...felled.map((f) => f.id), ...rose]);
+  }
+
+  /** The falling trees a step further, in place in their batches; those down settle as any moved object */
+  private fallTrees(): void {
+    if (!this.falling.size) return;
+    const moving: MapObject[] = [];
+    const down: string[] = [];
+    for (const id of this.falling) {
+      const f = this.felled.get(id);
+      const had = this.shown.get(id);
+      if (!f || f.start === null || !had) {
+        this.falling.delete(id);
+        continue;
+      }
+      if (this.gameNow - f.start >= FALL_SECONDS) {
+        f.start = null;
+        this.falling.delete(id);
+        down.push(id);
+        continue;
+      }
+      const o = this.drawnAs(had);
+      this.shown.set(id, o);
+      moving.push(o);
+    }
+    // One not in its batch yet (moving out of the sight blockers) takes its pose when it comes in
+    if (moving.length) this.objects.updateObjects(moving);
+    if (down.length) {
+      this.shownList = null;
+      void this.objectsChanged(down);
+    }
   }
 
   /** Whether object `o` shows: the filter (setVisible) lets it and no crater wiped it out (setGone) */

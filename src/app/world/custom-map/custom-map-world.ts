@@ -30,7 +30,8 @@ import { MapGroundPick } from './custom-map-ground-pick';
 import { type CustomMapDocument, type MapEnvironment, type MapObject, difficultyFactor, geoToMap, MAP_METERS_PER_DEGREE, mapToGeo } from './map-document';
 import { environmentAt, hiddenObjectsAt, messagesOf } from './wave-events';
 import { CustomMapDestruction, DESTRUCTIBLE_CATEGORIES, FALLEN_SCALE, passingObjectIds, type StructureEntry } from './custom-map-destruction';
-import { boxTarget, CraterObliteration, roundTarget, type ObliterationRect, type ObliterationTarget } from './crater-obliteration';
+import { boxTarget, CraterObliteration, roundTarget, type ObliterationChange, type ObliterationRect, type ObliterationTarget } from './crater-obliteration';
+import { craterCm } from '../../map-ops/impact-stamp';
 import { CustomMapGroundDamage } from './custom-map-ground-damage';
 import { CraterLakes, mapCraterSources, waterKindAt } from './crater-lakes';
 import type { CraterWaterEntry } from './render/water/crater-water';
@@ -164,6 +165,8 @@ export class CustomMapWorld implements WorldProvider {
   private readonly fallenNow = (id: string): boolean => this.stages.get(id)?.stage === 3;
   /** What the craters wiped out or gave back since the last frame, for the view: taken out in the next (update) */
   private readonly goneLater = new Map<string, boolean>();
+  /** Trees a blast felled (true) or that stand again (false) since the last frame, for the view in the next one */
+  private readonly felledLater = new Map<string, boolean>();
   /** What a strike wiped out and the tiles its craters changed: from the frame after the strike's (E271) */
   private readonly goneGate = new NextFrameGate();
   private readonly dugGate = new NextFrameGate();
@@ -285,6 +288,7 @@ export class CustomMapWorld implements WorldProvider {
     // Stages that came before the view: the ruins as they lie
     if (this.stages.size) view.setObjectDamage([...this.stages].map(([id, s]) => ({ id, stage: s.stage, heading: s.heading, now: false })));
     view.setGone(this.obliteration.goneIds(), []);
+    view.setFelled(this.obliteration.felledIds().map((id) => this.felledHow(id, false)), []);
     for (const [id, holes] of this.holes) {
       if (!this.stages.has(id)) view.setObjectDamage([{ id, stage: 1, heading: -1, now: false }]);
       view.setObjectHoles(id, holes, false);
@@ -423,6 +427,12 @@ export class CustomMapWorld implements WorldProvider {
       const back = [...this.goneLater].filter(([, g]) => !g).map(([id]) => id);
       this.goneLater.clear();
       this.view.setGone(gone, back);
+    }
+    if (this.felledLater.size && this.goneGate.open) {
+      const felled = [...this.felledLater].filter(([, down]) => down).map(([id]) => this.felledHow(id, true));
+      const rose = [...this.felledLater].filter(([, down]) => !down).map(([id]) => id);
+      this.felledLater.clear();
+      this.view.setFelled(felled, rose);
     }
     if (this.dugGate.open) this.groundDamage?.flush();
     if (this.craterWaterDue) {
@@ -827,9 +837,11 @@ export class CustomMapWorld implements WorldProvider {
       if (structures.has(o.id) || this.passingIds.has(o.id)) continue;
       const entry = byAsset.get(o.asset);
       if (!entry || DESTRUCTIBLE_CATEGORIES.has(entry.category)) continue;
-      targets.push(roundTarget(o.id, false, o.x, o.y, entry.footprint * (o.scale || 1)));
+      // A tree falls to a blast before a deep crater wipes it out
+      targets.push(roundTarget(o.id, false, o.x, o.y, entry.footprint * (o.scale || 1), entry.category === 'tree'));
     }
-    this.goneChanged({ gone: [], back: this.obliteration.setTargets(targets) });
+    this.objectsById = null;
+    this.goneChanged(this.obliteration.setTargets(targets));
     this.goneChanged(this.obliteration.update(null, this.craterCmAt, this.fallenNow));
   }
 
@@ -839,28 +851,66 @@ export class CustomMapWorld implements WorldProvider {
     this.goneChanged(this.obliteration.update(rect, this.craterCmAt, this.fallenNow));
   }
 
-  /** Objects a crater wiped out leave the picture, the sight and the build blocking; those it gave back return */
-  private goneChanged(change: { gone: readonly string[]; back: readonly string[] }): void {
-    if (!change.gone.length && !change.back.length) return;
+  /**
+   * Objects a crater wiped out leave the picture, the sight and the build
+   * blocking, and trees a blast felled lie down out of the sight and the
+   * build blocking; those it gave back return
+   */
+  private goneChanged(change: ObliterationChange): void {
+    const freed = [...change.gone, ...change.felled];
+    if (!freed.length && !change.back.length && !change.rose.length) return;
     // The view takes them out in the next frame, not in the strike's: that one carries the blast and the falls
     this.goneGate.mark();
     for (const id of change.gone) this.goneLater.set(id, true);
     for (const id of change.back) this.goneLater.set(id, false);
-    if (change.back.length) this.surface.setObjectCatalog(this.catalogObjects, this.passingIds, this.outIds());
+    for (const id of change.felled) this.felledLater.set(id, true);
+    for (const id of change.rose) this.felledLater.set(id, false);
+    if (change.back.length || change.rose.length) this.surface.setObjectCatalog(this.catalogObjects, this.passingIds, this.outIds());
     else {
-      const gone = new Set(change.gone);
-      this.surface.dropObjects(this.doc.objects.filter((o) => gone.has(o.id)));
+      const out = new Set(freed);
+      this.surface.dropObjects(this.doc.objects.filter((o) => out.has(o.id)));
     }
   }
 
-  /** What blocks no building now: the fallen, what a wave event keeps out and what a crater wiped out */
+  /** What blocks no building now: the fallen, what a wave event keeps out, what a crater wiped out or a blast felled */
   private outIds(): ReadonlySet<string> {
     const gone = this.obliteration.goneIds();
-    if (!gone.length) return this.fallenIds;
+    const felled = this.obliteration.felledIds();
+    if (!gone.length && !felled.length) return this.fallenIds;
     const out = new Set(this.fallenIds);
     for (const id of gone) out.add(id);
+    for (const id of felled) out.add(id);
     return out;
   }
+
+  /**
+   * How felled tree `id` lies: away from the crater that reaches deepest
+   * under it (its blast), falling now when that crater was dug in this run
+   * and `live` (not after a load or a seek: there it lies already)
+   */
+  private felledHow(id: string, live: boolean): { id: string; heading: number; now: boolean } {
+    const o = (this.objectsById ??= new Map(this.doc.objects.map((m) => [m.id, m]))).get(id);
+    let best: { x: number; y: number; key: string } | null = null;
+    let deepest = 0;
+    for (const [key, c] of this.groundDamage?.craters() ?? []) {
+      if (!o) break;
+      const dx = o.x - c.x;
+      const dy = o.y - c.y;
+      const cm = craterCm(dx * dx + dy * dy, c.radius, c.depthCm);
+      if (cm < deepest) {
+        deepest = cm;
+        best = { x: c.x, y: c.y, key };
+      }
+    }
+    // Straight under the middle of its crater, or none found: a way of its own from its id
+    const dx = o && best ? o.x - best.x : 0;
+    const dy = o && best ? o.y - best.y : 0;
+    const heading = dx * dx + dy * dy > 1e-4 ? Math.atan2(dy, dx) : ([...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 628, 7)) / 100;
+    return { id, heading, now: live && !!best && this.groundDamage?.dugAt(best.key) != null };
+  }
+
+  /** The document's objects by id, for the few felled trees looked up; anew with the objects */
+  private objectsById: Map<string, MapObject> | null = null;
 
   /** Fallen structures lie in ruins (damageChanged) and stop blocking the build */
   private fell(objects: readonly MapObject[]): void {

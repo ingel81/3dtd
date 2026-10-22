@@ -352,6 +352,19 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   im Replay und nach einem Restore gleich; ein Restore ohne den Krater gibt alles zurück. Die Simulation braucht
   nichts davon: ein Gefallenes sperrt schon nicht mehr, Sichtlinien kommen von der Darstellung. Schächte aus vielen
   Atomschlägen bleiben erlaubt (Krater stapeln wie bisher), in ihnen ist alles weg.
+- **Bäume fallen** (2026-10-23): ein Baum (Kategorie `tree`) fällt vorher, wo die Krater unter seinem Stamm oder halb
+  unter seiner Krone 8 cm tief reichen (`FELL_CM`): die Explosion, die den Krater grub, hat ihn gefällt. Explosion
+  heißt alles, was gräbt (Kanone, Rakete, Heldengranate, Atomschlag, Belagerungsgranate); Splash ohne Krater (Magie,
+  Frost, Flak) fällt nichts. Wie das Auslöschen eine Funktion der Kraterliste, kein Zustand in Simulation, Laufregeln
+  oder Snapshot: Zehntausende Bäume einer OSM-Welt kosten dort nichts, Koop, Replay und Restore kommen auf dieselben
+  Bäume. Gefällt heißt: aus dem Bauverbot und aus den Sichtblockern; die Simulation fragt dafür bei jedem neuen oder
+  geweiteten Krater, auch abseits der Routen, die Sicht der Tower in Reichweite neu an (`WorldDamage.dig`, 1,35
+  Kraterradien plus 4 m; ein nur vertiefter fragt nicht), deterministisch wie jede Sichtanfrage. Im Bild
+  (`CustomMapView.setFelled`) kippt der Baum vom Krater weg, der unter ihm am tiefsten ist (in 1,4 s Spielzeit,
+  langsam zuerst; nach Laden, Restore oder Sprung liegt er schon), und bleibt mit welkem Laub (Instanzfarbe) auf
+  seinen Ästen liegen: dieselben Instanz-Batches über `pitch` und `tint`, eine Charge je Baumart für die liegenden
+  (sie sperren keine Sicht), kein Impostor (der zeigte ihn stehend; ein liegender endet, wo der Impostor käme). Ein
+  tieferer Krater löscht ihn aus wie bisher.
 - **Vorab übersetzt:** die Ruinen-Batches zerstörbarer Assets entstehen leer mit der Karte, die Grundriss-Gebäude bekommen
   verborgene Ruinen je Fassade und Dachdeckung, die Decken und Glutnester je einen verborgenen Platzhalter; das
   Warm-up zeigt sie und baut ihre Programme, auch die des Schattens: es zeigt dazu auch die Sichtblocker, die `attach`

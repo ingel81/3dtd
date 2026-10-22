@@ -147,6 +147,19 @@ describe('WorldDamage (docs/DESTRUCTION_PLAN.md)', () => {
     expect(damage.structures.hpList()).toEqual([0, 0, 300]);
   });
 
+  it('lets the towers look again round a new crater off the routes too (the trees its blast felled), not round a deeper one', () => {
+    const { damage, host } = setup([]);
+    const at = geo(900, 900);
+    damage.impact(at.lat, at.lon, PROJECTILE_TYPES.rocket, false);
+    expect(host.seeAround).toHaveBeenCalledTimes(1);
+    const [x, y, r] = vi.mocked(host.seeAround).mock.calls[0];
+    expect([x, y]).toEqual([900, 900].map((v) => expect.closeTo(v, 0)));
+    expect(r).toBeCloseTo(2.5 * 1.35 + 4, 5);
+    // The same spot again: deeper by a few cm, no new look
+    damage.impact(at.lat, at.lon, PROJECTILE_TYPES.rocket, false);
+    expect(host.seeAround).toHaveBeenCalledTimes(1);
+  });
+
   it('takes whole HP along a beam, as much over its sub-steps as over its whole burn', () => {
     const { damage } = setup([house('a', 0, 0, { hp: 3000 })]);
     const perSecond = ABILITY_DESTRUCTION['orbital-laser'].structureHpPerSecond!;
