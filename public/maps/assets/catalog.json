@@ -3707,7 +3707,7 @@
       "triangles": 168,
       "footprint": 2.0,
       "height": 1.0,
-      "blocksLos": false,
+      "blocksLos": true,
       "blocksBuild": false,
       "scaleRange": [
         1,
@@ -3726,6 +3726,18 @@
         "textures/dark_planks_diff_1k-30d91ae2628b7aa7.ktx2",
         "textures/dark_planks_nor_gl_1k-e30b3011dfc4fc2f.ktx2"
       ],
+      "lod": [
+        {
+          "file": "models/bridge-deck-lod1.glb",
+          "screen": 0.0099,
+          "triangles": 50,
+          "tone": [
+            0.814,
+            0.852,
+            0.866
+          ]
+        }
+      ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/brown_planks_07, dark_planks"
     },
     {
@@ -3736,7 +3748,7 @@
       "triangles": 1232,
       "footprint": 2.0,
       "height": 0.5,
-      "blocksLos": false,
+      "blocksLos": true,
       "blocksBuild": false,
       "scaleRange": [
         1,
@@ -3759,6 +3771,18 @@
         "textures/stacked_stone_wall_diff_1k-c2b7dbb639203382.ktx2",
         "textures/stacked_stone_wall_nor_gl_1k-fda0783b9d3749b4.ktx2"
       ],
+      "lod": [
+        {
+          "file": "models/bridge-deck-stone-lod1.glb",
+          "screen": 0.0099,
+          "triangles": 318,
+          "tone": [
+            0.882,
+            0.841,
+            0.739
+          ]
+        }
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/stacked_stone_wall"
     },
     {
@@ -3769,7 +3793,7 @@
       "triangles": 744,
       "footprint": 2.0,
       "height": 0.4,
-      "blocksLos": false,
+      "blocksLos": true,
       "blocksBuild": false,
       "scaleRange": [
         1,
@@ -3797,7 +3821,7 @@
       "triangles": 332,
       "footprint": 2.0,
       "height": 1.1,
-      "blocksLos": false,
+      "blocksLos": true,
       "blocksBuild": false,
       "scaleRange": [
         1,
@@ -3817,6 +3841,18 @@
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2"
+      ],
+      "lod": [
+        {
+          "file": "models/bridge-deck-concrete-lod1.glb",
+          "screen": 0.0099,
+          "triangles": 92,
+          "tone": [
+            1.079,
+            1.096,
+            1.105
+          ]
+        }
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/asphalt_02; https://polyhaven.com/a/brushed_concrete"
     },
