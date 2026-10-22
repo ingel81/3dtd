@@ -129,7 +129,7 @@ const MAX_FIREFLY_SPOTS = 60;
  *
  * Line of sight: `losBlockers` holds the terrain and the objects that block
  * sight; it is the group a world provider hands to the LOS cube. Everything
- * else in `group` (water, decoration, bridges, the apron) is outside it and
+ * else in `group` (water, decoration, the apron) is outside it and
  * marked `userData.losTransparent`. The LOS cube hides every direct scene
  * child except its group, so `losBlockers` must be a direct child of the
  * scene: `attach(scene)` adds `group` and lifts `losBlockers` beside it
@@ -388,8 +388,7 @@ export class CustomMapView {
     });
     this.edgeTrees.group.name = 'custom-map-edge-trees';
     this.group.add(this.edgeTrees.group);
-    this.bridges = new BridgeLayer(this.heights, assets);
-    this.group.add(this.bridges.group);
+    this.bridges = new BridgeLayer(this.heights, assets, this.objects);
     this.effects = new EffectLayer(
       this.heights,
       (x, y) => this.waterLevelAt(x, y),

@@ -1,10 +1,10 @@
-import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, PerspectiveCamera, Ray, Scene, Vector3 } from 'three';
+import { BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, PerspectiveCamera, Quaternion, Ray, Scene, Vector3 } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import type { MapObject } from '../../map-document';
 import type { AssetCatalog } from '../asset-catalog';
 import { HeightField } from '../height-field';
 import { MapAssetLibrary } from '../map-asset-library';
-import { MapObjectLayer } from './object-layer';
+import { MapObjectLayer, type LaidObject } from './object-layer';
 import type { InstanceList } from './instance-list';
 
 /**
@@ -433,6 +433,67 @@ describe('MapObjectLayer in the editor', () => {
     // The last ones out: the asset's meshes go
     layer.removeObjects(['p0', 'p2', 'p3', 'p4', ...Array.from({ length: 30 }, (_, k) => `p${10 + k}`)]);
     expect(los.children.filter((c) => c instanceof InstancedMesh)).toHaveLength(0);
+    layer.dispose();
+  });
+
+  it("lays the view's own pieces at their height and size, keeps them over setObjects and lets the pick pass", async () => {
+    const los = new Group();
+    const layer = new MapObjectLayer(field(), library(), los);
+    const deck = (k: number, x: number, at = 7): LaidObject => ({
+      ...post(100 + k, x), id: `deck${k}`, at, breadth: 3, stretch: 2, line: 'bridge:e',
+    });
+    await layer.setObjects([post(0, 10)]);
+    await layer.setLaid('bridges', [deck(0, 30), deck(1, 50)]);
+    viewer(layer)(30);
+    const total = () => shown(los, 'post') + shown(los, 'post-lod1');
+    expect(total()).toBe(3);
+    // Matrix: at its height whatever the ground, twice as long along model x, three times as wide along z
+    const matrixOf = (x: number): Matrix4 | null => {
+      const [mesh] = meshes(los, 'post');
+      const m = new Matrix4();
+      for (let k = 0; k < mesh.count; k++) {
+        mesh.getMatrixAt(k, m);
+        if (Math.abs(m.elements[12] + x) < 1e-3) return m;
+      }
+      return null;
+    };
+    const at30 = matrixOf(30)!;
+    const pos = new Vector3();
+    const scale = new Vector3();
+    at30.decompose(pos, new Quaternion(), scale);
+    expect(pos.y).toBeCloseTo(7);
+    expect([scale.x, scale.y, scale.z].map((v) => +v.toFixed(3))).toEqual([2, 1, 3]);
+    // The editor picks the document's objects only
+    const pick = (x: number) => layer.raycast(new Ray(new Vector3(-x, 100, 0), new Vector3(0, -1, 0)))?.object.id ?? null;
+    expect(pick(10)).toBe('p0');
+    expect(pick(30)).toBeNull();
+    // The document's objects replaced: the laid pieces stay; laid anew: moved, gone, new
+    await layer.setObjects([post(0, 10), post(1, 70)]);
+    expect(total()).toBe(4);
+    await layer.setLaid('bridges', [deck(0, 30, 9), deck(2, 90)]);
+    viewer(layer)(31);
+    expect(total()).toBe(4);
+    matrixOf(30)!.decompose(pos, new Quaternion(), scale);
+    expect(pos.y).toBeCloseTo(9);
+    expect(matrixOf(50)).toBeNull();
+    // A height change leaves them where they were laid
+    layer.refreshHeights();
+    matrixOf(30)!.decompose(pos, new Quaternion(), scale);
+    expect(pos.y).toBeCloseTo(9);
+    await layer.setLaid('bridges', []);
+    expect(total()).toBe(2);
+    layer.dispose();
+  });
+
+  it('lays pieces that come while setObjects builds, once it is done', async () => {
+    const los = new Group();
+    const layer = new MapObjectLayer(field(), library(), los);
+    const deck: LaidObject = { ...post(100, 30), id: 'deck0', at: 0, breadth: 1 };
+    const building = layer.setObjects([post(0, 10)]);
+    const laying = layer.setLaid('bridges', [deck]);
+    await Promise.all([building, laying]);
+    viewer(layer)(30);
+    expect(shown(los, 'post') + shown(los, 'post-lod1')).toBe(2);
     layer.dispose();
   });
 

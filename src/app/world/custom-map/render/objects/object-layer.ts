@@ -219,6 +219,31 @@ export interface ObjectHit {
   distance: number;
 }
 
+/**
+ * A piece the view lays itself, not one of the document's objects (a
+ * bridge's deck, paths/path-bridges.ts): its origin stands at the height
+ * `at`, whatever the ground does, it is drawn `breadth` times wider along
+ * model z and `stretch` times longer along model x, and the editor's pick
+ * passes through it. Otherwise it is drawn like any object of its asset:
+ * levels, pixel limit (by its `line`), shadow, LOS cube
+ */
+export interface LaidObject extends MapObject {
+  at: number;
+  breadth: number;
+}
+
+/** The height a laid piece stands at (LaidObject.at), null for an object of the document */
+function laidAt(o: MapObject): number | null {
+  return (o as Partial<LaidObject>).at ?? null;
+}
+
+/** Whether two laid pieces draw the same */
+function sameLaid(a: LaidObject, b: LaidObject): boolean {
+  return a.asset === b.asset && a.x === b.x && a.y === b.y && a.at === b.at && a.z === b.z && a.rotation === b.rotation
+    && (a.roll ?? 0) === (b.roll ?? 0) && (a.pitch ?? 0) === (b.pitch ?? 0) && a.scale === b.scale
+    && (a.stretch ?? 1) === (b.stretch ?? 1) && a.breadth === b.breadth && a.line === b.line && a.blocksLos === b.blocksLos;
+}
+
 export interface ObjectLayerOptions {
   /** The view's impostors (shared with its other object layers); without them far trees keep their model */
   impostors?: ImpostorCache;
@@ -354,6 +379,13 @@ export class MapObjectLayer {
   version = 0;
   /** The buildings raised from their footprint */
   private readonly masses: MassLayer;
+  /** The pieces the view lays itself (setLaid), by who lays them: drawn beside the document's, kept over setObjects */
+  private readonly laid = new Map<string, LaidObject[]>();
+  /** The laid pieces in the batches now, by id */
+  private laidDrawn = new Map<string, LaidObject>();
+  /** Counts the setLaid calls; a setObjects in flight lays what came after its start once it is done */
+  private laidVersion = 0;
+  private setting = 0;
 
   constructor(
     private readonly field: HeightField,
@@ -374,9 +406,65 @@ export class MapObjectLayer {
     this.group.add(this.masses.group);
   }
 
-  /** Replaces every object; resolves when the models are in */
+  /** Replaces every object of the document (the laid pieces stay, setLaid); resolves when the models are in */
   async setObjects(objects: MapObject[]): Promise<void> {
+    this.setting++;
+    const version = this.laidVersion;
+    const laid = this.allLaid();
+    try {
+      await this.replaceObjects([...objects, ...laid.values()], laid);
+    } finally {
+      this.setting--;
+    }
+    // Pieces laid while it built: in now, as setLaid would have put them
+    if (this.setting === 0 && version !== this.laidVersion && !this.disposed) await this.syncLaid();
+  }
+
+  /**
+   * The pieces `key` lays (a bridge layer's decks), in place of the ones it
+   * laid before: those that moved are written anew, new ones come in, gone
+   * ones go. Resolves when they show
+   */
+  async setLaid(key: string, pieces: LaidObject[]): Promise<void> {
+    if (this.disposed) return;
+    if (pieces.length) this.laid.set(key, pieces);
+    else this.laid.delete(key);
+    this.laidVersion++;
+    // A setObjects under way takes them along when it is done
+    if (this.setting === 0) await this.syncLaid();
+  }
+
+  private allLaid(): Map<string, LaidObject> {
+    const all = new Map<string, LaidObject>();
+    for (const list of this.laid.values()) for (const o of list) all.set(o.id, o);
+    return all;
+  }
+
+  /** The batches brought to the laid pieces as they are now */
+  private async syncLaid(): Promise<void> {
+    const want = this.allLaid();
+    const drawn = this.laidDrawn;
+    this.laidDrawn = want;
+    const gone: string[] = [];
+    const moved: LaidObject[] = [];
+    const added: LaidObject[] = [];
+    for (const id of drawn.keys()) if (!want.has(id)) gone.push(id);
+    for (const [id, o] of want) {
+      const was = drawn.get(id);
+      if (!was) added.push(o);
+      else if (!sameLaid(was, o)) moved.push(o);
+    }
+    // Another asset or LOS flag: out and in again
+    const rest = moved.length ? this.updateObjects(moved) : [];
+    gone.push(...rest.map((o) => o.id));
+    if (gone.length) this.removeObjects(gone);
+    added.push(...(rest as LaidObject[]));
+    if (added.length) await this.addObjects(added);
+  }
+
+  private async replaceObjects(objects: MapObject[], laid: Map<string, LaidObject>): Promise<void> {
     const generation = ++this.generation;
+    this.laidDrawn = laid;
     const masses = objects.filter(MassLayer.owns);
     // Raised buildings damaged before they were built take their damage along
     const hurt = masses.filter((o) => this.damaged.has(o.id)).map((o) => ({ id: o.id, ...this.damaged.get(o.id)! }));
@@ -898,6 +986,8 @@ export class MapObjectLayer {
         const along = cx * dx + cy * dy + cz * dz;
         const r = sp[s + 3];
         if (along < -r || cx * cx + cy * cy + cz * cz - along * along > r * r) continue;
+        // A laid piece is not the document's: the editor picks what it was laid from (a bridge's path edge)
+        if (laidAt(b.objects[i]) !== null) continue;
         for (const part of b.levels[0].parts) {
           pick.geometry = part.geometry;
           pick.material = part.material;
@@ -1470,6 +1560,8 @@ export class MapObjectLayer {
    */
   private reseat(b: AssetBatch, i: number): boolean {
     const o = b.objects[i];
+    // A laid piece keeps its height (a bridge's deck over a crater at its end)
+    if (laidAt(o) !== null) return false;
     if (this.sheared(b)) {
       // A wall that follows the slope takes its shear anew with its height
       const at = i * 16;
@@ -1506,9 +1598,12 @@ export class MapObjectLayer {
     // The pieces of a row share their row's shade and keep their size, so the row reads as one
     const look = instanceVariation(e.row ? rowLookKey(o) : o.id, e.category, e.tags);
     const s = (o.scale || 1) * (e.row ? 1 : look.size);
-    const stretch = e.row ? o.stretch || 1 : 1;
-    const lean = this.sheared(b) ? wallShear(e, o, this.groundOf(b)) : null;
-    const ground = lean ? lean.height : seatHeight(e, o, this.groundOf(b), this.seatWater);
+    // A laid piece stands where it was laid, as long and wide as its place (LaidObject)
+    const at = laidAt(o);
+    const stretch = e.row || at !== null ? o.stretch || 1 : 1;
+    const breadth = at !== null ? (o as LaidObject).breadth : 1;
+    const lean = at === null && this.sheared(b) ? wallShear(e, o, this.groundOf(b)) : null;
+    const ground = at ?? (lean ? lean.height : seatHeight(e, o, this.groundOf(b), this.seatWater));
     mapToScene(o.x, o.y, ground + o.z, this.tmpPos);
     this.tmpQuat.setFromAxisAngle(this.up, o.rotation);
     if (o.pitch || o.roll) this.tmpQuat.multiply(this.tilt.setFromEuler(this.tiltEuler.set(o.pitch ?? 0, 0, o.roll ?? 0, 'XZY')));
@@ -1517,12 +1612,14 @@ export class MapObjectLayer {
       this.leanAxis.set(Math.sin(look.leanToward), 0, Math.cos(look.leanToward));
       this.tmpQuat.premultiply(this.tilt.setFromAxisAngle(this.leanAxis, look.lean));
     }
-    this.tmpScale.set(s * look.widthX * stretch, s, s * look.widthZ);
+    this.tmpScale.set(s * look.widthX * stretch, s, s * look.widthZ * breadth);
     this.tmpMatrix.compose(this.tmpPos, this.tmpQuat, this.tmpScale);
     // Along a slope (wallShear): model y rises with model x, the posts stay upright
     if (lean) this.tmpMatrix.multiply(this.shear.set(1, 0, 0, 0, lean.shear, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1));
     this.tmpMatrix.toArray(b.source.matrices, i * 16);
-    const reach = e.row ? Math.max(e.footprint, (e.row / 2) * stretch) : e.footprint;
+    const reach = e.row
+      ? Math.max(e.footprint, (e.row / 2) * stretch)
+      : at !== null ? Math.hypot(e.footprint * stretch, breadth / 2) : e.footprint;
     const radius = Math.max(reach, b.model.height * 0.6) * s * Math.max(1, look.widthX, look.widthZ);
     b.spheres[i * 4] = this.tmpPos.x;
     b.spheres[i * 4 + 1] = this.tmpPos.y + (b.model.height * s) / 2;

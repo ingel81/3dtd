@@ -1,10 +1,17 @@
-import { BoxGeometry, Group, InstancedMesh, Mesh, MeshStandardMaterial } from 'three';
 import { describe, expect, it } from 'vitest';
 import type { MapPaths, MapTerrain } from '../../map-document';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import { HeightField } from '../height-field';
 import { MapAssetLibrary } from '../map-asset-library';
+import type { LaidObject, MapObjectLayer } from '../objects/object-layer';
 import { BridgeLayer } from './path-bridges';
+
+/** An object layer that keeps what is laid in it */
+function layerOfPieces(): { objects: MapObjectLayer; pieces: () => LaidObject[] } {
+  let laid: LaidObject[] = [];
+  const objects = { setLaid: (_key: string, pieces: LaidObject[]) => ((laid = pieces), Promise.resolve()) } as unknown as MapObjectLayer;
+  return { objects, pieces: () => laid };
+}
 
 const piece = (id: string): CatalogObject => ({
   id,
@@ -23,18 +30,12 @@ const piece = (id: string): CatalogObject => ({
 describe('BridgeLayer', () => {
   it('builds each style from its own deck piece, missing pieces from the wooden one', async () => {
     const catalog: AssetCatalog = { version: 1, materials: [], objects: [piece('bridge-deck'), piece('bridge-deck-stone')] };
-    const loaded: string[] = [];
     const lib = new MapAssetLibrary('base/', {
       fetch: (() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(catalog) } as Response)) as typeof fetch,
-      loadModel: (url) => {
-        loaded.push(url);
-        const root = new Group();
-        root.add(new Mesh(new BoxGeometry(4, 1, 1), new MeshStandardMaterial()));
-        return Promise.resolve(root);
-      },
     });
     const field = new HeightField({ columns: 2, rows: 2, cellSize: 200, heights: new Float32Array(4) }, 200, 200);
-    const layer = new BridgeLayer(field, lib);
+    const { objects, pieces } = layerOfPieces();
+    const layer = new BridgeLayer(field, lib, objects);
     const paths: MapPaths = {
       nodes: [
         { id: 'a', x: -40, y: 0 },
@@ -49,11 +50,13 @@ describe('BridgeLayer', () => {
       ],
     };
     await layer.set(paths, { water: null } as MapTerrain);
-    const meshes = layer.group.children as InstancedMesh[];
-    expect(meshes).toHaveLength(2);
+    const count = (asset: string) => pieces().filter((p) => p.asset === asset).length;
     // 16 m wood and 16 m lava (no lava piece: wood) in 4 m pieces, 24 m stone
-    expect(meshes.map((m) => m.count).sort()).toEqual([6, 8]);
-    expect(loaded.some((u) => u.includes('bridge-deck-stone'))).toBe(true);
+    expect(count('bridge-deck')).toBe(8);
+    expect(count('bridge-deck-stone')).toBe(6);
+    // Each bridge a line of its own, each piece as wide as its edge and as long as its share of it
+    expect(new Set(pieces().map((p) => p.line))).toEqual(new Set(['bridge:wood', 'bridge:stone', 'bridge:lava']));
+    expect(pieces().every((p) => p.breadth === 4 && p.stretch === 1)).toBe(true);
     layer.dispose();
   });
 
@@ -61,11 +64,6 @@ describe('BridgeLayer', () => {
     const catalog: AssetCatalog = { version: 1, materials: [], objects: [piece('bridge-deck')] };
     const lib = new MapAssetLibrary('base/', {
       fetch: (() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(catalog) } as Response)) as typeof fetch,
-      loadModel: () => {
-        const root = new Group();
-        root.add(new Mesh(new BoxGeometry(4, 1, 1), new MeshStandardMaterial()));
-        return Promise.resolve(root);
-      },
     });
     // 200 m, 2 m cells, flat at 0
     const n = 101;
@@ -78,12 +76,11 @@ describe('BridgeLayer', () => {
       edges: [{ id: 'e', a: 'a', b: 'b', width: 4, kind: 'bridge' }],
     };
     const lowest = async (terrain: MapTerrain): Promise<number> => {
-      const layer = new BridgeLayer(field, lib);
+      const { objects, pieces } = layerOfPieces();
+      const layer = new BridgeLayer(field, lib, objects);
       await layer.set(paths, terrain);
-      const mesh = layer.group.children[0] as InstancedMesh;
-      const ys = Array.from({ length: mesh.count }, (_, k) => mesh.instanceMatrix.array[k * 16 + 13]);
       layer.dispose();
-      return Math.min(...ys);
+      return Math.min(...pieces().map((p) => p.at));
     };
     // A lake at 20 m in a far corner leaves the deck on the ground; one under the bridge lifts it
     const far = new Uint8Array(n * n);
