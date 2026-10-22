@@ -120,7 +120,7 @@ export class WorldDamagePresenter {
       ? towerSource.onTowerChange((change) => {
         const t = change.tower;
         if (change.kind === 'removed') drawn.releaseTower(t.id);
-        else drawn.holdTower(t.id, t.position.lon * MAP_METERS_PER_DEGREE, t.position.lat * MAP_METERS_PER_DEGREE);
+        else holdTower(drawn, t);
       })
       : null;
     this.toLocal = (lat, lon, out) => {
@@ -407,9 +407,7 @@ export class WorldDamagePresenter {
     for (let i = 0; i < this.stages.length && i < list.length; i++) if (this.stages[i] === 3) drawn.rubble(list[i], 1);
     const c = this.craterList();
     for (let k = 0; k + CRATER_STRIDE <= c.length; k += CRATER_STRIDE) drawn.crater(c[k], c[k + 1], c[k + 2], c[k + 3], 1);
-    for (const t of this.towerSource?.towers() ?? []) {
-      drawn.holdTower(t.id, t.position.lon * MAP_METERS_PER_DEGREE, t.position.lat * MAP_METERS_PER_DEGREE);
-    }
+    for (const t of this.towerSource?.towers() ?? []) holdTower(drawn, t);
   }
 
   /** The field as everything stands now, as WorldDamage builds it: none where the ground lies as built */
@@ -458,6 +456,12 @@ export class WorldDamagePresenter {
     const global = globalThis as Record<string, unknown>;
     if (this.debugApi && global['__worldDamage'] === this.debugApi) delete global['__worldDamage'];
   }
+}
+
+/** Tower `t` holds the drawn ground round it, down to the foot of its plinth (the ground as built without a height) */
+function holdTower(drawn: WorldGroundDamage, t: Tower): void {
+  const foot = t.position.height === undefined ? Infinity : t.position.height - t.plinthHeight;
+  drawn.holdTower(t.id, t.position.lon * MAP_METERS_PER_DEGREE, t.position.lat * MAP_METERS_PER_DEGREE, foot);
 }
 
 /** A structure's most HP, as StructureLedger takes them from the run rules */

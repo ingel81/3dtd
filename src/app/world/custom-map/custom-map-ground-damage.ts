@@ -34,8 +34,10 @@ export const GROUND_TILE = 32;
 export const GROUND_TILES_PER_FRAME = 2;
 /** Centimetres a sample has to be torn up by to grow no grass */
 export const BARE_FROM_CM = 10;
-/** Around a standing tower the ground keeps the height it had when the tower came, m */
+/** Around a standing tower the ground sinks no lower than the tower's foot, m */
 export const TOWER_HOLD_M = 3;
+/** A sample no tower holds: no floor under it */
+const NO_FLOOR = -0x7fffffff;
 
 /** A rectangle in map metres, as CustomMapView.updateHeights takes it */
 export interface GroundRect {
@@ -54,9 +56,12 @@ export interface GroundRect {
  * The grid's heights at the start stay as `base`; every stamp adds into
  * `sum`, so a stamp taken away (a crater deepened, a restore) leaves the
  * samples as they were and the order does not matter. Where a tower stands
- * the ground keeps the height it had when the tower came (`TOWER_HOLD_M`):
- * a crater beside a tower leaves it on its footing, a tower built in a
- * crater does not see the floor rise under it.
+ * the ground sinks no lower than the tower's foot, nor below the map's own
+ * ground there (`TOWER_HOLD_M`): a crater beside a tower leaves it on its
+ * footing, a deeper crater under a tower built in one leaves its floor. The
+ * floor comes from the map and the tower alone, not from what was stamped
+ * when the tower came, so a restore or a replay's jump, which stamps every
+ * crater before the towers hold, draws the same ground as the run.
  *
  * Beside the ground it keeps `standing`, the heights the map's buildings,
  * walls and structures stand on: the map's own with the craters but not the
@@ -88,9 +93,8 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
    * heights are written with the ground's (flush)
    */
   readonly standing: MapHeightGrid;
-  /** Towers holding a sample, and the centimetres it shows while held */
-  private held: Uint8Array | null = null;
-  private frozen: Int32Array | null = null;
+  /** Per sample the centimetres the towers holding it keep it at least (NO_FLOOR where none holds it) */
+  private floor: Int32Array | null = null;
   /** 1 where the ground shows torn up (BARE_FROM_CM): no grass there */
   private bare: Uint8Array | null = null;
   /** Tiles whose samples changed, in the order they came */
@@ -102,8 +106,8 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
    * the map (MapTerrainLayer.refreshApron) though no border sample moved.
    */
   private readonly changed: Int32Array;
-  /** The towers holding the ground: map metres */
-  private readonly towers = new Map<string, { x: number; y: number }>();
+  /** The towers holding the ground: map metres, `foot` the height their plinth stands on */
+  private readonly towers = new Map<string, { x: number; y: number; foot: number }>();
   /** The marks over the stamps (impact-marks.ts): a crater by its middle, a heap by its structure */
   private readonly marks = new Map<string, ImpactMark>();
   private marksChanged = false;
@@ -220,13 +224,12 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     const sum = this.sum;
     if (!sum) return;
     for (let k = 0; k < sum.length; k++) {
-      if (sum[k] === 0 && this.craterSum![k] === 0 && this.held![k] === 0) continue;
+      if (sum[k] === 0 && this.craterSum![k] === 0 && this.floor![k] === NO_FLOOR) continue;
       this.markSample(k);
     }
     sum.fill(0);
     this.craterSum!.fill(0);
-    this.held!.fill(0);
-    this.frozen!.fill(0);
+    this.floor!.fill(NO_FLOOR);
     this.towers.clear();
     this.marks.clear();
     this.craterList.clear();
@@ -253,29 +256,46 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     return (c[k] * (1 - u) + c[k + 1] * u) * (1 - v) + (c[k + this.columns] * (1 - u) + c[k + this.columns + 1] * u) * v;
   }
 
-  /** Tower `id` stands at map metres (`x`, `y`): the ground round it keeps its height from now on */
-  holdTower(id: string, x: number, y: number): void {
+  /**
+   * Tower `id` stands at map metres (`x`, `y`) on a plinth whose foot is at
+   * height `foot`: the ground round it sinks no lower from now on
+   */
+  holdTower(id: string, x: number, y: number, foot: number): void {
     if (this.towers.has(id)) return;
-    this.towers.set(id, { x, y });
+    const at = { x, y, foot };
+    this.towers.set(id, at);
     // Before the first stamp nothing to hold yet: ensure() holds every tower then
-    if (!this.sum) return;
-    const held = this.held!;
-    const frozen = this.frozen!;
-    const sum = this.sum!;
-    this.disc(x, y, (k) => {
-      if (held[k]++ === 0) frozen[k] = sum[k];
-    });
+    if (!this.floor) return;
+    this.raiseFloor(at, true);
   }
 
-  /** Tower `id` is gone: the ground round it follows the stamps again */
+  /** Tower `id` is gone: the ground round it follows the stamps again, as far as no other tower holds it */
   releaseTower(id: string): void {
     const at = this.towers.get(id);
     if (!at) return;
     this.towers.delete(id);
-    const held = this.held;
-    if (!held) return;
+    const floor = this.floor;
+    if (!floor) return;
     this.disc(at.x, at.y, (k) => {
-      if (held[k] > 0 && --held[k] === 0 && this.frozen![k] !== this.sum![k]) this.markSample(k);
+      floor[k] = NO_FLOOR;
+      this.markSample(k);
+    });
+    // The towers near enough to share samples with it lay their floors again
+    const reach = 2 * TOWER_HOLD_M;
+    for (const other of this.towers.values()) {
+      if (Math.abs(other.x - at.x) <= reach && Math.abs(other.y - at.y) <= reach) this.raiseFloor(other, false);
+    }
+  }
+
+  /** The floor of the tower at `at` laid into its samples: the map's own ground there, no higher than its foot */
+  private raiseFloor(at: { x: number; y: number; foot: number }, mark: boolean): void {
+    const floor = this.floor!;
+    const base = this.base!;
+    this.disc(at.x, at.y, (k) => {
+      const cm = Math.round((Math.min(base[k], at.foot) - base[k]) * 100);
+      if (cm <= floor[k]) return;
+      floor[k] = cm;
+      if (mark) this.markSample(k);
     });
   }
 
@@ -288,8 +308,7 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     if (this.dirty.size === 0) return;
     const base = this.base!;
     const sum = this.sum!;
-    const held = this.held!;
-    const frozen = this.frozen!;
+    const floor = this.floor!;
     const bare = this.bare!;
     const craters = this.craterSum!;
     const heights = this.grid.heights;
@@ -307,7 +326,7 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
       for (let j = b0; j <= b1; j++) {
         for (let i = a0; i <= a1; i++) {
           const k = j * this.columns + i;
-          const cm = held[k] > 0 ? frozen[k] : sum[k];
+          const cm = Math.max(sum[k], floor[k]);
           heights[k] = base[k] + cm / 100;
           standing[k] = base[k] + craters[k] / 100;
           bare[k] = cm >= BARE_FROM_CM || cm <= -BARE_FROM_CM ? 1 : 0;
@@ -334,11 +353,10 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     this.base = this.grid.heights.slice();
     this.sum = new Int32Array(n);
     this.craterSum = new Int32Array(n);
-    this.held = new Uint8Array(n);
-    this.frozen = new Int32Array(n);
+    this.floor = new Int32Array(n).fill(NO_FLOOR);
     this.bare = new Uint8Array(n);
-    // Towers that came before the first stamp hold the ground as built
-    for (const [, at] of this.towers) this.disc(at.x, at.y, (k) => this.held![k]++);
+    // Towers that came before the first stamp: the ground is as built, nothing to write yet
+    for (const at of this.towers.values()) this.raiseFloor(at, false);
   }
 
   private stamp(x: number, y: number, reachX: number, reachY: number, cm: (sx: number, sy: number) => number, crater = false): void {
@@ -357,8 +375,7 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
         const k = j * this.columns + i;
         sum[k] += v;
         if (crater) craters[k] += v;
-        // The standing ground follows a crater under a held sample too
-        if (this.held![k] === 0 || crater) this.markSample(k);
+        this.markSample(k);
       }
     }
   }

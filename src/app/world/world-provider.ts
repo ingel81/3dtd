@@ -575,8 +575,8 @@ export interface WorldGroundDamage {
   clear(): void;
   /** A structure of `material` at map metres (`x`, `y`) falls: its pieces thrown out, rolled from `seed` */
   debris(x: number, y: number, radius: number, height: number, material: RubbleMaterial, seed: number): void;
-  /** Map metres */
-  holdTower(id: string, x: number, y: number): void;
+  /** Map metres; `foot` the height the tower's plinth stands on (its position's height less the plinth) */
+  holdTower(id: string, x: number, y: number, foot: number): void;
   releaseTower(id: string): void;
   /** Pieces of the ground still to be written: a line of sight rendered before they are would miss their stamps */
   readonly pending?: number;

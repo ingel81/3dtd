@@ -80,7 +80,7 @@ describe('WorldDamagePresenter (docs/DESTRUCTION_PLAN.md)', () => {
 
   it("hands every stamp to the world's drawn ground, and the towers that hold it", () => {
     const drawn = { crater: vi.fn(), rubble: vi.fn(), clear: vi.fn(), holdTower: vi.fn(), releaseTower: vi.fn(), debris: vi.fn() };
-    const tower = { id: 't1', position: { lat: 2 / M, lon: 3 / M } };
+    const tower = { id: 't1', position: { lat: 2 / M, lon: 3 / M, height: 7 }, plinthHeight: 1.5 };
     let listener: ((change: { kind: 'state' | 'removed'; tower: typeof tower }) => void) | null = null;
     const towers = { towers: () => [tower], onTowerChange: (l: typeof listener) => ((listener = l), () => undefined) };
     const engine = {
@@ -92,7 +92,7 @@ describe('WorldDamagePresenter (docs/DESTRUCTION_PLAN.md)', () => {
     const presenter = new WorldDamagePresenter(engine as never, createMainEventBus(), null, towers as never);
     presenter.setStages(new Uint8Array([0]));
     expect(drawn.clear).toHaveBeenCalledTimes(1);
-    expect(drawn.holdTower).toHaveBeenCalledWith('t1', expect.closeTo(3, 6), expect.closeTo(2, 6));
+    expect(drawn.holdTower).toHaveBeenCalledWith('t1', expect.closeTo(3, 6), expect.closeTo(2, 6), 5.5);
     presenter.setStage(0, 3);
     expect(drawn.rubble).toHaveBeenCalledWith(BARN, 1);
     presenter.dig(0, 10, 20, 15, 21);

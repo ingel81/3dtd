@@ -132,7 +132,7 @@ describe('CustomMapGroundDamage (docs/DESTRUCTION_PLAN.md, Z4)', () => {
   it('holds the ground under a standing tower: a crater beside it, and a tower in a crater', () => {
     const { ground, at, drain } = setup();
     // A tower at (0, 0) before any stamp, a crater right on it
-    ground.holdTower('t1', 0, 0);
+    ground.holdTower('t1', 0, 0, 5);
     ground.crater(0, 0, 60, 120, 1);
     drain();
     expect(at(0, 0)).toBe(5);
@@ -143,11 +143,31 @@ describe('CustomMapGroundDamage (docs/DESTRUCTION_PLAN.md, Z4)', () => {
     drain();
     expect(at(0, 0)).toBeCloseTo(3.8, 5);
     // A tower built in the crater stands on its floor, which a second crater there does not move
-    ground.holdTower('t2', 0, 0);
+    ground.holdTower('t2', 0, 0, 3.8);
     ground.crater(0, 0, 60, 120, -1);
     ground.crater(0, 0, 60, 200, 1);
     drain();
     expect(at(0, 0)).toBeCloseTo(3.8, 5);
     expect(at(4, 0)).toBeLessThan(4);
+  });
+
+  it('draws a held tower the same whether its crater came after it or a restore stamped it first', () => {
+    const run = setup();
+    run.ground.holdTower('t1', 0, 0, 5);
+    run.ground.crater(0, 0, 60, 120, 1);
+    run.drain();
+    // A restore or a replay's jump: every crater first, then the towers hold
+    const restored = setup();
+    restored.ground.crater(0, 0, 60, 120, 1);
+    restored.ground.holdTower('t1', 0, 0, 5);
+    restored.drain();
+    expect(restored.at(0, 0)).toBe(5);
+    expect(Array.from(restored.grid.heights)).toEqual(Array.from(run.grid.heights));
+    // Two towers sharing samples: one sold, the other still holds its own
+    restored.ground.holdTower('t2', 4, 0, 5);
+    restored.ground.releaseTower('t1');
+    restored.drain();
+    expect(restored.at(4, 0)).toBe(5);
+    expect(restored.at(0, 0)).toBeLessThan(5);
   });
 });
