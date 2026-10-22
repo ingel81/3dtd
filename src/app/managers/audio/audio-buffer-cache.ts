@@ -28,6 +28,10 @@ export class AudioBufferCache {
 
   /** While a world loads (hold): the loads asked for wait, by URL, for release() or want() */
   private held: Map<string, () => void> | null = null;
+  /** The held loads release() starts, a few a task, by URL; null when none waits */
+  private releasing: Map<string, () => void> | null = null;
+  /** Held loads release() starts in one task: the loader sets up each one's request (0.1 to 0.2 ms) */
+  private readonly STARTS_PER_TASK = 8;
 
   constructor(loader: AudioLoader) {
     this.loader = loader;
@@ -102,19 +106,38 @@ export class AudioBufferCache {
     this.held ??= new Map();
   }
 
-  /** The loads held start, and those asked for later at once */
+  /**
+   * The loads held start, a few a task, and those asked for later at once.
+   * All in one task, the hundred files of a world held the first frame after
+   * it stood 16 ms (E275)
+   */
   release(): void {
     const held = this.held;
     this.held = null;
-    for (const start of held?.values() ?? []) start();
+    if (!held?.size) return;
+    this.releasing = held;
+    const turn = (): void => {
+      let n = 0;
+      for (const [url, start] of held) {
+        if (n++ >= this.STARTS_PER_TASK) break;
+        held.delete(url);
+        start();
+      }
+      if (held.size) setTimeout(turn);
+      else if (this.releasing === held) this.releasing = null;
+    };
+    turn();
   }
 
-  /** A sound about to play: its file loads now, held or not */
+  /** A sound about to play: its file loads now, held or waiting for its turn after release */
   want(url: string): void {
-    const start = this.held?.get(url);
-    if (!start) return;
-    this.held!.delete(url);
-    start();
+    for (const waiting of [this.held, this.releasing]) {
+      const start = waiting?.get(url);
+      if (!start) continue;
+      waiting!.delete(url);
+      start();
+      return;
+    }
   }
 
   /**

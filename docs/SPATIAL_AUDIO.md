@@ -266,8 +266,9 @@ private readonly MAX_CACHED_BUFFERS = 50;  // ~50 Sounds max in Memory
 - Buffers die gerade laden werden nicht evicted
 - Während eine Welt lädt, hält der Cache seine Ladeaufträge zurück (`SpatialAudioManager.holdLoads`, von
   `EngineInitializationService` gleich nach dem Anlegen der Engine): die rund 100 Dateien teilten sich sonst die
-  Leitung mit Modellen und Kartendaten. Mit `ready` startet `releaseLoads` alle; ein Sound, der vorher spielen soll,
-  lädt seine Datei sofort (`want`). Die Hintergrundmusik lädt beim Laden nur die Build-Tracks, den Rest, sobald der
+  Leitung mit Modellen und Kartendaten. Mit `ready` startet `releaseLoads` sie, acht je Aufgabe (alle in einer
+  hielten das erste Bild einer OSM-Welt nach ready 16 ms an, E275); ein Sound, der vorher oder bis zu seiner Runde
+  spielen soll, lädt seine Datei sofort (`want`). Die Hintergrundmusik lädt beim Laden nur die Build-Tracks, den Rest, sobald der
   Ladeschirm geht (`onLoadingComplete`). Ein synthetisierter Sound (Atomschlag, Laser) wird mit seiner Bau-Funktion
   registriert (Schlüssel `synth:<id>`) und nicht gehalten, er braucht keine Leitung: er baut gleich beim Laden, jeder in
   einer Aufgabe für sich, nicht beim Registrieren (mit `releaseLoads` alle in einer Aufgabe hielten Knall, Grollen und

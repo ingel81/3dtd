@@ -53,6 +53,22 @@ describe('AudioBufferCache', () => {
     });
   });
 
+  it('starts the held loads a few a task on release, a wanted one at once', async () => {
+    cache.hold();
+    const urls = Array.from({ length: 20 }, (_, i) => `s${i}.mp3`);
+    const entries = urls.map((url) => cache.getOrLoad(url));
+    cache.release();
+    await Promise.resolve();
+    expect(loader.load).toHaveBeenCalledTimes(8);
+    cache.want('s19.mp3');
+    await Promise.resolve();
+    expect(loader.load).toHaveBeenCalledTimes(9);
+    expect(loader.load.mock.calls.map(([url]) => url)).toContain('s19.mp3');
+    await Promise.all(entries.map((e) => e.loading));
+    expect(new Set(loader.load.mock.calls.map(([url]) => url))).toEqual(new Set(urls));
+    expect(loader.load).toHaveBeenCalledTimes(20);
+  });
+
   it('builds a synthesised file in a task of its own, held or not, under the key it was asked by', async () => {
     cache.hold();
     const order: string[] = [];
