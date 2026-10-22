@@ -1714,15 +1714,17 @@ export class ThreeTilesEngine {
   /**
    * The world's shadow programs for the casters among `objects`
    * (WorldProvider.compileCasters), built off the frame and used once,
-   * paced as compileAhead paces
+   * paced as compileAhead paces. Their own programs only: the renderer's
+   * all asked a program the world's background (warmWorldLater) was still
+   * linking, and waited for it in a frame (400 to 550 ms)
    */
   private async compileCasters(objects: Object3D[], gone: () => boolean, urgent: boolean): Promise<void> {
     const built = this.world.compileCasters?.(this.renderer, this.scene, this.camera, objects);
     if (!built) return;
-    await built;
-    if (gone()) return;
+    const twins = await built;
+    if (gone() || !twins.length) return;
     const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
-    await firstUsePrograms(this.renderer, gone, urgent ? nextFrame : () => this.quietMoment(gone));
+    await firstUsePrograms(programsOf(this.renderer, twins), gone, urgent ? nextFrame : () => this.quietMoment(gone));
   }
 
   /** What compileAhead compiles into while the frame draws the scene into a target (a pixel; never drawn to) */

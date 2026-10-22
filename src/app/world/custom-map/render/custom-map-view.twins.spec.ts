@@ -82,13 +82,15 @@ describe("the casters' shadow programs", () => {
     body.castShadow = true;
     const turret = new Mesh(new BoxGeometry(), new MeshStandardMaterial());
     const tower = new Group().add(body, turret);
-    await view.compileCasters(renderer, scene, new PerspectiveCamera(), [tower]);
+    const built = await view.compileCasters(renderer, scene, new PerspectiveCamera(), [tower]);
     expect(compiled.map((c) => c.scene === scene)).toEqual([true, false]);
     const [twin] = compiled[0].object.children as Mesh<BoxGeometry, MeshDepthMaterial>[];
     expect(compiled[0].object.children).toHaveLength(1);
     expect(twin.geometry).toBe(body.geometry);
     expect(twin.material.clippingPlanes).toEqual([plane]);
     expect(twin.material.side).toBe(BackSide);
+    // What it resolves with is what it compiled: the engine uses those programs first, not the renderer's all
+    expect(built).toEqual([twin]);
     view.dispose();
   });
 });

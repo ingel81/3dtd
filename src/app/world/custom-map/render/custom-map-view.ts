@@ -598,10 +598,11 @@ export class CustomMapView {
    * pass in a frame of `scene` (the warm-up frame), and for the map's cached
    * shadow build, which draws its parts inside the render of an empty scene
    * (ShadowParts): no lights there, and the lights are part of a program's
-   * key even where a depth shader does not use them
+   * key even where a depth shader does not use them. Resolves with the
+   * twins, once their programs are built
    */
-  private compileShadowTwins(renderer: WebGLRenderer, scene: Scene, camera: Camera, meshes: readonly Mesh[]): Promise<unknown> {
-    if (!renderer.shadowMap.enabled) return Promise.resolve();
+  private compileShadowTwins(renderer: WebGLRenderer, scene: Scene, camera: Camera, meshes: readonly Mesh[]): Promise<Mesh[]> {
+    if (!renderer.shadowMap.enabled) return Promise.resolve([]);
     const depth = new Group();
     for (const m of meshes) {
       if (Array.isArray(m.material)) continue;
@@ -621,7 +622,7 @@ export class CustomMapView {
       twin.frustumCulled = false;
       depth.add(twin);
     }
-    if (!depth.children.length) return Promise.resolve();
+    if (!depth.children.length) return Promise.resolve([]);
     this.offscreen ??= new WebGLRenderTarget(1, 1);
     const previous = renderer.getRenderTarget();
     const { fog, environment } = scene;
@@ -632,7 +633,9 @@ export class CustomMapView {
       renderer.setRenderTarget(this.offscreen);
       scene.fog = null;
       scene.environment = null;
-      return Promise.all([renderer.compileAsync(depth, camera, scene), renderer.compileAsync(depth, camera, (this.lightless ??= new Scene()))]);
+      return Promise.all([renderer.compileAsync(depth, camera, scene), renderer.compileAsync(depth, camera, (this.lightless ??= new Scene()))]).then(
+        () => depth.children as Mesh[],
+      );
     } finally {
       renderer.setRenderTarget(previous);
       scene.fog = fog;
@@ -975,9 +978,9 @@ export class CustomMapView {
    * one under its scaffold (its clipped variant). The map's own shadow
    * build draws them with programs three's pass in a warm-up frame does not
    * build (no lights there), so a tower's first finished build linked one
-   * in its frame (E280, 54 ms)
+   * in its frame (E280, 54 ms). Resolves with the twins, built
    */
-  compileCasters(renderer: WebGLRenderer, scene: Scene, camera: Camera, objects: readonly Object3D[]): Promise<unknown> {
+  compileCasters(renderer: WebGLRenderer, scene: Scene, camera: Camera, objects: readonly Object3D[]): Promise<Object3D[]> {
     const meshes: Mesh[] = [];
     for (const root of objects) root.traverse((o) => { if (o instanceof Mesh && o.castShadow) meshes.push(o); });
     return this.compileShadowTwins(renderer, scene, camera, meshes);

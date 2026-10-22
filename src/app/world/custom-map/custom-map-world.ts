@@ -491,8 +491,8 @@ export class CustomMapWorld implements WorldProvider {
     this.view?.environment.invalidateShadows();
   }
 
-  compileCasters(renderer: WebGLRenderer, scene: Scene, camera: Camera, objects: readonly Object3D[]): Promise<unknown> {
-    return this.view?.compileCasters(renderer, scene, camera, objects) ?? Promise.resolve();
+  compileCasters(renderer: WebGLRenderer, scene: Scene, camera: Camera, objects: readonly Object3D[]): Promise<Object3D[]> {
+    return this.view?.compileCasters(renderer, scene, camera, objects) ?? Promise.resolve([]);
   }
 
   warmLater(...args: Parameters<CustomMapView['warmLater']>): ReturnType<CustomMapView['warmLater']> {

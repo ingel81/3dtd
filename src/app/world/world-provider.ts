@@ -400,9 +400,10 @@ export interface WorldProvider {
    * Builds, off the main thread, the programs the world's shadow pass draws
    * the casters among `objects` with (the engine's stand-ins: a tower built
    * and one under its scaffold), for `scene`'s lights as its frames draw
-   * it. Resolves once they are built. Worlds with groundShadows
+   * it. Resolves with what it compiled (whose programs are the built ones)
+   * once they are built. Worlds with groundShadows
    */
-  compileCasters?(renderer: WebGLRenderer, scene: Scene, camera: Camera, objects: readonly Object3D[]): Promise<unknown>;
+  compileCasters?(renderer: WebGLRenderer, scene: Scene, camera: Camera, objects: readonly Object3D[]): Promise<Object3D[]>;
   /** The ground's heights for shaders that lie on it (the units' blob shadows); worlds with groundShadows, null before it stands */
   groundHeights?(): GroundHeights | null;
   /** The group the tower line-of-sight cube renders as blockers, a direct child of the scene */
