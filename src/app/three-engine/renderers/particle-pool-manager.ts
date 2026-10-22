@@ -69,6 +69,19 @@ export function atlasSpriteFrame(p: Particle): number {
 }
 
 /** Identifies one of the three GPU particle pools. */
+/**
+ * Marks a pool's buffers for upload, only the first `drawn` particles: updateBuffers compacts the drawn ones to the
+ * front, the rest of the capacity (thousands) is never drawn. None drawn: nothing to upload (the draw range is 0).
+ */
+function uploadDrawn(buffers: { pos: BufferAttribute; size: BufferAttribute; color: BufferAttribute; frame: BufferAttribute }, drawn: number): void {
+  if (drawn === 0) return;
+  for (const attribute of [buffers.pos, buffers.size, buffers.color, buffers.frame]) {
+    attribute.clearUpdateRanges();
+    attribute.addUpdateRange(0, drawn * attribute.itemSize);
+    attribute.needsUpdate = true;
+  }
+}
+
 export type PoolKey = 'trailAdditive' | 'trailNormal' | 'towerFire';
 
 /**
@@ -554,13 +567,7 @@ export class ParticlePoolManager {
         }
       }
 
-      // Only upload to GPU if there are active particles or count just changed to 0
-      if (activeCount > 0 || this._prevActiveCountAdditive > 0) {
-        positions.needsUpdate = true;
-        sizes.needsUpdate = true;
-        colors.needsUpdate = true;
-        frameIndices.needsUpdate = true;
-      }
+      uploadDrawn(this._bufAdditive, drawCount);
       this.trailParticlesAdditive!.geometry.setDrawRange(0, drawCount);
       this.gateAdditive.setCount(drawCount);
       this._prevActiveCountAdditive = activeCount;
@@ -606,12 +613,7 @@ export class ParticlePoolManager {
         }
       }
 
-      if (activeCount > 0 || this._prevActiveCountNormal > 0) {
-        positions.needsUpdate = true;
-        sizes.needsUpdate = true;
-        colors.needsUpdate = true;
-        frameIndices.needsUpdate = true;
-      }
+      uploadDrawn(this._bufNormal, drawCount);
       this.trailParticlesNormal!.geometry.setDrawRange(0, drawCount);
       this.gateNormal.setCount(drawCount);
       this._prevActiveCountNormal = activeCount;
@@ -645,12 +647,7 @@ export class ParticlePoolManager {
         }
       }
 
-      if (activeCount > 0 || this._prevActiveCountTowerFire > 0) {
-        positions.needsUpdate = true;
-        sizes.needsUpdate = true;
-        colors.needsUpdate = true;
-        frameIndices.needsUpdate = true;
-      }
+      uploadDrawn(this._bufTowerFire, activeCount);
       this.towerFireParticles!.geometry.setDrawRange(0, activeCount);
       this.gateTowerFire.setCount(activeCount);
       this._prevActiveCountTowerFire = activeCount;
