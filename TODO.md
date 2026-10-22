@@ -238,6 +238,8 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 - [ ] **E280, E275, E246 Laden und Aufwärmen**: Sicht-Cube zeichnet im Laden die geparkten Ruinen einmal (erster
       Fall in Sicht 170 → 54 ms), Minimap-Bild und synthetische Klänge im Laden (OSM kalt erstes Bild 161 → 67 ms),
       Editor aktualisiert die Ansicht erst nach dem Aufwärmen (kalt 1,6 s Standbild weg); Dekodierungen gewollt (AB6-AB8).
+- [ ] **E306 Innenleben hinter einem Loch**: ein Haus mit Loch zeigt Decken und Innenwände schon auf Stufe 1, jede
+      Ruine eine Platte über dem Boden statt Gras innen (AB9).
 - [ ] **E304 Brückendecks**: Deckstücke als gelegte Objekte im Objekt-Layer (Ausklammern, Pixelgrenze, LOD,
       Schatten nahe am Fokus), Decks sperren die Sicht der Tower; Würzburg 0,43 Mio. Dreiecke weniger je Ansicht (AB5).
 

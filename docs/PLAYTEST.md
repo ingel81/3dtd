@@ -782,6 +782,8 @@ das Auge. Würzburg neu bauen (`49.7932, 9.9312`), eigene Karten mit Version 4 l
 - **AB6 Erster Fall in Sicht:** eigene Karte mit Zerstörung (OSM-Stadt), Tower bauen, ein Gebäude in seiner Sicht
   fällen. *Kein Ruckler beim ersten Fall.*
 - **AB7 Übergang ins Spiel:** OSM-Karte laden. *Minikarte erscheint ohne Ruck, das Spiel startet ohne Hänger.*
+- **AB9 Loch im Haus:** auf einer OSM-Karte ein Haus mit Rakete oder Kanone treffen, bis ein Loch aufgeht. *Durch das
+  Loch Decken, eine Innenwand und ein Boden statt Rasen; das Dach bleibt.*
 - **AB8 Editor kalt:** nach einem Update den Editor mit Demo Valley öffnen. *Kein langes Standbild, bevor die Ansicht
   erscheint.*
 
