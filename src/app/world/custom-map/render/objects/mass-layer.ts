@@ -1222,6 +1222,13 @@ float massHash(vec3 p) {
 float massBox(float x, float lo, float hi, float aa) {
   return smoothstep(lo - aa, lo + aa, x) * (1.0 - smoothstep(hi - aa, hi + aa, x));
 }
+
+// The share of a pixel's width (2 aa round x) inside [lo, hi], for a row of them every \`period\` apart: over the
+// one at x up close, the row's mean once a pixel spans the gaps between them. Holds still at any distance
+float massCover(float x, float lo, float hi, float aa, float period) {
+  float one = clamp((min(hi, x + aa) - max(lo, x - aa)) / (2.0 * aa), 0.0, 1.0);
+  return mix(one, (hi - lo) / period, smoothstep(0.5, 1.0, 2.0 * aa / max(period - (hi - lo), 1e-3)));
+}
 `;
 
 /**
@@ -1284,6 +1291,10 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
   base *= 1.0 - 0.14 * exp(-max(v - plinthH, 0.0) / 0.7);
   float windows = 0.0;
   vec3 detail = base;
+  // Far off: the windows as dark panes by the share of a pixel they cover (massCover), their colour and light
+  float coarse = 0.0;
+  vec3 coarsePane = vec3(0.08, 0.09, 0.1);
+  float coarseLit = 0.0;
   // A shop's wall is a facade too, with display windows on its ground floor; an arch's head is facade, an
   // opening's reveal plain with the plinth at its foot
   float shop = 1.0 - step(0.5, abs(kind - 3.0));
@@ -1370,6 +1381,7 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
     }
     if (inBay > 0.5 && wh > 0.3) {
       float h = massHash(vec3(i, k, seed));
+      coarse = massCover(lu, -ww * 0.5, ww * 0.5, aa, bay) * massCover(inStorey, wb, wb + wh, aa, hall > 0.5 ? usable : storey);
       // The opening, its frame and the glass inside
       float open = massBox(lu, -ww * 0.5, ww * 0.5, aa) * massBox(inStorey, wb, wb + wh, aa);
       float fw = 0.07;
@@ -1406,6 +1418,9 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
       windows = open;
       massLit = glass * step(0.45, fract(h * 19.3)) * (1.0 - blind * 0.6);
       massLight = mix(vec3(1.0, 0.62, 0.3), vec3(1.0, 0.85, 0.6), fract(h * 7.0));
+      // The pane seen from afar: glass with a little of its frame, or the blind
+      coarsePane = mix(mix(glassColor, frame, 0.2), blindColor, blind * 0.6);
+      coarseLit = step(0.45, fract(h * 19.3)) * (1.0 - blind * 0.6);
     }
     // The cornice under the roof, a shadow line beneath it
     float cornice = massBox(v, top - band, top - band + 0.22, aa);
@@ -1464,12 +1479,14 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
     }
   }
   plinth *= max(facadeWall * (1.0 - dressed), revealWall);
-  // Far off a window is a few pixels: the facade's mean instead of its shimmer
+  // Far off a window's frame and bars are a few pixels: the wall with its panes by their cover instead of their
+  // shimmer, down to the wall's mean where a pixel spans several windows
   float far = smoothstep(0.06, 0.3, aa);
-  vec3 mean = mix(base, vec3(0.12, 0.13, 0.14), 0.22 * facadeWall * step(plinthH, v));
+  vec3 mean = mix(base, coarsePane, coarse);
   diffuseColor.rgb = mix(mix(detail, mean, far), plinthColor, plinth);
   massGlass *= 1.0 - far;
   massWindow *= 1.0 - far;
+  massLit = mix(massLit, coarse * coarseLit, far);
   massLit *= 1.0 - plinth;
 }
 `;
