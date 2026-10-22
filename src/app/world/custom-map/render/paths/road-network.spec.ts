@@ -359,3 +359,31 @@ describe('road network, junctions close together', () => {
     expect(orders.size).toBe(2);
   });
 });
+
+describe('road network, kerbs through a junction', () => {
+  it('follows a road bending through a junction on the inside of the bend, round as the road', () => {
+    // A ring road of radius 20 round (0, 0) through node c at the top, a side road leaving it outwards there
+    const arc = (from: number, to: number) => Array.from({ length: 9 }, (_, k) => {
+      const a = from + ((to - from) * (k + 1)) / 10;
+      return { x: Math.cos(a) * 20, y: Math.sin(a) * 20 };
+    });
+    const net = buildRoadNetwork({
+      nodes: [
+        { id: 'w', x: Math.cos(Math.PI * 0.9) * 20, y: Math.sin(Math.PI * 0.9) * 20 },
+        { id: 'c', x: 0, y: 20 },
+        { id: 'e', x: Math.cos(Math.PI * 0.1) * 20, y: Math.sin(Math.PI * 0.1) * 20 },
+        { id: 'n', x: 0, y: 60 },
+      ],
+      edges: [
+        { id: 'e1', a: 'w', b: 'c', width: 6, kind: 'road', surface: 'asphalt', via: arc(Math.PI * 0.9, Math.PI * 0.5) },
+        { id: 'e2', a: 'c', b: 'e', width: 6, kind: 'road', surface: 'asphalt', via: arc(Math.PI * 0.5, Math.PI * 0.1) },
+        { id: 'e3', a: 'c', b: 'n', width: 6, kind: 'road', surface: 'asphalt' },
+      ],
+    });
+    // Every point of the surface lies outside the circle of the inner edge (17 m), none cut across into it
+    let inner = Infinity;
+    for (const t of net.tiles) for (let k = 0; k < t.position.length; k += 2) inner = Math.min(inner, Math.hypot(t.position[k], t.position[k + 1]));
+    expect(inner).toBeGreaterThan(16.9);
+    expect(inner).toBeLessThan(17.1);
+  });
+});

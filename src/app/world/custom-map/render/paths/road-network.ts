@@ -285,7 +285,7 @@ export class RoadNetworkBuilder {
   /** Each item's box (x0, y0, x1, y1, map metres): what a change of the ground reaches */
   private readonly boxes = new Map<string, [number, number, number, number]>();
   /** The roads' ends at each junction laid (by its node, a cluster's least), to lay it again on new ground */
-  private readonly junctionEnds = new Map<string, { node: MapPoint; ends: End[] }>();
+  private readonly junctionEnds = new Map<string, { node: MapPoint; ends: End[]; inner: Chain[] }>();
   /** The cluster each node of a junction of several nodes is in (its least node), and their nodes */
   private readonly clusterOf = new Map<string, string>();
   private readonly members = new Map<string, string[]>();
@@ -459,11 +459,13 @@ export class RoadNetworkBuilder {
       }
       const inside = new Set(nodeList);
       const list: End[] = [];
+      const innerChains = new Set<Chain>();
       for (const n of nodeList) {
         for (const e of endsOf(n)) {
           const inner = inside.has(e.chain.nodes[0]) && inside.has(e.chain.nodes[1]) && nodeList.length > 1;
           e.chain.inner = inner;
-          if (!inner) list.push(e);
+          if (inner) innerChains.add(e.chain);
+          else list.push(e);
         }
       }
       if (nodeList.length > 1) {
@@ -477,7 +479,7 @@ export class RoadNetworkBuilder {
       } else if (list.length > 1) {
         const centre = clusterCentre(nodeList.map((n) => nodes.get(n)!));
         trimJunction(centre, list);
-        this.junctionEnds.set(key, { node: centre, ends: list });
+        this.junctionEnds.set(key, { node: centre, ends: list, inner: [...innerChains] });
       }
     }
     // A kept chain whose trim moved (it ends at a junction laid again) or that went in or out of a cluster is laid again
@@ -491,7 +493,7 @@ export class RoadNetworkBuilder {
     for (const nodeList of clusters) {
       const key = nodeList.reduce((p, q) => (q < p ? q : p));
       const j = this.junctionEnds.get(key);
-      if (j) this.putItem(`j${key}`, (out) => emitJunction(j.node, j.ends, out, this.styleOf), rebuilt);
+      if (j) this.putItem(`j${key}`, (out) => emitJunction(j.node, j.ends, j.inner, out, this.styleOf), rebuilt);
     }
     return this.network(rebuilt);
   }
@@ -518,7 +520,7 @@ export class RoadNetworkBuilder {
         const item = `j${node}`;
         if (!reached(item)) continue;
         this.dropItem(item, rebuilt);
-        this.putItem(item, (out) => emitJunction(j.node, j.ends, out, this.styleOf), rebuilt);
+        this.putItem(item, (out) => emitJunction(j.node, j.ends, j.inner, out, this.styleOf), rebuilt);
       }
     }
     return this.network(rebuilt);
@@ -766,12 +768,14 @@ function wantedTrims(c: MapPoint, list: End[]): number[] {
 
 /** Longest chain between two junctions that may join them into one */
 const CLUSTER_CHAIN = 16;
+/** Most a chain may turn from end to end to be inside a junction of several nodes, radians */
+const CLUSTER_TURN = Math.PI / 6;
 /** Widest a junction of several nodes may grow (its nodes' box, metres) */
 const CLUSTER_SPAN = 24;
 
 /**
  * The junctions to lay at `lay`'s nodes: a node alone, or several a short
- * chain joins where their junctions want more room than the chain has
+ * chain joins (nearly straight, CLUSTER_TURN) where their junctions want more room than the chain has
  * (their trims together past nine tenths of it, wantedTrims): a ribbon
  * there would be a sliver, the two junctions' kerbs crossing each other's
  * surface. Grows over such chains to nodes beyond `lay`; shortest chains
@@ -809,6 +813,9 @@ function clusterJunctions(lay: ReadonlySet<string>, endsOf: (node: string) => En
       const ea = endsOf(a).find((x) => x.chain === c && x.start);
       const eb = endsOf(b).find((x) => x.chain === c && !x.start);
       if (!ea || !eb || endsOf(a).length < 2 || endsOf(b).length < 2) continue;
+      // A chain that bends (a roundabout's ring between two of its mouths) keeps its ribbon: a junction's kerb across
+      // it would cut its curve off in a chord
+      if (ea.dx * eb.dx + ea.dy * eb.dy > -Math.cos(CLUSTER_TURN)) continue;
       if ((wants(a).get(ea) ?? 0) + (wants(b).get(eb) ?? 0) <= c.length * 0.9) continue;
       short.push({ chain: c, a, b });
       for (const n of [a, b]) {
@@ -1022,7 +1029,7 @@ function emitCap(section: Section, sign: number, out: TileBuilder): void {
 }
 
 /** The surface between the ends of the roads at a junction, fanned from its node */
-function emitJunction(c: MapPoint, list: End[], out: TileBuilder, styleOf: (s: RoadStyle) => number): void {
+function emitJunction(c: MapPoint, list: End[], inner: readonly Chain[], out: TileBuilder, styleOf: (s: RoadStyle) => number): void {
   // The ends in counter-clockwise order (trimJunction sorted them), each with its cross section seen from the node:
   // right to left looking away from it
   const sides = list.map((e) => {
@@ -1079,19 +1086,41 @@ function emitJunction(c: MapPoint, list: End[], out: TileBuilder, styleOf: (s: R
     out.share(side);
     const a = side[side.length - 1];
     const b = sides[(k + 1) % n]![0];
-    const cross = lineMeet(a, list[k], b, list[(k + 1) % n]);
     // The outline runs round the pavements: from one road's to the next's
     const walkA = list[k].chain.walk;
     const walkB = list[(k + 1) % n].chain.walk;
-    if (cross) {
+    // Two roads wide apart (a road going on through the junction, bending or not): the kerb follows their own lines
+    const along = kerbAlong(list[k], list[(k + 1) % n], inner);
+    const cross = along ? null : lineMeet(a, list[k], b, list[(k + 1) % n]);
+    if (along) {
+      along.forEach((p) => ring.push({ x: p.x, y: p.y, edge: kerbEdge - p.walk, arm: p.second ? (k + 1) % n : k, side: false }));
+    } else if (cross) {
       for (let s = 1; s < CURVE_POINTS; s++) {
         const t = s / CURVE_POINTS;
         const u = 1 - t;
         ring.push({ x: u * u * a.x + 2 * u * t * cross.x + t * t * b.x, y: u * u * a.y + 2 * u * t * cross.y + t * t * b.y, edge: kerbEdge - (walkA * u + walkB * t), arm: s * 2 <= CURVE_POINTS ? k : (k + 1) % n, side: false });
       }
     } else {
-      // A straight kerb: its middle parts the two roads' frames
-      ring.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, edge: kerbEdge - (walkA + walkB) / 2, arm: k, side: false });
+      // The kerb lines meet behind the ends (the inside of a bend, a road going on at another width): a curve leaving
+      // each end along its road (Hermite), so the kerb of a roundabout's island follows its circle through the
+      // junctions on it instead of cutting across in a chord; its middle parts the two roads' frames
+      const ea = list[k];
+      const eb = list[(k + 1) % n];
+      const span = Math.hypot(b.x - a.x, b.y - a.y);
+      for (let s = 1; s < CURVE_POINTS; s++) {
+        const t = s / CURVE_POINTS;
+        const h00 = 2 * t * t * t - 3 * t * t + 1;
+        const h10 = t * t * t - 2 * t * t + t;
+        const h01 = -2 * t * t * t + 3 * t * t;
+        const h11 = t * t * t - t * t;
+        ring.push({
+          x: h00 * a.x - h10 * span * ea.dx + h01 * b.x + h11 * span * eb.dx,
+          y: h00 * a.y - h10 * span * ea.dy + h01 * b.y + h11 * span * eb.dy,
+          edge: kerbEdge - (walkA * (1 - t) + walkB * t),
+          arm: s * 2 <= CURVE_POINTS ? k : (k + 1) % n,
+          side: false,
+        });
+      }
     }
   }
   // The node lies on the widest road, its kerbs that road's half carriageway away: the distance to the edge runs from
@@ -1114,6 +1143,131 @@ function emitJunction(c: MapPoint, list: End[], out: TileBuilder, styleOf: (s: R
     tris.push(base, base + 1, base + 2);
   }
   out.add(verts, tris);
+}
+
+/** Most a road may turn at a node of a junction (radians) for the kerb to follow it, not round a corner */
+const KERB_TURN = Math.PI / 4;
+
+/**
+ * The kerb between road ea and the next road eb counter-clockwise, along
+ * the roads' own lines: the edge of the way from ea's end section in to its
+ * node, on through the chains inside the junction (one of several nodes) to
+ * eb's node and out along eb to its end section, each piece at its own half
+ * width on the kerb's side (tapering where two widths meet), cut where one
+ * piece's edge crosses the next (the inside of a bend; where they part, the
+ * kerb lines meet in front, lineMeet). For a road going on
+ * (turning at most KERB_TURN at each node of the way): straight or bending
+ * through the junction, a roundabout's ring past its mouths, the island's
+ * kerb then round as the ring. Points between the end sections, a metre
+ * apart or closer, with the pavement there (`walk`) and whether they lie on
+ * eb's side; null for a corner between two roads (rounded by lineMeet) or
+ * without a way through the junction's chains
+ */
+function kerbAlong(ea: End, eb: End, inner: readonly Chain[]): (MapPoint & { walk: number; second: boolean })[] | null {
+  const nodeOf = (e: End) => e.chain.nodes[e.start ? 0 : 1];
+  // The way through the junction's chains from ea's node to eb's (none for one node)
+  const way: { chain: Chain; forward: boolean }[] = [];
+  if (nodeOf(ea) !== nodeOf(eb)) {
+    const from = new Map<string, { chain: Chain; forward: boolean; prev: string }>();
+    const queue = [nodeOf(ea)];
+    const seen = new Set(queue);
+    while (queue.length && !from.has(nodeOf(eb))) {
+      const node = queue.shift()!;
+      for (const chain of inner) {
+        const forward = chain.nodes[0] === node;
+        if (!forward && chain.nodes[1] !== node) continue;
+        const next = chain.nodes[forward ? 1 : 0];
+        if (seen.has(next)) continue;
+        seen.add(next);
+        from.set(next, { chain, forward, prev: node });
+        queue.push(next);
+      }
+    }
+    if (!from.has(nodeOf(eb))) return null;
+    for (let node = nodeOf(eb); node !== nodeOf(ea); ) {
+      const step = from.get(node)!;
+      way.unshift({ chain: step.chain, forward: step.forward });
+      node = step.prev;
+    }
+  }
+  // One road going on: at each node of the way it turns no more than KERB_TURN (a corner between two roads is rounded)
+  let dx = -ea.dx;
+  let dy = -ea.dy;
+  for (const w of way) {
+    const out = endOf(w.chain, w.forward);
+    if (dx * out.dx + dy * out.dy < Math.cos(KERB_TURN)) return null;
+    const back = endOf(w.chain, !w.forward);
+    dx = -back.dx;
+    dy = -back.dy;
+  }
+  if (dx * eb.dx + dy * eb.dy < Math.cos(KERB_TURN)) return null;
+  // The pieces of the way: chain distances from d0 to d1 (the joints between pieces at the nodes)
+  const ends = (e: End): [number, number] => {
+    const c = e.chain;
+    const trim = c.trim[e.start ? 0 : 1];
+    return e.start ? [c.at[0] + trim, c.at[0]] : [c.at[0] + c.length - trim, c.at[0] + c.length];
+  };
+  const [a0, a1] = ends(ea);
+  const [b1, b0] = ends(eb);
+  const spans: { chain: Chain; d0: number; d1: number; second: boolean }[] = [{ chain: ea.chain, d0: a0, d1: a1, second: false }];
+  for (const w of way) spans.push({ chain: w.chain, d0: w.forward ? w.chain.at[0] : w.chain.at[0] + w.chain.length, d1: w.forward ? w.chain.at[0] + w.chain.length : w.chain.at[0], second: false });
+  spans.push({ chain: eb.chain, d0: b0, d1: b1, second: true });
+  // At a joint between two widths the edge tapers over twice the change and a metre to their mean (as trimJunction
+  // tapers a road of two ends), so the two edges meet there instead of stepping
+  const toward = (k: number, other: number): { to: number; reach: number } | null => {
+    if (other < 0 || other >= spans.length) return null;
+    const step = Math.abs(spans[k].chain.half - spans[other].chain.half);
+    return step < 0.05 ? null : { to: (spans[k].chain.half + spans[other].chain.half) / 2, reach: step * 2 + 1 };
+  };
+  // Each piece's edge on the right of the way round the junction (counter-clockwise, the surface on the left)
+  const pieces = spans.map(({ chain, d0, d1, second }, k) => {
+    const before = k > 0 ? toward(k, k - 1) : null;
+    const after = k < spans.length - 1 ? toward(k, k + 1) : null;
+    const steps = Math.max(1, Math.ceil(Math.abs(d1 - d0)));
+    const sign = d1 >= d0 ? 1 : -1;
+    const out: (MapPoint & { walk: number; second: boolean })[] = [];
+    for (let s = 0; s <= steps; s++) {
+      const d = d0 + ((d1 - d0) * s) / steps;
+      let half = chain.half;
+      if (before) half += (before.to - chain.half) * Math.max(0, 1 - Math.abs(d - d0) / before.reach);
+      if (after) half += (after.to - chain.half) * Math.max(0, 1 - Math.abs(d1 - d) / after.reach);
+      const p = pointAt(chain, d);
+      const t = tangentAt(chain, d);
+      // Right of the way: right of the chain's direction going forward, left going back
+      out.push({ x: p.x + t.y * half * t.scale * sign, y: p.y - t.x * half * t.scale * sign, walk: chain.walk, second });
+    }
+    return out;
+  });
+  // Joined piece by piece where the edges cross (the inside of a bend; at a joint that tapers, at the node): the
+  // latest crossing on the way in, the earliest on the way out. Edges that part (the outside of a bend): no kerb along
+  // them, the kerb lines meet in front (lineMeet)
+  let line = pieces[0];
+  for (let k = 1; k < pieces.length; k++) {
+    const next = pieces[k];
+    let joined: typeof line | null = null;
+    for (let i = line.length - 1; i > 0 && !joined; i--) {
+      for (let j = 0; j + 1 < next.length; j++) {
+        const x = segmentCross(line[i - 1], line[i], next[j], next[j + 1]);
+        if (!x) continue;
+        joined = [...line.slice(0, i), { ...x, walk: line[i - 1].walk, second: line[i - 1].second }, ...next.slice(j + 1)];
+        break;
+      }
+    }
+    if (!joined) return null;
+    line = joined;
+  }
+  // Between the end sections (theirs are the ring's own points)
+  return line.slice(1, -1);
+}
+
+/** Where segment p-q crosses segment r-s, null when it does not */
+function segmentCross(p: MapPoint, q: MapPoint, r: MapPoint, s: MapPoint): MapPoint | null {
+  const d = (q.x - p.x) * (s.y - r.y) - (q.y - p.y) * (s.x - r.x);
+  if (Math.abs(d) < 1e-12) return null;
+  const t = ((r.x - p.x) * (s.y - r.y) - (r.y - p.y) * (s.x - r.x)) / d;
+  const u = ((r.x - p.x) * (q.y - p.y) - (r.y - p.y) * (q.x - p.x)) / d;
+  if (t < 0 || t > 1 || u < 0 || u > 1) return null;
+  return { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t };
 }
 
 /**

@@ -265,3 +265,47 @@ describe('OSM roads at buildings (E297 L3)', () => {
     expect(at('lane')).toMatchObject({ x: 20, y: 0 });
   });
 });
+
+describe('OSM roundabouts', () => {
+  it('lays a roundabout of a few nodes as a circle, the roads into it with it', () => {
+    // Six nodes round (50, 20) at 14 to 16 m, in two ways; a road comes in at node 11
+    const ring = [0, 1, 2, 3, 4, 5].map((k): [number, number, number] => {
+      const a = (k / 6) * Math.PI * 2;
+      const r = k % 2 ? 16 : 14;
+      return [50 + Math.cos(a) * r, 20 + Math.sin(a) * r, 10 + k];
+    });
+    const f = parseOsm({
+      elements: [
+        way(1, { highway: 'tertiary', junction: 'roundabout' }, [ring[0], ring[1], ring[2], ring[3]]),
+        way(2, { highway: 'tertiary', junction: 'roundabout' }, [ring[3], ring[4], ring[5], ring[0]]),
+        way(3, { highway: 'residential' }, [[50 + 14 * Math.cos(Math.PI / 3) + 60, 20 + 16 * Math.sin(Math.PI / 3), 30], ring[1]]),
+      ],
+    }, frame, 1200);
+    const { paths, stats } = buildRoads(f);
+    expect(stats.roundabouts).toBe(1);
+    const nodes = new Map(paths.nodes.map((n) => [n.id, n]));
+    const off: number[] = [];
+    for (const e of paths.edges) {
+      if (e.street !== 'tertiary') continue;
+      for (const p of [nodes.get(e.a)!, ...(e.via ?? []), nodes.get(e.b)!]) off.push(Math.hypot(p.x - 50, p.y - 20));
+    }
+    // On one circle, about 15 m (a hundredth of a metre for the rounding), with points between the nodes
+    const r = off.reduce((s, d) => s + d, 0) / off.length;
+    expect(r).toBeGreaterThan(14);
+    expect(r).toBeLessThan(16);
+    for (const d of off) expect(Math.abs(d - r)).toBeLessThan(0.05);
+    expect(off.length).toBeGreaterThan(12);
+    // The road in ends on the circle, at the ring's node
+    const road = paths.edges.find((e) => e.street === 'residential')!;
+    const end = nodes.get(road.b)!;
+    expect(Math.abs(Math.hypot(end.x - 50, end.y - 20) - r)).toBeLessThan(0.05);
+    expect(road.b).toBe('n11');
+  });
+
+  it('leaves a ring far from a circle as mapped', () => {
+    const f = parseOsm({
+      elements: [way(1, { highway: 'service', junction: 'roundabout' }, [[0, 0, 1], [80, 0, 2], [80, 6, 3], [0, 6, 4], [0, 0, 1]])],
+    }, frame, 1200);
+    expect(buildRoads(f).stats.roundabouts).toBe(0);
+  });
+});

@@ -306,7 +306,12 @@ zusammen mehr Platz wollen als es hat (ihre Kürzungen über neun Zehntel seiner
 Knoten aus gekürzt); das Band dazwischen entfällt, seine Fläche deckt die Kreuzung. Vorher lagen zwei Kreuzungen
 übereinander, ihre Bordsteine quer über der Fahrbahn der anderen. Läuft der Umriss einer solchen Kreuzung nicht einmal
 um ihre Mitte (Straßen ihrer Knoten nebeneinander, etwa Zufahrten an einer Kreuzung zweier Hauptstraßen), bleiben
-es einzelne Kreuzungen (`outlineAround`). Ein Pfad, an dessen Ende nichts anschließt, endet rund.
+es einzelne Kreuzungen (`outlineAround`). Ein Band, das sich um mehr als 30° biegt (ein Kreisverkehr zwischen zwei Zufahrten), wird nie
+Teil einer Kreuzung. Zwischen zwei Armen derselben weiterlaufenden Straße (an jedem Knoten des Wegs höchstens 45°
+Knick, auch durch die inneren Bänder einer Kreuzung) folgt der Bordstein den Kanten der Bänder selbst, im Meter, bei
+einem Breitenwechsel über doppelte Änderung plus einen Meter verjüngt (`kerbAlong`), wo sie sich schneiden (die
+Innenseite einer Biegung); vorher lief er als Sehne quer, und die Insel eines Kreisverkehrs wurde in jeder Kreuzung
+eckig. Ecken zwischen zwei Straßen bleiben gerundet (`lineMeet`). Ein Pfad, an dessen Ende nichts anschließt, endet rund.
 Das Aussehen folgt der Straßenart (`street`): Spurlinien auf Autobahnen, Rand- und gestrichelte Mittellinie auf
 Haupt- und Kreisstraßen (`primary`, `secondary`), Mittellinie auf `tertiary`, keine in Wohnstraßen, deren Asphalt in
 einen Bordstein mit einer Rinne aus Pflastersteinen ausläuft; Fahrspuren dunkler, Flickstellen, Querrisse und eine

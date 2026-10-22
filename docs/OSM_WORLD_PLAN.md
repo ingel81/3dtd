@@ -453,6 +453,12 @@ die Seite erzeugt die Karte im Worker, zeigt eine Statuszeile, speichert sie als
   entstehen eigene Knoten (`b<n>`); ein geschlossener Weg wird in der Mitte geteilt. Zwischenpunkte mit 0,2 m
   Douglas-Peucker. Breite aus `width`, sonst `lanes` × 3 m, sonst `ROAD_TYPES` in `osm-tags.ts`, auf 1,5 bis 24 m.
   Jede Kante trägt ihren `highway`-Typ (`street`): Routen und Spawns wählen wie auf echten Orten.
+- **Kreisverkehre** (`convert/roundabouts.ts`, 2026-10-23): die Wege eines Rings (`junction=roundabout` oder
+  `circular`, über gemeinsame Knoten verbunden) bekommen einen Kreis durch alle ihre Knoten (kleinste Quadrate), wenn
+  er 4 bis 80 m Radius hat, kein Knoten mehr als 30 % des Radius daneben liegt und keine Lücke zwischen den Knoten über
+  ein Drittel des Kreises reicht (die Ecken eines langen Rechtecks liegen auch auf einem Kreis). Die Knoten rücken auf
+  den Kreis, in jedem Weg, der sie hat (die Zufahrten mit), zwischen zwei Knoten folgt der Ring dem Bogen (Punkte im
+  Meter, die 0,2 m Douglas-Peucker ausdünnen). Vorher war ein Ring aus wenigen Knoten ein Vieleck, seine Insel eckig.
 - **Brücken und Tunnel:** `bridge=*` wird Brückenkante (Stein, Holz bei `bridge:material` oder `material=wood`;
   Beton kommt mit O5). Tunnel bekamen später ihre Portale (Entscheidung 8, „Tunnel, gebaut“); `tunnel=building_passage`
   bleibt Straße. Der Bericht nennt Zahl und Länge.
