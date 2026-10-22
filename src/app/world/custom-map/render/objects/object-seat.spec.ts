@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MapObject } from '../../map-document';
-import { wallShear, type ObjectFooting } from './object-seat';
+import { seatHeight, wallShear, type ObjectFooting } from './object-seat';
 
 const fence: ObjectFooting = { category: 'wall', footprint: 2, height: 1.2, box: [0, 0, 2, 0.1] };
 const at = (x: number, y: number, rotation = 0): MapObject => ({ id: 'f', asset: 'fence', x, y, z: 0, rotation, scale: 1 });
@@ -39,5 +39,26 @@ describe('wallShear', () => {
     // Across the slope it stands level, as a plant does without a row
     expect(wallShear(vine, { ...o, rotation: Math.PI / 2 }, ground)).toBeNull();
     expect(wallShear({ ...vine, row: undefined }, o, ground)).toBeNull();
+  });
+});
+
+describe('seatHeight', () => {
+  // A bank falling 1 m per metre towards map +x: the ground under the middle is at 0
+  const bank = (x: number): number => -x;
+  const water = () => null;
+
+  it('stands a tree at the lowest ground round its trunk, so its foot reaches down the bank', () => {
+    const tree: ObjectFooting = { category: 'tree', footprint: 1.2, height: 13 };
+    // Trunk radius 0.4 x 1.2 x 2 = 0.96 m at scale 2: the downhill side's ground, then 0.15 m per unit of scale under it
+    expect(seatHeight(tree, { ...at(0, 0), scale: 2 }, bank, water)).toBeCloseTo(-0.96 - 0.3, 6);
+    // On level ground as before
+    expect(seatHeight(tree, at(0, 0), () => 4, water)).toBeCloseTo(4 - 0.15, 6);
+  });
+
+  it('stands a plant at the lowest ground under its patch, a length of row under its middle', () => {
+    const reeds: ObjectFooting = { category: 'plant', footprint: 1.4, height: 2.1 };
+    expect(seatHeight(reeds, at(0, 0), bank, water)).toBeCloseTo(-0.7 * 1.4, 6);
+    expect(seatHeight({ ...reeds, row: 10 }, at(0, 0), bank, water)).toBeCloseTo(0, 6);
+    expect(seatHeight({ ...reeds, category: 'prop', footprint: 0 }, at(0, 0), bank, water)).toBeCloseTo(0, 6);
   });
 });

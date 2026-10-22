@@ -35,8 +35,11 @@ const RING: number[] = [];
  * ground (object-ground.ts: its rectangle's corners and sides within its
  * footprint disc), so a turned house finds its lowest corner (the models'
  * foundations reach below 0 and fill the gap uphill); a tree 0.15 m per
- * unit of scale into the ground; anything else on the ground under its
- * middle. The editor's check measures from the same height.
+ * unit of scale under the lowest ground round its trunk, a plant at the
+ * lowest ground under its patch (TRUNK_SHARE, PATCH_SHARE: on a bank its
+ * downhill side reaches the ground instead of hanging in the air, uphill it
+ * grows out of the slope); anything else on the ground under its middle.
+ * The editor's check measures from the same height.
  */
 export function seatHeight(
   f: ObjectFooting,
@@ -64,7 +67,26 @@ export function seatHeight(
     }
     return low;
   }
-  return f.category === 'tree' ? ground - 0.15 * s : ground;
+  if (f.category === 'tree') return lowestRound(ground, TRUNK_SHARE * f.footprint * s, o, groundAt) - 0.15 * s;
+  // A length of row follows the ground along its length (wallShear), across it the ground under its middle
+  if (f.category === 'plant' && !f.row) return lowestRound(ground, PATCH_SHARE * f.footprint * s, o, groundAt);
+  return ground;
+}
+
+/** Share of a tree's footprint its trunk takes at its foot (the catalogue's footprint is the ground it keeps clear, wider than the trunk) */
+const TRUNK_SHARE = 0.4;
+
+/** Share of a plant's footprint its patch covers at the ground (grass, reeds, shrubs thin out towards the edge) */
+const PATCH_SHARE = 0.7;
+
+/** The lowest of `ground` and the ground at eight points on a circle of radius `r` round the object */
+function lowestRound(ground: number, r: number, o: MapObject, groundAt: (x: number, y: number) => number): number {
+  let low = ground;
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2;
+    low = Math.min(low, groundAt(o.x + Math.cos(a) * r, o.y + Math.sin(a) * r));
+  }
+  return low;
 }
 
 /** A wall follows the slope at most this steep (rise over run) */
