@@ -126,8 +126,11 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       feste Stufe, Abnahme auf beiden Rechnern. Gebaut (b), (d), Sicht-Cube (Abschnitt 2 unten); (c) HLOD gemessen und
       verworfen (User 2026-10-22). WebGPU-Probe gebaut und gemessen (Plan 12.1, 12.2): je Draw doppelte CPU in three
       r186, geparkt bis three r187 und halbierte Draws (User 2026-10-22, 12.3); Branch `render/webgpu` lokal.
-      Optimierungen ab jetzt WebGPU-tauglich bauen (12.3). Nächster Schritt: Attribut-Uploads je Bild bei stehender
-      Ansicht (rund 90) abstellen.
+      Optimierungen ab jetzt WebGPU-tauglich bauen (12.3). Attribut-Uploads bei stehender Ansicht: auf WebGL keine
+      (2026-10-22, Plan 12.2), die rund 90 kommen aus dem WebGPU-Backend von r186. Offen: Brückendecks
+      (`path-bridges.ts`) ohne Ausklammern, Pixelgrenze und LOD, Würzburg 785 Stücke in 8 Draws mit 0,61 Mio.
+      Dreiecken samt Schatten, ein Steinstück 1 012 Dreiecke; Weg: Deckstücke wie die Linienstücke durch den
+      Objekt-Layer (Breite je Instanz, Band in der Ferne), kein eigenes Ausklammern daneben.
 - [ ] **E184 Mitgelieferte Karten imposanter** (User, 2026-10-15): die meisten Karten sind noch zu langweilig, es muss
       deutlich mehr gehen (Kulisse, Höhenunterschiede, Blickpunkte, Wahrzeichen, dichtere und abwechslungsreichere
       Gestaltung). Bekannte Stellen aus dem Showreel: Wald in Autumn Keep trüb und aus der Distanz braun, Burg in der
@@ -148,9 +151,6 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       Vorschläge je Karte zusammen mit E184. Entschieden (User, 2026-10-15): allgemeine Mechanismen, auch im Editor
       setzbar und einstellbar (Katalog/Effekt-Objekte, Bereiche, Map-Kit- und MCP-Befehle); die mitgelieferten Karten
       bekommen ihr Leben nur über dieselben Editor-Funktionen, keine Sonderwege je Karte. Gilt ebenso für E184.
-- [ ] **E195 Rest:** Menü und Weltwechsel sind gebaut (Abschnitt 2), das Leck beim Weltwechsel ist zu und gemessen
-      (`docs/WORLDS_NAVIGATION_PLAN.md`, Nachtrag 2026-10-19). Offen: OSM-Karten heißen im Pfad noch „Maps“
-      (`worldName` kennt nur den WorldRef).
 - [ ] **E134 Eigene Karten freigeben** (entschieden 2026-10-11, User 2026-10-21: mit 0.8): erst wenn alles Abgestimmte steht (E130 bis E133, auch
       Wellen-Editor und Zerstörung). Dann `CUSTOM_MAPS_RELEASED` an (`src/app/world/custom-maps-open.ts`) und
       `.3dtdmap`-Zuordnung im Installer. Die Karten-Daten (194 MB) kommen beim ersten Öffnen einer Karte vom Webserver

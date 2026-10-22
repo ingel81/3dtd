@@ -1301,8 +1301,11 @@ auch nicht mit r187 und Bündeln zusammen (geschätzt rund 1,45 gegen 0,91 ms).
 gleicher GPU-Zeit. Sinnvoll wird er, sobald (a) three r187 erschienen ist (Start und WebGL-2-Rückfall werden damit
 brauchbar: 14 s, 2 ms) und (b) die Draws je Ansicht über Zusammenlegen und Compute-Culling etwa halbiert sind. Diese
 Arbeit lohnt sich auch für WebGL. Bis dahin den Branch `render/webgpu` (lokal, `wt/webgpu`) als Probe parken und die Zahlen mit r187 über
-`e2e/perf/webgpu-compare.ts` (liegt nur auf dem Branch) neu ziehen. Nebenbefund für beide Renderer: rund 90 Attribut-Uploads je Bild bei
-stehender Ansicht deuten auf Instanzlisten, die ohne Änderung neu hochladen; das prüfen.
+`e2e/perf/webgpu-compare.ts` (liegt nur auf dem Branch) neu ziehen. Nebenbefund: rund 90 Attribut-Uploads je Bild bei
+stehender Ansicht. Geprüft 2026-10-22 auf dem `WebGLRenderer` (map-preview, Autumn Keep 164 und Ruined City 54 Draws,
+60 Bilder, Kamera fest): keine Attribut- oder Texturversion ändert sich, `bufferData`, `bufferSubData` und
+`texSubImage*` werden je Bild null Mal gerufen. Die Uploads kommen also aus dem WebGPU-Backend von r186, nicht aus
+unseren Instanzlisten; mit r187 dort neu zählen.
 
 ### 12.3 Entscheid und Leitlinie (User 2026-10-22)
 
