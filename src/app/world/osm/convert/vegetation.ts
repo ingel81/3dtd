@@ -126,6 +126,9 @@ const ROWS: Partial<Record<LandClass, RowKind>> = {
 /** Reeds at the shores of lakes, ponds and streams, per hectare of the band within 3 m of the water */
 const SHORE_REEDS: PlantKind = { assets: ['reeds', 'reed-bed'], perHa: 300, scale: [0.8, 1.3], clear: 1 };
 const SHORE_BAND = 3;
+/** Metres the ground may rise or fall within SHORE_PROBES' 3 m round a reed: more is a bank too steep for them */
+const SHORE_STEEP = 1.2;
+const SHORE_PROBES: readonly (readonly [number, number])[] = [[3, 0], [-3, 0], [0, 3], [0, -3]];
 /** Metres from a parcel's edge within which its rows do not ask the land class raster, which lies up to a cell off the ring */
 const EDGE_SLACK = 3;
 
@@ -297,7 +300,15 @@ export function growVegetation(doc: CustomMapDocument, features: OsmFeatures, la
   const shoreWater = new Uint8Array(n * n);
   for (let k = 0; k < shoreWater.length; k++) if (water.wet[k] && !water.sea[k]) shoreWater[k] = 1;
   const shore = distanceField(shoreWater, n, grid.step, SHORE_BAND + 1, false);
-  scatter(SHORE_REEDS, 'shore', -1, 900, (k) => (shore[k] > 0 && shore[k] <= SHORE_BAND ? 1 : 0));
+  // Not up a steep bank: reeds grow on a flat margin, not on the edge of a channel cut metres deep
+  const flat = (k: number) => {
+    const x = grid.origin + (k % n) * grid.step;
+    const y = grid.origin + Math.floor(k / n) * grid.step;
+    const h = heightAt(t, x, y);
+    for (const [dx, dy] of SHORE_PROBES) if (Math.abs(heightAt(t, x + dx, y + dy) - h) > SHORE_STEEP) return false;
+    return true;
+  };
+  scatter(SHORE_REEDS, 'shore', -1, 900, (k) => (shore[k] > 0 && shore[k] <= SHORE_BAND && flat(k) ? 1 : 0));
 
   // Rows: vines and orchards straight across each parcel or block of it (crop-rows.ts), a run kept or left out whole, nearest the routes first
   const roads = new RoadIndex(pathLines(doc));
