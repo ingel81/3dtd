@@ -288,7 +288,10 @@ breiter, Fußwege nicht), als Quadrat um HQ, Spawns und Routen mit Rand, mindest
 Straßen erzeugt sind. Die Szene hat Norden bei +Z und Osten bei -X, das Rechteck (`osmArea`) legt deshalb links den
 größeren X-Wert an. Der Ebenen-Knopf schaltet auf eine Straßenkarten-Ansicht (`minimapLook: 'map'`): helle Gebäude und Straßen,
 Straßen 12 m und Nebenstraßen 7 m breit mit dunklem Rand, Farben `TD_THEME.map*`. Die eigene Karte rendert sie einmal
-nach ihrem ersten gezeichneten Bild (`custom-map-minimap.ts`): orthografisch von oben, nur die Szenenkinder, die
+noch im Laden, beim zweiten Update der Welt (`custom-map-minimap.ts`, `CustomMapWorld.startMinimapPicture`), und liest
+die Pixel ohne auf die GPU zu warten über die nächsten Bilder zurück (`readRenderTargetPixelsAsync`); gerendert und
+sofort gelesen beim ersten Tick der Minikarte hielt es das erste Bild nach ready 117 bis 300 ms an (E275). Orthografisch
+von oben, nur die Szenenkinder, die
 `view.attach` und `environment.apply` angehängt haben (Gelände, Wasser, Objekte, Licht), 512 px an der längeren
 Seite. Sie braucht keine eigenen Shader-Programme: der Nebel bleibt mit Dichte 0 an der Szene, alle Lichter bleiben an
 (Nebel und Zahl der Lichter gehören zum Programm), und das Ziel ist wie das der Bilder: ohne Nachbearbeitung gilt es

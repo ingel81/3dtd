@@ -34,7 +34,7 @@ import { boxTarget, CraterObliteration, roundTarget, type ObliterationRect, type
 import { CustomMapGroundDamage } from './custom-map-ground-damage';
 import { CraterLakes, mapCraterSources, waterKindAt } from './crater-lakes';
 import type { CraterWaterEntry } from './render/water/crater-water';
-import { renderMinimapPicture } from './custom-map-minimap';
+import { renderMinimapPicture, type MinimapArea } from './custom-map-minimap';
 import { MapStore } from './map-store';
 import type { MapAssetLibrary } from './render/map-asset-library';
 import type { CustomMapView } from './render/custom-map-view';
@@ -177,6 +177,8 @@ export class CustomMapWorld implements WorldProvider {
   /** What the minimap picture renders: the scene and the children the map put into it */
   private stage: { scene: Scene; renderer: WebGLRenderer; owned: Set<Object3D>; fog: readonly { value: number }[]; drawsToTarget: () => boolean } | null = null;
   private minimapPicture: HTMLCanvasElement | null = null;
+  /** The minimap's picture is read back (startMinimapPicture) */
+  private minimapPending = false;
   /** The map's lanes and their bounds (lane-choice.ts) */
   private readonly laneChoice: LaneChoice;
   /** The lanes the player opened before wave 1, null: the map's first (TODO E130) */
@@ -400,6 +402,8 @@ export class CustomMapWorld implements WorldProvider {
     this.gameClock += gameSeconds;
     const now = performance.now();
     const dt = this.lastUpdate ? Math.min(0.25, (now - this.lastUpdate) / 1000) : 0;
+    // A frame drawn before this one: its levels of detail stand for the minimap's picture, made while loading
+    if (this.lastUpdate) this.startMinimapPicture();
     this.lastUpdate = now;
     this.goneGate.tick();
     this.dugGate.tick();
@@ -712,25 +716,42 @@ export class CustomMapWorld implements WorldProvider {
    * levels of detail set) from the map's own scene children only
    */
   minimap(): WorldMinimap | null {
+    if (!this.minimapPicture) {
+      this.startMinimapPicture();
+      return null;
+    }
+    return { picture: this.minimapPicture, ...this.minimapArea() };
+  }
+
+  /** The map's ground in scene space, as the minimap shows it */
+  private minimapArea(): MinimapArea {
     const { width, depth } = this.doc.terrain;
-    const area = {
+    return {
       left: this.frame.sceneX(-width / 2),
       right: this.frame.sceneX(width / 2),
       top: this.frame.sceneZ(depth / 2),
       bottom: this.frame.sceneZ(-depth / 2),
     };
-    if (!this.minimapPicture) {
-      if (!this.prepared || !this.stage || !this.view || this.lastUpdate === 0) return null;
-      const { scene, renderer, owned, fog, drawsToTarget } = this.stage;
-      try {
-        this.minimapPicture = renderMinimapPicture(renderer, scene, owned, area, this.topHeight(), fog, !drawsToTarget());
-      } catch (err) {
+  }
+
+  /**
+   * The minimap's picture rendered now, its pixels read back over the next
+   * frames (renderMinimapPicture): from the second frame of the load on
+   * (update), so the game's first frames do not render it
+   */
+  private startMinimapPicture(): void {
+    if (this.minimapPicture || this.minimapPending || !this.prepared || !this.stage || !this.view || this.lastUpdate === 0) return;
+    const stage = this.stage;
+    this.minimapPending = true;
+    renderMinimapPicture(stage.renderer, stage.scene, stage.owned, this.minimapArea(), this.topHeight(), stage.fog, !stage.drawsToTarget())
+      .then((picture) => {
+        if (this.stage === stage) this.minimapPicture = picture;
+      })
+      .catch((err) => {
         console.warn('[CustomMap] no minimap picture', err);
-        this.stage = null;
-        return null;
-      }
-    }
-    return { picture: this.minimapPicture, ...area };
+        if (this.stage === stage) this.stage = null;
+      })
+      .finally(() => (this.minimapPending = false));
   }
 
   regenerate(): Promise<void> {

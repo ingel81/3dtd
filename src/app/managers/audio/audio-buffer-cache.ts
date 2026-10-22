@@ -51,9 +51,15 @@ export class AudioBufferCache {
       if (this.isFailed(url)) return { buffer: null, loading: null };
       const entry: { buffer: AudioBuffer | null; loading: Promise<AudioBuffer | null> | null } = { buffer: null, loading: null };
       const held = this.held;
-      // `build` makes the file (a synthesised sample's data URL) when it loads; `url` is then its key
+      // `build` makes the file (a synthesised sample's data URL) when it loads; `url` is then its key. A built file
+      // takes no turn on the network: it is not held, and builds in a task of its own (all built at release, the
+      // nuke's and the laser's held the game's first frames 180 ms, E275)
       const start = (): Promise<AudioBuffer> => this.loadBuffer(build ? build() : url);
-      const load = held ? new Promise<void>((resolve) => held.set(url, resolve)).then(start) : start();
+      const load = build
+        ? new Promise<void>((resolve) => setTimeout(resolve)).then(start)
+        : held
+          ? new Promise<void>((resolve) => held.set(url, resolve)).then(start)
+          : start();
       entry.loading = load.then(
         (buffer) => {
           entry.buffer = buffer;

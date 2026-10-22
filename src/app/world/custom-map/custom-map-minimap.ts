@@ -58,8 +58,12 @@ function isDrawn(o: Object3D): boolean {
  * screen when the frames draw to it (`screen`), else it is a plain linear
  * target like the post-processing's. A program of its own per material would
  * link on the main thread, some 250 ms each with a cold driver cache.
+ *
+ * The scene is put back at once; the pixels come back without waiting for
+ * the GPU (readRenderTargetPixelsAsync): read at once, the render and the
+ * wait for it held one frame 117 to 300 ms (E275).
  */
-export function renderMinimapPicture(
+export async function renderMinimapPicture(
   renderer: WebGLRenderer,
   scene: Scene,
   shown: ReadonlySet<Object3D>,
@@ -69,7 +73,7 @@ export function renderMinimapPicture(
   mapFog: readonly { value: number }[] = [],
   /** The frames draw to the screen (no post-processing): sRGB out; else linear, converted here */
   screen = true,
-): HTMLCanvasElement {
+): Promise<HTMLCanvasElement> {
   const { width, height } = minimapPictureSize(area);
   const hw = Math.abs(area.right - area.left) / 2;
   const hd = Math.abs(area.bottom - area.top) / 2;
@@ -109,17 +113,25 @@ export function renderMinimapPicture(
   // target as the screen. A plain target gets linear colour, as the post-processing's does.
   (target as WebGLRenderTarget & { isXRRenderTarget: boolean }).isXRRenderTarget = screen;
   const pixels = new Uint8Array(width * height * 4);
+  let read: Promise<unknown>;
   try {
     renderer.setRenderTarget(target);
     renderer.clear();
     renderer.render(scene, cam);
-    renderer.readRenderTargetPixels(target, 0, 0, width, height, pixels);
+    read = renderer.readRenderTargetPixelsAsync(target, 0, 0, width, height, pixels);
+  } catch (err) {
+    target.dispose();
+    throw err;
   } finally {
     renderer.setRenderTarget(before);
     mapFog.forEach((u, i) => (u.value = mapDensity[i]));
     if (fog instanceof FogExp2) fog.density = density;
     if (fog instanceof Fog) [fog.near, fog.far] = reach;
     for (const child of hidden) child.visible = true;
+  }
+  try {
+    await read;
+  } finally {
     target.dispose();
   }
   if (!screen) linearToSrgb(pixels);

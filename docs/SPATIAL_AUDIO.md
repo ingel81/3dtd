@@ -269,7 +269,9 @@ private readonly MAX_CACHED_BUFFERS = 50;  // ~50 Sounds max in Memory
   Leitung mit Modellen und Kartendaten. Mit `ready` startet `releaseLoads` alle; ein Sound, der vorher spielen soll,
   lädt seine Datei sofort (`want`). Die Hintergrundmusik lädt beim Laden nur die Build-Tracks, den Rest, sobald der
   Ladeschirm geht (`onLoadingComplete`). Ein synthetisierter Sound (Atomschlag, Laser) wird mit seiner Bau-Funktion
-  registriert und erst gebaut, wenn seine Datei laden darf (Schlüssel `synth:<id>`), nicht beim Registrieren
+  registriert (Schlüssel `synth:<id>`) und nicht gehalten, er braucht keine Leitung: er baut gleich beim Laden, jeder in
+  einer Aufgabe für sich, nicht beim Registrieren (mit `releaseLoads` alle in einer Aufgabe hielten Knall, Grollen und
+  Laser das erste Bild nach ready rund 180 ms an, E275)
 
 ## Hintergrundmusik (BackgroundMusicService)
 

@@ -15,7 +15,7 @@ describe('custom map minimap picture', () => {
     expect(Math.abs(px[2] - 128)).toBeLessThan(3);
   });
 
-  it("draws the map's own children only, keeps every light and puts the scene back", () => {
+  it("draws the map's own children only, keeps every light and puts the scene back", async () => {
     const scene = new Scene();
     const map = new Mesh(new BoxGeometry());
     const tower = new Mesh(new BoxGeometry());
@@ -34,17 +34,22 @@ describe('custom map minimap picture', () => {
       clear: vi.fn(),
       render: () => seen.push(all()),
       readRenderTargetPixels: vi.fn(),
+      readRenderTargetPixelsAsync: vi.fn(() => Promise.resolve()),
     } as unknown as WebGLRenderer;
-    renderMinimapPicture(renderer, scene, new Set([map]), { left: 50, right: -50, top: 20, bottom: -20 }, 10);
+    const picture = renderMinimapPicture(renderer, scene, new Set([map]), { left: 50, right: -50, top: 20, bottom: -20 }, 10);
     // map, tower group, tower, light, the one hidden before
     expect(seen).toEqual([[true, true, false, true, false]]);
+    // The scene back before the pixels are: the read does not wait for the GPU
     expect(all()).toEqual([true, true, true, true, false]);
     expect(target).toBe(before);
+    expect(renderer.readRenderTargetPixels).not.toHaveBeenCalled();
+    expect(renderer.readRenderTargetPixelsAsync).toHaveBeenCalledTimes(1);
+    expect((await picture).width).toBe(512);
     // Drawn as the screen would be: the programs the map compiled
     expect(targets[0]).toMatchObject({ isXRRenderTarget: true });
     // Frames through the post-processing: a plain linear target
     targets.length = 0;
-    renderMinimapPicture(renderer, scene, new Set([map]), { left: 50, right: -50, top: 20, bottom: -20 }, 10, [], false);
+    await renderMinimapPicture(renderer, scene, new Set([map]), { left: 50, right: -50, top: 20, bottom: -20 }, 10, [], false);
     expect(targets[0]).toMatchObject({ isXRRenderTarget: false });
   });
 });

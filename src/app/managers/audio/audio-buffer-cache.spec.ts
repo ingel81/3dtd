@@ -53,16 +53,27 @@ describe('AudioBufferCache', () => {
     });
   });
 
-  it('builds a synthesised file only as it loads, under the key it was asked by', async () => {
+  it('builds a synthesised file in a task of its own, held or not, under the key it was asked by', async () => {
     cache.hold();
-    const build = vi.fn(() => 'data:audio/wav;base64,AAAA');
+    const order: string[] = [];
+    const build = vi.fn(() => {
+      order.push('nuke');
+      // Runs before the next build only when that one waits for a task of its own
+      queueMicrotask(() => order.push('end of its task'));
+      return 'data:audio/wav;base64,AAAA';
+    });
     const entry = cache.getOrLoad('synth:nuke', build);
+    const laser = cache.getOrLoad('synth:laser', () => {
+      order.push('laser');
+      return 'data:audio/wav;base64,BBBB';
+    });
+    // Not in the task that asked, nor in its microtasks
     await Promise.resolve();
     expect(build).not.toHaveBeenCalled();
-    cache.want('synth:nuke');
-    await entry.loading;
+    await Promise.all([entry.loading, laser.loading]);
+    expect(order).toEqual(['nuke', 'end of its task', 'laser']);
     expect(build).toHaveBeenCalledTimes(1);
-    expect(loader.load.mock.calls.map(([url]) => url)).toEqual(['data:audio/wav;base64,AAAA']);
+    expect(loader.load.mock.calls.map(([url]) => url)).toEqual(['data:audio/wav;base64,AAAA', 'data:audio/wav;base64,BBBB']);
   });
 
   describe('touchBuffer via getOrLoad', () => {
