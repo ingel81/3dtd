@@ -824,6 +824,24 @@ eingefrorenen Probe (Katalog-Modelle, keine Objekte auf Straßen oder in der Luf
   Wasser; `z` bleibt 0, die Prüfung findet nichts in der Luft. Aufgeschüttet wird nichts: mit der tiefsten Ecke liegt
   die Böschung bergseitig, dort steht ab 2 m Höhe eine Stützmauer (`retaining-wall`, Front zum Gebäude, nicht auf
   Straßen oder im Nachbarhaus). Die Talseite aus dem Plan braucht damit keine Mauer.
+  **Ersetzt (2026-10-23, Hanghäuser):** die tiefste Ecke ließ Häuser unter der Straße versinken und stellte Kästen
+  aus Mauerplatten 0,6 m vor die Wände (Erlenbach: 887 von 2 690 Gebäuden mit Mauern). Jetzt:
+  - **Boden:** auf dem Gelände vor dem Eingang (1,5 m vor der Mitte der Front, die zur Straße zeigt, auf dem Hang vor
+    allen Schnitten gelesen), begrenzt auf die Spanne unter den Wänden und höchstens 6 m über der tiefsten Stelle.
+    Ein Bau mit Durchfahrt oder Tiefgarage (ihre Böden zählen vom Sitz) und eine Ruine stehen weiter auf der
+    tiefsten Stelle.
+  - **Talseite:** nichts aufgeschüttet. Der Renderer setzt das Gebäude auf die tiefste Stelle; `z` hebt es auf den
+    Boden, `basement` (gleich `z`, ab 0,15 m) zieht seine Wände als Kellergeschoss bis dorthin hinab, mit
+    Kellerfenstern und Tür oder Garagentor (docs/CUSTOM_MAPS.md, „Kellergeschoss am Hang“).
+  - **Bergseite:** unter den Wänden und 2 m darüber hinaus (ein Hof) auf den Boden abgetragen, dahinter eine Böschung
+    (0,9 Steigung, höchstens 8 m weit) zurück zum Hang. Eine Stützmauer nur an den Seiten, die bergauf zeigen
+    (Normale höchstens 60° von der Falllinie), und nur auf den Stücken, wo der Hang hinter dem Hof mehr als 2 m über
+    dem Boden steht: am Rand des Hofs, Front zum Gebäude, über die Ecken bis zum Ende des Hofs; sie hält 2,6 m, die
+    Böschung setzt hinter ihr an. Wo keine Mauer stehen kann (Straße, Wasser, Rand, Nachbarhaus), bleibt die Böschung.
+    Neben Straßen und im Wasser wird nichts abgetragen.
+  - Erlenbach, Miltenberg, Oberbergen: Stützmauern 2 121, 2 129, 407 → 1 117, 1 177, 316; Gebäude mit Mauern in
+    Erlenbach 887 → 449; Gebäude über einem Keller 2 275, 3 198, 919 (tiefster 7,4, 9,1, 6,3 m; tiefer als 6 m nur,
+    wo die Schnitte der Nachbarn den Sitz senkten).
 - **Gruppen:** alle Modelle und Mauern eines Grundrisses tragen `group: osm-b<OSM-Id>`, der Editor verschiebt sie
   zusammen.
 

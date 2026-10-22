@@ -28,10 +28,12 @@
  * 5. Scene cost: with a cap (BUILDING_BUDGET_SHARE of the scene budget, off
  *    for now, or `budget`) the smallest buildings far from the HQ go first
  *    past it.
- * 6. Slope: the ground under each model (its wall box and a margin, never a
- *    road or water) is cut to its lowest corner, where the renderer seats it;
- *    where the hill then stands higher than RETAINING_FROM beside a wall, a
- *    retaining wall holds the cut.
+ * 6. Slope: each model's floor lies at the ground before its entrance
+ *    (floorLevel); towards the valley it stands over a basement down to the
+ *    ground (MapObject.basement, its z the same), up the hill the ground is cut
+ *    to its floor, a yard and a bank beyond, a retaining wall at the yard's
+ *    edge only where the bank would stand higher than RETAINING_FROM on a side
+ *    facing up the hill (cutSlope). Never under a road or in water.
  */
 import { heightAt } from '../../../map-ops/grid';
 import type { CustomMapDocument, MapObject, MapPoint } from '../../custom-map/map-document';
@@ -125,6 +127,9 @@ export interface BuildingReport {
   pads: number;
   deepestCutM: number;
   retainingWalls: number;
+  /** Buildings standing over a basement (MapObject.basement), the deepest (m) */
+  basements: number;
+  deepestBasementM: number;
   /** Scene points the buildings spend, and of the scene budget */
   cost: number;
   costShare: number;
@@ -200,15 +205,29 @@ const CORNER_REACH = 10;
 const FRONT_REACH = 60;
 /** Models keep this far (m) from the HQ's middle */
 const HQ_CLEAR = 14;
-/** Metres the levelled pad reaches past a model's walls */
-const PAD_MARGIN = 0.6;
-/** Metres beside a road's edge the pads leave alone */
+/** Metres beside a road's edge the cuts leave alone */
 const ROAD_GUARD = 0.5;
-/** A cut deeper than this (m) beside a wall gets a retaining wall */
+/** Metres outside the front wall the ground before the entrance is read (the floor's height) */
+const ENTRANCE_OUT = 1.5;
+/** A building's floor stands at most this far (m) over its seat: the deepest basement */
+const MAX_BASEMENT = 6;
+/** A basement shallower than this (m) is none: the foundation covers it */
+const BASEMENT_FROM = 0.15;
+/** Metres beside the walls the hill is cut level with the floor (a yard behind a house dug into the slope) */
+const YARD = 2;
+/** Rise over run of the bank from the yard back up to the hill */
+const BANK_SLOPE = 0.9;
+/** A bank higher than this (m) is held by a retaining wall at the yard's edge instead */
 const RETAINING_FROM = 2;
+/** Metres of hill a retaining wall holds over the floor (its height less a coping's) */
+const RETAINING_HOLD = 2.6;
 const RETAINING_ASSET = 'retaining-wall';
 /** The retaining wall's length and depth at scale 1 (m) */
-const RETAINING_BOX: readonly [number, number] = [6, 1.2];
+const RETAINING_BOX: readonly [number, number] = [5.4, 1.2];
+/** A side of a building faces up the hill when its normal lies this near the way up (cosine): only there retaining walls */
+const UPHILL = 0.5;
+/** Metres past a wall's yard the cut's bank reaches at most */
+const BANK_REACH = 8;
 /** The buildings within this (m) give a footprint the median size of its neighbourhood (buildingKind's `around`) */
 const AROUND_REACH = 100;
 /** Footprints smaller than this (m²) are no house of the neighbourhood (sheds, garages) */
@@ -320,6 +339,8 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     pads: 0,
     deepestCutM: 0,
     retainingWalls: 0,
+    basements: 0,
+    deepestBasementM: 0,
     cost: 0,
     costShare: 0,
     missing: [],
@@ -527,6 +548,9 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
   }
   const objects: MapObject[] = [];
   let n = 0;
+  // The floors are read off the hill as it was, before any building's cut: a neighbour's yard leaves an entrance be
+  const hill: CustomMapDocument['terrain'] = { ...doc.terrain, grid: { ...doc.terrain.grid, heights: doc.terrain.grid.heights.slice() } };
+  const standing: { object: MapObject; floor: number }[] = [];
   // Walls other buildings stand against (party walls): a sloped roof ends there in a gable (building-mass.ts shareWalls)
   const neighbours = new FootprintGrid(footprints);
   for (const f of footprints) {
@@ -556,25 +580,39 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       const openings = mass ? massOpenings(mass, object, coveredWays, report.openings) : [];
       if (mass && openings.length) mass.openings = openings;
       const onRamp = mass?.openings ? (x: number, y: number) => onRampAt(object, mass, x, y) : undefined;
-      const pad = mass
-        ? levelPad(doc, pl, massRadius(mass), massBox(mass), guard, onRamp)
-        : levelPad(doc, pl, entry?.footprint ?? Math.max(pl.model.box[0], pl.model.box[1]) * 0.45, entry?.box, guard);
-      if (pad.cut > 0.05) report.pads++;
-      report.deepestCutM = Math.max(report.deepestCutM, round1(pad.cut));
-      if (mass && openings.some((o) => o.kind === 'garage')) {
-        // Its car park entrances' floors under the seat, where the ramps meet the wall
-        const seat = seatHeight({ category: 'building', footprint: 1, height: mass.height }, object, (x, y) => heightAt(doc.terrain, x, y), () => null);
-        garageFloors(openings, object, doc.terrain, seat);
-      }
+      // On a slope: its floor at the ground before its entrance, the hill behind it cut to that, a basement under
+      // it towards the valley. A way into it (a passage, a car park's ramp: their floors count from the seat) and a
+      // ruin stand on the lowest ground
+      const floor = mass
+        ? floorLevel(hill, pl, massRadius(mass), massBox(mass), onRamp, !openings.length && !f.ruin)
+        : floorLevel(hill, pl, entry?.footprint ?? Math.max(pl.model.box[0], pl.model.box[1]) * 0.45, entry?.box, undefined, true);
+      const cut = cutSlope(doc, pl, floor, guard, known(RETAINING_ASSET) ? onRoad : null, boxes);
+      if (cut.depth > 0.05) report.pads++;
+      report.deepestCutM = Math.max(report.deepestCutM, round1(cut.depth));
       objects.push(object);
-      if (known(RETAINING_ASSET)) {
-        for (const w of retainingWalls(doc, pl, pad.level, onRoad, boxes)) {
-          objects.push({ id: `osm-b${++n}`, ...w, group });
-          report.retainingWalls++;
-        }
+      standing.push({ object, floor });
+      for (const w of cut.walls) {
+        objects.push({ id: `osm-b${++n}`, ...w, group });
+        report.retainingWalls++;
       }
     }
     report.placed++;
+  }
+  // Each building over its seat on the ground as all the cuts left it, as the renderer seats it: lifted to its floor
+  // over a basement where the hill falls away under it
+  const ground = (x: number, y: number) => heightAt(doc.terrain, x, y);
+  for (const { object, floor } of standing) {
+    const mass = object.mass;
+    const seat = seatHeight(mass ? { category: 'building', footprint: 1, height: mass.height } : footingOf(object.asset), object, ground, () => null);
+    const basement = round2(floor - seat);
+    if (basement >= BASEMENT_FROM) {
+      object.z = basement;
+      object.basement = basement;
+      report.basements++;
+      report.deepestBasementM = Math.max(report.deepestBasementM, round1(basement));
+    }
+    // Its car park entrances' floors under the seat, where the ramps meet the wall
+    if (mass?.openings?.some((o) => o.kind === 'garage')) garageFloors(mass.openings, object, doc.terrain, seat);
   }
   report.objects = objects.length;
   report.cost = Math.round(objects.reduce((s, o) => s + costOf(o.asset, catalog, doc) + (o.mass ? massTriangles(o.mass) : 0), 0));
@@ -1214,53 +1252,142 @@ function roadGuard(doc: CustomMapDocument): Uint8Array {
 }
 
 /**
- * Cuts the ground under a placement (its wall box and PAD_MARGIN) to the
- * lowest of its corners and of the points the renderer seats it by (the
- * catalogue's footprint at scale 1 and ground rectangle, object-seat.ts), so
- * it stands at that height with z 0 and nothing of it hangs: the level and
- * the deepest cut
+ * The floor a building stands at on a slope: the ground before its entrance
+ * (ENTRANCE_OUT outside the middle of its front wall, on hill `t` as it
+ * was), within the ground under its walls and at most MAX_BASEMENT over the
+ * lowest of it. That lowest (its corners and the points the renderer seats
+ * it by, the catalogue's footprint at scale 1 and ground rectangle,
+ * object-seat.ts) for one without an `entrance`. A car park's ramp before
+ * the building is no ground it stands on
  */
-function levelPad(
-  doc: CustomMapDocument,
+function floorLevel(
+  t: CustomMapDocument['terrain'],
   pl: Placement,
   footprint: number,
   box: GroundBox | undefined,
+  onRamp: ((x: number, y: number) => boolean) | undefined,
+  entrance: boolean,
+): number {
+  const o = origin(pl);
+  let low = heightAt(t, o.x, o.y);
+  let high = low;
+  for (const c of boxCorners(pl)) {
+    if (onRamp?.(c.x, c.y)) continue;
+    const h = heightAt(t, c.x, c.y);
+    low = Math.min(low, h);
+    high = Math.max(high, h);
+  }
+  // The samples round each seat point, not the ground between them: one beside a seat point under the floor would
+  // pull the seat under it
+  const ring = groundRing(footprint, box, { x: o.x, y: o.y, rotation: pl.rotation, scale: pl.scale });
+  for (let k = 0; k < ring.length; k += 2) if (!onRamp?.(ring[k], ring[k + 1])) low = Math.min(low, lowestSample(t, ring[k], ring[k + 1]));
+  if (!entrance) return low;
+  const f = pl.front;
+  const r = rightOf(f);
+  const d = pl.hd + ENTRANCE_OUT;
+  let sum = 0;
+  for (const u of [-0.3, 0, 0.3]) sum += heightAt(t, pl.p.x + f.x * d + r.x * pl.hw * 2 * u, pl.p.y + f.y * d + r.y * pl.hw * 2 * u);
+  return Math.min(Math.max(sum / 3, low), high, low + MAX_BASEMENT);
+}
+
+/**
+ * Cuts the hill round a building down to its floor: level under its walls
+ * and YARD beyond them, then a bank rising at BANK_SLOPE back to the hill,
+ * BANK_REACH past the yard at most. Along a side where the hill past the yard
+ * stands more than RETAINING_FROM over the floor, retaining walls at the
+ * yard's edge (their face to the building, the yard's width past the
+ * corners) hold it instead and the bank rises from RETAINING_HOLD over the
+ * floor behind them; a stretch where no wall can stand (a road, water, the
+ * map's edge, the next building) keeps the bank. Never under a road or in
+ * water, nothing filled: towards the valley the hill stays, the building's
+ * basement shows there (MapObject.basement). Without `onRoad` no walls.
+ * The walls and the deepest cut
+ */
+function cutSlope(
+  doc: CustomMapDocument,
+  pl: Placement,
+  floor: number,
   guard: Uint8Array,
-  onRamp?: (x: number, y: number) => boolean,
-): { level: number; cut: number } {
+  onRoad: ((o: Pick<MapObject, 'asset' | 'x' | 'y' | 'rotation' | 'scale'>) => boolean) | null,
+  boxes: BoxIndex,
+): { depth: number; walls: Omit<MapObject, 'id'>[] } {
   const t = doc.terrain;
   const g = t.grid;
-  const o = origin(pl);
-  let level = heightAt(t, o.x, o.y);
-  for (const c of boxCorners(pl)) if (!onRamp?.(c.x, c.y)) level = Math.min(level, heightAt(t, c.x, c.y));
-  const ring = groundRing(footprint, box, { x: o.x, y: o.y, rotation: pl.rotation, scale: pl.scale });
-  // The samples round each seat point, not the ground between them: a cut sample beside one under the level would
-  // pull the seat under the pad. A car park's ramp before the building is no ground it stands on
-  for (let k = 0; k < ring.length; k += 2) if (!onRamp?.(ring[k], ring[k + 1])) level = Math.min(level, lowestSample(t, ring[k], ring[k + 1]));
-  const corners = boxCorners(pl, PAD_MARGIN);
+  const f = pl.front;
+  const r = rightOf(f);
+  const [wl, wd] = RETAINING_BOX;
+  // Each side: its outward normal and the way along it, which of the box's coordinates (toBox: s along r, t along f)
+  // runs across it and with what sign, its half length, its distance from the middle; its walls' stretches
+  const sides = [
+    { n: f, along: r, across: 't' as const, sign: 1, half: pl.hw, off: pl.hd },
+    { n: { x: -f.x, y: -f.y }, along: r, across: 't' as const, sign: -1, half: pl.hw, off: pl.hd },
+    { n: r, along: f, across: 's' as const, sign: 1, half: pl.hd, off: pl.hw },
+    { n: { x: -r.x, y: -r.y }, along: f, across: 's' as const, sign: -1, half: pl.hd, off: pl.hw },
+  ].map((side) => {
+    const run = side.half * 2 + YARD * 2;
+    const count = Math.max(1, Math.round(run / wl));
+    return { ...side, run, count, held: new Array<boolean>(count).fill(false) };
+  });
+  const walls: Omit<MapObject, 'id'>[] = [];
+  // Walls only across the slope, on the sides facing up the hill: along it the bank runs down beside the building
+  const mid = (d: MapPoint, k: number) => heightAt(t, pl.p.x + d.x * k, pl.p.y + d.y * k);
+  const up = { x: f.x * (mid(f, pl.hd) - mid(f, -pl.hd)) / (2 * pl.hd) + r.x * (mid(r, pl.hw) - mid(r, -pl.hw)) / (2 * pl.hw), y: 0 };
+  up.y = f.y * (mid(f, pl.hd) - mid(f, -pl.hd)) / (2 * pl.hd) + r.y * (mid(r, pl.hw) - mid(r, -pl.hw)) / (2 * pl.hw);
+  const steep = Math.hypot(up.x, up.y);
+  for (const side of onRoad ? sides : []) {
+    if (side.half * 2 < 4 || side.n.x * up.x + side.n.y * up.y < UPHILL * steep) continue;
+    const scale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, side.run / (side.count * wl)));
+    for (let k = 0; k < side.count; k++) {
+      const u = -side.run / 2 + (k + 0.5) * (side.run / side.count);
+      const at = (d: number) => ({ x: pl.p.x + side.n.x * (side.off + d) + side.along.x * u, y: pl.p.y + side.n.y * (side.off + d) + side.along.y * u });
+      const behind = at(YARD + wd + 1.5);
+      if (!(heightAt(t, behind.x, behind.y) - floor > RETAINING_FROM)) continue;
+      const p = at(YARD + wd / 2);
+      // Its face to the building; not on a road (the editor's check), not in the water or off the map, not in the next building
+      const wall = { asset: RETAINING_ASSET, x: round2(p.x), y: round2(p.y), rotation: round3(Math.atan2(side.n.x, -side.n.y)), scale: round3(scale) };
+      if (onRoad!(wall) || inWater(t, p.x, p.y) || Math.abs(p.x) > t.width / 2 - wl || Math.abs(p.y) > t.depth / 2 - wl) continue;
+      if (boxes.near(p).some((q) => q !== pl && boxDistance(q, p) < wd)) continue;
+      walls.push({ ...wall, z: 0 });
+      side.held[k] = true;
+    }
+  }
+  const corners = boxCorners(pl, YARD + wd + BANK_REACH);
   const xs = corners.map((c) => c.x);
   const ys = corners.map((c) => c.y);
   const i0 = Math.max(0, Math.floor((Math.min(...xs) + t.width / 2) / g.cellSize));
   const i1 = Math.min(g.columns - 1, Math.ceil((Math.max(...xs) + t.width / 2) / g.cellSize));
   const j0 = Math.max(0, Math.floor((Math.min(...ys) + t.depth / 2) / g.cellSize));
   const j1 = Math.min(g.rows - 1, Math.ceil((Math.max(...ys) + t.depth / 2) / g.cellSize));
-  let cut = 0;
+  let depth = 0;
   for (let j = j0; j <= j1; j++) {
     const y = -t.depth / 2 + j * g.cellSize;
     for (let i = i0; i <= i1; i++) {
       const k = j * g.columns + i;
-      if (guard[k]) continue;
-      const x = -t.width / 2 + i * g.cellSize;
-      const { s, t: tt } = toBox(pl, { x, y });
-      if (Math.abs(s) > pl.hw + PAD_MARGIN || Math.abs(tt) > pl.hd + PAD_MARGIN) continue;
       const h = g.heights[k];
-      if (h > level) {
-        cut = Math.max(cut, h - level);
-        g.heights[k] = level;
+      if (guard[k] || h <= floor) continue;
+      const x = -t.width / 2 + i * g.cellSize;
+      const b = toBox(pl, { x, y });
+      const dist = Math.hypot(Math.max(0, Math.abs(b.s) - pl.hw), Math.max(0, Math.abs(b.t) - pl.hd));
+      let allowed = dist <= YARD ? floor : dist <= YARD + BANK_REACH ? floor + (dist - YARD) * BANK_SLOPE : Infinity;
+      if (dist > YARD) {
+        // Behind a retaining wall the hill it holds, a bank over its top
+        for (const side of sides) {
+          const e = side.sign * b[side.across] - side.off;
+          const a = side.across === 't' ? b.s : b.t;
+          if (e <= YARD || e > YARD + wd + BANK_REACH || Math.abs(a) > side.run / 2) continue;
+          const piece = Math.min(side.count - 1, Math.floor(((a + side.run / 2) / side.run) * side.count));
+          if (!side.held[piece]) continue;
+          const held = e <= YARD + wd ? floor : floor + RETAINING_HOLD + (e - YARD - wd) * BANK_SLOPE;
+          allowed = allowed === Infinity ? held : Math.max(allowed, held);
+        }
+      }
+      if (h > allowed) {
+        depth = Math.max(depth, h - allowed);
+        g.heights[k] = allowed;
       }
     }
   }
-  return { level, cut };
+  return { depth, walls };
 }
 
 /** Whether map point (x, y) lies in the cutting of a car park's ramp before raised building `o` (object-mass.ts massOnRamp) */
@@ -1290,49 +1417,6 @@ function inWater(t: CustomMapDocument['terrain'], x: number, y: number): boolean
     for (const body of [t.water, ...(t.waterBodies ?? [])]) if (body?.mask[k]) return true;
   }
   return waterLevelAt(t, x, y, heightAt(t, x, y)) !== null;
-}
-
-/** Retaining walls along the sides of a pad where the hill beside it stands more than RETAINING_FROM over it */
-function retainingWalls(
-  doc: CustomMapDocument,
-  pl: Placement,
-  level: number,
-  onRoad: (o: Pick<MapObject, 'asset' | 'x' | 'y' | 'rotation' | 'scale'>) => boolean,
-  boxes: BoxIndex,
-): Omit<MapObject, 'id'>[] {
-  const t = doc.terrain;
-  const f = pl.front;
-  const r = rightOf(f);
-  const out: Omit<MapObject, 'id'>[] = [];
-  const sides = [
-    { n: f, along: r, len: pl.hw * 2, off: pl.hd },
-    { n: { x: -f.x, y: -f.y }, along: r, len: pl.hw * 2, off: pl.hd },
-    { n: r, along: f, len: pl.hd * 2, off: pl.hw },
-    { n: { x: -r.x, y: -r.y }, along: f, len: pl.hd * 2, off: pl.hw },
-  ];
-  const [wl, wd] = RETAINING_BOX;
-  for (const side of sides) {
-    if (side.len < 4) continue;
-    const dist = side.off + PAD_MARGIN + wd / 2;
-    let bank = Infinity;
-    for (const u of [-0.35, 0, 0.35]) {
-      const q = { x: pl.p.x + side.n.x * (dist + 1.5) + side.along.x * side.len * u, y: pl.p.y + side.n.y * (dist + 1.5) + side.along.y * side.len * u };
-      bank = Math.min(bank, heightAt(t, q.x, q.y) - level);
-    }
-    if (!(bank > RETAINING_FROM)) continue;
-    const count = Math.max(1, Math.round(side.len / wl));
-    const scale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, side.len / (count * wl)));
-    for (let k = 0; k < count; k++) {
-      const u = -side.len / 2 + (k + 0.5) * (side.len / count);
-      const p = { x: pl.p.x + side.n.x * dist + side.along.x * u, y: pl.p.y + side.n.y * dist + side.along.y * u };
-      // Its face to the pad; not on a road (the editor's check), not in the water or off the map, not in the next building
-      const wall = { asset: RETAINING_ASSET, x: round2(p.x), y: round2(p.y), rotation: round3(Math.atan2(side.n.x, -side.n.y)), scale: round3(scale) };
-      if (onRoad(wall) || inWater(t, p.x, p.y) || Math.abs(p.x) > t.width / 2 - wl || Math.abs(p.y) > t.depth / 2 - wl) continue;
-      if (boxes.near(p).some((q) => q !== pl && boxDistance(q, p) < wd)) continue;
-      out.push({ ...wall, z: 0 });
-    }
-  }
-  return out;
 }
 
 // ---- Indexes ----

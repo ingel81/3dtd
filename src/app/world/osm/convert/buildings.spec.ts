@@ -48,7 +48,7 @@ function area(id: number, ring: MapPoint[], tags: Record<string, string>): OsmAr
   return { id, from: 'way', tags, outer: [ring], inner: [], area: Math.abs(s / 2) };
 }
 
-/** A 200 m map with one road along y = 0 from west to east, rising `slope` to the north, the HQ far east */
+/** A 200 m map with one road along y = 0 from west to east, rising `slope` to the north (falling for a negative one), the HQ far east */
 function world(areas: OsmArea[], slope = 0): { doc: CustomMapDocument; features: OsmFeatures } {
   const doc = createMapDocument({ id: 't', name: 't', width: 200, depth: 200, cellSize: 2, baseMaterial: 'grass', splatResolution: 64, starter: false });
   const g = doc.terrain.grid;
@@ -199,6 +199,25 @@ describe('OSM buildings: placing', () => {
     const walls = objects.filter((o) => o.asset === 'retaining-wall');
     expect(walls.length).toBeGreaterThan(0);
     for (const w of walls) expect(w.y).toBeGreaterThan(house.y);
+  });
+
+  it('stands a house below the street at the street over a basement open to the valley, no walls round it', () => {
+    const { doc, features } = world([area(1, box({ x: 0, y: 14 }, 12, 10, 0), { building: 'house' })], -0.3);
+    const { objects, report } = placeBuildings(doc, features, { catalog });
+    expect(objects.filter((o) => o.asset === 'retaining-wall')).toEqual([]);
+    const house = objects[0];
+    expect(report.basements).toBe(1);
+    // Its floor at the ground before its entrance (the street's side, south), its basement down to the seat
+    const entry = byId.get(house.asset)!;
+    const seat = seatHeight(entry, house, (x, y) => heightAt(doc.terrain, x, y), () => null);
+    const front = house.y - entry.box![3] * house.scale - 1.5;
+    expect(seat + house.z).toBeCloseTo(heightAt(doc.terrain, house.x, front), 0);
+    expect(house.basement).toBe(house.z);
+    expect(house.basement!).toBeGreaterThan(1.5);
+    // Nothing filled under it: the valley side keeps its ground
+    expect(heightAt(doc.terrain, house.x, house.y + 8)).toBeCloseTo(20 - (house.y + 8) * 0.3, 1);
+    doc.objects = objects;
+    expect(objectsInAir(doc, (a) => byId.get(a))).toEqual([]);
   });
 
   it('raises a footprint with wings round a courtyard from its outline: one building, all of it, nothing on the road', () => {
