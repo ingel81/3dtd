@@ -5,6 +5,7 @@ import {
   UniformsLib,
   UniformsUtils,
   Vector2,
+  Vector3,
   Vector4,
   type Texture,
 } from 'three';
@@ -25,6 +26,7 @@ import { SCENE_COPY_GLSL, type SceneCopy } from './scene-copy';
 import { SHORE_CUT_DEPTH, SHORE_CUT_SCALE } from './shore-cut';
 import type { MapEffects } from '../map-effects';
 import type { WaterReflection } from './water-reflection';
+import { WALL_SHOWS } from './water-walls';
 
 /**
  * The material of every water body (lake, sea, swamp, ice, lava; areas and
@@ -124,7 +126,7 @@ export function createWaterMaterial(o: WaterMaterialOptions): ShaderMaterial {
   if (o.river) {
     // Per material: merged uniforms would share the vectors of an array
     material.uniforms['uCraterDry'] = { value: Array.from({ length: CRATER_SLOTS }, () => new Vector4()) };
-    material.uniforms['uCraterGone'] = { value: Array.from({ length: CRATER_SLOTS }, () => new Vector2()) };
+    material.uniforms['uCraterGone'] = { value: Array.from({ length: CRATER_SLOTS }, () => new Vector3(0, 0, -1e9)) };
   }
   material.name = `custom-map-water-${o.kind}`;
   setWaterColor(material, o.kind, o.color);
@@ -259,6 +261,10 @@ const WATER_VERTEX = /* glsl */ `
 #include <logdepthbuf_pars_vertex>
 #include <shadowmap_pars_vertex>
 attribute float aDepth;
+// The water's walls (water-walls.ts): x 1 on a wall, where the water ends in the air at its side or end and shows
+// its body down to the bed; y the surface's height over that wall (map metres)
+attribute vec2 aWall;
+varying vec2 vWall;
 #ifdef SEA_WAVES
 uniform float uTime;
 varying vec3 vSwellNormal;
@@ -296,6 +302,7 @@ varying vec3 vWorldPos;
 varying vec3 vMapPos;
 void main() {
   vApronDepth = aDepth;
+  vWall = aWall;
   // The map's own frame (the view's group may sit anywhere in the scene): terrain lookups use it
   vMapPos = position;
 #if RIVER == 1
@@ -318,13 +325,14 @@ void main() {
   }
   surface.y -= sunk;
   vMapPos.y -= sunk;
+  vWall.y -= sunk;
 #endif
 #ifdef SEA_WAVES
   // A swell on the open sea, flat towards the shore (the depth under the vertex)
   // and gone some hundreds of metres out, where the vertices lie farther apart than its waves (the rings beyond the
   // border, 80 m and more): sampled there, its normals smeared into radial streaks across the far sea
   vec3 swellAt = (modelMatrix * vec4(position, 1.0)).xyz;
-  float swell = smoothstep(0.5, 5.0, aDepth) * (1.0 - smoothstep(180.0, 450.0, distance(cameraPosition, swellAt)));
+  float swell = smoothstep(0.5, 5.0, aDepth) * (1.0 - aWall.x) * (1.0 - smoothstep(180.0, 450.0, distance(cameraPosition, swellAt)));
   vec3 swellN = vec3(0.0, 1.0, 0.0);
   vec2 at = swellAt.xz;
   gerstner(normalize(vec2(0.8, 0.6)), 34.0, 0.32 * swell, surface, swellN, at);
@@ -393,12 +401,14 @@ ${SHORE_PHASE_GLSL}
 varying float vApronDepth;
 varying vec3 vWorldPos;
 varying vec3 vMapPos;
+varying vec2 vWall;
 #if RIVER == 1
 varying vec2 vFlow;
 varying float vAcross;
 varying vec2 vJoin;
 varying float vAlong;
-uniform vec2 uCraterGone[CRATER_SLOTS];
+// Per crater the stretch gone (x to y) and its lake's level now (z; very low: none)
+uniform vec3 uCraterGone[CRATER_SLOTS];
 #endif
 
 // The gradient of a value over the surface, per metre in the scene's x/z plane: its screen derivatives solved
@@ -496,8 +506,87 @@ vec3 pointGlints(vec3 n, vec3 v) {
   return uShotLightCount > 0 ? shotLightGlints(vWorldPos, n, v, 140.0) * 3.0 : vec3(0.0);
 }
 
+// A wall of the water (water-walls.ts) where it ends in the air: its body seen from the side, below metres under
+// its surface. Water, sea and swamp: light through at the top (a bright rim at the waterline), deeper the body's
+// colour going dark, the ground behind through it where the frame is copied; ice clear above, dark below; lava a
+// crust split by glowing seams, hottest at the top
+vec4 wallColor(float below, float sunShade) {
+  // The wall's own normal (it stands upright, facing out of the water) and the view
+  vec3 wn = normalize(cross(dFdx(vWorldPos), dFdy(vWorldPos)));
+  vec3 v = normalize(cameraPosition - vWorldPos);
+  if (dot(wn, v) < 0.0) wn = -wn;
+  float sun = max(dot(wn, uSunDir), 0.0) * sunShade;
+  // Along the wall in metres (its horizontal direction), for streaks running down it
+  vec2 side = normalize(vec2(-wn.z, wn.x) + vec2(1e-4));
+  float u = dot(vWorldPos.xz, side);
+#if KIND == 1
+  vec3 lv = lavaAt(vec2(u, vWorldPos.y * 3.0 + uTime * 0.2), vec2(0.0));
+  float seam = 1.0 - smoothstep(0.03, 0.14, lv.y);
+  float top = 1.0 - smoothstep(0.0, 0.35, below);
+  vec3 crust = vec3(0.05, 0.045, 0.04) * (0.6 + 0.6 * lv.x) * (uSunColor * (0.2 + 0.6 * sun) + uLight * 0.3);
+  vec3 c = mix(crust, uDeep * vec3(0.42, 0.06, 0.015), seam * lv.x);
+  c = mix(c, vec3(1.0, 0.36, 0.06), max(seam * smoothstep(0.55, 0.8, lv.x), top * 0.7));
+  return vec4(c, 1.0);
+#elif KIND == 2
+  vec3 c = mix(vec3(0.6, 0.7, 0.76), uDeep * vec3(0.25, 0.4, 0.5), smoothstep(0.0, 2.5, below)) * uLight * (0.7 + 0.3 * sun);
+  return vec4(c, 1.0);
+#else
+  // The body seen through its side, some metres of water along the view: the colour the surface shows over that
+  // depth, darker further down; lit from the side the sun falls on
+  vec3 seen = exp(-(2.0 + below) * vec3(0.6, 0.25, 0.16));
+  float through = (seen.r + seen.g + seen.b) / 3.0;
+  vec3 c = mix(uDeep, uShallow, through * through) * uLight * (0.6 + 0.3 * sun + 0.1 * sunShade) * mix(1.0, 0.6, smoothstep(0.0, 3.0, below));
+  // Streaks running down it, slow: light through moving water, not paint
+  float streak = texture2D(uWaves, vec2(u / 1.7, vWorldPos.y / 5.0 + uTime * 0.25)).x;
+  c *= 0.85 + 0.3 * streak;
+  // The sky in it where it is seen at a grazing angle
+  float fresnel = 0.02 + 0.98 * pow(1.0 - max(dot(wn, v), 0.0), 5.0);
+  c = mix(c, skyTex(reflect(-v, wn)) * uLight, fresnel * 0.5);
+  #ifdef REFRACT
+  // The frame behind, through a couple of metres of water
+  c = mix(sceneBehind(wn.xz * 0.02) * exp(-2.0 * vec3(0.6, 0.25, 0.16)), c, 0.6 + 0.4 * smoothstep(0.0, 3.0, below));
+  #endif
+  // A broken line of foam where the surface meets it
+  float rim = (1.0 - smoothstep(0.0, 0.06, below)) * smoothstep(0.35, 0.7, texture2D(uWaves, vec2(u / 0.6, uTime * 0.05)).y);
+  c = mix(c, vec3(0.86, 0.89, 0.88) * uLight * (0.7 + 0.3 * sunShade), rim * 0.6);
+  #ifdef REFRACT
+  return vec4(c, 1.0);
+  #else
+  return vec4(c, mix(0.8, 0.97, smoothstep(0.0, 2.0, below)));
+  #endif
+#endif
+}
+
 void main() {
   #include <logdepthbuf_fragment>
+  if (vWall.x > 0.5) {
+    // Inside the ground it is never seen: cut along the terrain's own triangles, not the mesh's
+    vec2 wm = vec2(-vMapPos.x, vMapPos.z);
+    bool wallOut = abs(wm.x) > uMapHalf.x || abs(wm.y) > uMapHalf.y;
+    float wallGround = wallOut ? vWall.y - 10.0 : terrainHeightAt(wm);
+    if (vMapPos.y < wallGround - 0.02) discard;
+    // Where the water stands only a hand's breadth over the ground at its edge the surface's own soft edge ends
+    // it; the wall shows where it stands higher
+    float wallShow = smoothstep(${WALL_SHOWS.toFixed(2)}, ${(WALL_SHOWS + 0.35).toFixed(2)}, vWall.y - wallGround);
+#if RIVER == 1
+    for (int i = 0; i < CRATER_SLOTS; i++) {
+      vec3 g = uCraterGone[i];
+      if (g.y > g.x && vAlong > g.x && vAlong < g.y) discard;
+      // A wall across the cut stands in its lake as far as the lake has risen
+      if (g.y > g.x && (abs(vAlong - g.x) < 0.05 || abs(vAlong - g.y) < 0.05) && vMapPos.y < g.z) discard;
+    }
+#endif
+    gl_FragColor = wallColor(max(vWall.y - vMapPos.y, 0.0), getShadowMask());
+#if KIND == 1 || KIND == 2
+    if (wallShow < 0.5) discard;
+#else
+    gl_FragColor.a *= wallShow;
+#endif
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+    ${heightFogFragment('vWorldPos')}
+    return;
+  }
   // 1 in the sun, 0 in the shadow of trees, bridges and banks
   float sunShade = getShadowMask();
   vec2 m = vec2(-vMapPos.x, vMapPos.z);
@@ -528,7 +617,7 @@ void main() {
   edge *= 1.0 - vJoin.x;
   // The stretch a crater blew away: its lake stands there instead
   for (int i = 0; i < CRATER_SLOTS; i++) {
-    vec2 g = uCraterGone[i];
+    vec3 g = uCraterGone[i];
     if (g.y > g.x && vAlong > g.x && vAlong < g.y) discard;
   }
   // The river's current per vertex: its patterns move downstream at half of it in two cross-faded phases (see
@@ -621,7 +710,9 @@ void main() {
   // Each phase's cracks on their own, then blended: blending the distances instead smoothed the crust into
   // plastic without cracks halfway through each cycle
   float seam = mix(1.0 - smoothstep(width * 0.25, width, lv1.y), 1.0 - smoothstep(width * 0.25, width, lv0.y), lw);
-  float crack = seam * open;
+  // Not one glow along a crack: stretches of it bright, others a dull red, so the net never reads as neon lines
+  float along = smoothstep(0.2, 0.75, valueNoise(lp * 0.32 + drift) * 0.7 + valueNoise(lp * 1.3) * 0.3);
+  float crack = seam * open * mix(0.35, 1.0, along);
   // Where it is hottest the crust melts away in open patches; rafts of crust still float in them (the plates'
   // middles)
   float molten = smoothstep(0.68, 0.86, heatField + breath * 0.04) * (1.0 - margin) * (1.0 - 0.85 * smoothstep(0.5, 0.75, crackDist));
@@ -631,18 +722,25 @@ void main() {
   float halo = exp(-crackDist / max(width, 0.02) * 1.4) * (1.0 - crack) * mix(0.35, 1.0, hot) * open * (1.0 - margin * 0.7);
   // Relief: each plate domed up from its cracks and rough with the heat field. Its normal comes from the
   // thickness's gradient over the surface, so a river's ribbon never shows its triangles as facets
-  float thick = smoothstep(0.0, 0.6, crackDist) * 0.5 + heatField * 0.3 + margin * 0.45 * (0.5 + 0.5 * sin(depth * 9.0 + heatField * 7.0));
-  vec2 tg = surfaceGradient(thick) * 0.6;
+  // Rough, not domed: the plates rise a little from their cracks and are broken all over by clinker (two
+  // octaves of noise, the finer one only near); the cooled margin heaped in rough ridges along the shore
+  float clinker = valueNoise(lp * 0.9) * 0.6 + valueNoise(lp * 3.1) * 0.4 * (1.0 - smoothstep(20.0, 80.0, length(cameraPosition - vWorldPos)));
+  float thick = smoothstep(0.0, 0.6, crackDist) * 0.25 + clinker * 0.35 + margin * (0.3 + 0.4 * clinker) * (0.5 + 0.5 * sin(depth * 7.0 + heatField * 5.0 + clinker * 3.0));
+  vec2 tg = surfaceGradient(thick) * 0.7;
   vec3 rn = normalize(vec3(-tg.x, 1.0, -tg.y));
   float sunLit = max(dot(rn, uSunDir), 0.0) * sunShade;
-  // Dark glassy basalt, greyer where it cooled at the margin, its edges lit red from the cracks; the plates'
-  // tops catch the sun and the sky in a soft glint
-  vec3 basalt = mix(vec3(0.045, 0.04, 0.038), vec3(0.1, 0.092, 0.088), margin) * (0.75 + 0.5 * heatField);
+  // Dark, warm basalt (black-brown, not the sky's blue-grey), darker still where it cooled at the margin;
+  // matte: only a faint warm glint where the sun catches a fresh glassy face, no mirrored sky
+  vec3 basalt = mix(vec3(0.05, 0.039, 0.032), vec3(0.036, 0.03, 0.027), margin) * (0.7 + 0.5 * heatField) * (0.75 + 0.5 * clinker);
   // Closed cracks are dark seams between the plates
   basalt *= 1.0 - seam * (1.0 - open) * 0.6;
-  vec3 crustColor = basalt * (uSunColor * sunLit * 0.9 + uLight * 0.3) + vec3(0.6, 0.11, 0.02) * halo * halo * 0.8;
+  vec3 crustColor = basalt * (uSunColor * sunLit * 0.85 + uLight * 0.22);
   vec3 rr = reflect(-v, rn);
-  crustColor += (uSunColor * pow(max(dot(rr, uSunDir), 0.0), 28.0) * 0.22 * sunShade + skyTex(vec3(rr.x, max(rr.y, 0.05), rr.z)) * 0.05 * uLight) * (1.0 - margin * 0.6);
+  crustColor += uSunColor * pow(max(dot(rr, uSunDir), 0.0), 14.0) * 0.06 * sunShade * (1.0 - margin) * smoothstep(0.55, 0.8, clinker);
+  // The heat under the crust: its plates' edges and the crust over hot zones glow a dull red from below, the
+  // margin's seams here and there
+  float under = halo * 0.7 + hot * 0.22 * (1.0 - margin) + margin * seam * 0.35;
+  crustColor += vec3(0.32, 0.045, 0.01) * under * under * (0.6 + 0.4 * along);
   // Ramp: crust, deep red, orange, yellow; capped so only the hottest cracks pass a bloom threshold
   vec3 red = uDeep * vec3(0.42, 0.06, 0.015);
   vec3 orange = vec3(1.0, 0.36, 0.06);
@@ -708,6 +806,23 @@ void main() {
   alpha = edge;
 #else
   // Water, sea, swamp
+  // How deep the water is over what shows through it: the ground, or a thing standing in the water (a pier, a
+  // ruin, a stone, an enemy wading) where the frame's depth was copied (scene-copy.ts): the point the view ray
+  // meets behind the surface, its height under the surface. A thing just under the surface gets a line of foam
+  float depthLook = depth;
+  float thingLine = 0.0;
+  #if defined( REFRACT ) && defined( USE_LOGARITHMIC_DEPTH_BUFFER )
+  float behindW = sceneDistanceBehind();
+  if (behindW > 0.0) {
+    vec3 behindAt = cameraPosition + (vWorldPos - cameraPosition) * (behindW / max(vFragDepth - 1.0, 1e-3));
+    float thingDepth = vWorldPos.y - behindAt.y;
+    // A thing, not the ground drawn a little off its heights (the terrain's coarser levels far off)
+    if (thingDepth > -0.05 && thingDepth < depth - 0.3 && length(cameraPosition - vWorldPos) < 200.0) {
+      depthLook = max(thingDepth, 0.0);
+      thingLine = 1.0 - smoothstep(0.02, 0.18, thingDepth);
+    }
+  }
+  #endif
   #if KIND == 3
   float waveStrength = 1.5;
   #elif KIND == 4
@@ -722,8 +837,9 @@ void main() {
   // A stream's surface in lanes: long smooth slicks and rough streaks side by side, drifting down with the
   // current (its two cross-faded phases), so the river reads as flowing even from the game's camera. Calmer in
   // the channel's middle than over the shallows at its sides
-  vec2 laneDir = normalize(vFlow + vec2(1e-4));
-  vec2 laneAt = vec2(dot(vWorldPos.xz, vec2(-laneDir.y, laneDir.x)) / 9.0, dot(vWorldPos.xz, laneDir) / 70.0);
+  // In the ribbon's own frame (across it, metres along it): the current's direction per pixel bends on a curve,
+  // differently at each bank, and lanes laid out by it broke into chevrons
+  vec2 laneAt = vec2(vAcross * 0.45 + (valueNoise(vec2(vAlong / 23.0, 1.7)) - 0.5) * 0.3, vAlong / 70.0);
   float lt = uTime / FLOW_PERIOD;
   float laneShift = length(vFlow) * 0.5 * FLOW_PERIOD / 70.0;
   float lanes = mix(texture2D(uFoam, laneAt - vec2(0.0, laneShift * fract(lt + 0.5)) + 0.5).g, texture2D(uFoam, laneAt - vec2(0.0, laneShift * fract(lt))).g, 1.0 - abs(2.0 * fract(lt) - 1.0));
@@ -732,13 +848,10 @@ void main() {
   waveStrength *= mix(0.6, 1.3, gust);
   float fine = 1.0 - smoothstep(30.0, 160.0, length(cameraPosition - vWorldPos));
   #if RIVER == 1
-  // In the current's own frame, stretched along it: the ripples of a stream are long lines down the flow,
-  // not the round chop of a lake
-  vec2 alongFlow = normalize(vFlow + vec2(1e-4));
-  vec2 acrossFlow = vec2(-alongFlow.y, alongFlow.x);
-  vec2 inFlow = vec2(dot(vWorldPos.xz, acrossFlow), dot(vWorldPos.xz, alongFlow) / 2.4);
-  vec3 nf = flowNormal(inFlow, vec2(dot(vel, acrossFlow), dot(vel, alongFlow) / 2.4), flow, waveStrength, fine);
-  vec3 n = normalize(vec3(acrossFlow.x * nf.x + alongFlow.x * nf.z * 0.6, nf.y, acrossFlow.y * nf.x + alongFlow.y * nf.z * 0.6));
+  // A stream's chop carried down by its current (the two cross-faded phases), not stretched: stretched along the
+  // current per pixel it read as plastic with even streaks, folding into chevrons where the current bends; a
+  // little rougher than a lake's, rougher still where it runs fast
+  vec3 n = flowNormal(vWorldPos.xz, vel, flow * 0.3, waveStrength * mix(1.1, 1.5, smoothstep(0.8, 3.0, length(vFlow))), fine);
   #else
   // Lakes and seas: a slow drift, and along their baked current where they have one
   vec3 n = uHasFlow > 0.5 && !outside ? flowNormal(vWorldPos.xz, vel, flow * 0.3, waveStrength, fine) : waveNormal(vWorldPos.xz, flow, waveStrength, fine);
@@ -754,7 +867,7 @@ void main() {
   vec3 sky = skyTex(vec3(r.x, max(r.y, 0.02), r.z));
   // Absorption by depth: red goes first, then green, so shallows turn green-blue before the body's colour
   // takes over; how much of the ground still shows through
-  vec3 absorbed = exp(-depth * vec3(0.6, 0.25, 0.16));
+  vec3 absorbed = exp(-depthLook * vec3(0.6, 0.25, 0.16));
   float see = (absorbed.r + absorbed.g + absorbed.b) / 3.0;
   // The light the water scatters back: the light shallow tone only where it is really shallow (see squared),
   // so a stream or a shelf two metres deep reads in the body's own colour instead of a bright turquoise
@@ -778,7 +891,7 @@ void main() {
   vec2 viewFlat = normalize(v.xz + vec2(1e-4));
   body *= 1.0 + clamp(dot(n.xz, sunFlat) * 2.5, -0.2, 0.2) * sunShade;
   // Deep water darker still: the middle of a lake or a deep channel reads deeper than its shelf
-  body *= mix(1.0, 0.72, smoothstep(2.0, 10.0, depth));
+  body *= mix(1.0, 0.72, smoothstep(2.0, 10.0, depthLook));
   #endif
   // How much of the reflection shows over the body
   #if KIND == 4
@@ -854,7 +967,7 @@ void main() {
   float sparkle = texture2D(uWaves, vWorldPos.xz / 0.9 + uTime * vec2(0.13, -0.11)).x;
   #ifdef REFRACT
   // The ground behind, bent by the waves and tinted by what the water absorbs on the way through
-  vec3 behind = sceneBehind((n.xz - vec2(0.0)) * 0.03 * min(depth, 2.0));
+  vec3 behind = sceneBehind((n.xz - vec2(0.0)) * 0.03 * min(depthLook, 2.0));
   vec3 through = behind * absorbed;
     #ifdef WATER_DETAIL
   // Light the waves focus on the shallow bed (the fine wave layer as caustics), where the sun reaches it
@@ -982,8 +1095,8 @@ void main() {
   #if RIVER == 1
     #ifdef WATER_DETAIL
   // On a river the waves' texture, stretched along the current and running down it: streaks of foam
-  vec2 fd = normalize(vFlow + vec2(1e-4));
-  float foamNoise = texture2D(uWaves, vec2(dot(vWorldPos.xz, vec2(-fd.y, fd.x)) / 1.1, (dot(vWorldPos.xz, fd) - uTime * 0.9) / 5.0)).x;
+  // In the ribbon's own frame (see the lanes), broken up so no streak runs the river's whole length
+  float foamNoise = texture2D(uWaves, vec2(vAcross * 2.3 + (valueNoise(vec2(vAlong / 9.0, 4.1)) - 0.5) * 0.6, (vAlong - uTime * 0.9) / 5.0)).x;
     #else
   float foamNoise = texture2D(uWaves, vWorldPos.xz / 2.3 + uTime * 0.03).x;
     #endif
@@ -997,6 +1110,8 @@ void main() {
   foam = max(foam, smoothstep(0.5, 0.8, foamNoise) * smoothstep(2.0, 3.5, speed) * 0.6);
     #endif
   #endif
+  // Where a thing stands through the surface the water laps at it
+  foam = max(foam, thingLine * smoothstep(0.3, 0.7, foamNear.g) * 0.8);
   // Foam is translucent: its thin parts let the water's colour through, and lit: the sun's colour and its
   // shade on it, the sky's light from above, a little of the water's own light through its thin parts
   vec3 foamLight = (mix(vec3(1.0), uSunColor / max(max(uSunColor.r, uSunColor.g), max(uSunColor.b, 1e-3)), 0.3) * mix(0.62, 1.0, sunShade)

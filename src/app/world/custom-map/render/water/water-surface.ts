@@ -25,6 +25,7 @@ import type { WaterReflection } from './water-reflection';
 import type { MapEffects } from '../map-effects';
 import type { SceneCopy } from './scene-copy';
 import { setHeatHaze } from './heat-haze';
+import { WallStrip } from './water-walls';
 import { bakeFlow, bakeFlowOffThread, flowInputIn, SHORE_FIELD_MAX } from './flow-map';
 import { bakeShoreCut, bakeShoreCutOffThread, pasteShoreCut, SHORE_CUT_RADIUS, shoreCutInput } from './shore-cut';
 
@@ -501,6 +502,51 @@ export class WaterSurface {
       }
       return vertexOf[k];
     };
+    // The walls (water-walls.ts) along the mask's edge, where the surface fades out (half way between a wet and a
+    // dry sample): only where the ground there lies below the level, the surface ending in the air
+    const walls: number[] = [];
+    const strip = new WallStrip((v) => {
+      positions.push(-v.x, v.height, v.y);
+      depths.push(0);
+      walls[positions.length / 3 - 1] = v.top;
+      return positions.length / 3 - 1;
+    }, indices, LAKE_WALL);
+    const wet = (i: number, j: number): boolean => mask[j * cols + i] > 127;
+    const at = (i: number, j: number): [number, number] => [f.originX + i * f.cellSize, f.originY + j * f.cellSize];
+    for (let j = cj0; j <= cj1; j++) {
+      for (let i = ci0; i <= ci1; i++) {
+        const corners: [number, number][] = [
+          [i, j],
+          [i + 1, j],
+          [i + 1, j + 1],
+          [i, j + 1],
+        ];
+        const w = corners.map(([ci, cj]) => wet(ci, cj));
+        const count = w.filter(Boolean).length;
+        if (count === 0 || count === 4) continue;
+        // The middles of the cell's sides that cross from wet to dry, in turn round the cell
+        const cross: [number, number][] = [];
+        for (let e = 0; e < 4; e++) {
+          if (w[e] === w[(e + 1) % 4]) continue;
+          const [ax, ay] = at(...corners[e]);
+          const [bx, by] = at(...corners[(e + 1) % 4]);
+          cross.push([(ax + bx) / 2, (ay + by) / 2]);
+        }
+        // Out: from the wet corners' middle to the dry ones'
+        let ox = 0;
+        let oy = 0;
+        for (let e = 0; e < 4; e++) {
+          const [x, y] = at(...corners[e]);
+          ox += w[e] ? -x / count : x / (4 - count);
+          oy += w[e] ? -y / count : y / (4 - count);
+        }
+        for (let q = 0; q + 1 < cross.length; q += 2) {
+          const [ax, ay] = cross[q];
+          const [bx, by] = cross[q + 1];
+          strip.add(ax, ay, water.level, f.heightAt(ax, ay), bx, by, water.level, f.heightAt(bx, by), ox, oy);
+        }
+      }
+    }
     for (let j = cj0; j <= cj1; j++) {
       for (let i = ci0; i <= ci1; i++) {
         const k = (j - cj0) * sw + i - ci0;
@@ -515,7 +561,7 @@ export class WaterSurface {
         indices.push(v00, v10, v11, v00, v11, v01);
       }
     }
-    return indices.length ? this.geometryOf(positions, depths, indices) : null;
+    return indices.length ? this.geometryOf(positions, depths, indices, walls) : null;
   }
 
   /**
@@ -568,16 +614,23 @@ export class WaterSurface {
     return indices.length ? this.geometryOf(positions, depths, indices) : null;
   }
 
-  private geometryOf(positions: number[], depths: number[], indices: number[]): BufferGeometry {
+  /** `walls`: per vertex the surface over it where it is a wall's (sparse) */
+  private geometryOf(positions: number[], depths: number[], indices: number[], walls: readonly number[] = []): BufferGeometry {
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3));
     g.setAttribute('aDepth', new BufferAttribute(new Float32Array(depths), 1));
+    const wall = new Float32Array(depths.length * 2);
+    walls.forEach((top, k) => wall.set([1, top], k * 2));
+    g.setAttribute('aWall', new BufferAttribute(wall, 2));
     g.setIndex(indices);
     g.computeBoundingSphere();
     g.computeBoundingBox();
     return g;
   }
 }
+
+/** Metres a lake must stand over the ground at its mask's edge for a wall there: a step, a dam, not a shallow beach */
+const LAKE_WALL = 0.5;
 
 function unionRect(a: GridRect, b: GridRect): GridRect {
   return { i0: Math.min(a.i0, b.i0), j0: Math.min(a.j0, b.j0), i1: Math.max(a.i1, b.i1), j1: Math.max(a.j1, b.j1) };

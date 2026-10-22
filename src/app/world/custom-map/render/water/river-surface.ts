@@ -1,4 +1,4 @@
-import { BufferAttribute, BufferGeometry, Mesh, Vector2, Vector4, type ShaderMaterial } from 'three';
+import { BufferAttribute, BufferGeometry, Mesh, Vector2, Vector3, Vector4, type ShaderMaterial } from 'three';
 import type { MapRiver, MapRiverPoint } from '../../map-document';
 import { riverCover, type CoverAt, type RiverGround, type RiverNetwork } from '../../../../map-ops/river-network';
 import type { HeightField } from '../height-field';
@@ -7,6 +7,7 @@ import { CRATER_SLOTS, createWaterMaterial, setWaterEffects, setWaterSky } from 
 import type { MapEffects } from '../map-effects';
 import type { SceneCopy } from './scene-copy';
 import { setHeatHaze } from './heat-haze';
+import { WallStrip } from './water-walls';
 
 /**
  * A river or lava flow: a ribbon along the river's line (Catmull-Rom through
@@ -23,6 +24,10 @@ const ACROSS = 8;
 
 export class RiverSurface {
   readonly mesh: Mesh<BufferGeometry, ShaderMaterial>;
+  private readonly field: HeightField;
+  /** The walls across the river where craters cut it (water-walls.ts), drawn by its material; rebuilt when the cuts change */
+  private cutWalls: Mesh<BufferGeometry, ShaderMaterial> | null = null;
+  private cutKey = '';
 
   constructor(
     field: HeightField,
@@ -40,7 +45,8 @@ export class RiverSurface {
       color: river.color ?? '',
       mapHalf: new Vector2(((field.columns - 1) * field.cellSize) / 2, ((field.rows - 1) * field.cellSize) / 2),
     });
-    this.mesh = new Mesh(buildRiver(river, terrain, network, index), material);
+    this.field = field;
+    this.mesh = new Mesh(buildRiver(field, river, terrain, network, index), material);
     this.mesh.name = `custom-map-river-${river.id}`;
     this.mesh.userData['losTransparent'] = true;
     this.mesh.renderOrder = 1;
@@ -63,16 +69,41 @@ export class RiverSurface {
    * What craters do to it now (crater-water.ts), at most CRATER_SLOTS: per
    * crater the stretch through its bowl that is gone (metres along), and the
    * bed below it running dry: from `from`, dry out to `from + dry`, filled
-   * again to `from + filled`, the water sunk `sink` metres there
+   * again to `from + filled`, the water sunk `sink` metres there; `lake` the
+   * level its lake stands at now (the walls across the cut stand in it)
    */
-  setCraters(craters: readonly { gone: readonly [number, number]; from: number; dry: number; filled: number; sink: number }[]): void {
-    const gone = this.mesh.material.uniforms['uCraterGone'].value as Vector2[];
+  setCraters(craters: readonly { gone: readonly [number, number]; from: number; dry: number; filled: number; sink: number; lake?: number }[]): void {
+    const gone = this.mesh.material.uniforms['uCraterGone'].value as Vector3[];
     const dry = this.mesh.material.uniforms['uCraterDry'].value as Vector4[];
     for (let i = 0; i < CRATER_SLOTS; i++) {
       const c = craters[i];
-      gone[i].set(c ? c.gone[0] : 0, c ? c.gone[1] : 0);
+      gone[i].set(c ? c.gone[0] : 0, c ? c.gone[1] : 0, c?.lake ?? -1e9);
       dry[i].set(c ? c.from : 0, c ? c.dry : 0, c ? c.filled : 0, c ? c.sink : 0);
     }
+    // The cut's ends, where the river stops at the bowl: a wall across it at each (not at an open end, the front of
+    // a stream still coming down)
+    const ends: [number, number][] = [];
+    for (const c of craters.slice(0, CRATER_SLOTS)) {
+      if (c.gone[1] <= c.gone[0]) continue;
+      if (c.gone[0] > 0) ends.push([c.gone[0] - 0.01, 1]);
+      if (c.gone[1] < 1e8) ends.push([c.gone[1] + 0.01, -1]);
+    }
+    const key = ends.map((e) => e[0].toFixed(2)).join(',');
+    if (key === this.cutKey) return;
+    this.cutKey = key;
+    if (this.cutWalls) {
+      this.cutWalls.geometry.dispose();
+      this.cutWalls.removeFromParent();
+      this.cutWalls = null;
+    }
+    const g = ends.length ? crossWalls(this.field, this.mesh.geometry, ends) : null;
+    if (!g) return;
+    this.cutWalls = new Mesh(g, this.mesh.material);
+    this.cutWalls.name = `${this.mesh.name}-cuts`;
+    this.cutWalls.userData['losTransparent'] = true;
+    this.cutWalls.renderOrder = 1;
+    this.cutWalls.matrixAutoUpdate = false;
+    this.mesh.add(this.cutWalls);
   }
 
   update(dt: number): void {
@@ -81,6 +112,7 @@ export class RiverSurface {
 
   dispose(): void {
     setHeatHaze(this.mesh, null);
+    this.cutWalls?.geometry.dispose();
     this.mesh.geometry.dispose();
     this.mesh.material.dispose();
     this.mesh.removeFromParent();
@@ -100,7 +132,16 @@ function currentAt(line: readonly MapRiverPoint[], r: number, kind: MapRiver['ki
   return [((b.x - a.x) / len) * speed, ((b.y - a.y) / len) * speed];
 }
 
-function buildRiver(river: MapRiver, terrain: RiverGround, network: RiverNetwork, own: number): BufferGeometry {
+/** Metres a river runs out over where it ends on the map: one and a half widths, within these */
+const RUN_OUT_MIN = 4;
+const RUN_OUT_MAX = 14;
+/** Metres under the bed its surface ends at, so the ground cuts it cleanly */
+const RUN_OUT_BELOW = 0.1;
+
+/** Below this share of other water drawing over a vertex (riverCover) the river's edge there is its own */
+const OWN_EDGE = 0.01;
+
+function buildRiver(field: HeightField, river: MapRiver, terrain: RiverGround, network: RiverNetwork, own: number): BufferGeometry {
   const line = network.lines[own]?.samples ?? [];
   const rows = line.length;
   const pos = new Float32Array(rows * (ACROSS + 1) * 3);
@@ -136,6 +177,34 @@ function buildRiver(river: MapRiver, terrain: RiverGround, network: RiverNetwork
       join.set([at.cover, at.open], k * 2);
     }
   }
+  // A river that ends on the map (not at its border, not into other water) runs out there: over its last metres
+  // the surface sinks to the bed, the ground cuts it on its own line, shallow and clear, instead of ending as a
+  // sheet with a wall under it in the middle of its channel. Likewise where it rises
+  const halfX = ((field.columns - 1) * field.cellSize) / 2;
+  const halfY = ((field.rows - 1) * field.cellSize) / 2;
+  const runsOut = (r: number): boolean => {
+    const p = line[r];
+    const border = Math.abs(p.x) > halfX - field.cellSize * 2 || Math.abs(p.y) > halfY - field.cellSize * 2;
+    return !border && join[(r * (ACROSS + 1) + ACROSS / 2) * 2] < OWN_EDGE;
+  };
+  const ends = rows > 1 ? [0, rows - 1].filter(runsOut) : [];
+  for (const end of ends) {
+    const reach = Math.min(RUN_OUT_MAX, Math.max(RUN_OUT_MIN, line[end].width * 1.5));
+    let walked = 0;
+    for (let r = end; r >= 0 && r < rows && walked < reach; r += end === 0 ? 1 : -1) {
+      if (r !== end) {
+        const q = line[r + (end === 0 ? -1 : 1)];
+        walked += Math.hypot(line[r].x - q.x, line[r].y - q.y);
+      }
+      const t = Math.min(1, walked / reach);
+      const keep = t * t * (3 - 2 * t);
+      for (let c = 0; c <= ACROSS; c++) {
+        const k = r * (ACROSS + 1) + c;
+        const ground = field.heightAt(-pos[k * 3], pos[k * 3 + 2]) - RUN_OUT_BELOW;
+        if (ground < pos[k * 3 + 1]) pos[k * 3 + 1] = ground + (pos[k * 3 + 1] - ground) * keep;
+      }
+    }
+  }
   const index: number[] = [];
   for (let r = 0; r < rows - 1; r++) {
     for (let c = 0; c < ACROSS; c++) {
@@ -145,13 +214,140 @@ function buildRiver(river: MapRiver, terrain: RiverGround, network: RiverNetwork
       index.push(k, n, k + 1, k + 1, n, n + 1, k, k + 1, n, k + 1, n + 1, n);
     }
   }
+  // The walls (water-walls.ts) under the ribbon's ends where they stand in the air (at the map's border; an end on
+  // the map runs out instead), where no other water goes on past them; their vertices copy the edge vertex's
+  // current and place along the river. None along its sides: they fade over the bank, a wall there showed as a
+  // strip beside the fading edge and as flanks in a junction
+  const surfaceCount = rows * (ACROSS + 1);
+  const wallPos: number[] = [];
+  const wallTop: number[] = [];
+  const wallOf: number[] = [];
+  let from = 0;
+  const strip = new WallStrip((v) => {
+    wallPos.push(-v.x, v.height, v.y);
+    wallTop.push(v.top);
+    wallOf.push(from);
+    return surfaceCount + wallOf.length - 1;
+  }, index);
+  const ownEdge = (k: number): boolean => join[k * 2] < OWN_EDGE && join[k * 2 + 1] < OWN_EDGE;
+  const edge = (k: number, m: number, outX: number, outY: number): void => {
+    if (!ownEdge(k) || !ownEdge(m)) return;
+    const ax = -pos[k * 3];
+    const ay = pos[k * 3 + 2];
+    const bx = -pos[m * 3];
+    const by = pos[m * 3 + 2];
+    const before = wallOf.length;
+    from = k;
+    strip.add(ax, ay, pos[k * 3 + 1], field.heightAt(ax, ay), bx, by, pos[m * 3 + 1], field.heightAt(bx, by), outX, outY);
+    // The second end's two vertices come from m
+    if (wallOf.length > before) wallOf[before + 1] = wallOf[before + 3] = m;
+  };
+  for (const r of rows > 1 ? [0, rows - 1].filter((e) => !ends.includes(e)) : []) {
+    const inner = r === 0 ? 1 : rows - 2;
+    for (let c = 0; c < ACROSS; c++) {
+      const k = r * (ACROSS + 1) + c;
+      const m = k + 1;
+      const kin = inner * (ACROSS + 1) + c;
+      edge(k, m, -pos[k * 3] + pos[kin * 3], pos[k * 3 + 2] - pos[kin * 3 + 2]);
+    }
+  }
+  const total = surfaceCount + wallOf.length;
+  const grow = <T extends Float32Array>(a: T, size: number): Float32Array => {
+    const out = new Float32Array(total * size);
+    out.set(a);
+    for (let w = 0; w < wallOf.length; w++) for (let s = 0; s < size; s++) out[(surfaceCount + w) * size + s] = a[wallOf[w] * size + s];
+    return out;
+  };
+  const allPos = new Float32Array(total * 3);
+  allPos.set(pos);
+  allPos.set(wallPos, surfaceCount * 3);
+  const allJoin = new Float32Array(total * 2);
+  allJoin.set(join);
+  // No haze over a wall (heat-haze.ts reads the depth)
+  const allDepth = new Float32Array(total);
+  allDepth.set(depth);
+  const wall = new Float32Array(total * 2);
+  for (let w = 0; w < wallOf.length; w++) wall.set([1, wallTop[w]], (surfaceCount + w) * 2);
   const g = new BufferGeometry();
-  g.setAttribute('position', new BufferAttribute(pos, 3));
-  g.setAttribute('aFlow', new BufferAttribute(flow, 2));
-  g.setAttribute('aAcross', new BufferAttribute(across, 1));
-  g.setAttribute('aAlong', new BufferAttribute(along, 1));
-  g.setAttribute('aJoin', new BufferAttribute(join, 2));
-  g.setAttribute('aDepth', new BufferAttribute(depth, 1));
+  g.setAttribute('position', new BufferAttribute(allPos, 3));
+  g.setAttribute('aFlow', new BufferAttribute(grow(flow, 2), 2));
+  g.setAttribute('aAcross', new BufferAttribute(grow(across, 1), 1));
+  g.setAttribute('aAlong', new BufferAttribute(grow(along, 1), 1));
+  g.setAttribute('aJoin', new BufferAttribute(allJoin, 2));
+  g.setAttribute('aDepth', new BufferAttribute(allDepth, 1));
+  g.setAttribute('aWall', new BufferAttribute(wall, 2));
+  g.setIndex(index);
+  g.computeBoundingSphere();
+  return g;
+}
+
+/**
+ * Walls across the ribbon at places along it (metres along, and +1 where
+ * the river goes on upstream of it: the wall faces downstream, -1 the
+ * other way), between its rows: the cross-section the river shows where a
+ * crater cut it off. Null when none stands in the air
+ */
+function crossWalls(field: HeightField, ribbon: BufferGeometry, ends: readonly [number, number][]): BufferGeometry | null {
+  const pos = ribbon.getAttribute('position') as BufferAttribute;
+  const along = ribbon.getAttribute('aAlong') as BufferAttribute;
+  const flow = ribbon.getAttribute('aFlow') as BufferAttribute;
+  const across = ribbon.getAttribute('aAcross') as BufferAttribute;
+  const wallAttr = ribbon.getAttribute('aWall') as BufferAttribute;
+  // The ribbon's rows: its surface vertices come first, ACROSS + 1 per row
+  let surface = 0;
+  while (surface < wallAttr.count && wallAttr.getX(surface) < 0.5) surface++;
+  const rows = surface / (ACROSS + 1);
+  const outPos: number[] = [];
+  const outFlow: number[] = [];
+  const outAcross: number[] = [];
+  const outAlong: number[] = [];
+  const outWall: number[] = [];
+  const index: number[] = [];
+  let at = { a: 0, place: 0 };
+  const strip = new WallStrip((v) => {
+    outPos.push(-v.x, v.height, v.y);
+    outWall.push(1, v.top);
+    // The current and side of the column it hangs from
+    outFlow.push(flow.getX(at.a), flow.getY(at.a));
+    outAcross.push(across.getX(at.a));
+    outAlong.push(at.place);
+    return outPos.length / 3 - 1;
+  }, index);
+  for (const [place, dir] of ends) {
+    let r = 1;
+    while (r < rows && along.getX(r * (ACROSS + 1)) < place) r++;
+    if (r >= rows) continue;
+    const r0 = r - 1;
+    const a0 = along.getX(r0 * (ACROSS + 1));
+    const a1 = along.getX(r * (ACROSS + 1));
+    const t = a1 > a0 ? Math.min(1, Math.max(0, (place - a0) / (a1 - a0))) : 0;
+    const point = (c: number): [number, number, number] => {
+      const k0 = r0 * (ACROSS + 1) + c;
+      const k1 = r * (ACROSS + 1) + c;
+      const lerp = (u: number, v: number) => u + (v - u) * t;
+      return [-lerp(pos.getX(k0), pos.getX(k1)), lerp(pos.getZ(k0), pos.getZ(k1)), lerp(pos.getY(k0), pos.getY(k1))];
+    };
+    // Downstream (map x, y) at the place: the wall faces along it (dir 1) or against it
+    const mid = ACROSS / 2;
+    const dx = -(pos.getX(r * (ACROSS + 1) + mid) - pos.getX(r0 * (ACROSS + 1) + mid));
+    const dy = pos.getZ(r * (ACROSS + 1) + mid) - pos.getZ(r0 * (ACROSS + 1) + mid);
+    for (let c = 0; c < ACROSS; c++) {
+      const [ax, ay, ah] = point(c);
+      const [bx, by, bh] = point(c + 1);
+      at = { a: r * (ACROSS + 1) + c, place };
+      strip.add(ax, ay, ah, field.heightAt(ax, ay), bx, by, bh, field.heightAt(bx, by), dx * dir, dy * dir);
+    }
+  }
+  if (!index.length) return null;
+  const count = outPos.length / 3;
+  const g = new BufferGeometry();
+  g.setAttribute('position', new BufferAttribute(new Float32Array(outPos), 3));
+  g.setAttribute('aFlow', new BufferAttribute(new Float32Array(outFlow), 2));
+  g.setAttribute('aAcross', new BufferAttribute(new Float32Array(outAcross), 1));
+  g.setAttribute('aAlong', new BufferAttribute(new Float32Array(outAlong), 1));
+  g.setAttribute('aJoin', new BufferAttribute(new Float32Array(count * 2), 2));
+  g.setAttribute('aDepth', new BufferAttribute(new Float32Array(count), 1));
+  g.setAttribute('aWall', new BufferAttribute(new Float32Array(outWall), 2));
   g.setIndex(index);
   g.computeBoundingSphere();
   return g;

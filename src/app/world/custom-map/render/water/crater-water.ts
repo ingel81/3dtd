@@ -197,11 +197,11 @@ export class CraterWaterLayer {
       if (lake.fall) lake.fall.visible = lake.entry.cut.levelIn - level > FALL_FROM_M && (lake.entry.start === null || now >= lake.entry.start);
     }
     // The rivers: per river its craters' stretches gone and beds dry
-    const byRiver = new Map<number, { gone: [number, number]; from: number; dry: number; filled: number; sink: number }[]>();
+    const byRiver = new Map<number, { gone: [number, number]; from: number; dry: number; filled: number; sink: number; lake: number }[]>();
     for (const lake of this.lakes) {
       const e = lake.entry;
       const list = byRiver.get(e.cut.river) ?? [];
-      list.push({ gone: [e.cut.entry, e.cut.exit], from: e.cut.exit, ...bedOf(e, now) });
+      list.push({ gone: [e.cut.entry, e.cut.exit], from: e.cut.exit, ...bedOf(e, now), lake: lake.level });
       byRiver.set(e.cut.river, list);
     }
     for (const r of this.touched) if (!byRiver.has(r)) riverAt(r)?.setCraters([]);
@@ -370,6 +370,7 @@ function lakeDisc(entry: CraterWaterEntry): BufferGeometry {
   g.setAttribute('aJoin', new BufferAttribute(new Float32Array(join), 2));
   g.setAttribute('aAlong', new BufferAttribute(new Float32Array(count), 1));
   g.setAttribute('aDepth', new BufferAttribute(new Float32Array(count).fill(1), 1));
+  g.setAttribute('aWall', new BufferAttribute(new Float32Array(count * 2), 2));
   g.setIndex(index);
   g.computeBoundingSphere();
   return g;

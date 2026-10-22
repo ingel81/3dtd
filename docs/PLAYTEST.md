@@ -784,8 +784,32 @@ das Auge. Würzburg neu bauen (`49.7932, 9.9312`), eigene Karten mit Version 4 l
 - **AB7 Übergang ins Spiel:** OSM-Karte laden. *Minikarte erscheint ohne Ruck, das Spiel startet ohne Hänger.*
 - **AB9 Loch im Haus:** auf einer OSM-Karte ein Haus mit Rakete oder Kanone treffen, bis ein Loch aufgeht. *Durch das
   Loch Decken, eine Innenwand und ein Boden statt Rasen; das Dach bleibt.*
+- **AB10 Schatten nach dem Bau:** Kanone über das Baumenü bauen, nach dem Bauende (5 s) den Tower ansehen. *Er wirft
+  sofort den ganzen Schatten, nicht den des Gerüst-Stumpfs.* Danach ein Gebäude in seiner Sicht fällen. *Kein
+  zusätzlicher Ruckler nach dem Fall-Bild.* OSM-Welt zweimal laden: *beim zweiten Laden kein Hänger beim Erscheinen,
+  Töne gleich nach dem Laden da.*
 - **AB8 Editor kalt:** nach einem Update den Editor mit Demo Valley öffnen. *Kein langes Standbild, bevor die Ansicht
   erscheint.*
+
+## AC Wasser als Körper (2026-10-22, E301)
+
+Wo Wände entstehen und wie sie liegen prüft `river-surface.spec.ts`; hier das Auge. Grafik High.
+
+- **AC1 Bach am Kartenrand:** Mountain Pass, Editor, zum Südende des Bergbachs (unten links) fliegen und flach von
+  der Seite ansehen. *Wo der Bach über dem Hang endet, ist das Wasser seitlich geschlossen, kein Blatt mit Luft
+  darunter; keine helle Linie am Ufer.*
+- **AC2 Kratersee:** wie U1 einen Krater in den Bergbach setzen und von der Seite in die Grube sehen, während der
+  See steigt. *Das abgeschnittene Flussende zur Grube zeigt seine Wasserseite, sie verschwindet, so weit der See
+  steigt.*
+- **AC3 Dinge im Wasser:** Demo Valley, die Holzbrücke über den Fluss nah ansehen. *Die Pfeiler stehen sichtbar im
+  Wasser, an der Wasserlinie ein leichter Schaumsaum, unter Wasser klarer als der tiefe Grund.*
+- **AC5 Gezeichneter Fluss:** im Editor einen Fluss über flaches Land ziehen, beide Enden nah ansehen. *Das Wasser
+  läuft im Bett flach aus, keine türkise Platte am Ende.* Die Oberfläche von oben und flach: *kleine unregelmäßige
+  Wellen, die mit der Strömung treiben, keine gleichmäßigen Streifen oder Winkel in Kurven, kein Plastikglanz.*
+- **AC6 Lava:** einen Krater graben und Lava hineingießen (Wasser › Gießen, Lava). *Kruste schwarzbraun und rau, an
+  den Rissen dunkelrote Unterglut, Risse unterschiedlich hell, kein grauer Randstreifen.*
+- **AC4 Seen:** Archipelago und Harbor Town an den Ufern entlang fliegen. *Keine türkisen Splitter an Felsen oder
+  Kaimauern, die Strände wie vorher.*
 
 ## Eichtabelle
 

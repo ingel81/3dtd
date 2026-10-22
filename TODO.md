@@ -56,15 +56,17 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       einmal je Sitzung rund 310 ms (erster echter Draw der Ruinen-Programme im Treiber; Vorab-Übersetzen hilft nicht).
       Lösung gehört hierher: Ruinen im Aufwärmen wirklich einmal zeichnen. Gebaut 2026-10-22 (Abschnitt 2); offen
       bleibt ein Bild von ~54 ms beim ersten Fall, auch vor dem Fix: ein nicht instanziertes Schatten-Tiefenprogramm
-      (MeshDepth ohne Instancing) rund 565 ms nach dem ersten Treffer, Werfer unbekannt (vermutlich ein kurzlebiges
-      Objekt der Fall-Show; finden: linkProgram im Dev-Build fangen, im Schattenpass das Objekt loggen). Hintergrund-
+      (MeshDepth ohne Instancing) rund 565 ms nach dem ersten Treffer, Werfer gefunden 2026-10-22 (Zweitrechner): der Boden der
+      Kanone, nach dem Bau ungeclippt erst im Schattenneubau des ersten Falls gebraucht; gebaut (Schatten nach
+      Bauende, Schattenprogramme der Tower vorab, Abschnitt 2). Offen bleibt das Bild der ersten Fall-Op selbst
+      (~67 ms mit V-Sync, applyOps/setStage 25-29 ms Kaltstart: byId-Index, erstes StampField, Schutt, updateHeights);
+      Vorwärmen nur mit Platzhaltern in Zerstörungs-, Stempel- und Routenzustand, nicht gebaut. Hintergrund-
       Ruinenbau nach ready auf OSM: kalt 22 Bilder über 33 ms in 1,5 s, warm 7.
-- [ ] **E301 Wasser mit Volumen** (User 2026-10-21, zu E294): Wasser ist heute je Art eigene Regel (Flussnetz,
-      Kratersee mit Füllstand und Überlauf, Rinne) und wird als flache Fläche gezeichnet, ohne Volumen. Erst ein Plan
-      mit Messung, nichts bauen: (1) Optik mit Volumen bei gleichen Regeln (Tiefe färbt und trübt, Grund sichtbar,
-      Ufer, sichtbare Wasserwand an Kanten wie Kraterrand, Fall, Damm); (2) Wasser als Feld (Höhenraster mit
-      Wassermenge je Zelle, Mulden füllen sich, Fluss bergab, Krater und Dämme ohne Sonderregeln). Zu klären: was Wasser
-      im Spiel bewirken muss, Kosten von (2) deterministisch im Worker (Coop, Replay), ob (1) als erster Schritt reicht.
+- [ ] **E301 Wasser mit Volumen** (User 2026-10-21, zu E294): entschieden 2026-10-22: nur Optik, die Regeln bleiben
+      (Wasser als Feld im Worker nicht). Gebaut: Wände, wo Wasser in der Luft endet, und Dinge im Wasser über die
+      Tiefe der Bildkopie (Abschnitt 2, docs/CUSTOM_MAPS.md Wasser). Offen: Tiefe und Grund auf Low und Medium
+      (heute nur die Durchsicht nach Tiefe, ohne Bildkopie keine Dinge im Wasser); Kosten der Tiefenkopie im Spiel
+      messen (Production, Zweitrechner).
 - [ ] **E297 Besondere Gebäude aus OSM (Schloss, Burg, Kirche, Sehenswürdigkeit …)** (User 2026-10-21, Schloss
       Johannisburg Aschaffenburg): OSM führt building=castle, historic=castle, castle_type=stately, tourism=attraction,
       roof:shape, building:levels, wikidata, Innenhof als Multipolygon, Ecktürme. Gebaut werden daraus sechs
@@ -94,8 +96,9 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       letzten Ladeschritt und den ersten Draws; ab 0,5 s nach ready kein Bild über 30 ms mehr (nach E272).
       2026-10-22 gebaut (Abschnitt 2): Minimap-Bild im Laden und asynchron gelesen, synthetische Klänge je eine Aufgabe
       im Laden; die 650×426-Ziele sind Bloom-Mips ohne Upload-Kosten. Offen: im warmen OSM-Laden in 2 von 3 Läufen ein
-      Bild von 100-200 ms rund 70-180 ms nach ready ohne GL-Aufrufe, verteilt auf viele Aufgaben (Start der ~100
-      gehaltenen Audio-Ladevorgänge ~16 ms, getUniforms ~12 ms, erste Renders, Angular), keine Einzelursache.
+      Bild von 100-200 ms rund 70-180 ms nach ready ohne GL-Aufrufe. 2026-10-22 gebaut (Zweitrechner): Abdeckung der
+      Karte im Laden (36 ms), Ton-Starts zu 8 je Task (16 ms); OSM warm längstes Bild der ersten Sekunde 167 → 56 ms.
+      Offen: ~20 ms Angular-Erstrender der Spieloberfläche bei ready (nur mit Vorrendern unter dem Ladeschirm).
 - [ ] **E273 Karten-Shader dominieren das Laden** (Messbasis Zweitrechner 2026-10-20, mit Texturen, warmes Profil):
       ready Ruined City 11,5 s, davon 8,7 s Karten-Shader; OSM Miltenberg 18,9 s, davon 13,8 s. Der GPU-Programmcache
       greift dort offenbar kaum. Ursache offen. Daneben: Wellenstart in der Belagerung ohne V-Sync je Lauf ein Bild
@@ -237,7 +240,11 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       mit fester Stufe, unabhängig von der Kamera (AB1 bis AB4).
 - [ ] **E280, E275, E246 Laden und Aufwärmen**: Sicht-Cube zeichnet im Laden die geparkten Ruinen einmal (erster
       Fall in Sicht 170 → 54 ms), Minimap-Bild und synthetische Klänge im Laden (OSM kalt erstes Bild 161 → 67 ms),
-      Editor aktualisiert die Ansicht erst nach dem Aufwärmen (kalt 1,6 s Standbild weg); Dekodierungen gewollt (AB6-AB8).
+      Editor aktualisiert die Ansicht erst nach dem Aufwärmen (kalt 1,6 s Standbild weg); Dekodierungen gewollt; Tower
+      werfen nach Bauende den ganzen Schatten, ihre Schattenprogramme vorab, Abdeckung und Ton-Starts im Laden (AB6-AB10).
+- [ ] **E301 Wasser als Körper**: Wände an Flussenden am Rand, Kraterschnitten und Seestufen bis unter das Bett,
+      Pfeiler und Ruinen im Wasser nach ihrer Tiefe mit Schaumsaum (High, Ultra); Flüsse laufen auf der Karte aus,
+      Flussoberfläche ohne Streifen, Lava rau mit Unterglut (AC1-AC6).
 - [ ] **E306 Innenleben hinter einem Loch**: ein Haus mit Loch zeigt Decken und Innenwände schon auf Stufe 1, jede
       Ruine eine Platte über dem Boden statt Gras innen (AB9).
 - [ ] **E304 Brückendecks**: Deckstücke als gelegte Objekte im Objekt-Layer (Ausklammern, Pixelgrenze, LOD,

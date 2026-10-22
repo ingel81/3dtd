@@ -418,6 +418,29 @@ dahin zeigt die Textur den alten Schnitt (beim ersten Mal keinen); ein neuerer A
 etwas die Spiegelung) und die Lichter des Lichtpuffers (Pool der Laternen, Fackeln, Lava, dazu die Schüsse) als
 Glanzpunkte (`shotLightGlints`) mit schwachem Lichtfleck (`shotLightAt`).
 
+Wasser als Körper (E301, nur Optik; die Regeln bleiben): wo eine Fläche in der Luft endet, zeigt das Wasser seine
+Seite bis unter das Bett statt eines Blatts, unter das man sehen kann (`water-walls.ts`). Eine Wand ist ein Streifen
+Vierecke vom Rand der Fläche bis 0,6 m unter den Boden dort, gezeichnet vom Material der Fläche selbst (Attribut
+`aWall`: kein eigenes Programm, kein eigener Draw), einseitig nach außen. Im Boden schneidet das Material sie am
+Gelände ab, wo das Wasser weniger als `WALL_SHOWS` (0,25 m) über dem Boden steht blendet es sie aus (dort endet die
+Fläche mit ihrem weichen Saum). Flüsse tragen Wände nur an Enden am Kartenrand, wo kein anderes Wasser weitergeht
+(`riverCover`), keine an ihren Seiten (die blenden über dem Ufer aus, eine Wand stand dort als Streifen neben der
+ausblendenden Kante und als Flanke in einer Mündung); ein Fluss, der auf der Karte endet oder entspringt, läuft dort aus (über anderthalb Breiten, 4
+bis 14 m, sinkt die Fläche bis 0,1 m unter das Bett, das Gelände schneidet sie auf seiner eigenen Linie): eine Wand
+mitten im gegrabenen Bett stand dort als Platte im Graben; wo ein Krater sie schneidet, je eine Querwand an beiden Enden des fehlenden Stücks (neu gebaut, wenn
+sich die Schnitte ändern), im See verborgen, so weit er gestiegen ist. Seen tragen Wände entlang ihrer Maskenkante
+(halb zwischen nassem und trockenem Sample, wo die Fläche ausblendet), nur wo das Wasser an beiden Enden 0,5 m über
+dem Boden steht: Stufe, Damm, nicht der flache Strand. Die Seite zeigt die Farbe, die die Fläche über einigen Metern
+Tiefe hat, nach unten dunkler, seitlich von der Sonne beleuchtet, mit Schlieren, Himmel im streifenden Blick und
+einer Schaumkante oben; Lava eine Kruste mit glühenden Fugen, Eis hell bis dunkel.
+
+Dinge im Wasser: die Bildkopie der Brechung (`SceneCopy`, High und Ultra) trägt auch die Tiefe des Bildes (ein
+zweiter Blit in eine Tiefentextur im Format der Quelle, beim Anlegen einmal abgefragt; passt es nicht, bleibt sie
+aus und das Wasser liest nur den Boden). Das Wasser rechnet daraus den Punkt hinter sich und dessen Tiefe unter der
+Fläche: ein Pfeiler, eine Ruine, ein Stein unter der Fläche (mindestens 0,3 m über dem Grund, näher als 200 m) färbt
+und trübt nach seiner eigenen Tiefe statt der des Grunds, an der Wasserlinie leckt Schaum. Low und Medium lesen
+weiter den Boden.
+
 - `terrain.water`: der Hauptkörper; nur er läuft über den Kartenrand weiter und macht Ufer nass
 - `terrain.waterBodies`: weitere Körper mit eigenem Spiegel und eigener Maske (Datei: `terrain/water-<n>-mask.u8`)
 - `terrain.rivers`: Flüsse und Lavaströme als Linie, je Punkt Breite und Spiegelhöhe, fließen vom ersten zum letzten
@@ -443,9 +466,11 @@ Glanzpunkte (`shotLightGlints`) mit schwachem Lichtfleck (`shotLightAt`).
   Pixel über der Linie, die vorher verworfen wurden, nehmen einen kurzen Pfad (ein Schaumtexturzugriff)
 - **Wellen**: drei Lagen der gekachelten Normalentextur; die feinste blendet zwischen 30 und 160 m Abstand aus (dort
   war sie nur Körnung), Böen (die großräumige Aufbruch-Textur, 17 m) machen Flecken rauer und ruhiger. Auf Flüssen
-  liegen die Wellen im Rahmen der Strömung, längs 2,4-fach gestreckt (lange Linien stromab statt runder Kabbelung),
-  und statt der Böen treiben Bahnen mit der Strömung (glatte Spiegel und raue Streifen nebeneinander, 9 m breit, 70 m
-  lang, in den zwei überblendeten Phasen), in der Rinne ruhiger: der Fluss liest sich auch aus der Spielkamera als
+  treibt die Kabbelung mit der Strömung (zwei überblendete Phasen), ungestreckt, etwas rauer als auf einem See, wo er
+  schnell läuft noch rauer (längs gestreckt las sie sich als Kunststoff mit gleichmäßigen Streifen und knickte in
+  Kurven zu Winkeln, weil die Strömungsrichtung je Pixel an beiden Ufern verschieden ist), und statt der Böen treiben
+  Bahnen mit der Strömung (glatte Spiegel und raue Streifen nebeneinander, 70 m lang, in den zwei überblendeten
+  Phasen; wie die Schaumstreifen im Rahmen des Bands, quer und Meter entlang, vom Rauschen versetzt), in der Rinne ruhiger: der Fluss liest sich auch aus der Spielkamera als
   fließend. Schaumstreifen längs der Strömung erst bei schneller Strömung (langsam wirkten sie wie aufgemalt)
 - **Detail ab Medium** (`waterDetail` der Stufe, kein Schalter; Wasser, Meer, Sumpf): tiefes Wasser dunkler (bis
   28 % zwischen 2 und 10 m), der Körper von den Wellen schattiert (Hänge zur Sonne heller, ±20 %), Licht durch die
@@ -455,7 +480,7 @@ Glanzpunkte (`shotLightGlints`) mit schwachem Lichtfleck (`shotLightAt`).
   Hügel, spiegelt das Wasser dort die Bodenfarbe an dieser Stelle, die Mittelfarben der Splat-Schichten nach ihrem
   Gewicht, `terrain/ground-color.ts`, beleuchtet; ferne Hügel dunstiger; nur das Gelände, keine Bäume und Häuser), mit
   Brechung Lichtnetze auf dem flachen Grund (die feine Glitzerlage), auf Flüssen Schaumstreifen längs der Strömung
-  über den ganzen Fluss (derselbe Zugriff gestreckt und stromab laufend), Wildwasser, wo er schnell läuft (Gefälle,
+  (im Rahmen des Bands, stromab laufend, entlang versetzt, damit keiner den ganzen Fluss durchzieht), Wildwasser, wo er schnell läuft (Gefälle,
   unter einem Fall). Low zeichnet ohne sie. Kosten: vier Höhen- und zwei bis drei Splat-Zugriffe mehr je Wasserpixel
   (vorher 14 bis 17 je nach Gewässer), sonst Arithmetik, kein zusätzlicher Pass
 - **Spiegelbild ab High** (`waterReflection` der Stufe, `water/water-reflection.ts`, kein Schalter): die Höhe der
@@ -563,9 +588,14 @@ Glanzpunkte (`shotLightGlints`) mit schwachem Lichtfleck (`shotLightAt`).
   ein Wabenmuster). Über heißen Zonen sind die offenen Risse breiter und heller, die dünne Kruste schwelt nur leicht
   (vorher färbte sie den ganzen Pool rot), am heißesten schmilzt sie zu offenen Flecken, in denen Krustenschollen
   treiben; die Glut der Risse greift auf die Plattenränder über. Risse bleiben mindestens etwa ein Pixel breit
-  (`fwidth`), so werden ferne Ströme nicht schwarz. Die Platten wölben sich von ihren Rissen auf (Relief als
-  Höhenfeld; die Normale aus dessen Gradienten über die Fläche, nicht aus den Dreiecken: auf Strömen zeigte das Band
-  sonst seine Facetten), glasiger Basalt mit weichem Glanz von Sonne und Himmel. Fließt die Kruste (Strom,
+  (`fwidth`), so werden ferne Ströme nicht schwarz. Die Platten heben sich wenig von ihren Rissen und sind
+  überall von Schlacke gebrochen (zwei Rauschlagen, die feine nur nah; Relief als Höhenfeld, die Normale aus dessen
+  Gradienten über die Fläche, nicht aus den Dreiecken: auf Strömen zeigte das Band sonst seine Facetten); warmer,
+  schwarzbrauner Basalt, matt, nur ein schwacher warmer Glanz der Sonne auf frischen Flächen, kein gespiegelter Himmel
+  (gewölbte Platten mit Himmelsglanz lasen sich als blaugraues Plastik, der gekühlte Rand als grauer Streifen; er ist
+  jetzt dunkler als die Platten, in rauen Wülsten). Unterglut: Plattenränder an den Rissen, die Kruste über heißen
+  Zonen und einzelne Fugen im Rand glühen dunkelrot von unten. Entlang eines Risses wechselt die Glut (Rauschen), ein
+  Netz gleich heller Linien las sich als Neon. Fließt die Kruste (Strom,
   Konvektion), werden die Risse jeder der zwei Phasen für sich bestimmt und dann überblendet: überblendete Abstände
   glätteten die Kruste mitten im Takt zu rissfreiem Plastik. Farbverlauf Kruste, Dunkelrot, Orange, Gelb nur in den heißesten Rissen (die
   Bloom-Schwelle fängt nur diese; mit `lavaGlow` über 1). Gleich viele Texturzugriffe wie vorher, auf allen Stufen.
