@@ -123,7 +123,9 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       begrenzen die Dichte. Bausteine (a) Ausklammern je Instanz, (b) Sichtweite nach Bildgröße, (d) Linien als Band,
       (c) HLOD je Kachel, (e) Verdeckung; WebGPU kurz betrachtet (TSL-Probe). Entschieden (User 2026-10-21, Plan Abschnitt 10): (b), (d), (c), dann
       WebGPU-Umzug mit Boden, dann (a) und (e) auf der GPU; Pixelgrenze, Kacheln 128 m, Linie als Element, Sicht-Cube
-      feste Stufe, Abnahme auf beiden Rechnern. Alles auf Branch `render/density`, `next` bleibt spielbar.
+      feste Stufe, Abnahme auf beiden Rechnern. Gebaut (b), (d), Sicht-Cube (Abschnitt 2 unten); (c) HLOD gemessen und
+      verworfen (User 2026-10-22). Nächster Schritt: WebGPU-Probepaket (Renderer-Kern plus eine eigene Karte
+      vollständig sichtbar, dann neu schätzen; Schätzung Plan Abschnitt 12), auf eigenem Branch.
 - [ ] **E184 Mitgelieferte Karten imposanter** (User, 2026-10-15): die meisten Karten sind noch zu langweilig, es muss
       deutlich mehr gehen (Kulisse, Höhenunterschiede, Blickpunkte, Wahrzeichen, dichtere und abwechslungsreichere
       Gestaltung). Bekannte Stellen aus dem Showreel: Wald in Autumn Keep trüb und aus der Distanz braun, Burg in der
@@ -222,6 +224,12 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 ---
 
 ## 2. Gebaut, wartet auf Test
+
+### 2026-10-22 (auf `next`, Nachtests in PLAYTEST.md AB)
+
+- [ ] **E304 Zeichendichte, Teil 1**: Objekte gehen an einer Pixelgrenze je Grafikstufe statt fester Sichtweite;
+      Linien (Mauern, Zäune, Hecken, Gleise) als Kartenelement, Formatversion 5, fern als Band; Sicht-Cube der Tower
+      mit fester Stufe, unabhängig von der Kamera (AB1 bis AB4).
 
 ### 2026-10-21 (auf `next`, Nachtests in PLAYTEST.md N11, O, P, Q, R, S, T, U, V, W, X, Y, Z und AA)
 

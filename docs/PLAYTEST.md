@@ -763,6 +763,19 @@ Kreuzungen, Flecken, Unterführungen, Brückenrampen und Router prüfen `road-ne
   Felshang, keine schwebenden Platten, kein Durchblick an den Mauerenden; am Parkplatz keine Mauer (bleibt Fels).* Aus
   der Höhe: wirken die grauen Kiesflächen neben den Brückenwiderlagern zu flächig?
 
+## AB Zeichendichte (2026-10-22, E304)
+
+Pixelgrenze, Linien und Cube prüfen `line-spheres`, `line-bands`, `scene-cost`, Object-Layer- und Mapper-Specs; hier
+das Auge. Würzburg neu bauen (`49.7932, 9.9312`), eigene Karten mit Version 4 laden nicht mehr (gewollt).
+
+- **AB1 Ferne:** Kamera weit hoch über die Stadt. *Mauern, Zäune, Hecken und Gleise laufen als feine Bänder bis zum
+  Rand, keine Lücken, kein Farbsprung beim Heranzoomen; Maschendraht fern durchscheinend.*
+- **AB2 Grafikstufe:** Einstellungen Low ↔ Ultra. *Auf Low verschwinden fern mehr kleine Dinge, Linien bleiben.*
+- **AB3 Sicht unabhängig von der Kamera:** Tower bauen, Sichtzellen merken, weit wegzoomen, Tower erneut wählen
+  oder Reichweite upgraden. *Sichtzellen gleich wie mit naher Kamera.*
+- **AB4 Linie im Editor:** mit dem Linien-Pinsel eine Mauer ziehen, Symmetrie x, Undo/Redo, „Karte spiegeln“; ein
+  Mauerstück per Explosion zerstören und von fern ansehen. *Nichts bricht, Lücke im Band.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo
