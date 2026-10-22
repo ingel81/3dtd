@@ -297,9 +297,9 @@ describe('road network on the ground', () => {
     const builder = new RoadNetworkBuilder(hills());
     const flat = builder.update(tJunction(), true);
     expect(flat.tiles.reduce((s, t) => s + t.index.length, 0)).toBe(buildRoadNetwork(tJunction()).tiles.reduce((s, t) => s + t.index.length, 0));
-    let net: RoadNetwork | null = null;
+    let net = builder.layOnGround(0);
     let calls = 0;
-    while (!(net = builder.layOnGround(0))) calls++;
+    for (; !net; calls++) net = builder.layOnGround(0);
     // One item a call at a budget of nothing: the three ribbons and the junction
     expect(calls).toBe(3);
     const sorted = (n: RoadNetwork) => triangles(n).map((t) => t.flat().map((v) => v.toFixed(4)).join(',')).sort();
