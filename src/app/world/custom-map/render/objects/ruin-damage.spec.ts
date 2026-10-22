@@ -332,27 +332,45 @@ describe('ruin damage: floors and inner walls', () => {
   const frame = { cx: 0, cz: 0, ax: 4, az: 0, bx: 0, bz: 2, seatY: 0, height: 10 };
   const shape = ruinShape(structureSeed('h'), frame);
 
-  it('gives a holed ruin a floor every storey and a wall across each side long enough for two rooms, none below stage 2', () => {
+  it('gives a ruin a floor every storey and a wall across each side long enough for two rooms, none below stage 2', () => {
     const slabs = new RuinSlabs();
     slabs.set('h', frame, shape, 1, FELL_LONG_AGO, 'brick');
     expect(slabs.mesh.visible).toBe(false);
     slabs.set('h', frame, shape, 2, FELL_LONG_AGO, 'brick');
-    // Floors at 3 and 6 m (9 m is too near the top), one wall across the 8 m side, none across the 4 m one
-    expect(slabs.mesh.count).toBe(3);
+    // A slab on the ground, floors at 3 and 6 m (9 m is too near the top), one wall across the 8 m side, none across
+    // the 4 m one
+    expect(slabs.mesh.count).toBe(4);
     const m = slabs.mesh.instanceMatrix.array;
-    expect([m[13], m[16 + 13]]).toEqual([3, 6]);
+    expect([m[13], m[16 + 13], m[32 + 13]].map((v) => +v.toFixed(2))).toEqual([0.12, 3, 6]);
     // The wall stands from the seat up to below the eaves, thin across the long side
-    expect(m[32 + 5]).toBeCloseTo(6.2);
-    expect(Math.abs(m[32])).toBeCloseTo(0.18);
+    expect(m[48 + 5]).toBeCloseTo(6.2);
+    expect(Math.abs(m[48])).toBeCloseTo(0.18);
     // The insides take a smaller bite than the walls: they jut into the hole
     const g = slabs.mesh.geometry;
     const inside = readDamage(DAMAGE_ATTRIBUTES.map((a) => g.getAttribute(a).array) as unknown as DamageArrays, 0);
     expect(inside.biteR).toBeLessThan(shape.biteR);
     // Fallen: only the floors well inside the stump stay, the walls the cut trims
     slabs.set('h', frame, shape, 3, FELL_LONG_AGO, 'brick');
-    expect(slabs.mesh.count).toBe(Math.floor((shape.breakY - 1) / 3) + 1);
+    expect(slabs.mesh.count).toBe(Math.floor((shape.breakY - 1) / 3) + 2);
     slabs.delete('h');
     expect(slabs.mesh.visible).toBe(false);
+    slabs.dispose();
+  });
+
+  it('shows the storeys of a battered building through the hole it got, and none once it is whole again', () => {
+    const slabs = new RuinSlabs();
+    // The view shows a standing building with a hole as battered: stage 1, asked before or after its hole
+    slabs.set('h', frame, shape, 1, FELL_LONG_AGO, 'brick');
+    expect(slabs.mesh.visible).toBe(false);
+    slabs.setHoled('h', true);
+    expect(slabs.mesh.count).toBe(4);
+    slabs.set('h', frame, shape, 1, FELL_LONG_AGO, 'brick');
+    expect(slabs.mesh.count).toBe(4);
+    slabs.setHoled('h', false);
+    expect(slabs.mesh.visible).toBe(false);
+    slabs.setHoled('g', true);
+    slabs.set('g', frame, shape, 1, FELL_LONG_AGO, 'brick');
+    expect(slabs.mesh.count).toBe(4);
     slabs.dispose();
   });
 
@@ -363,14 +381,15 @@ describe('ruin damage: floors and inner walls', () => {
     await layer.setObjects([raised, { id: 'h1', asset: 'house', x: 60, y: 0, z: 0, rotation: 0, scale: 1 }]);
     layer.setDamage([{ id: 'm1', stage: 2, fallStart: FELL_LONG_AGO }, { id: 'h1', stage: 2, fallStart: FELL_LONG_AGO }]);
     const slabs = layer.group.children.find((c) => c.name === 'ruin-slabs') as InstancedMesh;
-    // The block (20 x 12 m, 12 m high): three floors, two inner walls, at once (the mass layer's)
-    expect(slabs.count).toBe(5);
-    // The house (6 x 4 m, 8 m high): two floors, one wall, from the frame after the damage's (buildSlabs, E271)
+    // The block (20 x 12 m, 12 m high): the ground's slab, three floors, two inner walls, at once (the mass layer's)
+    expect(slabs.count).toBe(6);
+    // The house (6 x 4 m, 8 m high): the ground's, two floors, one wall, from the frame after the damage's
+    // (buildSlabs, E271)
     const camera = new PerspectiveCamera(60);
     layer.update(0.016, camera);
-    expect(slabs.count).toBe(5);
+    expect(slabs.count).toBe(6);
     layer.update(0.016, camera);
-    expect(slabs.count).toBe(5 + 3);
+    expect(slabs.count).toBe(6 + 4);
     layer.dispose();
   });
 });

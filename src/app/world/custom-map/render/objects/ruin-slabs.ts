@@ -16,7 +16,9 @@ import { addDamage, DAMAGE_ATTRIBUTES, damageArrays, damageDepthMaterial, writeD
  * smaller bite, so floors and walls jut into the hole a little, and fall
  * with what stands above the break line. A
  * whole building hides its insides behind its walls, so only ruins from
- * stage 2 have any, and intact buildings pay nothing for them.
+ * stage 2 have any, and the battered ones a hole opened (setHoled): through
+ * the hole the storeys show. Intact buildings pay nothing for them. The
+ * ground floor has a slab too, so no grass shows inside.
  */
 
 /** Storey height and slab thickness, m */
@@ -180,6 +182,10 @@ interface RuinFloors {
 export class RuinSlabs {
   readonly mesh: InstancedMesh;
   private readonly ruins = new Map<string, RuinFloors>();
+  /** What each building's insides were last asked with (set), built or not: a hole that opens builds them */
+  private readonly asked = new Map<string, Parameters<RuinSlabs['set']>>();
+  /** The buildings with a hole in them */
+  private readonly holed = new Set<string>();
   private readonly matrix = new Matrix4();
   private capacity = 0;
 
@@ -199,13 +205,15 @@ export class RuinSlabs {
   }
 
   /**
-   * Ruin `id`'s floors and inner walls anew: none below stage 2, a fallen
-   * one's floors those well inside its stump. They follow `footprint`
-   * where the building has one, else its ground rectangle in `frame`
+   * Ruin `id`'s floors and inner walls anew: none below stage 2 unless a
+   * hole is in it (setHoled), a fallen one's floors those well inside its
+   * stump. They follow `footprint` where the building has one, else its
+   * ground rectangle in `frame`
    */
   set(id: string, frame: RuinFrame, shape: RuinShape, stage: number, fallStart: number, material: RubbleMaterial, footprint: RuinFootprint | null = null): void {
-    if (stage < 2) {
-      this.delete(id);
+    this.asked.set(id, [id, frame, shape, stage, fallStart, material, footprint]);
+    if (stage < 2 && !this.holed.has(id)) {
+      if (this.ruins.delete(id)) this.flush();
       return;
     }
     // Model space: the footprint's, else the ground rectangle's own (half sides of 1)
@@ -214,9 +222,10 @@ export class RuinSlabs {
     const box: FootprintRect = { x0: mx - hx * INSET, x1: mx + hx * INSET, z0: mz - hz * INSET, z1: mz + hz * INSET };
     const top = stage >= 3 ? shape.breakY - frame.seatY - 1 : frame.height - 1.2;
     const floors: { y: number; rects: FootprintRect[] }[] = [];
-    for (let k = 1; k * STOREY <= top; k++) {
+    // From the ground floor up: a slab over the ground inside, so no grass shows through a hole
+    for (let k = 0; k * STOREY <= top; k++) {
       const rects = footprint ? footprintRects(footprint.roof, (k * STOREY + HEADROOM) / f.sy, box, footprint.section?.((k * STOREY + SECTION_OVER) / f.sy)) : [box];
-      if (rects.length) floors.push({ y: frame.seatY + k * STOREY, rects });
+      if (rects.length) floors.push({ y: frame.seatY + (k ? k * STOREY : THICKNESS / 2), rects });
     }
     // A wall across each side long enough for two rooms, off the middle by the ruin's roll (its heading)
     const walls: { alongZ: boolean; at: number; from: number; to: number; height: number }[] = [];
@@ -284,11 +293,24 @@ export class RuinSlabs {
     this.flush();
   }
 
+  /** Whether building `id` has a hole in it: its insides show from stage 1 then */
+  setHoled(id: string, holed: boolean): void {
+    if (holed === this.holed.has(id)) return;
+    if (holed) this.holed.add(id);
+    else this.holed.delete(id);
+    const asked = this.asked.get(id);
+    if (asked) this.set(...asked);
+  }
+
   delete(id: string): void {
+    this.asked.delete(id);
+    this.holed.delete(id);
     if (this.ruins.delete(id)) this.flush();
   }
 
   clear(): void {
+    this.asked.clear();
+    this.holed.clear();
     if (!this.ruins.size) return;
     this.ruins.clear();
     this.flush();

@@ -270,7 +270,9 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   grün lange Risse; im Code gezeichnet, kein Rauschen) von drei Seiten in Metern, dichter zur Kipprichtung; Ruß in
   Flecken, matt; Nachtfenster aus.
 - **Stufe 2:** der Biss aus der Ecke, Kante gezackt nach Winkel und Höhe, verkohlt, an wenigen Stellen glühend; innen
-  die Wand gedimmt (Rückseiten). Decken je Stockwerk (3 m) und Innenwände, je eine quer zu jeder Seite, die für zwei
+  die Wand gedimmt (Rückseiten). Eine Platte über dem Boden (kein Gras innen), Decken je Stockwerk (3 m) und
+  Innenwände; ein angeschlagenes Gebäude mit Loch (Stufe 1 der Ansicht) hat sie schon, sobald das Loch aufgeht
+  (`RuinSlabs.setHoled`), ohne Loch erst ab Stufe 2. Innenwände je eine quer zu jeder Seite, die für zwei
   Räume lang genug ist (über 5 m), bis unter die Traufe (62 % der Höhe, höchstens 92 % der niedrigsten Höhe über
   ihrer Linie), aus der Saat versetzt (`ruin-slabs.ts`, ein Draw Call für alle Ruinen, Haus und Grundriss-Gebäude
   gleich), mit kleinerem Biss, so ragen sie ins Loch. Sie folgen dem Grund des Gebäudes (E259), nicht seinem

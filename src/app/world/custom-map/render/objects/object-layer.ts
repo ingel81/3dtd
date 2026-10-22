@@ -664,6 +664,10 @@ export class MapObjectLayer {
     }
     this.holeSets.set(id, holes);
     this.placeHoles(id);
+    // A battered building shows its storeys through its holes (raised ones too: the slabs are shared)
+    let holed = false;
+    for (let s = 0; s < HOLE_SLOTS && !holed; s++) holed = holes[s * HOLE_STRIDE + 3] > 0;
+    this.slabs?.setHoled(id, holed);
   }
 
   /** Object `id`'s holes into RUIN_HOLES where it stands now; one not built yet waits for writeDamageOf */
