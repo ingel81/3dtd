@@ -54,8 +54,8 @@ export class ImpactMarks {
   private readonly look: InstancedBufferAttribute;
 
   constructor(heights: HeightTexture) {
-    // A grid of 8 x 8 cells in the x/z plane, draped per vertex: a crater's bowl shows in the mark too
-    const geometry = new PlaneGeometry(1, 1, 8, 8).rotateX(-Math.PI / 2);
+    // A grid of 16 x 16 cells in the x/z plane, draped per vertex: a crater's bowl shows in the mark too
+    const geometry = new PlaneGeometry(1, 1, 16, 16).rotateX(-Math.PI / 2);
     this.place = new InstancedBufferAttribute(new Float32Array(MAX_IMPACT_MARKS * 4), 4);
     this.look = new InstancedBufferAttribute(new Float32Array(MAX_IMPACT_MARKS * 4), 4);
     geometry.setAttribute('aMark', this.place);
@@ -71,7 +71,7 @@ export class ImpactMarks {
     material.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, heights.uniforms, { uRubbleGrit: { value: grit }, uRubbleDust: { value: dust } });
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', `#include <common>\n${TERRAIN_HEIGHT_GLSL}\nattribute vec4 aMark;\nattribute vec4 aMarkLook;\nvarying vec2 vMarkUv;\nvarying vec4 vMarkLook;\nvarying float vMarkSize;`)
+        .replace('#include <common>', `#include <common>\n${TERRAIN_HEIGHT_GLSL}\nattribute vec4 aMark;\nattribute vec4 aMarkLook;\nvarying vec2 vMarkUv;\nvarying vec4 vMarkLook;\nvarying float vMarkSize;\nvarying vec2 vMarkMap;\nvarying float vMarkGround;`)
         .replace(
           '#include <begin_vertex>',
           /* glsl */ `
@@ -81,6 +81,8 @@ export class ImpactMarks {
           vec2 local = vec2(position.x * mc - position.z * ms, position.x * ms + position.z * mc) * aMark.z;
           vec2 mapAt = aMark.xy + vec2(-local.x, local.y);
           vec3 transformed = vec3(-mapAt.x, terrainHeightAt(mapAt), mapAt.y);
+          vMarkMap = mapAt;
+          vMarkGround = transformed.y;
           transformed.y += 0.06 + length((modelMatrix * vec4(transformed, 1.0)).xyz - cameraPosition) * 0.002;
           vMarkUv = position.xz * 2.0;
           vMarkSize = aMark.z;
@@ -88,11 +90,14 @@ export class ImpactMarks {
         )
         .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3(0.0, 1.0, 0.0);');
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', `#include <common>\n${SHADER_NOISE}\nvarying vec2 vMarkUv;\nvarying vec4 vMarkLook;\nvarying float vMarkSize;\nuniform vec3 uRubbleGrit[${RUBBLE_MATERIALS.length}];\nuniform vec3 uRubbleDust[${RUBBLE_MATERIALS.length}];\n${SHARDS_GLSL}`)
+        .replace('#include <common>', `#include <common>\n${SHADER_NOISE}\n${TERRAIN_HEIGHT_GLSL}\nvarying vec2 vMarkUv;\nvarying vec4 vMarkLook;\nvarying float vMarkSize;\nvarying vec2 vMarkMap;\nvarying float vMarkGround;\nuniform vec3 uRubbleGrit[${RUBBLE_MATERIALS.length}];\nuniform vec3 uRubbleDust[${RUBBLE_MATERIALS.length}];\n${SHARDS_GLSL}`)
         .replace(
           '#include <map_fragment>',
           /* glsl */ `
           {
+            // Between its vertices the mark spans steps the ground has (a tower's plinth left standing in a
+            // crater): where it hangs off the ground it shows nothing, no veil from the step down to the floor
+            if (abs(vMarkGround - terrainHeightAt(vMarkMap)) > 0.35 + vMarkSize * 0.01) discard;
             vec2 uv = vMarkUv;
             // Metres from the middle: the look's grain stays the same on a rocket's crater and the nuke's
             vec2 mm = uv * vMarkSize * 0.5;
@@ -143,7 +148,7 @@ export class ImpactMarks {
           }`,
         );
     };
-    material.customProgramCacheKey = () => 'custom-map-impact-marks-4';
+    material.customProgramCacheKey = () => 'custom-map-impact-marks-5';
     addHeightFog(material);
     this.mesh = new InstancedMesh(geometry, material, MAX_IMPACT_MARKS);
     this.mesh.name = 'custom-map-impact-marks';
