@@ -928,7 +928,7 @@ WebGL2-Bausteine (a) bis (d), die unter WebGPU bleiben (die Auswahl wandert dann
 dann neu entscheiden (Entscheidung 6).
 
 Weitere Quelle für den Umzug (vom User, vor der Aufwandsschätzung lesen):
-[WebGPU three.js migration guide (utsubo)](https://www.utsubo.com/blog/webgpu-threejs-migration-guide).
+[WebGPU three.js migration guide (utsubo)](https://www.utsubo.com/blog/webgpu-threejs-migration-guide). Gelesen; die Aufwandsschätzung steht in Abschnitt 12.
 
 ## 10. Entscheidungen (User 2026-10-21)
 
@@ -971,3 +971,121 @@ Fixes; der Branch zieht `next` regelmäßig nach und kommt erst auf Zuruf des Us
   wer während eines Laufs den Katalog ändert, misst den Build mit dem neuen Katalog.
 - `e2e/perf/tsl-probe.ts` mit `e2e/perf/tsl-probe/index.html`: ein Shader in TSL auf beiden Backends (Abschnitt 9).
 - Für das ganze Spiel (mit Post-Processing, ohne Kamerawahl) bleibt `e2e/perf/render-bench.ts` (BENCHMARKS.md).
+
+## 12. Aufwandsschätzung: Umzug auf WebGPU (2026-10-22)
+
+Grundlage: Abschnitt 9 (Weg B: ein `WebGPURenderer` für alle Welten, „Echte Orte“ zuerst über `forceWebGL`), der
+[Migrationsleitfaden von utsubo](https://www.utsubo.com/blog/webgpu-threejs-migration-guide) und eine neue Zählung
+in `src/app` (ohne Specs, Textsuche, Stand `render/density`, three r186, 3DTilesRendererJS 0.5.2).
+
+**Was der Leitfaden für uns festhält** (Stand r186):
+
+- `ShaderMaterial`, `RawShaderMaterial` und `onBeforeCompile` laufen im `WebGPURenderer` auf keinem Backend, auch nicht
+  im WebGL-2-Rückfall. Ein GLSL-Zweig hinter einer Backend-Weiche scheitert ebenso („material not compatible“, das Mesh
+  zeichnet nicht). Jede Stelle muss nach TSL bzw. Node-Material; ein Übersetzer GLSL → TSL gibt nur einen Anfang.
+- Node-Materialien rechnen in den Ausgabe-Farbraum um: portierte Farben können heller wirken. Tone-Mapping läuft am
+  Ende der `RenderPipeline` (vor r183 `PostProcessing`); was danach kommen muss, braucht `outputColorTransform = false`
+  und `renderOutput()`.
+- `EffectComposer` und seine Passes laufen nicht; jeder Effekt wird ein TSL-Node (Bloom aus `three/addons/tsl/display/`).
+- `WebGLCubeRenderTarget` geht seit r183 nicht mehr, Ersatz `CubeRenderTarget`. `PCFSoftShadowMap` gibt es unter
+  WebGPU nicht mehr (`PCFShadowMap` ist jetzt weich; wir nutzen ihn nicht). Der Shadow-Bias änderte sich in r183.
+- Initialisierung: `setAnimationLoop` initialisiert, sonst `await renderer.init()`; `render()` vor `init()` wirft.
+  Der Rückfall entscheidet sich einmal in `init()`, erkennbar an `renderer.backend.isWebGPUBackend`; `forceWebGL`
+  testet ihn. Scheitert auch WebGL 2, lehnt `init()` ab.
+- Erste Pipelines kosten Hänger: `compileAsync` hinter dem Ladebildschirm. WebGPU ist nicht immer schneller: vorher
+  messen. Readback (`readPixels`), logarithmische Tiefe und Instancing behandelt der Leitfaden nicht; dafür gelten
+  Abschnitt 9 (nur asynchrones Auslesen) und der Migrationsleitfaden von three.
+- Reihenfolge laut Leitfaden: erst zählen, dann Renderer und `init`, dann Shader, dann Post-Processing, dann Rückfall
+  und beide Backends auf jedem Zielsystem prüfen. Der Aufwand hängt am eigenen Shader-Code, nicht am Renderer-Tausch.
+
+**Zählung** (Dateien / Stellen):
+
+| Muster | Dateien | Stellen |
+|---|---|---|
+| Dateien mit Shader-Code (GLSL, `onBeforeCompile` oder `ShaderMaterial`, vereinigt) | 102 | |
+| davon mit GLSL-Text (`/* glsl */`, `main()`, `gl_*`) | 92 | 592 |
+| `onBeforeCompile =` | 30 | 42 |
+| `new ShaderMaterial` / `RawShaderMaterial` | 50 / 2 | 74 / 5 |
+| Chunk-Ersetzungen `#include <…>` | 70 | 647 |
+| `logdepthbuf`-Chunks (entfallen) | 47 | 223 |
+| `customDepthMaterial` / `customDistanceMaterial` | 10 | 17 |
+| Post-Processing (`EffectComposer`, Passes) | 5 (+2 mit Pass-Namen) | 34 |
+| `WebGLRenderTarget` | 17 | 67 |
+| `WebGLCubeRenderTarget` / `CubeCamera` | 5 | 21 |
+| synchron `readPixels` / `readRenderTargetPixels` | 4 | 5 |
+| asynchron `readRenderTargetPixelsAsync` | 3 | 5 |
+| Kontextverlust und -wiederherstellung | 11 | 28 |
+| direkter Kontext, `gl.*`-Aufrufe | 42 | 101 |
+| `getExtension` (Timer, KTX2, Qualität, Benchmark) | 7 | 10 |
+| `compileAsync` / `KHR_parallel_shader_compile` | 16 | 52 |
+| `Points` / `PointsMaterial` (Größe ≠ 1 px) | 6 | 32 |
+| `renderer.info` | 13 | 26 |
+| `WebGLRenderer` im Code oder Typ | 49 | 150 |
+| eigene `new WebGLRenderer` | 6 | (Spiel, Globus ×2, Editor-Vorschau, Modellvorschau, Engine-Test) |
+| Imports aus `3d-tiles-renderer` | 14 | 20 |
+
+Shader-Dateien nach Bereich: `three-engine/renderers` 35, `render/objects` 14, `render/terrain` 12,
+`render/environment` 7, `render/effects` 7, `render/water` 4, `utils` 4, Post-Processing 3, Globus 3, Rest je 1 bis 2.
+Die größten: `custom-map-view.ts` (2 252 Zeilen), `object-layer.ts` (1 976), `mass-layer.ts` (1 520),
+`impostor.ts` (1 057), `terrain-material.ts` (1 039), `water-material.ts` (1 030), `three-projectile.renderer.ts`
+(1 023), `orbital-beam.renderer.ts` (928), `effect-layer.ts` (890), `terrain-chunks.ts` (821), `ruin-damage.ts` (763).
+
+**Arbeitspakete** (AT = Arbeitstage eines Workers, grob; die Optik-Abnahme durch den User kommt dazu):
+
+| # | Paket | Dateien (Auswahl) | AT |
+|---|---|---|---|
+| 1 | Renderer-Kern: `WebGPURenderer` aus `three/webgpu`, `init` beim Start, Rückfall-Erkennung, Gerätverlust statt Kontextverlust, E273-Programmkniffe ersetzen oder löschen (Programme anpinnen, verzögertes Löschen, Vorkompilieren je Bild), GPU-Zeit über `trackTimestamp`, `renderer.info` | `renderer-host.ts`, `render-loop.ts`, `context-release.ts`, `lost-context-deletes.ts`, `pending-program-deletes.ts`, `program-pins.ts`, `frame-compile-ahead.ts`, `editor/view/program-warmup.ts`, `gpu-timer.ts`, `render-quality.service.ts`, `benchmark/*`, `performance-profiler.service.ts` | 5 bis 7 |
+| 2 | Gemeinsame Bausteine in TSL: Höhennebel, Lampen- und Schusslicht, Wetter auf Oberflächen, LOD-Blende, Wind, Nachtfenster (heute als gestapelte Chunk-Patches an vielen Materialien) | `environment/height-fog.ts`, `objects/lod-fade.ts`, `environment/wind.ts`, `objects/night-windows.ts`, `three-engine/shot-lights/*`, `effects/lamp-light.ts` | 4 bis 6 |
+| 3 | Gelände: Splat-Material, Chunks und Geomorph, Decals, Albedo-Bake, Gras, Drape, Wege, Flächen | `render/terrain/*` (12), `grass`, `drape`, `paths`, `surfaces` | 8 bis 12 |
+| 4 | Objekte: Objektmaterialien (Wind, Karten, Wasserfall, Flammen, Stoff, Rotor, Atlas-Varianten, Ton je Stufe, Grime), Fernkästen, Bänder, Impostoren mit Bake, Ruinen, Bauten aus dem Grundriss; die Tiefen-Zwillinge entfallen | `render/objects/*` (14), `ruin-damage.ts`, `mass-layer.ts`, `impostor.ts` | 10 bis 14 |
+| 5 | Himmel, Licht, Wasser: Kuppel, Blitze, Umgebungsblende, Schattenteile, Wasser mit Spiegelung und Szenenkopie | `render/environment/*` (7), `render/water/*` (4) | 8 bis 12 |
+| 6 | Spiel-Renderer: Geschosse, Strahlen, Spuren, Laser, Blitze, Pilzwolke, Marker und Ringe (Stencil), Lebensbalken, schwebende Texte, Decals, Ooze, VAT-Gegner (`vertexIndex` statt `aVertexIndex`), Partikel von `Points` auf instanzierte Sprites | `three-engine/renderers/*` (35), `instanced-enemy/*`, `particle-*`, `effect-buffers.ts`, `render/effects/*` (7) | 14 bis 20 |
+| 7 | Post-Processing als `RenderPipeline`: Bloom, Bloom-Schutz, Bloom-Stoß, Farbkorrektur, Pixelmarken | `three-engine/post-processing/*` (5) | 3 bis 5 |
+| 8 | Sicht-Cube: Distanzmaterial je Blocker in TSL, `CubeRenderTarget`, Auslesen nur asynchron (die synchronen Wege `readFacesToCpu`, `gpu-cube-resolve.ts` fallen), die Regeln aus LOS_PIPELINE.md neu belegen, Masken mit `e2e/perf/los-cube.ts` bitgleich zwischen Backends prüfen | `tower-shadow-mapper.ts`, `utils/gpu-cube-resolve.ts`, `utils/tower-los-layer-builder.ts`, `utils/los-debug-pixel-math.ts`, `tower-los-registry.ts` | 5 bis 8 |
+| 9 | Übrige Render-Targets und Auslesen: Minimap, Draufsicht und Vorschaubilder im Editor, Impostor-Bake, Showreel, Modellvorschau; alles mit `await` | `custom-map-minimap.ts`, `editor/view/top-down-renderer.ts`, `thumbnail-renderer.ts`, `model-preview.service.ts`, `showreel/showreel.ts` | 3 bis 5 |
+| 10 | Globus: eigene Renderer und ein geteilter, Erd- und Stil-Shader | `globe/globe-view.ts`, `globe-stage.ts`, `style-globes.ts`, `worlds/stage-globes.ts` | 4 bis 6 |
+| 11 | Echte Orte: 3DTilesRendererJS auf dem neuen Renderer (zuerst `forceWebGL`), unsere Patches an Tile-Materialien, Plugins (Issue 1380, `ImageOverlayPlugin`), Tile-Debug | `tiles-renderer-setup.ts`, `three-tiles-engine.ts`, `tile-material-log.ts`, `tiles-lod-debug.ts`, `world/tiles/tiles-world.ts` und 9 weitere | 4 bis 8 |
+| 12 | Rest: Editor-Viewport, DevWorld-Gelände, Engine-Test, Routen-Visualisierung, Blutmond | `editor/view/editor-viewport.ts`, `devworld/dev-terrain.provider.ts`, `components/engine-test`, `utils/route-grid-aggregate-viz.ts`, `blood-moon` | 4 bis 6 |
+| 13 | Proben und Abnahme: `render-density`, `los-cube`, `render-bench`, `tsl-probe` auf Chrome-Kanal und Timestamps; gleiche Bilder je Karte gegen den heutigen Stand, Messung auf beiden Rechnern (Entscheidung 9), E2E | `e2e/perf/*`, `e2e/*` | 6 bis 9 |
+
+**Summe: 78 bis 118 AT** für einen Worker, also etwa 16 bis 24 Wochen. Ab Paket 1 und 2 laufen 3 bis 7, 9, 10 und 12
+weitgehend unabhängig (eigene Dateien); mit drei Workern parallel etwa 7 bis 10 Wochen Kalenderzeit plus Abnahme.
+Der größte Einzelposten sind die 35 Spiel-Renderer (viele kleine Shader), die schwersten Einzeldateien Wasser, Gelände
+und Objekte.
+
+**Reihenfolge** (ein Branch, weil TSL nicht im `WebGLRenderer` läuft und GLSL nicht im `WebGPURenderer`; ein
+schrittweiser Umzug im spielbaren Stand geht nicht):
+
+1. Paket 1 und 2: der Renderer startet mit `forceWebGL`, gemeinsame Bausteine stehen. Das Spiel zeichnet hier noch
+   wenig.
+2. Pakete 3, 4, 5, 7: eine eigene Karte ist wieder vollständig zu sehen (DevWorld oder Ruined City als erste Abnahme).
+3. Pakete 6 und 8: Kampf, Gegner, Effekte und Sicht wieder spielbar; Sicht-Cube bitgleich zwischen den Backends.
+4. Pakete 9, 10, 12: Editor, Globus, Rest.
+5. Paket 13 auf dem WebGL-2-Backend: gleiches Bild wie heute, dann WebGPU für eigene Karten und OSM-Welten einschalten
+   (Weg B, Schritt 2).
+6. Paket 11: Echte Orte zuerst auf dem WebGL-2-Backend, WebGPU erst nach eigener Prüfung.
+7. Danach erst die WebGPU-Bausteine: Ausklammern je Instanz und Verdeckung im Compute-Pass, indirektes Zeichnen
+   (Entscheidung 1).
+
+**Risiken:**
+
+- **Langer Branch ohne spielbaren Zwischenstand.** `next` läuft weiter, jede Shader-Änderung dort muss nachgezogen
+  werden. Gegenmittel: vor dem Start `render/density` auf `next` bringen, während des Umzugs auf `next` keine
+  Shader-Arbeit, den Branch wöchentlich nachziehen.
+- **Optik-Gleichheit.** Farbraum der Node-Materialien, Tone-Mapping in der Pipeline, geänderter Shadow-Bias, anderes
+  Raster an Kanten. Abnahme je Karte und Welt-Art durch den User; Vorher-Bilder vorab mit den Proben ziehen.
+- **Kein Leistungsgewinn ohne Compute.** Die Messung zeigt CPU je Objekt als Grenze; der Renderer-Tausch allein ändert
+  daran wenig (Leitfaden: „not always faster“). Der Gewinn kommt mit Schritt 7. Vorher und nachher mit derselben Probe
+  messen.
+- **Pipeline-Hänger.** Die E273-Arbeit (Programme anpinnen, Cache, verzögertes Löschen) gilt für WebGL-Programme; unter
+  WebGPU sind Pipelines und Dawns Cache neu zu messen, der Warm-up neu zu bauen.
+- **Sichtlinien.** Zwei Backends können in Randpixeln anders rastern; das betrifft den Host, der die Maske rechnet
+  (Koop verteilt sie). Bitgleichheit je Backend nachweisen, nicht zwischen ihnen voraussetzen.
+- **Partikelgröße.** WebGPU kennt nur 1-Pixel-Punkte; 6 Dateien mit `Points` werden instanzierte Sprites.
+- **3DTilesRendererJS.** Nennt in der README kein WebGPU; ein Plugin scheitert laut Issue. Deshalb Echte Orte zuletzt
+  und zunächst auf dem WebGL-2-Backend; ein Wechsel der Welt-Art baut den Renderer neu.
+- **Verfügbarkeit.** Linux-Chromium nur mit bestimmten GPUs und Treibern (Abschnitt 9); der Rückfall muss so gut aussehen
+  wie WebGPU. Playwrights Chromium bekommt kein WebGPU-Gerät: Proben und E2E auf dem Chrome-Kanal, Electron-Version
+  prüfen.
+- **Schätzung.** Gezählt ist Text, nicht Komplexität; die Spanne trägt das. Eine Nachschätzung nach Paket 1 bis 3
+  (rund ein Fünftel der Arbeit) zeigt, ob die Raten halten.
