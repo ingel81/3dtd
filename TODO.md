@@ -496,6 +496,10 @@ Nachtest-Liste in `tmp/NEXT_SESSION.md`, kommt nach PLAYTEST.md, wenn der User Z
 
 ## 3. Später und Ideen
 
+- [ ] **E305 Routenanzeige im Krater, Rest** (User 2026-10-22: erst bei Bedarf): die animierte Routenanzeige
+      (`route-animation.service.ts`, renderOrder 2 und 3) kann von Kraterspuren übermalt werden wie vorher die rote
+      Linie (Fix dort: renderOrder 3, 2b30277c2); direkt am Tower steckt die Linie im gehaltenen Boden
+      (TOWER_HOLD_M), den die StampField nicht kennt.
 - [ ] **E182 Showreel v2** (User 2026-10-21): Runde 5 ist online. Eine v2 deutlich später, Richtung 0.8 (Krater,
       Wasser, OSM-Gebäude, Weinberge). Rig und Schnitt von R5: `wt/r5-reel`, `tmp/showreel/edit/`.
 
