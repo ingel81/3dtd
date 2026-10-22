@@ -1,4 +1,5 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, effect, inject, signal, untracked } from '@angular/core';
+import { UIStore } from '../../store/ui.store';
 import { SimClient } from '../../sim/client/sim-client.service';
 import { PresentationService } from '../../presentation/presentation.service';
 import type { StructureHp } from '../../presentation/world-damage-presenter';
@@ -36,6 +37,7 @@ export interface PickedStructure {
 export class DestructionToolService {
   private readonly sim = inject(SimClient);
   private readonly presentation = inject(PresentationService);
+  private readonly uiStore = inject(UIStore);
 
   /** What a click does; null: the clicks go to the game */
   readonly mode = signal<DestructionToolMode | null>(null);
@@ -54,6 +56,10 @@ export class DestructionToolService {
   constructor() {
     const asked = new URLSearchParams(globalThis.location?.search ?? '').get('collapse');
     if (asked && (COLLAPSE_VARIANTS as readonly string[]).includes(asked)) this.setCollapse(asked as CollapseVariant);
+    // Build mode takes over the pointer: a blast or a pick on the way lets go, the click places the tower
+    effect(() => {
+      if (this.uiStore.buildMode() && untracked(() => this.active())) this.setMode(null);
+    });
   }
 
   /** The collapse variant of every fall from now on, the one under way too: a uniform, no program changes */
