@@ -58,7 +58,7 @@ describe('GrassField', () => {
     const blades = (grass as unknown as { uniforms: { uGrassBlades: { value: Vector4[] } } }).uniforms.uGrassBlades.value;
     const tex = new Texture();
     // A lawn in channel 0, a layer without its own blades in channel 1 (the meadow's)
-    grass.setInputs({ pathMask: tex, mask: [new Vector4(1, 1, 0, 0), new Vector4()], blades: [{ height: [0.06, 0.12], width: 0.02 }, null] });
+    grass.setInputs({ pathMask: tex, pathEdge: tex, mask: [new Vector4(1, 1, 0, 0), new Vector4()], blades: [{ height: [0.06, 0.12], width: 0.02 }, null] });
     expect(blades[0].toArray()).toEqual([0.06, 0.12, 0.02, 0]);
     expect(blades[1].toArray()).toEqual([DEFAULT_BLADES.height[0], DEFAULT_BLADES.height[1], DEFAULT_BLADES.width, 1]);
     const { vertexShader: vs, fragmentShader: fs } = shaders(grass);

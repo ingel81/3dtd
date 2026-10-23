@@ -338,12 +338,13 @@ export class RoadNetworkBuilder {
    * COVER_INSET inside it). A ribbon's cover to the node reached past the
    * junction's kerbs where a road narrows on or bends away (the bare ground's
    * grey in a wedge beside the surface); without a cover in the junction,
-   * grass grew through its pavements
+   * grass grew through its pavements. Each carries its drawn edge (`edge`,
+   * where the grass stops); a ribbon too narrow for a cover only that
    */
   covers(): RoadCover[] {
     const out: RoadCover[] = [];
     for (const c of this.chains.values()) {
-      if (c.inner || c.half - COVER_INSET <= 0.3) continue;
+      if (c.inner) continue;
       const [from, to] = ribbonSpan(c);
       if (to - from < 0.5) continue;
       // The same cover while the ribbon is the same (the editor sends only the covers that changed, by identity)
@@ -355,7 +356,7 @@ export class RoadNetworkBuilder {
       const line = [pointAt(c, from)];
       for (let k = 0; k < c.line.length; k++) if (c.at[k] > from && c.at[k] < to) line.push(c.line[k]);
       line.push(pointAt(c, to));
-      const cover = { id: c.id, line, half: c.half - COVER_INSET };
+      const cover = { id: c.id, line, half: c.half - COVER_INSET > 0.3 ? c.half - COVER_INSET : 0, edge: c.half };
       this.coverOf.set(c, { from, to, line: c.line, cover });
       out.push(cover);
     }

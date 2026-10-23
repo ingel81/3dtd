@@ -11,7 +11,7 @@ import {
 import { MAX_GROUND_LAYERS, type MapBiome, type MapTerrain as MapTerrainDoc, type MapPaths } from '../../map-document';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary } from '../map-asset-library';
-import { pathMaskOf, pathMaskResolution, type PathMaskInput } from '../paths/path-mask';
+import { pathMaskOf, pathMaskResolution, type PathMaskInput, type PathMaskTexels } from '../paths/path-mask';
 import { addHeightFog } from '../environment/height-fog';
 import { ApronProfile, BACKDROP_HEIGHT, buildTerrainApron, writeApronGeometry } from './terrain-apron';
 import { APRON_LOOK, ApronMaterial } from './apron-material';
@@ -30,7 +30,7 @@ import { LAMP_LIGHT_UNIFORMS } from '../effects/lamp-light';
 import { TerrainCuts } from './terrain-cuts';
 import { RoadSurfaceLayer } from '../paths/road-surface';
 import { SurfaceLayer } from '../surfaces/surface-layer';
-import { GridNormalTexture, MaterialArrays, SplatTextures, loadMaterialArrays, maskTexture } from './terrain-textures';
+import { GridNormalTexture, MaterialArrays, SplatTextures, edgeTexture, loadMaterialArrays, maskTexture } from './terrain-textures';
 import { uploadRect, type TexelRect } from './texture-ranges';
 import type { GroundBaker } from './ground-shape';
 
@@ -134,6 +134,8 @@ export class MapTerrainLayer {
    * map; the editor's worker paints what changes and hands the texels over (setPathMask)
    */
   private pathMask: DataTexture | null = null;
+  /** Beside it the distance to the nearest road or surface edge (path-mask.ts `edge`): the grass reads the edges from it */
+  private pathEdge: DataTexture | null = null;
   /** Hears when the path mask was painted from the map as it is now (the editor's worker takes over from there) */
   pathMaskBuilt: (() => void) | null = null;
   private readonly normals: GridNormalTexture;
@@ -163,7 +165,7 @@ export class MapTerrainLayer {
   readonly surfaces: SurfaceLayer;
   /** Before the ground draws (its materials' onBeforeRender): what a stroke painted into the splat goes up */
   private readonly flushSplat = (renderer: WebGLRenderer): void => this.splat?.flush(renderer);
-  private grassInputs: (Omit<GrassInputs, 'pathMask'> & { colors: Color[]; width: number; depth: number }) | null = null;
+  private grassInputs: (Omit<GrassInputs, 'pathMask' | 'pathEdge'> & { colors: Color[]; width: number; depth: number }) | null = null;
   /** The border's natural ground for the apron, and which map layers count as natural */
   private apronPaint: DataTexture | null = null;
   private natural: boolean[] | null = null;
@@ -256,10 +258,13 @@ export class MapTerrainLayer {
         arrays.dispose();
         return;
       }
-      pathMask = this.pathMask ?? maskTexture(texels, pathMaskResolution(t.width, t.depth));
+      pathMask = this.pathMask ?? maskTexture(texels.mask, pathMaskResolution(t.width, t.depth));
       if (pathMask !== this.pathMask) {
         uploadRect(pathMask, undefined);
         this.pathMask = pathMask;
+        this.pathEdge?.dispose();
+        this.pathEdge = edgeTexture(texels.edge, pathMaskResolution(t.width, t.depth));
+        uploadRect(this.pathEdge, undefined);
         this.pathMaskBuilt?.();
       }
     }
@@ -408,8 +413,8 @@ export class MapTerrainLayer {
   }
 
   private updateGrassInputs(): void {
-    if (!this.grassInputs || !this.splat || !this.pathMask) return;
-    this.grass.setInputs({ mask: this.grassInputs.mask, blades: this.grassInputs.blades, pathMask: this.pathMask });
+    if (!this.grassInputs || !this.splat || !this.pathMask || !this.pathEdge) return;
+    this.grass.setInputs({ mask: this.grassInputs.mask, blades: this.grassInputs.blades, pathMask: this.pathMask, pathEdge: this.pathEdge });
     setGroundColors(this.splat.array, this.grassInputs.colors, this.grassInputs.width, this.grassInputs.depth);
   }
 
@@ -534,9 +539,10 @@ export class MapTerrainLayer {
 
   /**
    * Texels of the path mask painted elsewhere (the editor's worker, path-mask-job.ts): `data` holds the RGBA rows
-   * of `rect` of a mask of `resolution`² over `width` x `depth` metres. False when this mask is not that one
+   * of `rect` of a mask of `resolution`² over `width` x `depth` metres, `edge` the rows of its edge field. False when
+   * this mask is not that one
    */
-  setPathMask(width: number, depth: number, resolution: number, rect: TexelRect, data: Uint8Array): boolean {
+  setPathMask(width: number, depth: number, resolution: number, rect: TexelRect, data: Uint8Array, edge: Uint8Array): boolean {
     const mask = this.pathMask;
     const t = this.terrain;
     if (!mask || t.width !== width || t.depth !== depth || mask.image.width !== resolution) return false;
@@ -544,6 +550,12 @@ export class MapTerrainLayer {
     const row = (rect.i1 - rect.i0 + 1) * 4;
     for (let j = rect.j0; j <= rect.j1; j++) texels.set(data.subarray((j - rect.j0) * row, (j - rect.j0 + 1) * row), (j * resolution + rect.i0) * 4);
     uploadRect(mask, rect);
+    const edges = this.pathEdge?.image.data as Uint8Array | undefined;
+    if (edges && this.pathEdge) {
+      const span = rect.i1 - rect.i0 + 1;
+      for (let j = rect.j0; j <= rect.j1; j++) edges.set(edge.subarray((j - rect.j0) * span, (j - rect.j0 + 1) * span), j * resolution + rect.i0);
+      uploadRect(this.pathEdge, rect);
+    }
     this.albedo.invalidate();
     return true;
   }
@@ -566,6 +578,8 @@ export class MapTerrainLayer {
     this.splat?.dispose();
     this.pathMask?.dispose();
     this.pathMask = null;
+    this.pathEdge?.dispose();
+    this.pathEdge = null;
     this.apronPaint?.dispose();
     this.normals.dispose();
     this.occlusion.dispose();
@@ -579,7 +593,7 @@ export class MapTerrainLayer {
   }
 
   /** The whole path mask's texels: by the baker (the game's GroundWorker), else here; the same either way */
-  private async bakePathMask(paths: MapPaths): Promise<Uint8Array> {
+  private async bakePathMask(paths: MapPaths): Promise<PathMaskTexels> {
     const t = this.terrain;
     const input: PathMaskInput = {
       paths,

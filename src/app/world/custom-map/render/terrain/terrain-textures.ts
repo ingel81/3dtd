@@ -9,6 +9,7 @@ import {
   LinearFilter,
   LinearMipmapLinearFilter,
   NoColorSpace,
+  RedFormat,
   RepeatWrapping,
   RGBAFormat,
   SRGBColorSpace,
@@ -256,6 +257,22 @@ export class SplatTextures {
     t.needsUpdate = true;
     return t;
   }
+}
+
+/**
+ * The path mask's edge field (path-mask.ts `edge`: the distance to the nearest road or surface edge), one byte a
+ * texel, read between texels at its base level only (the grass's vertex shader): no mipmaps
+ */
+export function edgeTexture(bytes: Uint8Array, resolution: number): DataTexture {
+  const t = new DataTexture(bytes, resolution, resolution, RedFormat, UnsignedByteType);
+  t.colorSpace = NoColorSpace;
+  t.wrapS = t.wrapT = ClampToEdgeWrapping;
+  t.magFilter = t.minFilter = LinearFilter;
+  t.generateMipmaps = false;
+  // Rows of one byte a texel: any width goes up
+  t.unpackAlignment = 1;
+  t.needsUpdate = true;
+  return t;
 }
 
 /** Path mask texture (road, path, across position) over the whole map */

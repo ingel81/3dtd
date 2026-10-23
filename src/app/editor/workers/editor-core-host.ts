@@ -86,7 +86,7 @@ const JOBS: { [K in CoreJobKind]: JobDef<K> } = {
     priority: 60,
     take: (ctx, input) => ctx.pathMask.take(input),
     run: (ctx, input) => ctx.pathMask.run(ctx.mirror.doc, input),
-    transfer: (rect) => (rect ? [rect.data.buffer as ArrayBuffer] : []),
+    transfer: (rect) => (rect ? [rect.data.buffer as ArrayBuffer, rect.edge.buffer as ArrayBuffer] : []),
   },
   groundShape: {
     priority: 45,

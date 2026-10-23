@@ -20,6 +20,13 @@ import { sampleRiver } from '../water/river-line';
  * with no road or path: the terrain shader skips its texture work there
  * (only the surface shows), the grass grows none. An across position never
  * reaches 255 (at most 253).
+ *
+ * Beside it a field of one byte a texel (`edge`): the signed distance to the
+ * nearest edge of a road surface, a junction or a surface as drawn, negative
+ * on it (EDGE_RANGE either way, 128 at the edge). Read between texels it
+ * finds the edge to a few centimetres however coarse the texels are: the
+ * grass grows no blade on a pavement's slabs, where the cover, read between
+ * texels of 1.2 m, still let blades stand on its outer half metre.
  */
 
 /** The middle of a road surface, where it hides the ground: its centre line, how far either side (road-network.ts) */
@@ -27,9 +34,16 @@ export interface RoadCover {
   id: string;
   line: readonly MapPoint[];
   half: number;
+  /** Half the surface's width as drawn (its edge in the `edge` field), `half` when absent; a ribbon too narrow for a cover has `half` 0 */
+  edge?: number;
   /** A junction's outline instead (`line` empty): inside it, SURFACE_INSET short of it */
   ring?: readonly MapPoint[];
 }
+
+/** Metres the `edge` field reaches either side of an edge (a step of EDGE_RANGE / 127, about 2.5 cm) */
+export const EDGE_RANGE = 3.2;
+/** The `edge` field's byte far from any surface */
+const EDGE_FAR = 255;
 
 /** Metres a surface's cover stays inside its outline: the ground's mask is read between texels */
 const SURFACE_INSET = 0.3;
@@ -62,9 +76,25 @@ export interface PathMaskInput {
   surfaces: readonly MapSurface[];
 }
 
-/** The whole mask of `input` (rasterizePathMask) */
-export function pathMaskOf(input: PathMaskInput): Uint8Array {
-  return rasterizePathMask(input.paths, input.width, input.depth, input.resolution, input.rivers, input.covers, input.surfaces);
+/** A whole mask: the RGBA texels and the `edge` field's bytes (see above), both `resolution`² */
+export interface PathMaskTexels {
+  mask: Uint8Array;
+  edge: Uint8Array;
+}
+
+/** The whole mask of `input` (rasterizePathMask) and its `edge` field (rasterizeSurfaceEdges) */
+export function pathMaskOf(input: PathMaskInput): PathMaskTexels {
+  return {
+    mask: rasterizePathMask(input.paths, input.width, input.depth, input.resolution, input.rivers, input.covers, input.surfaces),
+    edge: rasterizeSurfaceEdges(input.width, input.depth, input.resolution, input.covers, input.surfaces),
+  };
+}
+
+/** The `edge` field (see above) of these road covers and surfaces, `resolution`² bytes */
+export function rasterizeSurfaceEdges(width: number, depth: number, resolution: number, covers: readonly RoadCover[] = [], surfaces: readonly MapSurface[] = []): Uint8Array {
+  const out = new Uint8Array(resolution * resolution).fill(EDGE_FAR);
+  paintSurfaceEdges(out, covers, surfaces, width, depth, resolution, { i0: 0, j0: 0, i1: resolution - 1, j1: resolution - 1 });
+  return out;
 }
 
 /**
@@ -209,6 +239,7 @@ function paintCovers(out: Uint8Array, covers: readonly RoadCover[], width: numbe
   const sy = resolution / depth;
   for (const cover of covers) {
     const { line, half } = cover;
+    if (half <= 0) continue;
     for (let s = 0; s < line.length - 1; s++) {
       const p = line[s];
       const q = line[s + 1];
@@ -236,6 +267,99 @@ function paintCovers(out: Uint8Array, covers: readonly RoadCover[], width: numbe
   }
 }
 
+/**
+ * The signed distance to the nearest surface edge into `out` (one byte a texel, see above) in `rect`, the least
+ * of all shapes: a ribbon's centre line out to its `edge` (round at its bends, square at its two ends like its
+ * cover), a junction's outline and each surface's rings (inside by even-odd)
+ */
+function paintSurfaceEdges(out: Uint8Array, covers: readonly RoadCover[], surfaces: readonly MapSurface[], width: number, depth: number, resolution: number, rect: TexelRect): void {
+  const sx = resolution / width;
+  const sy = resolution / depth;
+  const put = (k: number, d: number) => {
+    const v = Math.max(0, Math.min(EDGE_FAR, Math.round(128 + (d / EDGE_RANGE) * 127)));
+    if (v < out[k]) out[k] = v;
+  };
+  for (const cover of covers) {
+    if (cover.ring) continue;
+    const line = cover.line;
+    const h = cover.edge ?? cover.half;
+    const last = line.length - 2;
+    for (let s = 0; s <= last; s++) {
+      const p = line[s];
+      const q = line[s + 1];
+      const pad = h + EDGE_RANGE;
+      const i0 = Math.max(rect.i0, Math.floor((Math.min(p.x, q.x) - pad + width / 2) * sx));
+      const i1 = Math.min(rect.i1, Math.ceil((Math.max(p.x, q.x) + pad + width / 2) * sx));
+      const j0 = Math.max(rect.j0, Math.floor((Math.min(p.y, q.y) - pad + depth / 2) * sy));
+      const j1 = Math.min(rect.j1, Math.ceil((Math.max(p.y, q.y) + pad + depth / 2) * sy));
+      if (i0 > i1 || j0 > j1) continue;
+      const dx = q.x - p.x;
+      const dy = q.y - p.y;
+      const len = Math.hypot(dx, dy) || 1;
+      for (let ty = j0; ty <= j1; ty++) {
+        const y = (ty + 0.5) / sy - depth / 2;
+        for (let tx = i0; tx <= i1; tx++) {
+          const x = (tx + 0.5) / sx - width / 2;
+          const along = ((x - p.x) * dx + (y - p.y) * dy) / len;
+          let d: number;
+          if ((s === 0 && along < 0) || (s === last && along > len)) {
+            // Past a square end: the distance to the end's box
+            const over = along < 0 ? -along : along - len;
+            const off = Math.abs((x - p.x) * dy - (y - p.y) * dx) / len - h;
+            d = over > 0 && off > 0 ? Math.hypot(over, off) : Math.max(over, off);
+          } else {
+            const t = Math.max(0, Math.min(len, along)) / len;
+            const ox = x - (p.x + t * dx);
+            const oy = y - (p.y + t * dy);
+            d = Math.sqrt(ox * ox + oy * oy) - h;
+          }
+          put(ty * resolution + tx, d);
+        }
+      }
+    }
+  }
+  const polygons = [...covers.filter((c) => c.ring).map((c) => [c.ring!]), ...surfaces.map((s) => [s.outer, ...(s.holes ?? [])])];
+  for (const rings of polygons) {
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const p of rings[0]) {
+      x0 = Math.min(x0, p.x);
+      y0 = Math.min(y0, p.y);
+      x1 = Math.max(x1, p.x);
+      y1 = Math.max(y1, p.y);
+    }
+    const i0 = Math.max(rect.i0, Math.floor((x0 - EDGE_RANGE + width / 2) * sx));
+    const i1 = Math.min(rect.i1, Math.ceil((x1 + EDGE_RANGE + width / 2) * sx));
+    const j0 = Math.max(rect.j0, Math.floor((y0 - EDGE_RANGE + depth / 2) * sy));
+    const j1 = Math.min(rect.j1, Math.ceil((y1 + EDGE_RANGE + depth / 2) * sy));
+    for (let ty = j0; ty <= j1; ty++) {
+      const y = (ty + 0.5) / sy - depth / 2;
+      for (let tx = i0; tx <= i1; tx++) {
+        const x = (tx + 0.5) / sx - width / 2;
+        let inside = false;
+        let near = Infinity;
+        for (const ring of rings) {
+          for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const a = ring[i];
+            const b = ring[j];
+            if (a.y > y !== b.y > y && x < a.x + ((y - a.y) / (b.y - a.y)) * (b.x - a.x)) inside = !inside;
+            const ex = b.x - a.x;
+            const ey = b.y - a.y;
+            const t = Math.max(0, Math.min(1, ((x - a.x) * ex + (y - a.y) * ey) / (ex * ex + ey * ey || 1)));
+            const ox = x - (a.x + t * ex);
+            const oy = y - (a.y + t * ey);
+            near = Math.min(near, ox * ox + oy * oy);
+          }
+        }
+        near = Math.sqrt(near);
+        put(ty * resolution + tx, inside ? -near : near);
+      }
+    }
+  }
+}
+
 /** Share of the mask past which a change paints it whole: a rectangle would save little */
 const WHOLE_SHARE = 0.4;
 
@@ -258,6 +382,8 @@ interface Box {
  */
 export class PathMaskRaster {
   readonly data: Uint8Array;
+  /** The `edge` field (see above), one byte a texel */
+  readonly edge: Uint8Array;
   /** Each painted edge (`e:` id) and water river (`r:` id) as last painted: kind, width, then the points */
   private shapes = new Map<string, Float64Array>();
   /** The painted edges in their order: of two crossing paths as strong, the first owns the across position */
@@ -270,6 +396,7 @@ export class PathMaskRaster {
     readonly resolution: number,
   ) {
     this.data = new Uint8Array(resolution * resolution * 4);
+    this.edge = new Uint8Array(resolution * resolution).fill(EDGE_FAR);
   }
 
   /** Paints the mask for these paths, rivers, road covers and surfaces; the texel rectangle that changed, null when nothing did */
@@ -319,7 +446,7 @@ export class PathMaskRaster {
     // A cover's size as a path's width (its box pads half of it)
     for (const cover of covers) {
       if (cover.ring) visit(`c:${cover.id}`, 4, 0, cover.ring, 2);
-      else visit(`c:${cover.id}`, 3, cover.half * 2, cover.line, 2);
+      else visit(`c:${cover.id}`, 3, Math.max(cover.half, cover.edge ?? 0) * 2, cover.line, 2);
     }
     // A surface ring by ring (the outline, then each hole): its box pads nothing
     for (const s of surfaces) [s.outer, ...(s.holes ?? [])].forEach((ring, k) => visit(`s:${s.id}:${k}`, 4, 0, ring, 2));
@@ -347,8 +474,12 @@ export class PathMaskRaster {
       if ((rect.i1 - rect.i0 + 1) * (rect.j1 - rect.j0 + 1) > res * res * WHOLE_SHARE) rect = whole;
     }
     this.painted = true;
-    for (let j = rect.j0; j <= rect.j1; j++) this.data.fill(0, (j * res + rect.i0) * 4, (j * res + rect.i1 + 1) * 4);
+    for (let j = rect.j0; j <= rect.j1; j++) {
+      this.data.fill(0, (j * res + rect.i0) * 4, (j * res + rect.i1 + 1) * 4);
+      this.edge.fill(EDGE_FAR, j * res + rect.i0, j * res + rect.i1 + 1);
+    }
     paintPathMask(this.data, paths, this.width, this.depth, res, rivers, rect, covers, surfaces);
+    paintSurfaceEdges(this.edge, covers, surfaces, this.width, this.depth, res, rect);
     return rect;
   }
 }
@@ -366,6 +497,8 @@ function growBox(box: Box | null, key: string, shape: Float64Array): Box {
     points = [];
     for (let k = 2; k < shape.length; k += 2) points.push({ x: shape[k], y: shape[k + 1] });
     pad = (shape[1] / 2) * 1.15;
+    // Covers and surfaces: their `edge` field reaches EDGE_RANGE past them
+    if (key.startsWith('c:') || key.startsWith('s:')) pad += EDGE_RANGE;
   }
   let b = box ?? { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
   for (const p of points) b = { x0: Math.min(b.x0, p.x - pad), y0: Math.min(b.y0, p.y - pad), x1: Math.max(b.x1, p.x + pad), y1: Math.max(b.y1, p.y + pad) };

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { HeightField } from '../height-field';
 import { groundJobMap, readRows, runGroundJob } from './ground-jobs';
 import { shapePatch, type ShapePatch } from './ground-shape';
-import { rasterizePathMask } from '../paths/path-mask';
+import { rasterizePathMask, type PathMaskTexels } from '../paths/path-mask';
 import { GridNormalTexture } from './terrain-textures';
 import type { GridNormalTexels } from './ground-shape';
 
@@ -29,9 +29,9 @@ describe('the ground jobs on a copy of the map', () => {
       edges: [{ id: 'e', a: 'a', b: 'b', kind: 'path', width: 6 }],
     } as never;
     const input = { paths, width: 64, depth: 64, resolution: 128, rivers: [], covers: [], surfaces: [] };
-    const painted = runGroundJob(groundJobMap(terrain), { kind: 'pathMask', input }) as Uint8Array;
-    expect(painted).toEqual(rasterizePathMask(paths, 64, 64, 128));
-    expect(painted.some((v) => v > 0)).toBe(true);
+    const painted = runGroundJob(groundJobMap(terrain), { kind: 'pathMask', input }) as PathMaskTexels;
+    expect(painted.mask).toEqual(rasterizePathMask(paths, 64, 64, 128));
+    expect(painted.mask.some((v) => v > 0)).toBe(true);
   });
 
   it('work the ground normals and wet banks out as the normal texture does in place', () => {

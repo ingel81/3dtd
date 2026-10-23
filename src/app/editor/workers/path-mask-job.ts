@@ -33,7 +33,7 @@ export interface PathMaskInput {
   covers: CoverPatch;
 }
 
-/** The texels of `rect` (RGBA, row by row) of a mask of `resolution`² over `width` x `depth` metres */
+/** The texels of `rect` (RGBA, row by row) of a mask of `resolution`² over `width` x `depth` metres, and of its edge field (one byte a texel) */
 export interface PathMaskRect {
   generation: number;
   width: number;
@@ -41,6 +41,7 @@ export interface PathMaskRect {
   resolution: number;
   rect: TexelRect;
   data: Uint8Array;
+  edge: Uint8Array;
 }
 
 export class PathMaskState {
@@ -76,10 +77,13 @@ export class PathMaskState {
     const res = raster.resolution;
     const row = (rect.i1 - rect.i0 + 1) * 4;
     const data = new Uint8Array(row * (rect.j1 - rect.j0 + 1));
+    const span = rect.i1 - rect.i0 + 1;
+    const edge = new Uint8Array(span * (rect.j1 - rect.j0 + 1));
     for (let j = rect.j0; j <= rect.j1; j++) {
       const from = (j * res + rect.i0) * 4;
       data.set(raster.data.subarray(from, from + row), (j - rect.j0) * row);
+      edge.set(raster.edge.subarray(j * res + rect.i0, j * res + rect.i0 + span), (j - rect.j0) * span);
     }
-    return { generation: this.generation, width: raster.width, depth: raster.depth, resolution: res, rect, data };
+    return { generation: this.generation, width: raster.width, depth: raster.depth, resolution: res, rect, data, edge };
   }
 }

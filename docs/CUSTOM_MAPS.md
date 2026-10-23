@@ -276,7 +276,14 @@ dessen Zeilen hoch, eine Wasseränderung ohne geänderte Wege malt nichts. Das R
 heraus (gleiche Reihenfolge der Kanten; ändert sie sich, malt sie ganz). Einen Knoten ziehen kostete im Hauptthread
 auf einer 1024-m-Karte mit 220 Straßen 1,4 ms je Bild, auf einem Netz von 7 500 Knoten und 11 000 Kanten (OSM-Stadt)
 30 ms; jetzt nur den Abgleich des Spiegels (1,9 ms auf dem großen Netz) und den Upload. Neue Bodenschichten behalten
-die Maske. Brücken (`kind: 'bridge'`) bekommen ein Deck aus instanzierten `bridge-deck`-Stücken zwischen den Uferhöhen, mit
+die Maske. Neben ihr liegt ein Kantenfeld (`edge`, ein Byte je Texel, eigene Textur): der Abstand zur nächsten Kante
+einer Straßenfläche samt Gehweg, einer Kreuzung oder einer Fläche, wie sie gezeichnet ist, negativ darauf, ±3,2 m in
+2,5-cm-Stufen. Zwischen den Texeln gelesen findet es die Kante auf wenige Zentimeter, auch bei 1,2 m je Texel: das
+Gras setzt keinen Halm darauf (`grass-field.ts`). Vorher las es den Anteil der Straßendeckel zwischen den Texeln, und
+auf dem äußeren halben Meter eines Gehwegs standen noch Halme. Der Rasen bis an die Kante bleibt. Auch Bänder, die
+für einen Deckel zu schmal sind, zählen (`RoadCover.edge`, `half` 0); unter zwei Texeln Breite liest das Feld ihre
+Mitte aber nur als Kante. Das Feld malt derselbe Job wie die Maske (Erlenbach: 135 ms zu 90 ms der Maske, im Worker),
+im Editor dasselbe Rechteck mit. Brücken (`kind: 'bridge'`) bekommen ein Deck aus instanzierten `bridge-deck`-Stücken zwischen den Uferhöhen, mit
 leichtem Bogen und mindestens 1 m über dem Wasser. `style: 'stone' | 'concrete' | 'lava'` an der Kante nimmt
 `bridge-deck-stone`, `bridge-deck-concrete` (Asphalt auf Betonplatte, Geländer) bzw. `bridge-deck-lava`; fehlt das
 Stück im Katalog, bleibt es beim Holzdeck. Die Stücke legt `paths/path-bridges.ts` als gelegte Objekte

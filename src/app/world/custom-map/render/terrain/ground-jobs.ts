@@ -7,7 +7,7 @@
  */
 import type { MapTerrain, MapWater } from '../../map-document';
 import { HeightField } from '../height-field';
-import { pathMaskOf, type PathMaskInput } from '../paths/path-mask';
+import { pathMaskOf, type PathMaskInput, type PathMaskTexels } from '../paths/path-mask';
 import { gridWet, writeGridNormals } from './grid-normals';
 import { farShadowData, lavaCloseness, lavaSamples, shapePatch, type FarShadowTexels, type GridNormalTexels, type SampleRect, type ShapePatch } from './ground-shape';
 
@@ -25,7 +25,7 @@ export type GroundJob =
 export interface GroundJobResults {
   shape: ShapePatch;
   heights: null;
-  pathMask: Uint8Array;
+  pathMask: PathMaskTexels;
   normals: GridNormalTexels;
   lava: { closeness: Uint8Array; any: boolean };
   farShadow: FarShadowTexels;
@@ -98,7 +98,7 @@ function writeRows(heights: Float32Array, columns: number, rect: SampleRect, row
 /** The arrays of a result that go back transferred */
 export function groundResultTransfer(result: GroundJobResult): ArrayBuffer[] {
   if (result === null) return [];
-  if (result instanceof Uint8Array) return [result.buffer as ArrayBuffer];
+  if ('edge' in result) return [result.mask.buffer as ArrayBuffer, result.edge.buffer as ArrayBuffer];
   if ('pixels' in result) return [result.pixels.buffer as ArrayBuffer, ...(result.wet ? [result.wet.buffer as ArrayBuffer] : [])];
   if ('terrain' in result) return [result.terrain, result.curvature, ...(result.drainage ? [result.drainage] : [])].map((a) => a.buffer as ArrayBuffer);
   if ('closeness' in result) return [result.closeness.buffer as ArrayBuffer];

@@ -66,7 +66,7 @@ describe('GrassLayers', () => {
     expect(uniformsOf(grass.far)['uGrassHoleTile'].value).toBe(0);
     // A meadow: near and far draw, the far ring leaves the near tile to the near blades
     const tex = new Texture();
-    grass.setInputs({ pathMask: tex, mask: [new Vector4(1, 0, 0, 0), new Vector4()], blades: [] });
+    grass.setInputs({ pathMask: tex, pathEdge: tex, mask: [new Vector4(1, 0, 0, 0), new Vector4()], blades: [] });
     grass.update({ x: 0, z: 0 }, { x: 0, z: 50 }, 20, 80);
     expect(grass.meshes.map((m) => m.visible)).toEqual([true, true]);
     expect(uniformsOf(grass.far)['uGrassHoleTile'].value).toBe(NEAR_GRASS.tile);

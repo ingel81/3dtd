@@ -1681,8 +1681,8 @@ export class CustomMapView {
   }
 
   /** Texels of the path mask painted elsewhere (MapTerrainLayer.setPathMask); false when they are of another mask */
-  setPathMask(m: { width: number; depth: number; resolution: number; rect: TexelRect; data: Uint8Array }): boolean {
-    return this.terrain.setPathMask(m.width, m.depth, m.resolution, m.rect, m.data);
+  setPathMask(m: { width: number; depth: number; resolution: number; rect: TexelRect; data: Uint8Array; edge: Uint8Array }): boolean {
+    return this.terrain.setPathMask(m.width, m.depth, m.resolution, m.rect, m.data, m.edge);
   }
 
   /** Shows `env` (the owner keeps its document's environment) */

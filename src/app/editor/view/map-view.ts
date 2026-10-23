@@ -202,7 +202,7 @@ export class EditorMapView {
   }
 
   /** Texels of the path mask the editor's worker painted; false when they are of another mask */
-  setPathMask(m: { width: number; depth: number; resolution: number; rect: TexelRect; data: Uint8Array }): boolean {
+  setPathMask(m: { width: number; depth: number; resolution: number; rect: TexelRect; data: Uint8Array; edge: Uint8Array }): boolean {
     return this.view.setPathMask(m);
   }
 

@@ -1,5 +1,5 @@
 import type { MapPaths, MapSurface } from '../../map-document';
-import { PathMaskRaster, rasterizePathMask, type RoadCover } from './path-mask';
+import { EDGE_RANGE, PathMaskRaster, rasterizePathMask, rasterizeSurfaceEdges, type RoadCover } from './path-mask';
 
 const none: MapPaths = { nodes: [], edges: [] };
 /** A 200 m map at 1 m texels */
@@ -64,5 +64,67 @@ describe('path mask under surfaces', () => {
     expect(Array.from(raster.data)).toEqual(Array.from(rasterizePathMask(none, 200, 200, 200, [], [], [moved])));
     expect(raster.update(none, [], [], [])).not.toBeNull();
     expect(raster.data.some((v) => v !== 0)).toBe(false);
+  });
+});
+
+describe('path mask edge field', () => {
+  /** The field read between texels as the grass reads it (texel centres at half texels), as metres off the nearest edge */
+  const metres = (edge: Uint8Array, res: number, size: number, x: number, y: number) => {
+    const u = ((x + size / 2) / size) * res - 0.5;
+    const v = ((y + size / 2) / size) * res - 0.5;
+    const i = Math.floor(u);
+    const j = Math.floor(v);
+    const fx = u - i;
+    const fy = v - j;
+    const b = (ii: number, jj: number) => edge[Math.min(res - 1, Math.max(0, jj)) * res + Math.min(res - 1, Math.max(0, ii))];
+    const value = (b(i, j) * (1 - fx) + b(i + 1, j) * fx) * (1 - fy) + (b(i, j + 1) * (1 - fx) + b(i + 1, j + 1) * fx) * fy;
+    return ((value - 128) / 127) * EDGE_RANGE;
+  };
+
+  it('finds a road surface edge between texels of 2 m to a few centimetres, square at its ends', () => {
+    // A cover 3 m either side, its surface drawn out to 3.25 m; texels of 2 m
+    const cover: RoadCover = { id: 'c', line: [{ x: -50, y: 0.3 }, { x: 50, y: 0.3 }], half: 3, edge: 3.25 };
+    const edge = rasterizeSurfaceEdges(200, 200, 100, [cover], []);
+    for (const x of [-20, -7.3, 0, 11.9]) {
+      expect(metres(edge, 100, 200, x, 3.55)).toBeCloseTo(0, 1);
+      expect(metres(edge, 100, 200, x, 3.45)).toBeLessThan(0);
+      expect(metres(edge, 100, 200, x, 3.65)).toBeGreaterThan(0);
+    }
+    // Between texels across the centre line the distance's fold is read flat: still well inside
+    expect(metres(edge, 100, 200, 0, 0.3)).toBeLessThan(-2);
+    // Square past its end: 1 m beyond it is 1 m off
+    expect(metres(edge, 100, 200, 51, 0.3)).toBeCloseTo(1, 0);
+  });
+
+  it('counts a ribbon too narrow for a cover, which paints no cover', () => {
+    const narrow: RoadCover = { id: 'n', line: [{ x: -50, y: 0 }, { x: 50, y: 0 }], half: 0, edge: 0.5 };
+    expect(rasterizePathMask(none, 200, 200, 200, [], [narrow]).some((v) => v !== 0)).toBe(false);
+    // A metre wide: texels of half a metre find it (texels as wide as it read its middle as its edge)
+    const edge = rasterizeSurfaceEdges(200, 200, 400, [narrow], []);
+    expect(metres(edge, 400, 200, 0, 0.1)).toBeLessThan(0);
+    expect(metres(edge, 400, 200, 0, 0.7)).toBeGreaterThan(0);
+  });
+
+  it('is negative inside a surface, positive in its holes and outside', () => {
+    const square: MapSurface = {
+      id: 's',
+      material: 'paving',
+      outer: [{ x: -20, y: -20 }, { x: 20, y: -20 }, { x: 20, y: 20 }, { x: -20, y: 20 }],
+      holes: [[{ x: -5, y: -5 }, { x: 5, y: -5 }, { x: 5, y: 5 }, { x: -5, y: 5 }]],
+    };
+    const edge = rasterizeSurfaceEdges(200, 200, 100, [], [square]);
+    expect(metres(edge, 100, 200, -12, 0)).toBeLessThan(-2);
+    expect(metres(edge, 100, 200, 0, 0)).toBeGreaterThan(2);
+    expect(metres(edge, 100, 200, 20.3, 3)).toBeCloseTo(0.3, 1);
+    expect(metres(edge, 100, 200, 19.7, 3)).toBeCloseTo(-0.3, 1);
+  });
+
+  it('paints a moved cover again in part as a whole field would', () => {
+    const cover: RoadCover = { id: 'c', line: [{ x: -50, y: 0 }, { x: 50, y: 0 }], half: 3, edge: 3.25 };
+    const raster = new PathMaskRaster(200, 200, 200);
+    raster.update(none, [], [cover]);
+    const moved = { ...cover, line: [{ x: -50, y: 10 }, { x: 40, y: 30 }] };
+    expect(raster.update(none, [], [moved])).not.toBeNull();
+    expect(Array.from(raster.edge)).toEqual(Array.from(rasterizeSurfaceEdges(200, 200, 200, [moved], [])));
   });
 });

@@ -13,6 +13,7 @@ import {
 import { SHADER_NOISE } from '../shader-noise';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from '../terrain/height-texture';
 import { COVER_RIM, type CoverMap } from '../environment/cover-map';
+import { EDGE_RANGE } from '../paths/path-mask';
 import { MAX_FAR_GRASS_BLADES, MAX_GRASS_BLADES } from '../../../../three-engine/render-quality';
 import { addHeightFog } from '../environment/height-fog';
 import { WIND_GLSL, WIND_UNIFORMS } from '../environment/wind';
@@ -55,6 +56,8 @@ export const DEFAULT_BLADES: GrassBlades = { height: [0.35, 0.8], width: 0.095, 
 /** The splat (GROUND_COLOR_UNIFORMS, set with the map's layers) tells where; these, what grows */
 export interface GrassInputs {
   pathMask: Texture;
+  /** The distance to the nearest road or surface edge (path-mask.ts `edge`) */
+  pathEdge: Texture;
   /** Grass share per splat channel (1 for grass layers, 0 otherwise), one per splat map */
   mask: Vector4[];
   /** The blades of the layer in each splat channel, the maps in order (none for a channel without grass) */
@@ -100,6 +103,9 @@ export const NEAR_GRASS: GrassLayout = {
 export const FAR_GRASS: GrassLayout = {
   name: 'custom-map-grass-far', tile: 256, capacity: MAX_FAR_GRASS_BLADES, defaultBlades: 60000, rows: 2, width: 2.2, height: 1.15, grow: 1 / 45, flat: [80, 320], contrast: 1.8, seed: 67890,
 };
+
+/** The edge field's value (path-mask.ts `edge`, 0 to 1) under which a blade's root stands on a surface: 3 cm off its edge */
+const EDGE_CLEAR = ((128 + (0.03 / EDGE_RANGE) * 127) / 255).toFixed(4);
 
 /** A layer's blades thin out between these shares of its half tile (a circle inside the tile) */
 export const GRASS_FADE_FROM = 0.6;
@@ -157,6 +163,7 @@ export class GrassField {
     uGrassFlat: { value: new Vector2(25, 110) },
     uGrassContrast: { value: 1 },
     uGrassPath: { value: null as Texture | null },
+    uGrassEdge: { value: null as Texture | null },
     uGrassMask0: { value: new Vector4() },
     uGrassMask1: { value: new Vector4() },
     uGrassMask2: { value: new Vector4() },
@@ -229,6 +236,7 @@ export class GrassField {
   setInputs(p: GrassInputs): void {
     const u = this.uniforms;
     u.uGrassPath.value = p.pathMask;
+    u.uGrassEdge.value = p.pathEdge;
     u.uGrassMask0.value.copy(p.mask[0]);
     u.uGrassMask1.value.copy(p.mask[1]);
     u.uGrassMask2.value.set(0, 0, 0, 0);
@@ -303,6 +311,7 @@ uniform vec2 uGrassFlat;
 uniform float uGrassContrast;
 uniform vec4 uGrassMask2;
 uniform sampler2D uGrassPath;
+uniform sampler2D uGrassEdge;
 uniform vec4 uGrassMask0;
 uniform vec4 uGrassMask1;
 uniform vec4 uGrassBlades[12];
@@ -396,10 +405,10 @@ if (keepEdge > 0.0 && onMap) {
   grass /= max(total, 1e-3);
   vec3 pm = texture2D(uGrassPath, uvMap).rgb;
   grass *= 1.0 - max(pm.r, pm.g);
-  // None under a road surface (path-mask.ts covers): where no path is painted, blue is the cover's share between texels
-  // (a texel of a big map 1.2 m). Only where all four texels round a blade were covered it reached the whole of a
-  // pavement's outer metre, the blades stood on its slabs; past half covered none grows
-  if (pm.b > 0.5 && pm.r + pm.g < 0.002) grass = 0.0;
+  // None on a road's, a junction's or a surface's slabs: the edge field (path-mask.ts, edge) read between texels
+  // finds their edge to a few centimetres. The covers' share between texels of 1.2 m left blades on a pavement's
+  // outer half metre
+  if (grass > 0.0 && texture2D(uGrassEdge, uvMap).r < ${EDGE_CLEAR}) grass = 0.0;
 }
 float ground0 = 0.0;
 // Short towards a wall: 1 from 1.5 m off a footprint, 0 at 0.3 m
