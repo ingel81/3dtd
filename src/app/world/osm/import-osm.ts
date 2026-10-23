@@ -189,7 +189,7 @@ export function convertOsm(
   const roads = buildRoads(features);
   doc.paths = roads.paths;
   // The streets' pavements, narrowed where buildings stand close
-  const pavements = layPavements(doc.paths, roads.pavements, features);
+  const pavements = layPavements(doc.paths, roads.pavements, features, roads.rings);
   if (!roads.paths.edges.length) warnings.push({ key: 'noRoads' });
   const rails = planRails(features, doc.paths);
   // Before the water: a river over a tunnel still cuts its bed through the raised ground. The railway's tunnels get portals too

@@ -196,7 +196,7 @@ Code in `src/app/world/osm/` ohne Angular und DOM (Worker, Node, Specs), wie `wo
 | `osm-tags.ts` | die Zuordnungstabellen dieses Plans als Daten |
 | `convert/terrain.ts` | Höhen, Glätten, Kartennull (bei Küste der Meeresspiegel) |
 | `convert/roads.ts` | Straßengraph über Knoten-Ids, Art und Breite, Brücken, Tunnel; Einebnen und Belag |
-| `convert/pavements.ts` | Gehwege (`sidewalk`, Breite je Seite) aus OSM, ohne Tag 1,8 m in Siedlungen (Wohn-, Handels-, Gewerbeland oder 4 Gebäude in 40 m), an Gebäuden gekappt; einseitige auf beiden Seiten |
+| `convert/pavements.ts` | Gehwege (`sidewalk`, Breite je Seite) aus OSM, ohne Tag 1,8 m in Siedlungen (Wohn-, Handels-, Gewerbeland oder 4 Gebäude in 40 m), an Gebäuden gekappt; einseitige auf beiden Seiten; der Ring eines Kreisverkehrs ringsum den breitesten seiner Wege (sonst sprang der Bordstein der Insel an jeder Zufahrt) |
 | `convert/water.ts` | Seen, Flussflächen, Bäche, Küste, Feuchtgebiete |
 | `convert/ground.ts` | Landnutzung zu höchstens 8 Schichten, Vorrang bei Überlappung |
 | `convert/vegetation.ts` | Wald, Gebüsch, Parks, Einzelbäume, Baumreihen, im Objektbudget |

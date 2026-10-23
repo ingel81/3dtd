@@ -13,7 +13,10 @@ import { insideRings } from '../square-clip';
  * or among houses: TOWN_HOUSES buildings within TOWN_REACH), none out in
  * the country. Narrowed where a building stands closer, so a pavement
  * never runs under a house: the road surface would cover its walls' feet;
- * none where less than MIN_WIDTH is left.
+ * none where less than MIN_WIDTH is left. A roundabout's ring (`rings`,
+ * joined by their nodes) takes one pavement all round, the widest of its
+ * edges': OSM tags or assumes it edge by edge, and the island's kerb stepped
+ * in and out at every mouth where one edge had a pavement and the next none.
  */
 
 /** Street types with a pavement inside a settlement where their way says nothing */
@@ -42,7 +45,7 @@ export interface PavementStats {
 }
 
 /** Sets `sidewalk` on the paved road edges of `paths` from what their ways say (RoadBuild.pavements) and the place */
-export function layPavements(paths: MapPaths, said: ReadonlyMap<string, number | null>, features: OsmFeatures): PavementStats {
+export function layPavements(paths: MapPaths, said: ReadonlyMap<string, number | null>, features: OsmFeatures, rings: ReadonlySet<string> = new Set()): PavementStats {
   const stats: PavementStats = { tagged: 0, assumed: 0, narrowed: 0, dropped: 0 };
   const town = new AreaIndex(features.areas.filter((a) => TOWN_LAND.has(a.tags['landuse'] ?? '')));
   const buildings = features.areas.filter((a) => !!a.tags['building']);
@@ -72,6 +75,31 @@ export function layPavements(paths: MapPaths, said: ReadonlyMap<string, number |
     if (tag === null) stats.assumed++;
     else stats.tagged++;
     e.sidewalk = Math.round(Math.min(width, room) * 10) / 10;
+  }
+  // Each ring (its edges joined where they share a node) the widest pavement of its edges all round, where a wall
+  // leaves room for it
+  const ringEdges = paths.edges.filter((e) => rings.has(e.id));
+  const ringOf = new Map<string, string>();
+  const root = (n: string): string => {
+    let r = n;
+    while (ringOf.has(r) && ringOf.get(r) !== r) r = ringOf.get(r)!;
+    return r;
+  };
+  for (const e of ringEdges) {
+    if (!ringOf.has(e.a)) ringOf.set(e.a, e.a);
+    if (!ringOf.has(e.b)) ringOf.set(e.b, e.b);
+    ringOf.set(root(e.a), root(e.b));
+  }
+  const widest = new Map<string, number>();
+  for (const e of ringEdges) widest.set(root(e.a), Math.max(widest.get(root(e.a)) ?? 0, e.sidewalk ?? 0));
+  for (const e of ringEdges) {
+    const want = widest.get(root(e.a)) ?? 0;
+    if (want <= 0 || (e.sidewalk ?? 0) >= want) continue;
+    const a = nodes.get(e.a);
+    const b = nodes.get(e.b);
+    if (!a || !b) continue;
+    const room = walls.room([a, ...(e.via ?? []), b], e.width / 2) - WALL_GAP;
+    if (room >= MIN_WIDTH) e.sidewalk = Math.round(Math.min(want, room) * 10) / 10;
   }
   return stats;
 }

@@ -51,4 +51,14 @@ describe('layPavements', () => {
     // Through a building: none
     expect(lay('residential', 1.8, [square(-10, -8, 10, 8, { building: 'yes' })]).sidewalk).toBeUndefined();
   });
+
+  it("gives a roundabout's ring one pavement all round, the widest its edges have", () => {
+    // Four edges round a ring of 15 m, one tagged with a pavement, the others saying none
+    const at = (k: number) => ({ id: `n${k}`, x: 15 * Math.cos((k * Math.PI) / 2), y: 15 * Math.sin((k * Math.PI) / 2) });
+    const edges: MapPathEdge[] = [0, 1, 2, 3].map((k) => ({ id: `r${k}`, a: `n${k}`, b: `n${(k + 1) % 4}`, width: 7, kind: 'road', street: 'secondary', surface: 'asphalt' }));
+    const paths: MapPaths = { nodes: [0, 1, 2, 3].map(at), edges };
+    const said = new Map<string, number | null>([['r0', 1.8], ['r1', 0], ['r2', null], ['r3', 0]]);
+    layPavements(paths, said, { areas: [] } as unknown as OsmFeatures, new Set(['r0', 'r1', 'r2', 'r3']));
+    expect(edges.map((e) => e.sidewalk)).toEqual([1.8, 1.8, 1.8, 1.8]);
+  });
 });
