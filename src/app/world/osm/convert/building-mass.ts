@@ -455,7 +455,7 @@ function roofOf(tags: Readonly<Record<string, string>>, kind: BuildingKind, towe
 
 /** A church's footprint at least this big (m²) and this full of its rectangle gets a steeple when OSM draws none */
 const STEEPLE_AREA = 250;
-const STEEPLE_FILL = 0.8;
+const STEEPLE_FILL = 0.7;
 /** The steeple's side: this share of the nave's width, within these metres */
 const STEEPLE_SHARE = 0.55;
 const STEEPLE_SIDE = [4.5, 8] as const;
