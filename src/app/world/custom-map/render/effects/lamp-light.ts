@@ -28,7 +28,7 @@ const CORE = 0.2;
 const FLOOR = 0.06;
 /** The pool's tail runs on past the catalogue reach, times it, before the window closes it */
 const TAIL = 1.5;
-/** How much the light varies over the pool (uneven paving, a dirty glass): ± this share, in patches of a few metres */
+/** How much the light varies over the pool (uneven paving, a dirty glass): Â± this share, in patches of a few metres */
 const GRAIN = 0.12;
 
 interface Rect {
@@ -237,9 +237,15 @@ if (uLampOn > 0.0) {
 }
 `;
 
+/** uLampOn's declaration, once per shader whichever of the lamp's chunks comes first (the lamp glass's and the light's) */
+export const LAMP_ON_UNIFORM = /* glsl */ `#ifndef LAMP_ON_UNIFORM
+#define LAMP_ON_UNIFORM
+uniform float uLampOn;
+#endif`;
+
 /** The baked light at a world position, by darkness (needs HEIGHT_FOG_PARS before it for uFogMap) */
 export const LAMP_LIGHT_PARS = /* glsl */ `
-uniform float uLampOn;
+${LAMP_ON_UNIFORM}
 precision highp sampler2DArray;
 uniform sampler2DArray uLampGrid;
 uniform vec4 uLampGridUv;

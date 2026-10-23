@@ -39,7 +39,7 @@ import { clothGeometry, isCloth } from './cloth';
 import { DEFAULT_SPIN, SPIN_GLSL } from './spin';
 import { addRotorTurn, DEFAULT_ROTOR, isRotor, rotorDepthMaterial, rotorGeometry, rotorHub } from './rotor';
 import { addNightWindows, isWindowGlass } from './night-windows';
-import { LAMP_LIGHT_UNIFORMS } from '../effects/lamp-light';
+import { LAMP_LIGHT_UNIFORMS, LAMP_ON_UNIFORM } from '../effects/lamp-light';
 import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, holdBlend, levelStart, REST_S, SETTLE_S, settleBlend, type LodBlend } from './lod-fade';
 import { InstanceList, type InstanceSource } from './instance-list';
 import { LineSpheres } from './line-spheres';
@@ -2089,7 +2089,7 @@ function addLampGlass(m: Material): void {
     prev.call(m, shader, renderer);
     shader.uniforms['uLampOn'] = LAMP_LIGHT_UNIFORMS.uLampOn;
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>\nuniform float uLampOn;`)
+      .replace('#include <common>', `#include <common>\n${LAMP_ON_UNIFORM}`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\ntotalEmissiveRadiance *= uLampOn;`);
   };
   m.customProgramCacheKey = () => `${prevKey.call(m)}-lampglass`;
