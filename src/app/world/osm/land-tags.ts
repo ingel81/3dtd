@@ -32,7 +32,9 @@ export type LandClass =
   | 'glacier'
   | 'parking'
   | 'pitch'
-  | 'playground';
+  | 'playground'
+  | 'yard'
+  | 'plaza';
 
 /**
  * The ground of a class: its material, then the ones it takes when that did
@@ -65,6 +67,8 @@ export const LAND_GROUND: Readonly<Record<LandClass, readonly string[]>> = {
   parking: ['asphalt', 'concrete', 'paving'],
   pitch: ['grass-lush'],
   playground: ['wood-chips', 'gravel', 'sand'],
+  yard: ['asphalt', 'paving', 'concrete'],
+  plaza: ['cobblestone', 'sandstone-paving', 'paving'],
 };
 
 const LANDUSE: Readonly<Record<string, LandClass>> = {
@@ -120,6 +124,9 @@ const LEISURE: Readonly<Record<string, LandClass>> = {
  */
 export const SURFACE_CLASSES: ReadonlySet<LandClass> = new Set(['pitch', 'playground', 'parking']);
 
+/** `amenity` values whose grounds are a paved yard */
+const SCHOOL_GROUNDS = new Set(['school', 'kindergarten']);
+
 /**
  * The land class of an area's tags, null for one that paints no ground
  * (residential, retail and commercial land keep the base grass of their
@@ -137,6 +144,8 @@ export function landClassOf(tags: Readonly<Record<string, string>>): LandClass |
   const leisure = LEISURE[tags['leisure'] ?? ''];
   if (leisure) return leisure;
   if (tags['amenity'] === 'parking' && (tags['parking'] ?? 'surface') === 'surface') return 'parking';
+  // A school's or kindergarten's grounds: a paved yard round its houses (its pitches and lawns, smaller, lie over it)
+  if (SCHOOL_GROUNDS.has(tags['amenity'] ?? '')) return 'yard';
   return null;
 }
 

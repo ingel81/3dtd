@@ -59,6 +59,20 @@ export function paintGround(terrain: MapTerrain, features: OsmFeatures, reserved
     if (!SURFACE_CLASSES.has(c)) fillRings(rings, texels, (i, j) => (cls[j * res + i] = index));
     fillRings(rings, samples, (i, j) => (land[j * samples.n + i] = index));
   }
+  // A fountain in the open stands on a little paved square: on ground no area claims (not in a park or a garden)
+  const plaza = LAND_CLASSES.indexOf('plaza') + 1;
+  for (const f of fountains(features)) {
+    const ring = Array.from({ length: 16 }, (_, k) => ({ x: f.x + Math.cos((k / 16) * Math.PI * 2) * f.r, y: f.y + Math.sin((k / 16) * Math.PI * 2) * f.r }));
+    const at = Math.round((f.y - samples.origin) / samples.step) * samples.n + Math.round((f.x - samples.origin) / samples.step);
+    if (land[at]) continue;
+    report.areas.plaza = (report.areas.plaza ?? 0) + 1;
+    fillRings([ring], texels, (i, j) => {
+      if (!cls[j * res + i]) cls[j * res + i] = plaza;
+    });
+    fillRings([ring], samples, (i, j) => {
+      if (!land[j * samples.n + i]) land[j * samples.n + i] = plaza;
+    });
+  }
 
   // Ground covered per material, and the layers the most covered get
   const count = new Float64Array(LAND_CLASSES.length + 1);
@@ -140,6 +154,23 @@ export function paintGround(terrain: MapTerrain, features: OsmFeatures, reserved
     }
   }
   return { report, land };
+}
+
+/** Metres of paving round an open-air fountain, past its own edge */
+const FOUNTAIN_SQUARE = 16;
+
+/** The open-air fountains of `features` (a point or an area, not indoors): middle and the radius of their square */
+function fountains(features: OsmFeatures): { x: number; y: number; r: number }[] {
+  const open = (t: Readonly<Record<string, string>>) => (t['amenity'] === 'fountain' || t['water'] === 'fountain') && t['indoor'] !== 'yes' && !t['building'];
+  const out = features.points.filter((p) => open(p.tags)).map((p) => ({ x: p.x, y: p.y, r: FOUNTAIN_SQUARE }));
+  for (const a of features.areas) {
+    if (!open(a.tags) || !a.outer.length) continue;
+    const ring = a.outer[0];
+    const x = ring.reduce((s, p) => s + p.x, 0) / ring.length;
+    const y = ring.reduce((s, p) => s + p.y, 0) / ring.length;
+    out.push({ x, y, r: Math.sqrt(a.area / Math.PI) + FOUNTAIN_SQUARE });
+  }
+  return out;
 }
 
 /** Share of the map under buildings from which its look is a city's */
