@@ -779,7 +779,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
       const spot = this.engine.world.cameraSpot(this.engine.getCamera());
       navigator.clipboard.writeText(spot).then(
         () => console.log(`[F8] copied: ${spot}`),
-        () => showCopyButton(spot, 'Kamera kopieren'),
+        () => showCopyButton(spot),
       );
       return;
     }
