@@ -825,7 +825,7 @@ OSM-Welt Erlenbach (74235) neu erzeugen und öffnen, Grafik High. Bilder je Punk
 - **AD4 Kirche und Fenster:** die Kirche ohne eigenen Turm in OSM. *Turm am Westende mit Steinhelm.* Weit
   rauszoomen: *Fenster bleiben als Fenster sichtbar, keine Jalousien in Hallenfenstern.*
 - **AD5 Bäume und Ufer:** Bäume am Hang und Pflanzen am Bach. *Kein Stamm schwebt, keine Pflanze hängt in der Luft;
-  kein Schilf an steilen Ufern.* Parkende Autos: *neue Autos, drei Formen.*
+  kein Schilf an steilen Ufern.* Parkende Autos: *sechs Formen (Kleinwagen bis Van), gedämpfte Farben, auch schwarz und grün.*
 - **AD6 Ruinen und Krater:** Häuser beschießen und Krater neben Bäume setzen. *Innen verbrannt, kein Himmelblau am
   Boden, Lochränder ausgefranst, kaum Flimmern beim Zoomen; Bäume am Krater fallen vom Loch weg, nahe stehende
   welken braun.*

@@ -166,7 +166,7 @@
       "spawns": 3,
       "biome": "apocalypse",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "72737dd6c9b0007927245097262fb1e9b95115cbd815931355e5142cd40174b4"
+      "contentHash": "776ebf14f60fe4ee468726d3ad18ee7a0435139e86a268491d6eba5ff0710203"
     },
     {
       "id": "harbor-town",
@@ -180,7 +180,7 @@
       "spawns": 3,
       "biome": "city",
       "updatedAt": "2026-10-11T00:00:00.000Z",
-      "contentHash": "4ffa89ae885f93f4f85de8624a5e400ee16a20ac62ad25c1db4983b3e7dc926b"
+      "contentHash": "69880d4be5e645fb55253c6c343c484fe0bd8940f8581345aefbd14d8c7f7cf7"
     }
   ]
 }

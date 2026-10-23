@@ -199,4 +199,4 @@ export const PLAYGROUND_SETS: readonly { from: number; devices: readonly string[
 ];
 
 /** The cars on a car park, one picked per stall */
-export const PARKED_CARS: readonly string[] = ['car-red', 'car-blue', 'car-white', 'car-grey', 'car-grey', 'car-white'];
+export const PARKED_CARS: readonly string[] = ['car-hatch', 'car-estate', 'car-suv', 'car-hatch', 'car-sedan', 'car-small', 'car-suv', 'car-van'];

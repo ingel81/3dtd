@@ -13686,13 +13686,13 @@
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03"
     },
     {
-      "id": "car-red",
-      "name": "Car (red)",
+      "id": "car-small",
+      "name": "Small car",
       "category": "prop",
-      "file": "models/car-red.glb",
-      "triangles": 3132,
-      "footprint": 2.1,
-      "height": 1.5,
+      "file": "models/car-small.glb",
+      "triangles": 3460,
+      "footprint": 1.85,
+      "height": 1.6,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -13701,33 +13701,41 @@
       ],
       "randomRotation": true,
       "wind": 0,
+      "variants": 16,
       "tags": [
         "city"
       ],
       "textures": [
-        "textures/car-grey-ao-17b4ba86bffc23f2.ktx2"
+        "textures/car-small-colour-d57d043f62944d7a.ktx2",
+        "textures/car-small-normal-2fe11ed8bda98a07.ktx2",
+        "textures/car-small-orm-7bf1b612b6fd35a2.ktx2"
       ],
       "lod": [
         {
-          "file": "models/car-red-lod1.glb",
-          "screen": 0.0104,
-          "tone": [
-            0.987,
-            0.965,
-            0.952
+          "file": "models/car-small-lod1.glb",
+          "screen": 0.0092,
+          "textures": [
+            "textures/car-small-colour-2dc3a94a3cbc813c.ktx2",
+            "textures/car-small-normal-2fe11ed8bda98a07.ktx2",
+            "textures/car-small-orm-e5c96e435caaa50c.ktx2"
           ],
-          "triangles": 1074
+          "triangles": 1023,
+          "tone": [
+            1.067,
+            1.057,
+            1.041
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py)"
     },
     {
-      "id": "car-blue",
-      "name": "Car (blue)",
+      "id": "car-hatch",
+      "name": "Hatchback",
       "category": "prop",
-      "file": "models/car-blue.glb",
-      "triangles": 3204,
-      "footprint": 2.1,
+      "file": "models/car-hatch.glb",
+      "triangles": 3460,
+      "footprint": 2.05,
       "height": 1.5,
       "blocksLos": false,
       "blocksBuild": true,
@@ -13737,33 +13745,41 @@
       ],
       "randomRotation": true,
       "wind": 0,
+      "variants": 16,
       "tags": [
         "city"
       ],
       "textures": [
-        "textures/car-blue-ao-9be7f68266b3c7cd.ktx2"
+        "textures/car-hatch-colour-0ffebc2761143a9a.ktx2",
+        "textures/car-hatch-normal-0236759efb6986cd.ktx2",
+        "textures/car-hatch-orm-92a9bf111b362cc9.ktx2"
       ],
       "lod": [
         {
-          "file": "models/car-blue-lod1.glb",
-          "screen": 0.0104,
-          "tone": [
-            0.98,
-            0.97,
-            0.956
+          "file": "models/car-hatch-lod1.glb",
+          "screen": 0.0101,
+          "textures": [
+            "textures/car-hatch-colour-83f030fa8afbaf9d.ktx2",
+            "textures/car-hatch-normal-0236759efb6986cd.ktx2",
+            "textures/car-hatch-orm-087c096713137109.ktx2"
           ],
-          "triangles": 1108
+          "triangles": 1012,
+          "tone": [
+            1.08,
+            1.055,
+            1.021
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py)"
     },
     {
-      "id": "car-white",
-      "name": "Car (white)",
+      "id": "car-sedan",
+      "name": "Saloon car",
       "category": "prop",
-      "file": "models/car-white.glb",
-      "triangles": 3116,
-      "footprint": 2.1,
+      "file": "models/car-sedan.glb",
+      "triangles": 3460,
+      "footprint": 2.3,
       "height": 1.5,
       "blocksLos": false,
       "blocksBuild": true,
@@ -13773,34 +13789,42 @@
       ],
       "randomRotation": true,
       "wind": 0,
+      "variants": 16,
       "tags": [
         "city"
       ],
       "textures": [
-        "textures/car-white-ao-db3accf16776d0a1.ktx2"
+        "textures/car-sedan-colour-85a0481c46351868.ktx2",
+        "textures/car-sedan-normal-a5db5db21dadee9d.ktx2",
+        "textures/car-sedan-orm-85bd2b11da614f97.ktx2"
       ],
       "lod": [
         {
-          "file": "models/car-white-lod1.glb",
-          "screen": 0.0104,
-          "tone": [
-            0.962,
-            0.963,
-            0.957
+          "file": "models/car-sedan-lod1.glb",
+          "screen": 0.0114,
+          "textures": [
+            "textures/car-sedan-colour-4ac54880868c12fb.ktx2",
+            "textures/car-sedan-normal-a5db5db21dadee9d.ktx2",
+            "textures/car-sedan-orm-9627e7c0b9b17495.ktx2"
           ],
-          "triangles": 1076
+          "triangles": 1013,
+          "tone": [
+            1.073,
+            1.049,
+            1.021
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py)"
     },
     {
-      "id": "car-grey",
-      "name": "Car (grey)",
+      "id": "car-estate",
+      "name": "Estate car",
       "category": "prop",
-      "file": "models/car-grey.glb",
-      "triangles": 3132,
-      "footprint": 2.1,
-      "height": 1.5,
+      "file": "models/car-estate.glb",
+      "triangles": 3548,
+      "footprint": 2.3,
+      "height": 1.6,
       "blocksLos": false,
       "blocksBuild": true,
       "scaleRange": [
@@ -13809,22 +13833,118 @@
       ],
       "randomRotation": true,
       "wind": 0,
+      "variants": 16,
       "tags": [
         "city"
       ],
       "textures": [
-        "textures/car-grey-ao-17b4ba86bffc23f2.ktx2"
+        "textures/car-estate-colour-48ba0c5b2cdd6621.ktx2",
+        "textures/car-estate-normal-2ef15833bb064b06.ktx2",
+        "textures/car-estate-orm-f534fda1610e51cb.ktx2"
       ],
       "lod": [
         {
-          "file": "models/car-grey-lod1.glb",
-          "screen": 0.0104,
-          "tone": [
-            0.948,
-            0.953,
-            0.953
+          "file": "models/car-estate-lod1.glb",
+          "screen": 0.0114,
+          "textures": [
+            "textures/car-estate-colour-9c8cfd8842c5d73c.ktx2",
+            "textures/car-estate-normal-2ef15833bb064b06.ktx2",
+            "textures/car-estate-orm-75ff69ff71762006.ktx2"
           ],
-          "triangles": 1074
+          "triangles": 1009,
+          "tone": [
+            1.064,
+            1.047,
+            1.021
+          ]
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_vehicles.py)"
+    },
+    {
+      "id": "car-suv",
+      "name": "SUV",
+      "category": "prop",
+      "file": "models/car-suv.glb",
+      "triangles": 3380,
+      "footprint": 2.25,
+      "height": 1.8,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "variants": 16,
+      "tags": [
+        "city"
+      ],
+      "textures": [
+        "textures/car-suv-colour-c1dbff71df948245.ktx2",
+        "textures/car-suv-normal-68931cc5f38c17f3.ktx2",
+        "textures/car-suv-orm-cdf558f2a9e944da.ktx2"
+      ],
+      "lod": [
+        {
+          "file": "models/car-suv-lod1.glb",
+          "screen": 0.0111,
+          "textures": [
+            "textures/car-suv-colour-c76bee52fca3d269.ktx2",
+            "textures/car-suv-normal-68931cc5f38c17f3.ktx2",
+            "textures/car-suv-orm-676531820755c54f.ktx2"
+          ],
+          "triangles": 1006,
+          "tone": [
+            1.004,
+            0.984,
+            0.963
+          ]
+        }
+      ],
+      "source": "procedural (tools/map-assets/build_vehicles.py)"
+    },
+    {
+      "id": "car-van",
+      "name": "People carrier",
+      "category": "prop",
+      "file": "models/car-van.glb",
+      "triangles": 3468,
+      "footprint": 2.25,
+      "height": 1.9,
+      "blocksLos": false,
+      "blocksBuild": true,
+      "scaleRange": [
+        1,
+        1
+      ],
+      "randomRotation": true,
+      "wind": 0,
+      "variants": 16,
+      "tags": [
+        "city"
+      ],
+      "textures": [
+        "textures/car-van-colour-bc77e9ec00bf287f.ktx2",
+        "textures/car-van-normal-0dce089b40ed39f9.ktx2",
+        "textures/car-van-orm-cdc9d772fd261ddd.ktx2"
+      ],
+      "lod": [
+        {
+          "file": "models/car-van-lod1.glb",
+          "screen": 0.0111,
+          "textures": [
+            "textures/car-van-colour-b8806b603b54206b.ktx2",
+            "textures/car-van-normal-0dce089b40ed39f9.ktx2",
+            "textures/car-van-orm-f986ba576e7a71a4.ktx2"
+          ],
+          "triangles": 1010,
+          "tone": [
+            0.995,
+            0.977,
+            0.951
+          ]
         }
       ],
       "source": "procedural (tools/map-assets/build_vehicles.py)"
