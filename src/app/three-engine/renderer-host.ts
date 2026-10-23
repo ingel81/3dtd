@@ -6,6 +6,7 @@ import type { ProgramPins } from './program-pins';
 import { DrawLedger } from './draw-ledger';
 import { isSharedGpu } from './shared-gpu';
 import { installShadowEdgeFade } from './shadow-edge-fade';
+import { installSteadyShadowTaps } from './shadow-steady-taps';
 
 /**
  * Leases whose pinned programs and shader ids stay after they end: the
@@ -118,8 +119,10 @@ export class RendererHost {
 
   constructor(
     private readonly make: (msaa: boolean) => WebGLRenderer = (msaa) => {
-      // Before the renderer builds a program: shadows fade out at their map's border (shadow-edge-fade.ts)
+      // Before the renderer builds a program: shadows fade out at their map's border (shadow-edge-fade.ts), their soft
+      // taps hold still on the surface (shadow-steady-taps.ts)
       installShadowEdgeFade();
+      installSteadyShadowTaps();
       return new WebGLRenderer({ ...CANVAS_RENDERER_OPTIONS, antialias: msaa });
     },
   ) {}

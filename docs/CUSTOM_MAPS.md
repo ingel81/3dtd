@@ -773,6 +773,14 @@ dafür müsste die alte Karte in die neue überblenden (zwei Karten in jedem Emp
 1,21 ms: im Rauschen des geteilten Rechners. Der Preis: wo der Rand der Box im Bild liegt (zur fernen Seite hin, wo
 ihre Reichweite endet), sind die Schatten auf den letzten 30 % davor schwächer; die Bildmitte bleibt gleich.
 
+**Ruhige Schattenkanten (`three-engine/shadow-steady-taps.ts`):** three dreht die fünf PCF-Abtastungen jedes Pixels
+mit einem Rauschen seiner Bildschirmstelle, gedacht für einen zeitlichen Filter, den das Spiel nicht hat. In jedem
+halb beleuchteten Pixel (Schattenkante, Fuß einer Wand, Dach im flachen Sonnenlicht) stand das Korn auf dem Bildschirm,
+während das Bild darunter wanderte, und funkelte bei jeder Kamerabewegung, bis deren Dämpfung zur Ruhe kam. Jetzt ist
+die Drehung überall gleich: der Schatten eines Pixels hängt nur von seiner Stelle in der Welt ab und steht beim
+Bewegen still, die Kante bleibt weich (in der Nahsicht zeigt sie die Treppe der Schattentexel, die das Korn vorher
+überdeckte). Alle Lichttypen und Materialien, eine Konstante statt des Rauschens.
+
 Impostor (`impostor.ts`, oktaedrisch): das Modell aus 8 x 8 Richtungen über der oberen Halbkugel (hemi-oktaedrisches
 Raster) in zwei Atlanten gerendert (mit 4x MSAA gezeichnet, in ein Ziel ohne MSAA kopiert, im Farbatlas leere
 Pixel aus den belegten derselben Ansicht aufgefüllt, damit Mipmaps zur Kronenfarbe mischen; im Normalatlas nicht, dort
