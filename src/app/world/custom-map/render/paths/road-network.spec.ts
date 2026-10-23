@@ -114,6 +114,11 @@ describe('road network', () => {
       expect(edgeAt(x, -2.7)).toBeGreaterThan(0);
       expect(edgeAt(x, -3.3)).toBeLessThan(0);
     }
+    // The footway meets the carriageway without kerbs of its own: none along its sides into the junction and back
+    // (a notch in the pavement), its mouth past the kerb and its gutter
+    for (const y of [5.2, 5.6, 6]) {
+      for (const x of [-0.6, 0, 0.6]) expect(edgeAt(x, y)).toBeGreaterThan(0.55);
+    }
   });
 
   it('tapers a road that goes on at another width: its kerb runs across, no tooth at the node', () => {

@@ -63,6 +63,10 @@ const CURVE_POINTS = 6;
  * and every junction flickered with each move of the camera
  */
 export const ARM_WEIGHT_BASE = 0.25;
+/** Highest rank (RoadStyle.rank) that meets a kerbed road at a junction without kerbs of its own: service roads and paths */
+const MOUTH_RANK = 2;
+/** Metres past the kerb a mouth's edge reads (MOUTH_RANK): beyond the kerb and its gutter, so none is drawn there */
+const MOUTH_EDGE = 0.8;
 export const ARM_WEIGHT_SPAN = 0.5;
 
 /**
@@ -1119,23 +1123,31 @@ function junctionOutline(list: readonly End[], sides: readonly Section[], inner:
   const n = list.length;
   // A kerb between two roads without one gets none: its points lie past the gutter's width from the edge
   const kerbs = list.map((e) => roadStyle(e.chain.edge).gutter);
+  // A driveway or a path (no kerb of its own, a lower rank than a road with one here, MOUTH_RANK at most) meets the
+  // carriageway without one: the kerbs either side end in the corner curves towards it. Kerbed round its own edges, the
+  // kerb ran into the junction along one side of it and back out along the other, a notch in the pavement
+  const ranks = list.map((e) => roadStyle(e.chain.edge).rank);
+  const top = Math.max(-1, ...ranks.filter((_, k) => kerbs[k]));
+  const mouth = list.map((_, k) => gutter && !kerbs[k] && ranks[k] <= MOUTH_RANK && ranks[k] < top);
   for (let k = 0; k < n; k++) {
-    const kerbEdge = gutter && !kerbs[k] && !kerbs[(k + 1) % n] ? 0.6 : 0;
+    const j = (k + 1) % n;
+    const kerbEdge = gutter && !kerbs[k] && !kerbs[j] && !mouth[k] && !mouth[j] ? 0.6 : 0;
     const side = sides[k];
-    for (const v of side) ring.push({ x: v.x, y: v.y, edge: v.edge, arm: k, side: true });
+    for (const v of side) ring.push({ x: v.x, y: v.y, edge: mouth[k] ? v.edge + MOUTH_EDGE : v.edge, arm: k, side: true });
     const a = side[side.length - 1];
-    const b = sides[(k + 1) % n][0];
+    const b = sides[j][0];
     // The outline runs round the pavements: from one road's to the next's
-    const walkA = list[k].chain.walk;
-    const walkB = list[(k + 1) % n].chain.walk;
+    const walkA = mouth[k] ? -MOUTH_EDGE : list[k].chain.walk;
+    const walkB = mouth[j] ? -MOUTH_EDGE : list[j].chain.walk;
     // Two roads wide apart (a road going on through the junction, bending or not): the kerb follows their own lines;
     // so does a kerb between two nodes of the junction that would cut across a chain between them (the ground grey
-    // where its surface should be)
+    // where its surface should be). Not into a mouth: the kerb crosses it
     const ea = list[k];
-    const eb = list[(k + 1) % n];
-    let along = kerbAlong(ea, eb, inner);
+    const eb = list[j];
+    const crossing = mouth[k] || mouth[j];
+    let along = crossing ? null : kerbAlong(ea, eb, inner);
     const curve = along ? [] : kerbCurve(a, ea, b, eb);
-    if (!along && follow && inner.some((c) => curve.some((p) => insideRibbon(c, p)))) along = kerbAlong(ea, eb, inner, true);
+    if (!along && !crossing && follow && inner.some((c) => curve.some((p) => insideRibbon(c, p)))) along = kerbAlong(ea, eb, inner, true);
     if (along) along.forEach((p) => ring.push({ x: p.x, y: p.y, edge: kerbEdge - p.walk, arm: p.second ? (k + 1) % n : k, side: false }));
     else curve.forEach((p) => ring.push({ x: p.x, y: p.y, edge: kerbEdge - (walkA * (1 - p.t) + walkB * p.t), arm: p.t * 2 <= 1 ? k : (k + 1) % n, side: false }));
   }
