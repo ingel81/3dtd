@@ -282,6 +282,12 @@ export interface CatalogObject {
    * chain-link fence's wire); measured by tools/map-assets/measure_bands.mjs
    */
   band?: { top: [number, number, number]; side: [number, number, number]; cover?: number };
+  /**
+   * Buildings: the colour a basement under the model takes (MassLayer), as a
+   * factor over the raised buildings' plaster: the model's ground storey
+   * without its windows; measured by tools/map-assets/measure_bands.mjs
+   */
+  cellar?: [number, number, number];
   /** Where an object's `sign` is written on the model (render/objects/sign-text.ts) */
   signPanel?: CatalogSignPanel;
 }

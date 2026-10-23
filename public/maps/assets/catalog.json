@@ -3210,6 +3210,11 @@
           0.978
         ]
       },
+      "cellar": [
+        0.353,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/clay_plaster, medieval_wood, clay_roof_tiles_02, castle_wall_slates"
     },
     {
@@ -3317,6 +3322,11 @@
           0.995
         ]
       },
+      "cellar": [
+        0.367,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/grey_plaster_02, medieval_wood, grey_roof_tiles, castle_wall_slates"
     },
     {
@@ -3408,6 +3418,11 @@
           0.937
         ]
       },
+      "cellar": [
+        0.37,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_models.py); https://polyhaven.com/a/brown_planks_07, grey_roof_tiles, castle_wall_slates"
     },
     {
@@ -3454,6 +3469,11 @@
         "textures/mossy_stone_wall_diff_1k-95b8e208eb96af98.ktx2",
         "textures/mossy_stone_wall_nor_gl_1k-9fad0ea6aea9e69c.ktx2",
         "textures/tower-ruin-ao-4ede20ca65f47cc0.ktx2"
+      ],
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall; https://polyhaven.com/a/dark_planks; Efeu https://ambientcg.com/view?id=LeafSet029"
     },
@@ -8091,6 +8111,11 @@
           ]
         }
       ],
+      "cellar": [
+        0.427,
+        0.354,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -8176,6 +8201,11 @@
           1.012
         ]
       },
+      "cellar": [
+        0.438,
+        0.363,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02"
     },
     {
@@ -8229,6 +8259,11 @@
             1.025
           ]
         }
+      ],
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall"
     },
@@ -8317,6 +8352,11 @@
           0.875
         ]
       },
+      "cellar": [
+        0.394,
+        0.326,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/dark_planks"
     },
     {
@@ -8373,6 +8413,11 @@
             0.864
           ]
         }
+      ],
+      "cellar": [
+        0.421,
+        0.347,
+        0.3
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02"
     },
@@ -8545,6 +8590,11 @@
           0.9
         ]
       },
+      "cellar": [
+        0.368,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/reed_roof_04; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -8653,6 +8703,11 @@
           0.983
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -8760,6 +8815,11 @@
           0.868
         ]
       },
+      "cellar": [
+        0.373,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/clay_roof_tiles_02; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -8866,6 +8926,11 @@
           0.985
         ]
       },
+      "cellar": [
+        0.344,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/grey_plaster_02; https://polyhaven.com/a/grey_roof_tiles; https://polyhaven.com/a/medieval_wood; https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -8978,6 +9043,11 @@
           1.012
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -9082,6 +9152,11 @@
           1
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/wood_trunk_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -9189,6 +9264,11 @@
           0.959
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/wood_trunk_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -9284,6 +9364,11 @@
           1.011
         ]
       },
+      "cellar": [
+        0.367,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/brown_planks_07; https://polyhaven.com/a/grey_roof_tiles; https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -9393,6 +9478,11 @@
           0.959
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/dark_planks"
     },
     {
@@ -9459,6 +9549,11 @@
             0.899
           ]
         }
+      ],
+      "cellar": [
+        0.475,
+        0.382,
+        0.3
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/reed_roof_04; https://polyhaven.com/a/hessian_230; https://polyhaven.com/a/dark_planks"
     },
@@ -9550,6 +9645,11 @@
           0.959
         ]
       },
+      "cellar": [
+        0.377,
+        0.329,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/white_sandstone_bricks; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/dark_planks"
     },
     {
@@ -9628,6 +9728,11 @@
           0.802
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/roof_planks"
     },
     {
@@ -9692,6 +9797,11 @@
             0.918
           ]
         }
+      ],
+      "cellar": [
+        0.581,
+        0.488,
+        0.377
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/whitewashed_brick; https://polyhaven.com/a/castle_wall_slates"
     },
@@ -9771,6 +9881,11 @@
           1.077
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow; https://polyhaven.com/a/reed_roof_04"
     },
     {
@@ -9846,6 +9961,11 @@
           0.981
         ]
       },
+      "cellar": [
+        0.312,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/clay_plaster; https://polyhaven.com/a/reed_roof_04"
     },
     {
@@ -9922,6 +10042,11 @@
           0.727
         ]
       },
+      "cellar": [
+        0.356,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/patterned_clay_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/hessian_230"
     },
     {
@@ -9998,6 +10123,11 @@
           0.713
         ]
       },
+      "cellar": [
+        0.364,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/patterned_clay_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/hessian_230"
     },
     {
@@ -10908,6 +11038,11 @@
           ]
         }
       ],
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "https://polyhaven.com/a/modular_fort_01"
     },
     {
@@ -11060,6 +11195,11 @@
           ]
         }
       ],
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall"
     },
     {
@@ -11119,6 +11259,11 @@
           ]
         }
       ],
+      "cellar": [
+        0.771,
+        0.449,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/white_sandstone_bricks; https://polyhaven.com/a/sandstone_cracks"
     },
     {
@@ -11175,6 +11320,11 @@
             1.021
           ]
         }
+      ],
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
       ],
       "source": "procedural (tools/map-assets/build_structures.py); https://polyhaven.com/a/mossy_stone_wall"
     },
@@ -12743,6 +12893,11 @@
           ]
         }
       ],
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "https://polyhaven.com/a/dutch_ship_medium"
     },
     {
@@ -12834,6 +12989,11 @@
           0.713
         ]
       },
+      "cellar": [
+        0.539,
+        0.5,
+        0.44
+      ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -12925,6 +13085,11 @@
           0.705
         ]
       },
+      "cellar": [
+        0.556,
+        0.511,
+        0.445
+      ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_block_wall; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -12981,6 +13146,11 @@
             0.914
           ]
         }
+      ],
+      "cellar": [
+        0.645,
+        0.589,
+        0.507
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete"
     },
@@ -13074,6 +13244,11 @@
           0.766
         ]
       },
+      "cellar": [
+        0.413,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/hessian_230"
     },
     {
@@ -13166,6 +13341,11 @@
           0.77
         ]
       },
+      "cellar": [
+        0.457,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -13222,6 +13402,11 @@
             0.936
           ]
         }
+      ],
+      "cellar": [
+        0.513,
+        0.307,
+        0.3
       ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/brick_wall_07; https://polyhaven.com/a/brushed_concrete"
     },
@@ -13308,6 +13493,11 @@
           0.851
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_floor_damaged_01; https://polyhaven.com/a/rectangular_facade_tiles"
     },
     {
@@ -13399,6 +13589,11 @@
           0.82
         ]
       },
+      "cellar": [
+        0.416,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/beige_wall_001; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -13487,6 +13682,11 @@
           0.899
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -13575,6 +13775,11 @@
           0.957
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/rusty_metal_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -15526,6 +15731,11 @@
           ]
         }
       ],
+      "cellar": [
+        0.54,
+        0.543,
+        0.551
+      ],
       "source": "procedural (tools/map-assets/build_space.py)"
     },
     {
@@ -15612,6 +15822,11 @@
           1.041
         ]
       },
+      "cellar": [
+        0.458,
+        0.463,
+        0.474
+      ],
       "source": "procedural (tools/map-assets/build_space.py)"
     },
     {
@@ -15689,6 +15904,11 @@
           ]
         }
       ],
+      "cellar": [
+        0.489,
+        0.494,
+        0.503
+      ],
       "source": "procedural (tools/map-assets/build_space.py)"
     },
     {
@@ -15741,6 +15961,11 @@
           ]
         }
       ],
+      "cellar": [
+        0.463,
+        0.562,
+        0.615
+      ],
       "source": "procedural (tools/map-assets/build_space.py)"
     },
     {
@@ -15791,6 +16016,11 @@
             1.269
           ]
         }
+      ],
+      "cellar": [
+        0.3,
+        0.347,
+        0.3
       ],
       "source": "procedural (tools/map-assets/build_space.py)"
     },
@@ -16450,6 +16680,11 @@
       "textures": [
         "textures/igloo-ao-da39911394041c7d.ktx2"
       ],
+      "cellar": [
+        1.277,
+        1.338,
+        1.416
+      ],
       "source": "procedural (tools/map-assets/build_extreme.py)"
     },
     {
@@ -16525,6 +16760,11 @@
           0.637
         ]
       },
+      "cellar": [
+        1.044,
+        0.569,
+        0.345
+      ],
       "source": "procedural (tools/map-assets/build_extreme.py)"
     },
     {
@@ -16984,6 +17224,11 @@
           ]
         }
       ],
+      "cellar": [
+        1.498,
+        0.487,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/dark_rock_02; https://polyhaven.com/a/beige_wall_001"
     },
     {
@@ -17387,6 +17632,11 @@
           1.048
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_brown_02"
     },
     {
@@ -17501,6 +17751,11 @@
           0.893
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_brown_02"
     },
     {
@@ -17713,6 +17968,11 @@
           ]
         }
       ],
+      "cellar": [
+        0.861,
+        0.557,
+        0.313
+      ],
       "source": "procedural (tools/map-assets/build_extreme.py); https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/sandstone_cracks"
     },
     {
@@ -17854,6 +18114,11 @@
           0.979
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/castle_wall_slates"
     },
     {
@@ -17968,6 +18233,11 @@
           1.056
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/snow_02"
     },
     {
@@ -18066,6 +18336,11 @@
           1.041
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/weathered_planks"
     },
     {
@@ -18167,6 +18442,11 @@
           1.098
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/snow_02"
     },
     {
@@ -18359,6 +18639,11 @@
             0.979
           ]
         }
+      ],
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
       ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/roof_slates_02"
     },
@@ -18626,6 +18911,11 @@
           1.108
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/bark_willow; https://polyhaven.com/a/reed_roof_04; https://polyhaven.com/a/stacked_stone_wall"
     },
     {
@@ -18830,6 +19120,11 @@
             0.919
           ]
         }
+      ],
+      "cellar": [
+        0.869,
+        0.557,
+        0.311
       ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/sandstone_cracks"
     },
@@ -19135,6 +19430,11 @@
         "textures/weathered_planks_arm_1k-f41a32460d9c0fcc.ktx2",
         "textures/weathered_planks_diff_1k-a2b5556ffbee2920.ktx2",
         "textures/weathered_planks_nor_gl_1k-8702322f93584fea.ktx2"
+      ],
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
       ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/weathered_planks; https://polyhaven.com/a/roof_planks; https://polyhaven.com/a/bark_willow; Netz gezeichnet"
     },
@@ -19506,6 +19806,11 @@
           0.615
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/roof_planks"
     },
     {
@@ -19611,6 +19916,11 @@
         "textures/mossy_stone_wall_diff_1k-95b8e208eb96af98.ktx2",
         "textures/mossy_stone_wall_nor_gl_1k-9fad0ea6aea9e69c.ktx2"
       ],
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/mossy_stone_wall; https://polyhaven.com/a/dark_planks; Efeu https://ambientcg.com/view?id=LeafSet029"
     },
     {
@@ -19667,6 +19977,11 @@
             1.03
           ]
         }
+      ],
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
       ],
       "source": "procedural (tools/map-assets/build_levels.py); https://polyhaven.com/a/mossy_stone_wall"
     },
@@ -19835,6 +20150,11 @@
           0.76
         ]
       },
+      "cellar": [
+        0.533,
+        0.49,
+        0.428
+      ],
       "source": "procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/gravel_floor_02"
     },
     {
@@ -20381,6 +20701,11 @@
           ]
         }
       ],
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/mossy_stone_wall; https://polyhaven.com/a/dark_planks; Efeu https://ambientcg.com/view?id=LeafSet029"
     },
     {
@@ -20662,6 +20987,11 @@
           ]
         }
       ],
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -20855,6 +21185,11 @@
           0.955
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02"
     },
     {
@@ -20948,6 +21283,11 @@
           1.12
         ]
       },
+      "cellar": [
+        0.302,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_landmarks.py); https://polyhaven.com/a/stacked_stone_wall; https://polyhaven.com/a/castle_wall_slates; https://polyhaven.com/a/roof_slates_02; https://polyhaven.com/a/snow_02"
     },
     {
@@ -21104,6 +21444,11 @@
             1.166
           ]
         }
+      ],
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
       ],
       "source": "procedural (tools/map-assets/build_extras.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/hessian_230"
     },
@@ -21652,6 +21997,11 @@
           0.789
         ]
       },
+      "cellar": [
+        0.831,
+        0.836,
+        0.84
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -21741,6 +22091,11 @@
           0.544
         ]
       },
+      "cellar": [
+        0.926,
+        0.802,
+        0.618
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -21831,6 +22186,11 @@
           0.718
         ]
       },
+      "cellar": [
+        0.86,
+        0.77,
+        0.666
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -21920,6 +22280,11 @@
           0.89
         ]
       },
+      "cellar": [
+        0.689,
+        0.691,
+        0.696
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -22009,6 +22374,11 @@
           0.849
         ]
       },
+      "cellar": [
+        0.679,
+        0.683,
+        0.688
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -22098,6 +22468,11 @@
           0.814
         ]
       },
+      "cellar": [
+        0.68,
+        0.683,
+        0.688
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -22187,6 +22562,11 @@
           0.779
         ]
       },
+      "cellar": [
+        0.668,
+        0.673,
+        0.679
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -22280,6 +22660,11 @@
           0.541
         ]
       },
+      "cellar": [
+        0.805,
+        0.516,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_oldtown.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/clay_roof_tiles_02"
     },
     {
@@ -22373,6 +22758,11 @@
           0.458
         ]
       },
+      "cellar": [
+        0.808,
+        0.52,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_oldtown.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/clay_roof_tiles_02"
     },
     {
@@ -22466,6 +22856,11 @@
           0.732
         ]
       },
+      "cellar": [
+        0.931,
+        0.484,
+        0.381
+      ],
       "source": "procedural (tools/map-assets/build_oldtown.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/clay_roof_tiles_02"
     },
     {
@@ -22559,6 +22954,11 @@
           0.487
         ]
       },
+      "cellar": [
+        0.793,
+        0.516,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_oldtown.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/clay_roof_tiles_02"
     },
     {
@@ -22652,6 +23052,11 @@
           0.676
         ]
       },
+      "cellar": [
+        0.584,
+        0.641,
+        0.431
+      ],
       "source": "procedural (tools/map-assets/build_oldtown.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/dark_planks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/clay_roof_tiles_02"
     },
     {
@@ -22744,6 +23149,11 @@
           0.851
         ]
       },
+      "cellar": [
+        0.862,
+        0.774,
+        0.669
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -22829,6 +23239,11 @@
           0.899
         ]
       },
+      "cellar": [
+        0.847,
+        0.847,
+        0.844
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -22918,6 +23333,11 @@
           0.767
         ]
       },
+      "cellar": [
+        0.762,
+        0.76,
+        0.76
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -23007,6 +23427,11 @@
           0.703
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/wood_planks_grey; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/bitumen"
     },
     {
@@ -23087,6 +23512,11 @@
           1.05
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -23167,6 +23597,11 @@
           1.076
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -23249,6 +23684,11 @@
           1.18
         ]
       },
+      "cellar": [
+        0.828,
+        0.782,
+        0.801
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -23339,6 +23779,11 @@
           0.721
         ]
       },
+      "cellar": [
+        0.84,
+        0.615,
+        0.381
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -23429,6 +23874,11 @@
           0.695
         ]
       },
+      "cellar": [
+        0.807,
+        0.602,
+        0.388
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -23519,6 +23969,11 @@
           0.666
         ]
       },
+      "cellar": [
+        0.808,
+        0.601,
+        0.388
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -23609,6 +24064,11 @@
           0.628
         ]
       },
+      "cellar": [
+        0.775,
+        0.587,
+        0.392
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -23700,6 +24160,11 @@
           0.733
         ]
       },
+      "cellar": [
+        0.638,
+        0.631,
+        0.632
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -23791,6 +24256,11 @@
           0.704
         ]
       },
+      "cellar": [
+        0.619,
+        0.614,
+        0.615
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -23882,6 +24352,11 @@
           0.682
         ]
       },
+      "cellar": [
+        0.619,
+        0.614,
+        0.615
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -23973,6 +24448,11 @@
           0.667
         ]
       },
+      "cellar": [
+        0.601,
+        0.597,
+        0.599
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -24063,6 +24543,11 @@
           0.744
         ]
       },
+      "cellar": [
+        0.724,
+        0.552,
+        0.486
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -24154,6 +24639,11 @@
           0.771
         ]
       },
+      "cellar": [
+        0.56,
+        0.588,
+        0.483
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -24244,6 +24734,11 @@
           0.939
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -24336,6 +24831,11 @@
           0.852
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -24428,6 +24928,11 @@
           1.054
         ]
       },
+      "cellar": [
+        0.44,
+        0.4,
+        0.358
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/exterior_wall_cladding_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -24520,6 +25025,11 @@
           0.995
         ]
       },
+      "cellar": [
+        0.396,
+        0.371,
+        0.337
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/exterior_wall_cladding_03; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -24616,6 +25126,11 @@
           1.155
         ]
       },
+      "cellar": [
+        0.334,
+        0.325,
+        0.314
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/box_profile_metal_sheet; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/painted_metal_shutter; https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -24707,6 +25222,11 @@
           0.961
         ]
       },
+      "cellar": [
+        0.774,
+        0.738,
+        0.7
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -24797,6 +25317,11 @@
           0.725
         ]
       },
+      "cellar": [
+        0.835,
+        0.712,
+        0.539
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -24887,6 +25412,11 @@
           0.829
         ]
       },
+      "cellar": [
+        0.554,
+        0.393,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/white_sandstone_bricks; https://polyhaven.com/a/sandstone_blocks_04; https://polyhaven.com/a/roof_slates_02"
     },
     {
@@ -24977,6 +25507,11 @@
           0.608
         ]
       },
+      "cellar": [
+        0.643,
+        0.525,
+        0.414
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/clay_roof_tiles_03; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -25070,6 +25605,11 @@
           0.889
         ]
       },
+      "cellar": [
+        0.471,
+        0.438,
+        0.398
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete; https://polyhaven.com/a/precast_concrete_wall; https://polyhaven.com/a/asphalt_02; https://polyhaven.com/a/painted_plaster_wall"
     },
     {
@@ -25154,6 +25694,11 @@
           0.689
         ]
       },
+      "cellar": [
+        0.674,
+        0.779,
+        0.732
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brick_wall_07"
     },
     {
@@ -25235,6 +25780,11 @@
           0.554
         ]
       },
+      "cellar": [
+        0.938,
+        0.781,
+        0.588
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -25314,6 +25864,11 @@
           0.948
         ]
       },
+      "cellar": [
+        0.557,
+        0.498,
+        0.4
+      ],
       "source": "procedural (tools/map-assets/build_modern.py); https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -25414,6 +25969,11 @@
           1.018
         ]
       },
+      "cellar": [
+        0.811,
+        0.637,
+        0.438
+      ],
       "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -25507,6 +26067,11 @@
           0.911
         ]
       },
+      "cellar": [
+        0.307,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/brown_planks_07; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -25598,6 +26163,11 @@
           1.028
         ]
       },
+      "cellar": [
+        0.3,
+        0.3,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/rough_wood; https://polyhaven.com/a/wood_planks_grey; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/bark_brown_01; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -25687,6 +26257,11 @@
           1.045
         ]
       },
+      "cellar": [
+        0.663,
+        0.658,
+        0.658
+      ],
       "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/grey_roof_tiles_02; https://polyhaven.com/a/brown_planks_04; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -25772,6 +26347,11 @@
           0.839
         ]
       },
+      "cellar": [
+        0.85,
+        0.853,
+        0.856
+      ],
       "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/painted_plaster_wall; https://polyhaven.com/a/corrugated_iron_02; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -25865,6 +26445,11 @@
           0.748
         ]
       },
+      "cellar": [
+        0.325,
+        0.316,
+        0.3
+      ],
       "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
     },
     {
@@ -25968,6 +26553,11 @@
           0.877
         ]
       },
+      "cellar": [
+        0.4,
+        0.382,
+        0.356
+      ],
       "source": "procedural (tools/map-assets/build_modern2.py); https://polyhaven.com/a/concrete_slab_wall; https://polyhaven.com/a/bitumen; https://polyhaven.com/a/brushed_concrete"
     },
     {

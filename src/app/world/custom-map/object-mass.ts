@@ -142,6 +142,8 @@ export interface MassBody {
   shop?: number[];
   /** Its walls' colour over the object's (a part's own `building:colour`) */
   tint?: string;
+  /** Its walls' colour as a factor over their facade's texture, times the object's (a catalogue model's basement in its walls' colour) */
+  tone?: readonly [number, number, number];
   roofTint?: string;
   roofCover?: MapMassCover;
   /** The ways through the building (MapMass.openings): its walls open where they cross them */

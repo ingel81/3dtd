@@ -191,16 +191,19 @@ function cellarShape(m: MassBody): MassShape {
 /** The basement under catalogue model boxes, once per box and depth */
 const cellars = new Map<string, MassBody>();
 
-/** The body of a catalogue model's basement (MapObject.basement) under its wall box (catalogue `box`, at scale 1) */
-export function cellarBody(box: GroundBox, basement: number): MassBody {
-  const key = `${box.join(',')}|${basement}`;
+/**
+ * The body of a catalogue model's basement (MapObject.basement) under its wall box (catalogue `box`, at scale 1),
+ * plastered in the colour of the model's walls (catalogue `cellar`, measure_bands.mjs) where it is measured
+ */
+export function cellarBody(box: GroundBox, basement: number, tone?: readonly [number, number, number]): MassBody {
+  const key = `${box.join(',')}|${basement}|${tone?.join(',') ?? ''}`;
   let body = cellars.get(key);
   if (!body) {
     const [cx, cz] = box;
     const hw = box[2] + CELLAR_OUT;
     const hd = box[3] + CELLAR_OUT;
     const ring = [cx - hw, cz - hd, cx + hw, cz - hd, cx + hw, cz + hd, cx - hw, cz + hd];
-    cellars.set(key, (body = { rings: [ring], height: CELLAR_TOP, floors: 1, roof: 'flat', facade: 'plaster', basement, cellar: true }));
+    cellars.set(key, (body = { rings: [ring], height: CELLAR_TOP, floors: 1, roof: 'flat', facade: 'plaster', basement, cellar: true, ...(tone ? { tone } : {}) }));
   }
   return body;
 }
@@ -460,7 +463,7 @@ export class MassLayer {
   /** The catalogue models whose basements are drawn here */
   private readonly cellarIds = new Set<string>();
   /** The catalogue's buildings by asset: how a model with a basement stands, its wall box */
-  private footings: ReadonlyMap<string, ObjectFooting> | null = null;
+  private footings: ReadonlyMap<string, ObjectFooting & { cellar?: readonly [number, number, number] }> | null = null;
   /** Where each building stands (its seat plus its own z), by id: a change of the ground moves its instances up or down */
   private readonly seats = new Map<string, number>();
   private batches: Batch[] = [];
@@ -628,8 +631,8 @@ export class MassLayer {
   /** What object `o` is drawn as here: a raised building's bodies over its basement, a catalogue model's basement */
   private bodiesOf(o: MapObject): readonly MassBody[] {
     if (o.mass) return basementBodies(massBodies(o.mass), o.basement);
-    const box = this.footingOf(o).box;
-    return box ? [cellarBody(box, o.basement ?? 0)] : [];
+    const footing = this.footingOf(o);
+    return footing.box ? [cellarBody(footing.box, o.basement ?? 0, footing.cellar)] : [];
   }
 
   /** Metres from the floor of building `o` (`seat`, scene y) down to the ground just outside the middle of its wall `p` */
@@ -646,7 +649,7 @@ export class MassLayer {
   }
 
   /** How catalogue model `o` stands (its catalogue entry), a building of no size when the catalogue lacks it */
-  private footingOf(o: MapObject): ObjectFooting {
+  private footingOf(o: MapObject): ObjectFooting & { cellar?: readonly [number, number, number] } {
     return this.footings?.get(o.asset) ?? { category: 'building', footprint: 0, height: 0 };
   }
 
@@ -919,6 +922,7 @@ export class MassLayer {
     }
     const color = new Color();
     const tint = new Color();
+    const toned = new Color();
     const shaded = new Color();
     const roofTint = new Color();
     // Every batch's count before a building: its ranges are what it added
@@ -948,6 +952,7 @@ export class MassLayer {
         const w = walls.get(body.facade);
         const rf = roofs.get(shape.covering);
         tint.set(body.tint ?? o.tint ?? '#ffffff');
+        if (body.tone) tint.multiply(toned.setRGB(body.tone[0], body.tone[1], body.tone[2]));
         if (w) {
           for (const p of wallsOf(o, shape)) {
             const height = p.top - p.bottom;

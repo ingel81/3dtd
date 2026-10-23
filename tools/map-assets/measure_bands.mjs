@@ -11,7 +11,8 @@
 // wire) keeps that share of its pixels (`cover`). The textures are the shared
 // KTX2 files beside the models, decoded with three's Basis transcoder.
 // Writes tools/map-assets/bands.json, which update_catalog.py puts into the
-// catalogue as `band`.
+// catalogue as `band`. Then the colour a building's basement takes
+// (cellars.json, catalogue `cellar`, at the end).
 //
 //   node tools/map-assets/measure_bands.mjs public/maps/assets
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -159,9 +160,10 @@ function triangles(root, json, associations, models) {
 /**
  * A view of the triangles: axes (a, b) across the picture, c towards the
  * viewer. Returns the mean linear colour of the covered pixels and the
- * covered area (m²)
+ * covered area (m²); with `rows` ([from, to] along b, m) only the pixels
+ * between, and those at least `minLum` bright (a wall without its windows)
  */
-function view(tris, bounds, a, b, c, sign) {
+function view(tris, bounds, a, b, c, sign, rows = null, minLum = 0) {
   const lo = [bounds.min.x, bounds.min.y, bounds.min.z];
   const hi = [bounds.max.x, bounds.max.y, bounds.max.z];
   const px = Math.max(hi[a] - lo[a], hi[b] - lo[b]) / RES;
@@ -220,6 +222,11 @@ function view(tris, bounds, a, b, c, sign) {
   let covered = 0;
   for (let i = 0; i < w * h; i++) {
     if (depth[i] === -Infinity) continue;
+    if (rows) {
+      const at = lo[b] + (Math.floor(i / w) + 0.5) * px;
+      if (at < rows[0] || at > rows[1]) continue;
+    }
+    if (minLum && 0.2126 * colour[i * 3] + 0.7152 * colour[i * 3 + 1] + 0.0722 * colour[i * 3 + 2] < minLum) continue;
     covered++;
     for (let k = 0; k < 3; k++) sum[k] += colour[i * 3 + k];
   }
@@ -253,3 +260,37 @@ for (const o of objects) {
 const lines = Object.entries(out).map(([id, b]) => `  ${JSON.stringify(id)}: ${JSON.stringify(b)}`);
 writeFileSync(join(here, 'bands.json'), `{\n${lines.join(',\n')}\n}\n`);
 console.error(lines.length, 'models measured');
+
+// The basements of the catalogue's buildings (MassLayer cellarBody) are plastered: their plaster takes the colour
+// the model's walls show on its ground storey (four sides between CELLAR_ROWS, windows and doors left out by
+// CELLAR_MIN_LUM), as a factor over the plaster's own mean colour (the raised buildings' kit, `mass-plaster`).
+// Writes tools/map-assets/cellars.json, which update_catalog.py puts into the catalogue as `cellar`
+const CELLAR_ROWS = [0.4, 2.6];
+const CELLAR_MIN_LUM = 0.05;
+const kit = await loadGlb(join(assets, 'models', 'building-mass.glb'));
+const plaster = look(kit.json, join(assets, 'models'), kit.json.materials.findIndex((m) => m.name === 'mass-plaster'));
+const pm = [0, 0, 0];
+const pd = plaster.colour.img.data;
+for (let i = 0; i < pd.length; i += 4) for (let k = 0; k < 3; k++) pm[k] += LINEAR[pd[i + k]] * plaster.factor[k];
+for (let k = 0; k < 3; k++) pm[k] /= pd.length / 4;
+const cellars = {};
+for (const o of objects) {
+  if (o.category !== 'building' || !boxes[o.id] || o.file === '' || o.id === 'building-mass') continue;
+  const models = join(assets, 'models');
+  const { root, json, associations } = await loadGlb(join(assets, o.file ?? `models/${o.id}.glb`));
+  const tris = triangles(root, json, associations, models);
+  const bounds = new Box3().setFromObject(root, true);
+  const sides = [
+    view(tris, bounds, 0, 1, 2, 1, CELLAR_ROWS, CELLAR_MIN_LUM),
+    view(tris, bounds, 0, 1, 2, -1, CELLAR_ROWS, CELLAR_MIN_LUM),
+    view(tris, bounds, 2, 1, 0, 1, CELLAR_ROWS, CELLAR_MIN_LUM),
+    view(tris, bounds, 2, 1, 0, -1, CELLAR_ROWS, CELLAR_MIN_LUM),
+  ];
+  const n = sides.reduce((s, v) => s + v.covered, 0);
+  if (!n) continue;
+  // Held to the range the plaster's texture keeps its look in (as a roof's colour over its covering)
+  cellars[o.id] = [0, 1, 2].map((k) => r3(Math.min(2.4, Math.max(0.3, sides.reduce((s, v) => s + v.sum[k], 0) / n / Math.max(pm[k], 0.02)))));
+}
+const cellarLines = Object.entries(cellars).map(([id, c]) => `  ${JSON.stringify(id)}: ${JSON.stringify(c)}`);
+writeFileSync(join(here, 'cellars.json'), `{\n${cellarLines.join(',\n')}\n}\n`);
+console.error(cellarLines.length, 'basements measured, plaster mean', pm.map(r3));
