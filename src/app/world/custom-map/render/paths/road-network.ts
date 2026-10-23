@@ -54,12 +54,23 @@ const PIECE = 48;
 const COVER_INSET = 0.25;
 /** Points per kerb curve and per half of a path's round end */
 const CURVE_POINTS = 6;
+/**
+ * A junction vertex's arm weight (0 to 1) rides in the fraction of its wear
+ * (a whole number): from ARM_WEIGHT_BASE over ARM_WEIGHT_SPAN, well clear of
+ * the whole numbers. Interpolated across a triangle, a weight of 0 laid on
+ * the whole number itself came out a hair under it at some pixels, its
+ * fraction then nearly 1: the road's texture and its wear flipped per pixel,
+ * and every junction flickered with each move of the camera
+ */
+export const ARM_WEIGHT_BASE = 0.25;
+export const ARM_WEIGHT_SPAN = 0.5;
 
 /**
  * One tile's geometry; per vertex: map position (2), across, along, distance
  * to the edge, look (encodeRoadStyle) (4), direction along (2), and in a
  * junction the frame of the road it runs into: across and along in it, its
- * turn against the junction's, its wear plus the weight of its texture (4)
+ * turn against the junction's, its wear with the weight of its texture in
+ * the fraction (ARM_WEIGHT_BASE; 0 on a ribbon) (4)
  */
 export interface RoadTile {
   key: string;
@@ -124,7 +135,7 @@ interface Vertex {
   style: number;
   dx: number;
   dy: number;
-  /** In a junction: across and along in the frame of the road it runs into, that frame's turn, wear + weight */
+  /** In a junction: across and along in the frame of the road it runs into, that frame's turn, its wear and weight (ARM_WEIGHT_BASE) */
   arm?: [number, number, number, number];
 }
 
@@ -1215,7 +1226,7 @@ function emitJunction(c: MapPoint, list: End[], inner: readonly Chain[], out: Ti
       style,
       dx: mf.dx,
       dy: mf.dy,
-      arm: [armAcross, armAlong, Math.atan2(f.dy, f.dx) - Math.atan2(mf.dy, mf.dx), wears[arm] + weight * 0.99],
+      arm: [armAcross, armAlong, Math.atan2(f.dy, f.dx) - Math.atan2(mf.dy, mf.dx), wears[arm] + ARM_WEIGHT_BASE + weight * ARM_WEIGHT_SPAN],
     };
   };
   for (const side of sides) out.share(side!);

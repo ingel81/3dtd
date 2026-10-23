@@ -6,7 +6,7 @@ import type { HeightField } from '../height-field';
 import type { HeightTexture } from '../terrain/height-texture';
 import { DrapedMaterial, DrapedTextures, DrapedTiles, type DrapeLook } from '../drape/draped-layer';
 import { DrapedConformPool } from '../drape/draped-conform-pool';
-import { RoadNetworkBuilder, type RoadNetwork, type RoadTile } from './road-network';
+import { ARM_WEIGHT_BASE, ARM_WEIGHT_SPAN, RoadNetworkBuilder, type RoadNetwork, type RoadTile } from './road-network';
 import { MAX_ROAD_SURFACES } from './road-style';
 
 /**
@@ -229,7 +229,8 @@ bool ribbon = mod(code, 2.0) < 0.5;
 code = floor(code / 2.0);
 float wear = mod(code, 32.0) / 31.0;
 // In a junction, the road this point runs into: its texture takes over towards its end
-float armWeight = fract(vRoadArm.w) / 0.99;
+// (ARM_WEIGHT_BASE: the weight in the fraction, clear of the whole numbers; a ribbon has 0)
+float armWeight = vRoadArm.w > ${(ARM_WEIGHT_BASE * 0.5).toFixed(3)} ? clamp((fract(vRoadArm.w) - ${ARM_WEIGHT_BASE.toFixed(3)}) / ${ARM_WEIGHT_SPAN.toFixed(3)}, 0.0, 1.0) : 0.0;
 wear = mix(wear, floor(vRoadArm.w) / 31.0, armWeight);
 int li = min(int(layer), ${MAX_ROAD_SURFACES - 1});
 float across = vRoad.x;
@@ -406,7 +407,7 @@ vec3 drapeNormal = roadNormal;
 /** The roads' part of their draped material: attributes, rank from the look's top bits, the look */
 function roadLook(sidewalk: { value: number }): DrapeLook {
   return {
-    key: 'custom-map-roads-4',
+    key: 'custom-map-roads-5',
     uniforms: { uRoadSidewalk: sidewalk },
     vertexPars: ROAD_VERTEX_PARS,
     vertex: ROAD_VERTEX,

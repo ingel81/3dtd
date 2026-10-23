@@ -1,7 +1,7 @@
 import type { MapPathEdge, MapPaths } from '../../map-document';
 import { gridHeightAt } from '../height-field';
 import { REFINE_TOLERANCE, type DrapeGround } from '../drape/draped-refine';
-import { buildRoadNetwork, RoadNetworkBuilder, type RoadNetwork, type RoadTile } from './road-network';
+import { ARM_WEIGHT_BASE, ARM_WEIGHT_SPAN, buildRoadNetwork, RoadNetworkBuilder, type RoadNetwork, type RoadTile } from './road-network';
 
 function paths(edges: Partial<MapPathEdge>[], nodes: [string, number, number][]): MapPaths {
   return {
@@ -48,10 +48,14 @@ describe('road network', () => {
     expect(total).toBeLessThan(200 * 9 + 95.5 * 6 + 40);
     // Markings stop at the junction: its own look
     expect(net.styles.filter((s) => s.junction).length).toBe(1);
-    // In the junction each triangle blends into one road's frame: weight 1 at that road's end section only
-    const weights = net.tiles.flatMap((t) => Array.from({ length: t.arm.length / 4 }, (_, k) => t.arm[k * 4 + 3] % 1));
-    expect(Math.max(...weights)).toBeCloseTo(0.99, 3);
-    expect(weights.filter((w) => w > 0).length).toBeGreaterThan(3);
+    // In the junction each triangle blends into one road's frame: weight 1 at that road's end section only, the weight
+    // in the wear's fraction clear of the whole numbers (interpolated, a weight 0 on one read as nearly 1 at some pixels)
+    const arms = net.tiles.flatMap((t) => Array.from({ length: t.arm.length / 4 }, (_, k) => t.arm[k * 4 + 3])).filter((w) => w > 0);
+    const weights = arms.map((w) => ((w % 1) - ARM_WEIGHT_BASE) / ARM_WEIGHT_SPAN);
+    expect(Math.min(...arms.map((w) => w % 1))).toBeGreaterThanOrEqual(ARM_WEIGHT_BASE - 1e-6);
+    expect(Math.max(...weights)).toBeCloseTo(1, 5);
+    expect(Math.min(...weights)).toBeCloseTo(0, 5);
+    expect(weights.filter((w) => w > 0.5).length).toBeGreaterThan(3);
     expect(net.styles.find((s) => !s.junction && s.markings === 'centre-edges')).toBeTruthy();
   });
 
