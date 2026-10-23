@@ -2,7 +2,7 @@ import type { SimSink } from '../../sim/core/sim-sink';
 import type { RunStructure } from '../../sim/protocol/run-rules';
 import { MAP_METERS_PER_DEGREE } from '../../world/custom-map/map-document';
 import {
-  HOLE_FOOT_SHARE, HOLE_GROW_DM, HOLE_LEAST_DAMAGE, HOLE_MAX_DM, HOLE_MERGE_DM, HOLE_REACH_M, HOLE_SLOTS, HOLE_STRIDE, holeRadiusDm, presetHp,
+  HOLE_FOOT_SHARE, ROOF_HOLE_SHARE, HOLE_GROW_DM, HOLE_LEAST_DAMAGE, HOLE_MAX_DM, HOLE_MERGE_DM, HOLE_REACH_M, HOLE_SLOTS, HOLE_STRIDE, holeRadiusDm, presetHp,
   structureHeading, structureStage,
   WEAR_SIGHT_EVERY,
   type StructureStage,
@@ -95,6 +95,8 @@ export class StructureLedger {
   private boxSin = new Float64Array(0);
   /** Where a hit struck a structure's ground plan (struck, scratch), map metres */
   private readonly at = { x: 0, y: 0 };
+  /** Whether the last hit struck lay within the ground plan (struck) */
+  private within = false;
   private readonly model = { x: 0, z: 0 };
   /** Per raised building its outline with the cos and sin of its turn (RunStructure.mass), null for one without */
   private outline: ({ x: number; y: number; scale: number; cos: number; sin: number; rings: readonly (readonly number[])[] } | null)[] = [];
@@ -391,25 +393,32 @@ export class StructureLedger {
    * point itself, else the point of its outline nearest the hit, at the
    * hit's height; a hit at the ground opens the wall from its foot
    * (HOLE_FOOT_SHARE of the radius up, plus up to as much again by its
-   * count's roll). In a fallen one's stump 0.3 to 2 m over the ground. A hit
+   * count's roll). A hit "at the ground" within the ground plan came down
+   * through the roof (a shell's arc, a click on a roof the pick did not
+   * meet): there, ROOF_HOLE_SHARE of the hole's radius under the top. In a
+   * fallen one's stump 0.3 to 2 m over the ground. A hit
    * farther than the hole's radius and HOLE_REACH_M from that point opens
    * nothing. Near a hole it has, that one grows; else it takes a free slot or
    * the oldest hole's. Whether it made or grew one
    */
   private punch(index: number, amount: number, x: number, y: number, up: number | null, fallen = false): boolean {
     const r = holeRadiusDm(amount, this.radius[index]);
-    const at = this.struck(index, x, y, up !== null && !fallen);
+    const at = this.struck(index, x, y, !fallen);
     const roll = (Math.imul(index + 1, 0x9e3779b1) ^ Math.imul(this.holeCount[index] + 1, 0x85ebca6b)) >>> 0;
     const top = Math.round(this.height[index] * 10);
+    // Down through the roof: within the plan, no height given
+    const roof = !fallen && up === null && this.within;
     const h = fallen
       ? Math.min(20, Math.max(3, up === null ? Math.round(3 + (17 * (roll % 1000)) / 1000) : Math.round(up * 10)))
-      : up === null
-        ? Math.min(Math.round(top * 0.8), Math.round(r * HOLE_FOOT_SHARE * (1 + (roll % 1000) / 1000)))
-        : Math.min(top, Math.max(0, Math.round(up * 10)));
+      : roof
+        ? Math.max(Math.round(top * 0.5), top - Math.round(r * ROOF_HOLE_SHARE))
+        : up === null
+          ? Math.min(Math.round(top * 0.8), Math.round(r * HOLE_FOOT_SHARE * (1 + (roll % 1000) / 1000)))
+          : Math.min(top, Math.max(0, Math.round(up * 10)));
     // How far the hit was from where the hole goes, dm: in the air beside a wall its height counts too
     const gx = (x - at.x) * 10;
     const gy = (y - at.y) * 10;
-    const gh = up === null ? 0 : up * 10 - h;
+    const gh = up === null || roof ? 0 : up * 10 - h;
     const reach = r + HOLE_REACH_M * 10;
     if (gx * gx + gy * gy + gh * gh > reach * reach) return false;
     const ox = Math.round((at.x - this.x[index]) * 10);
@@ -451,7 +460,8 @@ export class StructureLedger {
    * Where a hit at map metres (`x`, `y`) struck structure `index`'s ground
    * plan (a scratch point, map metres): a raised building's outline, else
    * its box, else its circle. A point within it stays where it is when
-   * `keepWithin` (a click on its roof), else goes to the nearest wall.
+   * `keepWithin` (a hit on its roof, or down through it), else goes to the
+   * nearest wall; `within` says whether it lay within.
    * Turns by the cos and sin DetMath gave, the rest `+ - * /` and `sqrt`:
    * the same on every client
    */
@@ -464,7 +474,8 @@ export class StructureLedger {
       const dy = (y - m.y) / m.scale;
       const mx = -dx * m.cos - dy * m.sin;
       const mz = -dx * m.sin + dy * m.cos;
-      if (keepWithin && ringsContain(m.rings, mx, mz)) return this.strikeAt(x, y);
+      this.within = ringsContain(m.rings, mx, mz);
+      if (keepWithin && this.within) return this.strikeAt(x, y);
       ringsNearest(m.rings, mx, mz, this.model);
       const px = this.model.x;
       const pz = this.model.z;
@@ -479,6 +490,7 @@ export class StructureLedger {
       let u = -ox * cos - oy * sin;
       let v = -ox * sin + oy * cos;
       const within = Math.abs(u) <= hx && Math.abs(v) <= hy;
+      this.within = within;
       if (within && keepWithin) return this.strikeAt(x, y);
       if (within) {
         // To the nearer of its walls
@@ -494,6 +506,7 @@ export class StructureLedger {
     const dy = y - this.y[index];
     const d = Math.sqrt(dx * dx + dy * dy);
     const r = this.radius[index];
+    this.within = d <= r;
     if (d <= r && keepWithin) return this.strikeAt(x, y);
     if (d === 0) return this.strikeAt(this.x[index] + r, this.y[index]);
     return this.strikeAt(this.x[index] + (dx * r) / d, this.y[index] + (dy * r) / d);

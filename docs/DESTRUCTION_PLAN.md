@@ -128,7 +128,10 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   Grundrisses, den der Treffer traf, beim Bau aus dem Grundriss sein Umriss (`ringsNearest`), sonst seine Box, sonst sein
   Kreis. Ein Treffer an Wand oder Dach (das Werkzeug, Feld `up` am Befehl) setzt das Loch genau dorthin, auf der Höhe
   des Treffers; ein Treffer am Boden auf den nächsten Punkt der Wand, vom Fuß her geöffnet (Mitte 40 bis 80 % des
-  Lochradius hoch, `HOLE_FOOT_SHARE`, gewürfelt aus Bauwerk und Lochzähler). Liegt der Treffer weiter als Lochradius
+  Lochradius hoch, `HOLE_FOOT_SHARE`, gewürfelt aus Bauwerk und Lochzähler); ein Treffer am Boden innerhalb des
+  Grundrisses kam von oben durchs Dach (Bogen einer Granate): das Loch an dieser Stelle, 60 % seines Radius unter dem
+  First (`ROOF_HOLE_SHARE`, Punkt 48). Das Werkzeug gab die Höhe seines Klicks bis 2026-10-23 nicht weiter
+  (`VisualizationFacade`), ein Dachklick landete deshalb an der nächsten Wand. Liegt der Treffer weiter als Lochradius
   plus 1,5 m (`HOLE_REACH_M`) von diesem Punkt, gibt es kein Loch, nur HP: das Haus hinter dem getroffenen behält
   seine Wände. Vorher saß das Loch auf dem Kreis um die Mitte (höchstens 90 % des Radius) in gewürfelter Höhe von 25
   bis 80 % des Bauwerks; bei langen Häusern lag es daneben, auf einem Dach unter der Traufe, beim Nachbarn an

@@ -140,8 +140,12 @@ export class WorldDamagePresenter {
       hit: (lat: number, lon: number, reach: number = DEBUG_HIT.reach, amount: number = DEBUG_HIT.amount) =>
         bus.emit({ type: 'debug:hit-structures', lat, lon, reach, amount }),
       dig: (lat: number, lon: number, radius = 2.5, depth = 35) => bus.emit({ type: 'debug:dig-crater', lat, lon, radius, depth }),
-      blast: (lat: number, lon: number, blast: DebugBlast = 'rocket', radius?: number) =>
-        bus.emit({ type: 'debug:blast', lat, lon, height: engine.getTerrainHeightAtGeo(lat, lon) ?? 0, blast, ...(radius === undefined ? {} : { radius }) }),
+      // `up`: m over the ground it struck (a wall, a roof), as the destruction tool's click sends it
+      blast: (lat: number, lon: number, blast: DebugBlast = 'rocket', radius?: number, up?: number) =>
+        bus.emit({
+          type: 'debug:blast', lat, lon, height: engine.getTerrainHeightAtGeo(lat, lon) ?? 0, blast,
+          ...(radius === undefined ? {} : { radius }), ...(up === undefined ? {} : { up: Math.round(up * 10) }),
+        }),
       setStage: (index: number, stage: StructureStage) => {
         const s = this.runStructures()[index];
         if (s) bus.emit({ type: 'debug:set-structure-stage', index, stage, lat: s.lat, lon: s.lon });

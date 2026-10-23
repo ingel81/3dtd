@@ -71,6 +71,11 @@ export const HOLE_SIZE_RADIUS_M = 6;
 export const HOLE_REACH_M = 1.5;
 /** A hit at the ground opens the wall from its foot: the hole's middle this share of its radius up, plus up to as much again by its roll */
 export const HOLE_FOOT_SHARE = 0.4;
+/**
+ * A hit at the ground within a structure's ground plan came down through its roof (a shell's arc): its hole's
+ * middle this share of its radius under the top
+ */
+export const ROOF_HOLE_SHARE = 0.6;
 
 /**
  * A hole's radius in dm for a hit of `amount` structure damage on a
@@ -205,7 +210,7 @@ export function destructionKeyParts(): string[] {
     JSON.stringify(STRUCTURE_STAGE_PERCENT),
     JSON.stringify(PRESET_HP_SHARE),
     String(IMPACT_REACH_M),
-    `${HOLE_REACH_M}:${HOLE_FOOT_SHARE}`,
+    `${HOLE_REACH_M}:${HOLE_FOOT_SHARE}:${ROOF_HOLE_SHARE}`,
     JSON.stringify(ABILITY_DESTRUCTION),
     JSON.stringify(CRATERS),
     JSON.stringify(RUBBLE),

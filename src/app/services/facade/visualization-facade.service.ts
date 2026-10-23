@@ -528,7 +528,8 @@ export class VisualizationFacadeService {
 
     this.inputHandler.setDestructionToolCallbacks({
       active: () => this.destructionTool.active(),
-      click: (lat: number, lon: number, height: number) => this.destructionTool.click(lat, lon, height),
+      // How high over the ground it struck goes on: the hole sits there (a roof, a wall), not at the foot of a wall
+      click: (lat: number, lon: number, height: number, up?: number) => this.destructionTool.click(lat, lon, height, up),
     });
 
     this.inputHandler.initKeyboard({

@@ -277,9 +277,10 @@ describe('SimCore in the same thread', () => {
     // and its HP once at the end of the packet
     expect(packet.ops.filter((op) => op[0].startsWith('structures.'))).toEqual([
       ['structures.stage', 0, 2, 128],
-      // A hole where it struck (E259): slot 0, on its wall nearest the hit (its circle, 5 m east of its middle), from
-      // its foot 2.5 m up, 3.5 m radius (60 damage on a barn of 5 m: 1 + 0.25 √60 times 6 / 5), the first
-      ['structures.holes', new Int32Array([0, 0, 50, 0, 25, 35, 1])],
+      // A hole where it struck (E259): slot 0, the hit 2 m east of its middle within its circle came down through its
+      // roof there, 0.6 of the radius under its top of 6 m, 3.5 m radius (60 damage on a barn of 5 m: 1 + 0.25 √60
+      // times 6 / 5), the first
+      ['structures.holes', new Int32Array([0, 0, 20, 0, 39, 35, 1])],
       ['structures.hp', new Int32Array([0, 40])],
     ]);
     expect(core.gsm.stateHash()).not.toBe(hashBefore);

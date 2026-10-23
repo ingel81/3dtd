@@ -301,9 +301,10 @@ describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
     ledger.hit(47, 1, 6, 45, 7.4);
     expect(ledger.holeList()!.slice(2 * HOLE_STRIDE, 2 * HOLE_STRIDE + 3)).toEqual([-30, 10, 74]);
     expect(slot(1)[3]).toBe(0);
-    // Inside its ground plan without a height (a hit at the ground under it): the nearest wall
-    ledger.hit(50, 2.5, 6, 45);
-    expect(ledger.holeList()!.slice(3 * HOLE_STRIDE, 3 * HOLE_STRIDE + 2)).toEqual([0, 30]);
+    // Inside its ground plan without a height (a shell come down on it from above): through its roof at that point,
+    // 0.6 of the hole's radius (27 dm) under its top (80 dm)
+    ledger.hit(54, 2.5, 6, 45);
+    expect(ledger.holeList()!.slice(3 * HOLE_STRIDE, 3 * HOLE_STRIDE + 3)).toEqual([40, 25, 64]);
   });
 
   it('sizes a hole by the damage, larger in a small structure, smaller in a large one; asks for the sight as a ruin loses a wall', () => {
