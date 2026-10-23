@@ -269,7 +269,7 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
 - **Stufe 1:** Risse aus einer gezeichneten Kachel (`crack-texture.ts`: Linien, die laufen und knicken, rot Haarrisse,
   grün lange Risse; im Code gezeichnet, kein Rauschen) von drei Seiten in Metern, dichter zur Kipprichtung; Ruß in
   Flecken, matt; Nachtfenster aus.
-- **Stufe 2:** der Biss aus der Ecke, Kante gezackt nach Winkel und Höhe, verkohlt, an wenigen Stellen glühend; innen
+- **Stufe 2:** der Biss aus der Ecke, Kante gezackt nach Richtung und Höhe, verkohlt, an wenigen Stellen glühend; innen
   die Wand gedimmt (Rückseiten). Eine Platte über dem Boden (kein Gras innen), Decken je Stockwerk (3 m) und
   Innenwände; ein angeschlagenes Gebäude mit Loch (Stufe 1 der Ansicht) hat sie schon, sobald das Loch aufgeht
   (`RuinSlabs.setHoled`), ohne Loch erst ab Stufe 2. Innenwände je eine quer zu jeder Seite, die für zwei
@@ -317,7 +317,7 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   (Stufe 1, `CustomMapWorld.shownStage`; die Simulation behält Stufe 0), denn Löcher zeichnen nur die Ruinen-Batches. eine Float-Textur mit einer Zeile je beschädigtem Bauwerk und zwei Texeln
   je Loch (Mitte im Rahmen der Gruppe und Radius; wann es aufging oder wuchs, eine Zahl für den Rand). Die Zeile reist im
   Richtungswert von `aDamage` (Richtung plus 8 mal Zeile plus eins): kein Attribut mehr. Ab Stufe 1 schneidet das
-  Fragment die Löcher aus, ein wenig breiter als hoch, der Rand gezackt nach Winkel und Höhe, verkohlt und glühend wie
+  Fragment die Löcher aus, ein wenig breiter als hoch, der Rand gezackt nach Richtung und Höhe, verkohlt und glühend wie
   der Biss (den zeigt nur noch eine Ruine ohne Löcher, etwa aus einem alten Spielstand); ein neues Loch geht in 0,3 s
   auf, ein gewachsenes behält seine Zeit. Innen ausgebrannt, nie sauber, nie schwarz (`DAMAGE_COLOR_FRAGMENT`): die
   Rückseiten tragen Putz statt der Außenfarbe und ein wenig eigenes Licht (sie sehen durch das Loch den Himmel), das
@@ -332,7 +332,15 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   Gemeinsame Ebenen flimmerten: wo zwei Bauwerke eine Wand teilen (Reihenhäuser, Teile eines Gebäudes) oder zwei
   Deckenkästen aneinanderstoßen, liegen Rückseite der Ruine und Vorderseite des anderen in einer Ebene. Die
   Rückseiten einer Ruine sind im logarithmischen Tiefenpuffer ein wenig näher (`BACK_PULL`, relativ: Millimeter auf
-  hundert Meter), so gewinnt das verrußte Innere der Ruine. Über einem großen Loch (ab 2,2 m) sackt eine Säule
+  hundert Meter), so gewinnt das verrußte Innere der Ruine.
+  Flimmern beim Bewegen der Kamera (Punkt 20, 2026-10-23): die Zacken von Loch, Biss und Säule hingen am Winkel
+  um die Senkrechte durch ihre Mitte. Auf einer Wand nahe der Mitte drehte der in wenigen Zentimetern um eine halbe
+  Runde, die Zacken wurden ein Fächer aus Splittern unter einem Pixel, dazu eine Naht hinter der Mitte. Jetzt
+  zackt das Rauschen nach der Richtung von der Mitte (`dmgRound`), stetig rundum. Was schmaler als ein Pixel wird,
+  geht in seinen Mittelwert über: das Glutband an den Kanten bleibt mindestens zwei Pixel breit bei gleicher
+  Lichtmenge, der Kernstreifen der Kante wird weich über einen Pixel, die Brocken auf den Böden blenden aus wie der
+  Splitt (gemessen mit Bild-Diffs: auf 45 m im Ruinenausschnitt Pixel mit drei oder mehr Auf-und-ab-Sprüngen
+  in 40 Bildern beim Zoomen 480 auf 175, beim Drehen 206 auf 121). Über einem großen Loch (ab 2,2 m) sackt eine Säule
   auf die Decke darunter und ist weg (dieselben Regeln wie beim Einsturz); sie ist rundum und nach oben gezackt und
   wird nach oben schmaler (0,85 bis 0,55 des Radius, von 0,4 bis 2 oder 2,9 Radien über dem Loch), kein Zylinder.
   Beim Fall senkt sich die Bruchkante zu den Löchern: der Einsturz beginnt, wo getroffen wurde (`dmgWorn`). Je mehr

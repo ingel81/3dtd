@@ -396,6 +396,12 @@ float dmgNoise(vec2 p) {
   f = f * f * (3.0 - 2.0 * f);
   return mix(mix(dmgHash(i), dmgHash(i + vec2(1.0, 0.0)), f.x), mix(dmgHash(i + vec2(0.0, 1.0)), dmgHash(i + vec2(1.0, 1.0)), f.x), f.y);
 }
+// Noise round a middle by the direction to it (a unit vector), k cells a radian: smooth all round. An angle round the
+// vertical had a seam behind the middle, and on a wall through it swept half a turn within a few centimetres, its
+// teeth a fan of slivers thinner than a pixel that flickered as the camera moved
+float dmgRound(vec3 u, float k, vec2 shift) {
+  return dmgNoise(vec2(u.x + 0.6 * u.y, u.z - 0.8 * u.y) * k + shift);
+}
 uniform sampler2D uRuinHoles;
 // What writeDamage packs into the heading: the ruin's row in RUIN_HOLES (-1 none), and the heading itself
 float dmgHoleRow(vec4 a) {
@@ -435,17 +441,17 @@ DmgHoleScan dmgScanHoles(vec3 p, vec4 a, bool edges, bool sag) {
     s.punched = max(s.punched, t.z);
     if (edges) {
       vec3 q = p - h.xyz;
-      float ang = atan(q.z, q.x);
-      float jag = dmgNoise(vec2(ang * 2.6, q.y * 0.9) + t.y) * 0.55 + dmgNoise(vec2(ang * 9.0, q.y * 3.1) + t.y) * 0.25;
+      vec3 u = q / max(length(q), 1e-4);
+      float jag = dmgRound(u, 2.6, vec2(t.y, q.y * 0.9)) * 0.55 + dmgRound(u, 9.0, vec2(t.y, q.y * 3.1)) * 0.25;
       float open = smoothstep(0.0, 0.3, uDamageTime - t.x);
       s.edge = min(s.edge, length(q * vec3(1.0, 1.25, 1.0)) - h.w * open * (0.7 + jag));
     }
     if (sag && s.sagStart < 0.0 && h.w >= 2.2) {
       vec2 q = p.xz - h.xz;
       // Ragged round it and up it, narrowing to the top: no cylinder
-      float ang = atan(q.y, q.x);
+      vec3 u = vec3(q.x, 0.0, q.y) / max(length(q), 1e-4);
       float up = (p.y - h.y) / h.w;
-      float reach = h.w * (0.85 - 0.15 * up) * (0.65 + 0.45 * dmgNoise(vec2(ang * 1.7, p.y * 0.35 + t.y)) + 0.2 * dmgNoise(vec2(ang * 5.3, p.y * 1.3)));
+      float reach = h.w * (0.85 - 0.15 * up) * (0.65 + 0.45 * dmgRound(u, 1.7, vec2(0.0, p.y * 0.35 + t.y)) + 0.2 * dmgRound(u, 5.3, vec2(0.0, p.y * 1.3)));
       float top = 2.0 + 0.9 * dmgNoise(p.xz * 0.45 + t.y);
       if (length(q) < reach && up > 0.4 && up < top) {
         s.sagFloor = h.y - h.w * 0.5;
@@ -610,11 +616,11 @@ float damageCut(vec3 p, DmgHoleScan holes) {
   }
   return cut;
 }
-// How far a point lies outside the bite, m (negative inside): its edge jagged by angle and height
+// How far a point lies outside the bite, m (negative inside): its edge jagged by direction and height
 float damageBite(vec3 p) {
   vec3 q = p - vDmgB.xyz;
-  float a = atan(q.z, q.x);
-  float jag = dmgNoise(vec2(a * 2.6, q.y * 0.9) + dmgHeading(vDmg) * 3.0) * 0.55 + dmgNoise(vec2(a * 9.0, q.y * 3.1)) * 0.25;
+  vec3 u = q / max(length(q), 1e-4);
+  float jag = dmgRound(u, 2.6, vec2(0.0, q.y * 0.9) + dmgHeading(vDmg) * 3.0) * 0.55 + dmgRound(u, 9.0, vec2(0.0, q.y * 3.1)) * 0.25;
   return length(q) - dmgBiteR(vDmgB) * (0.7 + jag);
 }
 // The slab's reinforcement where its concrete broke away (DMG_SLAB): bars every 20 cm both ways in two layers (its top
@@ -695,6 +701,9 @@ float damageEdge() {
 }
 // Soot on the surface, which is matte (DAMAGE_COLOR_FRAGMENT sets it, the roughness reads it)
 float dmgSoot = 0.0;
+// Metres of edge distance one pixel spans (DAMAGE_COLOR_FRAGMENT sets it): a band along a broken edge keeps a pixel or
+// two, a thinner one would sparkle as the camera moves
+float dmgEdgePx = 0.0;
 // Throws away what the damage took: the holes (a ruin without any its bite), the column over a large hole while it
 // does not fall whole and once it came down, a fall's parts as below
 void damageClip() {
@@ -769,13 +778,16 @@ if (vDmg.x > 0.5) {
   float lines = max(cr.g, cr.r * smoothstep(0.3, 0.8, strength));
   // Soot in patches on that side, and round the broken edges
   float edge = damageEdge();
+  dmgEdgePx = min(fwidth(edge), 1.0);
+  // Floor metres a pixel spans: rubble smaller than that fades into its mean (taken before any branch)
+  float floorPx = fwidth(vDmgP.x) + fwidth(vDmgP.z);
   float soot = smoothstep(0.6, 0.9, dmgNoise(vDmgP.xz * 0.35 + vDmgP.y * 0.25 + dmgHeading(vDmg))) * strength * 0.5;
   soot = max(soot, (1.0 - smoothstep(0.0, 0.9, edge)) * 0.55);
   diffuseColor.rgb *= (1.0 - 0.75 * lines * strength) * (1.0 - 0.7 * soot);
   vec3 core = dmgCore(vDmgP, fn);
   // The plaster round a broken edge broke off with it: the brick (or concrete) shows in a ragged band
   float rimW = 0.08 + 0.3 * dmgNoise(vDmgP.xz * 2.3 + vDmgP.y * 1.7);
-  float rim = 1.0 - smoothstep(rimW, rimW + 0.05, edge);
+  float rim = 1.0 - smoothstep(rimW, rimW + max(0.05, dmgEdgePx), edge);
 #ifdef DMG_SLAB
   bool inside = true;
   // A broken slab's inside (its box seen through the break): the concrete itself
@@ -823,10 +835,10 @@ if (vDmg.x > 0.5) {
       float near = 1.0 - smoothstep(0.0, 2.5, edge);
       float heap = smoothstep(0.35, 0.8, dmgNoise(p.xz * 0.45 + 7.0) * 0.8 + dmgNoise(p.xz * 1.3 + 3.0) * 0.3 + 0.4 * near);
       // Grit everywhere, thicker in the heaps; pieces strewn thin, piled in the heaps
-      float gritOn = step(0.8 - 0.45 * heap, grit.z) * (1.0 - smoothstep(0.02, 0.06, fwidth(p.x) + fwidth(p.z)));
+      float gritOn = step(0.8 - 0.45 * heap, grit.z) * (1.0 - smoothstep(0.02, 0.06, floorPx));
       c = mix(c, vec3(0.3, 0.27, 0.23) * (0.8 + 0.4 * dmgNoise(p.xz * 2.1)), 0.55 + 0.3 * heap);
       c *= mix(1.0, grit.y > 0.0 ? (0.65 + 0.6 * grit.x) * (0.75 + 0.25 * grit.y) : 0.8 + 0.2 * (1.0 + grit.y), gritOn);
-      float chunk = step(0.9 - 0.8 * heap, big.z);
+      float chunk = step(0.9 - 0.8 * heap, big.z) * (1.0 - smoothstep(0.07, 0.2, floorPx));
       vec3 piece = mix(vec3(0.33, 0.31, 0.28), vec3(0.3, 0.15, 0.09), step(0.85, big.x));
       // Each piece with the shadow it lies in
       c *= 1.0 - 0.45 * chunk * smoothstep(-0.5, 0.0, big.y) * step(big.y, 0.0);
@@ -885,7 +897,9 @@ if (vDmg.x > 0.5) {
     float spots = smoothstep(0.72, 0.88, dmgNoise(vDmgP.xz * 1.6 + vDmgP.y * 1.1 + dmgHeading(vDmg)));
     float flicker = 0.7 + 0.3 * sin(uDamageTime * 3.1 + dot(vDmgP, vec3(1.7, 2.3, 1.1)));
     float heat = vDmg.x > 2.5 ? 0.55 : 1.0;
-    totalEmissiveRadiance += vec3(1.0, 0.3, 0.05) * (1.0 - smoothstep(0.0, 0.22, e)) * spots * flicker * heat * 1.5 * (1.0 - dmgRebar);
+    // A band of 22 cm, at least two pixels wide far off and as much light in all
+    float band = max(0.22, 2.0 * dmgEdgePx);
+    totalEmissiveRadiance += vec3(1.0, 0.3, 0.05) * (1.0 - smoothstep(0.0, band, e)) * (0.22 / band) * spots * flicker * heat * 1.5 * (1.0 - dmgRebar);
   }
 }
 `;
