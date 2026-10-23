@@ -134,6 +134,8 @@ export interface RuinFrame {
   bz: number;
   seatY: number;
   height: number;
+  /** Metres of basement under the seat (MapObject.basement): its floor, and the ground cut away inside it (ruin-slabs.ts) */
+  cellar?: number;
 }
 
 /** What a structure's damage looks like, in the group frame */

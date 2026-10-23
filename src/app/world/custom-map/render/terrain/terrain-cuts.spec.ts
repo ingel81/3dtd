@@ -56,9 +56,9 @@ describe('terrain cuts', () => {
     const [cut] = groundCuts([placed(Math.atan2(1, 0))], entries, () => 0, () => null);
     cuts.set([cut, { ...cut, x: 108 }]);
     const at = (x: number, y: number) => cuts.indexAt(x, y);
-    expect(at(110, 0)).toEqual([1, 2]);
-    expect(at(120, 0)).toEqual([2, 0]);
-    expect(at(0, 0)).toEqual([0, 0]);
+    expect(at(110, 0)).toEqual([1, 2, 0, 0]);
+    expect(at(120, 0)).toEqual([2, 0, 0, 0]);
+    expect(at(0, 0)).toEqual([0, 0, 0, 0]);
     // The openings follow the index rows, two texels each
     const map = cuts.uniforms.uCutMap.value;
     const data = map.image.data as Float32Array;
@@ -71,7 +71,10 @@ describe('terrain cuts', () => {
     cuts.set([cut, { ...cut, x: 108 }]);
     expect(map.version).toBe(version);
     cuts.set([]);
-    expect(at(110, 0)).toEqual([0, 0]);
+    expect(at(110, 0)).toEqual([0, 0, 0, 0]);
+    // Up to four in a texel (the cellars of a row of ruins), a fifth left out there
+    cuts.set([0, 1, 2, 3, 4].map((k) => ({ ...cut, x: 100 + k })));
+    expect(at(110, 0)).toEqual([1, 2, 3, 4]);
     cuts.dispose();
   });
 });

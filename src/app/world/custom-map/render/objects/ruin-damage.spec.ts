@@ -1,5 +1,6 @@
 import { BoxGeometry, CylinderGeometry, Group, InstancedMesh, Mesh, MeshStandardMaterial, PerspectiveCamera, PlaneGeometry, type Material } from 'three';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { insideCut } from '../terrain/terrain-cuts';
 import { MASS_ASSET, type MapMass, type MapObject } from '../../map-document';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import { HeightField } from '../height-field';
@@ -371,6 +372,44 @@ describe('ruin damage: floors and inner walls', () => {
     slabs.setHoled('g', true);
     slabs.set('g', frame, shape, 1, FELL_LONG_AGO, 'brick');
     expect(slabs.mesh.count).toBe(4);
+    slabs.dispose();
+  });
+
+  it('gives a building over a cellar a floor down there and cuts the ground out of it while it stands (point 37)', () => {
+    const changed = vi.fn();
+    const slabs = new RuinSlabs(changed);
+    // A house of 8 by 4 m whose floor is 2.7 m over its cellar's, scene x being map -x
+    const cellar = { ...frame, cx: 10, cz: 5, cellar: 2.7 };
+    slabs.set('c', cellar, shape, 2, FELL_LONG_AGO, 'brick');
+    const m = slabs.mesh.instanceMatrix.array;
+    const ys = Array.from({ length: slabs.mesh.count }, (_, k) => +m[k * 16 + 13].toFixed(2));
+    expect(ys).toContain(+(-2.7 + 0.12).toFixed(2));
+    // Its whole ground cut up to 15 cm over its floor, in map space
+    const cuts = slabs.cellarCuts();
+    expect(cuts).toHaveLength(1);
+    const [c] = cuts;
+    expect(c.springY).toBeCloseTo(0.15);
+    expect(c.rise).toBe(0);
+    expect(insideCut(c, -10, 5, -1)).toBe(true);
+    expect(insideCut(c, -13.9, 6.9, 0.1)).toBe(true);
+    expect(insideCut(c, -10, 5, 0.3)).toBe(false);
+    expect(insideCut(c, -14.2, 5, -1)).toBe(false);
+    expect(insideCut(c, 10, 5, -1)).toBe(false);
+    expect(changed).toHaveBeenCalledTimes(1);
+    // The same again changes nothing; battered without a hole, fallen (its rubble lies on the ground) or gone: no cut
+    slabs.set('c', cellar, shape, 2, FELL_LONG_AGO, 'brick');
+    expect(changed).toHaveBeenCalledTimes(1);
+    slabs.set('c', cellar, shape, 3, FELL_LONG_AGO, 'brick');
+    expect(slabs.cellarCuts()).toEqual([]);
+    slabs.set('c', cellar, shape, 2, FELL_LONG_AGO, 'brick');
+    slabs.set('c', cellar, shape, 1, FELL_LONG_AGO, 'brick');
+    expect(slabs.cellarCuts()).toEqual([]);
+    slabs.set('c', cellar, shape, 2, FELL_LONG_AGO, 'brick');
+    slabs.delete('c');
+    expect(slabs.cellarCuts()).toEqual([]);
+    // Without a cellar none
+    slabs.set('h', frame, shape, 2, FELL_LONG_AGO, 'brick');
+    expect(slabs.cellarCuts()).toEqual([]);
     slabs.dispose();
   });
 

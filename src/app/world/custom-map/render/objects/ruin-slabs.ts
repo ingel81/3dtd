@@ -1,6 +1,7 @@
 import { BoxGeometry, DoubleSide, InstancedBufferAttribute, InstancedMesh, Matrix4, MeshStandardMaterial } from 'three';
 import { roofHeights, type CatalogRoof } from '../../object-roof';
 import type { RubbleMaterial } from '../../rubble-material';
+import type { GroundCut } from '../terrain/terrain-cuts';
 import { addDamage, DAMAGE_ATTRIBUTES, damageArrays, damageDepthMaterial, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
 
 /**
@@ -19,8 +20,17 @@ import { addDamage, DAMAGE_ATTRIBUTES, damageArrays, damageDepthMaterial, writeD
  * stage 2 have any, and the battered ones a hole opened (setHoled): through
  * the hole the storeys show. Intact buildings pay nothing for them. The
  * ground floor has a slab too, so no grass shows inside.
+ *
+ * A building over a cellar on a slope (MapObject.basement, its frame's
+ * `cellar`) has a floor down there as well, and while it stands with its
+ * insides showing the terrain is cut away inside its ground (cellarCuts,
+ * terrain-cuts.ts): the hill under its floor, which its cellar walls hide on
+ * a whole building, would fill the cellar seen through a hole. A fallen one
+ * keeps the ground, its rubble lies on it.
  */
 
+/** How far over the floor above a cellar the ground is cut away inside it, m: the slope is cut down to that floor */
+const CUT_OVER = 0.15;
 /** Storey height and slab thickness, m */
 const STOREY = 3;
 const THICKNESS = 0.24;
@@ -188,8 +198,13 @@ export class RuinSlabs {
   private readonly holed = new Set<string>();
   private readonly matrix = new Matrix4();
   private capacity = 0;
+  /** Per building over a cellar whose insides show the ground cut away inside it, map space */
+  private readonly cuts = new Map<string, GroundCut[]>();
 
-  constructor() {
+  constructor(
+    /** The cuts changed (cellarCuts) */
+    private readonly cutsChanged: () => void = () => undefined,
+  ) {
     // Inside, out of the sky's light: some of the environment, so floors seen through a hole are not black
     const material = new MeshStandardMaterial({ roughness: 0.95, metalness: 0, side: DoubleSide, envMapIntensity: 0.6 });
     addDamage(material, { slab: true });
@@ -213,6 +228,7 @@ export class RuinSlabs {
   set(id: string, frame: RuinFrame, shape: RuinShape, stage: number, fallStart: number, material: RubbleMaterial, footprint: RuinFootprint | null = null): void {
     this.asked.set(id, [id, frame, shape, stage, fallStart, material, footprint]);
     if (stage < 2 && !this.holed.has(id)) {
+      this.setCuts(id, null);
       if (this.ruins.delete(id)) this.flush();
       return;
     }
@@ -227,6 +243,19 @@ export class RuinSlabs {
       const rects = footprint ? footprintRects(footprint.roof, (k * STOREY + HEADROOM) / f.sy, box, footprint.section?.((k * STOREY + SECTION_OVER) / f.sy)) : [box];
       if (rects.length) floors.push({ y: frame.seatY + (k ? k * STOREY : THICKNESS / 2), rects });
     }
+    // Over a cellar: its floor as the ground floor's, and while it stands the ground inside its whole ground cut away
+    const cellar = frame.cellar ?? 0;
+    let cuts: GroundCut[] | null = null;
+    if (cellar > 0) {
+      const section = footprint?.section?.(SECTION_OVER / f.sy);
+      const inner = footprint ? footprintRects(footprint.roof, HEADROOM / f.sy, box, section) : [box];
+      if (inner.length) floors.push({ y: frame.seatY - cellar + THICKNESS / 2, rects: inner });
+      if (stage < 3) {
+        const whole: FootprintRect = { x0: mx - hx, x1: mx + hx, z0: mz - hz, z1: mz + hz };
+        cuts = (footprint ? footprintRects(footprint.roof, HEADROOM / f.sy, whole, section) : [whole]).map((r) => cellarCut(f, r, frame.seatY + CUT_OVER));
+      }
+    }
+    this.setCuts(id, cuts);
     // A wall across each side long enough for two rooms, off the middle by the ruin's roll (its heading)
     const walls: { alongZ: boolean; at: number; from: number; to: number; height: number }[] = [];
     const tallest = frame.height * WALL_TOP;
@@ -305,15 +334,37 @@ export class RuinSlabs {
   delete(id: string): void {
     this.asked.delete(id);
     this.holed.delete(id);
+    this.setCuts(id, null);
     if (this.ruins.delete(id)) this.flush();
   }
 
   clear(): void {
     this.asked.clear();
     this.holed.clear();
+    if (this.cuts.size) {
+      this.cuts.clear();
+      this.cutsChanged();
+    }
     if (!this.ruins.size) return;
     this.ruins.clear();
     this.flush();
+  }
+
+  /** The ground cut away inside the cellars of the standing ruins whose insides show, map space */
+  cellarCuts(): GroundCut[] {
+    return [...this.cuts.values()].flat();
+  }
+
+  /** Building `id`'s cuts (null: none), and a word when they changed */
+  private setCuts(id: string, cuts: GroundCut[] | null): void {
+    const had = this.cuts.get(id);
+    if (!cuts?.length) {
+      if (this.cuts.delete(id)) this.cutsChanged();
+      return;
+    }
+    if (had && had.length === cuts.length && had.every((c, k) => sameCut(c, cuts[k]))) return;
+    this.cuts.set(id, cuts);
+    this.cutsChanged();
   }
 
   dispose(): void {
@@ -364,6 +415,35 @@ export class RuinSlabs {
     this.mesh.instanceColor!.needsUpdate = true;
     for (const a of attrs) a.needsUpdate = true;
   }
+}
+
+/**
+ * The cut of rectangle `r` (model space of footprint `f`, at scale 1) up to
+ * height `top`: an opening of terrain-cuts.ts, straight up (no arch), from
+ * its side at z0 along its z. The group frame is the scene's (x is map -x,
+ * z map y, map-coords.ts)
+ */
+function cellarCut(f: { ox: number; oz: number; ux: number; uz: number; vx: number; vz: number }, r: FootprintRect, top: number): GroundCut {
+  const at = (x: number, z: number) => ({ x: -(f.ox + f.ux * x + f.vx * z), y: f.oz + f.uz * x + f.vz * z });
+  const mid = (r.x0 + r.x1) / 2;
+  const front = at(mid, r.z0);
+  const back = at(mid, r.z1);
+  const side = at(r.x1, r.z0);
+  const length = Math.hypot(back.x - front.x, back.y - front.y) || 1e-6;
+  return {
+    x: front.x,
+    y: front.y,
+    dx: (back.x - front.x) / length,
+    dy: (back.y - front.y) / length,
+    halfWidth: Math.hypot(side.x - front.x, side.y - front.y),
+    length,
+    springY: top,
+    rise: 0,
+  };
+}
+
+function sameCut(a: GroundCut, b: GroundCut): boolean {
+  return a.x === b.x && a.y === b.y && a.dx === b.dx && a.dy === b.dy && a.halfWidth === b.halfWidth && a.length === b.length && a.springY === b.springY;
 }
 
 function fract(v: number): number {

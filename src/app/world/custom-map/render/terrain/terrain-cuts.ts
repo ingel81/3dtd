@@ -21,7 +21,9 @@ import { seatHeight } from '../objects/object-seat';
  *
  * One float texture, a single texture unit (the terrain's program is near the
  * 16 of WebGL 2): a coarse index over the map (CUT_CELL metres a texel)
- * naming up to two openings per texel, then the openings, two texels each.
+ * naming up to four openings per texel, then the openings, two texels each.
+ * Besides the openings of models it cuts the ground out of the cellars of
+ * ruins whose insides show (ruin-slabs.ts cellarCut: straight up, no arch).
  * A fragment pays one fetch however many there are, a fragment near an
  * opening two more. The terrain
  * writes its own depth (logarithmic depth buffer), so the discard costs no
@@ -123,16 +125,16 @@ export class TerrainCuts {
     return this.cuts.length;
   }
 
-  /** Index (two per texel, 0 none) of the texel at a map point, for tests */
-  indexAt(x: number, y: number): [number, number] {
+  /** Index (four per texel, 0 none) of the texel at a map point, for tests */
+  indexAt(x: number, y: number): [number, number, number, number] {
     const i = Math.floor((x + this.width / 2) / CUT_CELL);
     const j = Math.floor((y + this.depth / 2) / CUT_CELL);
     const px = this.map.image.data as Float32Array;
     const t = (j * this.columns + i) * 4;
-    return [px[t], px[t + 1]];
+    return [px[t], px[t + 1], px[t + 2], px[t + 3]];
   }
 
-  /** Replaces the openings (past MAX_CUTS are left out; a texel names at most two); uploads only on a change */
+  /** Replaces the openings (past MAX_CUTS are left out; a texel names at most four); uploads only on a change */
   set(cuts: readonly GroundCut[]): void {
     const list = cuts.slice(0, MAX_CUTS);
     if (sameCuts(list, this.cuts)) return;
@@ -170,8 +172,11 @@ export class TerrainCuts {
       for (let j = j0; j <= j1; j++) {
         for (let i = i0; i <= i1; i++) {
           const t = (j * this.columns + i) * 4;
-          if (!px[t]) px[t] = k + 1;
-          else if (!px[t + 1]) px[t + 1] = k + 1;
+          for (let s = t; s < t + 4; s++) {
+            if (px[s]) continue;
+            px[s] = k + 1;
+            break;
+          }
         }
       }
     });
@@ -231,7 +236,8 @@ bool insideCutAt(float k, vec2 m, float h) {
 bool terrainCut(vec2 m, float h) {
   ivec2 size = textureSize(uCutMap, 0);
   ivec2 t = clamp(ivec2(floor((m - uCutGrid.xy) * uCutGrid.z)), ivec2(0), ivec2(size.x - 1, int(uCutGrid.w) - 1));
-  vec2 k = texelFetch(uCutMap, t, 0).rg;
-  return (k.x > 0.5 && insideCutAt(k.x - 1.0, m, h)) || (k.y > 0.5 && insideCutAt(k.y - 1.0, m, h));
+  vec4 k = texelFetch(uCutMap, t, 0);
+  return (k.x > 0.5 && insideCutAt(k.x - 1.0, m, h)) || (k.y > 0.5 && insideCutAt(k.y - 1.0, m, h))
+    || (k.z > 0.5 && insideCutAt(k.z - 1.0, m, h)) || (k.w > 0.5 && insideCutAt(k.w - 1.0, m, h));
 }
 `;

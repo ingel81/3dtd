@@ -51,6 +51,7 @@ import { nextFrameOrTimeout } from '../../../../utils/next-frame';
 import { DESTRUCTIBLE_CATEGORIES } from '../../custom-map-destruction';
 import { rubbleMaterialOf } from '../../rubble-material';
 import { RuinSlabs, type RuinFootprint } from './ruin-slabs';
+import type { GroundCut } from '../terrain/terrain-cuts';
 import { HOLE_SLOTS, HOLE_STRIDE } from '../../../../configs/destruction.config';
 import { modelSection } from './ruin-section';
 import type { CatalogRoof } from '../../object-roof';
@@ -291,6 +292,8 @@ export interface ObjectLayerOptions {
    * building stood)
    */
   standingAt?: (x: number, y: number) => number;
+  /** The ground cut away inside the cellars of ruins changed (cellarCuts) */
+  onCellarCuts?: () => void;
 }
 
 /**
@@ -431,7 +434,7 @@ export class MapObjectLayer {
     this.losStage.userData['losOnly'] = true;
     this.losStage.userData['losPrepare'] = ((tip, far, warmUp) => this.prepareLos(tip, far, warmUp)) satisfies LosPrepare;
     losGroup.add(this.losStage);
-    this.slabs = options.ruins ? new RuinSlabs() : null;
+    this.slabs = options.ruins ? new RuinSlabs(options.onCellarCuts) : null;
     if (this.slabs) this.group.add(this.slabs.mesh);
     this.masses = new MassLayer(field, assets, losGroup, options.waterLevelAt, () => this.version++, { ruins: !!options.ruins, standingAt: options.standingAt, slabs: this.slabs });
     this.group.add(this.masses.group);
@@ -1719,6 +1722,7 @@ export class MapObjectLayer {
       bz: m[at + 10] * hz,
       seatY: m[at + 13],
       height: b.model.height * Math.hypot(m[at + 4], m[at + 5], m[at + 6]),
+      ...(o.basement ? { cellar: o.basement } : {}),
     };
     const shape = ruinShape(ruinSeed(o), frame, d?.heading ?? null);
     if (d) shape.holeRow = RUIN_HOLES.rowOf(o.id);
@@ -1751,6 +1755,11 @@ export class MapObjectLayer {
     }
     for (const [id, args] of this.slabsNow) this.slabsDue.set(id, args);
     this.slabsNow.clear();
+  }
+
+  /** The ground cut away inside the cellars of the ruins whose insides show (RuinSlabs.cellarCuts), map space */
+  cellarCuts(): readonly GroundCut[] {
+    return this.slabs?.cellarCuts() ?? [];
   }
 
   /** Object `id`'s ruin floors gone, built or waiting */

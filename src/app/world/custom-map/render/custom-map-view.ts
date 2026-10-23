@@ -385,6 +385,7 @@ export class CustomMapView {
       waterLevelAt: (x, y) => this.waterLevelAt(x, y),
       ruins: options.ruins,
       ...(standing ? { standingAt: (x: number, y: number) => standing.heightAt(x, y) } : {}),
+      onCellarCuts: () => this.refreshCuts(),
     });
     this.group.add(this.objects.group);
     this.group.add(this.signs.group);
@@ -2023,11 +2024,14 @@ export class CustomMapView {
   /** The placed objects with an opening into the ground (catalogue `groundCut`), as of the last refreshContact */
   private cutObjects: MapObject[] = [];
 
-  /** The terrain cut away inside the openings of `cutObjects`, at their seats now */
+  /** The terrain cut away inside the openings of `cutObjects`, at their seats now, and inside the cellars of ruins */
   private refreshCuts(): void {
     const entries = this.entries?.map;
     if (!entries) return;
-    const cuts = groundCuts(this.cutObjects, entries, (x, y) => this.heights.heightAt(x, y), (x, y) => this.waterLevelAt(x, y));
+    const cuts = [
+      ...groundCuts(this.cutObjects, entries, (x, y) => this.heights.heightAt(x, y), (x, y) => this.waterLevelAt(x, y)),
+      ...this.objects.cellarCuts(),
+    ];
     if (cuts.length || this.terrain.cuts.size) this.terrain.cuts.set(cuts);
   }
 

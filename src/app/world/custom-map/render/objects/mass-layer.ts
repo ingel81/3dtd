@@ -1092,6 +1092,7 @@ export class MassLayer {
       bz: e[10] * hz,
       seatY: e[13],
       height: massTop(mass) * scale,
+      ...(o.basement ? { cellar: o.basement } : {}),
     };
     const footprint: RuinFootprint = { roof: massRoof(mass), box: [mx, mz, hx, hz], ox: e[12], oz: e[14], ux: e[0], uz: e[2], vx: e[8], vz: e[10], sy: scale };
     return { frame, shape: ruinShape(ruinSeed(o), frame, heading), footprint };
