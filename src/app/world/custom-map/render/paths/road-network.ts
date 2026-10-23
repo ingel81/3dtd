@@ -318,11 +318,22 @@ export class RoadNetworkBuilder {
 
   /**
    * Where the surface hides the ground (the path mask's covers): each
-   * ribbon's centre line out to COVER_INSET short of its edges
+   * ribbon's centre line as drawn, between its trims, out to COVER_INSET
+   * short of its edges. Not into its junctions: their kerbs cut in where a
+   * road narrows on (its pavement ending) or bends away, and a cover to the
+   * node showed the bare ground's grey there in a wedge beside the surface
    */
   covers(): RoadCover[] {
     const out: RoadCover[] = [];
-    for (const c of this.chains.values()) if (c.half - COVER_INSET > 0.3) out.push({ id: c.id, line: c.line, half: c.half - COVER_INSET });
+    for (const c of this.chains.values()) {
+      if (c.inner || c.half - COVER_INSET <= 0.3) continue;
+      const [from, to] = ribbonSpan(c);
+      if (to - from < 0.5) continue;
+      const line = [pointAt(c, from)];
+      for (let k = 0; k < c.line.length; k++) if (c.at[k] > from && c.at[k] < to) line.push(c.line[k]);
+      line.push(pointAt(c, to));
+      out.push({ id: c.id, line, half: c.half - COVER_INSET });
+    }
     return out;
   }
 
