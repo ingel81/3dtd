@@ -74,6 +74,7 @@ describe('error keys never reach the player (TODO E245)', () => {
     'sim/worker/sim.worker.ts': "the simulation's failure, no map file or store",
     'three-engine/tile-loading-tracker.ts': 'tile load errors, no map file or store',
     'world/custom-map/map-pack.ts': 'the key goes with its fault; the page builds the MapFileError again',
+    'world/custom-map/render/drape/draped-conform-pool.ts': "a worker's ErrorEvent",
     'world/custom-map/map-text.ts': 'mapErrorMessage itself, for any other error',
     'world/custom-map/map-unpack.ts': "a worker's ErrorEvent",
     'world/osm/import-osm.ts': 'a heights or Overpass failure, an English detail inside a worded line',
