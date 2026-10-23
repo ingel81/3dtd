@@ -11,9 +11,7 @@
 // wire) keeps that share of its pixels (`cover`). The textures are the shared
 // KTX2 files beside the models, decoded with three's Basis transcoder.
 // Writes tools/map-assets/bands.json, which update_catalog.py puts into the
-// catalogue as `band`. Then how a building's basement looks (cellars.json,
-// catalogue `cellar`, at the end): the surface of its ground storey, its
-// colour over that surface, the top of its plinth.
+// catalogue as `band`.
 //
 //   node tools/map-assets/measure_bands.mjs public/maps/assets
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -25,8 +23,6 @@ import { loadGlb } from '../model-budget/glb-node.mjs';
 
 /** Pixels along the longer side of a view */
 const RES = 384;
-/** How far a weathered model's occlusion darkens its colour in the game (object-layer.ts addGrime) */
-const GRIME_SHARE = 0.55;
 /** A side that covers at least this share of its rectangle is drawn whole */
 const SOLID = 0.85;
 const CATEGORIES = new Set(['wall', 'structure']);
@@ -113,10 +109,8 @@ function look(json, models, index) {
   const m = json.materials?.[index] ?? {};
   const pbr = m.pbrMetallicRoughness ?? {};
   return {
-    name: m.name ?? '',
     factor: pbr.baseColorFactor ?? [1, 1, 1, 1],
     colour: slot(json, models, pbr.baseColorTexture),
-    occlusion: slot(json, models, m.occlusionTexture),
     cutoff: m.alphaMode === 'MASK' ? (m.alphaCutoff ?? 0.5) : m.alphaMode === 'BLEND' ? 0.5 : -1,
     twoSided: !!m.doubleSided,
   };
@@ -165,14 +159,9 @@ function triangles(root, json, associations, models) {
 /**
  * A view of the triangles: axes (a, b) across the picture, c towards the
  * viewer. Returns the mean linear colour of the covered pixels and the
- * covered area (m²); with `rows` ([from, to] along b, m) only the pixels
- * between, and those at least `minLum` bright (a wall without its windows).
- * With `grime` the baked occlusion darkens the colour as the game lets it
- * on a model the catalogue weathers (object-layer.ts addGrime: GRIME_SHARE).
- * Also each pixel's look and colour (`looks`, `colour`; null where nothing
- * covers it), the picture's width, height, pixel size and the b of its first row
+ * covered area (m²)
  */
-function view(tris, bounds, a, b, c, sign, rows = null, minLum = 0, grime = false) {
+function view(tris, bounds, a, b, c, sign) {
   const lo = [bounds.min.x, bounds.min.y, bounds.min.z];
   const hi = [bounds.max.x, bounds.max.y, bounds.max.z];
   const px = Math.max(hi[a] - lo[a], hi[b] - lo[b]) / RES;
@@ -180,7 +169,6 @@ function view(tris, bounds, a, b, c, sign, rows = null, minLum = 0, grime = fals
   const h = Math.max(1, Math.ceil((hi[b] - lo[b]) / px));
   const depth = new Float32Array(w * h).fill(-Infinity);
   const colour = new Float32Array(w * h * 3);
-  const looks = new Array(w * h).fill(null);
   for (const { ids, world, uvs, col, look: lk } of tris) {
     const xs = ids.map((i) => (world[i * 3 + a] - lo[a]) / px);
     const ys = ids.map((i) => (world[i * 3 + b] - lo[b]) / px);
@@ -214,14 +202,6 @@ function view(tris, bounds, a, b, c, sign, rows = null, minLum = 0, grime = fals
           bl *= LINEAR[d[o + 2]];
           al *= d[o + 3] / 255;
         }
-        if (grime && lk.occlusion) {
-          const uv = uvs[lk.occlusion.uv];
-          const ao = lk.occlusion.img.data[texel(lk.occlusion, lerp(uv, 0), lerp(uv, 1))] / 255;
-          const k = 1 - GRIME_SHARE + GRIME_SHARE * ao;
-          r *= k;
-          g *= k;
-          bl *= k;
-        }
         if (col) {
           r *= lerp(col, 0);
           g *= lerp(col, 1);
@@ -230,7 +210,6 @@ function view(tris, bounds, a, b, c, sign, rows = null, minLum = 0, grime = fals
         }
         if (al < lk.cutoff) continue;
         depth[at] = z;
-        looks[at] = lk;
         colour[at * 3] = r;
         colour[at * 3 + 1] = g;
         colour[at * 3 + 2] = bl;
@@ -241,15 +220,10 @@ function view(tris, bounds, a, b, c, sign, rows = null, minLum = 0, grime = fals
   let covered = 0;
   for (let i = 0; i < w * h; i++) {
     if (depth[i] === -Infinity) continue;
-    if (rows) {
-      const at = lo[b] + (Math.floor(i / w) + 0.5) * px;
-      if (at < rows[0] || at > rows[1]) continue;
-    }
-    if (minLum && 0.2126 * colour[i * 3] + 0.7152 * colour[i * 3 + 1] + 0.0722 * colour[i * 3 + 2] < minLum) continue;
     covered++;
     for (let k = 0; k < 3; k++) sum[k] += colour[i * 3 + k];
   }
-  return { sum, covered, area: covered * px * px, looks, colour, w, h, px, b0: lo[b] };
+  return { sum, covered, area: covered * px * px };
 }
 
 const r3 = (x) => Math.round(x * 1000) / 1000;
@@ -279,127 +253,3 @@ for (const o of objects) {
 const lines = Object.entries(out).map(([id, b]) => `  ${JSON.stringify(id)}: ${JSON.stringify(b)}`);
 writeFileSync(join(here, 'bands.json'), `{\n${lines.join(',\n')}\n}\n`);
 console.error(lines.length, 'models measured');
-
-// The basements of the catalogue's buildings (MassLayer cellarBody): what the model's walls show on its ground storey
-// (four sides between CELLAR_ROWS, windows and doors left out by CELLAR_MIN_LUM). The look most of those pixels have
-// is its wall; its colour texture's name says which surface of the raised buildings' kit (`building-mass`) the
-// basement takes (FACADE_OF, plaster where none fits), the wall's mean colour over that surface's mean its tone. Its
-// plinth: from the ground up the rows where most of the sides show something else than the wall (a plinth of
-// concrete or stone), up to CELLAR_PLINTH_MAX; the basement reaches up over it, so the model's plinth does not stand
-// as a band between the basement and the walls. A weathered model (catalogue `grime`) is measured with its occlusion
-// as the game darkens it. Its window frames (materials named frame-...): their mean colour, for the basement's windows
-// and door. Writes tools/map-assets/cellars.json, which update_catalog.py puts into the catalogue as `cellar`:
-// { tone, facade, plinth, frame }
-const CELLAR_ROWS = [0.4, 2.6];
-const CELLAR_MIN_LUM = 0.05;
-const CELLAR_PLINTH_MAX = 1.5;
-/** The kit surface (MapMassFacade) by the name of a colour texture, first match */
-const FACADE_OF = [
-  [/sandstone|stone|rock|castle|cobble|ashlar|slate/, 'stone'],
-  // A house of wood stands on a basement of stone, in the stone's own colour
-  [/plank|wood|timber|log|trunk/, 'stone', false],
-  [/brick/, 'brick'],
-  [/concrete/, 'concrete'],
-  [/metal|corrugated|sheet/, 'metal'],
-  [/plaster|stucco|render/, 'plaster'],
-];
-/** The kit's surface of each facade (mass-layer.ts FACADE_SURFACE) */
-const KIT_SURFACE = { plaster: 'mass-plaster', stone: 'mass-stone', brick: 'mass-brick', concrete: 'mass-concrete', metal: 'mass-metal' };
-const kit = await loadGlb(join(assets, 'models', 'building-mass.glb'));
-/** The mean linear colour of each kit surface: its texture times its factor */
-const kitMean = {};
-for (const [facade, name] of Object.entries(KIT_SURFACE)) {
-  const surface = look(kit.json, join(assets, 'models'), kit.json.materials.findIndex((m) => m.name === name));
-  const mean = [0, 0, 0];
-  const d = surface.colour.img.data;
-  for (let i = 0; i < d.length; i += 4) for (let k = 0; k < 3; k++) mean[k] += LINEAR[d[i + k]] * surface.factor[k];
-  kitMean[facade] = mean.map((v) => v / (d.length / 4));
-}
-/** The name of a look's colour texture without its folder, size and hash (painted_plaster_wall_diff_1k-x1.25-... to painted_plaster_wall) */
-const family = (lk) => {
-  const path = lk?.colour?.img && [...images.entries()].find(([, img]) => img === lk.colour.img)?.[0];
-  return path ? path.split(/[\\/]/).pop().replace(/_diff.*$|\.ktx2$/, '') : '';
-};
-const cellars = {};
-const families = {};
-for (const o of objects) {
-  if (o.category !== 'building' || !boxes[o.id] || o.file === '' || o.id === 'building-mass') continue;
-  const models = join(assets, 'models');
-  const { root, json, associations } = await loadGlb(join(assets, o.file ?? `models/${o.id}.glb`));
-  const tris = triangles(root, json, associations, models);
-  const bounds = new Box3().setFromObject(root, true);
-  const grime = !!o.grime;
-  const sides = [
-    view(tris, bounds, 0, 1, 2, 1, CELLAR_ROWS, CELLAR_MIN_LUM, grime),
-    view(tris, bounds, 0, 1, 2, -1, CELLAR_ROWS, CELLAR_MIN_LUM, grime),
-    view(tris, bounds, 2, 1, 0, 1, CELLAR_ROWS, CELLAR_MIN_LUM, grime),
-    view(tris, bounds, 2, 1, 0, -1, CELLAR_ROWS, CELLAR_MIN_LUM, grime),
-  ];
-  // The wall: the look of most pixels on the ground storey
-  const count = new Map();
-  for (const v of sides) {
-    for (let i = 0; i < v.w * v.h; i++) {
-      const lk = v.looks[i];
-      if (!lk) continue;
-      const at = v.b0 + (Math.floor(i / v.w) + 0.5) * v.px;
-      if (at < CELLAR_ROWS[0] || at > CELLAR_ROWS[1]) continue;
-      if (0.2126 * v.colour[i * 3] + 0.7152 * v.colour[i * 3 + 1] + 0.0722 * v.colour[i * 3 + 2] < CELLAR_MIN_LUM) continue;
-      count.set(lk, (count.get(lk) ?? 0) + 1);
-    }
-  }
-  if (!count.size) continue;
-  const wall = [...count.entries()].sort((p, q) => q[1] - p[1])[0][0];
-  const name = family(wall);
-  // Its looks: every one with the wall's texture (the halves of a pair of houses in two tints are one wall)
-  const isWall = (lk) => lk === wall || (!!name && family(lk) === name);
-  const match = FACADE_OF.find(([re]) => re.test(name));
-  const facade = match?.[1] ?? 'plaster';
-  // Its colour: the wall's pixels alone, over the surface's mean, held to the range the texture keeps its look in
-  const sum = [0, 0, 0];
-  let n = 0;
-  for (const v of sides) {
-    for (let i = 0; i < v.w * v.h; i++) {
-      if (!isWall(v.looks[i])) continue;
-      const at = v.b0 + (Math.floor(i / v.w) + 0.5) * v.px;
-      if (at < CELLAR_ROWS[0] || at > CELLAR_ROWS[1]) continue;
-      n++;
-      for (let k = 0; k < 3; k++) sum[k] += v.colour[i * 3 + k];
-    }
-  }
-  const tone = match?.[2] === false ? [1, 1, 1] : [0, 1, 2].map((k) => r3(Math.min(2.4, Math.max(0.3, sum[k] / n / Math.max(kitMean[facade][k], 0.02)))));
-  // Its plinth: up from the ground, the rows where most covered pixels of the four sides are not the wall
-  let plinth = 0;
-  const px = Math.min(...sides.map((v) => v.px));
-  for (let y = px / 2; y < CELLAR_PLINTH_MAX; y += px) {
-    let other = 0;
-    let covered = 0;
-    for (const v of sides) {
-      const row = Math.floor((y - v.b0) / v.px);
-      if (row < 0 || row >= v.h) continue;
-      for (let x = 0; x < v.w; x++) {
-        const lk = v.looks[row * v.w + x];
-        if (!lk) continue;
-        covered++;
-        if (!isWall(lk)) other++;
-      }
-    }
-    if (!covered || other * 2 <= covered) break;
-    plinth = y + px / 2;
-  }
-  // Its window frames on the ground storey and above, as the four sides show them
-  const fs = [0, 0, 0];
-  let fn = 0;
-  for (const v of sides) {
-    for (let i = 0; i < v.w * v.h; i++) {
-      if (!/^frame/.test(v.looks[i]?.name ?? '')) continue;
-      fn++;
-      for (let k = 0; k < 3; k++) fs[k] += v.colour[i * 3 + k];
-    }
-  }
-  cellars[o.id] = { tone, facade, plinth: Math.round(plinth * 100) / 100, ...(fn ? { frame: fs.map((v) => r3(v / fn)) } : {}) };
-  if (process.env.CELLAR_VERBOSE) console.error(o.id, name, JSON.stringify(cellars[o.id]));
-  families[name] = (families[name] ?? 0) + 1;
-}
-const cellarLines = Object.entries(cellars).map(([id, c]) => `  ${JSON.stringify(id)}: ${JSON.stringify(c)}`);
-writeFileSync(join(here, 'cellars.json'), `{\n${cellarLines.join(',\n')}\n}\n`);
-console.error(cellarLines.length, 'basements measured; walls by texture', JSON.stringify(families));

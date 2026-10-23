@@ -446,11 +446,17 @@ export class InputHandlerService {
     }
 
     // So does the destruction tool: a blast where the click strikes (a wall, a roof, the ground), or the structure
-    // there picked; how high over the ground it struck places the hole (debug:blast `up`)
+    // there picked; how high over the floor of the building it struck (under it on its cellar's wall) or over the
+    // ground places the hole (debug:blast `up`)
     if (this.destructionTool?.active()) {
       const hit = this.engine.picker.raycastStrike(event.clientX, event.clientY);
       if (!hit) return;
       const at = this.engine.sync.localToGeo(hit);
+      const floor = this.engine.floorUnder(hit);
+      if (floor !== null) {
+        this.destructionTool.click(at.lat, at.lon, at.height, hit.y - floor);
+        return;
+      }
       const up = at.height - (this.engine.getTerrainHeightAtGeo(at.lat, at.lon) ?? at.height);
       this.destructionTool.click(at.lat, at.lon, at.height, up >= STRUCK_ABOVE_M ? up : undefined);
       return;

@@ -82,10 +82,8 @@ node tools/map-assets/bake_far_boxes.mjs public/maps/assets
 
 # Farben des Fernbands der Linienstücke (Mauern, Zäune, Hecken, Gleise; bands.json, Feld `band`): das volle Modell
 # von oben und von beiden Längsseiten gerastert (Farbtextur linear mal Faktor, Alpha schneidet), Mittel oben und
-# seitlich, Deckung der Seite (`cover`) unter 85 %; liest die KTX2-Dateien mit dem Basis-Transcoder von three. Dazu
-# die Keller unter Gebäuden (cellars.json, Feld `cellar`): am Erdgeschoss die Oberfläche des Kits nach der Wandtextur,
-# ihr Ton (verwitterte Modelle mit AO), die Oberkante der Sockelleiste, die Rahmenfarbe. Danach update_catalog.py
-# (CELLAR_VERBOSE=1 zeigt je Modell Wandtextur und Werte)
+# seitlich, Deckung der Seite (`cover`) unter 85 %; liest die KTX2-Dateien mit dem Basis-Transcoder von three. Danach
+# update_catalog.py
 node tools/map-assets/measure_bands.mjs public/maps/assets
 
 # Objekte in catalog.json schreiben (objects.json + Messwerte + bases.json), Dreiecke je Modell und LOD

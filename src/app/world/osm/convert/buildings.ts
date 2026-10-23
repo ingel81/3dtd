@@ -29,8 +29,8 @@
  *    for now, or `budget`) the smallest buildings far from the HQ go first
  *    past it.
  * 6. Slope: each model's floor lies at the ground before its entrance
- *    (floorLevel); towards the valley it stands over a basement down to the
- *    ground (MapObject.basement, its z the same), up the hill the ground is cut
+ *    (floorLevel); towards the valley it stands over its cellar, open down to the
+ *    ground (MapObject.cellar, cellarForDrop; its z the drop), up the hill the ground is cut
  *    to its floor, a yard and a bank beyond, a retaining wall at the yard's
  *    edge only where the bank would stand higher than RETAINING_FROM on a side
  *    facing up the hill (cutSlope). Never under a road or in water.
@@ -71,6 +71,7 @@ import { convexHull, pointInRing } from './raster';
 import { MASS_ASSET, type MapFootprints, type MapMass } from '../../custom-map/map-document';
 import { packFootprints, type FootprintDrop, type FootprintRing } from '../../custom-map/map-footprints';
 import { massArea, massBodies, massBox, massDistance, massOnRamp, massRadius, massTop, massTriangles, ringsContain } from '../../custom-map/object-mass';
+import { cellarForDrop } from '../../custom-map/object-cellar';
 import { toModel } from '../../custom-map/object-ground';
 import { CLIP_KEEP, CLIP_LEAST, clipOffRoads, isDrawnPart, raiseMass, sharedWalls, shareWalls, type OsmPart } from './building-mass';
 import { findOldTown } from './old-town';
@@ -136,7 +137,7 @@ export interface BuildingReport {
   pads: number;
   deepestCutM: number;
   retainingWalls: number;
-  /** Buildings standing over a basement (MapObject.basement), the deepest (m) */
+  /** Buildings lifted over a cellar open to the slope (MapObject.cellar), the deepest drop (m) */
   basements: number;
   deepestBasementM: number;
   /** Scene points the buildings spend, and of the scene budget */
@@ -248,9 +249,9 @@ const HQ_CLEAR = 14;
 const ROAD_GUARD = 0.5;
 /** Metres outside the front wall the ground before the entrance is read (the floor's height) */
 const ENTRANCE_OUT = 1.5;
-/** A building's floor stands at most this far (m) over its seat: the deepest basement */
+/** A building's floor stands at most this far (m) over its seat: the deepest drop to its cellar's foot */
 const MAX_BASEMENT = 6;
-/** A basement shallower than this (m) is none: the foundation covers it */
+/** A drop smaller than this (m) lifts no building: the foundation covers it */
 const BASEMENT_FROM = 0.15;
 /** Metres beside the walls the hill is cut level with the floor (a yard behind a house dug into the slope) */
 const YARD = 2;
@@ -644,7 +645,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       const openings = mass ? massOpenings(mass, object, coveredWays, report.openings) : [];
       if (mass && openings.length) mass.openings = openings;
       const onRamp = mass?.openings ? (x: number, y: number) => onRampAt(object, mass, x, y) : undefined;
-      // On a slope: its floor at the ground before its entrance, the hill behind it cut to that, a basement under
+      // On a slope: its floor at the ground before its entrance, the hill behind it cut to that, its cellar under
       // it towards the valley. A way into it (a passage, a car park's ramp: their floors count from the seat) and a
       // ruin stand on the lowest ground
       const floor = mass
@@ -663,18 +664,19 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     report.placed++;
   }
   // Each building over its seat on the ground as all the cuts left it, as the renderer seats it: lifted to its floor
-  // over a basement where the hill falls away under it
+  // over its cellar where the hill falls away under it
   const ground = (x: number, y: number) => heightAt(doc.terrain, x, y);
   for (const { object, floor } of standing) {
     const mass = object.mass;
     const seat = seatHeight(mass ? { category: 'building', footprint: 1, height: mass.height } : footingOf(object.asset), object, ground, () => null);
-    const basement = round2(floor - seat);
-    if (basement >= BASEMENT_FROM) {
-      object.z = basement;
-      object.basement = basement;
+    const drop = Math.max(0, round2(floor - seat));
+    if (drop >= BASEMENT_FROM) {
+      object.z = drop;
       report.basements++;
-      report.deepestBasementM = Math.max(report.deepestBasementM, round1(basement));
+      report.deepestBasementM = Math.max(report.deepestBasementM, round1(drop));
     }
+    // Its cellar: open to the slope with as many storeys as reach the ground, else buried (object-cellar.ts)
+    object.cellar = cellarForDrop(drop);
     // Its car park entrances' floors under the seat, where the ramps meet the wall
     if (mass?.openings?.some((o) => o.kind === 'garage')) garageFloors(mass.openings, object, doc.terrain, seat);
   }
@@ -1413,7 +1415,7 @@ function floorLevel(
  * floor behind them; a stretch where no wall can stand (a road, water, the
  * map's edge, the next building) keeps the bank. Never under a road or in
  * water, nothing filled: towards the valley the hill stays, the building's
- * basement shows there (MapObject.basement). Without `onRoad` no walls.
+ * cellar shows there (MapObject.cellar). Without `onRoad` no walls.
  * The walls and the deepest cut
  */
 function cutSlope(

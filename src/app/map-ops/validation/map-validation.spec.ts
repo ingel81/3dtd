@@ -6,6 +6,10 @@ import { HeightField } from '../../world/custom-map/render/height-field';
 import { objectsInAir, objectsOnMoverWays, validateMap, waterInAir } from './map-validation';
 import { en } from '../../i18n/messages/en';
 import { checkText } from './check-text';
+import type { MapCellar } from '../../world/custom-map/object-cellar';
+
+/** A house without a cellar: it hangs where it is lifted (object-cellar.ts) */
+const NO_CELLAR: MapCellar = { mode: 'none', storeys: 1 };
 
 const codes = (doc: ReturnType<typeof createMapDocument>) => validateMap(doc).map((i) => i.code);
 
@@ -181,8 +185,10 @@ describe('validateMap, objects in the air', () => {
       place('afloat', 'buoy', 10, -0.4),
       // One sunk deeper than half its height
       place('sunk', 'buoy', 20, -2),
-      // A house raised by 2 m, a lamp on a quay, a lamp beside it in the air
-      place('raised', 'house', 30, 2),
+      // A house raised by 2 m without a cellar (one with its cellar stands on it), a lamp on a quay, a lamp beside
+      // it in the air
+      { ...place('raised', 'house', 30, 2), cellar: NO_CELLAR },
+      place('cellared', 'house', 40, 2),
       place('quay', 'quay', 50),
       place('on-quay', 'lamp', 51, 2),
       place('beside', 'lamp', 60, 2),
@@ -214,7 +220,7 @@ describe('validateMap, objects in the air', () => {
     doc.terrain.grid.heights.fill(-2);
     doc.terrain.water = { ...emptyWater(doc.terrain, 0), kind: 'ice' };
     doc.terrain.water.mask.fill(255);
-    doc.objects.push(place('hut', 'house', 0, 2), place('hut-high', 'house', 20, 3));
+    doc.objects.push({ ...place('hut', 'house', 0, 2), cellar: NO_CELLAR }, { ...place('hut-high', 'house', 20, 3), cellar: NO_CELLAR });
     expect(inAir(doc)).toEqual(['hut-high']);
   });
 

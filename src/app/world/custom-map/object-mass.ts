@@ -146,8 +146,6 @@ export interface MassBody {
   shop?: number[];
   /** Its walls' colour over the object's (a part's own `building:colour`) */
   tint?: string;
-  /** Its walls' colour as a factor over their facade's texture, times the object's (a catalogue model's basement in its walls' colour) */
-  tone?: readonly [number, number, number];
   roofTint?: string;
   roofCover?: MapMassCover;
   /** The ways through the building (MapMass.openings): its walls open where they cross them */
@@ -158,12 +156,11 @@ export interface MassBody {
    * else each on the part standing on the ground over its inside
    */
   hosts?: readonly MapMassOpening[];
-  /** Metres of basement under its floor (MapObject.basement): its walls reach that much further down */
-  basement?: number;
-  /** Only the basement under a catalogue model (its wall box): walls up to the model's floor, no roof */
-  cellar?: boolean;
-  /** The colour of its windows' frames (linear; a catalogue model's, under which it is the basement) */
-  frame?: readonly [number, number, number];
+  /**
+   * Its building's cellar (MapObject.cellar, object-cellar.ts) for a body on the ground: its walls reach `depth`
+   * (model metres) under its floor, `storeys` open to the slope with windows, none when `buried`
+   */
+  cellar?: { depth: number; storeys: number; buried: boolean };
   /** The building's ground (MapMass.rings) the openings' insides run through; its own rings when missing */
   ground?: number[][];
   /** The rings of all its building's parts: an opening reaches out to a part's wall a little past the ground */

@@ -296,14 +296,18 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   0,3 m Wand weniger, so teilen Treppen, Balken oder Schutt drinnen keine Zeile. Der Rundturm hat so runde Decken in
   seiner Wand (vorher ragten die Ecken des Quadrats als Simse heraus), ein offenes Hochhaus keine, wo es offen ist; ohne
   Raster das Rechteck wie bisher.
-  **Keller am Hang** (Punkt 37, `MapObject.basement`, im Rahmen der Ruine `cellar`): ein Gebäude über einem
-  Kellergeschoss hat dazu eine Platte auf dem Kellerboden (Sitz der Ruine weniger die Kellertiefe, dieselben Kästen wie
-  die Platte darüber). Solange es steht und sein Inneres zeigt (ein Loch oder Stufe 2), ist das Gelände in seinem
-  ganzen Grund bis 15 cm über dem Boden darüber ausgespart (`RuinSlabs.cellarCuts`, je Kasten ein Schnitt ohne Bogen
-  in `terrain-cuts.ts`, das Gelände verwirft dort seine Fragmente): durch ein Loch in der Kellerwand zeigt sich der
-  Kellerraum, nicht der Hang, der vorher bis unter die Erdgeschossplatte stand. Ein ganzes Haus braucht keinen
-  Schnitt (seine Wände verdecken den Hang), ein gefallenes keinen (sein Schutt liegt auf dem Gelände). Der Index der
-  Schnitte nennt dafür bis zu vier je Texel von 8 m, ein Fetch je Fragment wie bisher.
+  **Keller** (Punkt 37 und 50, `MapObject.cellar`, im Rahmen der Ruine `cellar` und `cellarStoreys`; docs/CUSTOM_MAPS.md
+  „Keller“): ein Gebäude über einem Keller hat dazu in jedem Kellergeschoss eine Platte (Sitz der Ruine weniger je 2,8 m,
+  dieselben Kästen wie die Platte darüber), und seine Innenwände reichen auf denselben Linien bis zum untersten Boden.
+  Solange es steht und sein Inneres zeigt (ein Loch oder Stufe 2), ist das Gelände in seinem ganzen Grund bis 15 cm
+  über dem Boden darüber ausgespart (`RuinSlabs.cellarCuts`, je Kasten ein Schnitt ohne Bogen in `terrain-cuts.ts`,
+  das Gelände verwirft dort seine Fragmente): durch ein Loch in der Kellerwand zeigt sich der Kellerraum, nicht der
+  Hang. Ein gefallenes behält seinen Keller als Grube: der Schnitt reicht 8 m über den Boden (auch durch den Haufen,
+  den sein Schutt im Gelände aufwirft), die Einschlagmarken verwerfen sich dort wie das Gelände, die Erdgeschossplatte
+  ist hinunter, und die Trümmerstücke liegen auf dem untersten Boden, zur Mitte hin bis 1,4 m hoch
+  (`RuinSlabs.pitFloor`, `CustomMapView.layRubble`). Die Simulation behält ihren Haufen. Ein ganzes Haus braucht
+  keinen Schnitt (seine Wände verdecken den Hang). Der Index der Schnitte nennt dafür bis zu vier je Texel von 8 m, ein
+  Fetch je Fragment wie bisher. Ein Treffer an der Kellerwand locht sie dort (`RunStructure.cellar`).
 - **Stufe 3:** das Gebäude stürzt in sich zusammen (E259, im Vertex-Shader aus Fallstart, den Zahlen der Instanz und
   der Uhr, keine CPU je Bild; siehe „Einsturz“), ein schlanker Turm kippt. Der Stumpf bleibt mit den Decken, die ganz darin liegen; der Schutthaufen
   (Z3) liegt darin. Ein Gefallener sperrt nicht mehr das Bauen (`CustomMapSurface.setObjectCatalog`), `FALLEN_SCALE`

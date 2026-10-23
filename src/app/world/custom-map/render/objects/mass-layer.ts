@@ -21,12 +21,13 @@ import {
   type Texture,
 } from 'three';
 import { MAP_MASS_FACADES, MASS_ASSET, type MapMassCover, type MapMassFacade, type MapObject } from '../../map-document';
-import type { CatalogCellar } from '../asset-catalog';
+import { CELLAR_STOREY, cellarDepth, cellarDrawnDepth, cellarFrame, cellarOf } from '../../object-cellar';
 import {
   MASS_PARAPET,
   massApex,
   massBodies,
   massBounds,
+  massDistance,
   massRadius,
   massRoof,
   massSlopes,
@@ -35,7 +36,7 @@ import {
   type MassBody,
 } from '../../object-mass';
 import { gableIsTriangle, type RoofModel, type RoofPlaneFit } from '../../mass-roof';
-import type { GroundBox } from '../../object-ground';
+import { toModel } from '../../object-ground';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary, ObjectModel } from '../map-asset-library';
 import { addHeightFog } from '../environment/height-fog';
@@ -44,6 +45,7 @@ import { NIGHT_WINDOW_UNIFORMS } from './night-windows';
 import { seatHeight, type ObjectFooting } from './object-seat';
 import { rubbleMaterialOf } from '../../rubble-material';
 import type { RuinFootprint, RuinSlabs } from './ruin-slabs';
+import { DOOR_FROM, DOOR_TO } from './cellar-shell';
 import { FOUNDATION, openingInsides, pushWall, WALL_FACADE, WALL_GABLE, WALL_PLAIN, WALL_SHOP, type WallPiece } from './mass-openings';
 import { addDamage, collapseCuts, RUIN_HOLES, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, FELL_LONG_AGO, type DamageLook, ruinSeed, ruinShape, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
 
@@ -155,9 +157,9 @@ const shapes = new WeakMap<MassBody, MassShape>();
 export function massShape(m: MassBody, seed = 0): MassShape {
   let shape = shapes.get(m);
   if (shape) return shape;
-  const slopes = m.cellar ? null : massSlopes(m);
-  const apex = m.cellar ? null : massApex(m);
-  shape = m.cellar ? cellarShape(m) : slopes ? slopedShape(m, slopes) : apex ? pyramidShape(m, apex) : flatShape(m);
+  const slopes = massSlopes(m);
+  const apex = massApex(m);
+  shape = slopes ? slopedShape(m, slopes) : apex ? pyramidShape(m, apex) : flatShape(m);
   // The ways through the building it stands over: their reveals, ceilings, back walls (mass-openings.ts)
   if (m.openings?.length) shape.walls.push(...openingInsides(m));
   shape.covering = !slopes && !apex ? 'flat' : m.roofCover ? COVER_COVERING[m.roofCover] : m.facade === 'metal' ? 'metal' : seed % 3 === 0 ? 'grey' : 'red';
@@ -167,68 +169,26 @@ export function massShape(m: MassBody, seed = 0): MassShape {
 
 /**
  * Where a body's walls start: on its floor over the seat (a part on
- * another), else the foundation below the seat, under a basement
- * (MapObject.basement) that much further down
+ * another), else the foundation below the seat, its cellar's foot where it
+ * has one (MassBody.cellar)
  */
 function wallFoot(m: MassBody): { bottom: number; lift?: number } {
-  return (m.base ?? 0) > 0 ? { bottom: m.base!, lift: -m.base! } : { bottom: -FOUNDATION - (m.basement ?? 0) };
+  return (m.base ?? 0) > 0 ? { bottom: m.base!, lift: -m.base! } : { bottom: -Math.max(FOUNDATION, m.cellar?.depth ?? 0) };
 }
 
-/**
- * Metres a catalogue model's basement reaches up into the model over its floor at least, and out past its wall box:
- * over the model's own foundation; over its plinth (catalogue `cellar.plinth`) by CELLAR_OVER, so the plinth is the
- * basement's at the ground, not a band of concrete between the basement and the walls
- */
-const CELLAR_TOP = 0.2;
-const CELLAR_OVER = 0.02;
-const CELLAR_OUT = 0.1;
+const withCellars = new WeakMap<MassBody, { key: string; body: MassBody }>();
 
-/** A catalogue model's basement: walls round its wall box from the foundation up into the model (its height), no roof */
-function cellarShape(m: MassBody): MassShape {
-  const walls: WallPiece[] = [];
-  const ring = m.rings[0];
-  for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
-    const e = edge(m, ring[j], ring[j + 1], ring[i], ring[i + 1]);
-    if (e) walls.push({ ...e, ...wallFoot(m), top: m.height, kind: WALL_FACADE, band: 0 });
-  }
-  return { walls, roof: [], covering: 'flat', caps: [] };
-}
-
-/** The basement under catalogue model boxes, once per box and depth */
-const cellars = new Map<string, MassBody>();
-
-/**
- * The body of a catalogue model's basement (MapObject.basement) under its wall box (catalogue `box`, at scale 1):
- * the surface the model's ground storey shows, in its colour, up over its plinth (catalogue `cellar`,
- * measure_bands.mjs); plaster up to CELLAR_TOP where it is not measured
- */
-export function cellarBody(box: GroundBox, basement: number, cellar?: CatalogCellar): MassBody {
-  const key = `${box.join(',')}|${basement}|${cellar ? `${cellar.facade},${cellar.tone},${cellar.plinth},${cellar.frame ?? ''}` : ''}`;
-  let body = cellars.get(key);
-  if (!body) {
-    const [cx, cz] = box;
-    const hw = box[2] + CELLAR_OUT;
-    const hd = box[3] + CELLAR_OUT;
-    const ring = [cx - hw, cz - hd, cx + hw, cz - hd, cx + hw, cz + hd, cx - hw, cz + hd];
-    const height = Math.max(CELLAR_TOP, (cellar?.plinth ?? 0) + CELLAR_OVER);
-    cellars.set(key, (body = {
-      rings: [ring], height, floors: 1, roof: 'flat', facade: cellar?.facade ?? 'plaster', basement, cellar: true,
-      ...(cellar ? { tone: cellar.tone } : {}),
-      ...(cellar?.frame ? { frame: cellar.frame } : {}),
-    }));
-  }
-  return body;
-}
-
-const withBasements = new WeakMap<MassBody, { basement: number; body: MassBody }>();
-
-/** A raised building's bodies on the ground with its basement under them (MapObject.basement), the others as they are */
-export function basementBodies(bodies: readonly MassBody[], basement: number | undefined): readonly MassBody[] {
-  if (!basement) return bodies;
+/** A raised building's bodies on the ground over its cellar (MapObject.cellar, object-cellar.ts), the others as they are */
+export function cellarBodies(bodies: readonly MassBody[], o: Pick<MapObject, 'cellar' | 'scale'> & { z?: number }, ruin = true): readonly MassBody[] {
+  const c = cellarOf(o, true);
+  if (!c) return bodies;
+  // A whole building's walls as far down as the slope leaves them open, a ruin's to the cellar's foot
+  const cellar = { depth: cellarDrawnDepth(c, o.z ?? 0, ruin) / (o.scale || 1), storeys: c.storeys, buried: c.mode === 'buried' };
+  const key = `${cellar.depth}|${cellar.storeys}|${cellar.buried}`;
   return bodies.map((b) => {
     if ((b.base ?? 0) > 0) return b;
-    let w = withBasements.get(b);
-    if (w?.basement !== basement) withBasements.set(b, (w = { basement, body: { ...b, basement } }));
+    let w = withCellars.get(b);
+    if (w?.key !== key) withCellars.set(b, (w = { key, body: { ...b, cellar } }));
     return w.body;
   });
 }
@@ -412,7 +372,7 @@ interface Batch {
 /** The batches a building is drawn with, as Batch.part: its bodies' facades' walls, their coverings' roofs, the caps */
 function partsOf(o: MapObject): string[] {
   const seed = seedOf(o.id);
-  return [...new Set(basementBodies(massBodies(o.mass!), o.basement).flatMap((b) => [`walls:${b.facade}`, `roof:${massShape(b, seed).covering}`])), 'caps'];
+  return [...new Set(cellarBodies(massBodies(o.mass!), o).flatMap((b) => [`walls:${b.facade}`, `roof:${massShape(b, seed).covering}`])), 'caps'];
 }
 
 /** What the mass layer does with damage (ObjectLayerOptions): ruins built with the map, the ground buildings stand on */
@@ -494,10 +454,6 @@ export class MassLayer {
   readonly group = new Group();
   private objects: MapObject[] = [];
   private readonly ids = new Set<string>();
-  /** The catalogue models whose basements are drawn here */
-  private readonly cellarIds = new Set<string>();
-  /** The catalogue's buildings by asset: how a model with a basement stands, its wall box */
-  private footings: ReadonlyMap<string, ObjectFooting & { cellar?: CatalogCellar }> | null = null;
   /** Where each building stands (its seat plus its own z), by id: a change of the ground moves its instances up or down */
   private readonly seats = new Map<string, number>();
   private batches: Batch[] = [];
@@ -553,40 +509,22 @@ export class MassLayer {
     return o.asset === MASS_ASSET && !!o.mass;
   }
 
-  /** Whether a catalogue model's basement (MapObject.basement) is drawn here; the model is the object layer's */
-  static cellar(o: MapObject): boolean {
-    return (o.basement ?? 0) > 0 && !MassLayer.owns(o);
-  }
-
-  /** What is drawn here: raised buildings and the basements under catalogue models */
-  static draws(o: MapObject): boolean {
-    return MassLayer.owns(o) || MassLayer.cellar(o);
-  }
-
-  /** Replaces every raised building and basement (MassLayer.draws); resolves when they show */
+  /** Replaces every raised building (MassLayer.owns); resolves when they show */
   async setObjects(objects: readonly MapObject[]): Promise<void> {
     this.objects = [...objects];
     this.ids.clear();
-    this.cellarIds.clear();
-    for (const o of objects) this.note(o);
+    for (const o of objects) this.ids.add(o.id);
     await this.rebuild();
   }
 
-  /** Adds, replaces (by id) or removes raised buildings and basements; resolves when they show */
+  /** Adds, replaces (by id) or removes raised buildings; resolves when they show */
   async change(added: readonly MapObject[], removed: readonly string[]): Promise<void> {
     if (!added.length && !removed.length) return;
     const gone = new Set([...removed, ...added.map((o) => o.id)]);
     this.objects = this.objects.filter((o) => !gone.has(o.id)).concat(added);
-    for (const id of gone) {
-      this.ids.delete(id);
-      this.cellarIds.delete(id);
-    }
-    for (const o of added) this.note(o);
+    for (const id of gone) this.ids.delete(id);
+    for (const o of added) this.ids.add(o.id);
     await this.rebuild();
-  }
-
-  private note(o: MapObject): void {
-    (MassLayer.owns(o) ? this.ids : this.cellarIds).add(o.id);
   }
 
   /**
@@ -615,11 +553,6 @@ export class MassLayer {
     return this.ids.has(id);
   }
 
-  /** Whether the basement of catalogue model `id` is drawn here */
-  hasCellar(id: string): boolean {
-    return this.cellarIds.has(id);
-  }
-
   /**
    * The buildings stand on the terrain: after heights changed (in `rect`,
    * map metres) those whose seat moved go up or down with all their
@@ -628,7 +561,7 @@ export class MassLayer {
   refreshHeights(rect?: { minX: number; minY: number; maxX: number; maxY: number }): void {
     const moved = new Map<MapObject, number>();
     for (const o of this.objects) {
-      const r = (o.mass ? massRadius(o.mass) : this.footingOf(o).footprint) * (o.scale || 1) + 2;
+      const r = massRadius(o.mass!) * (o.scale || 1) + 2;
       if (rect && (o.x + r < rect.minX || o.x - r > rect.maxX || o.y + r < rect.minY || o.y - r > rect.maxY)) continue;
       const was = this.seats.get(o.id);
       if (was === undefined) continue;
@@ -662,11 +595,9 @@ export class MassLayer {
     this.onChange();
   }
 
-  /** What object `o` is drawn as here: a raised building's bodies over its basement, a catalogue model's basement */
-  private bodiesOf(o: MapObject): readonly MassBody[] {
-    if (o.mass) return basementBodies(massBodies(o.mass), o.basement);
-    const footing = this.footingOf(o);
-    return footing.box ? [cellarBody(footing.box, o.basement ?? 0, footing.cellar)] : [];
+  /** What raised building `o` is drawn as here: its bodies over its cellar */
+  private bodiesOf(o: MapObject, ruin: boolean): readonly MassBody[] {
+    return cellarBodies(massBodies(o.mass!), o, ruin);
   }
 
   /** Metres from the floor of building `o` (`seat`, scene y) down to the ground just outside the middle of its wall `p` */
@@ -682,14 +613,9 @@ export class MassLayer {
     return Math.max(0, seat - (this.damageOptions.standingAt ?? ((gx, gy) => this.field.heightAt(gx, gy)))(x, y));
   }
 
-  /** How catalogue model `o` stands (its catalogue entry), a building of no size when the catalogue lacks it */
-  private footingOf(o: MapObject): ObjectFooting & { cellar?: CatalogCellar } {
-    return this.footings?.get(o.asset) ?? { category: 'building', footprint: 0, height: 0 };
-  }
-
   /** Where a building stands: on its outline's rectangle like any building (object-seat.ts), on the map's own ground, plus its own z */
   private seatOf(o: MapObject): number {
-    const footing: ObjectFooting = o.mass ? { category: 'building', footprint: 1, height: o.mass.height } : this.footingOf(o);
+    const footing: ObjectFooting = { category: 'building', footprint: 1, height: o.mass!.height };
     return seatHeight(footing, o, this.damageOptions.standingAt ?? ((x, y) => this.field.heightAt(x, y)), this.waterLevelAt) + o.z;
   }
 
@@ -777,10 +703,6 @@ export class MassLayer {
   private async rebuild(): Promise<void> {
     const generation = ++this.generation;
     const surfaces = this.surfaces ?? (this.objects.length ? await this.loadSurfaces() : null);
-    if (!this.footings && this.cellarIds.size) {
-      const catalog = await this.assets.catalog();
-      this.footings = new Map(catalog.objects.filter((e) => e.category === 'building').map((e) => [e.id, e]));
-    }
     if (generation !== this.generation) return;
     this.clear();
     this.seats.clear();
@@ -797,6 +719,27 @@ export class MassLayer {
   }
 
   /** Where raised building `id` stands for its holes: its map point and its seat (scene y), null for one not here */
+  /**
+   * The floor (scene y) of the raised building whose body holds scene point `at` (from a pick): within its outline
+   * a little round it, between its cellar's foot and its top; null for none
+   */
+  floorUnder(at: Vector3): number | null {
+    const x = -at.x;
+    const y = at.z;
+    for (const o of this.objects) {
+      const mass = o.mass;
+      if (!mass) continue;
+      const scale = o.scale || 1;
+      if (Math.hypot(x - o.x, y - o.y) > massRadius(mass) * scale + 1) continue;
+      const m = toModel(x - o.x, y - o.y, Math.cos(o.rotation), Math.sin(o.rotation));
+      if (massDistance(mass, m.x / scale, m.z / scale) * scale > 0.4) continue;
+      const seat = this.seats.get(o.id) ?? this.seatOf(o);
+      if (at.y < seat - Math.max(cellarDepth(cellarOf(o, true)), 1) - 0.4 || at.y > seat + massTop(mass) * scale + 0.4) continue;
+      return seat;
+    }
+    return null;
+  }
+
   holeFrame(id: string): { x: number; y: number; seat: number } | null {
     const o = this.objects.find((m) => m.id === id);
     return o ? { x: o.x, y: o.y, seat: this.seatOf(o) } : null;
@@ -900,7 +843,7 @@ export class MassLayer {
     let capCount = 0;
     for (const o of objects) {
       const seed = seedOf(o.id);
-      for (const body of this.bodiesOf(o)) {
+      for (const body of this.bodiesOf(o, ruin)) {
         const shape = massShape(body, seed);
         wallCount.set(body.facade, (wallCount.get(body.facade) ?? 0) + wallsOf(o, shape).length);
         roofCount.set(shape.covering, (roofCount.get(shape.covering) ?? 0) + shape.roof.length);
@@ -956,7 +899,6 @@ export class MassLayer {
     }
     const color = new Color();
     const tint = new Color();
-    const toned = new Color();
     const shaded = new Color();
     const roofTint = new Color();
     // Every batch's count before a building: its ranges are what it added
@@ -981,7 +923,7 @@ export class MassLayer {
       this.s.setScalar(scale);
       this.m.compose(this.v, this.q, this.s);
       // Its parts (or itself), each with its own walls, roof and colours: one building, one owner of them all
-      const bodies = this.bodiesOf(o);
+      const bodies = this.bodiesOf(o, ruin);
       const bodyWalls = bodies.map((body) => wallsOf(o, massShape(body, seed)));
       // The wall its door is on (MapMass.door), of all its bodies'
       const door = o.mass?.door ? doorWall(o.mass.door, bodyWalls) : null;
@@ -990,7 +932,6 @@ export class MassLayer {
         const w = walls.get(body.facade);
         const rf = roofs.get(shape.covering);
         tint.set(body.tint ?? o.tint ?? '#ffffff');
-        if (body.tone) tint.multiply(toned.setRGB(body.tone[0], body.tone[1], body.tone[2]));
         if (w) {
           for (const p of bodyWalls[b]) {
             const height = p.top - p.bottom;
@@ -1012,12 +953,13 @@ export class MassLayer {
             // A wall in pieces: where along the whole wall it starts and how long that is; the opening beside it (mass-openings.ts)
             const cut = p.cut;
             w.c.set([(p.u0 ?? 0) * scale, (p.wallLength ?? 0) * scale, (cut?.mid ?? 0) * scale, (cut?.half ?? 0) * scale], w.n * 4);
-            // Beside an opening its frame; a gable where its top is (GABLE_GLSL); over a basement the ground under the
-            // wall's middle, metres down from the floor (its door); the building's door on it, metres along the whole
-            // wall plus one (0: none here); and the colour of the model's window frames (packFrame, 0 for the facade's own)
-            const cellarWall = !!body.basement && !p.corner;
+            // Beside an opening its frame; a gable where its top is (GABLE_GLSL); over a cellar the ground under the
+            // wall's middle, metres down from the floor (its windows and door); the building's door on it, metres
+            // along the whole wall plus one (0: none here); the cellar's storeys open to the slope, -1 buried, 0 none
+            const cellar = p.corner ? undefined : body.cellar;
             const doorAt = door?.piece === p ? door.u * scale + 1 : 0;
-            w.d.set(cut ? [cut.top * scale, cut.rise * scale, cut.style, cut.floor * scale] : [p.kind === WALL_GABLE ? (p.apex ?? 0.5) : 0, cellarWall ? this.groundUnder(o, p, seat) : 0, doorAt, cellarWall && body.frame ? packFrame(body.frame) : 0], w.n * 4);
+            const storeys = cellar ? (cellar.buried ? -1 : cellar.storeys) : 0;
+            w.d.set(cut ? [cut.top * scale, cut.rise * scale, cut.style, cut.floor * scale] : [p.kind === WALL_GABLE ? (p.apex ?? 0.5) : 0, storeys > 0 ? this.groundUnder(o, p, seat) : 0, doorAt, storeys], w.n * 4);
             if (r && w.damage) writeDamage(w.damage, w.n, r.stage, r.fallStart, r.shape);
             w.batch.owners.push(o);
             w.n++;
@@ -1133,7 +1075,7 @@ export class MassLayer {
       bz: e[10] * hz,
       seatY: e[13],
       height: massTop(mass) * scale,
-      ...(o.basement ? { cellar: o.basement } : {}),
+      ...cellarFrame(cellarOf(o, true)),
     };
     const footprint: RuinFootprint = { roof: massRoof(mass), box: [mx, mz, hx, hz], ox: e[12], oz: e[14], ux: e[0], uz: e[2], vx: e[8], vz: e[10], sy: scale };
     return { frame, shape: ruinShape(ruinSeed(o), frame, heading), footprint };
@@ -1281,15 +1223,6 @@ function kitSurfaces(model: ObjectModel): Map<string, Surface> {
     out.set(material.name, { material, tile });
   }
   return out;
-}
-
-/**
- * A colour (linear, 0..1 a channel) as one whole number of three bytes, red highest, plus one: exact in a float
- * attribute; 0 stays none. WALL_COLOR_FRAGMENT unpacks it
- */
-export function packFrame(c: readonly [number, number, number]): number {
-  const byte = (v: number) => Math.round(Math.min(1, Math.max(0, v)) * 255);
-  return byte(c[0]) * 65536 + byte(c[1]) * 256 + byte(c[2]) + 1;
 }
 
 /** A small number per object id for the shader's variation */
@@ -1442,10 +1375,9 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
   } else if (facade == 4) {
     plinthH = 0.6; bay = 3.6; winW = 1.05; winH = 2.0; sill = 1.1; frame = vec3(0.3, 0.27, 0.24);
   }
-  // A basement under the floor (MapObject.basement, the walls' foot below the foundation): a storey of the house in
-  // the facade's own surface, its plinth at the ground (the seat, the lowest ground round it), not at the floor
-  float cellarDepth = vWall.z - ${FOUNDATION.toFixed(2)};
-  float plinthTop = (cellarDepth > 0.3 ? -cellarDepth : 0.0) + plinthH;
+  // Its cellar under the floor (MapObject.cellar, object-cellar.ts; the walls' foot at its foot): the plinth's
+  // surface from the plinth's top over the floor all the way down, the wall's colour ends there
+  float plinthTop = plinthH;
   vec3 base = diffuseColor.rgb;
   #ifdef USE_COLOR
   if (facade == 2) {
@@ -1601,44 +1533,52 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
   }
   // The plinth below, in the plinth's concrete
   vec3 plinthColor = texture2D(uPlinthMap, vWallM / uPlinthTile).rgb * uPlinthColor;
-  // The basement's openings: a cellar window under each bay, the middle bay a door or a garage where the ground
-  // outside the wall's middle (aWallD.y) lies a storey down; in the wall and through the plinth at its foot
-  if (facadeWall > 0.5 && cellarDepth > 1.2 && v < 0.0 && cutHalf <= 0.0) {
+  // The cellar's openings (vWallD.w its storeys open to the slope, -1 buried): per storey a cellar window under each
+  // bay, high in the wall and only where the ground outside the wall's middle (vWallD.y, m under the floor) lies under
+  // its sill with room to spare, the larger the more of the storey stands free; the middle bay a door or a garage on
+  // the storey whose floor the ground there meets. In the plinth's surface, which the cellar's walls are of
+  float cellarStoreys = cutHalf > 0.0 ? 0.0 : vWallD.w;
+  if (facadeWall > 0.5 && cellarStoreys > 0.5 && v < 0.0) {
+    float storeyH = ${CELLAR_STOREY.toFixed(2)};
+    float ck = floor(-v / storeyH);
+    float ctop = -ck * storeyH;
     float cn = floor((L - 1.6) / bay);
     if (cn < 1.0) cn = L > 2.0 ? 1.0 : 0.0;
     float cu0 = (L - cn * bay) * 0.5;
     float ci = floor((u - cu0) / bay);
     float clu = u - cu0 - (ci + 0.5) * bay;
-    float inCellar = step(0.0, ci) * step(ci, cn - 1.0) * (1.0 - smoothstep(0.06, 0.3, aa));
-    float ground = vWallD.y;
-    float middle = step(ci, floor(cn * 0.5)) * step(floor(cn * 0.5), ci) * step(2.4, ground) * inCellar;
+    float inCellar = step(0.0, ci) * step(ci, cn - 1.0) * step(ck, cellarStoreys - 0.5) * (1.0 - smoothstep(0.06, 0.3, aa));
+    // Metres of this storey the ground leaves free under its ceiling
+    float free = vWallD.y - ck * storeyH;
+    float middle = step(ci, floor(cn * 0.5)) * step(floor(cn * 0.5), ci) * step(${DOOR_FROM.toFixed(2)}, free) * step(free, ${DOOR_TO.toFixed(2)}) * inCellar;
     float garage = step(8.0, L) * step(0.5, massHash(vec3(floor(L * 10.0), seed, 9.0)));
     float dw = mix(1.05, 2.5, garage);
-    float dh = min(mix(2.05, 2.2, garage), ground - 0.3);
-    float leaf = middle * massBox(clu, -dw * 0.5, dw * 0.5, aa) * massBox(v, -ground - 0.3, -ground + dh, aa);
-    float inner = middle * massBox(clu, -dw * 0.5 + 0.08, dw * 0.5 - 0.08, aa) * massBox(v, -ground - 0.3, -ground + dh - 0.08, aa);
+    float dh = min(mix(2.05, 2.2, garage), free - 0.3);
+    // On the ground, on the storey's floor where the ground lies lower (a few steps)
+    float doorFoot = ctop - min(free, storeyH);
+    float leaf = middle * massBox(clu, -dw * 0.5, dw * 0.5, aa) * massBox(v, doorFoot - 0.3, doorFoot + dh, aa);
+    float inner = middle * massBox(clu, -dw * 0.5 + 0.08, dw * 0.5 - 0.08, aa) * massBox(v, doorFoot - 0.3, doorFoot + dh - 0.08, aa);
     // A garage's door in ribbed grey sheet, a house door in dark wood
-    float rib = 0.85 + 0.15 * step(0.5, fract((v + ground) / 0.5));
+    float rib = 0.85 + 0.15 * step(0.5, fract((v - doorFoot) / 0.5));
     vec3 doorColor = mix(vec3(0.2, 0.13, 0.08), vec3(0.5, 0.51, 0.5) * rib, garage);
-    // Cellar windows high in the wall, the deeper the basement the larger, none where the door is
-    float ch = clamp(cellarDepth - 1.3, 0.45, 1.25);
-    float cw = mix(0.8, winW, smoothstep(1.5, 2.6, cellarDepth));
-    float win = inCellar * (1.0 - step(0.5, middle));
-    float open = win * massBox(clu, -cw * 0.5, cw * 0.5, aa) * massBox(v, -0.35 - ch, -0.35, aa);
-    float glass = win * massBox(clu, -cw * 0.5 + 0.06, cw * 0.5 - 0.06, aa) * massBox(v, -0.35 - ch + 0.06, -0.41, aa);
-    // In the house's style: its windows' frames (packFrame, a catalogue model's measured; else the facade's); a stone
-    // wall's window in a surround of dressed stone with iron bars, a plastered one's with a sill
+    // Its window from 0.35 m under the ceiling, as tall as the free wall allows (none under 0.45 m: no window half
+    // in the ground), none where the door is
+    float ch = min(free - 0.35 - 0.15, 1.1);
+    float cw = mix(0.8, winW, smoothstep(0.6, 1.1, ch));
+    float win = inCellar * step(0.45, ch) * (1.0 - step(0.5, middle));
+    float open = win * massBox(clu, -cw * 0.5, cw * 0.5, aa) * massBox(v, ctop - 0.35 - ch, ctop - 0.35, aa);
+    float glass = win * massBox(clu, -cw * 0.5 + 0.06, cw * 0.5 - 0.06, aa) * massBox(v, ctop - 0.35 - ch + 0.06, ctop - 0.41, aa);
+    // In the house's style: a stone wall's window in a surround of dressed stone with iron bars, a plastered one's
+    // with a sill
     vec3 cellarFrame = frame * 0.85;
     float dressed = 0.0;
     float bars = 0.0;
     if (facade == 4) {
-      dressed = win * massBox(clu, -cw * 0.5 - 0.16, cw * 0.5 + 0.16, aa) * massBox(v, -0.35 - ch - 0.16, -0.35 + 0.16, aa);
+      dressed = win * massBox(clu, -cw * 0.5 - 0.16, cw * 0.5 + 0.16, aa) * massBox(v, ctop - 0.35 - ch - 0.16, ctop - 0.35 + 0.16, aa);
       cellarFrame = vec3(0.13, 0.11, 0.09);
       bars = glass * (1.0 - smoothstep(0.012, 0.012 + aa, abs(fract(clu / 0.16 + 0.5) - 0.5) * 0.16));
     }
-    float packed = floor(vWallD.w + 0.5) - 1.0;
-    if (packed >= 0.0) cellarFrame = vec3(floor(packed / 65536.0), mod(floor(packed / 256.0), 256.0), mod(packed, 256.0)) / 255.0;
-    float sillBand = (facade == 4 ? 0.0 : 1.0) * win * massBox(clu, -cw * 0.5 - 0.05, cw * 0.5 + 0.05, aa) * massBox(v, -0.35 - ch - 0.06, -0.35 - ch, aa);
+    float sillBand = (facade == 4 ? 0.0 : 1.0) * win * massBox(clu, -cw * 0.5 - 0.05, cw * 0.5 + 0.05, aa) * massBox(v, ctop - 0.35 - ch - 0.06, ctop - 0.35 - ch, aa);
     vec3 ashlar = min(base * 1.28 + 0.04, vec3(1.0));
     for (int layer = 0; layer < 2; layer++) {
       vec3 c = layer == 0 ? detail : plinthColor;

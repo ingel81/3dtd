@@ -98,6 +98,15 @@ describe('soft map values (warn and set right)', () => {
     expect(read.objects.map((o) => o.sign)).toEqual([{ text: 'Bäckerei', icon: 'pretzel' }, undefined, undefined]);
   });
 
+  it('keeps a good cellar and drops one this game does not draw: the building stays, with the default one', () => {
+    const doc = createMapDocument({ id: 'm', name: 'M', width: 64, depth: 64, starter: true, now: new Date(0) });
+    doc.objects.push({ id: 'a', asset: 'house', x: 0, y: 0, z: 0, rotation: 0, scale: 1, cellar: { mode: 'auto', storeys: 2 } });
+    doc.objects.push({ id: 'b', asset: 'house', x: 20, y: 0, z: 0, rotation: 0, scale: 1, cellar: { mode: 'deep', storeys: 9 } as never });
+    const { doc: read, repaired } = unpackMapFile(packMapFile(doc));
+    expect(repaired?.filter((r) => mapProblemText(en, r).includes('cellar'))).toHaveLength(1);
+    expect(read.objects.map((o) => [o.id, o.cellar])).toEqual([['a', { mode: 'auto', storeys: 2 }], ['b', undefined]]);
+  });
+
   it('gives the corrected map its own content hash on loading, so a coop guest can confirm it', async () => {
     const backend = new MemoryMapBackend();
     const store = new MapStore({ backend, fetch: async () => new Response('', { status: 404 }), baseUrl: 'http://x/' });

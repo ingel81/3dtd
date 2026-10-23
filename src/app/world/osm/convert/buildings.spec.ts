@@ -5,6 +5,7 @@ import { objectsInAir, objectsOnPaths, validateMap } from '../../../map-ops/vali
 import { createMapDocument } from '../../custom-map/map-create';
 import { MASS_ASSET, type CustomMapDocument, type MapPoint } from '../../custom-map/map-document';
 import { massArea, massContains, massDistance } from '../../custom-map/object-mass';
+import { cellarDepth, cellarForDrop } from '../../custom-map/object-cellar';
 import { toModel } from '../../custom-map/object-ground';
 import { seatHeight } from '../../custom-map/render/objects/object-seat';
 import { buildingKind, BUILDING_MODELS } from '../building-tags';
@@ -259,19 +260,21 @@ describe('OSM buildings: placing', () => {
     for (const w of walls) expect(w.y).toBeGreaterThan(house.y);
   });
 
-  it('stands a house below the street at the street over a basement open to the valley, no walls round it', () => {
+  it('stands a house below the street at the street over a cellar open to the valley, no walls round it', () => {
     const { doc, features } = world([area(1, box({ x: 0, y: 14 }, 12, 10, 0), { building: 'house' })], -0.3);
     const { objects, report } = placeBuildings(doc, features, { catalog });
     expect(objects.filter((o) => o.asset === 'retaining-wall')).toEqual([]);
     const house = objects[0];
     expect(report.basements).toBe(1);
-    // Its floor at the ground before its entrance (the street's side, south), its basement down to the seat
+    // Its floor at the ground before its entrance (the street's side, south), its cellar open down past the seat
     const entry = byId.get(house.asset)!;
     const seat = seatHeight(entry, house, (x, y) => heightAt(doc.terrain, x, y), () => null);
     const front = house.y - entry.box![3] * house.scale - 1.5;
     expect(seat + house.z).toBeCloseTo(heightAt(doc.terrain, house.x, front), 0);
-    expect(house.basement).toBe(house.z);
-    expect(house.basement!).toBeGreaterThan(1.5);
+    expect(house.z).toBeGreaterThan(1.5);
+    expect(house.cellar).toEqual(cellarForDrop(house.z));
+    expect(house.cellar!.mode).toBe('auto');
+    expect(cellarDepth(house.cellar!)).toBeGreaterThan(house.z);
     // Nothing filled under it: the valley side keeps its ground
     expect(heightAt(doc.terrain, house.x, house.y + 8)).toBeCloseTo(20 - (house.y + 8) * 0.3, 1);
     doc.objects = objects;

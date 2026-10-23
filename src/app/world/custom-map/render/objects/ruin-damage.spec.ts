@@ -375,15 +375,16 @@ describe('ruin damage: floors and inner walls', () => {
     slabs.dispose();
   });
 
-  it('gives a building over a cellar a floor down there and cuts the ground out of it while it stands (point 37)', () => {
+  it('gives a building over a cellar a floor each storey down and cuts the ground out of it, standing or fallen (point 37)', () => {
     const changed = vi.fn();
     const slabs = new RuinSlabs(changed);
-    // A house of 8 by 4 m whose floor is 2.7 m over its cellar's, scene x being map -x
-    const cellar = { ...frame, cx: 10, cz: 5, cellar: 2.7 };
+    // A house of 8 by 4 m over a cellar of two storeys (object-cellar.ts), scene x being map -x
+    const cellar = { ...frame, cx: 10, cz: 5, cellar: 5.9, cellarStoreys: 2 };
     slabs.set('c', cellar, shape, 2, FELL_LONG_AGO, 'brick');
     const m = slabs.mesh.instanceMatrix.array;
     const ys = Array.from({ length: slabs.mesh.count }, (_, k) => +m[k * 16 + 13].toFixed(2));
-    expect(ys).toContain(+(-2.7 + 0.12).toFixed(2));
+    expect(ys).toContain(+(-2.8 + 0.12).toFixed(2));
+    expect(ys).toContain(+(-5.6 + 0.12).toFixed(2));
     // Its whole ground cut up to 15 cm over its floor, in map space
     const cuts = slabs.cellarCuts();
     expect(cuts).toHaveLength(1);
@@ -396,12 +397,17 @@ describe('ruin damage: floors and inner walls', () => {
     expect(insideCut(c, -14.2, 5, -1)).toBe(false);
     expect(insideCut(c, 10, 5, -1)).toBe(false);
     expect(changed).toHaveBeenCalledTimes(1);
-    // The same again changes nothing; battered without a hole, fallen (its rubble lies on the ground) or gone: no cut
+    // The same again changes nothing; fallen it keeps its pit; battered without a hole or gone: no cut
     slabs.set('c', cellar, shape, 2, FELL_LONG_AGO, 'brick');
     expect(changed).toHaveBeenCalledTimes(1);
     slabs.set('c', cellar, shape, 3, FELL_LONG_AGO, 'brick');
-    expect(slabs.cellarCuts()).toEqual([]);
-    slabs.set('c', cellar, shape, 2, FELL_LONG_AGO, 'brick');
+    expect(slabs.cellarCuts()).toHaveLength(1);
+    // Fallen: its pit cut up through the heap its rubble raised, the rubble on its lowest floor, its ground floor gone
+    expect(slabs.cellarCuts()[0].springY).toBeGreaterThan(5);
+    expect(slabs.pitFloor(-10, 5)).toBeCloseTo(-5.6 + 0.24);
+    expect(slabs.pitFloor(-20, 5)).toBeNull();
+    const fallen = Array.from({ length: slabs.mesh.count }, (_, k) => +slabs.mesh.instanceMatrix.array[k * 16 + 13].toFixed(2));
+    expect(fallen).not.toContain(0.12);
     slabs.set('c', cellar, shape, 1, FELL_LONG_AGO, 'brick');
     expect(slabs.cellarCuts()).toEqual([]);
     slabs.set('c', cellar, shape, 2, FELL_LONG_AGO, 'brick');
@@ -420,15 +426,16 @@ describe('ruin damage: floors and inner walls', () => {
     await layer.setObjects([raised, { id: 'h1', asset: 'house', x: 60, y: 0, z: 0, rotation: 0, scale: 1 }]);
     layer.setDamage([{ id: 'm1', stage: 2, fallStart: FELL_LONG_AGO }, { id: 'h1', stage: 2, fallStart: FELL_LONG_AGO }]);
     const slabs = layer.group.children.find((c) => c.name === 'ruin-slabs') as InstancedMesh;
-    // The block (20 x 12 m, 12 m high): the ground's slab, three floors, two inner walls, at once (the mass layer's)
-    expect(slabs.count).toBe(6);
-    // The house (6 x 4 m, 8 m high): the ground's, two floors, one wall, from the frame after the damage's
-    // (buildSlabs, E271)
+    // The block (20 x 12 m, 12 m high): the ground's slab, three floors, two inner walls, and in its cellar (a map
+    // without one: DEFAULT_CELLAR, one storey) a floor and the two walls on their lines, at once (the mass layer's)
+    expect(slabs.count).toBe(9);
+    // The house (6 x 4 m, 8 m high): the ground's, two floors, one wall, its cellar's floor and wall, from the frame
+    // after the damage's (buildSlabs, E271)
     const camera = new PerspectiveCamera(60);
     layer.update(0.016, camera);
-    expect(slabs.count).toBe(6);
+    expect(slabs.count).toBe(9);
     layer.update(0.016, camera);
-    expect(slabs.count).toBe(6 + 4);
+    expect(slabs.count).toBe(9 + 6);
     layer.dispose();
   });
 });

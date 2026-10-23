@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, u
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MAX_SIGN_TEXT, type MapObject, type MapSign } from '../../../world/custom-map/map-document';
 import { SIGN_ICONS } from '../../../world/custom-map/render/objects/sign-icons';
+import { DEFAULT_CELLAR, MAP_CELLAR_MODES, MAX_CELLAR_STOREYS, takesCellar, type MapCellar } from '../../../world/custom-map/object-cellar';
 import { tagName, type ObjectAssetEntry } from '../../../map-ops/asset-catalog';
 import { ObjectsCommand } from '../../model/commands/objects';
 import { setDown, rockShape, duplicateObjects, variedTint, wallKitOf } from '../../../map-ops/object-ops';
@@ -181,6 +182,33 @@ export class ObjectPanelComponent {
       else delete next.sign;
       return next;
     });
+  }
+
+  readonly cellarModes = MAP_CELLAR_MODES;
+  readonly maxCellarStoreys = MAX_CELLAR_STOREYS;
+
+  /** Whether every selected object is a building: it has a cellar (object-cellar.ts) */
+  buildings(): boolean {
+    const list = this.selected();
+    const catalog = this.session.catalog();
+    return list.length > 0 && list.every((o) => !!o.mass || takesCellar(catalog.object(o.asset).footing));
+  }
+
+  /** The selection's cellar when all share one (DEFAULT_CELLAR where a map gives none), else null */
+  cellar(): MapCellar | null {
+    const list = this.selected();
+    const first = list[0]?.cellar ?? DEFAULT_CELLAR;
+    return list.every((o) => (o.cellar ?? DEFAULT_CELLAR).mode === first.mode && (o.cellar ?? DEFAULT_CELLAR).storeys === first.storeys) ? first : null;
+  }
+
+  /** Writes the selected buildings' cellar mode or storeys; the rest of each one's cellar stays */
+  setCellar(part: Partial<MapCellar>): void {
+    if (part.storeys !== undefined && !(part.storeys >= 1 && part.storeys <= MAX_CELLAR_STOREYS)) return;
+    this.change(this.t().editor.objects.undo.cellar, (o) => ({ ...o, cellar: { ...(o.cellar ?? DEFAULT_CELLAR), ...part } }));
+  }
+
+  setCellarStoreys(e: Event): void {
+    this.setCellar({ storeys: Math.round(Number((e.target as HTMLInputElement).value)) });
   }
 
   /** Every selected object a shade of its own around the tint (or around white) */

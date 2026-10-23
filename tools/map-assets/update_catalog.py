@@ -10,8 +10,7 @@ footprint and height come from the measured bounds in <glb-raw-dir>/report.json
 from bases.json (measure_bases.mjs), the ground rectangle of buildings and walls
 (`box`) from boxes.json (measure_boxes.mjs), the top surface of what carries a tower (`roof`) from roofs.json
 (measure_roofs.mjs), the doors of buildings (`doors`) from doors.json (measure_doors.mjs), the far stage of buildings (`far`) from farboxes.json (bake_far_boxes.mjs), the colours of a
-line piece's far band (`band`) and a building's basement colour (`cellar`) from bands.json and cellars.json
-(measure_bands.mjs), where a light sits in its model (`light.at`, `light.height`) from lights.json
+line piece's far band (`band`) from bands.json (measure_bands.mjs), where a light sits in its model (`light.at`, `light.height`) from lights.json
 (measure_lights.mjs), the detail stages'
 tones (`lod[].tone`, `far.tone`) from stage-tones.json (stage_tones.mjs); the triangle counts from the packed models
 (count_triangles.py). Objects <glb-raw-dir> has not measured (a build of a few
@@ -66,7 +65,7 @@ FAR_SCREEN = 0.045
 # back (which drew a million triangles more on Demo Valley)
 TREE_LOD_DISTANCE = 175
 ORDER = ['id', 'name', 'category', 'file', 'footprint', 'height', 'base', 'box', 'roof', 'doors', 'blocksLos', 'blocksBuild', 'scaleRange',
-         'randomRotation', 'wind', 'float', 'aloft', 'stilts', 'roadThrough', 'groundCut', 'spin', 'rotor', 'cable', 'grip', 'row', 'variants', 'signPanel', 'grime', 'tags', 'effects', 'light', 'textures', 'lod', 'far', 'band', 'cellar', 'source']
+         'randomRotation', 'wind', 'float', 'aloft', 'stilts', 'roadThrough', 'groundCut', 'spin', 'rotor', 'cable', 'grip', 'row', 'variants', 'signPanel', 'grime', 'tags', 'effects', 'light', 'textures', 'lod', 'far', 'band', 'source']
 
 
 def lod_screen(e, distance):
@@ -97,7 +96,6 @@ def main():
     doors = json.load(open(os.path.join(HERE, 'doors.json'), encoding='utf8'))
     farboxes = json.load(open(os.path.join(HERE, 'farboxes.json'), encoding='utf8'))
     bands = json.load(open(os.path.join(HERE, 'bands.json'), encoding='utf8'))
-    cellars = json.load(open(os.path.join(HERE, 'cellars.json'), encoding='utf8'))
     lights = json.load(open(os.path.join(HERE, 'lights.json'), encoding='utf8'))
     path = os.path.join(out, 'catalog.json')
     catalog = json.load(open(path, encoding='utf8'))
@@ -147,8 +145,6 @@ def main():
             e['far'] = {'screen': FAR_SCREEN, **farboxes[o['id']]}
         if o['id'] in bands:
             e['band'] = bands[o['id']]
-        if o['id'] in cellars:
-            e['cellar'] = cellars[o['id']]
         if 'light' in e and o['id'] in lights:
             e['light'] = {**e['light'], **lights[o['id']]}
         if os.path.exists(os.path.join(out, e['file'])):

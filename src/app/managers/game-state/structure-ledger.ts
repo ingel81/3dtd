@@ -86,6 +86,8 @@ export class StructureLedger {
   /** Per structure the holes punched so far (each hole keeps the number that made or last grew it) */
   private holeCount = new Int32Array(0);
   private height = new Float64Array(0);
+  /** Per structure how deep its cellar reaches under its floor, dm (RunStructure.cellar), 0 for none */
+  private cellar = new Int32Array(0);
   /** Holes that changed since the last packet: structure and slot */
   private readonly holesChanged: number[] = [];
   /** Per structure whose roof carries towers its box (ROOF_STRIDE numbers), NaN for one without */
@@ -139,6 +141,7 @@ export class StructureLedger {
     this.holes = new Int32Array(n * HOLES_EACH);
     this.holeCount = new Int32Array(n);
     this.height = new Float64Array(n);
+    this.cellar = new Int32Array(n);
     this.holesChanged.length = 0;
     this.roof = new Float64Array(n * ROOF_STRIDE).fill(NaN);
     this.boxCos = new Float64Array(n);
@@ -155,6 +158,7 @@ export class StructureLedger {
       this.y[i] = s.lat * MAP_METERS_PER_DEGREE;
       this.radius[i] = s.radius;
       this.height[i] = s.height;
+      this.cellar[i] = Math.max(0, Math.round((s.cellar ?? 0) * 10));
       this.extent[i] = s.box ? Math.max(s.radius, boxReach(s.box, this.x[i], this.y[i])) : s.radius;
       this.maxHp[i] = Math.max(1, Math.round(s.hp));
       this.startHp[i] = Math.min(this.maxHp[i], Math.max(0, Math.round(s.start ?? s.hp)));
@@ -269,9 +273,10 @@ export class StructureLedger {
   /**
    * Take `amount` (whole HP) off every structure that still stands within
    * `reach` m plus its radius of map metres (`x`, `y`) and carries no
-   * tower; how many changed their stage. `up`: how high over the ground
-   * the hit struck, m (the destruction tool's click on a wall or a roof),
-   * null for a hit at the ground
+   * tower; how many changed their stage. `up`: how high over the
+   * structure's floor the hit struck, m, under it on its cellar's wall (the
+   * destruction tool's click on a wall or a roof), null for a hit at the
+   * ground
    */
   hit(x: number, y: number, reach: number, amount: number, up: number | null = null): number {
     if (amount <= 0 || this.structures.length === 0) return 0;
@@ -387,7 +392,8 @@ export class StructureLedger {
 
   /**
    * A hole in structure `index` where a hit of `amount` struck at map
-   * metres (`x`, `y`), `up` m over the ground (null: at the ground), as
+   * metres (`x`, `y`), `up` m over its floor (null: at the ground; down to
+   * its cellar's foot, RunStructure.cellar), as
    * large as the hit's damage for its size (holeRadiusDm). It sits where the
    * hit struck the structure's ground plan (struck): on a roof the struck
    * point itself, else the point of its outline nearest the hit, at the
@@ -414,7 +420,7 @@ export class StructureLedger {
         ? Math.max(Math.round(top * 0.5), top - Math.round(r * ROOF_HOLE_SHARE))
         : up === null
           ? Math.min(Math.round(top * 0.8), Math.round(r * HOLE_FOOT_SHARE * (1 + (roll % 1000) / 1000)))
-          : Math.min(top, Math.max(0, Math.round(up * 10)));
+          : Math.min(top, Math.max(-this.cellar[index], Math.round(up * 10)));
     // How far the hit was from where the hole goes, dm: in the air beside a wall its height counts too
     const gx = (x - at.x) * 10;
     const gy = (y - at.y) * 10;

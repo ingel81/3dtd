@@ -6,7 +6,6 @@
  */
 
 import type { CatalogRoof } from '../object-roof';
-import type { MapMassFacade } from '../map-document';
 
 export const CATALOG_VERSION = 1;
 
@@ -279,7 +278,7 @@ export interface CatalogObject {
    */
   lod?: { file: string; screen: number; triangles?: number; textures?: string[]; tone?: StageTone }[];
   /**
-   * Buildings: the far stage, a box of 24 triangles textured from the
+   * Buildings: the far stage, a box of 24 triangles (40 with its cellar) textured from the
    * model (objects/far-boxes.ts, tools/map-assets/bake_far_boxes.mjs),
    * taking over where the object fills less than `screen` of the view's
    * height. `tile`: its five tiles in the atlas from tile * 5; `box`: middle
@@ -296,25 +295,8 @@ export interface CatalogObject {
    * chain-link fence's wire); measured by tools/map-assets/measure_bands.mjs
    */
   band?: { top: [number, number, number]; side: [number, number, number]; cover?: number };
-  /**
-   * Buildings: how a basement under the model looks (MassLayer cellarBody),
-   * measured on its ground storey by tools/map-assets/measure_bands.mjs
-   */
-  cellar?: CatalogCellar;
   /** Where an object's `sign` is written on the model (render/objects/sign-text.ts) */
   signPanel?: CatalogSignPanel;
-}
-
-/** A building model's basement (CatalogObject.cellar) */
-export interface CatalogCellar {
-  /** The surface of the raised buildings' kit its walls show (plaster, sandstone, brick, ...) */
-  facade: MapMassFacade;
-  /** The colour of the model's walls as a factor over that surface's own */
-  tone: [number, number, number];
-  /** The top of the model's plinth over its floor, m at scale 1: the basement reaches over it (0 for none) */
-  plinth: number;
-  /** The colour of the model's window frames (linear), for the basement's windows and door; the facade's own without */
-  frame?: [number, number, number];
 }
 
 /**

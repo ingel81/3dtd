@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { commandProblem } from './command-guard';
 import { ABILITIES } from '../configs/abilities.config';
-import { clampDebugBlastRadius, DEBUG_BLAST_RADIUS, DEBUG_BLAST_UP_DM } from '../configs/destruction.config';
+import { clampDebugBlastRadius, DEBUG_BLAST_DOWN_DM, DEBUG_BLAST_RADIUS, DEBUG_BLAST_UP_DM } from '../configs/destruction.config';
 
 const at = { lat: 48.78, lon: 9.18, height: 250 };
 
@@ -61,7 +61,9 @@ describe('commandProblem (COOP_PLAN S4)', () => {
     expect(blast({ blast: 'rocket', up: 74 })).toBeNull();
     expect(blast({ blast: 'rocket', up: DEBUG_BLAST_UP_DM })).toBeNull();
     expect(blast({ blast: 'rocket', up: DEBUG_BLAST_UP_DM + 1 })).toBe('blast');
-    expect(blast({ blast: 'rocket', up: -1 })).toBe('blast');
+    // Under a building's floor on its cellar's wall, down to DEBUG_BLAST_DOWN_DM
+    expect(blast({ blast: 'rocket', up: -DEBUG_BLAST_DOWN_DM })).toBeNull();
+    expect(blast({ blast: 'rocket', up: -DEBUG_BLAST_DOWN_DM - 1 })).toBe('blast');
     expect(blast({ blast: 'rocket', up: 7.4 })).toBe('blast');
     expect(blast({ blast: 'rocket', up: '74' })).toBe('blast');
   });

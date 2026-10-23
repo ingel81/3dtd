@@ -22,6 +22,7 @@ import type { TerrainPreset } from '../../map-ops/generate';
 import type { SizePreset } from '../../editor/ui/make/map-make.component';
 import type { MapLifeKind, MapPathKind, MapWaterKind, MapWaveEventKind, MapWeather } from '../../world/custom-map/map-document';
 import type { VacantLanes } from '../../world/custom-map/lane-choice';
+import type { MapCellarMode } from '../../world/custom-map/object-cellar';
 import type { MirrorResult } from '../../editor/ops/mirror-map';
 import type { StampParts } from '../../editor/ops/stamp';
 import type { AmbientSoundId, WaveSoundId } from '../../world/custom-map/ambience/ambient-sounds';
@@ -530,6 +531,7 @@ const mapFile = {
     damage: (v: { value: string }) => `damage ${v.value} is not 1, 2 or 3; it starts standing`,
     damageSeed: (v: { value: string }) => `damageSeed ${v.value} is no whole number; its id rolls the look`,
     sign: (v: { max: number }) => `its sign is not a text of at most ${f.int(v.max)} characters and a pictogram name; it shows none`,
+    cellar: (v: { max: number }) => `its cellar is not open, buried or none with 1 to ${f.int(v.max)} storeys; it has the default one`,
     manyObjects: (v: { count: number; max: number }) => `the map has ${f.int(v.count)} objects, more than ${f.int(v.max)}; the rest past that is dropped`,
     structureHp: (v: { value: string; min: number; max: number }) =>
       `gameplay.structureHp ${v.value} is not ${f.int(v.min)} to ${f.int(v.max)} (percent); the structures keep their HP`,
@@ -2335,6 +2337,10 @@ export const en = {
       blocksSightTip: 'Whether towers see through it; Default follows the catalogue',
       blocksBuilding: 'Blocks building',
       blocksBuildingTip: 'Whether towers may stand on it; Default follows the catalogue',
+      cellar: 'Cellar',
+      cellarTip: 'Storeys under its floor. Open: where the ground falls away they show, with windows and a door. Buried: in the ground, seen only when a hit opens it',
+      cellarModes: { auto: 'Open', buried: 'Buried', none: 'None' } satisfies Record<MapCellarMode, string> as Record<MapCellarMode, string>,
+      cellarStoreys: 'Storeys',
       defaultIs: (value: string) => (value ? `(default ${value})` : ''),
       yesWord: 'yes',
       noWord: 'no',
@@ -2347,7 +2353,7 @@ export const en = {
         tint: 'Tint', noTint: 'No tint', randomTint: 'Random tint', align: 'Align to slope', upright: 'Upright', tilt: 'Tilt',
         drop: 'Drop to the ground', changing: 'Changing objects', scale: 'Scale', move: 'Move', turn: 'Turn',
         blocksSight: 'Blocks sight', blocksBuilding: 'Blocks building', deleteOne: 'Delete object',
-        deleteMany: (n: number) => `Delete ${n} objects`, duplicate: 'Duplicate',
+        deleteMany: (n: number) => `Delete ${n} objects`, duplicate: 'Duplicate', cellar: 'Cellar',
       },
       tool: 'Object tool',
       dragDoes: 'Drag does',

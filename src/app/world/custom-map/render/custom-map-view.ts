@@ -92,6 +92,8 @@ const BIRD_BIOMES: ReadonlySet<MapBiome> = new Set(['temperate', 'mountain', 'sw
 /** Woods for fireflies and open land for birds are counted in squares of this size, metres; a wood has this many trees */
 /** Milliseconds at least between two rebuilds of contact shadows and effects while objects keep changing */
 const EDIT_REFRESH_MS = 120;
+/** A fallen building's rubble lies in its cellar's pit this high at most over its floor, m (layRubble) */
+const PIT_PILE = 1.4;
 const WOOD_CELL = 30;
 const WOOD_TREES = 6;
 /** Shore samples for fireflies every this many metres, and at most this many swarms */
@@ -386,6 +388,8 @@ export class CustomMapView {
       ruins: options.ruins,
       ...(standing ? { standingAt: (x: number, y: number) => standing.heightAt(x, y) } : {}),
       onCellarCuts: () => this.refreshCuts(),
+      // Buildings' cellars open where the ground as the terrain draws it leaves them free (cellar-shell.ts)
+      terrain: this.terrain.heightTexture.uniforms,
     });
     this.group.add(this.objects.group);
     this.group.add(this.signs.group);
@@ -422,7 +426,7 @@ export class CustomMapView {
       // Craters sink the ground under roads and surfaces: their tiles get ready to follow it
       this.terrain.roads.prepareForCraters();
       this.terrain.surfaces.prepareForCraters();
-      this.impactMarks = new ImpactMarks(this.terrain.heightTexture);
+      this.impactMarks = new ImpactMarks(this.terrain.heightTexture, this.terrain.cuts.uniforms);
       this.group.add(this.impactMarks.mesh);
       this.rubblePieces = new RubblePieces(this.terrain.heightTexture);
       this.group.add(...this.rubblePieces.meshes);
@@ -1166,7 +1170,22 @@ export class CustomMapView {
   setImpactMarks(marks: Iterable<ImpactMark>): void {
     const list = [...marks];
     this.impactMarks?.set(list);
-    this.rubblePieces?.set(list);
+    this.marks = list;
+    this.layRubble();
+  }
+
+  /** The fight's marks as last set (setImpactMarks) */
+  private marks: ImpactMark[] = [];
+
+  /**
+   * The rubble's pieces on their heaps; in a fallen building's pit (its cellar, ruin-slabs.ts pitFloor) on its
+   * lowest floor, piled up to PIT_PILE towards the middle of the heap
+   */
+  private layRubble(): void {
+    this.rubblePieces?.set(this.marks, (x, y, k) => {
+      const floor = this.objects.pitFloor(x, y);
+      return floor === null ? null : floor + PIT_PILE * (0.15 + 0.85 * ((k * 0.618) % 1));
+    });
   }
 
   /** Heights changed inside `rect` (map metres); whole map when omitted. Objects and water follow. */
@@ -1263,6 +1282,11 @@ export class CustomMapView {
   /** First placed object a scene-space ray hits (editor picking) */
   raycastObjects(ray: Ray): ObjectHit | null {
     return this.objects.raycast(ray);
+  }
+
+  /** The floor (scene y) of the building whose body holds scene point `at` (its walls, roof or cellar), null for none */
+  floorUnder(at: Vector3): number | null {
+    return this.objects.floorUnder(at);
   }
 
   /** The ground layers or the cliff material changed: reloads the terrain's materials */
@@ -2033,6 +2057,8 @@ export class CustomMapView {
       ...this.objects.cellarCuts(),
     ];
     if (cuts.length || this.terrain.cuts.size) this.terrain.cuts.set(cuts);
+    // A pit opened or closed: its rubble on its floor or the ground
+    if (this.marks.length) this.layRubble();
   }
 
   private entries: { catalog: AssetCatalog; map: Map<string, CatalogObject> } | null = null;

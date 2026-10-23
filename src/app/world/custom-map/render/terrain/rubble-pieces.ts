@@ -4,6 +4,7 @@ import {
   Color,
   ExtrudeGeometry,
   IcosahedronGeometry,
+  InstancedBufferAttribute,
   InstancedMesh,
   Matrix4,
   MeshStandardMaterial,
@@ -20,6 +21,9 @@ import { RUBBLE_COLOURS, RUBBLE_MATERIALS, type RubbleMaterial } from '../../rub
 /** The kinds of piece on a heap */
 const PIECES = ['slab', 'bricks', 'beam', 'chunk'] as const;
 type Piece = (typeof PIECES)[number];
+
+/** A piece's floor where it lies on the ground (aRubbleFloor) */
+const NO_FLOOR = -1e9;
 
 /** Pieces of a kind at most, over every heap of a map */
 export const MAX_PIECES = 6000;
@@ -131,15 +135,16 @@ export class RubblePieces {
       material.onBeforeCompile = (shader) => {
         Object.assign(shader.uniforms, heights.uniforms);
         shader.vertexShader = shader.vertexShader
-          .replace('#include <common>', `#include <common>\n${TERRAIN_HEIGHT_GLSL}`)
+          .replace('#include <common>', `#include <common>\n${TERRAIN_HEIGHT_GLSL}\nattribute float aRubbleFloor;`)
           .replace(
             '#include <project_vertex>',
             /* glsl */ `
             vec4 mvPosition = vec4(transformed, 1.0);
             #ifdef USE_INSTANCING
               mvPosition = instanceMatrix * mvPosition;
-              // On the ground under the piece's origin as the height texture has it (scene x is map -x)
-              mvPosition.y += terrainHeightAt(vec2(-instanceMatrix[3].x, instanceMatrix[3].z));
+              // On the ground under the piece's origin as the height texture has it (scene x is map -x); in a
+              // fallen building's pit on its floor (set: aRubbleFloor, NO_FLOOR for none)
+              mvPosition.y += aRubbleFloor > ${NO_FLOOR / 2}.0 ? aRubbleFloor : terrainHeightAt(vec2(-instanceMatrix[3].x, instanceMatrix[3].z));
             #endif
             mvPosition = modelViewMatrix * mvPosition;
             gl_Position = projectionMatrix * mvPosition;`,
@@ -147,7 +152,9 @@ export class RubblePieces {
       };
       material.customProgramCacheKey = () => `custom-map-rubble-${piece}-1`;
       addHeightFog(material);
-      const mesh = new InstancedMesh(GEOMETRIES[piece](), material, MAX_PIECES);
+      const geometry = GEOMETRIES[piece]();
+      geometry.setAttribute('aRubbleFloor', new InstancedBufferAttribute(new Float32Array(MAX_PIECES).fill(NO_FLOOR), 1));
+      const mesh = new InstancedMesh(geometry, material, MAX_PIECES);
       mesh.name = `custom-map-rubble-${piece}`;
       // One piece of no size while none lies: the view's warm-up builds the program with the map's
       this.matrix.makeScale(0, 0, 0);
@@ -162,8 +169,12 @@ export class RubblePieces {
     });
   }
 
-  /** The pieces of every heap among `marks` (the rubble ones), rolled from each heap's seed */
-  set(marks: Iterable<ImpactMark>): void {
+  /**
+   * The pieces of every heap among `marks` (the rubble ones), rolled from each heap's seed. `floorAt`: the
+   * height (scene y) the k-th piece at map (x, y) lies at instead of the ground, null for the ground (in a fallen
+   * building's pit: on its cellar's floor)
+   */
+  set(marks: Iterable<ImpactMark>, floorAt: (x: number, y: number, k: number) => number | null = () => null): void {
     const counts = PIECES.map(() => 0);
     for (const m of marks) {
       if (m.kind !== ImpactMarkKind.Rubble) continue;
@@ -196,6 +207,7 @@ export class RubblePieces {
         mesh.setMatrixAt(at, this.matrix);
         const tone = 0.7 + rand(m.seed, k * 7 + 9) * 0.5;
         mesh.setColorAt(at, this.color.setRGB(grit[0] * tone, grit[1] * tone, grit[2] * tone));
+        (mesh.geometry.getAttribute('aRubbleFloor').array as Float32Array)[at] = floorAt(x, y, k) ?? NO_FLOOR;
         counts[kind]++;
       }
     }
@@ -209,6 +221,7 @@ export class RubblePieces {
       mesh.visible = n > 0;
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      mesh.geometry.getAttribute('aRubbleFloor').needsUpdate = true;
     });
   }
 

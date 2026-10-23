@@ -367,6 +367,11 @@ export interface WorldProvider {
    * space; a new vector, null for none or a world without them (ScreenPicker.raycastStrike)
    */
   pickObjects?(raycaster: Raycaster): Vector3 | null;
+  /**
+   * The floor (scene y) of the building whose body holds scene point `at` (its walls, roof or cellar, from a
+   * pick), null for none: how high a hit struck it, under the floor on its cellar's wall (debug:blast `up`)
+   */
+  floorUnder?(at: Vector3): number | null;
   /** Put the world into the engine's scene: ground, camera controls, load events */
   attach(ctx: WorldAttachContext): Promise<void>;
   /** The world draws frames (tiles: once the renderer stands) */

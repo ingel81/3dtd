@@ -5,7 +5,7 @@ import { massArea, massBodies, massContains } from '../../object-mass';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import { HeightField } from '../height-field';
 import { MapAssetLibrary } from '../map-asset-library';
-import { basementBodies, cellarBody, MassLayer, massShape, packFrame } from './mass-layer';
+import { cellarBodies, MassLayer, massShape } from './mass-layer';
 import { FELL_LONG_AGO } from './ruin-damage';
 import { MapObjectLayer } from './object-layer';
 
@@ -82,44 +82,22 @@ describe('mass layer: the shape of a raised building', () => {
     expect(shape.covering).toBe('flat');
   });
 
-  it('reaches a building on a basement down to its seat, and walls a catalogue model\'s basement round its wall box', () => {
-    const [body] = basementBodies(massBodies(court), 3);
-    const walls = massShape(body).walls.filter((w) => w.kind === 0);
-    expect(walls.every((w) => w.bottom === -1.5 - 3)).toBe(true);
-    // Without one as it was
-    expect(massShape(massBodies(court)[0]).walls.filter((w) => w.kind === 0).every((w) => w.bottom === -1.5)).toBe(true);
-    const cellar = massShape(cellarBody([0, 0.5, 4, 3], 2.5));
-    expect(cellar.walls.length).toBe(4);
-    expect(cellar.roof).toEqual([]);
-    expect(cellar.caps).toEqual([]);
-    for (const w of cellar.walls) {
-      expect(w.bottom).toBe(-1.5 - 2.5);
-      expect(w.top).toBeGreaterThan(0);
-      expect(w.top).toBeLessThan(0.5);
-    }
-    // A little past the box on each side, over the model's own foundation
-    expect(cellar.walls.map((w) => w.length).sort((p, q) => p - q)).toEqual([6.2, 6.2, 8.2, 8.2].map((v) => expect.closeTo(v, 5)));
-    // Measured on the model (catalogue `cellar`): its surface and colour, up over its plinth so that is the basement's
-    const stone = cellarBody([0, 0.5, 4, 3], 2.5, { facade: 'stone', tone: [1.2, 1, 0.9], plinth: 0.6 });
-    expect(stone.facade).toBe('stone');
-    expect(stone.tone).toEqual([1.2, 1, 0.9]);
-    for (const w of massShape(stone).walls) expect(w.top).toBeCloseTo(0.62, 5);
-    // A low plinth or none: as high as without
-    expect(massShape(cellarBody([0, 0.5, 4, 3], 2.5, { facade: 'plaster', tone: [1, 1, 1], plinth: 0 })).walls[0].top).toBe(cellar.walls[0].top);
-  });
-
-  it('packs the window frame colour of a basement into one number the shader unpacks exactly, 0 for none', () => {
-    // As WALL_COLOR_FRAGMENT unpacks it
-    const unpack = (v: number) => {
-      const p = Math.floor(v + 0.5) - 1;
-      return [Math.floor(p / 65536), Math.floor(p / 256) % 256, p % 256].map((c) => c / 255);
-    };
-    for (const c of [[0.583, 0.583, 0.57], [0, 0, 0], [1, 1, 1], [0.13, 0.5, 0.9]] as [number, number, number][]) {
-      const v = packFrame(c);
-      expect(v).toBeGreaterThan(0);
-      expect(Math.fround(v)).toBe(v);
-      unpack(v).forEach((u, k) => expect(u).toBeCloseTo(c[k], 2));
-    }
+  it("reaches a building's walls down to its cellar's foot (object-cellar.ts), the foundation without one", () => {
+    // The walls' feet, each once, to the mm
+    const feet = (bottoms: number[]) => [...new Set(bottoms.map((b) => b.toFixed(3)))];
+    const foot = (o: Pick<MapObject, 'cellar' | 'scale'>) => massShape(cellarBodies(massBodies(court), o)[0]).walls.filter((w) => w.kind === 0).map((w) => w.bottom);
+    // Two storeys of 2.8 m and the footing; buried as deep; one storey at scale 2 as deep in metres, half in the model
+    expect(feet(foot({ cellar: { mode: 'auto', storeys: 2 }, scale: 1 }))).toEqual(['-5.900']);
+    expect(feet(foot({ cellar: { mode: 'buried', storeys: 2 }, scale: 1 }))).toEqual(['-5.900']);
+    expect(feet(foot({ cellar: { mode: 'auto', storeys: 1 }, scale: 2 }))).toEqual(['-1.550']);
+    // No cellar: the foundation; a map without one: one storey (DEFAULT_CELLAR)
+    expect(feet(foot({ cellar: { mode: 'none', storeys: 1 }, scale: 1 }))).toEqual(['-1.500']);
+    expect(feet(foot({ scale: 1 }))).toEqual(['-3.100']);
+    // A whole one's walls only as far as the slope leaves them open: 1 m over its lowest ground and the margin
+    expect(feet(massShape(cellarBodies(massBodies(court), { cellar: { mode: 'auto', storeys: 2 }, scale: 1, z: 1 }, false)[0]).walls.filter((w) => w.kind === 0).map((w) => w.bottom))).toEqual(['-1.600']);
+    // Its storeys and whether it is buried go to the walls' shader
+    const [body] = cellarBodies(massBodies(court), { cellar: { mode: 'buried', storeys: 3 }, scale: 1 });
+    expect(body.cellar).toEqual({ depth: 8.7, storeys: 3, buried: true });
   });
 
   it('raises a mansard: walls to the eaves, steep slopes from past them, the top flat', () => {
@@ -364,29 +342,15 @@ describe('mass layer in the object layer', () => {
     layer.dispose();
   });
 
-  it('draws the basement under a catalogue model with the raised buildings, moves it with the model and takes it out', async () => {
+  it("draws no walls for a catalogue model's cellar: its model carries it (cellar-shell.ts)", async () => {
     const field = new HeightField({ columns: 2, rows: 2, cellSize: 1000, heights: new Float32Array(4) }, 1000, 1000);
     const los = new Group();
     const layer = new MapObjectLayer(field, library(), los);
-    const house: MapObject = { id: 'h1', asset: 'house', x: 0, y: 0, z: 2.5, basement: 2.5, rotation: 0, scale: 1 };
-    await layer.setObjects([house, { id: 'h2', asset: 'house', x: 50, y: 0, z: 0, rotation: 0, scale: 1 }]);
-    const walls = (): InstancedMesh[] => {
-      const out: InstancedMesh[] = [];
-      los.traverse((o) => o instanceof InstancedMesh && (o.material as MeshStandardMaterial).name?.startsWith('mass-') && out.push(o));
-      return out;
-    };
-    // One house's basement: four walls in one mesh, its model drawn as ever
-    let meshes = walls();
-    expect(meshes.reduce((s, m) => s + m.count, 0)).toBe(4);
-    const x0 = meshes[0].instanceMatrix.array[12];
-    // Moved in place as a model; its basement goes along
-    expect(layer.updateObjects([{ ...house, x: 20 }])).toEqual([]);
-    await new Promise((r) => setTimeout(r, 0));
-    meshes = walls();
-    expect(meshes[0].instanceMatrix.array[12]).not.toBeCloseTo(x0);
-    layer.removeObjects(['h1']);
-    await new Promise((r) => setTimeout(r, 0));
-    expect(walls().reduce((s, m) => s + m.count, 0)).toBe(0);
+    const house: MapObject = { id: 'h1', asset: 'house', x: 0, y: 0, z: 2.5, cellar: { mode: 'auto', storeys: 1 }, rotation: 0, scale: 1 };
+    await layer.setObjects([house]);
+    const walls: InstancedMesh[] = [];
+    los.traverse((o) => o instanceof InstancedMesh && (o.material as MeshStandardMaterial).name?.startsWith('mass-') && walls.push(o));
+    expect(walls.reduce((n, m) => n + m.count, 0)).toBe(0);
     layer.dispose();
   });
 });

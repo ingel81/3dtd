@@ -2,6 +2,7 @@ import { BoxGeometry, DoubleSide, InstancedBufferAttribute, InstancedMesh, Matri
 import { roofHeights, type CatalogRoof } from '../../object-roof';
 import type { RubbleMaterial } from '../../rubble-material';
 import type { GroundCut } from '../terrain/terrain-cuts';
+import { CELLAR_STOREY } from '../../object-cellar';
 import { addDamage, DAMAGE_ATTRIBUTES, damageArrays, damageDepthMaterial, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
 
 /**
@@ -21,16 +22,21 @@ import { addDamage, DAMAGE_ATTRIBUTES, damageArrays, damageDepthMaterial, writeD
  * the hole the storeys show. Intact buildings pay nothing for them. The
  * ground floor has a slab too, so no grass shows inside.
  *
- * A building over a cellar on a slope (MapObject.basement, its frame's
- * `cellar`) has a floor down there as well, and while it stands with its
- * insides showing the terrain is cut away inside its ground (cellarCuts,
- * terrain-cuts.ts): the hill under its floor, which its cellar walls hide on
- * a whole building, would fill the cellar seen through a hole. A fallen one
- * keeps the ground, its rubble lies on it.
+ * A building over a cellar (MapObject.cellar, object-cellar.ts; its
+ * frame's `cellar` and `cellarStoreys`) has a floor in each of its storeys
+ * and its inner walls reach down to the lowest, and while its insides show
+ * the terrain is cut away inside its ground (cellarCuts, terrain-cuts.ts):
+ * the hill under its floor, which its cellar walls hide on a whole building,
+ * would fill the cellar seen through a hole. A fallen one keeps its cellar
+ * as a pit: all the ground inside its walls cut away, the heap its rubble
+ * raised included, and its rubble lies on its lowest floor (pitFloor,
+ * rubble-pieces.ts).
  */
 
 /** How far over the floor above a cellar the ground is cut away inside it, m: the slope is cut down to that floor */
 const CUT_OVER = 0.15;
+/** Over a fallen one's floor the ground is cut away inside it up to this, m: its rubble's heap too, an open pit */
+const PIT_OVER = 8;
 /** Storey height and slab thickness, m */
 const STOREY = 3;
 const THICKNESS = 0.24;
@@ -200,6 +206,8 @@ export class RuinSlabs {
   private capacity = 0;
   /** Per building over a cellar whose insides show the ground cut away inside it, map space */
   private readonly cuts = new Map<string, GroundCut[]>();
+  /** Per fallen building over a cellar: its pit's cuts and its lowest floor's top (scene y) */
+  private readonly pits = new Map<string, { cuts: GroundCut[]; floor: number }>();
 
   constructor(
     /** The cuts changed (cellarCuts) */
@@ -229,6 +237,7 @@ export class RuinSlabs {
     this.asked.set(id, [id, frame, shape, stage, fallStart, material, footprint]);
     if (stage < 2 && !this.holed.has(id)) {
       this.setCuts(id, null);
+      this.pits.delete(id);
       if (this.ruins.delete(id)) this.flush();
       return;
     }
@@ -240,24 +249,29 @@ export class RuinSlabs {
     const floors: { y: number; rects: FootprintRect[] }[] = [];
     // From the ground floor up: a slab over the ground inside, so no grass shows through a hole
     for (let k = 0; k * STOREY <= top; k++) {
+      // A fallen one's ground floor over a cellar went down into its pit
+      if (k === 0 && stage >= 3 && (frame.cellar ?? 0) > 0) continue;
       const rects = footprint ? footprintRects(footprint.roof, (k * STOREY + HEADROOM) / f.sy, box, footprint.section?.((k * STOREY + SECTION_OVER) / f.sy)) : [box];
       if (rects.length) floors.push({ y: frame.seatY + (k ? k * STOREY : THICKNESS / 2), rects });
     }
-    // Over a cellar: its floor as the ground floor's, and while it stands the ground inside its whole ground cut away
+    // Over a cellar: a floor each storey down as the ground floor's (object-cellar.ts), and the ground inside its whole
+    // ground cut away, while it stands as when it fell: a pit its rubble lies in
     const cellar = frame.cellar ?? 0;
+    const cellarStoreys = cellar > 0 ? (frame.cellarStoreys ?? 1) : 0;
     let cuts: GroundCut[] | null = null;
+    let inner: FootprintRect[] = [];
     if (cellar > 0) {
       const section = footprint?.section?.(SECTION_OVER / f.sy);
-      const inner = footprint ? footprintRects(footprint.roof, HEADROOM / f.sy, box, section) : [box];
-      if (inner.length) floors.push({ y: frame.seatY - cellar + THICKNESS / 2, rects: inner });
-      if (stage < 3) {
-        const whole: FootprintRect = { x0: mx - hx, x1: mx + hx, z0: mz - hz, z1: mz + hz };
-        cuts = (footprint ? footprintRects(footprint.roof, HEADROOM / f.sy, whole, section) : [whole]).map((r) => cellarCut(f, r, frame.seatY + CUT_OVER));
-      }
+      inner = footprint ? footprintRects(footprint.roof, HEADROOM / f.sy, box, section) : [box];
+      for (let k = 1; k <= cellarStoreys && inner.length; k++) floors.push({ y: frame.seatY - k * CELLAR_STOREY + THICKNESS / 2, rects: inner });
+      const whole: FootprintRect = { x0: mx - hx, x1: mx + hx, z0: mz - hz, z1: mz + hz };
+      cuts = (footprint ? footprintRects(footprint.roof, HEADROOM / f.sy, whole, section) : [whole]).map((r) => cellarCut(f, r, frame.seatY + (stage >= 3 ? PIT_OVER : CUT_OVER)));
     }
+    if (cuts && stage >= 3) this.pits.set(id, { cuts, floor: frame.seatY - cellarStoreys * CELLAR_STOREY + THICKNESS });
+    else this.pits.delete(id);
     this.setCuts(id, cuts);
     // A wall across each side long enough for two rooms, off the middle by the ruin's roll (its heading)
-    const walls: { alongZ: boolean; at: number; from: number; to: number; height: number }[] = [];
+    const walls: { alongZ: boolean; at: number; from: number; to: number; height: number; foot: number }[] = [];
     const tallest = frame.height * WALL_TOP;
     for (const [alongZ, half, roll] of [[true, Math.hypot(frame.ax, frame.az), 7.31], [false, Math.hypot(frame.bx, frame.bz), 3.17]] as const) {
       if (half <= ROOM_HALF) continue;
@@ -265,11 +279,26 @@ export class RuinSlabs {
       const at = alongZ ? mx + hx * off : mz + hz * off;
       const [from, to] = alongZ ? [box.z0, box.z1] : [box.x0, box.x1];
       if (!footprint) {
-        walls.push({ alongZ, at, from, to, height: tallest });
+        walls.push({ alongZ, at, from, to, height: tallest, foot: frame.seatY });
         continue;
       }
       const span = wallSpan(footprint.roof, alongZ, at, alongZ ? mz : mx, WALL_LEAST / f.sy, from, to, footprint.section?.(WALL_SECTION / f.sy));
-      if (span) walls.push({ alongZ, at, from: span.from, to: span.to, height: Math.min(tallest, span.low * f.sy * 0.92) });
+      if (span) walls.push({ alongZ, at, from: span.from, to: span.to, height: Math.min(tallest, span.low * f.sy * 0.92), foot: frame.seatY });
+    }
+    // The cellar's inner walls on the same lines, from its lowest floor up to the ground floor's slab, where its
+    // floors reach (the inner rectangles)
+    if (cellarStoreys && inner.length) {
+      const depth = cellarStoreys * CELLAR_STOREY;
+      const above = walls.splice(0);
+      // A fallen one's walls over the ground went down into its pit with the floor they stood on
+      if (stage < 3) walls.push(...above);
+      for (const w of above) {
+        const runs = inner.filter((r) => (w.alongZ ? r.x0 <= w.at && w.at <= r.x1 : r.z0 <= w.at && w.at <= r.z1));
+        for (const r of runs) {
+          const [from, to] = w.alongZ ? [Math.max(w.from, r.z0), Math.min(w.to, r.z1)] : [Math.max(w.from, r.x0), Math.min(w.to, r.x1)];
+          if (to - from >= LEAST_SIDE) walls.push({ alongZ: w.alongZ, at: w.at, from, to, height: depth, foot: frame.seatY - depth });
+        }
+      }
     }
     const count = floors.reduce((n, fl) => n + fl.rects.length, 0) + walls.length;
     if (!count) {
@@ -312,7 +341,7 @@ export class RuinSlabs {
       const n = Math.hypot(nx, nz) || 1;
       this.matrix.set(
         (nx / n) * WALL, 0, lx, f.ox + f.ux * x + f.vx * z,
-        0, w.height, 0, frame.seatY + w.height / 2,
+        0, w.height, 0, w.foot + w.height / 2,
         (nz / n) * WALL, 0, lz, f.oz + f.uz * x + f.vz * z,
         0, 0, 0, 1,
       );
@@ -320,6 +349,15 @@ export class RuinSlabs {
     }
     this.ruins.set(id, { count, matrices, damage, colours });
     this.flush();
+  }
+
+  /**
+   * The top of the lowest floor (scene y) of the fallen building whose pit holds map point (`x`, `y`), null
+   * for none: its rubble lies there (rubble-pieces.ts)
+   */
+  pitFloor(x: number, y: number): number | null {
+    for (const pit of this.pits.values()) if (pit.cuts.some((c) => insideCutRect(c, x, y))) return pit.floor;
+    return null;
   }
 
   /** Whether building `id` has a hole in it: its insides show from stage 1 then */
@@ -333,6 +371,7 @@ export class RuinSlabs {
 
   delete(id: string): void {
     this.asked.delete(id);
+    this.pits.delete(id);
     this.holed.delete(id);
     this.setCuts(id, null);
     if (this.ruins.delete(id)) this.flush();
@@ -340,6 +379,7 @@ export class RuinSlabs {
 
   clear(): void {
     this.asked.clear();
+    this.pits.clear();
     this.holed.clear();
     if (this.cuts.size) {
       this.cuts.clear();
@@ -440,6 +480,13 @@ function cellarCut(f: { ox: number; oz: number; ux: number; uz: number; vx: numb
     springY: top,
     rise: 0,
   };
+}
+
+/** Whether map point (`x`, `y`) lies within cut `c`'s ground (its front face's width, its length in) */
+function insideCutRect(c: GroundCut, x: number, y: number): boolean {
+  const along = (x - c.x) * c.dx + (y - c.y) * c.dy;
+  const across = Math.abs(-(x - c.x) * c.dy + (y - c.y) * c.dx);
+  return along >= 0 && along <= c.length && across <= c.halfWidth;
 }
 
 function sameCut(a: GroundCut, b: GroundCut): boolean {

@@ -25,9 +25,11 @@ import { NIGHT_WINDOW_UNIFORMS } from './night-windows';
 /**
  * The far stage of the catalogue's buildings: every building of every asset
  * drawn as one box in one instanced draw (one for those that block sight,
- * one for the rest). A box is 24 triangles: its top a 3 x 3 grid of heights
+ * one for the rest). A box is 24 triangles (a building's 40): its top a 3 x 3 grid of heights
  * (a flat roof, a gable either way, a hip, a shed), its four walls down to
- * the model's foundation, each textured with the model seen square on from
+ * the model's foundation and on down to its cellar's foot (aFarCellar, the
+ * building's MapObject.cellar as the model draws it, cellar-shell.ts) in
+ * the colour of its plinth, each textured with the model seen square on from
  * its side and the top from above, five tiles of one atlas for all
  * buildings (tools/map-assets/bake_far_boxes.mjs, catalogue `far`). The box
  * comes from the template's grid corner, the asset's row of a small data
@@ -41,24 +43,33 @@ import { NIGHT_WINDOW_UNIFORMS } from './night-windows';
 /** Pixels per atlas tile and tiles per atlas row, as bake_far_boxes.mjs writes them */
 export const FAR_TILE = 64;
 export const FAR_COLUMNS = 16;
+/** Metres over a far box's foundation whose colour its cellar takes: its plinth's */
+const FAR_PLINTH = 0.15;
 /** Texels per asset row of the parameter texture: box, span, nine heights and the tone (catalogue `far.tone`) */
 const ROW_TEXELS = 5;
 
 /** GLSL of the box: where a template vertex lies for its asset's row (farBoxLocal), and its place in the atlas (farBoxUv) */
 const FAR_BOX_GLSL = /* glsl */ `
 attribute float aFarRow;
+// The instance's cellar (cellar-shell.ts aCellarOf): its depth under the floor, m
+attribute vec4 aFarCellar;
 uniform highp sampler2D uFarParams;
 vec4 farParam(int k) {
   return texelFetch(uFarParams, ivec2(k, int(aFarRow + 0.5)), 0);
 }
-// p: grid column (0..2), top (1) or foundation (0), grid row (0..2)
-vec3 farBoxLocal(vec3 p) {
+// p: grid column (0..2), top (1), foundation (0) or the cellar's foot (-1), grid row (0..2); cellar: the
+// cellar's foot is drawn (the sun's shadow sees the foundation, as it sees the model)
+vec3 farBoxLocal(vec3 p, bool cellar) {
   vec4 box = farParam(0);
   int k = int(p.z + 0.5) * 3 + int(p.x + 0.5);
   vec4 a = farParam(2);
   vec4 b = farParam(3);
   float h = k < 4 ? a[k] : k < 8 ? b[k - 4] : farParam(4).x;
-  float y = p.y > 0.5 ? h : farParam(1).x;
+  float foot = farParam(1).x;
+  #ifdef USE_INSTANCING
+  if (cellar && p.y < -0.5) foot = min(foot, -aFarCellar.x / max(length(instanceMatrix[1].xyz), 1e-3));
+  #endif
+  float y = p.y > 0.5 ? h : foot;
   return vec3(box.x + (p.x - 1.0) * box.z, y, box.y + (p.z - 1.0) * box.w);
 }
 `;
@@ -76,7 +87,8 @@ vec2 farBoxUv(vec3 p, float s, float y) {
   } else {
     // Seen from outside: from -z the right hand is -x, from +x it is -z, and so on round
     u = s < 1.5 ? 1.0 - p.x * 0.5 : s < 2.5 ? 1.0 - p.z * 0.5 : s < 3.5 ? p.x * 0.5 : p.z * 0.5;
-    v = 1.0 - (y - span.x) / max(span.y - span.x, 0.01);
+    // Under the foundation the plinth's colour, as the model's plinth runs on down its cellar
+    v = 1.0 - (max(y, span.x + ${FAR_PLINTH.toFixed(2)}) - span.x) / max(span.y - span.x, 0.01);
   }
   float t = span.z * 5.0 + s;
   vec2 tile = vec2(mod(t, ${FAR_COLUMNS}.0), floor(t / ${FAR_COLUMNS}.0));
@@ -87,10 +99,11 @@ vec2 farBoxUv(vec3 p, float s, float y) {
 
 /**
  * The template: the top's nine grid points, each wall's three columns at
- * the top and the foundation. Position: grid column, top or foundation,
- * grid row; uv.x: the side. Triangles face out.
+ * the top, the foundation and the cellar's foot. Position: grid column,
+ * top, foundation or cellar's foot (1, 0, -1), grid row; uv.x: the side.
+ * Triangles face out.
  */
-function boxTemplate(): BufferGeometry {
+function boxTemplate(cellar: boolean): BufferGeometry {
   const pos: number[] = [];
   const side: number[] = [];
   const index: number[] = [];
@@ -101,6 +114,7 @@ function boxTemplate(): BufferGeometry {
   };
   // Where a template point lies for a unit box with a flat top at 1: to check each triangle faces out
   const at = (v: number) => new Vector3(pos[v * 3] - 1, pos[v * 3 + 1], pos[v * 3 + 2] - 1);
+  // The cellar's foot drawn under the foundation for the winding test
   const face = (a: number, b: number, c: number, out: Vector3): void => {
     const n = at(b).sub(at(a)).cross(at(c).sub(at(a)));
     if (n.dot(out) >= 0) index.push(a, b, c);
@@ -124,16 +138,17 @@ function boxTemplate(): BufferGeometry {
     [4, (k) => [0, k], new Vector3(-1, 0, 0)],
   ];
   for (const [s, corner, out] of walls) {
-    const top: number[] = [];
-    const bottom: number[] = [];
-    for (let k = 0; k < 3; k++) {
+    // Top, foundation and the cellar's foot, each the wall's three columns
+    const rows = (cellar ? [1, 0, -1] : [1, 0]).map((level) => [0, 1, 2].map((k) => {
       const [i, j] = corner(k);
-      top.push(vertex(i, 1, j, s));
-      bottom.push(vertex(i, 0, j, s));
-    }
-    for (let k = 0; k < 2; k++) {
-      face(bottom[k], top[k], bottom[k + 1], out);
-      face(bottom[k + 1], top[k], top[k + 1], out);
+      return vertex(i, level, j, s);
+    }));
+    for (let r = 0; r + 1 < rows.length; r++) {
+      const [top, bottom] = [rows[r], rows[r + 1]];
+      for (let k = 0; k < 2; k++) {
+        face(bottom[k], top[k], bottom[k + 1], out);
+        face(bottom[k + 1], top[k], top[k + 1], out);
+      }
     }
   }
   const g = new BufferGeometry();
@@ -154,12 +169,18 @@ interface FarDraw {
 /** The keys of the boxes' two draws: those that block sight, the rest */
 export const FAR_BLOCKING = 'blocking';
 export const FAR_OPEN = 'open';
+/**
+ * A building's boxes go in draws of their own (the key + FAR_CELLAR), with walls on down to their cellars' feet:
+ * the rest (vine rows, hedges, tens of thousands on a wine town's map) keep 24 triangles
+ */
+export const FAR_CELLAR = '-cellar';
 
 export class FarBoxes implements SharedDraws {
   /** Per asset: its box and atlas tile, 5 texels a row (box, span, nine heights, tone) */
   private params: DataTexture;
   private readonly rows = new Map<string, number>();
-  private readonly template = boxTemplate();
+  private readonly template = boxTemplate(false);
+  private readonly cellarTemplate = boxTemplate(true);
   private readonly material: MeshStandardMaterial;
   private readonly depthMaterial: MeshDepthMaterial;
   private readonly uniforms: { uFarParams: { value: DataTexture }; uFarAtlas: { value: Vector2 } };
@@ -186,7 +207,7 @@ export class FarBoxes implements SharedDraws {
         .replace('#include <common>', `#include <common>\n${FAR_BOX_GLSL}\n${FAR_UV_GLSL}\nvarying vec3 vFarWorld;\nvarying vec3 vFarTone;`)
         .replace(
           '#include <begin_vertex>',
-          /* glsl */ `vec3 transformed = farBoxLocal(position);
+          /* glsl */ `vec3 transformed = farBoxLocal(position, true);
           vMapUv = farBoxUv(position, uv.x, transformed.y);
           vFarWorld = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
           vFarTone = farParam(4).yzw;`,
@@ -218,7 +239,7 @@ export class FarBoxes implements SharedDraws {
       Object.assign(shader.uniforms, this.uniforms);
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', `#include <common>\n${FAR_BOX_GLSL}`)
-        .replace('#include <begin_vertex>', 'vec3 transformed = farBoxLocal(position);');
+        .replace('#include <begin_vertex>', 'vec3 transformed = farBoxLocal(position, false);');
     };
     d.customProgramCacheKey = () => 'custom-map-far-box-depth';
     this.depthMaterial = d;
@@ -255,19 +276,20 @@ export class FarBoxes implements SharedDraws {
 
   /** The list of the boxes that block sight or not, with room for at least `capacity`; a new one when it had less */
   list(key: string, capacity: number): { list: InstanceList; renewed: boolean } {
-    const blocks = key === FAR_BLOCKING;
+    const blocks = key.startsWith(FAR_BLOCKING);
     const old = this.draws.get(key);
     if (old && old.list.capacity >= capacity) return { list: old.list, renewed: false };
     if (old) this.disposeDraw(old);
-    const list = new InstanceList(Math.max(capacity, old ? old.list.capacity * 2 : 256), true, [1]);
-    const geometry = fadeGeometry(this.template, list.fades);
+    const list = new InstanceList(Math.max(capacity, old ? old.list.capacity * 2 : 256), true, [1, 4]);
+    const geometry = fadeGeometry(key.endsWith(FAR_CELLAR) ? this.cellarTemplate : this.template, list.fades);
     geometry.setAttribute('aFarRow', list.extras[0]);
+    geometry.setAttribute('aFarCellar', list.extras[1]);
     const mesh = new InstancedMesh(geometry, this.material, 0);
     mesh.instanceMatrix = list.matrices;
     mesh.instanceColor = list.colors;
     mesh.customDepthMaterial = this.depthMaterial;
     mesh.boundingSphere = this.bounds(key);
-    mesh.name = blocks ? 'far-boxes' : 'far-boxes-decor';
+    mesh.name = `${blocks ? 'far-boxes' : 'far-boxes-decor'}${key.endsWith(FAR_CELLAR) ? FAR_CELLAR : ''}`;
     mesh.matrixAutoUpdate = false;
     mesh.receiveShadow = true;
     mesh.visible = false;
@@ -306,14 +328,14 @@ export class FarBoxes implements SharedDraws {
 
   /** The meshes of the boxes that block no sight (a water reflection leaves them out) */
   openMeshes(): InstancedMesh[] {
-    const open = this.draws.get(FAR_OPEN);
-    return open ? [open.mesh] : [];
+    return [FAR_OPEN, FAR_OPEN + FAR_CELLAR].flatMap((key) => this.draws.get(key)?.mesh ?? []);
   }
 
   dispose(): void {
     for (const d of this.draws.values()) this.disposeDraw(d);
     this.draws.clear();
     this.template.dispose();
+    this.cellarTemplate.dispose();
     this.material.dispose();
     this.depthMaterial.dispose();
     this.params.dispose();

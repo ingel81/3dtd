@@ -1,4 +1,5 @@
 import {
+  Box3,
   Color,
   DoubleSide,
   Euler,
@@ -22,6 +23,9 @@ import {
   type MeshStandardMaterial,
 } from 'three';
 import type { MapObject } from '../../map-document';
+import { cellarDepth, cellarDrawnDepth, cellarFrame, cellarOf, takesCellar } from '../../object-cellar';
+import type { HeightTexture } from '../terrain/height-texture';
+import { addCellar, cellarShell } from './cellar-shell';
 import { LOD_TAN_HALF_FOV, objectRadius, pixelDistance, screenDistance, type AssetCatalog, type CatalogObject, type StageTone } from '../asset-catalog';
 import { QUALITY_TABLE } from '../../../../three-engine/render-quality';
 import type { LosPrepare } from '../../../../three-engine/tower-shadow-mapper';
@@ -44,7 +48,7 @@ import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, holdBlend, leve
 import { InstanceList, type InstanceSource } from './instance-list';
 import { LineSpheres } from './line-spheres';
 import { MassLayer } from './mass-layer';
-import { FAR_BLOCKING, FAR_OPEN, FarBoxes } from './far-boxes';
+import { FAR_BLOCKING, FAR_CELLAR, FAR_OPEN, FarBoxes } from './far-boxes';
 import { ImpostorDraws } from './impostor-array';
 import { BAND_BLOCKING, BAND_OPEN, BAND_SCREEN, hasBand, LineBands } from './line-bands';
 import type { SharedDraws } from './shared-draws';
@@ -127,6 +131,8 @@ const NO_NEXT = -2;
 const BUILD_SLICE_MS = 8;
 /** Milliseconds of ruin floors built a frame (buildSlabs): one building's took 3 to 5 */
 const SLABS_MS = 4;
+/** Metres round a building's ground rectangle and over its top a point still counts as on it (floorUnder): a pick lands on its surface */
+const PICK_ROOM = 0.4;
 /** Strongest glow of an object surface (emissive colour times intensity, linear) */
 const MAX_EMISSIVE = 0.55;
 
@@ -211,6 +217,11 @@ interface AssetBatch {
   impostorAt: number;
   /** A ruin batch's damage per object (writeDamage), its lists' extras */
   damage: DamageArrays | null;
+  /**
+   * A building's cellar per object (4 each: its depth under the floor in m, its storeys, its mode: 1 open to the
+   * slope, 2 buried, 0 none; cellar-shell.ts `aCellarOf`), its lists' last extra; null for other assets
+   */
+  cellar: Float32Array | null;
   /** Plants of 0.8 m and less cast no shadow */
   casts: boolean;
   objects: MapObject[];
@@ -295,6 +306,11 @@ export interface ObjectLayerOptions {
   standingAt?: (x: number, y: number) => number;
   /** The ground cut away inside the cellars of ruins changed (cellarCuts) */
   onCellarCuts?: () => void;
+  /**
+   * The height texture the terrain's mesh is drawn from: buildings draw their cellars (cellar-shell.ts), their
+   * openings where the ground leaves them free; without it none
+   */
+  terrain?: HeightTexture['uniforms'];
 }
 
 /**
@@ -391,6 +407,9 @@ export class MapObjectLayer {
   private readonly pickHits: Intersection[] = [];
   private readonly tmpRay = new Ray();
   private readonly instanceMatrix = new Matrix4();
+  private readonly tmpInverse = new Matrix4();
+  private readonly pickPoint = new Vector3();
+  private readonly cellarBox = new Box3();
   /** Objects within this distance of the focus cast shadows */
   shadowRadius = 400;
   /**
@@ -504,8 +523,7 @@ export class MapObjectLayer {
     // Raised buildings damaged before they were built take their damage along
     const hurt = masses.filter((o) => this.damaged.has(o.id)).map((o) => ({ id: o.id, ...this.damaged.get(o.id)! }));
     if (hurt.length) this.masses.setDamage(hurt);
-    // The basements under catalogue models draw there too, the models here
-    const shown = this.masses.setObjects(objects.filter(MassLayer.draws));
+    const shown = this.masses.setObjects(masses);
     if (masses.length) objects = objects.filter((o) => !MassLayer.owns(o));
     const catalog = await this.assets.catalog();
     const groups = groupByAsset(catalog, objects, this.damaged);
@@ -563,8 +581,6 @@ export class MapObjectLayer {
    */
   updateObjects(objects: readonly MapObject[]): MapObject[] {
     const rest: MapObject[] = [];
-    const cellars: MapObject[] = [];
-    const cellarsGone: string[] = [];
     let changed = false;
     for (const o of objects) {
       const slot = this.byId.get(o.id);
@@ -579,15 +595,11 @@ export class MapObjectLayer {
         rest.push(o);
         continue;
       }
-      // Its basement (MapObject.basement) moves with it in the mass layer
-      if (MassLayer.cellar(o)) cellars.push(o);
-      else if (this.masses.hasCellar(o.id)) cellarsGone.push(o.id);
       b.objects[slot.index] = o;
       this.writeInstance(b, slot.index);
       this.rewrite(b, slot.index);
       changed = true;
     }
-    if (cellars.length || cellarsGone.length) void this.masses.change(cellars, cellarsGone);
     if (changed) {
       this.version++;
       this.applyLevels(false);
@@ -598,8 +610,8 @@ export class MapObjectLayer {
   /** Adds objects (an asset new to the map loads its model first). Resolves when they show. */
   async addObjects(objects: MapObject[]): Promise<void> {
     if (!objects.length) return;
-    // Raised buildings and the basements under catalogue models (MapObject.basement) to the mass layer, the models here
-    const masses = objects.filter(MassLayer.draws);
+    // Raised buildings to the mass layer, the models here (their cellars are in their models, cellar-shell.ts)
+    const masses = objects.filter(MassLayer.owns);
     await Promise.all([masses.length ? this.masses.change(masses, []) : null, this.addCatalogued(objects.filter((o) => !MassLayer.owns(o)))]);
   }
 
@@ -841,7 +853,7 @@ export class MapObjectLayer {
 
   /** Removes objects by id: each leaves the lists it is in, the asset's last object fills its place */
   removeObjects(ids: string[]): void {
-    const masses = ids.filter((id) => this.masses.has(id) || this.masses.hasCellar(id));
+    const masses = ids.filter((id) => this.masses.has(id));
     if (masses.length) void this.masses.remove(masses);
     for (const id of ids) {
       this.dropSlabs(id);
@@ -871,6 +883,7 @@ export class MapObjectLayer {
       b.source.matrices.copyWithin(i * 16, last * 16, last * 16 + 16);
       b.source.colors?.copyWithin(i * 3, last * 3, last * 3 + 3);
       if (b.damage) for (const a of b.damage) a.copyWithin(i * 4, last * 4, last * 4 + 4);
+      b.cellar?.copyWithin(i * 4, last * 4, last * 4 + 4);
       b.spheres.copyWithin(i * 4, last * 4, last * 4 + 4);
       b.lines.copyWithin(i * 4, last * 4, last * 4 + 4);
       b.levelOf[i] = b.levelOf[last];
@@ -992,7 +1005,7 @@ export class MapObjectLayer {
       const [model, lods] = await Promise.all([this.assets.model(id), this.assets.lodModels(id)]);
       await this.prepareImpostor(model);
       const vegetation = model.entry.category === 'tree' || model.entry.category === 'plant';
-      for (const level of this.levelsFor(model, lods, model.entry.blocksLos)) {
+      for (const level of this.levelsFor(model, lods, model.entry.blocksLos, false, () => null)) {
         for (const part of level.parts) {
           // Vegetation always has instance colours; other assets only when tinted, so both variants
           for (const colored of vegetation ? [true] : [false, true]) {
@@ -1046,11 +1059,60 @@ export class MapObjectLayer {
             if (!best || hit.distance < best.distance) best = { object: b.objects[i], point: hit.point.clone(), distance: hit.distance };
           }
         }
+        // A building's cellar (cellar-shell.ts) as drawn: its ground rectangle down to the cellar's foot
+        const cellar = b.cellar?.[i * 4] ?? 0;
+        if (cellar > 0) {
+          const m = this.instanceMatrix.fromArray(b.source.matrices, i * 16);
+          const scale = Math.hypot(m.elements[4], m.elements[5], m.elements[6]) || 1;
+          const half = b.entry.footprint * 0.7;
+          const [mx, mz, hx, hz] = b.entry.box ?? [0, 0, half, half];
+          this.cellarBox.min.set(mx - hx, -cellar / scale, mz - hz);
+          this.cellarBox.max.set(mx + hx, 0, mz + hz);
+          const world = this.tmpMatrix.multiplyMatrices(parent.matrixWorld, m);
+          const ray = this.tmpRay.copy(this.raycaster.ray).applyMatrix4(this.tmpInverse.copy(world).invert());
+          const p = ray.intersectBox(this.cellarBox, this.pickPoint);
+          if (p) {
+            const point = p.applyMatrix4(world);
+            const distance = point.distanceTo(this.raycaster.ray.origin);
+            if (!best || distance < best.distance) best = { object: b.objects[i], point: point.clone(), distance };
+          }
+        }
       }
     }
     hits.length = 0;
     const mass = this.masses.raycast(this.raycaster, ray);
     return mass && (!best || mass.distance < best.distance) ? mass : best;
+  }
+
+  /**
+   * The floor (scene y) of the building whose body holds scene point `at`
+   * (from a pick): within its ground rectangle (the catalogue's box, a
+   * raised building's outline) a little round it, and between its cellar's
+   * foot and its top; null for none
+   */
+  floorUnder(at: Vector3): number | null {
+    const mass = this.masses.floorUnder(at);
+    if (mass !== null) return mass;
+    for (const b of this.batches) {
+      if (b.entry.category !== 'building') continue;
+      const parent = b.blocksLos ? this.losGroup : this.group;
+      const local = this.tmpPos.copy(at).applyMatrix4(this.tmpMatrix.copy(parent.matrixWorld).invert());
+      const half = b.entry.footprint * 0.7;
+      const [mx, mz, hx, hz] = b.entry.box ?? [0, 0, half, half];
+      const sp = b.spheres;
+      for (let i = 0; i < b.objects.length; i++) {
+        const s = i * 4;
+        if ((sp[s] - local.x) ** 2 + (sp[s + 1] - local.y) ** 2 + (sp[s + 2] - local.z) ** 2 > (sp[s + 3] + 1) ** 2) continue;
+        const m = this.instanceMatrix.fromArray(b.source.matrices, i * 16);
+        const scale = Math.hypot(m.elements[4], m.elements[5], m.elements[6]) || 1;
+        const p = this.pickPoint.copy(local).applyMatrix4(this.tmpInverse.copy(m).invert());
+        const depth = cellarDepth(cellarOf(b.objects[i], takesCellar(b.entry))) / scale;
+        if (Math.abs(p.x - mx) > hx + PICK_ROOM || Math.abs(p.z - mz) > hz + PICK_ROOM) continue;
+        if (p.y < -Math.max(depth, 1) - PICK_ROOM || p.y > b.model.height + PICK_ROOM) continue;
+        return this.pickPoint.set(0, 0, 0).applyMatrix4(m).applyMatrix4(parent.matrixWorld).y;
+      }
+    }
+    return null;
   }
 
   /**
@@ -1145,16 +1207,17 @@ export class MapObjectLayer {
    * Detail levels of an asset: its model, the catalogue's LOD models (each
    * from where an object fills its screen share), an impostor for far trees
    */
-  private levelsFor(model: ObjectModel, lods: LodModel[], blocks: boolean, ruin = false): Level[] {
+  private levelsFor(model: ObjectModel, lods: LodModel[], blocks: boolean, ruin: boolean, cellar: () => Float32Array | null): Level[] {
     const entry = model.entry;
-    const drawn = (m: ObjectModel, tone?: StageTone) =>
-      mergedParts(m).map((p) => ({
+    // A detail model's cellar without openings: a window of a few pixels far off is not worth its corners
+    const drawn = (m: ObjectModel, tone?: StageTone, openings = true) =>
+      mergedParts(m, openings).map((p) => ({
         geometry: p.geometry,
         material: this.objectMaterial(p.material, entry, ruin, tone),
         depthMaterial: ruin ? this.ruinDepthMaterial() : isRotor(p.material) ? this.rotorShadow(entry) : undefined,
       }));
     const levels: Level[] = [{ from: 0, parts: drawn(model) }];
-    for (const lod of lods) levels.push({ from: screenDistance(1, lod.screen), parts: drawn(lod.model, lod.tone) });
+    for (const lod of lods) levels.push({ from: screenDistance(1, lod.screen), parts: drawn(lod.model, lod.tone, false) });
     // A ruin keeps its models to its draw distance: no impostor or far box shows the damage
     if (ruin) return levels;
     const slot = this.options.impostors?.get(model);
@@ -1176,7 +1239,8 @@ export class MapObjectLayer {
       levels.push({
         from: screenDistance(1, entry.far.screen),
         parts: [],
-        shared: { draws: this.farBoxes, key: blocks ? FAR_BLOCKING : FAR_OPEN, extras: () => [row] },
+        // Its row, and each object's cellar (the box's walls go down to its foot)
+        shared: { draws: this.farBoxes, key: (blocks ? FAR_BLOCKING : FAR_OPEN) + (this.drawsCellars(entry, model) ? FAR_CELLAR : ''), extras: () => [row, ...(cellar() ? [cellar()!] : [])] },
       });
     }
     // A wall's, fence's, hedge's or track's piece: far off a band of six triangles, every asset's in one mesh
@@ -1203,7 +1267,8 @@ export class MapObjectLayer {
     const vegetation = entry.category === 'tree' || entry.category === 'plant';
     const tinted = vegetation || objects.some((o) => o.tint);
     const damage: DamageArrays | null = ruin ? damageArrays(capacity) : null;
-    const levels = this.levelsFor(model, lods, blocksLos, ruin);
+    const cellar = this.drawsCellars(entry, model) ? new Float32Array(capacity * 4) : null;
+    const levels = this.levelsFor(model, lods, blocksLos, ruin, () => b.cellar);
     const b: AssetBatch = {
       entry,
       model,
@@ -1211,6 +1276,7 @@ export class MapObjectLayer {
       blocksLos,
       ruin,
       damage,
+      cellar,
       casts: entry.category !== 'plant' || entry.height > 0.8,
       objects: objects.slice(),
       levels,
@@ -1218,7 +1284,7 @@ export class MapObjectLayer {
       draws: [],
       los: null,
       capacity,
-      source: { matrices: new Float32Array(capacity * 16), colors: tinted ? new Float32Array(capacity * 3) : null, ...(damage ? { extras: damage } : {}) },
+      source: { matrices: new Float32Array(capacity * 16), colors: tinted ? new Float32Array(capacity * 3) : null, extras: extrasOf(damage, cellar) },
       spheres: new Float32Array(capacity * 4),
       lines: new Float32Array(capacity * 4),
       bounds: new Sphere(),
@@ -1241,12 +1307,13 @@ export class MapObjectLayer {
   /** The list and part meshes of one level, empty: the next pass fills them */
   private buildDraw(b: AssetBatch, level: Level, li: number): LevelDraw {
     if (level.shared) return this.sharedDraw(b, level, li);
-    const list = new InstanceList(b.capacity, !!b.source.colors, b.ruin ? DAMAGE_ATTRIBUTES.map(() => 4) : []);
+    const list = new InstanceList(b.capacity, !!b.source.colors, extrasOf(b.damage, b.cellar).map(() => 4));
     const parent = b.blocksLos ? this.losGroup : this.group;
     const meshes = level.parts.map((part) => {
       // Made empty: the level's list brings the instances (three's own would be thrown away at once)
       const geometry = fadeGeometry(part.geometry, list.fades);
       if (b.ruin) DAMAGE_ATTRIBUTES.forEach((name, k) => geometry.setAttribute(name, list.extras[k]));
+      if (b.cellar) geometry.setAttribute('aCellarOf', list.extras[list.extras.length - 1]);
       const mesh = new InstancedMesh(geometry, part.material, 0);
       if (part.depthMaterial) mesh.customDepthMaterial = part.depthMaterial;
       // What is gone of a ruin does not block the towers' sight
@@ -1390,6 +1457,11 @@ export class MapObjectLayer {
     if (atlas && !this.farBoxes && !this.disposed) this.farBoxes = new FarBoxes(atlas, { blocking: this.losGroup, open: this.group });
   }
 
+  /** Whether an asset's objects draw cellars (cellar-shell.ts): a building's model, where the ground is known */
+  private drawsCellars(entry: CatalogObject, model: ObjectModel): boolean {
+    return takesCellar(entry) && !model.placeholder && !!this.options.terrain;
+  }
+
   /** Room for `capacity` objects: the asset's arrays and lists anew, every object back into its levels */
   private resize(b: AssetBatch, capacity: number): void {
     const n = b.objects.length;
@@ -1401,10 +1473,9 @@ export class MapObjectLayer {
     };
     b.source.matrices = keep(b.source.matrices, 16, 0);
     if (b.source.colors) b.source.colors = keep(b.source.colors, 3, 1);
-    if (b.damage) {
-      b.damage = [keep(b.damage[0], 4, 0), keep(b.damage[1], 4, 0), keep(b.damage[2], 4, 0)];
-      b.source.extras = b.damage;
-    }
+    if (b.damage) b.damage = [keep(b.damage[0], 4, 0), keep(b.damage[1], 4, 0), keep(b.damage[2], 4, 0)];
+    if (b.cellar) b.cellar = keep(b.cellar, 4, 0);
+    b.source.extras = extrasOf(b.damage, b.cellar);
     b.spheres = keep(b.spheres, 4, 0);
     b.lines = keep(b.lines, 4, 0);
     b.levelOf = keep(b.levelOf, 1, -1).fill(-1, 0, n);
@@ -1675,10 +1746,17 @@ export class MapObjectLayer {
       : at !== null ? Math.hypot(e.footprint * stretch, breadth / 2) : e.footprint;
     // A tilted one (a felled tree) reaches its height out from its foot
     const radius = Math.max(reach, b.model.height * (o.pitch || o.roll ? 1.2 : 0.6)) * s * Math.max(1, look.widthX, look.widthZ);
+    // A building's cellar (object-cellar.ts): down to its foot, the sphere round it too
+    // A building's cellar (object-cellar.ts): a whole one's walls as far down as the slope leaves them open, a ruin's
+    // to their foot
+    const cellar = b.cellar ? cellarOf(o, true) : null;
+    const depth = cellarDrawnDepth(cellar, o.z, b.ruin);
+    if (b.cellar) b.cellar.set([depth, cellar?.storeys ?? 0, cellar ? (cellar.mode === 'buried' ? 2 : 1) : 0, 0], i * 4);
     b.spheres[i * 4] = this.tmpPos.x;
-    b.spheres[i * 4 + 1] = this.tmpPos.y + (b.model.height * s) / 2;
+    b.spheres[i * 4 + 1] = this.tmpPos.y + (b.model.height * s - depth) / 2;
     b.spheres[i * 4 + 2] = this.tmpPos.z;
-    b.spheres[i * 4 + 3] = radius;
+    // As large as before (the level an object shows is chosen by it) unless the house and its cellar need more
+    b.spheres[i * 4 + 3] = Math.max(radius, (b.model.height * s + depth) / 2);
     // A piece of a line: the line's sphere comes with the next pass (applyLevels)
     this.lineSpheres.set(o.id, o.line ?? null);
     if (!o.line) b.lines[i * 4 + 3] = 0;
@@ -1723,7 +1801,7 @@ export class MapObjectLayer {
       bz: m[at + 10] * hz,
       seatY: m[at + 13],
       height: b.model.height * Math.hypot(m[at + 4], m[at + 5], m[at + 6]),
-      ...(o.basement ? { cellar: o.basement } : {}),
+      ...cellarFrame(cellarOf(o, takesCellar(b.entry))),
     };
     const shape = ruinShape(ruinSeed(o), frame, d?.heading ?? null);
     if (d) shape.holeRow = RUIN_HOLES.rowOf(o.id);
@@ -1761,6 +1839,11 @@ export class MapObjectLayer {
   /** The ground cut away inside the cellars of the ruins whose insides show (RuinSlabs.cellarCuts), map space */
   cellarCuts(): readonly GroundCut[] {
     return this.slabs?.cellarCuts() ?? [];
+  }
+
+  /** The top of the lowest floor (scene y) of the fallen building whose cellar's pit holds map point (`x`, `y`), null for none */
+  pitFloor(x: number, y: number): number | null {
+    return this.slabs?.pitFloor(x, y) ?? null;
   }
 
   /** Object `id`'s ruin floors gone, built or waiting */
@@ -1828,6 +1911,8 @@ export class MapObjectLayer {
       addLodFade(m);
       addHeightFog(m);
       if (ruin) asRuin(m);
+      // Last: its move comes first (cellar-shell.ts)
+      if (takesCellar(entry) && this.options.terrain) addCellar(m, this.options.terrain);
       this.materials.set(key, m);
       return m;
     }
@@ -2109,14 +2194,21 @@ function sectionOf(model: ObjectModel, roof: CatalogRoof, y: number): Uint8Array
 
 const merged = new WeakMap<ObjectModel, ModelPart[]>();
 
+/** A batch's per-object extras for its lists: a ruin's damage, a building's cellar last */
+function extrasOf(damage: DamageArrays | null, cellar: Float32Array | null): Float32Array[] {
+  return [...(damage ?? []), ...(cellar ? [cellar] : [])];
+}
+
 /**
  * A model's parts with the plain-coloured ones merged (merge-parts.ts), banner cloth cut to wave (cloth.ts) and
  * rotor parts told their hub (rotor.ts), once per model
  */
-function mergedParts(model: ObjectModel): ModelPart[] {
+function mergedParts(model: ObjectModel, openings = true): ModelPart[] {
   let parts = merged.get(model);
   if (!parts) {
-    parts = mergeParts(model.parts).map((p) => (isCloth(p.material) ? { geometry: clothGeometry(p.geometry), material: p.material } : p));
+    // A building's cellar (cellar-shell.ts) on its parts before they merge: their frames and glass get its windows
+    const own = takesCellar(model.entry) && !model.placeholder ? cellarShell(model.parts, openings) : model.parts;
+    parts = mergeParts(own).map((p) => (isCloth(p.material) ? { geometry: clothGeometry(p.geometry), material: p.material } : p));
     // Rotor parts learn their shared hub and axle (rotor.ts)
     const rotors = parts.filter((p) => isRotor(p.material));
     if (rotors.length) {

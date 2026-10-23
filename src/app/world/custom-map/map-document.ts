@@ -11,6 +11,7 @@
  */
 
 import type { MapLanes } from './lane-choice';
+import type { MapCellar } from './object-cellar';
 
 export const MAP_FORMAT = '3dtd-map';
 /**
@@ -232,12 +233,12 @@ export interface MapObject {
    */
   stretch?: number;
   /**
-   * A building on a slope: metres of a basement storey under its floor (its
-   * origin, lifted by `z` to the ground at its entrance), whose walls reach
-   * down to the seat and show on the valley side with cellar windows and a
-   * door (render/objects/mass-layer.ts). Default 0
+   * A building's cellar under its floor (its origin, lifted by `z` to the
+   * ground at its entrance on a slope): open to the slope, buried or none,
+   * and its storeys (object-cellar.ts). DEFAULT_CELLAR when missing; other
+   * objects have none
    */
-  basement?: number;
+  cellar?: MapCellar;
   /** Overrides of the catalogue entry */
   blocksLos?: boolean;
   blocksBuild?: boolean;

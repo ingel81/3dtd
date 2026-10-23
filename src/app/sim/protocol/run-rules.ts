@@ -85,6 +85,12 @@ export interface RunStructure {
   /** Its roof carries towers; while one stands on it the structure takes no damage */
   roof?: boolean;
   /**
+   * Metres its cellar reaches under its floor (MapObject.cellar, cellarDepth),
+   * rounded to RUN_STRUCTURE_ROUNDING: a hit on the cellar's wall holes it
+   * down there (StructureLedger.punch); none when absent
+   */
+  cellar?: number;
+  /**
    * A building raised from its own outline (MapObject.mass): the object's
    * origin (map metres), turn (rad), scale and the outline's rings in the
    * model's x and z. Its roof is the outline, a courtyard is none

@@ -49,7 +49,7 @@ export function mergeKey(material: Material, geometry?: BufferGeometry): string 
 }
 
 /** The vertices a part draws (its draw range), compacted into a geometry of its own with every attribute it has */
-function compact(geometry: BufferGeometry): BufferGeometry {
+export function compact(geometry: BufferGeometry): BufferGeometry {
   const position = geometry.getAttribute('position');
   const index = geometry.getIndex();
   const total = index ? index.count : position.count;

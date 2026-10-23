@@ -9,6 +9,7 @@ import {
 import { SHADER_NOISE } from '../shader-noise';
 import { addHeightFog } from '../environment/height-fog';
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from './height-texture';
+import { TERRAIN_CUT_GLSL, type TerrainCuts } from './terrain-cuts';
 import type { ImpactMark } from '../../custom-map-ground-damage';
 import { RUBBLE_COLOURS, RUBBLE_MATERIALS } from '../../rubble-material';
 
@@ -53,7 +54,11 @@ export class ImpactMarks {
   private readonly place: InstancedBufferAttribute;
   private readonly look: InstancedBufferAttribute;
 
-  constructor(heights: HeightTexture) {
+  constructor(
+    heights: HeightTexture,
+    /** The ground's cuts (terrain-cuts.ts): where the ground is cut away (a fallen building's pit) the mark is too */
+    cuts?: TerrainCuts['uniforms'],
+  ) {
     // A grid of 16 x 16 cells in the x/z plane, draped per vertex: a crater's bowl shows in the mark too
     const geometry = new PlaneGeometry(1, 1, 16, 16).rotateX(-Math.PI / 2);
     this.place = new InstancedBufferAttribute(new Float32Array(MAX_IMPACT_MARKS * 4), 4);
@@ -69,7 +74,7 @@ export class ImpactMarks {
     const grit = RUBBLE_MATERIALS.map((m) => new Vector3(...RUBBLE_COLOURS[m].grit));
     const dust = RUBBLE_MATERIALS.map((m) => new Vector3(...RUBBLE_COLOURS[m].dust));
     material.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, heights.uniforms, { uRubbleGrit: { value: grit }, uRubbleDust: { value: dust } });
+      Object.assign(shader.uniforms, heights.uniforms, cuts ?? {}, { uRubbleGrit: { value: grit }, uRubbleDust: { value: dust } });
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', `#include <common>\n${TERRAIN_HEIGHT_GLSL}\nattribute vec4 aMark;\nattribute vec4 aMarkLook;\nvarying vec2 vMarkUv;\nvarying vec4 vMarkLook;\nvarying float vMarkSize;\nvarying vec2 vMarkMap;\nvarying float vMarkGround;`)
         .replace(
@@ -90,7 +95,7 @@ export class ImpactMarks {
         )
         .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3(0.0, 1.0, 0.0);');
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', `#include <common>\n${SHADER_NOISE}\n${TERRAIN_HEIGHT_GLSL}\nvarying vec2 vMarkUv;\nvarying vec4 vMarkLook;\nvarying float vMarkSize;\nvarying vec2 vMarkMap;\nvarying float vMarkGround;\nuniform vec3 uRubbleGrit[${RUBBLE_MATERIALS.length}];\nuniform vec3 uRubbleDust[${RUBBLE_MATERIALS.length}];\n${SHARDS_GLSL}`)
+        .replace('#include <common>', `#include <common>\n${SHADER_NOISE}\n${TERRAIN_HEIGHT_GLSL}\nvarying vec2 vMarkUv;\nvarying vec4 vMarkLook;\nvarying float vMarkSize;\nvarying vec2 vMarkMap;\nvarying float vMarkGround;\nuniform vec3 uRubbleGrit[${RUBBLE_MATERIALS.length}];\nuniform vec3 uRubbleDust[${RUBBLE_MATERIALS.length}];\n${SHARDS_GLSL}\n${cuts ? TERRAIN_CUT_GLSL : ''}`)
         .replace(
           '#include <map_fragment>',
           /* glsl */ `
@@ -98,6 +103,7 @@ export class ImpactMarks {
             // Between its vertices the mark spans steps the ground has (a tower's plinth left standing in a
             // crater): where it hangs off the ground it shows nothing, no veil from the step down to the floor
             if (abs(vMarkGround - terrainHeightAt(vMarkMap)) > 0.35 + vMarkSize * 0.01) discard;
+            ${cuts ? 'if (terrainCut(vMarkMap, vMarkGround)) discard;' : ''}
             vec2 uv = vMarkUv;
             // Metres from the middle: the look's grain stays the same on a rocket's crater and the nuke's
             vec2 mm = uv * vMarkSize * 0.5;

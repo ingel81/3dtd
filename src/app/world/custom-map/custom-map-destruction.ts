@@ -6,6 +6,7 @@ import type { GroundBox } from './object-ground';
 import type { CatalogRoof } from './object-roof';
 import { rubbleMaterialOf, type RubbleMaterial } from './rubble-material';
 import { massArea, massOf, massTop, objectShape } from './object-mass';
+import { cellarDepth, cellarOf, takesCellar } from './object-cellar';
 
 /** Catalogue categories whose objects take damage and fall */
 export const DESTRUCTIBLE_CATEGORIES: ReadonlySet<string> = new Set(['building', 'wall', 'structure']);
@@ -167,6 +168,8 @@ export class CustomMapDestruction implements WorldDestruction {
       const height = (mass ? massTop(mass) : entry.height) * object.scale;
       const maxHp = Math.max(1, Math.round(structureHp(radius, height) * hpScale));
       const stage = (object.damage ?? 0) as StructureStage;
+      // Its cellar (object-cellar.ts): a hit on its wall holes it down there
+      const cellar = cellarDepth(cellarOf(object, takesCellar(entry)));
       const run: RunStructure = {
         id: object.id,
         lat: object.y / MAP_METERS_PER_DEGREE,
@@ -176,6 +179,7 @@ export class CustomMapDestruction implements WorldDestruction {
         hp: maxHp,
         ...(stage > 0 ? { start: presetHp(maxHp, stage) } : {}),
         ...(shape.box ? { box: groundPlan(shape.box, object) } : {}),
+        ...(cellar > 0 ? { cellar: metres(cellar) } : {}),
         // As the surface lays its roofs: an upright object whose entry (or own building) has one
         ...(shape.roof && !object.pitch && !object.roll ? { roof: true } : {}),
         // Its own outline: a tower in a courtyard stands on no roof

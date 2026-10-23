@@ -71,6 +71,21 @@
         <button class="td-btn-ghost td-btn-sm" type="button" (click)="setTint(null)">{{ t().editor.objects.noTint }}</button>
       </div>
     </div>
+    @if (buildings()) {
+      <div class="td-field">
+        <span class="td-label" [matTooltip]="t().editor.objects.cellarTip">{{ t().editor.objects.cellar }}</span>
+        <div class="td-inline">
+          <div class="td-seg is-sm" role="radiogroup" [attr.aria-label]="t().editor.objects.cellar" data-test="object-cellar-mode">
+            @for (mode of cellarModes; track mode) {
+              <button type="button" role="radio" [attr.aria-checked]="cellar()?.mode === mode" (click)="setCellar({ mode })">{{ t().editor.objects.cellarModes[mode] }}</button>
+            }
+          </div>
+          <label class="td-inline"><span class="td-note">{{ t().editor.objects.cellarStoreys }}</span>
+            <input class="td-input is-sm" type="number" min="1" [max]="maxCellarStoreys" step="1" [value]="cellar()?.storeys ?? ''"
+                   [disabled]="cellar()?.mode === 'none'" (change)="setCellarStoreys($event)" data-test="object-cellar-storeys" /></label>
+        </div>
+      </div>
+    }
     @if (signs()) {
       <div class="td-field">
         <span class="td-label" [matTooltip]="t().editor.objects.signTip">{{ t().editor.objects.sign }}</span>

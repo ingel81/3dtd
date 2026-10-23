@@ -788,6 +788,11 @@ export class ThreeTilesEngine {
     return this.terrain.getTerrainHeightAtGeo(lat, lon);
   }
 
+  /** The floor (local Y) of the building whose walls or cellar hold scene point `at`, null for none (WorldProvider.floorUnder) */
+  floorUnder(at: Vector3): number | null {
+    return this.world.floorUnder?.(at) ?? null;
+  }
+
   /** Keep the enemy route corridor loaded at fine LOD, see RouteCorridorTiles.setRoutes */
   setRouteCorridor(routes: GeoPosition[][]): void {
     this.world.tiles?.corridor.setRoutes(routes);

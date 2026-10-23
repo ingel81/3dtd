@@ -738,7 +738,9 @@ einmal). Der Editor pickt über die Grenzkugeln aller Objekte und testet die get
 
 **Fernstufe der Gebäude (`far-boxes.ts`, Katalog `far`):** ab dem Bildanteil `far.screen` (4,5 %) zeichnet jedes
 Katalog-Gebäude einen Kasten aus 24 Dreiecken: oben ein Raster aus 3 × 3 Höhen (Flachdach, Giebel in beide
-Richtungen, Walm, Pult), vier Wände bis zum Fundament, jede mit dem Modell von dieser Seite, oben von oben gesehen,
+Richtungen, Walm, Pult), vier Wände bis zum Fundament (ein Gebäude mit Keller 40 Dreiecke in einem eigenen Draw:
+weiter bis zum Fuß seines Kellers, `aFarCellar`, wie das Modell ihn zeichnet, in der Farbe des Sockels; der Schatten
+sieht nur das Fundament; Rebzeilen und Hecken, zehntausende in einem Weinort, bleiben bei 24), jede mit dem Modell von dieser Seite, oben von oben gesehen,
 fünf Kacheln von 64 px je Gebäude in einem Atlas (`models/far-boxes.ktx2`, UASTC mit Alpha, im Grafikspeicher BC7 statt RGBA;
 jede Kachel nach dem Verkleinern mit einer Unschärfemaske geschärft, E268: ETC1S verschmierte feine Linien in seine
 Blöcke, Solarzellen, Fensterrahmen und Ziegel standen fern als ein Fleck; die Datei 0,4 → 1,5 MB, der Grafikspeicher
@@ -959,24 +961,65 @@ Katalogeintrags `building-mass` (je Oberfläche ein Quadrat so breit wie eine Wi
 der Objektebene (`MapObjectLayer`) laufen sie über dieselben Aufrufe (Setzen, Ändern, Picken, Höhen); eine Änderung
 baut alle Bauten neu (wenige ms), eine Höhenänderung verschiebt nur die betroffenen Instanzen.
 
-**Kellergeschoss am Hang** (`MapObject.basement`, Meter): ein Gebäude steht mit seinem Boden (Ursprung, um `z`
-gehoben) über einem Kellergeschoss, dessen Wände bis zum Sitz hinab reichen (`object-seat.ts`) und talseitig zu sehen
-sind. Ein Bau aus dem Grundriss verlängert dafür die Wände seiner Körper am Boden (`basementBodies`), unter einem
-Katalogmodell zeichnet die Massenebene einen Kellerkörper aus dessen Wandkasten (Katalog `box`, 0,1 m größer, über das
-eigene Fundament des Modells, bis über dessen Sockelleiste, mindestens 0,2 m in das Modell hinein; `cellarBody`, kein
-Dach); das Modell selbst bleibt in seiner Charge. Dieselben Wand-Instanzen, kein Programm mehr: der Shader liest die
-Kellertiefe aus dem Fuß der Wand (`aWall.z` weniger Fundament). Der Keller ist ein Geschoss des Hauses (Punkt 25,
-2026-10-23): die Oberfläche der Fassade läuft hinunter, mit ihrer Fleckigkeit und Schmutz, der vom Boden aufsteigt;
-der Sockel steht unten am Gelände (am Sitz, dem tiefsten Boden), nicht am Erdgeschoss. Vorher war der ganze Keller
-Sockel: der Putz grau und dunkler, und die Sockelleiste des Modells stand als dunkles Band zwischen Keller und Wand.
-Unter einem Katalogmodell nimmt er, was `tools/map-assets/measure_bands.mjs` an dessen Erdgeschoss misst (Katalog
-`cellar`): die Oberfläche des Kits nach der Farbtextur seiner Wand (Putz, Sandstein, Ziegel, Beton; ein Holzhaus steht
-auf Stein), ihren Ton (bei verwitterten Modellen mit ihrer AO, wie `addGrime` sie zeigt), die Oberkante seiner
-Sockelleiste und die Farbe seiner Fensterrahmen. Ab 1,2 m Tiefe je Achse ein Kellerfenster hoch in der Wand (je
-tiefer, desto größer; in der Rahmenfarbe des Modells, die `aWallD.w` als drei Bytes trägt, `packFrame`; in Sandstein
-in einem Gewände aus hellerem Haustein mit Eisenstäben, in Putz mit Bank), in der mittleren Achse eine Tür oder ein
-Garagentor, wo das Gelände vor der Wandmitte (`aWallD.y`, beim Bau gemessen) mindestens 2,4 m unter dem Boden liegt.
-Die Prüfung „in der Luft“ misst den Fuß unter dem Keller. Ohne `basement` bleibt alles wie vorher.
+**Keller** (`MapObject.cellar`, `object-cellar.ts`): jedes Gebäude (Katalogkategorie `building` oder Bau aus dem
+Grundriss) hat Geschosse unter seinem Boden, als Teil des Hauses: `{ mode: 'auto' | 'buried' | 'none', storeys }`,
+ohne Eintrag `DEFAULT_CELLAR` (offen, ein Geschoss). Ein Geschoss ist 2,8 m von Boden zu Boden, darunter 0,3 m
+Bodenplatte und Fundament; die Tiefe folgt allein aus `storeys` (`cellarDepth`, höchstens drei Geschosse). Das Haus
+steht mit seinem Boden am Ursprung (am Hang um `z` über den Sitz gehoben), der Keller reicht von dort hinunter, das
+Gelände verdeckt, was in ihm liegt.
+
+- `auto`: was der Hang freilässt, ist zu sehen, mit Kellerfenstern und einer Tür; `buried`: ganz im Erdreich, ohne
+  Öffnungen, erst durch Zerstörung zu sehen; `none`: kein Keller, das eigene Fundament des Modells.
+- Der OSM-Import setzt ihn je Gebäude (`cellarForDrop`): steht der Boden weniger als 0,6 m über dem tiefsten
+  Boden, vergraben mit einem Geschoss, sonst offen mit so vielen Geschossen, wie bis zum Gelände reichen.
+- Im Editor trägt der Inspektor eines angeklickten Gebäudes (Katalogmodell oder Grundrissbau) Modus und Geschosse;
+  die Änderung schreibt die Instanz neu und ist sofort zu sehen.
+
+**Ein Generator, zwei Ausgaben.** Eingabe ist der Fuß der Außenwand mit ihrer Oberfläche:
+
+- *Katalogmodell* (`cellar-shell.ts`, beim Laden einmal je Modell, auch für die LOD-Stufe): der unterste Ring
+  senkrechter Flächen (die Sockelleiste, die in den Boden reicht, oder der Stein eines Altstadt-Erdgeschosses). Seine
+  Fußvertices gehen im Vertex-Shader je Instanz bis zum Kellerfuß hinunter (`aCellarOf` je Instanz: Tiefe,
+  Geschosse, Modus; die Objektebene schreibt sie mit der Matrix), ihre Textur läuft weiter (`aCellar`: die Änderung
+  der uv je Meter abwärts, ein Vertex mit Flächen anderer Texturrichtung wird geteilt). So läuft der Sockel in seiner
+  eigenen Oberfläche bis zum Kellerfuß, bündig, ohne Spalt und ohne Kasten vor der Wand; die Wandfarbe endet an der
+  Oberkante des Sockels wie am Haus. Ohne Sockel ist der Fuß die Wand selbst und läuft hinunter. Ein Sockel aus einem
+  Block hat einen Deckel über den ganzen Grund; der würde den Keller in einem Loch oder in der Grube verschließen. Der
+  Generator nimmt ihn heraus und legt nur den Rand vom Sockel bis zur Wand darüber wieder ein (`capRing`, auf Gehrung,
+  in der Textur des Deckels; vor einer Tür so tief wie der Absatz). Läuft die Fußwand über ihre Teilung weiter (das
+  Steinerdgeschoss der Altstadt), bleibt ihr Boden, denn er verdeckt die Fuge zwischen ihren Lagen: bei diesen
+  Häusern liegt über der Grube der Erdgeschossboden.
+- *Grundrissbau* (`mass-layer.ts`, `cellarBodies`): die Wände seiner Körper am Boden reichen bis zum Kellerfuß, im
+  Sockelmaterial der Fassade ab der Sockeloberkante abwärts.
+
+**Öffnungen.** Unter jedem Fenster des Erdgeschosses (die Scheiben zwischen 0,3 und 3 m) in jedem Kellergeschoss ein
+Kellerfenster (0,9 × 0,6 m, 0,35 m unter der Decke) im Rahmen und Glas des Modells, auf jeder Wand an der Achse nahe
+ihrer Mitte dazu eine Tür im Türmaterial. Jede Öffnung ist als vier Ecken auf einem Punkt gebaut und öffnet sich im
+Vertex-Shader nur, wo ihr Geschoss frei steht: das Gelände aus derselben Höhentextur, aus der das Bodenmesh gezeichnet
+wird (`terrainHeightAt`), an der Öffnung. Ein Fenster, wo das Gelände mindestens 0,2 m unter seiner Bank liegt (kein
+halb verschüttetes), die Tür, wo das Gelände 2,3 bis 3,8 m unter der Decke ihres Geschosses liegt (auf dem Gelände,
+tiefer auf dem Geschossboden mit ein paar Stufen; dort kein Fenster), nie im vergrabenen Keller oder unter dem
+letzten Geschoss. Der Grundrissbau zeichnet dieselben Regeln im Wand-Shader (Achsen der Fassade, das Gelände vor der
+Wandmitte beim Bau gemessen). Geschlossen zeichnen sie nichts und werfen nichts.
+
+**Kosten.** Kein zusätzlicher Draw je Haus: Fuß und Öffnungen stecken in den Teilen des Modells (vor dem
+Zusammenlegen der einfarbigen Teile, `merge-parts.ts`), je Fenster und Geschoss vier Dreiecke; die LOD-Stufe trägt
+den Fuß, aber keine Öffnungen. Ein ganzes Haus zeichnet seine Kellerwände nur so tief, wie der Hang sie freilegt
+(`cellarDrawnDepth`: sein `z` über dem Sitz und 0,6 m), erst die Ruine bis zum Kellerfuß: Wände im Erdreich würden
+sonst jedes Pixel schattieren, bevor die Tiefe sie verwirft (logarithmische Tiefe, kein früher Tiefentest). Der Schatten der Sonne
+sieht das Modell, wie es gebaut ist (Fuß am eigenen Fundament, Öffnungen auf einem Punkt): der Keller wirft keinen
+neuen Schatten auf den Hang. WebGPU-tauglich: nur Vertex-Attribute, eine Textur und Uniforms, nichts, was einen
+TSL-Weg verbaut. Die Fernkästen gehen dieselbe Tiefe hinunter (`aFarCellar`). Picken trifft den Keller als Quader
+unter dem Wandkasten (`raycast`), `floorUnder` gibt den Boden des getroffenen Hauses.
+
+**Zerstörung.** Der Keller ist dasselbe Objekt wie das Haus: dieselbe Instanz, Id, Lebenspunkte und Abdeckung. Der
+Schaden-Shader (`ruin-damage.ts`) wirkt auf seine Wände wie auf die darüber; beim Einsturz bleibt, was unter der
+Bruchlinie liegt, also der Keller. Die Böden der Ruine (`ruin-slabs.ts`) liegen auch in jedem Kellergeschoss, die
+Innenwände reichen hinunter; das Gelände im Grundriss ist herausgeschnitten (`cellarCuts`), solange ein Loch das
+Innere zeigt und nach dem Einsturz: die Grube, in der die Trümmer liegen. Ein Treffer an der Kellerwand locht sie
+dort: `RunStructure.cellar` (Tiefe in m) lässt `StructureLedger.punch` Löcher bis zum Kellerfuß zu, das Werkzeug
+Zerstörung misst die Höhe vom Boden des getroffenen Hauses (`floorUnder`, `debug:blast` `up` bis
+`-DEBUG_BLAST_DOWN_DM`). Die Prüfung „in der Luft“ misst den Fuß unter dem Keller.
 
 **Schilder** (`sign-text.ts`, `sign-icons.ts`): ein Objekt mit `sign: { text?, icon? }` schreibt auf die Schildfläche
 seines Modells (Katalog `signPanel`: Mitte, Breite, Höhe im Modellrahmen, Blickrichtung, `sides: 2` für ein hängendes

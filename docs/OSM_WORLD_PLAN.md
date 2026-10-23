@@ -841,8 +841,9 @@ eingefrorenen Probe (Katalog-Modelle, keine Objekte auf Straßen oder in der Luf
     Ein Bau mit Durchfahrt oder Tiefgarage (ihre Böden zählen vom Sitz) und eine Ruine stehen weiter auf der
     tiefsten Stelle.
   - **Talseite:** nichts aufgeschüttet. Der Renderer setzt das Gebäude auf die tiefste Stelle; `z` hebt es auf den
-    Boden, `basement` (gleich `z`, ab 0,15 m) zieht seine Wände als Kellergeschoss bis dorthin hinab, mit
-    Kellerfenstern und Tür oder Garagentor (docs/CUSTOM_MAPS.md, „Kellergeschoss am Hang“).
+    Boden, sein Keller (`cellar`, `cellarForDrop`: ab 0,6 m offen mit so vielen Geschossen von 2,8 m, wie bis zum
+    Gelände reichen, sonst vergraben) zieht seine Wände bis dorthin hinab, mit Kellerfenstern und Tür oder Garagentor
+    (docs/CUSTOM_MAPS.md, „Keller“).
   - **Bergseite:** unter den Wänden und 2 m darüber hinaus (ein Hof) auf den Boden abgetragen, dahinter eine Böschung
     (0,9 Steigung, höchstens 8 m weit) zurück zum Hang. Eine Stützmauer nur an den Seiten, die bergauf zeigen
     (Normale höchstens 60° von der Falllinie), und nur auf den Stücken, wo der Hang hinter dem Hof mehr als 2 m über

@@ -97,10 +97,11 @@ describe('CustomMapDestruction', () => {
     expect(destruction.structures().every((s) => s.stage === 0)).toBe(true);
   });
 
-  it('hands the simulation its structures for the run rules: map degrees, HP, ground plan and roof', () => {
+  it('hands the simulation its structures for the run rules: map degrees, HP, ground plan, roof and cellar', () => {
     const [h1, h2, w1] = destruction.asRunStructures();
     // The house's box turns with it; its middle 1 m along the model's x, which the renderer turns to the map's -x
-    expect(h1).toEqual({ id: 'h1', ...at(0, 0), radius: 4, height: 6, hp: structureHp(4, 6), box: [-1, 0, 3, 2, 0], roof: true });
+    // A house's cellar (a map without one: DEFAULT_CELLAR, one storey) to its foot, a wall none
+    expect(h1).toEqual({ id: 'h1', ...at(0, 0), radius: 4, height: 6, hp: structureHp(4, 6), box: [-1, 0, 3, 2, 0], roof: true, cellar: 3.1 });
     expect(h2.box).toEqual([48, 0, 6, 4, 0]);
     expect(w1).toEqual({ id: 'w1', ...at(10, 0), radius: 2, height: 3, hp: structureHp(2, 3) });
   });

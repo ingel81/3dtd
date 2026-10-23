@@ -10,7 +10,7 @@
 import { TOWER_TYPES } from '../configs/tower-types.config';
 import { ABILITIES } from '../configs/abilities.config';
 import { HERO_AMMO } from '../configs/hero.config';
-import { DEBUG_BLASTS, DEBUG_BLAST_RADIUS, DEBUG_BLAST_UP_DM, DEBUG_RADIUS_BLASTS } from '../configs/destruction.config';
+import { DEBUG_BLASTS, DEBUG_BLAST_DOWN_DM, DEBUG_BLAST_RADIUS, DEBUG_BLAST_UP_DM, DEBUG_RADIUS_BLASTS } from '../configs/destruction.config';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { ALL_SPAWN_PATTERNS } from '../director/spawn-schedule-builder';
 
@@ -214,7 +214,7 @@ export function commandProblem(c: Command): string | null {
     case 'debug:blast':
       return finite(c['lat']) && finite(c['lon']) && finite(c['height'])
         && (DEBUG_BLASTS as readonly unknown[]).includes(c['blast']) && blastRadiusOk(c)
-        && (c['up'] === undefined || integerIn(c['up'], 0, DEBUG_BLAST_UP_DM)) ? null : 'blast';
+        && (c['up'] === undefined || integerIn(c['up'], -DEBUG_BLAST_DOWN_DM, DEBUG_BLAST_UP_DM)) ? null : 'blast';
     case 'debug:set-structure-stage':
       return integerIn(c['index'], 0, 1_000_000) && integerIn(c['stage'], 0, 3)
         && finite(c['lat']) && finite(c['lon']) ? null : 'stage';

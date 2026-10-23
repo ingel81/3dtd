@@ -17,6 +17,7 @@ import { undersideGap } from '../object-ops';
 import { seatHeight, type ObjectFooting } from '../../world/custom-map/render/objects/object-seat';
 import { boxDistance, toModel } from '../../world/custom-map/object-ground';
 import { massOf, massRadius, massSegmentDistance, objectFooting } from '../../world/custom-map/object-mass';
+import { cellarDepth, cellarOf, takesCellar } from '../../world/custom-map/object-cellar';
 import { waterLevelAt } from '../../world/custom-map/water-level';
 import { bridgeDecks, deckHeight, deckHeightAt, type BridgeDeck } from '../../world/custom-map/bridge-decks';
 import { HeightField } from '../../world/custom-map/render/height-field';
@@ -672,8 +673,9 @@ export function objectsInAir(doc: CustomMapDocument, footingOf: (asset: string) 
     if (!f || f.category === 'fx' || f.aloft) continue;
     const s = o.scale || 1;
     const seat = seatHeight(f, o, ground, water);
-    // A building's basement (MapObject.basement) reaches down from its floor to the seat
-    const solid = { o, reach: f.footprint * s, foot: seat + o.z - (o.basement ?? 0), top: seat + o.z + f.height * s };
+    // A building's cellar (MapObject.cellar) reaches down from its floor: its walls stand on the ground under it
+    const cellar = cellarDepth(cellarOf(o, takesCellar(f)));
+    const solid = { o, reach: f.footprint * s, foot: seat + o.z - cellar, top: seat + o.z + f.height * s };
     solids.push(solid);
     let gap: number;
     if (f.base && !f.float) gap = undersideGap(t, o, f.base);

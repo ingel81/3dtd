@@ -26,6 +26,7 @@ import {
 } from './map-document';
 import { mapProblemText, type MapProblem, type MapProblemPart, type MapText, type MapThing } from './map-text';
 import { introProblems } from './map-intro';
+import { isMapCellar, MAX_CELLAR_STOREYS } from './object-cellar';
 import { massProblem } from './object-mass';
 import { BIRD_SPECIES, lifeProblems, MAX_LIFE_AREAS } from './map-life';
 import { markingProblems, MAX_SURFACES, surfaceProblems } from './map-surfaces';
@@ -55,9 +56,6 @@ export const MAX_MAP_OBJECTS = 100_000;
 export const MAX_MAP_PATH_PARTS = 100_000;
 /** Longest texts of a map's details, characters */
 export const MAX_MAP_TEXT = { name: 80, author: 80, description: 2000 } as const;
-
-/** Metres of basement (MapObject.basement) a building may stand on */
-const MAX_BASEMENT = 20;
 
 const COLOR = /^#[0-9a-f]{6}$/i;
 
@@ -336,6 +334,10 @@ function objectRepairs(doc: CustomMapDocument, fix: boolean, out: MapProblem[]):
       out.push({ text: { key: 'sign', v: { max: MAX_SIGN_TEXT }, of }, part: 'objects', at });
       if (fix) delete o.sign;
     }
+    if (o.cellar !== undefined && !isMapCellar(o.cellar)) {
+      out.push({ text: { key: 'cellar', v: { max: MAX_CELLAR_STOREYS }, of }, part: 'objects', at });
+      if (fix) delete o.cellar;
+    }
     return true;
   });
   if (kept.length > MAX_MAP_OBJECTS) {
@@ -361,7 +363,6 @@ function objectProblem(o: unknown, ids: ReadonlySet<string>): MapText | null {
   if (typeof o['asset'] !== 'string' || !o['asset']) return { key: 'noAsset', v: { what } };
   if (![o['x'], o['y'], o['z'], o['rotation'], o['scale']].every(finite) || (o['scale'] as number) <= 0) return { key: 'badPlacement', v: { what } };
   if (o['stretch'] !== undefined && (!finite(o['stretch']) || (o['stretch'] as number) <= 0)) return { key: 'badPlacement', v: { what } };
-  if (o['basement'] !== undefined && (!finite(o['basement']) || (o['basement'] as number) < 0 || (o['basement'] as number) > MAX_BASEMENT)) return { key: 'badPlacement', v: { what } };
   if (o['group'] !== undefined && typeof o['group'] !== 'string') return { key: 'badGroup', v: { what } };
   if ((o['pitch'] !== undefined && !finite(o['pitch'])) || (o['roll'] !== undefined && !finite(o['roll']))) return { key: 'badTilt', v: { what } };
   if (o['mass'] !== undefined || o['asset'] === MASS_ASSET) {

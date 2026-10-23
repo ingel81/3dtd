@@ -307,6 +307,21 @@ describe('StructureLedger (docs/DESTRUCTION_PLAN.md)', () => {
     expect(ledger.holeList()!.slice(3 * HOLE_STRIDE, 3 * HOLE_STRIDE + 3)).toEqual([40, 25, 64]);
   });
 
+  it('holes a cellar\'s wall under the floor, down to its foot (RunStructure.cellar); a house without one at its floor', () => {
+    const house = (id: string, x: number, cellar?: number): RunStructure => ({ id, lat: 0, lon: x / K, radius: 6, height: 8, hp: 1e6, box: [x, 0, 5, 3, 0], ...(cellar ? { cellar } : {}) });
+    const { ledger } = setup([house('cellared', 0, 5.9), house('plain', 100)]);
+    const hole = (i: number) => ledger.holeList()!.slice(i * HOLE_SLOTS * HOLE_STRIDE, i * HOLE_SLOTS * HOLE_STRIDE + HOLE_STRIDE);
+    // A click on the open cellar's wall 1.5 m under the floor, south of the house: the hole there
+    ledger.hit(0, -3.2, 4, 45, -1.5);
+    expect(hole(0).slice(0, 3)).toEqual([0, -30, -15]);
+    // Past its foot: at the foot
+    ledger.hit(3, -3.2, 4, 45, -8);
+    expect(ledger.holeList()!.slice(HOLE_STRIDE, HOLE_STRIDE + 3)).toEqual([30, -30, -59]);
+    // Without a cellar a hit under the floor holes the wall at the floor
+    ledger.hit(100, -3.2, 4, 45, -1.5);
+    expect(hole(1)[2]).toBe(0);
+  });
+
   it('sizes a hole by the damage, larger in a small structure, smaller in a large one; asks for the sight as a ruin loses a wall', () => {
     expect(holeRadiusDm(45, 6)).toBe(27);
     expect(holeRadiusDm(45, 4)).toBe(37);

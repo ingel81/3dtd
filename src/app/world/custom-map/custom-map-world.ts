@@ -385,6 +385,10 @@ export class CustomMapWorld implements WorldProvider {
     return this.view?.raycastObjects(raycaster.ray)?.point ?? null;
   }
 
+  floorUnder(at: Vector3): number | null {
+    return this.view?.floorUnder(at) ?? null;
+  }
+
   /** Frames draw once the map is prepared (prepare) */
   ready(): boolean {
     return this.prepared;
