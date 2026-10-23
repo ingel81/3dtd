@@ -1128,22 +1128,89 @@ function emitJunction(c: MapPoint, list: End[], inner: readonly Chain[], out: Ti
   // joining) pulled them in towards the node, the pavement bulging into the carriageway on both sides of each
   // junction like the teeth of a saw
   const centre: RingPoint = { x: c.x, y: c.y, edge: m.chain.half - m.chain.walk, arm: main, side: false };
-  // Fanned from the node, each triangle in one road's frame: near a road's end its texture takes over from the
-  // junction's (the weight, 1 on the end section, 0 at the node and on the kerbs), so no seam shows at any end
+  // A second ring inside the kerb's: each kerb point moved in square to the outline by its pavement and KERB_BAND,
+  // less where the kerb curves tighter or the node is near; a road's end section is its own. Between the two rings
+  // the distance to the edge is the true one, so pavement, kerb and gutter run parallel to the outline round the
+  // junction; fanned from the node it only grew with the distance from the node, the kerb wide where the outline lies
+  // far out and thin where it comes close
+  const left = (p: MapPoint, q: MapPoint, r: MapPoint): number => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  const count = ring.length;
+  const normals = ring.map((p, k) => {
+    const prev = ring[(k + count - 1) % count];
+    const next = ring[(k + 1) % count];
+    const tl = Math.hypot(next.x - prev.x, next.y - prev.y);
+    if (p.side || tl < 1e-6) return null;
+    // Counter-clockwise round the node: inside is on the left
+    let d = p.edge < 0 ? KERB_BAND - p.edge : KERB_BAND;
+    d = Math.min(d, Math.hypot(p.x - c.x, p.y - c.y) * 0.45);
+    // Where the outline turns left (towards the inside), no further in than most of the radius of its turn
+    const ax = p.x - prev.x;
+    const ay = p.y - prev.y;
+    const bx = next.x - p.x;
+    const by = next.y - p.y;
+    const turn = Math.atan2(ax * by - ay * bx, ax * bx + ay * by);
+    if (turn > 1e-3) d = Math.min(d, (0.8 * Math.min(Math.hypot(ax, ay), Math.hypot(bx, by))) / turn);
+    return { nx: -(next.y - prev.y) / tl, ny: (next.x - prev.x) / tl, d };
+  });
+  const inward = (k: number, d: number): RingPoint => {
+    const p = ring[k];
+    const n = normals[k];
+    return !n || d <= 0 ? p : { x: p.x + n.nx * d, y: p.y + n.ny * d, edge: p.edge + d, arm: p.arm, side: false };
+  };
+  const depth = normals.map((n) => n?.d ?? 0);
+  const inside: RingPoint[] = [];
+  // No fold: where the band between two points or the fan beyond it would turn over (a kerb meeting a road's end at a
+  // sharp angle, a tight curve, the node close by), both points come out halfway, at last back onto the outline
+  const folds = (k: number): boolean => {
+    const j = (k + 1) % count;
+    const [p, q, pi, qi] = [ring[k], ring[j], inside[k], inside[j]];
+    // The band and the fan stay in the wedge of their stretch of outline: no triangle over the next one's
+    return left(p, q, qi) < -1e-9 || left(p, qi, pi) < -1e-9 || left(c, pi, qi) <= 0 || left(c, p, qi) <= 0 || left(c, pi, q) <= 0;
+  };
+  // A fan that already folds over its node (a junction of links and slip roads whose outline is no ring round it)
+  // keeps its single ring: a second one would only add to the folds
+  if (ring.some((p, k) => left(c, p, ring[(k + 1) % count]) <= 0)) depth.fill(0);
+  for (let k = 0; k < count; k++) inside[k] = inward(k, depth[k]);
+  for (let round = 0; round < 8; round++) {
+    let folded = false;
+    for (let k = 0; k < count; k++) {
+      if (!folds(k)) continue;
+      folded = true;
+      for (const i of [k, (k + 1) % count]) {
+        depth[i] = round < 7 ? depth[i] / 2 : 0;
+        inside[i] = inward(i, depth[i]);
+      }
+    }
+    if (!folded) break;
+  }
+  // Each triangle in one road's frame: near a road's end its texture takes over from the junction's (the weight, 1 on
+  // the end section, 0 at the node and on the kerbs), so no seam shows at any end
   const verts: Vertex[] = [];
   const tris: number[] = [];
+  const triangle = (p: RingPoint, q: RingPoint, r: RingPoint, arm: number): void => {
+    // Skip slivers the wrong way round (a ring folding over the node at a very sharp junction) and the empty ones
+    if (left(p, q, r) <= 1e-9) return;
+    const base = verts.length;
+    const weight = (v: RingPoint) => (v.side && v.arm === arm ? 1 : 0);
+    verts.push(vertex(p, arm, weight(p)), vertex(q, arm, weight(q)), vertex(r, arm, weight(r)));
+    tris.push(base, base + 1, base + 2);
+  };
   for (let k = 0; k < ring.length; k++) {
     const p = ring[k];
     const q = ring[(k + 1) % ring.length];
-    // Skip slivers the wrong way round (a ring folding over the node at a very sharp junction)
-    if ((p.x - c.x) * (q.y - c.y) - (p.y - c.y) * (q.x - c.x) <= 0) continue;
+    const pi = inside[k];
+    const qi = inside[(k + 1) % ring.length];
     const arm = p.side ? p.arm : q.side ? q.arm : p.arm;
-    const base = verts.length;
-    verts.push(vertex(centre, arm, 0), vertex(p, arm, p.side && p.arm === arm ? 1 : 0), vertex(q, arm, q.side && q.arm === arm ? 1 : 0));
-    tris.push(base, base + 1, base + 2);
+    // The band between the rings, then the fan from the node to the inner ring
+    triangle(p, q, qi, arm);
+    if (pi !== p) triangle(p, qi, pi, arm);
+    triangle(centre, pi, qi, arm);
   }
   out.add(verts, tris);
 }
+
+/** How far past the kerb the junction's distance to the edge is the true one (its paint and gutter lie within), m */
+const KERB_BAND = 1.2;
 
 /** Most a road may turn at a node of a junction (radians) for the kerb to follow it, not round a corner */
 const KERB_TURN = Math.PI / 4;

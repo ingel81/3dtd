@@ -312,6 +312,12 @@ Knick, auch durch die inneren Bänder einer Kreuzung) folgt der Bordstein den Ka
 einem Breitenwechsel über doppelte Änderung plus einen Meter verjüngt (`kerbAlong`), wo sie sich schneiden (die
 Innenseite einer Biegung); vorher lief er als Sehne quer, und die Insel eines Kreisverkehrs wurde in jeder Kreuzung
 eckig. Ecken zwischen zwei Straßen bleiben gerundet (`lineMeet`). Ein Pfad, an dessen Ende nichts anschließt, endet rund.
+Der Abstand zur Kante ist auch in der Kreuzung der wahre: ein zweiter Ring liegt um Gehweg plus 1,2 m innerhalb des
+Umrisses (`KERB_BAND`, je Bordsteinpunkt senkrecht zum Umriss, weniger in engen Kurven und nahe dem Knoten, nie so weit,
+dass ein Dreieck umklappt oder in den Keil des nächsten reicht), erst innerhalb davon der Fächer vom Knoten. Vorher
+wuchs der Abstand vom Umriss zum Knoten linear: Gehweg, Bordstein und Rinne wurden breit, wo der Umriss weit außen lag,
+und dünn, wo er nah kam. Eine Kreuzung, deren Fächer schon über den Knoten klappt (Zufahrten und Abbieger, deren
+Umriss keinen Ring um die Mitte bildet), behält den einen Ring.
 Das Aussehen folgt der Straßenart (`street`): Spurlinien auf Autobahnen, Rand- und gestrichelte Mittellinie auf
 Haupt- und Kreisstraßen (`primary`, `secondary`), Mittellinie auf `tertiary`, keine in Wohnstraßen, deren Asphalt in
 einen Bordstein mit einer Rinne aus Pflastersteinen ausläuft; Fahrspuren dunkler, Flickstellen, Querrisse und eine

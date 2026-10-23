@@ -386,4 +386,38 @@ describe('road network, kerbs through a junction', () => {
     expect(inner).toBeGreaterThan(16.9);
     expect(inner).toBeLessThan(17.1);
   });
+
+  it('keeps pavement and kerb parallel to the outline round the corners of a junction: the distance to the edge is the true one', () => {
+    const net = buildRoadNetwork(
+      paths(
+        [
+          { a: 'w', b: 'c', street: 'secondary', width: 9, sidewalk: 1.8 },
+          { a: 'c', b: 'e', street: 'secondary', width: 9, sidewalk: 1.8 },
+          { a: 'c', b: 'n', street: 'residential', width: 6, sidewalk: 1.5 },
+          { a: 's', b: 'c', street: 'residential', width: 6, sidewalk: 1.5 },
+        ],
+        [['w', -100, 0], ['c', 0, 0], ['e', 100, 0], ['n', 20, 100], ['s', 0, -100]],
+      ),
+    );
+    // A distance to the edge rises a metre a metre: so on every triangle along the outline (two corners on the
+    // pavement's outer edge), in the ribbons and round the junction's corners alike. Fanned from the node it rose by
+    // the node's distance to the edge over the way there, slower the further out the corner
+    let worst = 0;
+    let seen = 0;
+    for (const t of net.tiles) {
+      for (let k = 0; k < t.index.length; k += 3) {
+        const v = [0, 1, 2].map((j) => t.index[k + j]);
+        const [a, b, c] = v.map((n) => [t.position[n * 2], t.position[n * 2 + 1], t.road[n * 4 + 2]]);
+        if (v.filter((n) => t.road[n * 4 + 2] < -1.4).length < 2) continue;
+        const d = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+        if (d < 0.02) continue;
+        const gx = ((b[2] - a[2]) * (c[1] - a[1]) - (c[2] - a[2]) * (b[1] - a[1])) / d;
+        const gy = ((c[2] - a[2]) * (b[0] - a[0]) - (b[2] - a[2]) * (c[0] - a[0])) / d;
+        seen++;
+        worst = Math.max(worst, Math.abs(Math.hypot(gx, gy) - 1));
+      }
+    }
+    expect(seen).toBeGreaterThan(20);
+    expect(worst).toBeLessThan(0.1);
+  });
 });
