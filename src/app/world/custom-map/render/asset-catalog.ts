@@ -136,6 +136,9 @@ export interface CatalogLight {
   blink?: number;
 }
 
+/** A door of a building model (CatalogObject.doors): model x, z at scale 1, and the side it is in */
+export type CatalogDoor = readonly [number, number, 'front' | 'back' | 'east' | 'west'];
+
 export interface CatalogObject {
   id: string;
   name: string;
@@ -168,6 +171,14 @@ export interface CatalogObject {
    * Missing: the object blocks building around it, and nothing stands on it
    */
   roof?: CatalogRoof;
+  /**
+   * Buildings: their doors at scale 1, the biggest first: the door's middle at
+   * its foot (model x, z) and the side of the model it is in (front +z, back
+   * -z, east +x, west -x; tools/map-assets/measure_doors.mjs). An OSM world
+   * turns a house's door to the street and lays its footpath from it
+   * (convert/buildings.ts, convert/plots.ts)
+   */
+  doors?: CatalogDoor[];
   blocksLos: boolean;
   blocksBuild: boolean;
   /** Placement hints for brushes and generators */
