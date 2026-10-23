@@ -113,6 +113,11 @@ export class CraterObliteration {
     return this.gone.has(id);
   }
 
+  /** Whether tree `id` lies felled now */
+  isFelled(id: string): boolean {
+    return this.felled.has(id);
+  }
+
   /** Every object gone now */
   goneIds(): string[] {
     return [...this.gone];

@@ -32,6 +32,7 @@ import { environmentAt, hiddenObjectsAt, messagesOf } from './wave-events';
 import { CustomMapDestruction, DESTRUCTIBLE_CATEGORIES, FALLEN_SCALE, passingObjectIds, type StructureEntry } from './custom-map-destruction';
 import { boxTarget, CraterObliteration, roundTarget, type ObliterationChange, type ObliterationRect, type ObliterationTarget } from './crater-obliteration';
 import { craterCm } from '../../map-ops/impact-stamp';
+import { fallWay, TreeGrid, type TreeSpot } from './fall-way';
 import { CustomMapGroundDamage } from './custom-map-ground-damage';
 import { CraterLakes, mapCraterSources, waterKindAt } from './crater-lakes';
 import type { CraterWaterEntry } from './render/water/crater-water';
@@ -841,6 +842,7 @@ export class CustomMapWorld implements WorldProvider {
       targets.push(roundTarget(o.id, false, o.x, o.y, entry.footprint * (o.scale || 1), entry.category === 'tree'));
     }
     this.objectsById = null;
+    this.trees = null;
     this.goneChanged(this.obliteration.setTargets(targets));
     this.goneChanged(this.obliteration.update(null, this.craterCmAt, this.fallenNow));
   }
@@ -905,9 +907,38 @@ export class CustomMapWorld implements WorldProvider {
     // Straight under the middle of its crater, or none found: a way of its own from its id
     const dx = o && best ? o.x - best.x : 0;
     const dy = o && best ? o.y - best.y : 0;
-    const heading = dx * dx + dy * dy > 1e-4 ? Math.atan2(dy, dx) : ([...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 628, 7)) / 100;
-    return { id, heading, now: live && !!best && this.groundDamage?.dugAt(best.key) != null };
+    const away = dx * dx + dy * dy > 1e-4 ? Math.atan2(dy, dx) : ([...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 628, 7)) / 100;
+    return { id, heading: this.fallWayOf(o, away), now: live && !!best && this.groundDamage?.dugAt(best.key) != null };
   }
+
+  /** Tree `o` as the fall reads it: where it stands, its crown's radius and height (catalogue, scaled), null for none */
+  private treeOf(o: MapObject): TreeSpot | null {
+    const e = this.catalogEntries().get(o.asset);
+    if (e?.category !== 'tree') return null;
+    const s = o.scale || 1;
+    return { id: o.id, x: o.x, y: o.y, crown: e.footprint * s, height: (e.height ?? e.footprint * 5) * s };
+  }
+
+  /** Felled tree `o` falls from `away` towards the open (fall-way.ts), past the trees that still stand */
+  private fallWayOf(o: MapObject | undefined, away: number): number {
+    const tree = o && this.treeOf(o);
+    if (!tree) return away;
+    this.trees ??= new TreeGrid(this.doc.objects.map((m) => this.treeOf(m)).filter((t): t is TreeSpot => t !== null));
+    return fallWay(tree, away, this.trees, (id) => !this.obliteration.isFelled(id) && !this.obliteration.isGone(id));
+  }
+
+  private catalogEntries(): ReadonlyMap<string, StructureEntry & BuildCatalogEntry> {
+    if (this.entriesFor !== this.catalogObjects) {
+      this.entriesFor = this.catalogObjects;
+      this.entryMap = new Map(this.catalogObjects.map((e) => [e.id, e]));
+    }
+    return this.entryMap;
+  }
+
+  private entriesFor: readonly (StructureEntry & BuildCatalogEntry)[] | null = null;
+  private entryMap = new Map<string, StructureEntry & BuildCatalogEntry>();
+  /** The trees on their grid (fall-way.ts); anew with the objects */
+  private trees: TreeGrid | null = null;
 
   /** The document's objects by id, for the few felled trees looked up; anew with the objects */
   private objectsById: Map<string, MapObject> | null = null;
