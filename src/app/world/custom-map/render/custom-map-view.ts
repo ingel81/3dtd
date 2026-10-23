@@ -46,6 +46,7 @@ import { prepareNoiseTextures } from './noise-textures';
 import { MapObjectLayer, type ObjectDamage, type ObjectHit, type WitheredObject } from './objects/object-layer';
 import { DAMAGE_UNIFORMS, FELL_LONG_AGO, RUIN_HOLES, sceneHeading } from './objects/ruin-damage';
 import { fontsReady, SignLayer } from './objects/sign-text';
+import { FELLED_PITCH, fallSeconds, fallTilt } from './objects/tree-fall';
 import { IMPOSTOR_SUN } from './objects/impostor';
 import { BridgeLayer } from './paths/path-bridges';
 import type { RoadCover } from './paths/path-mask';
@@ -91,12 +92,6 @@ const BIRD_BIOMES: ReadonlySet<MapBiome> = new Set(['temperate', 'mountain', 'sw
 /** Woods for fireflies and open land for birds are counted in squares of this size, metres; a wood has this many trees */
 /** Milliseconds at least between two rebuilds of contact shadows and effects while objects keep changing */
 const EDIT_REFRESH_MS = 120;
-/** A felled tree falls over this many game seconds, from a tilt it starts at to the one it lies at (radians: its crown on the ground) */
-const FALL_SECONDS = 1.4;
-const FALL_FIRST = 0.02;
-const FELLED_PITCH = 1.4;
-/** Share of its crown's radius (catalogue footprint) a felled tree lies lifted on its branches */
-const FELLED_LIFT = 0.45;
 const WOOD_CELL = 30;
 const WOOD_TREES = 6;
 /** Shore samples for fireflies every this many metres, and at most this many swarms */
@@ -299,8 +294,11 @@ export class CustomMapView {
   private readonly gone = new Set<string>();
   /** Low barriers under a tower's plinth (setCovered) */
   private covered: ReadonlySet<string> = new Set();
-  /** Trees a blast felled (setFelled): the way they fall, map radians, and the game second they began to (null: lying) */
-  private readonly felled = new Map<string, { heading: number; start: number | null }>();
+  /**
+   * Trees a blast felled (setFelled): the way they fall, map radians, the game second they began to (null: lying),
+   * and the document's object each is posed from (drawnAs), never from its last pose
+   */
+  private readonly felled = new Map<string, { heading: number; start: number | null; from: MapObject | null }>();
   /** Of those, the ones still falling */
   private readonly falling = new Set<string>();
   /** The ruins' smouldering nests as last set (refreshEmbers) */
@@ -1457,32 +1455,41 @@ export class CustomMapView {
   }
 
   /**
-   * Object `o` as drawn: a felled tree turned to the way it falls (model +z,
-   * object-ground.ts) and tipped over about its foot, slowly at first and
-   * then faster, to lie across the ground with withered leaves, blocking
-   * neither sight nor building (the same instanced batches, no draw of its own)
+   * Object `o` (the document's) as drawn: a felled tree turned to the way it
+   * falls (model +z, object-ground.ts) and tipped over about its foot, which
+   * stays on the ground, as a trunk falls (tree-fall.ts: slowly at first,
+   * then ever faster, its crown springing back once it lands), to lie on its
+   * crown with withered leaves, blocking neither sight nor building (the
+   * same instanced batches, no draw of its own)
    */
   private drawnAs(o: MapObject): MapObject {
     const f = this.felled.get(o.id);
     if (!f) return o;
-    const t = f.start === null ? 1 : Math.min(1, Math.max(0, (this.gameNow - f.start) / FALL_SECONDS));
-    const k = t * t;
-    // Down, it rests on its crown's branches: its foot lifted by part of the crown's width
-    const crown = (this.entries?.map.get(o.asset)?.footprint ?? 2) * (o.scale || 1);
-    const felled: WitheredObject = { ...o, z: o.z + crown * FELLED_LIFT * k, rotation: f.heading - Math.PI / 2, pitch: Math.max(FALL_FIRST, FELLED_PITCH * k), roll: undefined, blocksLos: false, blocksBuild: false, withered: true };
+    f.from = o;
+    return this.felledPose(o, f);
+  }
+
+  private felledPose(o: MapObject, f: { heading: number; start: number | null }): MapObject {
+    const pitch = f.start === null ? FELLED_PITCH : fallTilt(this.gameNow - f.start, this.treeHeight(o));
+    const felled: WitheredObject = { ...o, rotation: f.heading - Math.PI / 2, pitch, roll: undefined, blocksLos: false, blocksBuild: false, withered: true };
     return felled;
+  }
+
+  /** How tall tree `o` stands, m (its catalogue height at its scale) */
+  private treeHeight(o: MapObject): number {
+    return (this.entries?.map.get(o.asset)?.height ?? 10) * (o.scale || 1);
   }
 
   /**
    * Trees a blast felled (crater-obliteration.ts) lie down, each away from
-   * its blast (`heading`, map radians), falling over FALL_SECONDS of game
-   * time when `now` (else lying already: a load, a seek); those standing
-   * again (`rose`) stand up
+   * its blast (`heading`, map radians), falling in game time when `now`
+   * (fallSeconds; else lying already: a load, a seek); those standing again
+   * (`rose`) stand up
    */
   setFelled(felled: readonly { id: string; heading: number; now: boolean }[], rose: readonly string[]): void {
     if (!felled.length && !rose.length) return;
     for (const f of felled) {
-      this.felled.set(f.id, { heading: f.heading, start: f.now ? this.gameNow : null });
+      this.felled.set(f.id, { heading: f.heading, start: f.now ? this.gameNow : null, from: null });
       if (f.now) this.falling.add(f.id);
       else this.falling.delete(f.id);
     }
@@ -1501,18 +1508,18 @@ export class CustomMapView {
     const down: string[] = [];
     for (const id of this.falling) {
       const f = this.felled.get(id);
-      const had = this.shown.get(id);
-      if (!f || f.start === null || !had) {
+      if (!f || f.start === null || !f.from || !this.shown.has(id)) {
         this.falling.delete(id);
         continue;
       }
-      if (this.gameNow - f.start >= FALL_SECONDS) {
+      if (this.gameNow - f.start >= fallSeconds(this.treeHeight(f.from))) {
         f.start = null;
         this.falling.delete(id);
         down.push(id);
         continue;
       }
-      const o = this.drawnAs(had);
+      // From the document's object: a pose on top of the last one would add up frame by frame
+      const o = this.felledPose(f.from, f);
       this.shown.set(id, o);
       moving.push(o);
     }

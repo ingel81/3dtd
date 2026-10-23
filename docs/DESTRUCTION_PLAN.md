@@ -395,8 +395,13 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   (`CustomMapView.setFelled`) kippt der Baum vom Krater weg, der unter ihm am tiefsten ist, bis zu 60° gedreht zur
   Seite, wo die wenigsten stehenden Bäume in seiner Fallbahn stehen (`fall-way.ts`: neun Richtungen, je Nachbar nach
   Nähe zur Bahn gewichtet, die geradere gewinnt bei fast gleich offen; nur aus Objektliste und dem, was die Krater
-  fällten), damit seine Krone nicht unter der nächsten liegt (in 1,4 s Spielzeit, langsam zuerst; nach Laden, Restore
-  oder Sprung liegt er schon), und bleibt mit welkem Laub auf seinen Ästen liegen: braun-ocker mit etwas Restgrün, der
+  fällten), damit seine Krone nicht unter der nächsten liegt. Der Fall (`render/objects/tree-fall.ts`, Punkt 35): der
+  Fuß bleibt am Boden, der Stamm kippt als Stab unter seinem Gewicht (θ'' = 3g/2L sin θ) aus leichter Neigung und
+  Drehung, die der Einschlag ihm gab, langsam zuerst, dann immer schneller, in Spielzeit mit der Wurzel der Höhe (12 m
+  landen nach etwa 2,4 s, ruhig nach 3,6 s; nach Laden, Restore oder Sprung liegt er schon); beim Aufkommen federt die
+  Krone wenige Grad zurück. Er liegt mit 1,25 rad auf der Krone. Jede Pose kommt aus dem Objekt des Dokuments; vorher
+  rechnete jedes Bild aus der letzten Pose weiter, der Hub über den Ästen summierte sich (ein Baum stieg in 1,1 s auf
+  7,6 m und sprang dann zurück). Er bleibt mit welkem Laub liegen: braun-ocker mit etwas Restgrün, der
   Stamm unverändert. Das Welken trägt die Instanzfarbe (`WITHER_FLAG`: 4 auf dem Rot, im Vertex-Shader wieder
   abgezogen, das Laubfragment tauscht die Farbe), kein Programm und keine Variante mehr. Dieselben Instanz-Batches
   über `pitch` und die Instanzfarbe, eine Charge je Baumart für die liegenden
