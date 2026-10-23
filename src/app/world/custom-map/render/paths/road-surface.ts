@@ -212,8 +212,10 @@ float roadLine(float across, float c, float w, float aa) {
 `;
 
 const ROAD_SAMPLE = /* glsl */ `
-// The look (road-style.ts encodeRoadStyle): layer, markings, lanes, gutter, sealed, junction, wear
-float code = floor(vRoadLook + 0.5);
+// The look (road-style.ts encodeRoadStyle): layer, markings, lanes, gutter, sealed, junction, wear. A whole number of up
+// to 24 bits, exact in the flat varying: a quarter added, not a half (past 2^23 a float's step is 1, and an odd code
+// plus a half rounded to the even one above: the next surface's texture, every other junction in cobbles)
+float code = floor(vRoadLook + 0.25);
 float layer = mod(code, 16.0);
 code = floor(code / 16.0);
 float markings = mod(code, 4.0);
@@ -407,13 +409,13 @@ vec3 drapeNormal = roadNormal;
 /** The roads' part of their draped material: attributes, rank from the look's top bits, the look */
 function roadLook(sidewalk: { value: number }): DrapeLook {
   return {
-    key: 'custom-map-roads-5',
+    key: 'custom-map-roads-6',
     uniforms: { uRoadSidewalk: sidewalk },
     vertexPars: ROAD_VERTEX_PARS,
     vertex: ROAD_VERTEX,
     // A higher road a little more than a lower one where two overlap without meeting (RoadStyle.rank, the code's top
     // bits), and of one rank by their order in sixteenths (ORDER_STEP)
-    rank: 'mod(floor((aRoad.w + 0.5) / 131072.0), 8.0) + floor((aRoad.w + 0.5) / 1048576.0) / 16.0',
+    rank: 'mod(floor((aRoad.w + 0.25) / 131072.0), 8.0) + floor((aRoad.w + 0.25) / 1048576.0) / 16.0',
     pull: ROAD_PULL,
     fragmentPars: ROAD_FRAGMENT_PARS,
     fragment: ROAD_SAMPLE,

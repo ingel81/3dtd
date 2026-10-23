@@ -1,4 +1,4 @@
-import { encodeRoadStyle, roadPaintBands, roadStyle } from './road-style';
+import { encodeRoadStyle, ORDER_STEP, roadPaintBands, roadStyle } from './road-style';
 
 /** The shader's decode (road-surface.ts ROAD_SAMPLE), step by step */
 function decode(code: number) {
@@ -11,6 +11,18 @@ function decode(code: number) {
 }
 
 describe('road style', () => {
+  it('reads back exactly in single floats with the order on top, as the shader reads it (floor of the code plus a quarter)', () => {
+    const s = roadStyle({ street: 'residential', width: 6, surface: 'asphalt', kind: 'road', sidewalk: 1.8 }, true);
+    for (const order of [0, 7, 8, 15]) {
+      const code = encodeRoadStyle(s, 1) + order * ORDER_STEP;
+      // Past 2^23 a float's step is 1: plus a half, an odd code rounded up to the even one (the next layer's texture)
+      const read = Math.floor(Math.fround(Math.fround(code) + 0.25));
+      expect(read).toBe(code);
+      expect(decode(read).layer).toBe(1);
+    }
+  });
+
+
   it('marks roads by their class as on German roads', () => {
     expect(roadStyle({ street: 'motorway', width: 12, surface: 'asphalt', kind: 'road' })).toMatchObject({ markings: 'lanes', lanes: 3 });
     expect(roadStyle({ street: 'secondary', width: 9, surface: 'asphalt', kind: 'road' }).markings).toBe('centre-edges');
