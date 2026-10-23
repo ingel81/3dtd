@@ -1568,6 +1568,10 @@ die normale Tiefe zurück, zwei Spieler sähen dann verschiedene Tiefenpuffer. N
   über Gelände und Fußabdrücke der Gebäude), andere Partikel kennen das Gelände nicht. Die ganze CoverMap baut
   `CustomMapView.warmUp` beim Laden (auf einer OSM-Welt 36 ms; mit den ersten Bildern hielt sie das erste nach ready an,
   E275), danach nur, was sich ändert
+- Lichter schalten nach der Dunkelheit der Karte (`MapEnvironment.darkness`) über `LIGHTS_ON` (effect-layer.ts): aus bei
+  Tag, unter bedecktem Himmel und bei tiefer Nachmittagssonne, ab Sonnenstand etwa 8 Grad langsam an, in der
+  Dämmerung und nachts voll; Pool, gebackenes Licht, Lichthöfe und das Glas von Laternen (`lamp-glass`) folgen dem,
+  ein Feuer glimmt auch am Tag schwach.
 - Lichter: höchstens 6 echte Lichter gleichzeitig (feste Lichter im Lichtpuffer), ohne Schatten. Alle Lichter (Laternen, Fackeln, Feuer, die
   Lavapunkte) sind dazu ins Land gebacken (`effects/lamp-light.ts`): zwei Texturen über die Karte (ein Texel je Meter,
   höchstens 512 je Seite, Half Float), ruhige und flackernde Lichter getrennt, je Licht ein umgekehrtes Quadrat von

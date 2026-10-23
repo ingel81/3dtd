@@ -46,6 +46,13 @@ import type { ShotLights, SteadyLightSource } from '../../../../three-engine/sho
 
 export const POINT_LIGHTS = 6;
 /**
+ * Darkness between which the map's lights (lamps, lanterns, fires' glow and
+ * the light they cast) come on: off by day, under an overcast sky and in the
+ * afternoon's low sun, on as the sun sets (MapEnvironment.darkness reaches
+ * 0.5 at 6 degrees) and full at dusk and night
+ */
+const LIGHTS_ON: readonly [number, number] = [0.3, 0.65];
+/**
  * A pool light's reach in the light buffer over its catalogue distance: the
  * buffer's falloff ends sooner towards its edge than three's point light did
  */
@@ -154,6 +161,8 @@ export class EffectLayer implements SteadyLightSource {
   private readonly ownLight: LightGrid | null;
   private lampsLit = false;
   private darkness = 0;
+  /** How far the map's lights are on (LIGHTS_ON over darkness) */
+  private lit = 0;
   private readonly nearestSpots: LightSpot[] = [];
   /** One more than the pool: the nearest light left out fades the farthest ones in the pool (poolFade) */
   private readonly nearestDistances = new Float64Array(POINT_LIGHTS + 1);
@@ -475,7 +484,7 @@ export class EffectLayer implements SteadyLightSource {
   /** The baked light's strength by darkness; none without lights */
   private lightLamps(): void {
     if (LAMP_LIGHT_UNIFORMS.uLampGrid.value !== this.lamps.grid.texture) return;
-    LAMP_LIGHT_UNIFORMS.uLampOn.value = this.lampsLit ? this.darkness : 0;
+    LAMP_LIGHT_UNIFORMS.uLampOn.value = this.lampsLit ? this.lit : 0;
   }
 
   /**
@@ -604,8 +613,10 @@ export class EffectLayer implements SteadyLightSource {
   /** 0 by day, 1 at night: how strongly the lights glow and light the ground */
   setDarkness(darkness: number): void {
     this.darkness = Math.min(1, Math.max(0, darkness));
+    const t = Math.min(1, Math.max(0, (this.darkness - LIGHTS_ON[0]) / (LIGHTS_ON[1] - LIGHTS_ON[0])));
+    this.lit = t * t * (3 - 2 * t);
     this.light.value = 1 - this.darkness * 0.85;
-    if (this.glows) this.glows.material.uniforms['uDarkness'].value = this.darkness;
+    if (this.glows) this.glows.material.uniforms['uDarkness'].value = this.lit;
     this.beamDarkness.value = this.darkness;
     if (this.beams) this.beams.visible = this.darkness > 0.05;
     this.lightLamps();
@@ -634,7 +645,7 @@ export class EffectLayer implements SteadyLightSource {
     this.time.value += dt;
     if (LAMP_LIGHT_UNIFORMS.uLampGrid.value === this.lamps.grid.texture) LAMP_LIGHT_UNIFORMS.uLampTime.value = this.time.value;
     if (this.retired.length && ++this.retiredFrames > 2) this.freeRetired();
-    const found = this.darkness > 0.05 ? this.nearest(focus) : 0;
+    const found = this.lit > 0.01 ? this.nearest(focus) : 0;
     const live = Math.min(found, this.lightCount);
     // Distance of the nearest light the pool leaves out (squared), Infinity when all fit
     const out = found > live ? this.nearestDistances[live] : Infinity;
@@ -649,7 +660,7 @@ export class EffectLayer implements SteadyLightSource {
       const candela =
         Math.min(spot.intensity * CANDELA, spot.cap) *
         flicker *
-        this.darkness *
+        this.lit *
         poolFade(this.nearestDistances[k], out) *
         (spot.blink ? blinkOn(this.time.value, spot.blink, spot.seed) : 1);
       if (candela <= 0) continue;
@@ -849,8 +860,8 @@ varying vec2 vUv;
 varying vec3 vColor;
 void main() {
   float flicker = aCol.w < 0.0 ? 1.0 : 0.85 + 0.1 * sin(uTime * 9.0 + aCol.w) + 0.05 * sin(uTime * 23.0 + aCol.w * 3.0);
-  // Faint by day (a lit lamp), bright at night: the lamp reads from the game camera high above
-  vColor = aCol.rgb * flicker * mix(0.3, 1.5, uDarkness);
+  // A fire faint by day, a lamp (steady, aCol.w < 0) out; bright at night: the lamp reads from the game camera high above
+  vColor = aCol.rgb * flicker * mix(aCol.w < 0.0 ? 0.0 : 0.3, 1.5, uDarkness);
   // A beacon: a short bright flash every aBlink.x seconds, readable by day as well
   if (aBlink.x > 0.0) vColor = aCol.rgb * mix(0.7, 1.0, uDarkness) * 1.6 * step(0.82, fract(uTime / aBlink.x + aBlink.y * 0.37));
   vUv = uv;
