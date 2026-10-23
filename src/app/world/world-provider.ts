@@ -396,6 +396,10 @@ export interface WorldProvider {
   setDrawSuppressed(suppressed: boolean): void;
   /** Something that casts into the world's cached shadows changed (a tower built or gone); worlds with groundShadows */
   invalidateShadows?(): void;
+  /** A tower stands at (lat, lon) with its plinth `radius` m round: what lies low under it (a hedge, a fence) leaves the picture */
+  towerStands?(id: string, lat: number, lon: number, radius: number): void;
+  /** Tower `id` is gone: what it covered shows again */
+  towerGone?(id: string): void;
   /**
    * Builds, off the main thread, the programs the world's shadow pass draws
    * the casters among `objects` with (the engine's stand-ins: a tower built

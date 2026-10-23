@@ -426,7 +426,7 @@ dem Build fehlt, aus dem `public/maps` des Checkouts (`mapDataRoot` in `createAp
 - **Kronen** (`roof.kind: 'crown'`, Mauern und Torhäuser: Katalogkategorie `wall` oder `roadThrough`, aber nur mit
   festem Wehrgang im gebackenen Raster: auf mindestens 80 % der Länge ein Lauf fester Zellen quer von mindestens
   1 m, Nachbarn höchstens 1 m Stufe; fest heißt, mindestens 6 der 9 Strahlen einer Zelle treffen höchstens 0,6 m
-  unter ihrer Oberkante. Eine Mauer ohne ihn trägt gar keinen Tower und sperrt wie vorher: Zaun, Eisentor, Ketten,
+  unter ihrer Oberkante. Eine Mauer ohne ihn trägt gar keinen Tower und sperrt wie vorher: Maschendraht mit Stacheln, Eisentor, Ketten,
   Palisade aus Einzelpfählen, Stützmauer; ein Torhaus ohne ihn behält ein gewöhnliches Dach): der Tower
   steht auf der Mittellinie der Krone, quer zum Cursor verschoben (`crownAt`, `TowerPlacementService.onCrownLine`,
   ebenso die Editor-Bauflächen), und darf mit dem inneren Ring über beide Seiten ragen, solange die Mitte auf der
@@ -444,6 +444,11 @@ dem Build fehlt, aus dem `public/maps` des Checkouts (`mapDataRoot` in `createAp
   `destructible` von `CustomMapWorld` gibt es nur für Specs, der einzige Aufrufer lässt ihn weg), die Bauflächen des
   Editors lesen denselben Wert. Die Simulation prüft keine Platzierung, `command:place-tower` trägt Fuß und Sockel: Prüfsummen und Replays
   bleiben.
+- **Niedrige Absperrungen** (Hecken, Holz- und Lattenzäune, Weidezaun, Feldtor, niedrige Stein- und Trockenmauern,
+  Maschendraht, Absperrgitter, Geländer, Sandsäcke: Katalog `blocksBuild: false`) sperren den Bau nicht. Ein Tower
+  darf über ihnen stehen; was sein Sockel (`footprintRadius`) mit dem Grundrechteck eines Stücks trifft, verschwindet
+  aus dem Bild, solange er steht (`tower-cover.ts`, `CustomMapWorld.towerStands`, `CustomMapView.setCovered`; der
+  `PresentationHost` meldet die Tower des Spiegels). Nur Darstellung: die Simulation liest diese Stücke nie.
 
 `CustomMapFrame` rechnet Szene und Karte ineinander um: Szene x = Ursprung x - Karte x, Szene z =
 Karte y - Ursprung y. Der Kosinus der Ursprungsbreite fehlt: eine Karte reicht höchstens wenige

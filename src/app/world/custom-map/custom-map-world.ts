@@ -46,6 +46,7 @@ import { sceneToMap } from './render/map-coords';
 import { emptyPose, introPoseAt } from './map-intro';
 import { massRadius } from './object-mass';
 import { NextFrameGate } from './next-frame-gate';
+import { lowBarriersUnder } from './tower-cover';
 import { CUSTOM_MAP_CAPABILITIES, keepOpenedMap, type LoadedCustomMap } from './custom-map-start';
 import { MapStoreError } from './map-file-kind';
 import { en, type Messages } from '../../i18n/messages/en';
@@ -154,6 +155,8 @@ export class CustomMapWorld implements WorldProvider {
   private disposed = false;
   /** The catalogue's objects once loaded: the build blocking is redone with them when a structure falls */
   private catalogObjects: readonly (StructureEntry & BuildCatalogEntry)[] = [];
+  /** The low barriers each tower's plinth covers (towerStands) */
+  private readonly covering = new Map<string, { at: string; ids: string[] }>();
   /** Objects that may leave the map during the run (they fall, a wave event hides or shows them): they carry no tower */
   private passingIds: ReadonlySet<string> = new Set();
   /** Objects lying fallen (destruction) and objects a wave event keeps out of the picture now */
@@ -495,6 +498,22 @@ export class CustomMapWorld implements WorldProvider {
   withQuality(knobs: QualityKnobs, run: () => void): void {
     if (this.view) this.view.withQuality(knobs.customMaps, run);
     else run();
+  }
+
+  /** A tower stands (or moved) at (lat, lon) with its plinth `radius` m round: the low barriers under it leave the picture */
+  towerStands(id: string, lat: number, lon: number, radius: number): void {
+    // A tower's other changes (an upgrade, its sight) leave its plinth where it is
+    const at = `${lat},${lon},${radius}`;
+    if (this.covering.get(id)?.at === at) return;
+    const entries = new Map(this.catalogObjects.map((e) => [e.id, e]));
+    this.covering.set(id, { at, ids: lowBarriersUnder(this.doc.objects, entries, lon * MAP_METERS_PER_DEGREE, lat * MAP_METERS_PER_DEGREE, radius) });
+    this.view?.setCovered(new Set([...this.covering.values()].flatMap((c) => c.ids)));
+  }
+
+  /** Tower `id` is gone: what it covered shows again */
+  towerGone(id: string): void {
+    if (!this.covering.delete(id)) return;
+    this.view?.setCovered(new Set([...this.covering.values()].flatMap((c) => c.ids)));
   }
 
   /** A tower came or went: the map's cached sun shadow map renders again */

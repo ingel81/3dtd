@@ -89,6 +89,7 @@ export class PresentationHost implements SimPresenterApi {
   private readonly subs = new SubscriptionBag();
   private gameSpeed = 1;
   private readonly towerAt = new Vector3();
+  private unsubscribeCover: (() => void) | null = null;
 
   constructor(options: PresentationHostOptions) {
     const { engine, bus, source, ground, stampGround, towers } = options;
@@ -108,6 +109,13 @@ export class PresentationHost implements SimPresenterApi {
     this.hq = new HqDamagePresenter(engine, bus, () => (engine.world.runRules() ?? DEFAULT_RUN_RULES).hqHealth);
     this.manualShots = new ManualShots(bus, source);
     this.worldDamage = new WorldDamagePresenter(engine, bus, stampGround ?? null, towers ?? null);
+    // A tower's plinth covers the low barriers under it (a hedge, a fence): they leave the picture while it stands
+    const world = engine.world;
+    if (towers && world.towerStands) {
+      const stands = (t: Tower) => world.towerStands!(t.id, t.position.lat, t.position.lon, t.typeConfig.footprintRadius);
+      for (const t of towers.towers()) stands(t);
+      this.unsubscribeCover = towers.onTowerChange((change) => (change.kind === 'removed' ? world.towerGone?.(change.tower.id) : stands(change.tower)));
+    }
     this.siege = new SiegeEffects(engine, bus, source);
 
     // Scorch marks sit on route cells at the grid's ground height, the hero
@@ -259,6 +267,7 @@ export class PresentationHost implements SimPresenterApi {
 
   destroy(): void {
     this.subs.disposeAll();
+    this.unsubscribeCover?.();
     this.engine.enemies.setFootstepListener(null);
     this.clear();
     this.vfx.destroy();

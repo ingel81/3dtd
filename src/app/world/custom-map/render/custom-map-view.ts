@@ -297,6 +297,8 @@ export class CustomMapView {
   private visible: ((o: MapObject) => boolean) | null = null;
   /** Objects a crater wiped out (setGone) */
   private readonly gone = new Set<string>();
+  /** Low barriers under a tower's plinth (setCovered) */
+  private covered: ReadonlySet<string> = new Set();
   /** Trees a blast felled (setFelled): the way they fall, map radians, and the game second they began to (null: lying) */
   private readonly felled = new Map<string, { heading: number; start: number | null }>();
   /** Of those, the ones still falling */
@@ -1450,7 +1452,7 @@ export class CustomMapView {
 
   /** The objects the view shows: the document's, less the hidden ones, the felled trees lying */
   private shownObjects(): MapObject[] {
-    if (!this.visible && !this.gone.size && !this.felled.size) return this.doc.objects;
+    if (!this.visible && !this.gone.size && !this.felled.size && !this.covered.size) return this.doc.objects;
     return (this.shownList ??= this.doc.objects.filter((o) => this.shows(o)).map((o) => this.drawnAs(o)));
   }
 
@@ -1522,9 +1524,18 @@ export class CustomMapView {
     }
   }
 
-  /** Whether object `o` shows: the filter (setVisible) lets it and no crater wiped it out (setGone) */
+  /** Whether object `o` shows: the filter (setVisible) lets it, no crater wiped it out (setGone), no tower covers it (setCovered) */
   private shows(o: MapObject): boolean {
-    return (!this.visible || this.visible(o)) && !this.gone.has(o.id);
+    return (!this.visible || this.visible(o)) && !this.gone.has(o.id) && !this.covered.has(o.id);
+  }
+
+  /** The low barriers the towers' plinths cover now (tower-cover.ts): those leave the picture, the others come back */
+  setCovered(covered: ReadonlySet<string>): void {
+    const changed = [...covered].filter((id) => !this.covered.has(id)).concat([...this.covered].filter((id) => !covered.has(id)));
+    if (!changed.length) return;
+    this.covered = covered;
+    this.shownList = null;
+    void this.objectsChanged(changed);
   }
 
   /**
