@@ -172,7 +172,8 @@ def window(kit, face, u, zb, w, h, reveal=0.14, shutter=0.0, split=True):
         face.box(kit.frames, u, -reveal + 0.022, zb + 0.05, 0.07, 0.03, h - 0.1)
     if shutter > 0:
         face.box(kit.shutter, u, -reveal + 0.05, zb + h * (1 - shutter), w - 0.02, 0.03, h * shutter)
-    face.box(kit.sill, u, (0.06 - reveal) / 2, zb - 0.05, w + 0.08, reveal + 0.08, 0.05)
+    # The sill's top 2 cm over the reveal's floor, over the frame's foot: level with the floor the two fought
+    face.box(kit.sill, u, (0.06 - reveal) / 2, zb - 0.03, w + 0.08, reveal + 0.08, 0.05)
 
 
 def door(kit, face, u, zb, w=1.1, h=2.15, reveal=0.16, side_light=True):
