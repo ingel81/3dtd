@@ -5,6 +5,7 @@ import type { MapAssetLibrary } from '../map-asset-library';
 import type { HeightField } from '../height-field';
 import type { HeightTexture } from '../terrain/height-texture';
 import { DrapedMaterial, DrapedTextures, DrapedTiles, type DrapeLook } from '../drape/draped-layer';
+import { DrapedConformPool } from '../drape/draped-conform-pool';
 import { RoadNetworkBuilder, type RoadNetwork, type RoadTile } from './road-network';
 import { MAX_ROAD_SURFACES } from './road-style';
 
@@ -39,7 +40,7 @@ export class RoadSurfaceLayer {
   private readonly network: RoadNetworkBuilder;
   private disposed = false;
 
-  constructor(field: HeightField, heights: HeightTexture, gridNormals: Texture) {
+  constructor(private readonly field: HeightField, heights: HeightTexture, gridNormals: Texture) {
     this.network = new RoadNetworkBuilder(field);
     this.material = new RoadSurfaceMaterial(heights, gridNormals, field);
     this.tiles = new DrapedTiles(field, this.material, 'custom-map-roads');
@@ -66,13 +67,23 @@ export class RoadSurfaceLayer {
   }
 
   /**
-   * The roads of a map as it opens: laid at once, and onto the ground a few
-   * milliseconds a task (RoadNetworkBuilder.layOnGround; a big map's take
-   * most of a second, which held the page in one task); resolves once all
-   * lie on it
+   * The roads of a map as it opens: laid at once, and onto the ground in
+   * workers (DrapedConformPool; a big map's take most of a second on one
+   * thread), else a few milliseconds a task (RoadNetworkBuilder.layOnGround);
+   * resolves once all lie on it
    */
   async load(paths: MapPaths): Promise<void> {
     this.set(paths, true);
+    // In workers where they run (DrapedConformPool), the rest (none, or what changed meanwhile) here
+    const pool = DrapedConformPool.on(this.field);
+    if (pool) {
+      try {
+        this.show(await this.network.layOnGroundIn(pool));
+      } finally {
+        pool.dispose();
+      }
+      if (this.disposed) return;
+    }
     for (;;) {
       const net = this.network.layOnGround(LAY_SLICE_MS);
       if (net) {

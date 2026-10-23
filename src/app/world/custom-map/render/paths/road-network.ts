@@ -4,6 +4,8 @@ import { edgePolyline, type RoadCover } from './path-mask';
 import { encodeRoadStyle, ORDER_STEP, PAVED_SURFACES, roadStyle, styleKey, type RoadStyle } from './road-style';
 import { DRAPE_TILE, drapeTileKey } from '../drape/draped-layer';
 import { conformDraped, type DrapedGeometry, type DrapeGround, type DrapeRect } from '../drape/draped-refine';
+import type { DrapedConformPool } from '../drape/draped-conform-pool';
+import type { ConformJob } from '../drape/draped-conform-protocol';
 
 /**
  * The paved roads of a map as one surface (RoadSurfaceLayer draws it): a
@@ -342,6 +344,35 @@ export class RoadNetworkBuilder {
       this.conform(tiles, shared);
       for (const key of tiles.keys()) this.relaid.add(key);
     }
+    const net = this.network(new Set(this.relaid));
+    this.relaid.clear();
+    return net;
+  }
+
+  /**
+   * What layOnGround does, in the workers of `pool` (DrapedConformPool): all
+   * items laid flat so far at once. An item the paths changed meanwhile keeps
+   * waiting for layOnGround
+   */
+  async layOnGroundIn(pool: DrapedConformPool): Promise<RoadNetwork> {
+    const work: { item: string; tiles: Map<string, TileData>; list: TileData[] }[] = [];
+    const jobs: ConformJob[] = [];
+    for (const [item, shared] of this.unlaid) {
+      const tiles = this.pieces.get(item);
+      if (!tiles) continue;
+      const list = [...tiles.values()];
+      work.push({ item, tiles, list });
+      jobs.push({ geometries: list.map((t) => t.geometry()), forced: shared });
+    }
+    const results = await pool.conform(jobs);
+    work.forEach(({ item, tiles, list }, k) => {
+      // Laid anew while the workers were at it: its tiles are not these any more
+      const now = [...tiles.values()];
+      if (this.pieces.get(item) !== tiles || !this.unlaid.has(item) || now.length !== list.length || list.some((t, j) => now[j] !== t)) return;
+      this.unlaid.delete(item);
+      results[k].forEach((g, j) => g && list[j].take(g));
+      for (const key of tiles.keys()) this.relaid.add(key);
+    });
     const net = this.network(new Set(this.relaid));
     this.relaid.clear();
     return net;
