@@ -278,6 +278,10 @@ Lichter und ihren Himmel weglässt. Ihren Umgebungston (`life`, CUSTOM_MAPS.md �
 des Spielers. Die Simulation liest `life` nicht, die Prüfsummen eines Laufs hängen nicht daran; den `contentHash` der Karte ändert es
 wie jede andere Änderung.
 
+**Kamera notieren (Dev-Build):** F8 im Spiel kopiert, wo die Kamera steht und hinsieht, als Zeile
+`map=<id> cam=x,y,h,tx,ty,th` (Kartenmeter, Höhen über dem Boden; `CustomMapWorld.cameraSpot`). `/map-preview?map=<id>&cam=...`
+zeigt dasselbe Bild wieder; so lassen sich gemeldete Stellen nachstellen und vorher/nachher vergleichen.
+
 ## Minikarte
 
 `WorldProvider.minimap()` gibt die Draufsicht einer Welt mit dem Szenen-Rechteck, das sie zeigt (Norden oben,

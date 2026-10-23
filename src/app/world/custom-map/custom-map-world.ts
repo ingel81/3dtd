@@ -521,6 +521,22 @@ export class CustomMapWorld implements WorldProvider {
     this.view?.setCovered(new Set([...this.covering.values()].flatMap((c) => c.ids)));
   }
 
+  /**
+   * Where `camera` stands and looks, as /map-preview's `cam` takes it (map x and y, metres over the ground, of the
+   * eye and of the ground it looks at), with the map's id: the same picture again from a developer's note (F8)
+   */
+  cameraSpot(camera: PerspectiveCamera): string {
+    const eye = camera.getWorldPosition(new Vector3());
+    const look = camera.getWorldDirection(new Vector3());
+    const at = new Vector3();
+    if (!this.surface.groundAlong(eye, look, at)) at.copy(eye).addScaledVector(look, 100);
+    const spot = (p: Vector3) => {
+      const ground = this.surface.raycastTerrainHeight(p.x, p.z) ?? 0;
+      return [this.frame.mapX(p.x), this.frame.mapY(p.z), p.y - ground].map((v) => v.toFixed(1)).join(',');
+    };
+    return `map=${this.doc.meta.id} cam=${spot(eye)},${spot(at)}`;
+  }
+
   /** A tower came or went: the map's cached sun shadow map renders again */
   invalidateShadows(): void {
     this.view?.environment.invalidateShadows();

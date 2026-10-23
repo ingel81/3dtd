@@ -405,6 +405,8 @@ export interface WorldProvider {
   towerStands?(id: string, lat: number, lon: number, radius: number): void;
   /** Tower `id` is gone: what it covered shows again */
   towerGone?(id: string): void;
+  /** Where `camera` stands and looks, as a line to see the same picture again (a custom map's /map-preview `cam`) */
+  cameraSpot?(camera: PerspectiveCamera): string;
   /**
    * Builds, off the main thread, the programs the world's shadow pass draws
    * the casters among `objects` with (the engine's stand-ins: a tower built

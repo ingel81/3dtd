@@ -16,7 +16,9 @@ import {
   effect,
   untracked,
   DestroyRef,
+  isDevMode,
 } from '@angular/core';
+import { showCopyButton } from './services/debug/copy-result-button';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -771,6 +773,16 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     if (this.bossIntro.handleKeyDown(event)) return;
     // So does the intro flight
     if (this.introFlight.handleKeyDown(event)) return;
+    // Developers: F8 copies where the camera stands and looks (a custom map's cam), to see the same picture again
+    if (isDevMode() && event.code === 'F8' && this.engine?.world.cameraSpot) {
+      event.preventDefault();
+      const spot = this.engine.world.cameraSpot(this.engine.getCamera());
+      navigator.clipboard.writeText(spot).then(
+        () => console.log(`[F8] copied: ${spot}`),
+        () => showCopyButton(spot, 'Kamera kopieren'),
+      );
+      return;
+    }
     // Photo mode and the replay keep Tab in their bar
     this.photoMode.trapTab(event);
     this.replay.trapTab(event);
