@@ -426,6 +426,28 @@ export interface MassDamageOptions {
 /** Gap between a fallen wall's stump and the piece that falls, m: the stump stays, the piece goes whole */
 const SPLIT_GAP = 0.01;
 
+/** Metres a wall may stand off a building's door (MapMass.door) and still take it */
+const DOOR_REACH = 1;
+
+/**
+ * The wall a building's door (MapMass.door) is on, of all its bodies' walls
+ * standing on the ground with windows (a facade or a shop's): the nearest
+ * within DOOR_REACH, and the metres along the whole wall to the door; null
+ * for none. Only that wall's ground floor shows a door (WALL_COLOR_FRAGMENT)
+ */
+function doorWall(door: readonly [number, number], bodyWalls: readonly (readonly WallPiece[])[]): { piece: WallPiece; u: number } | null {
+  let best: { piece: WallPiece; u: number; d: number } | null = null;
+  for (const walls of bodyWalls) {
+    for (const p of walls) {
+      if (p.corner || p.bottom > 0.5 || (p.kind !== WALL_FACADE && p.kind !== WALL_SHOP)) continue;
+      const t = Math.max(0, Math.min(p.length, (door[0] - p.sx) * p.ax + (door[1] - p.sz) * p.az));
+      const d = Math.hypot(p.sx + p.ax * t - door[0], p.sz + p.az * t - door[1]);
+      if (d <= DOOR_REACH && (!best || d < best.d)) best = { piece: p, u: (p.u0 ?? 0) + t, d };
+    }
+  }
+  return best && { piece: best.piece, u: best.u };
+}
+
 /** The surfaces of the kit (catalogue `building-mass`) by material name, with their repeat in metres */
 interface Surface {
   material: MeshStandardMaterial;
@@ -959,14 +981,18 @@ export class MassLayer {
       this.s.setScalar(scale);
       this.m.compose(this.v, this.q, this.s);
       // Its parts (or itself), each with its own walls, roof and colours: one building, one owner of them all
-      for (const body of this.bodiesOf(o)) {
+      const bodies = this.bodiesOf(o);
+      const bodyWalls = bodies.map((body) => wallsOf(o, massShape(body, seed)));
+      // The wall its door is on (MapMass.door), of all its bodies'
+      const door = o.mass?.door ? doorWall(o.mass.door, bodyWalls) : null;
+      for (const [b, body] of bodies.entries()) {
         const shape = massShape(body, seed);
         const w = walls.get(body.facade);
         const rf = roofs.get(shape.covering);
         tint.set(body.tint ?? o.tint ?? '#ffffff');
         if (body.tone) tint.multiply(toned.setRGB(body.tone[0], body.tone[1], body.tone[2]));
         if (w) {
-          for (const p of wallsOf(o, shape)) {
+          for (const p of bodyWalls[b]) {
             const height = p.top - p.bottom;
             if (p.corner) {
               // A wedge or a vault's facet: its corner and edges, the normal square to them
@@ -987,10 +1013,11 @@ export class MassLayer {
             const cut = p.cut;
             w.c.set([(p.u0 ?? 0) * scale, (p.wallLength ?? 0) * scale, (cut?.mid ?? 0) * scale, (cut?.half ?? 0) * scale], w.n * 4);
             // Beside an opening its frame; a gable where its top is (GABLE_GLSL); over a basement the ground under the
-            // wall's middle, metres down from the floor (its door), and the colour of the model's window frames
-            // (packFrame, 0 for the facade's own)
+            // wall's middle, metres down from the floor (its door); the building's door on it, metres along the whole
+            // wall plus one (0: none here); and the colour of the model's window frames (packFrame, 0 for the facade's own)
             const cellarWall = !!body.basement && !p.corner;
-            w.d.set(cut ? [cut.top * scale, cut.rise * scale, cut.style, cut.floor * scale] : [p.kind === WALL_GABLE ? (p.apex ?? 0.5) : 0, cellarWall ? this.groundUnder(o, p, seat) : 0, 0, cellarWall && body.frame ? packFrame(body.frame) : 0], w.n * 4);
+            const doorAt = door?.piece === p ? door.u * scale + 1 : 0;
+            w.d.set(cut ? [cut.top * scale, cut.rise * scale, cut.style, cut.floor * scale] : [p.kind === WALL_GABLE ? (p.apex ?? 0.5) : 0, cellarWall ? this.groundUnder(o, p, seat) : 0, doorAt, cellarWall && body.frame ? packFrame(body.frame) : 0], w.n * 4);
             if (r && w.damage) writeDamage(w.damage, w.n, r.stage, r.fallStart, r.shape);
             w.batch.owners.push(o);
             w.n++;
@@ -1479,9 +1506,11 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
     float i = floor((u - u0) / bay);
     float lu = u - u0 - (i + 0.5) * bay;
     float inBay = step(0.0, i) * step(i, n - 1.0) * step(k, floors - 0.5);
-    // An entrance on the ground floor of a long wall: the middle bay a door instead of a window
-    float door = step(hall, 0.5) * step(k, 0.5) * step(10.0, L) * step(i, floor(n * 0.5)) * step(floor(n * 0.5), i)
-      * step(0.45, massHash(vec3(floor(L * 10.0), seed, 3.0)));
+    // The building's entrance (MapMass.door) on the ground floor of its wall: the bay it is in a door instead of a
+    // window (vWallD.z the metres along the wall to it plus one; 0 on every other wall, a cut wall's its opening)
+    float doorU = cutHalf > 0.0 ? -1.0 : vWallD.z - 1.0;
+    float doorBay = clamp(floor((doorU - u0) / bay), 0.0, max(n - 1.0, 0.0));
+    float door = step(hall, 0.5) * step(k, 0.5) * step(0.0, doorU) * step(abs(i - doorBay), 0.5);
     if (cutHalf > 0.0) {
       // No window or door the opening or its frame would cut: their bay's middle off its middle, their sill under its top
       float off = abs(u - lu - cutMid);

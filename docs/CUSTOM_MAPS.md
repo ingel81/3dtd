@@ -909,8 +909,9 @@ Kämpfer und Eckquadern, Betonsturz der Einfahrt) und der offene Bogen (verworfe
 Programm. Je Fassade, Abdeckung und Dachdeckung ein Mesh: eine Karte mit 2 000 solchen Bauten zeichnet in rund zehn
 Calls (dazu der Schatten). Keine Detailstufen: Wand und Dach sind wenige Dreiecke, die Fenster kommen aus dem Shader
 (Geschosse und Achsen in Metern je Wand, mittig mit Rand an den Ecken; Rahmen, Fensterkreuz, Bank, Laibung, Jalousie,
-Sockel, Gesims, Ecklisenen, Schmutz über dem Sockel und unter den Bänken, Eingang mit Vordachschatten an langen
-Wänden; Hallen eine hohe Fensterreihe, Sandstein hohe Rundbogenfenster; nachts Fensterlicht wie `night-windows.ts`)
+Sockel, Gesims, Ecklisenen, Schmutz über dem Sockel und unter den Bänken, die Tür mit Vordachschatten im Erdgeschoss
+nur an `MapMass.door` (die Achse dort, auf der nächsten Fassaden- oder Ladenwand innerhalb 1 m, `doorWall`; ohne
+`door` keine); Hallen eine hohe Fensterreihe, Sandstein hohe Rundbogenfenster; nachts Fensterlicht wie `night-windows.ts`)
 und gehen in die Mittelfarbe über, wo ein Fenster nur ein paar Pixel misst. Die Oberflächen sind die Texturen des
 Katalogeintrags `building-mass` (je Oberfläche ein Quadrat so breit wie eine Wiederholung ihrer Textur,
 `build_modern2.py`), Blech nimmt seine Tönung als Lack (eigene Farbe heraus, Licht und Schatten bleiben). Im Spiegel
