@@ -313,6 +313,8 @@ class Part:
         self.smooth = smooth  # keep the smooth flags of tube faces (round shapes), else flat shading
         self.bm = bmesh.new()
         self.uv = self.bm.loops.layers.uv.new('UVMap')
+        # Faces too thin for the occlusion bake (mark_ao_flat); made here, as a layer added later drops the faces held
+        self.ao_flat = self.bm.faces.layers.int.new('ao_flat')
         self.normals = []  # per loop, only for cards
 
     def quad(self, corners, uvs, normal_fn=None):
@@ -399,6 +401,7 @@ def bake_ao(name, objects, size=512, distance=2.0, samples=24, grime=False):
         bpy.ops.uv.average_islands_scale()
         bpy.ops.uv.pack_islands(rotate=True, margin=0.003)
     bpy.ops.object.mode_set(mode='OBJECT')
+    flat = _ao_flat_faces(mesh, size)
     base.active_render = True
     img = bpy.data.images.new(name + '-ao', size, size)
     img.colorspace_settings.name = 'Non-Color'
@@ -438,6 +441,8 @@ def bake_ao(name, objects, size=512, distance=2.0, samples=24, grime=False):
     bpy.ops.object.bake(type='AO', margin=4, use_clear=True)
     if grime:
         _bake_grime(name, obj, img, size, samples)
+    if flat:
+        _ao_flat_fill(img)
     mesh.uv_layers.active = mesh.uv_layers[0]
     folder = os.path.join(OUT, 'ao')
     os.makedirs(folder, exist_ok=True)
@@ -445,6 +450,49 @@ def bake_ao(name, objects, size=512, distance=2.0, samples=24, grime=False):
     img.file_format = 'PNG'
     img.save()
     return obj
+
+
+# Faces too thin for a texel of their own in the occlusion image (mark_ao_flat: a gutter's strips, a few
+# centimetres wide) sample a strip of AO_FLAT_TEXELS at the image's right edge, kept at AO_FLAT_VALUE; baked,
+# such a face got no texel and read whatever the bake's margin left there (a gutter came out black). Two
+# blocks of 4 texels: the strip's edge on a block's edge keeps ETC1S from smearing it (else UASTC, five times the bytes)
+AO_FLAT_TEXELS = 8
+AO_FLAT_VALUE = 0.9
+
+
+def mark_ao_flat(part, faces):
+    """Marks faces of a part as too thin for the occlusion bake (see AO_FLAT_TEXELS)"""
+    for f in faces:
+        f[part.ao_flat] = 1
+
+
+def _ao_flat_faces(mesh, size):
+    """Shrinks the occlusion islands to leave the strip free and puts the marked faces on it; whether any were"""
+    attr = mesh.attributes.get('ao_flat')
+    if attr is None:
+        return False
+    marked = [p for p in mesh.polygons if attr.data[p.index].value]
+    mesh.attributes.remove(attr)
+    if not marked:
+        return False
+    keep = 1 - AO_FLAT_TEXELS / size
+    ao = mesh.uv_layers['AO'].data
+    for d in ao:
+        d.uv.x *= keep
+    for p in marked:
+        for i in p.loop_indices:
+            ao[i].uv = ((1 + keep) / 2, 0.5)
+    return True
+
+
+def _ao_flat_fill(img):
+    import numpy as np
+    w, h = img.size
+    px = np.empty(w * h * 4, dtype=np.float32)
+    img.pixels.foreach_get(px)
+    px = px.reshape(h, w, 4)
+    px[:, w - AO_FLAT_TEXELS:, :3] = AO_FLAT_VALUE
+    img.pixels.foreach_set(px.ravel())
 
 
 # How far the weathering darkens the occlusion at its dirtiest
@@ -1311,6 +1359,61 @@ def tube(part, points, radii, sides, smooth=True, cap=False):
         f = bm.faces.new(rings[-1][:-1])
         for loop in f.loops:
             loop[part.uv].uv = (0.5 + (loop.vert.co - points[-1]).x, 0.5 + (loop.vert.co - points[-1]).y)
+    return faces
+
+
+def gutter(part, a, b, out, r=0.07, sides=8, wall=0.008, bead=0.014):
+    """Half-round eaves gutter from a to b (horizontal), open at the top: the trough's outside and inside, its
+    flat rims, a rolled bead along the outer edge (towards `out`, away from the house) and a stop end at each
+    end. Seen from above its inside shows, not a closed pipe"""
+    bm = part.bm
+    d = (b - a).normalized()
+    side = Vector(out).normalized()
+    side = (side - d * side.dot(d)).normalized()
+    down = Vector((0, 0, -1))
+    length = (b - a).length
+
+    def ring(p, radius):
+        # From the outer rim (towards out) under the trough to the inner rim (towards the house)
+        return [bm.verts.new(p + (side * math.cos(s / sides * math.pi) + down * math.sin(s / sides * math.pi)) * radius)
+                for s in range(sides + 1)]
+    rings = [(ring(a, r), ring(a, r - wall)), (ring(b, r), ring(b, r - wall))]
+    faces = []
+
+    def quad(vs, uvs):
+        f = bm.faces.new(vs)
+        f.smooth = True
+        for loop, uv in zip(f.loops, uvs):
+            loop[part.uv].uv = uv
+        faces.append(f)
+    u = lambda s: s / sides * math.pi * r / 1.2
+    v1 = length / 1.5
+    (oa, ia), (ob, ib) = rings
+    for s in range(sides):
+        # Outside (normals out and down), inside (normals in and up)
+        quad((oa[s + 1], oa[s], ob[s], ob[s + 1]), [(u(s + 1), 0), (u(s), 0), (u(s), v1), (u(s + 1), v1)])
+        quad((ia[s], ia[s + 1], ib[s + 1], ib[s]), [(u(s), 0), (u(s + 1), 0), (u(s + 1), v1), (u(s), v1)])
+    # The flat rims, outer and inner
+    for k, (o0, i0, o1, i1) in enumerate(((oa[0], ia[0], ob[0], ib[0]), (oa[-1], ia[-1], ob[-1], ib[-1]))):
+        if k == 0:
+            quad((o0, i0, i1, o1), [(0, 0), (0.01, 0), (0.01, v1), (0, v1)])
+        else:
+            quad((i0, o0, o1, i1), [(0, 0), (0.01, 0), (0.01, v1), (0, v1)])
+    # Stop ends: the half disc between outside and inside at each end
+    for (o, i), sign in (((oa, ia), -1), ((ob, ib), 1)):
+        for s in range(sides):
+            vs = (o[s], o[s + 1], i[s + 1], i[s]) if sign > 0 else (o[s + 1], o[s], i[s], i[s + 1])
+            quad(vs, [(0, 0), (0.05, 0), (0.05, 0.05), (0, 0.05)])
+        cap = [bm.verts.new(v.co) for v in i]
+        f = bm.faces.new(cap if sign > 0 else list(reversed(cap)))
+        f.smooth = False
+        for loop in f.loops:
+            loop[part.uv].uv = (0.5, 0.5)
+        faces.append(f)
+    # The rolled bead along the outer edge
+    lip = side * (r + bead * 0.6) + Vector((0, 0, bead * 0.4))
+    faces += tube(part, [a + lip, b + lip], [bead, bead], 6)
+    mark_ao_flat(part, faces)
     return faces
 
 

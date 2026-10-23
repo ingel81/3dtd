@@ -13,7 +13,7 @@ import random
 
 from mathutils import Vector
 
-from blender_kit import Part, box, clear_scene, export as export_glb, flat_material, pbr_material, tilt, tube
+from blender_kit import Part, box, clear_scene, export as export_glb, flat_material, gutter, mark_ao_flat, pbr_material, tilt, tube
 from build_city import Face
 from build_modern import (FOUNDATION, PALE_GREY, PLINTH, SAND, WHITE, Kit, base, door, export, gable_wall, gabled_roof, plank, prism,
                           punched_wall, roof_plant, window)
@@ -338,9 +338,9 @@ def annex(name, w=7.0, d=5.0, front_h=2.9, back_h=3.9, tint=WHITE):
         x = -hw - 0.1 + i * (w + 0.2) / int(w / 0.5)
         plank(kit.metal, Vector((x, -hd - over, zf + 0.15)), Vector((x, hd, zb + 0.15)), 0.03, 0.05)
     plank(kit.door, Vector((-hw - 0.15, -hd - over - 0.02, zf + 0.0)), Vector((hw + 0.15, -hd - over - 0.02, zf + 0.0)), 0.04, 0.2)
-    tube(kit.metal, [Vector((-hw - 0.15, -hd - over - 0.1, zf - 0.02)), Vector((hw + 0.15, -hd - over - 0.1, zf - 0.02))], [0.07, 0.07], 6)
-    tube(kit.metal, [Vector((hw - 0.1, -hd - over - 0.1, zf - 0.02)), Vector((hw - 0.1, -hd + 0.06, zf - 0.4)),
-                     Vector((hw - 0.1, -hd + 0.06, 0.1))], [0.045, 0.045, 0.045], 6)
+    gutter(kit.metal, Vector((-hw - 0.15, -hd - over - 0.1, zf + 0.04)), Vector((hw + 0.15, -hd - over - 0.1, zf + 0.04)), (0, -1, 0))
+    mark_ao_flat(kit.metal, tube(kit.metal, [Vector((hw - 0.1, -hd - over - 0.1, zf - 0.02)), Vector((hw - 0.1, -hd + 0.06, zf - 0.4)),
+                                         Vector((hw - 0.1, -hd + 0.06, 0.1))], [0.045, 0.045, 0.045], 6))
     box(kit.metal, 0, hd - 0.02, zb + 0.1, w + 0.3, 0.04, 0.3)
     export(name, kit.objects(name), lod=200)
 

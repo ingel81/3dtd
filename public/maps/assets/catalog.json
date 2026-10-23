@@ -22363,7 +22363,7 @@
       "name": "Modern house (2 floors, 10 x 8.6 m)",
       "category": "building",
       "file": "models/house-modern.glb",
-      "triangles": 3012,
+      "triangles": 3176,
       "footprint": 5.2,
       "height": 9.6,
       "box": [
@@ -22407,7 +22407,7 @@
         "textures/grey_roof_tiles_02_arm_1k-05f04e03d733b1e0.ktx2",
         "textures/grey_roof_tiles_02_diff_1k-37f008e2709a66d9.ktx2",
         "textures/grey_roof_tiles_02_nor_gl_1k-f90d34b6cdfc5563.ktx2",
-        "textures/house-modern-ao-71ed7f570edd9ad5.ktx2",
+        "textures/house-modern-ao-b7e645e1ba9b44c8.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.25-1.30-1.33-b4d567c6c407aabb.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2"
@@ -22416,12 +22416,12 @@
         {
           "file": "models/house-modern-lod1.glb",
           "screen": 0.0713,
-          "triangles": 773,
           "tone": [
-            0.81,
-            0.814,
-            0.833
-          ]
+            0.813,
+            0.817,
+            0.835
+          ],
+          "triangles": 773
         }
       ],
       "far": {
@@ -22447,9 +22447,9 @@
           5.79
         ],
         "tone": [
-          0.774,
-          0.793,
-          0.789
+          0.791,
+          0.799,
+          0.79
         ]
       },
       "cellar": {
@@ -22473,7 +22473,7 @@
       "name": "Modern house, red roof (2 floors, 9 x 8.2 m)",
       "category": "building",
       "file": "models/house-modern-red.glb",
-      "triangles": 2494,
+      "triangles": 2658,
       "footprint": 4.8,
       "height": 10.7,
       "box": [
@@ -22517,7 +22517,7 @@
         "textures/clay_roof_tiles_03_arm_1k-a91a83cd26e2c6b2.ktx2",
         "textures/clay_roof_tiles_03_diff_1k-995d52407088ae4a.ktx2",
         "textures/clay_roof_tiles_03_nor_gl_1k-db0fa7b5784cac88.ktx2",
-        "textures/house-modern-red-ao-4f24f1f1804fbc14.ktx2",
+        "textures/house-modern-red-ao-9c8cc5c2e28a0fa0.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.30-1.27-1.12-53c1cbd11ff13d44.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2"
@@ -22525,13 +22525,13 @@
       "lod": [
         {
           "file": "models/house-modern-red-lod1.glb",
-          "screen": 0.0795,
-          "triangles": 829,
+          "screen": 0.0794,
           "tone": [
-            0.911,
-            0.86,
-            0.799
-          ]
+            0.909,
+            0.865,
+            0.825
+          ],
+          "triangles": 829
         }
       ],
       "far": {
@@ -22557,9 +22557,9 @@
           5.69
         ],
         "tone": [
-          0.833,
-          0.671,
-          0.544
+          0.832,
+          0.674,
+          0.57
         ]
       },
       "cellar": {
@@ -22583,9 +22583,9 @@
       "name": "Semi-detached house (2 floors, 14 x 9 m)",
       "category": "building",
       "file": "models/house-semi.glb",
-      "triangles": 2952,
-      "footprint": 7,
-      "height": 10,
+      "triangles": 3116,
+      "footprint": 7.0,
+      "height": 10.0,
       "box": [
         0,
         0.3,
@@ -22632,7 +22632,7 @@
         "textures/clay_roof_tiles_03_arm_1k-a91a83cd26e2c6b2.ktx2",
         "textures/clay_roof_tiles_03_diff_1k-995d52407088ae4a.ktx2",
         "textures/clay_roof_tiles_03_nor_gl_1k-db0fa7b5784cac88.ktx2",
-        "textures/house-semi-ao-04e1d63270b95971.ktx2",
+        "textures/house-semi-ao-a32e58af48a16b6c.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.25-1.30-1.33-b4d567c6c407aabb.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.27-1.18-0.98-6b55035ab0439f53.ktx2",
@@ -22641,13 +22641,13 @@
       "lod": [
         {
           "file": "models/house-semi-lod1.glb",
-          "screen": 0.0865,
-          "triangles": 792,
+          "screen": 0.0866,
           "tone": [
-            0.94,
-            0.931,
-            0.888
-          ]
+            0.941,
+            0.939,
+            0.912
+          ],
+          "triangles": 792
         }
       ],
       "far": {
@@ -22673,9 +22673,9 @@
           5.78
         ],
         "tone": [
-          0.9,
-          0.828,
-          0.718
+          0.902,
+          0.832,
+          0.751
         ]
       },
       "cellar": {
@@ -22699,9 +22699,9 @@
       "name": "Terraced house module (2 floors, 6 x 10 m, blank sides)",
       "category": "building",
       "file": "models/house-terrace.glb",
-      "triangles": 1160,
+      "triangles": 1324,
       "footprint": 5.3,
-      "height": 10,
+      "height": 10.0,
       "box": [
         0,
         0.3,
@@ -22743,7 +22743,7 @@
         "textures/grey_roof_tiles_02_arm_1k-05f04e03d733b1e0.ktx2",
         "textures/grey_roof_tiles_02_diff_1k-37f008e2709a66d9.ktx2",
         "textures/grey_roof_tiles_02_nor_gl_1k-f90d34b6cdfc5563.ktx2",
-        "textures/house-terrace-ao-f5d0c981e2639271.ktx2",
+        "textures/house-terrace-ao-c6e29293e2500e60.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.12-1.16-1.20-04a193d3fbbf74eb.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2"
@@ -22752,12 +22752,12 @@
         {
           "file": "models/house-terrace-lod1.glb",
           "screen": 0.0742,
-          "triangles": 668,
           "tone": [
-            0.838,
-            0.849,
-            0.851
-          ]
+            0.841,
+            0.853,
+            0.857
+          ],
+          "triangles": 668
         }
       ],
       "far": {
@@ -22783,9 +22783,9 @@
           5.87
         ],
         "tone": [
-          0.894,
-          0.898,
-          0.89
+          0.901,
+          0.899,
+          0.894
         ]
       },
       "cellar": {
@@ -22809,9 +22809,9 @@
       "name": "Terraced house, end of a row open to the west (6 x 10 m)",
       "category": "building",
       "file": "models/house-terrace-end-w.glb",
-      "triangles": 1568,
+      "triangles": 1732,
       "footprint": 5.3,
-      "height": 10,
+      "height": 10.0,
       "box": [
         -0.2,
         0.3,
@@ -22853,7 +22853,7 @@
         "textures/grey_roof_tiles_02_arm_1k-05f04e03d733b1e0.ktx2",
         "textures/grey_roof_tiles_02_diff_1k-37f008e2709a66d9.ktx2",
         "textures/grey_roof_tiles_02_nor_gl_1k-f90d34b6cdfc5563.ktx2",
-        "textures/house-terrace-end-w-ao-8c6e702b03750428.ktx2",
+        "textures/house-terrace-end-w-ao-88f8f24654ef6145.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.12-1.16-1.20-04a193d3fbbf74eb.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2"
@@ -22862,12 +22862,12 @@
         {
           "file": "models/house-terrace-end-w-lod1.glb",
           "screen": 0.0742,
-          "triangles": 605,
           "tone": [
-            0.829,
-            0.837,
-            0.836
-          ]
+            0.83,
+            0.838,
+            0.837
+          ],
+          "triangles": 605
         }
       ],
       "far": {
@@ -22893,9 +22893,9 @@
           5.87
         ],
         "tone": [
-          0.866,
-          0.864,
-          0.849
+          0.872,
+          0.865,
+          0.851
         ]
       },
       "cellar": {
@@ -22919,9 +22919,9 @@
       "name": "Terraced house, end of a row open to the east (6 x 10 m)",
       "category": "building",
       "file": "models/house-terrace-end-e.glb",
-      "triangles": 1568,
+      "triangles": 1732,
       "footprint": 5.3,
-      "height": 10,
+      "height": 10.0,
       "box": [
         0.2,
         0.3,
@@ -22963,7 +22963,7 @@
         "textures/grey_roof_tiles_02_arm_1k-05f04e03d733b1e0.ktx2",
         "textures/grey_roof_tiles_02_diff_1k-37f008e2709a66d9.ktx2",
         "textures/grey_roof_tiles_02_nor_gl_1k-f90d34b6cdfc5563.ktx2",
-        "textures/house-terrace-end-e-ao-ae82dba5bf261fbc.ktx2",
+        "textures/house-terrace-end-e-ao-f19aaae06ea39dbd.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.12-1.16-1.20-04a193d3fbbf74eb.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2"
@@ -22972,12 +22972,12 @@
         {
           "file": "models/house-terrace-end-e-lod1.glb",
           "screen": 0.0742,
-          "triangles": 603,
           "tone": [
-            0.803,
-            0.816,
-            0.821
-          ]
+            0.809,
+            0.82,
+            0.831
+          ],
+          "triangles": 603
         }
       ],
       "far": {
@@ -23003,9 +23003,9 @@
           5.9
         ],
         "tone": [
-          0.791,
-          0.807,
-          0.814
+          0.803,
+          0.81,
+          0.818
         ]
       },
       "cellar": {
@@ -23029,9 +23029,9 @@
       "name": "Terraced house standing alone (6 x 10 m, both gables open)",
       "category": "building",
       "file": "models/house-terrace-ends.glb",
-      "triangles": 1976,
+      "triangles": 2140,
       "footprint": 5.3,
-      "height": 10,
+      "height": 10.0,
       "box": [
         0,
         0.3,
@@ -23073,7 +23073,7 @@
         "textures/grey_roof_tiles_02_arm_1k-05f04e03d733b1e0.ktx2",
         "textures/grey_roof_tiles_02_diff_1k-37f008e2709a66d9.ktx2",
         "textures/grey_roof_tiles_02_nor_gl_1k-f90d34b6cdfc5563.ktx2",
-        "textures/house-terrace-ends-ao-53d2ad7653c8846f.ktx2",
+        "textures/house-terrace-ends-ao-1d589e7e2f0839a7.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.12-1.16-1.20-04a193d3fbbf74eb.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2"
@@ -23082,12 +23082,12 @@
         {
           "file": "models/house-terrace-ends-lod1.glb",
           "screen": 0.0742,
-          "triangles": 577,
           "tone": [
-            0.815,
-            0.817,
-            0.812
-          ]
+            0.832,
+            0.836,
+            0.833
+          ],
+          "triangles": 577
         }
       ],
       "far": {
@@ -23113,9 +23113,9 @@
           5.91
         ],
         "tone": [
-          0.773,
-          0.78,
-          0.779
+          0.794,
+          0.795,
+          0.793
         ]
       },
       "cellar": {
@@ -23139,7 +23139,7 @@
       "name": "Old-town house, gable to the street, half-timbered (3 floors, 7 x 12 m)",
       "category": "building",
       "file": "models/oldtown-gable-3.glb",
-      "triangles": 4556,
+      "triangles": 4720,
       "footprint": 6.3,
       "height": 15.9,
       "box": [
@@ -23182,11 +23182,11 @@
         "textures/clay_roof_tiles_02_nor_gl_1k-0661ae1bc31261b2.ktx2",
         "textures/dark_planks_diff_1k-30d91ae2628b7aa7.ktx2",
         "textures/dark_planks_nor_gl_1k-e30b3011dfc4fc2f.ktx2",
-        "textures/oldtown-gable-3-ao-1abe03102f3ec991.ktx2",
-        "textures/oldtown-gable-3-ao-clay_roof_tiles_02_arm_1k-db9fa46ac5884bf5.ktx2",
-        "textures/oldtown-gable-3-ao-dark_planks_arm_1k-9e8c397ba802249a.ktx2",
-        "textures/oldtown-gable-3-ao-painted_plaster_wall_arm_1k-0bf0d507b1c38d2a.ktx2",
-        "textures/oldtown-gable-3-ao-sandstone_blocks_04_arm_1k-75f9622d896a3518.ktx2",
+        "textures/oldtown-gable-3-ao-9e2940044d50aee9.ktx2",
+        "textures/oldtown-gable-3-ao-clay_roof_tiles_02_arm_1k-5e8997502a8d8c5e.ktx2",
+        "textures/oldtown-gable-3-ao-dark_planks_arm_1k-0e50ae2ccb425597.ktx2",
+        "textures/oldtown-gable-3-ao-painted_plaster_wall_arm_1k-188dd2b37740b841.ktx2",
+        "textures/oldtown-gable-3-ao-sandstone_blocks_04_arm_1k-a71b390e27f19fb8.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.22-1.02-0.66-b97aba8d7aec4723.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2",
         "textures/sandstone_blocks_04_diff_1k-9b210081ece5f146.ktx2",
@@ -23196,12 +23196,12 @@
         {
           "file": "models/oldtown-gable-3-lod1.glb",
           "screen": 0.118,
-          "triangles": 1338,
           "tone": [
-            0.787,
-            0.729,
-            0.662
-          ]
+            0.83,
+            0.802,
+            0.773
+          ],
+          "triangles": 1338
         }
       ],
       "far": {
@@ -23227,9 +23227,9 @@
           8.31
         ],
         "tone": [
-          0.782,
-          0.635,
-          0.541
+          0.828,
+          0.705,
+          0.632
         ]
       },
       "cellar": {
@@ -23253,7 +23253,7 @@
       "name": "Old-town merchant house, gable to the street (4 floors, 8.5 x 14 m)",
       "category": "building",
       "file": "models/oldtown-gable-4.glb",
-      "triangles": 6708,
+      "triangles": 6872,
       "footprint": 7.2,
       "height": 19.8,
       "box": [
@@ -23296,11 +23296,11 @@
         "textures/clay_roof_tiles_02_nor_gl_1k-0661ae1bc31261b2.ktx2",
         "textures/dark_planks_diff_1k-30d91ae2628b7aa7.ktx2",
         "textures/dark_planks_nor_gl_1k-e30b3011dfc4fc2f.ktx2",
-        "textures/oldtown-gable-4-ao-clay_roof_tiles_02_arm_1k-e5245d0908d59aa1.ktx2",
-        "textures/oldtown-gable-4-ao-dark_planks_arm_1k-664dc0c32dcf7ab1.ktx2",
-        "textures/oldtown-gable-4-ao-e3271c97b6f4b0ce.ktx2",
-        "textures/oldtown-gable-4-ao-painted_plaster_wall_arm_1k-bd8ef2cea1bd05f9.ktx2",
-        "textures/oldtown-gable-4-ao-sandstone_blocks_04_arm_1k-8eaf70f6dfe85b6a.ktx2",
+        "textures/oldtown-gable-4-ao-8f55f18872aaedf9.ktx2",
+        "textures/oldtown-gable-4-ao-clay_roof_tiles_02_arm_1k-68dcd04aef2cc731.ktx2",
+        "textures/oldtown-gable-4-ao-dark_planks_arm_1k-172d4d05ed81a40b.ktx2",
+        "textures/oldtown-gable-4-ao-painted_plaster_wall_arm_1k-17fc016dced2f887.ktx2",
+        "textures/oldtown-gable-4-ao-sandstone_blocks_04_arm_1k-b465b182c3441fd4.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.30-1.28-1.20-9dd54519f4559217.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2",
         "textures/sandstone_blocks_04_diff_1k-9b210081ece5f146.ktx2",
@@ -23310,12 +23310,12 @@
         {
           "file": "models/oldtown-gable-4-lod1.glb",
           "screen": 0.147,
-          "triangles": 1692,
           "tone": [
-            0.782,
-            0.711,
-            0.622
-          ]
+            0.816,
+            0.764,
+            0.695
+          ],
+          "triangles": 1692
         }
       ],
       "far": {
@@ -23341,9 +23341,9 @@
           11.06
         ],
         "tone": [
-          0.771,
-          0.597,
-          0.458
+          0.809,
+          0.647,
+          0.52
         ]
       },
       "cellar": {
@@ -23367,8 +23367,8 @@
       "name": "Old-town house, gable to the street, plastered (2 floors, 6 x 10 m)",
       "category": "building",
       "file": "models/oldtown-gable-2.glb",
-      "triangles": 1724,
-      "footprint": 5,
+      "triangles": 1888,
+      "footprint": 5.0,
       "height": 11.2,
       "box": [
         0,
@@ -23410,11 +23410,11 @@
         "textures/clay_roof_tiles_02_nor_gl_1k-0661ae1bc31261b2.ktx2",
         "textures/dark_planks_diff_1k-30d91ae2628b7aa7.ktx2",
         "textures/dark_planks_nor_gl_1k-e30b3011dfc4fc2f.ktx2",
-        "textures/oldtown-gable-2-ao-51b65c082bdc7478.ktx2",
-        "textures/oldtown-gable-2-ao-clay_roof_tiles_02_arm_1k-83302e4c105fdf89.ktx2",
-        "textures/oldtown-gable-2-ao-dark_planks_arm_1k-e5a4cfceca64f8bf.ktx2",
-        "textures/oldtown-gable-2-ao-painted_plaster_wall_arm_1k-1041a21beb1450c5.ktx2",
-        "textures/oldtown-gable-2-ao-sandstone_blocks_04_arm_1k-f768324ba0b17e98.ktx2",
+        "textures/oldtown-gable-2-ao-4b40bf360c719e0e.ktx2",
+        "textures/oldtown-gable-2-ao-clay_roof_tiles_02_arm_1k-b67b95b6d98fc267.ktx2",
+        "textures/oldtown-gable-2-ao-dark_planks_arm_1k-f329968939b44859.ktx2",
+        "textures/oldtown-gable-2-ao-painted_plaster_wall_arm_1k-22ce444b7344a658.ktx2",
+        "textures/oldtown-gable-2-ao-sandstone_blocks_04_arm_1k-97c028e5a636dcc4.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.25-0.95-0.85-d8c8692e1493955b.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2",
         "textures/sandstone_blocks_04_diff_1k-9b210081ece5f146.ktx2",
@@ -23423,13 +23423,13 @@
       "lod": [
         {
           "file": "models/oldtown-gable-2-lod1.glb",
-          "screen": 0.0833,
-          "triangles": 1396,
+          "screen": 0.0831,
           "tone": [
-            0.77,
-            0.759,
-            0.738
-          ]
+            0.78,
+            0.781,
+            0.777
+          ],
+          "triangles": 1396
         }
       ],
       "far": {
@@ -23455,9 +23455,9 @@
           5.56
         ],
         "tone": [
-          0.825,
-          0.806,
-          0.732
+          0.837,
+          0.828,
+          0.773
         ]
       },
       "cellar": {
@@ -23481,7 +23481,7 @@
       "name": "Old-town house, eaves to the street, half-timbered (3 floors, 12 x 9.5 m)",
       "category": "building",
       "file": "models/oldtown-eave-3.glb",
-      "triangles": 5836,
+      "triangles": 6000,
       "footprint": 6.3,
       "height": 17.8,
       "box": [
@@ -23524,11 +23524,11 @@
         "textures/clay_roof_tiles_02_nor_gl_1k-0661ae1bc31261b2.ktx2",
         "textures/dark_planks_diff_1k-30d91ae2628b7aa7.ktx2",
         "textures/dark_planks_nor_gl_1k-e30b3011dfc4fc2f.ktx2",
-        "textures/oldtown-eave-3-ao-c1ab7e07526912b9.ktx2",
-        "textures/oldtown-eave-3-ao-clay_roof_tiles_02_arm_1k-0e13f168e14c39d0.ktx2",
-        "textures/oldtown-eave-3-ao-dark_planks_arm_1k-ab8a285f318ad7e4.ktx2",
-        "textures/oldtown-eave-3-ao-painted_plaster_wall_arm_1k-8f79f210c3dc08c1.ktx2",
-        "textures/oldtown-eave-3-ao-sandstone_blocks_04_arm_1k-19a9500e85914575.ktx2",
+        "textures/oldtown-eave-3-ao-84eaf1be27e2ae17.ktx2",
+        "textures/oldtown-eave-3-ao-clay_roof_tiles_02_arm_1k-98f52ea579975399.ktx2",
+        "textures/oldtown-eave-3-ao-dark_planks_arm_1k-328f0c9c469c7941.ktx2",
+        "textures/oldtown-eave-3-ao-painted_plaster_wall_arm_1k-09d7f1a2fe6474cf.ktx2",
+        "textures/oldtown-eave-3-ao-sandstone_blocks_04_arm_1k-28978b7289a15dfa.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.25-1.18-0.98-33095128b31f6abd.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2",
         "textures/sandstone_blocks_04_diff_1k-9b210081ece5f146.ktx2",
@@ -23537,13 +23537,13 @@
       "lod": [
         {
           "file": "models/oldtown-eave-3-lod1.glb",
-          "screen": 0.1323,
-          "triangles": 1652,
+          "screen": 0.1321,
           "tone": [
-            0.799,
-            0.717,
-            0.622
-          ]
+            0.83,
+            0.763,
+            0.695
+          ],
+          "triangles": 1652
         }
       ],
       "far": {
@@ -23569,9 +23569,9 @@
           8.36
         ],
         "tone": [
-          0.798,
-          0.625,
-          0.487
+          0.835,
+          0.671,
+          0.548
         ]
       },
       "cellar": {
@@ -23595,8 +23595,8 @@
       "name": "Old-town house, eaves to the street, plastered (2 floors, 10 x 9 m)",
       "category": "building",
       "file": "models/oldtown-eave-2.glb",
-      "triangles": 2352,
-      "footprint": 5,
+      "triangles": 2516,
+      "footprint": 5.0,
       "height": 12.7,
       "box": [
         0,
@@ -23638,11 +23638,11 @@
         "textures/clay_roof_tiles_02_nor_gl_1k-0661ae1bc31261b2.ktx2",
         "textures/dark_planks_diff_1k-30d91ae2628b7aa7.ktx2",
         "textures/dark_planks_nor_gl_1k-e30b3011dfc4fc2f.ktx2",
-        "textures/oldtown-eave-2-ao-clay_roof_tiles_02_arm_1k-ece0d0feda06bdf3.ktx2",
-        "textures/oldtown-eave-2-ao-d4d2fb5c8696f37f.ktx2",
-        "textures/oldtown-eave-2-ao-dark_planks_arm_1k-722bb4daff46d573.ktx2",
-        "textures/oldtown-eave-2-ao-painted_plaster_wall_arm_1k-a49a389598cf5196.ktx2",
-        "textures/oldtown-eave-2-ao-sandstone_blocks_04_arm_1k-54a96a196e469f10.ktx2",
+        "textures/oldtown-eave-2-ao-2e078d0089b955a9.ktx2",
+        "textures/oldtown-eave-2-ao-clay_roof_tiles_02_arm_1k-e4c6574976a71166.ktx2",
+        "textures/oldtown-eave-2-ao-dark_planks_arm_1k-a13813d1143bbe37.ktx2",
+        "textures/oldtown-eave-2-ao-painted_plaster_wall_arm_1k-00d2184169ca98a2.ktx2",
+        "textures/oldtown-eave-2-ao-sandstone_blocks_04_arm_1k-2e66f8651b420612.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.00-1.10-0.92-358fe6adb8849b59.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2",
         "textures/sandstone_blocks_04_diff_1k-9b210081ece5f146.ktx2",
@@ -23652,12 +23652,12 @@
         {
           "file": "models/oldtown-eave-2-lod1.glb",
           "screen": 0.0943,
-          "triangles": 1536,
           "tone": [
-            0.807,
-            0.777,
-            0.728
-          ]
+            0.81,
+            0.785,
+            0.756
+          ],
+          "triangles": 1536
         }
       ],
       "far": {
@@ -23683,9 +23683,9 @@
           5.36
         ],
         "tone": [
-          0.856,
-          0.766,
-          0.676
+          0.861,
+          0.776,
+          0.704
         ]
       },
       "cellar": {
@@ -23709,9 +23709,9 @@
       "name": "Terraced houses, row of four (2 floors, 24 x 10 m)",
       "category": "building",
       "file": "models/house-terrace-row.glb",
-      "triangles": 4832,
+      "triangles": 4996,
       "footprint": 11.5,
-      "height": 10,
+      "height": 10.0,
       "box": [
         0,
         0.3,
@@ -23768,7 +23768,7 @@
         "textures/grey_roof_tiles_02_arm_1k-05f04e03d733b1e0.ktx2",
         "textures/grey_roof_tiles_02_diff_1k-37f008e2709a66d9.ktx2",
         "textures/grey_roof_tiles_02_nor_gl_1k-f90d34b6cdfc5563.ktx2",
-        "textures/house-terrace-row-ao-512f3193c112355b.ktx2",
+        "textures/house-terrace-row-ao-384f844d849e4bb0.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.12-1.16-1.20-04a193d3fbbf74eb.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.25-1.30-1.33-b4d567c6c407aabb.ktx2",
@@ -23779,13 +23779,13 @@
       "lod": [
         {
           "file": "models/house-terrace-row-lod1.glb",
-          "screen": 0.1422,
-          "triangles": 1444,
+          "screen": 0.1423,
           "tone": [
-            0.735,
-            0.736,
-            0.765
-          ]
+            0.759,
+            0.762,
+            0.793
+          ],
+          "triangles": 1444
         }
       ],
       "far": {
@@ -23811,9 +23811,9 @@
           5.86
         ],
         "tone": [
-          0.789,
-          0.827,
-          0.851
+          0.821,
+          0.848,
+          0.873
         ]
       },
       "cellar": {
@@ -24401,7 +24401,7 @@
       "name": "City house, perimeter block (4 floors, 15 x 12 m, blank sides)",
       "category": "building",
       "file": "models/block-row-4.glb",
-      "triangles": 4692,
+      "triangles": 4856,
       "footprint": 7.1,
       "height": 19.9,
       "box": [
@@ -24449,7 +24449,7 @@
         "city"
       ],
       "textures": [
-        "textures/block-row-4-ao-69c465f01f018900.ktx2",
+        "textures/block-row-4-ao-708e478c789d8daa.ktx2",
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
@@ -24465,12 +24465,12 @@
         {
           "file": "models/block-row-4-lod1.glb",
           "screen": 0.1477,
-          "triangles": 791,
           "tone": [
-            0.927,
-            0.936,
-            0.973
-          ]
+            0.925,
+            0.937,
+            0.98
+          ],
+          "triangles": 791
         }
       ],
       "far": {
@@ -24497,8 +24497,8 @@
         ],
         "tone": [
           0.835,
-          0.756,
-          0.721
+          0.757,
+          0.732
         ]
       },
       "cellar": {
@@ -24522,7 +24522,7 @@
       "name": "City house, end of a block open to the west (4 floors, 15 x 12 m)",
       "category": "building",
       "file": "models/block-row-4-end-w.glb",
-      "triangles": 6272,
+      "triangles": 6436,
       "footprint": 7.2,
       "height": 19.9,
       "box": [
@@ -24570,7 +24570,7 @@
         "city"
       ],
       "textures": [
-        "textures/block-row-4-end-w-ao-46de04e104ea2f7d.ktx2",
+        "textures/block-row-4-end-w-ao-90c6921ceccea18c.ktx2",
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
@@ -24586,12 +24586,12 @@
         {
           "file": "models/block-row-4-end-w-lod1.glb",
           "screen": 0.1477,
-          "triangles": 1013,
           "tone": [
-            0.919,
-            0.927,
-            0.953
-          ]
+            0.915,
+            0.92,
+            0.949
+          ],
+          "triangles": 1013
         }
       ],
       "far": {
@@ -24617,8 +24617,8 @@
           13.92
         ],
         "tone": [
-          0.829,
-          0.743,
+          0.828,
+          0.739,
           0.695
         ]
       },
@@ -24643,7 +24643,7 @@
       "name": "City house, end of a block open to the east (4 floors, 15 x 12 m)",
       "category": "building",
       "file": "models/block-row-4-end-e.glb",
-      "triangles": 6272,
+      "triangles": 6436,
       "footprint": 7.2,
       "height": 19.9,
       "box": [
@@ -24691,7 +24691,7 @@
         "city"
       ],
       "textures": [
-        "textures/block-row-4-end-e-ao-e74b0b849b652cb2.ktx2",
+        "textures/block-row-4-end-e-ao-3985da7dcd15f517.ktx2",
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
@@ -24707,12 +24707,12 @@
         {
           "file": "models/block-row-4-end-e-lod1.glb",
           "screen": 0.1477,
-          "triangles": 1007,
           "tone": [
-            0.899,
-            0.905,
-            0.942
-          ]
+            0.894,
+            0.901,
+            0.941
+          ],
+          "triangles": 1007
         }
       ],
       "far": {
@@ -24738,9 +24738,9 @@
           13.96
         ],
         "tone": [
-          0.79,
-          0.701,
-          0.666
+          0.789,
+          0.699,
+          0.669
         ]
       },
       "cellar": {
@@ -24764,7 +24764,7 @@
       "name": "City house standing alone (4 floors, 15 x 12 m)",
       "category": "building",
       "file": "models/block-row-4-ends.glb",
-      "triangles": 7864,
+      "triangles": 8028,
       "footprint": 7.4,
       "height": 19.9,
       "box": [
@@ -24812,7 +24812,7 @@
         "city"
       ],
       "textures": [
-        "textures/block-row-4-ends-ao-e5305df0f610d51c.ktx2",
+        "textures/block-row-4-ends-ao-a10faf2665fd298c.ktx2",
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
@@ -24828,12 +24828,12 @@
         {
           "file": "models/block-row-4-ends-lod1.glb",
           "screen": 0.1477,
-          "triangles": 1258,
           "tone": [
-            0.888,
             0.887,
-            0.911
-          ]
+            0.888,
+            0.917
+          ],
+          "triangles": 1258
         }
       ],
       "far": {
@@ -24859,9 +24859,9 @@
           13.96
         ],
         "tone": [
-          0.779,
-          0.676,
-          0.628
+          0.78,
+          0.678,
+          0.637
         ]
       },
       "cellar": {
@@ -27405,7 +27405,7 @@
       "name": "Outbuilding (4 x 4 m, double door)",
       "category": "building",
       "file": "models/outbuilding.glb",
-      "triangles": 624,
+      "triangles": 788,
       "footprint": 2.3,
       "height": 3.9,
       "box": [
@@ -27447,7 +27447,7 @@
         "textures/grey_roof_tiles_02_arm_1k-05f04e03d733b1e0.ktx2",
         "textures/grey_roof_tiles_02_diff_1k-37f008e2709a66d9.ktx2",
         "textures/grey_roof_tiles_02_nor_gl_1k-f90d34b6cdfc5563.ktx2",
-        "textures/outbuilding-ao-b69ffe5fe524d173.ktx2",
+        "textures/outbuilding-ao-49084565a86a34e3.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.12-1.16-1.20-04a193d3fbbf74eb.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2"
@@ -27455,7 +27455,7 @@
       "lod": [
         {
           "file": "models/outbuilding-lod1.glb",
-          "screen": 0.029,
+          "screen": 0.0289,
           "triangles": 289
         }
       ],
@@ -27482,9 +27482,9 @@
           2.34
         ],
         "tone": [
-          1.205,
-          1.163,
-          1.045
+          1.243,
+          1.186,
+          1.091
         ]
       },
       "cellar": {
@@ -27508,7 +27508,7 @@
       "name": "House annex (7 x 5 m, back against a wall)",
       "category": "building",
       "file": "models/annex.glb",
-      "triangles": 812,
+      "triangles": 894,
       "footprint": 3.4,
       "height": 4.3,
       "box": [
@@ -27547,7 +27547,7 @@
         "village"
       ],
       "textures": [
-        "textures/annex-ao-f65b3ade18703f26.ktx2",
+        "textures/annex-ao-35a6a3ca72a82765.ktx2",
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
@@ -27561,7 +27561,7 @@
       "lod": [
         {
           "file": "models/annex-lod1.glb",
-          "screen": 0.042,
+          "screen": 0.0421,
           "triangles": 373
         }
       ],
@@ -27588,9 +27588,9 @@
           2.95
         ],
         "tone": [
-          0.866,
-          0.856,
-          0.839
+          0.864,
+          0.851,
+          0.824
         ]
       },
       "cellar": {

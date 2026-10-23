@@ -123,6 +123,10 @@ AO/Rauheit/Metall in einer ORM-Textur, eine UV-Karte, ein Material). Fensterglas
 eigene Materialien (`keep`). `export_lod(..., textured=True)` behält im LOD die gebackene Textur. Die Fernstufen
 dezimiert `decimate_keeping`: Materialien mit höchstens 24 Flächen bleiben ganz (ein Dach aus vier großen Flächen
 verschwand sonst, E236), und der Bau bricht ab, wenn ein Material in der Fernstufe keine Fläche mehr hat.
+Die Dachrinne (`blender_kit.gutter`) ist eine offene Halbrundrinne mit Wulst und Böden, keine Röhre. Ihre Flächen
+und die der Fallrohre sind schmaler als ein Texel der AO-Textur (`bake_ao`) und bekämen beim Backen keinen eigenen Wert (sie lasen, was der
+Rand des Backens dort hinterließ, oft Schwarz). `mark_ao_flat` legt sie auf einen Streifen am rechten Bildrand
+(`AO_FLAT_TEXELS`), der fest bei `AO_FLAT_VALUE` bleibt.
 `variants=(n, set_look)` backt n Ansichten desselben Netzes in ein Raster-Atlas (Katalog `variants`).
 Texturierte LODs packt `pack_models.py` mit der halben Texturgröße ihres Modells (mindestens 256 px). Klippen-Scans sind nur Wand und Krone: `import_model(..., close=True)`
 schließt Rückseite und Unterseite (`close_shell`), sonst sieht man von oben oder hinten in den Fels hinein. Ein flacher

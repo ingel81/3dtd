@@ -16,7 +16,7 @@ import bmesh
 from mathutils import Matrix, Vector
 
 from blender_kit import (CITY_FACADES, Nodes, Part, bake_surface, box, card, card_material, clear_scene, export_lod, finish, flat_material, hexa,
-                         net_material, pbr_material, tilt, tube)
+                         gutter, mark_ao_flat, net_material, pbr_material, tilt, tube)
 from blender_kit import export as export_plain
 from build_city import Face, glass, hole
 from build_nature import broadleaf
@@ -235,11 +235,13 @@ def gabled_roof(kit, w, d, eave, pitch, over=0.45, verge=0.35, gutters=True, clo
         plank(kit.door, Vector((x0, sy * (d / 2 + over - 0.03), low - 0.14)), Vector((x1, sy * (d / 2 + over - 0.03), low - 0.14)), 0.05, 0.2)
         if gutters:
             y = sy * (d / 2 + over + 0.06)
-            tube(kit.metal, [Vector((x0, y, low - 0.1)), Vector((x1, y, low - 0.1))], [0.07, 0.07], 6)
+            # Open half-round, its rim at the fascia's foot
+            gutter(kit.metal, Vector((x0, y, low - 0.04)), Vector((x1, y, low - 0.04)), (0, sy, 0))
             for x in (x0 + 0.25, x1 - 0.25):
                 if (x < 0 and closed_ends[0]) or (x > 0 and closed_ends[1]):
-                    tube(kit.metal, [Vector((x, y, low - 0.1)), Vector((x, sy * (d / 2 + 0.06), low - 0.5)),
-                                     Vector((x, sy * (d / 2 + 0.06), 0.1))], [0.045, 0.045, 0.045], 6)
+                    # Downpipes as thin as the gutter: no texel of their own in the occlusion
+                    mark_ao_flat(kit.metal, tube(kit.metal, [Vector((x, y, low - 0.1)), Vector((x, sy * (d / 2 + 0.06), low - 0.5)),
+                                                             Vector((x, sy * (d / 2 + 0.06), 0.1))], [0.045, 0.045, 0.045], 6))
     for x, closed in ((x0, closed_ends[0]), (x1, closed_ends[1])):
         if not closed:
             continue

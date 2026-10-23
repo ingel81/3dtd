@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import bpy
 from mathutils import Matrix, Vector
 
-from blender_kit import Part, box, clear_scene, export_lod, finish, flat_material, pbr_material, tube
+from blender_kit import Part, box, clear_scene, export_lod, finish, flat_material, gutter, mark_ao_flat, pbr_material, tube
 from build_city import Face, glass
 from build_modern import FOUNDATION, Moved, gable_wall, gabled_roof, plank, punched_wall
 
@@ -215,7 +215,7 @@ def town_house(name, w, d, floors, gable_front, plaster=(1.22, 1.05, 0.72), timb
     # Gutters along the eaves; the downpipes run down the corners of the storeys, stepping in at each jetty
     for sy in (-1, 1):
         y = sy * (top_d / 2 + 0.36)
-        tube(look['metal'], [Vector((-top_w / 2 - 0.22, y, low - 0.1)), Vector((top_w / 2 + 0.22, y, low - 0.1))], [0.07, 0.07], 6)
+        gutter(look['metal'], Vector((-top_w / 2 - 0.22, y, low - 0.04)), Vector((top_w / 2 + 0.22, y, low - 0.04)), (0, sy, 0))
     x = top_w / 2 - 0.25
     pipe = [Vector((x, top_d / 2 + 0.36, low - 0.1))]
     zz = eave
@@ -228,7 +228,7 @@ def town_house(name, w, d, floors, gable_front, plaster=(1.22, 1.05, 0.72), timb
             g -= jetty
         pipe.append(Vector((x - (grow - g), bd_ / 2 + g + 0.08, zz + 0.05)))
     pipe[-1].z = 0.15
-    tube(look['metal'], pipe, [0.045] * len(pipe), 6)
+    mark_ao_flat(look['metal'], tube(look['metal'], pipe, [0.045] * len(pipe), 6))
     slope = pitch / (top_d / 2)
     # Dormers on the street slope (eaves front) or on both (gable front), a chimney
     for k in range(dormers):
