@@ -507,8 +507,8 @@ Gemessen ist alles per Probe (e2e/perf); hier zählt das Gefühl im echten Spiel
 - **N3 Bauvorschau OSM:** eine OSM-Welt (gern die eigene Testwelt) › Spiel starten, sofort im Baumenü den Bogenschützen
   wählen, die Maus die Route entlang ziehen, Escape; 3 bis 4 Mal, dann ein anderer Tower. *Kein Hänger beim Wählen,
   bei der ersten Bewegung und beim Entlangfahren, auch auf neuer Strecke.*
-- **N4 Lava-Pinsel:** Editor › eine Karte › Lava-Becken pinseln; im Spiel einen Krater am Lavarand. *Pinsel flüssig;
-  Glut, Funken und Lichter erscheinen etwa 0,25 s nach dem Absetzen.*
+- **N4 Lava-Pinsel:** Editor › eine Karte › Werkzeug „Wasser“ › „Lava hinzufügen“ › Modus „Malen“ › mit gedrückter
+  linker Maustaste Lava malen. *Pinsel flüssig; Glut, Funken und Lichter erscheinen etwa 0,25 s nach dem Loslassen.*
 - **N5 Jumper hält die Seite:** wie M8. *Mehrere Schüsse auf einer Straßenseite, Rumpf dreht höchstens alle 16 s.*
 - **N6 Jumper nimmt Häuser:** OSM-Welt mit Gleisen und Häusern an der Route, Jumper wie N1. *Er feuert auf Häuser,
   nicht auf Gleise, Zäune oder Hecken; Kleinkram geht nur nebenbei kaputt.*
