@@ -224,6 +224,9 @@ const DOOR_WALL = DOOR_CORNER * 2 + 0.2;
 /** Kinds with no door to walk in by (a carport, a car park, a transformer): no door drawn, no footpath, unless OSM maps one */
 const NO_DOOR: ReadonlySet<BuildingKind> = new Set(['garage', 'carport', 'canopy', 'parking', 'transformer', 'gate', 'monument']);
 
+/** What a model with its door on a side (doorSide) costs laid with that side off the street, against its turn to it */
+const SIDE_DOOR = 0.05;
+
 /** What a front turned away from the street costs a fit */
 const ACROSS_PENALTY = 0.15;
 /** Most storeys a model may have for a footprint without `building:levels` or `height` */
@@ -313,6 +316,8 @@ interface Placement {
   scale: number;
   /** Turn of the model (front at local +z) */
   rotation: number;
+  /** The side its door is in, where that is not its front (a model turned to show it to the street, frontFor) */
+  doorFace?: MapPoint;
   model: BuildingModel;
   /** A building raised from the footprint (asset MASS_ASSET) instead of a model */
   mass?: MapMass;
@@ -427,6 +432,11 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
   // The covered ways through buildings: those buildings raised from their outline, their walls opened (building-openings.ts)
   const coveredWays = new CoveredWays(doc);
   const entrances = new EntranceIndex(features.points);
+  // A model with no door on its front turns the side its door is in to the street (kiosk, annex, small shop)
+  const doorSide = (asset: string): DoorSide => {
+    const doors = catalog?.get(asset)?.doors;
+    return !doors?.length || doors.some((d) => d[2] === 'front') ? 'front' : doors[0][2];
+  };
   let seen = 0;
   for (const area of features.areas) {
     if (options.onShare && ++seen % 256 === 0) options.onShare((0.9 * seen) / features.areas.length);
@@ -468,7 +478,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       const entrance = entrances.on(outer);
       const entered = entrance ? parts.reduce((best, part) => (rectReach(part, entrance) < rectReach(best, entrance) ? part : best), parts[0]) : null;
       for (const part of parts) {
-        const laid = layPart(part, kind, levels, roads, known, area.id, report, part === entered ? entrance : null);
+        const laid = layPart(part, kind, levels, roads, known, area.id, report, part === entered ? entrance : null, doorSide);
         took.add(laid?.kind ?? null);
         if (laid) placements.push(...laid.placements);
         // The catalogue lacks this kind at this size: the part took another kind's models, or none (a landmark
@@ -1038,6 +1048,8 @@ interface Fit {
   rows: number;
   scale: number;
   error: number;
+  /** A model with its door on a side (doorSide), laid with that side to the street: its depth along the front */
+  turned: boolean;
 }
 
 /** The best fit of `kind`'s models to a front `wide` m and `deep` m; null when none is good enough */
@@ -1049,6 +1061,7 @@ export function fitModels(
   known: (asset: string) => boolean,
   salt = 0,
   maxError = MAX_FIT_ERROR,
+  doorSide: (asset: string) => DoorSide = () => 'front',
 ): Fit | null {
   let best: Fit | null = null;
   const models = KIND_MODELS[kind].models.filter((m) => known(m) && BUILDING_MODELS[m]);
@@ -1056,27 +1069,38 @@ export function fitModels(
     const model = BUILDING_MODELS[asset];
     // High-rises only where the tags say so: a village's winery is no office tower
     if (levels === null && model.floors > UNTAGGED_FLOORS) return;
-    const [w, d] = model.box;
+    // A model with its door on a side: as it stands (the door off the street) and turned to show it to the street
+    const side = sideways(doorSide(asset));
     // A module in a kind that does not stand in rows (a terraced house among houses): alone, a narrow house
     const lone = model.module && !KIND_MODELS[kind].rows;
-    for (let rows = 1; rows <= (lone ? 1 : 2); rows++) {
-      const most = lone ? 1 : Math.min(MAX_COPIES, Math.max(1, Math.ceil(wide / (w * SCALE_MIN))));
-      for (let copies = 1; copies <= most; copies++) {
-        const scale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, Math.min(wide / (copies * w), deep / (rows * d))));
-        const cu = (copies * w * scale) / wide;
-        const cv = (rows * d * scale) / deep;
-        // A model bigger than the footprint costs twice: it stands in the street or the neighbour
-        let error = Math.abs(Math.log(cu)) * (cu > 1 ? 2 : 1) + Math.abs(Math.log(cv)) * (cv > 1 ? 2 : 1);
-        const extra = copies * rows - 1;
-        // Copies: cheap for modules of a kind that stands in rows, dearer for a house cut in two
-        error += extra * (model.module ? (KIND_MODELS[kind].rows ? 0.01 : 0.06) : 0.12) + (rows > 1 ? 0.12 : 0);
-        if (levels !== null) error += Math.min(0.6, Math.abs(levels - model.floors) * 0.08);
-        if (lone) error += LONE_MODULE;
-        // A little order (the first model of the kind) and variety (the footprint's salt) among fits about as good
-        error += rank * 0.01 + (((salt * 31 + rank * 17) % 7) / 7) * VARIETY;
-        if (!best || error < best.error) best = { model, copies, rows, scale, error };
+    // Its best fit, the door on the street preferred (SIDE_DOOR) among its own; against the other models by its error
+    let own: { fit: Fit; rank: number } | null = null;
+    for (const turned of side ? [false, true] : [false]) {
+      const [w, d] = turned ? [model.box[1], model.box[0]] : model.box;
+      for (let rows = 1; rows <= (lone ? 1 : 2); rows++) {
+        const most = lone ? 1 : Math.min(MAX_COPIES, Math.max(1, Math.ceil(wide / (w * SCALE_MIN))));
+        for (let copies = 1; copies <= most; copies++) {
+          const scale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, Math.min(wide / (copies * w), deep / (rows * d))));
+          const cu = (copies * w * scale) / wide;
+          const cv = (rows * d * scale) / deep;
+          // Turned, only where it covers enough to stand as a model (MODEL_COVER): else the model as it stands
+          if (turned && Math.min(cu, 1) * Math.min(cv, 1) < MODEL_COVER) continue;
+          // A model bigger than the footprint costs twice: it stands in the street or the neighbour
+          let error = Math.abs(Math.log(cu)) * (cu > 1 ? 2 : 1) + Math.abs(Math.log(cv)) * (cv > 1 ? 2 : 1);
+          const extra = copies * rows - 1;
+          // Copies: cheap for modules of a kind that stands in rows, dearer for a house cut in two
+          error += extra * (model.module ? (KIND_MODELS[kind].rows ? 0.01 : 0.06) : 0.12) + (rows > 1 ? 0.12 : 0);
+          if (levels !== null) error += Math.min(0.6, Math.abs(levels - model.floors) * 0.08);
+          if (lone) error += LONE_MODULE;
+          // A little order (the first model of the kind) and variety (the footprint's salt) among fits about as good
+          error += rank * 0.01 + (((salt * 31 + rank * 17) % 7) / 7) * VARIETY;
+          // Its door on a side off the street
+          const mine = error + (side && !turned ? SIDE_DOOR : 0);
+          if (!own || mine < own.rank) own = { fit: { model, copies, rows, scale, error, turned }, rank: mine };
+        }
       }
     }
+    if (own && (!best || own.fit.error < best.error)) best = own.fit;
   });
   return best && (best as Fit).error <= maxError ? best : null;
 }
@@ -1097,6 +1121,7 @@ function layPart(
   salt: number,
   report: BuildingReport,
   entrance: MapPoint | null = null,
+  doorSide: (asset: string) => DoorSide = () => 'front',
 ): { placements: Placement[]; kind: BuildingKind } | null {
   const v = { x: -rect.u.y, y: rect.u.x };
   // The four sides: outward normal, the axis along it, its length and the depth behind it
@@ -1122,8 +1147,8 @@ function layPart(
   // The kind's models with the front on the street, else on a side across it; else the next kind's
   let chosen: { fit: Fit; side: number; kind: BuildingKind } | null = null;
   for (let k: BuildingKind | undefined = kind, step = 0; k && step < 3 && !chosen; k = KIND_MODELS[k].fallback, step++) {
-    const onFront = fitModels(k, sides[front].len, sides[front].depth, levels, known, salt);
-    const onSide = fitModels(k, sides[across].len, sides[across].depth, levels, known, salt);
+    const onFront = fitModels(k, sides[front].len, sides[front].depth, levels, known, salt, MAX_FIT_ERROR, doorSide);
+    const onSide = fitModels(k, sides[across].len, sides[across].depth, levels, known, salt, MAX_FIT_ERROR, doorSide);
     // Turning the front away from the street costs; a house keeps its door on the street (its footpath, plots.ts), any
     // building on its mapped entrance
     if (onFront && (((DOOR_ON_STREET.has(k) || entrance) && onFront.error <= MAX_FIT_ERROR) || !onSide || onFront.error <= onSide.error + ACROSS_PENALTY)) chosen = { fit: onFront, side: front, kind: k };
@@ -1141,8 +1166,11 @@ function layPart(
   const { fit, side } = chosen;
   const s = sides[side];
   if (fit.copies * fit.rows > 1) report.rows++;
-  const mw = fit.model.box[0] * fit.scale;
-  const md = fit.model.box[1] * fit.scale;
+  // The model's door side turned to the street (doorSide): a model with its door on a side stands across
+  const door = doorSide(fit.model.asset);
+  const turned = fit.turned;
+  const mw = fit.model.box[turned ? 1 : 0] * fit.scale;
+  const md = fit.model.box[turned ? 0 : 1] * fit.scale;
   const total = fit.copies * mw;
   // Ends of a row of city-block modules where a side street runs: corner houses there
   const corner = fit.model.floors >= 6 ? 'block-corner-6' : 'block-corner-4';
@@ -1162,7 +1190,7 @@ function layPart(
       // A lone module takes the corner on the side its street is
       const end = fit.copies === 1 ? (cornerAt(-1) ? -1 : 1) : k === 0 ? -1 : k === fit.copies - 1 ? 1 : 0;
       let model = fit.model;
-      let front = face;
+      let front = turned || door === 'back' ? frontFor(door, face) : face;
       if (row === 0 && end !== 0 && cornerAt(end)) {
         model = BUILDING_MODELS[corner];
         // Its second street side is its west (model -x, the front turned right): turned to face the row's end
@@ -1171,10 +1199,30 @@ function layPart(
         if (west.x * toEnd.x + west.y * toEnd.y < 0) front = toEnd;
       }
       const scale = model === fit.model ? fit.scale : Math.min(SCALE_MAX, Math.max(SCALE_MIN, Math.min(mw / model.box[0], md / model.box[1])));
-      out.push({ asset: model.asset, p, front, hw: (model.box[0] * scale) / 2, hd: (model.box[1] * scale) / 2, scale, rotation: Math.atan2(-front.x, front.y), model });
+      out.push({ asset: model.asset, p, front, hw: (model.box[0] * scale) / 2, hd: (model.box[1] * scale) / 2, scale, rotation: Math.atan2(-front.x, front.y), model, ...(front !== face && model === fit.model ? { doorFace: face } : {}) });
     }
   }
   return { placements: out, kind: chosen.kind };
+}
+
+/** The side of a model its door is in, as the catalogue measured its doors (CatalogDoor) */
+type DoorSide = CatalogDoor[2];
+
+/** Whether a door's side runs along the model's depth (its east or west) */
+function sideways(side: DoorSide): boolean {
+  return side === 'east' || side === 'west';
+}
+
+/**
+ * The model's front (local +z) that turns its door side to `face`: its
+ * east (+x, the front turned left) to it, its west, its back, or the front
+ * itself
+ */
+function frontFor(side: DoorSide, face: MapPoint): MapPoint {
+  if (side === 'east') return rightOf(face);
+  if (side === 'west') return { x: -face.y, y: face.x };
+  if (side === 'back') return { x: -face.x, y: -face.y };
+  return face;
 }
 
 /** The unit vector a quarter turn clockwise (to the right) of `f` */
@@ -1344,11 +1392,14 @@ function floorLevel(
   const ring = groundRing(footprint, box, { x: o.x, y: o.y, rotation: pl.rotation, scale: pl.scale });
   for (let k = 0; k < ring.length; k += 2) if (!onRamp?.(ring[k], ring[k + 1])) low = Math.min(low, lowestSample(t, ring[k], ring[k + 1]));
   if (!entrance) return low;
-  const f = pl.front;
+  // Before its door: the front, or the side its door is in (doorFace)
+  const f = pl.doorFace ?? pl.front;
   const r = rightOf(f);
-  const d = pl.hd + ENTRANCE_OUT;
+  const turned = !!pl.doorFace && Math.abs(f.x * pl.front.x + f.y * pl.front.y) < 0.5;
+  const d = (turned ? pl.hw : pl.hd) + ENTRANCE_OUT;
+  const half = turned ? pl.hd : pl.hw;
   let sum = 0;
-  for (const u of [-0.3, 0, 0.3]) sum += heightAt(t, pl.p.x + f.x * d + r.x * pl.hw * 2 * u, pl.p.y + f.y * d + r.y * pl.hw * 2 * u);
+  for (const u of [-0.3, 0, 0.3]) sum += heightAt(t, pl.p.x + f.x * d + r.x * half * 2 * u, pl.p.y + f.y * d + r.y * half * 2 * u);
   return Math.min(Math.max(sum / 3, low), high, low + MAX_BASEMENT);
 }
 

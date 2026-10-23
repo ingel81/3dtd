@@ -200,6 +200,17 @@ describe('OSM buildings: placing', () => {
     expect(Math.abs(entered.doors.get(1)!.y - 16.3)).toBeLessThan(0.8);
   });
 
+  it('turns a model whose door is on its side to show that side to the street (a kiosk)', () => {
+    // 3 m along the road, 4 m deep: the kiosk (4 x 3, its door on its east side) stands across, its east to the road
+    const { doc, features } = world([area(3, box({ x: 0, y: 6 }, 3, 4, 0), { building: 'kiosk' })]);
+    const { objects, doors } = placeBuildings(doc, features, { catalog });
+    expect(objects[0].asset).toBe('kiosk');
+    expect(byId.get('kiosk')!.doors![0][2]).toBe('east');
+    // Its front (local +z) along the road, its door facing it
+    expect(Math.abs(Math.cos(objects[0].rotation))).toBeLessThan(0.1);
+    expect(doors.get(3)!.ny).toBeLessThan(-0.9);
+  });
+
   it("puts a raised building's door on the wall to the street, and none on a garage court", () => {
     const at = (xy: number[][]) => xy.map(([x, y]) => ({ x: x - 10, y: y + 45 }));
     const outline = at(HOME_OUTER);

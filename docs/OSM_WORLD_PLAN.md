@@ -859,7 +859,9 @@ eingefrorenen Probe (Katalog-Modelle, keine Objekte auf Straßen oder in der Luf
 - **Eingang und Fußweg (2026-10-23):** die Abfrage holt die Eingänge der Umrisse (`entrance`, Abfrage-Version 5).
   Ein gemappter Eingang (`main` vor `yes`, `home`, `staircase`; nicht `service`, Ausgänge, Notausgänge) auf dem
   Umriss gibt dem Teil, auf dem er liegt, die Front, sonst die Straßenseite; Wohnhäuser behalten die Front an der
-  Straße, wo ein Modell so passt. Die Tür eines Gebäudes (`BuildingResult.doors`): am Eingang; sonst die Tür seines
+  Straße, wo ein Modell so passt. Ein Modell mit der Tür nur an der Seite (Kiosk, Anbau) steht quer, die Türseite zur
+  Straße, wo es so mindestens 85 % deckt und besser passt (sonst wie es steht), eins mit der Tür hinten (kleiner Laden)
+  steht gedreht. Die Tür eines Gebäudes (`BuildingResult.doors`): am Eingang; sonst die Tür seines
   Modells, die ein paar Meter vor ihr der Straße am nächsten liegt (Katalog `doors`, gemessen aus den Türteilen der
   Modelle, `tools/map-assets/measure_doors.mjs`; ohne: die Mitte der Front); ein hochgezogener Bau bekommt sie auf
   einer Wand seines Umrisses (Mitte oder 1,2 m vor einer Ecke, die nach außen der Straße am nächsten ist) als
