@@ -1702,9 +1702,10 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
     }
   }
   plinth *= max(facadeWall * (1.0 - dressed), revealWall);
-  // Far off a window's frame and bars are a few pixels: the wall with its panes by their cover instead of their
-  // shimmer, down to the wall's mean where a pixel spans several windows
-  float far = smoothstep(0.06, 0.3, aa);
+  // Far off, where a window gets under two pixels: the wall with its panes by their cover instead of the shimmer of
+  // its frame and bars, down to the wall's mean where a pixel spans several windows. From 0.06 m a pixel on the
+  // windows of a wall seen from the game's height were grey smudges from 150 m
+  float far = smoothstep(0.3, 0.7, aa);
   vec3 mean = mix(base, coarsePane, coarse);
   diffuseColor.rgb = mix(mix(detail, mean, far), plinthColor, plinth);
   massGlass *= 1.0 - far;

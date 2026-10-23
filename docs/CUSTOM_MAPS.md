@@ -943,7 +943,10 @@ Calls (dazu der Schatten). Keine Detailstufen: Wand und Dach sind wenige Dreieck
 Sockel, Gesims, Ecklisenen, Schmutz über dem Sockel und unter den Bänken, die Tür mit Vordachschatten im Erdgeschoss
 nur an `MapMass.door` (die Achse dort, auf der nächsten Fassaden- oder Ladenwand innerhalb 1 m, `doorWall`; ohne
 `door` keine); Hallen eine hohe Fensterreihe, Sandstein hohe Rundbogenfenster; nachts Fensterlicht wie `night-windows.ts`)
-und gehen in die Mittelfarbe über, wo ein Fenster nur ein paar Pixel misst. Die Oberflächen sind die Texturen des
+und werden fern, wo ein Fenster unter zwei Pixel fällt (0,3 bis 0,7 m je Pixel), zu dunklen Scheiben nach dem Anteil
+eines Pixels, den sie decken (`massCover`), bis ein Pixel mehrere Fenster überspannt und die Wand ihre Mittelfarbe
+zeigt. Ab 0,06 m je Pixel, wie zuerst, waren die Fenster einer Wand aus der Spielhöhe schon ab rund 150 m nur graue
+Flecken. Die Oberflächen sind die Texturen des
 Katalogeintrags `building-mass` (je Oberfläche ein Quadrat so breit wie eine Wiederholung ihrer Textur,
 `build_modern2.py`), Blech nimmt seine Tönung als Lack (eigene Farbe heraus, Licht und Schatten bleiben). Im Spiegel
 der Objektebene (`MapObjectLayer`) laufen sie über dieselben Aufrufe (Setzen, Ändern, Picken, Höhen); eine Änderung
