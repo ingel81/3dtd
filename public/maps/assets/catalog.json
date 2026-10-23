@@ -23183,10 +23183,10 @@
         "textures/dark_planks_diff_1k-30d91ae2628b7aa7.ktx2",
         "textures/dark_planks_nor_gl_1k-e30b3011dfc4fc2f.ktx2",
         "textures/oldtown-gable-3-ao-9e2940044d50aee9.ktx2",
-        "textures/oldtown-gable-3-ao-clay_roof_tiles_02_arm_1k-5e8997502a8d8c5e.ktx2",
-        "textures/oldtown-gable-3-ao-dark_planks_arm_1k-0e50ae2ccb425597.ktx2",
-        "textures/oldtown-gable-3-ao-painted_plaster_wall_arm_1k-188dd2b37740b841.ktx2",
-        "textures/oldtown-gable-3-ao-sandstone_blocks_04_arm_1k-a71b390e27f19fb8.ktx2",
+        "textures/oldtown-gable-3-ao-clay_roof_tiles_02_arm_1k-5571f7611d2f8ef8.ktx2",
+        "textures/oldtown-gable-3-ao-dark_planks_arm_1k-c3e393d1d6f4c8a6.ktx2",
+        "textures/oldtown-gable-3-ao-painted_plaster_wall_arm_1k-88f10062a1326975.ktx2",
+        "textures/oldtown-gable-3-ao-sandstone_blocks_04_arm_1k-4db8c639ae01586b.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.22-1.02-0.66-b97aba8d7aec4723.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2",
         "textures/sandstone_blocks_04_diff_1k-9b210081ece5f146.ktx2",
@@ -23197,9 +23197,9 @@
           "file": "models/oldtown-gable-3-lod1.glb",
           "screen": 0.118,
           "tone": [
-            0.83,
-            0.802,
-            0.773
+            0.805,
+            0.766,
+            0.74
           ],
           "triangles": 1338
         }
@@ -23227,9 +23227,9 @@
           8.31
         ],
         "tone": [
-          0.828,
-          0.705,
-          0.632
+          0.803,
+          0.673,
+          0.6
         ]
       },
       "cellar": {
@@ -23297,10 +23297,10 @@
         "textures/dark_planks_diff_1k-30d91ae2628b7aa7.ktx2",
         "textures/dark_planks_nor_gl_1k-e30b3011dfc4fc2f.ktx2",
         "textures/oldtown-gable-4-ao-8f55f18872aaedf9.ktx2",
-        "textures/oldtown-gable-4-ao-clay_roof_tiles_02_arm_1k-68dcd04aef2cc731.ktx2",
-        "textures/oldtown-gable-4-ao-dark_planks_arm_1k-172d4d05ed81a40b.ktx2",
-        "textures/oldtown-gable-4-ao-painted_plaster_wall_arm_1k-17fc016dced2f887.ktx2",
-        "textures/oldtown-gable-4-ao-sandstone_blocks_04_arm_1k-b465b182c3441fd4.ktx2",
+        "textures/oldtown-gable-4-ao-clay_roof_tiles_02_arm_1k-e00307b141ef9c0e.ktx2",
+        "textures/oldtown-gable-4-ao-dark_planks_arm_1k-9ce5a027391b6902.ktx2",
+        "textures/oldtown-gable-4-ao-painted_plaster_wall_arm_1k-6c711d9206bfcc2d.ktx2",
+        "textures/oldtown-gable-4-ao-sandstone_blocks_04_arm_1k-2609f0632a2dd4da.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.30-1.28-1.20-9dd54519f4559217.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2",
         "textures/sandstone_blocks_04_diff_1k-9b210081ece5f146.ktx2",
@@ -23311,9 +23311,9 @@
           "file": "models/oldtown-gable-4-lod1.glb",
           "screen": 0.147,
           "tone": [
-            0.816,
-            0.764,
-            0.695
+            0.788,
+            0.724,
+            0.643
           ],
           "triangles": 1692
         }
@@ -23341,9 +23341,9 @@
           11.06
         ],
         "tone": [
-          0.809,
-          0.647,
-          0.52
+          0.781,
+          0.613,
+          0.482
         ]
       },
       "cellar": {
@@ -23525,10 +23525,10 @@
         "textures/dark_planks_diff_1k-30d91ae2628b7aa7.ktx2",
         "textures/dark_planks_nor_gl_1k-e30b3011dfc4fc2f.ktx2",
         "textures/oldtown-eave-3-ao-84eaf1be27e2ae17.ktx2",
-        "textures/oldtown-eave-3-ao-clay_roof_tiles_02_arm_1k-98f52ea579975399.ktx2",
-        "textures/oldtown-eave-3-ao-dark_planks_arm_1k-328f0c9c469c7941.ktx2",
-        "textures/oldtown-eave-3-ao-painted_plaster_wall_arm_1k-09d7f1a2fe6474cf.ktx2",
-        "textures/oldtown-eave-3-ao-sandstone_blocks_04_arm_1k-28978b7289a15dfa.ktx2",
+        "textures/oldtown-eave-3-ao-clay_roof_tiles_02_arm_1k-910371850eade399.ktx2",
+        "textures/oldtown-eave-3-ao-dark_planks_arm_1k-ff7ba888efe22af5.ktx2",
+        "textures/oldtown-eave-3-ao-painted_plaster_wall_arm_1k-ab69f53f67d7e34d.ktx2",
+        "textures/oldtown-eave-3-ao-sandstone_blocks_04_arm_1k-0517c5e5d881fe4d.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.25-1.18-0.98-33095128b31f6abd.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2",
         "textures/sandstone_blocks_04_diff_1k-9b210081ece5f146.ktx2",
@@ -23539,9 +23539,9 @@
           "file": "models/oldtown-eave-3-lod1.glb",
           "screen": 0.1321,
           "tone": [
-            0.83,
-            0.763,
-            0.695
+            0.798,
+            0.721,
+            0.643
           ],
           "triangles": 1652
         }
@@ -23569,9 +23569,9 @@
           8.36
         ],
         "tone": [
-          0.835,
-          0.671,
-          0.548
+          0.804,
+          0.634,
+          0.508
         ]
       },
       "cellar": {
@@ -23640,7 +23640,7 @@
         "textures/dark_planks_nor_gl_1k-e30b3011dfc4fc2f.ktx2",
         "textures/oldtown-eave-2-ao-2e078d0089b955a9.ktx2",
         "textures/oldtown-eave-2-ao-clay_roof_tiles_02_arm_1k-e4c6574976a71166.ktx2",
-        "textures/oldtown-eave-2-ao-dark_planks_arm_1k-a13813d1143bbe37.ktx2",
+        "textures/oldtown-eave-2-ao-dark_planks_arm_1k-464d0b6ba718fc15.ktx2",
         "textures/oldtown-eave-2-ao-painted_plaster_wall_arm_1k-00d2184169ca98a2.ktx2",
         "textures/oldtown-eave-2-ao-sandstone_blocks_04_arm_1k-2e66f8651b420612.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.00-1.10-0.92-358fe6adb8849b59.ktx2",
@@ -23653,9 +23653,9 @@
           "file": "models/oldtown-eave-2-lod1.glb",
           "screen": 0.0943,
           "tone": [
-            0.81,
-            0.785,
-            0.756
+            0.807,
+            0.784,
+            0.755
           ],
           "triangles": 1536
         }
@@ -23684,8 +23684,8 @@
         ],
         "tone": [
           0.861,
-          0.776,
-          0.704
+          0.775,
+          0.703
         ]
       },
       "cellar": {

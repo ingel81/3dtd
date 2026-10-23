@@ -33,7 +33,10 @@ blender --background --factory-startup --python tools/map-assets/build_models.py
 
 # Komprimieren und vermessen: meshopt, dann die Texturen als geteilte KTX2-Dateien in textures/ (512 px, 1024 px für
 # textureSize 1024 in objects.json; ETC1S, UASTC für Normalen und wo ETC1S die Textur nicht hält; tools/model-pack).
-# Braucht `npm install` in tools/model-pack und KTX_TOOL (ktx.exe aus KTX-Software 4.4)
+# Braucht `npm install` in tools/model-pack und KTX_TOOL (ktx.exe aus KTX-Software 4.4). Grenzen in textures.mjs
+# MIN_PSNR: Farbe 30 dB, Daten 25 dB; eine gebackene AO, die mit einer kachelnden ARM-Textur in einem Bild liegt
+# (AO und Metall/Rauheit über verschiedene UV-Sätze, die Altstadthäuser), behält ETC1S bis 22 dB
+# (`packed`). Erreicht sie bei voller Qualität 25 dB, darf die Leiter sie nicht darunter verkleinern
 python -I tools/map-assets/pack_models.py $DL/glb-raw public/maps/assets [<id> ...]
 
 # Laub- und Nadelbäume bauen ihre Fernkopie (-lod1) in broadleaf()/conifer() selbst, auf den Materialien des Modells

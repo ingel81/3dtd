@@ -48,8 +48,17 @@ export const UASTC = { quality: 2, rdo: 1, rdoNormal: 0.5, zstd: 18 };
  * to 31 dB looks as before, and so does a metal/rough/occlusion map with
  * three independent channels at 25 to 28 dB (roughness and occlusion are
  * felt, not read); only below 25 dB it takes UASTC, at three times the bytes.
+ * Packed: one map read as occlusion and as metal/rough through different
+ * UV sets (a model's baked occlusion joined with a tiling ARM texture, the
+ * old-town houses; packedOcclusion): its
+ * weathered occlusion and the tiles' roughness in one image reached 23 to
+ * 24.5 dB as ETC1S and took UASTC at five to seven times the bytes; side by
+ * side with UASTC it looked the same from the game's camera, only a close-up
+ * showed the tiles a little softer. It keeps ETC1S down to 22 dB; one that
+ * reaches the data bound at full quality keeps it on the ladder too
+ * (encodeKtx2), so none that held it comes out smaller than before.
  */
-export const MIN_PSNR = { color: 30, data: 25 };
+export const MIN_PSNR = { color: 30, data: 25, packed: 22 };
 
 const REPEAT = 10497;
 
@@ -84,6 +93,16 @@ function usedChannels(texture) {
     else [0, 1, 2].forEach((c) => used.add(c));
   }
   return used.size ? [...used].sort() : [0, 1, 2];
+}
+
+/**
+ * Whether a material reads the texture as occlusion and as metal/rough through different UV sets: a model's baked
+ * occlusion packed with a tiling ARM texture. A baked ORM read through one UV set (the cars) is not
+ */
+function packedOcclusion(texture) {
+  return texture.listParents().some((parent) => parent.propertyType === 'Material' && parent.getOcclusionTexture() === texture
+    && parent.getMetallicRoughnessTexture() === texture
+    && parent.getOcclusionTextureInfo().getTexCoord() !== parent.getMetallicRoughnessTextureInfo().getTexCoord());
 }
 
 /** Whether a material reads the texture's alpha: a base colour of a blended or masked one */
@@ -142,7 +161,10 @@ export function encodingOf(texture, pixels, { uastc = false, minPsnr = MIN_PSNR 
   }
   const codec = uastc || kind === 'normal' ? 'uastc' : 'auto';
   const alpha = pixels.alpha && readsAlpha(texture);
-  return { kind, channels, alpha, wrap: repeats(texture), codec, ...(codec === 'auto' ? { minPsnr: minPsnr[kind] } : {}) };
+  // A baked occlusion packed with a tiling ARM texture: the packed bound, the data bound kept for the ladder (MIN_PSNR)
+  const packed = kind === 'data' && minPsnr.packed !== undefined && packedOcclusion(texture);
+  const bound = packed ? { minPsnr: minPsnr.packed, holdPsnr: minPsnr.data } : { minPsnr: minPsnr[kind] };
+  return { kind, channels, alpha, wrap: repeats(texture), codec, ...(codec === 'auto' ? bound : {}) };
 }
 
 /** Content hash of a texture's encoded file: pixels plus settings, hex */
@@ -171,9 +193,11 @@ export async function encodeKtx2(tool, pixels, encoding) {
     if (encoding.codec === 'uastc') return await run('uastc');
     const etc1s = await run('etc1s');
     if (etc1s.psnr < encoding.minPsnr) return { ...(await run('uastc')), etc1sPsnr: etc1s.psnr };
+    // A map that reached `holdPsnr` at full quality stays above it (a packed map, MIN_PSNR)
+    const floor = encoding.holdPsnr && etc1s.psnr >= encoding.holdPsnr ? encoding.holdPsnr : encoding.minPsnr;
     for (const qlevel of ETC1S.ladder) {
       const lower = await run('etc1s', qlevel);
-      if (lower.psnr >= encoding.minPsnr && lower.psnr >= etc1s.psnr - LADDER_DB && lower.bytes.length < etc1s.bytes.length) return lower;
+      if (lower.psnr >= floor && lower.psnr >= etc1s.psnr - LADDER_DB && lower.bytes.length < etc1s.bytes.length) return lower;
     }
     return etc1s;
   } finally {
