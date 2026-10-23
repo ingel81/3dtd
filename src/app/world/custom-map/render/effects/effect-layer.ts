@@ -299,7 +299,8 @@ export class EffectLayer implements SteadyLightSource {
       }
       if (e.light) {
         this.spots.push({
-          position: origin.clone().setY(origin.y + e.light.height * s),
+          // In the lamp: off the model's axis where its glowing part is (catalogue light.at, measure_lights.mjs)
+          position: (e.light.at ? new Vector3(e.light.at[0] * s, 0, e.light.at[1] * s).applyQuaternion(q.setFromAxisAngle(up, o.rotation)).add(origin) : origin.clone()).setY(origin.y + e.light.height * s),
           // An effect object's light takes the map maker's tint, as its particles do
           color: new Color((e.category === 'fx' && o.tint) || e.light.color),
           intensity: e.light.intensity,

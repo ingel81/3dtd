@@ -11,7 +11,8 @@ from bases.json (measure_bases.mjs), the ground rectangle of buildings and walls
 (`box`) from boxes.json (measure_boxes.mjs), the top surface of what carries a tower (`roof`) from roofs.json
 (measure_roofs.mjs), the doors of buildings (`doors`) from doors.json (measure_doors.mjs), the far stage of buildings (`far`) from farboxes.json (bake_far_boxes.mjs), the colours of a
 line piece's far band (`band`) and a building's basement colour (`cellar`) from bands.json and cellars.json
-(measure_bands.mjs), the detail stages'
+(measure_bands.mjs), where a light sits in its model (`light.at`, `light.height`) from lights.json
+(measure_lights.mjs), the detail stages'
 tones (`lod[].tone`, `far.tone`) from stage-tones.json (stage_tones.mjs); the triangle counts from the packed models
 (count_triangles.py). Objects <glb-raw-dir> has not measured (a build of a few
 models) keep their measured fields from the current catalog.json.
@@ -97,6 +98,7 @@ def main():
     farboxes = json.load(open(os.path.join(HERE, 'farboxes.json'), encoding='utf8'))
     bands = json.load(open(os.path.join(HERE, 'bands.json'), encoding='utf8'))
     cellars = json.load(open(os.path.join(HERE, 'cellars.json'), encoding='utf8'))
+    lights = json.load(open(os.path.join(HERE, 'lights.json'), encoding='utf8'))
     path = os.path.join(out, 'catalog.json')
     catalog = json.load(open(path, encoding='utf8'))
     current = {o['id']: o for o in catalog['objects']}
@@ -147,6 +149,8 @@ def main():
             e['band'] = bands[o['id']]
         if o['id'] in cellars:
             e['cellar'] = cellars[o['id']]
+        if 'light' in e and o['id'] in lights:
+            e['light'] = {**e['light'], **lights[o['id']]}
         if os.path.exists(os.path.join(out, e['file'])):
             textures = shared_textures(out, e['file'])
             if textures:

@@ -3687,7 +3687,11 @@
         "color": "#ffc070",
         "intensity": 1.0,
         "distance": 10,
-        "height": 3.2
+        "height": 3.12,
+        "at": [
+          0,
+          0.85
+        ]
       },
       "textures": [
         "textures/castle_wall_slates_arm_1k-76aac61d9eb51602.ktx2",
@@ -5701,7 +5705,11 @@
         "color": "#40c8e6",
         "intensity": 0.4,
         "distance": 4,
-        "height": 0.4
+        "height": 0.21,
+        "at": [
+          -0.03,
+          0
+        ]
       },
       "source": "procedural (tools/map-assets/build_nature.py)"
     },
@@ -5738,7 +5746,11 @@
         "color": "#8a40e0",
         "intensity": 0.8,
         "distance": 10,
-        "height": 3.0
+        "height": 2.51,
+        "at": [
+          -0.03,
+          -0.12
+        ]
       },
       "source": "procedural (tools/map-assets/build_nature.py)"
     },
@@ -7442,7 +7454,11 @@
         "color": "#4a8cff",
         "intensity": 0.8,
         "distance": 8,
-        "height": 1.0
+        "height": 0.89,
+        "at": [
+          0.01,
+          -0.09
+        ]
       },
       "textures": [
         "textures/dark_rock_arm_1k-8024373127c45a32.ktx2",
@@ -7488,7 +7504,11 @@
         "color": "#a050ff",
         "intensity": 0.8,
         "distance": 8,
-        "height": 1.0
+        "height": 0.98,
+        "at": [
+          -0.05,
+          -0.32
+        ]
       },
       "textures": [
         "textures/dark_rock_arm_1k-8024373127c45a32.ktx2",
@@ -7583,8 +7603,12 @@
         "color": "#ff5a1e",
         "intensity": 1.8,
         "distance": 16,
-        "height": 1.0,
-        "flicker": true
+        "height": 0.12,
+        "flicker": true,
+        "at": [
+          0.03,
+          -0.12
+        ]
       },
       "textures": [
         "textures/dark_rock_02_arm_1k-1a3ea5aa0d4ad966.ktx2",
@@ -11501,8 +11525,12 @@
         "color": "#ffb060",
         "intensity": 0.4,
         "distance": 3,
-        "height": 1.4,
-        "flicker": true
+        "height": 1.43,
+        "flicker": true,
+        "at": [
+          0,
+          0.37
+        ]
       },
       "textures": [
         "textures/castle_wall_slates_arm_1k-76aac61d9eb51602.ktx2",
@@ -11926,8 +11954,12 @@
         "color": "#ff9a3c",
         "intensity": 1.2,
         "distance": 9,
-        "height": 2.3,
-        "flicker": true
+        "height": 2.36,
+        "flicker": true,
+        "at": [
+          0,
+          0
+        ]
       },
       "textures": [
         "textures/dark_planks_arm_1k-3b77ffd0c1e01a38.ktx2",
@@ -11977,8 +12009,12 @@
         "color": "#ff9a3c",
         "intensity": 1.5,
         "distance": 12,
-        "height": 1.6,
-        "flicker": true
+        "height": 1.48,
+        "flicker": true,
+        "at": [
+          0,
+          0
+        ]
       },
       "textures": [
         "textures/flame-cf1b5fb3432dff6c.ktx2"
@@ -12032,8 +12068,12 @@
         "color": "#ff9a3c",
         "intensity": 1.6,
         "distance": 14,
-        "height": 1.0,
-        "flicker": true
+        "height": 0.62,
+        "flicker": true,
+        "at": [
+          0,
+          0
+        ]
       },
       "textures": [
         "textures/bark_brown_02_arm_1k-b754302b93733e00.ktx2",
@@ -12688,8 +12728,12 @@
         "color": "#ffc070",
         "intensity": 0.6,
         "distance": 5,
-        "height": 0.25,
-        "flicker": true
+        "height": 0.18,
+        "flicker": true,
+        "at": [
+          0,
+          -0.01
+        ]
       },
       "textures": [
         "textures/wooden_lantern_01_arm_1k-9a5a71680ff05575.ktx2",
@@ -12987,8 +13031,12 @@
         "color": "#ffc070",
         "intensity": 0.9,
         "distance": 14,
-        "height": 6.5,
-        "flicker": true
+        "height": 4.11,
+        "flicker": true,
+        "at": [
+          0.08,
+          10.29
+        ]
       },
       "textures": [
         "textures/dutch_ship_medium_hull_arm_1k-b38913ae2a2aad5b.ktx2",
@@ -14844,7 +14892,11 @@
         "color": "#ff3020",
         "intensity": 0.4,
         "distance": 4,
-        "height": 4.8
+        "height": 4.06,
+        "at": [
+          0,
+          1.84
+        ]
       },
       "source": "procedural (tools/map-assets/build_city.py)"
     },
@@ -14871,7 +14923,11 @@
         "color": "#ffd9a0",
         "intensity": 1.2,
         "distance": 14,
-        "height": 3.7
+        "height": 3.32,
+        "at": [
+          0,
+          0
+        ]
       },
       "textures": [
         "textures/street_lamp_01_arm_1k-31a55c00b402f14e.ktx2",
@@ -15670,7 +15726,11 @@
         "color": "#5aff28",
         "intensity": 0.5,
         "distance": 5,
-        "height": 0.3
+        "height": 0.02,
+        "at": [
+          0.08,
+          0.91
+        ]
       },
       "textures": [
         "textures/green_metal_rust_arm_1k-190612040837ee24.ktx2",
@@ -15912,7 +15972,11 @@
         "color": "#a8c8ff",
         "intensity": 0.5,
         "distance": 8,
-        "height": 2.5
+        "height": 3.42,
+        "at": [
+          0,
+          2.22
+        ]
       },
       "textures": [
         "textures/hull-panels-1b7a6a1e0c876f48.ktx2",
@@ -15980,7 +16044,11 @@
         "color": "#a8c8ff",
         "intensity": 0.5,
         "distance": 8,
-        "height": 2.5
+        "height": 2.6,
+        "at": [
+          0,
+          0
+        ]
       },
       "textures": [
         "textures/hull-panels-1b7a6a1e0c876f48.ktx2"
@@ -16293,8 +16361,12 @@
         "color": "#ff2010",
         "intensity": 0.6,
         "distance": 6,
-        "height": 14.0,
-        "blink": 1.5
+        "height": 14.13,
+        "blink": 1.5,
+        "at": [
+          0,
+          0
+        ]
       },
       "source": "procedural (tools/map-assets/build_space.py)"
     },
@@ -16480,7 +16552,11 @@
         "color": "#3398ff",
         "intensity": 0.6,
         "distance": 12,
-        "height": 0.5
+        "height": 0.33,
+        "at": [
+          0,
+          0
+        ]
       },
       "textures": [
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
@@ -16950,7 +17026,11 @@
         "color": "#a8c8ff",
         "intensity": 0.5,
         "distance": 8,
-        "height": 3.0
+        "height": 3.45,
+        "at": [
+          -0.01,
+          0.79
+        ]
       },
       "textures": [
         "textures/research-station-ao-0d54c5b4c5e6c780.ktx2"
@@ -17428,8 +17508,12 @@
         "color": "#ff4a10",
         "intensity": 2.0,
         "distance": 25,
-        "height": 5.0,
-        "flicker": true
+        "height": 6.65,
+        "flicker": true,
+        "at": [
+          0.28,
+          0.39
+        ]
       },
       "textures": [
         "textures/beige_wall_001_arm_1k-5d83ff3580ad1b14.ktx2",
@@ -17487,8 +17571,12 @@
         "color": "#ff7030",
         "intensity": 0.8,
         "distance": 8,
-        "height": 1.8,
-        "flicker": true
+        "height": 2.37,
+        "flicker": true,
+        "at": [
+          0,
+          0
+        ]
       },
       "textures": [
         "textures/altar-ao-cab135f6612e8481.ktx2",
@@ -17571,8 +17659,12 @@
         "color": "#ff5a1e",
         "intensity": 1.2,
         "distance": 10,
-        "height": 1.0,
-        "flicker": true
+        "height": 0.36,
+        "flicker": true,
+        "at": [
+          -0.01,
+          0.03
+        ]
       },
       "textures": [
         "textures/dark_rock_02_arm_1k-1a3ea5aa0d4ad966.ktx2",
@@ -17623,8 +17715,12 @@
         "color": "#ff5a1e",
         "intensity": 1.2,
         "distance": 16,
-        "height": 2.0,
-        "flicker": true
+        "height": 1.06,
+        "flicker": true,
+        "at": [
+          -0.2,
+          0.04
+        ]
       },
       "textures": [
         "textures/dark_rock_02_arm_1k-1a3ea5aa0d4ad966.ktx2",
@@ -19067,8 +19163,12 @@
         "color": "#ffc070",
         "intensity": 0.9,
         "distance": 8,
-        "height": 2.1,
-        "flicker": true
+        "height": 2.2,
+        "flicker": true,
+        "at": [
+          1.1,
+          0.95
+        ]
       },
       "textures": [
         "textures/bark_willow_arm_1k-05189a7e62294706.ktx2",
@@ -19128,8 +19228,12 @@
         "color": "#90ff60",
         "intensity": 0.8,
         "distance": 10,
-        "height": 3.0,
-        "flicker": true
+        "height": 2.23,
+        "flicker": true,
+        "at": [
+          -0.81,
+          1.39
+        ]
       },
       "textures": [
         "textures/bark_willow_arm_1k-05189a7e62294706.ktx2",
@@ -19218,8 +19322,12 @@
         "color": "#7aff40",
         "intensity": 0.7,
         "distance": 6,
-        "height": 1.0,
-        "flicker": true
+        "height": 0.97,
+        "flicker": true,
+        "at": [
+          0,
+          0
+        ]
       },
       "textures": [
         "textures/bark_brown_02_arm_1k-b754302b93733e00.ktx2",
@@ -19737,8 +19845,12 @@
         "color": "#ff3a2a",
         "intensity": 0.6,
         "distance": 6,
-        "height": 2.2,
-        "blink": 2.5
+        "height": 2.15,
+        "blink": 2.5,
+        "at": [
+          0,
+          0
+        ]
       },
       "textures": [
         "textures/buoy-green-ao-c5b76cb23c6b0d92.ktx2"
@@ -19769,8 +19881,12 @@
         "color": "#3aff6a",
         "intensity": 0.6,
         "distance": 6,
-        "height": 2.2,
-        "blink": 4
+        "height": 2.15,
+        "blink": 4,
+        "at": [
+          0,
+          0
+        ]
       },
       "textures": [
         "textures/buoy-green-ao-c5b76cb23c6b0d92.ktx2"
@@ -19973,8 +20089,12 @@
         "color": "#ff5a1e",
         "intensity": 1.2,
         "distance": 12,
-        "height": 0.5,
-        "flicker": true
+        "height": 0.56,
+        "flicker": true,
+        "at": [
+          0,
+          0
+        ]
       },
       "textures": [
         "textures/dark_rock_02_arm_1k-1a3ea5aa0d4ad966.ktx2",
@@ -20038,8 +20158,12 @@
         "color": "#ff8a30",
         "intensity": 1.4,
         "distance": 12,
-        "height": 1.2,
-        "flicker": true
+        "height": 0.93,
+        "flicker": true,
+        "at": [
+          0,
+          -2
+        ]
       },
       "textures": [
         "textures/dark_planks_arm_1k-3b77ffd0c1e01a38.ktx2",
@@ -21357,7 +21481,11 @@
         "color": "#fff1d6",
         "intensity": 2.5,
         "distance": 30,
-        "height": 12.0
+        "height": 12.5,
+        "at": [
+          0,
+          0.31
+        ]
       },
       "textures": [
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
@@ -21394,7 +21522,11 @@
         "intensity": 0.6,
         "distance": 6,
         "height": 2.2,
-        "blink": 1.5
+        "blink": 1.5,
+        "at": [
+          0,
+          0
+        ]
       },
       "textures": [
         "textures/beacon-post-ao-31f2ee98f5771481.ktx2"

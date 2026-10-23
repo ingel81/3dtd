@@ -131,6 +131,8 @@ export interface CatalogLight {
   distance: number;
   /** Height of the light above the object's base, metres */
   height: number;
+  /** Where it sits off the model's axis (model x, z at scale 1): a lamp at the end of its arm; measured by measure_lights.mjs */
+  at?: [number, number];
   flicker?: boolean;
   /** Seconds between two short flashes (a beacon on a mast); the light is off between them and lights no ground */
   blink?: number;
