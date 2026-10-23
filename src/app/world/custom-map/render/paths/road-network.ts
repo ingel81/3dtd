@@ -50,6 +50,8 @@ export const ROAD_TILE = DRAPE_TILE;
 const STEP = 6;
 /** Longest ribbon piece in one tile, metres */
 const PIECE = 48;
+/** A junction's cover has no centre line (its `ring`) */
+const NO_LINE: readonly MapPoint[] = [];
 /** Metres a cover (RoadNetworkBuilder.covers) stays inside a ribbon's edges: the ground's mask is read between texels */
 const COVER_INSET = 0.25;
 /** Points per kerb curve and per half of a path's round end; a longer kerb curve a point every KERB_STEP m, up to KERB_POINTS */
@@ -332,9 +334,11 @@ export class RoadNetworkBuilder {
   /**
    * Where the surface hides the ground (the path mask's covers): each
    * ribbon's centre line as drawn, between its trims, out to COVER_INSET
-   * short of its edges. Not into its junctions: their kerbs cut in where a
-   * road narrows on (its pavement ending) or bends away, and a cover to the
-   * node showed the bare ground's grey there in a wedge beside the surface
+   * short of its edges, and each junction's outline (`ring`, painted
+   * COVER_INSET inside it). A ribbon's cover to the node reached past the
+   * junction's kerbs where a road narrows on or bends away (the bare ground's
+   * grey in a wedge beside the surface); without a cover in the junction,
+   * grass grew through its pavements
    */
   covers(): RoadCover[] {
     const out: RoadCover[] = [];
@@ -342,13 +346,25 @@ export class RoadNetworkBuilder {
       if (c.inner || c.half - COVER_INSET <= 0.3) continue;
       const [from, to] = ribbonSpan(c);
       if (to - from < 0.5) continue;
+      // The same cover while the ribbon is the same (the editor sends only the covers that changed, by identity)
+      const was = this.coverOf.get(c);
+      if (was && was.from === from && was.to === to && was.line === c.line) {
+        out.push(was.cover);
+        continue;
+      }
       const line = [pointAt(c, from)];
       for (let k = 0; k < c.line.length; k++) if (c.at[k] > from && c.at[k] < to) line.push(c.line[k]);
       line.push(pointAt(c, to));
-      out.push({ id: c.id, line, half: c.half - COVER_INSET });
+      const cover = { id: c.id, line, half: c.half - COVER_INSET };
+      this.coverOf.set(c, { from, to, line: c.line, cover });
+      out.push(cover);
     }
+    for (const cover of this.outlines.values()) out.push(cover);
     return out;
   }
+
+  /** Each ribbon's cover as last made (covers) */
+  private readonly coverOf = new WeakMap<Chain, { from: number; to: number; line: readonly MapPoint[]; cover: RoadCover }>();
 
   /**
    * The paths as they are now: lays what changed, returns the tiles rebuilt.
@@ -603,7 +619,7 @@ export class RoadNetworkBuilder {
     for (const nodeList of clusters) {
       const key = nodeList.reduce((p, q) => (q < p ? q : p));
       const j = this.junctionEnds.get(key);
-      if (j) this.putItem(`j${key}`, (out) => emitJunction(j.node, j.ends, j.inner, out, this.styleOf), rebuilt);
+      if (j) this.putItem(`j${key}`, (out) => this.outline(`j${key}`, emitJunction(j.node, j.ends, j.inner, out, this.styleOf)), rebuilt);
     }
     return this.network(rebuilt);
   }
@@ -630,7 +646,7 @@ export class RoadNetworkBuilder {
         const item = `j${node}`;
         if (!reached(item)) continue;
         this.dropItem(item, rebuilt);
-        this.putItem(item, (out) => emitJunction(j.node, j.ends, j.inner, out, this.styleOf), rebuilt);
+        this.putItem(item, (out) => this.outline(item, emitJunction(j.node, j.ends, j.inner, out, this.styleOf)), rebuilt);
       }
     }
     return this.network(rebuilt);
@@ -750,7 +766,17 @@ export class RoadNetworkBuilder {
     this.pieces.delete(item);
     this.boxes.delete(item);
     this.unlaid.delete(item);
+    this.outlines.delete(item);
   }
+
+  /** A junction's outline as laid, for its cover (covers) */
+  private outline(item: string, ring: MapPoint[] | null): void {
+    if (ring && ring.length >= 3) this.outlines.set(item, { id: item, line: NO_LINE, half: 0, ring });
+    else this.outlines.delete(item);
+  }
+
+  /** The junctions' covers by their outlines, by item ('j' + node id) */
+  private readonly outlines = new Map<string, RoadCover>();
 
   private putItem(item: string, emit: (out: TileBuilder) => void, rebuilt: Set<string>): void {
     const out = new TileBuilder();
@@ -1350,7 +1376,8 @@ function simpleRing(ring: readonly MapPoint[]): boolean {
 }
 
 /** The surface between the ends of the roads at a junction: the polygon its outline is, else fanned from its node */
-function emitJunction(c: MapPoint, list: End[], inner: readonly Chain[], out: TileBuilder, styleOf: (s: RoadStyle) => number): void {
+/** The surface between the ends of the roads at a junction; its outline (where its surface hides the ground), null when none is laid */
+function emitJunction(c: MapPoint, list: End[], inner: readonly Chain[], out: TileBuilder, styleOf: (s: RoadStyle) => number): MapPoint[] | null {
   // The ends in counter-clockwise order (trimJunction sorted them), each with its cross section seen from the node:
   // right to left looking away from it
   const sides = list.map((e) => {
@@ -1358,7 +1385,7 @@ function emitJunction(c: MapPoint, list: End[], inner: readonly Chain[], out: Ti
     if (!s) return null;
     return e.start ? s : [...s].reverse();
   });
-  if (sides.some((s) => !s)) return;
+  if (sides.some((s) => !s)) return null;
   // The widest road's texture runs on over the junction; its kerbs go round the corners where any road has them
   let main = 0;
   for (let k = 1; k < list.length; k++) if (list[k].chain.half > list[main].chain.half) main = k;
@@ -1516,6 +1543,7 @@ function emitJunction(c: MapPoint, list: End[], inner: readonly Chain[], out: Ti
     }
   }
   out.add(verts, tris);
+  return ring.map((p) => ({ x: p.x, y: p.y }));
 }
 
 /** Metres between the points a junction's surface takes inside its inner ring (fieldPoints), and their least gap to it */

@@ -483,3 +483,29 @@ describe('road network, roads onto bridges', () => {
     expect(Math.max(...ys(-0.5, 0))).toBeCloseTo(3.5, 2);
   });
 });
+
+describe('road network covers', () => {
+  it("covers each junction by its outline, and hands the same covers again while nothing changed", () => {
+    const b = new RoadNetworkBuilder();
+    const p = paths(
+      [
+        { a: 'w', b: 'c', street: 'residential', width: 6, sidewalk: 2 },
+        { a: 'c', b: 'e', street: 'residential', width: 6, sidewalk: 2 },
+        { a: 'c', b: 'n', street: 'residential', width: 6, sidewalk: 2 },
+      ],
+      [['w', -100, 0], ['c', 0, 0], ['e', 100, 0], ['n', 0, 100]],
+    );
+    b.update(p);
+    const first = b.covers();
+    const ring = first.find((c) => c.ring)!;
+    // The junction's outline round the node, out to its pavements
+    expect(ring.ring!.length).toBeGreaterThan(8);
+    expect(Math.max(...ring.ring!.map((q) => q.y))).toBeGreaterThan(4);
+    expect(Math.min(...ring.ring!.map((q) => q.y))).toBeCloseTo(-5, 0);
+    // Nothing changed: the same objects (the editor sends only what changed, by identity)
+    b.update(p);
+    const again = b.covers();
+    expect(again.length).toBe(first.length);
+    again.forEach((c, k) => expect(c).toBe(first[k]));
+  });
+});

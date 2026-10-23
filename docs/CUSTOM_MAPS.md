@@ -392,10 +392,11 @@ Höhe aus der Höhentextur, Zug zur Kamera, Material-Array, Nebel) teilen Straß
 (unten, „Flächen“). Unter der Mitte einer
 Straßenfläche (bis 25 cm vor ihren Rändern, nur das gezeichnete Band zwischen seinen Kürzungen, nicht in die Kreuzungen:
 dort laufen Bordsteine nach innen, wo eine Straße schmaler weitergeht oder abbiegt, und eine Decke bis zum Knoten zeigte
-neben der Fläche einen dunkelgrauen Keil) trägt die Wegmaske Blau 255 ohne Rot und Grün
+neben der Fläche einen dunkelgrauen Keil; jede Kreuzung deckt ihr Umriss, 30 cm innerhalb) trägt die Wegmaske Blau 255 ohne Rot und Grün
 (eine Querlage erreicht höchstens 253): der Gelände-Shader liest die Maske dort ohnehin schon (die nassen Ufer,
 ohne Kanten-Rauschen) und lässt unter der Decke seine ganze Arbeit aus (keine Splat-, Schicht-, Klippen- oder
-Formabfragen, kein Rauschen; die Fläche deckt den Boden), das Gras wächst dort nicht. `street` an der Kante (der `highway`-Typ des
+Formabfragen, kein Rauschen; die Fläche deckt den Boden), das Gras wächst dort nicht (es liest schon ab halber Deckung zwischen den Texeln: ein Texel einer großen Karte misst
+1,2 m, mit voller Deckung stand das Gras im äußeren Meter jedes Gehwegs). `street` an der Kante (der `highway`-Typ des
 echten Wegs) gibt im Spiel den Straßentyp, nach dem Routen gewichtet und Spawns gewählt werden
 (`custom-map-streets.ts`); ohne ihn entscheidet die Art. Beides fehlt auf allen bisherigen Karten
 ([OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md)).

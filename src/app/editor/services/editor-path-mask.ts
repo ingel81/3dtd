@@ -27,7 +27,7 @@ export class EditorPathMask {
   /** Counts the masks the views built: texels for an older one are dropped */
   private generation = 0;
   /** The covers as sent last, by id */
-  private sent = new Map<string, { line: readonly unknown[]; half: number }>();
+  private sent = new Map<string, { line: readonly unknown[]; half: number; ring?: readonly unknown[] }>();
 
   constructor(private readonly core: EditorCore) {}
 
@@ -66,7 +66,7 @@ export class EditorPathMask {
   /** The covers against those sent last */
   private covers(now: readonly RoadCover[]): CoverPatch {
     if (!this.sent.size) {
-      for (const c of now) this.sent.set(c.id, { line: c.line, half: c.half });
+      for (const c of now) this.sent.set(c.id, { line: c.line, half: c.half, ring: c.ring });
       return { whole: [...now] };
     }
     const set: RoadCover[] = [];
@@ -74,9 +74,9 @@ export class EditorPathMask {
     for (const c of now) {
       seen.add(c.id);
       const was = this.sent.get(c.id);
-      if (was && was.line === c.line && was.half === c.half) continue;
+      if (was && was.line === c.line && was.half === c.half && was.ring === c.ring) continue;
       set.push(c);
-      this.sent.set(c.id, { line: c.line, half: c.half });
+      this.sent.set(c.id, { line: c.line, half: c.half, ring: c.ring });
     }
     const drop: string[] = [];
     for (const id of this.sent.keys()) if (!seen.has(id)) drop.push(id);

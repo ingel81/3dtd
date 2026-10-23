@@ -27,6 +27,8 @@ export interface RoadCover {
   id: string;
   line: readonly MapPoint[];
   half: number;
+  /** A junction's outline instead (`line` empty): inside it, SURFACE_INSET short of it */
+  ring?: readonly MapPoint[];
 }
 
 /** Metres a surface's cover stays inside its outline: the ground's mask is read between texels */
@@ -151,7 +153,8 @@ function paintPathMask(
     }
   }
   paintCovers(out, covers, width, depth, resolution, rect);
-  paintSurfaceCovers(out, surfaces, width, depth, resolution, rect);
+  const rings = covers.filter((c) => c.ring).map((c) => ({ outer: c.ring! }));
+  paintSurfaceCovers(out, [...rings, ...surfaces], width, depth, resolution, rect);
 }
 
 /**
@@ -159,7 +162,7 @@ function paintPathMask(
  * texels filled between the crossings of its outline and holes (even-odd),
  * each run SURFACE_INSET short of the edge at either end
  */
-function paintSurfaceCovers(out: Uint8Array, surfaces: readonly MapSurface[], width: number, depth: number, resolution: number, rect: TexelRect): void {
+function paintSurfaceCovers(out: Uint8Array, surfaces: readonly { outer: readonly MapPoint[]; holes?: readonly (readonly MapPoint[])[] }[], width: number, depth: number, resolution: number, rect: TexelRect): void {
   const sx = resolution / width;
   const sy = resolution / depth;
   const xs: number[] = [];
@@ -314,7 +317,10 @@ export class PathMaskRaster {
       if (river.kind === 'water' && river.points.length >= 2) visit(`r:${river.id}`, 2, 0, river.points, 3);
     }
     // A cover's size as a path's width (its box pads half of it)
-    for (const cover of covers) visit(`c:${cover.id}`, 3, cover.half * 2, cover.line, 2);
+    for (const cover of covers) {
+      if (cover.ring) visit(`c:${cover.id}`, 4, 0, cover.ring, 2);
+      else visit(`c:${cover.id}`, 3, cover.half * 2, cover.line, 2);
+    }
     // A surface ring by ring (the outline, then each hole): its box pads nothing
     for (const s of surfaces) [s.outer, ...(s.holes ?? [])].forEach((ring, k) => visit(`s:${s.id}:${k}`, 4, 0, ring, 2));
     if (this.painted) for (const [key, old] of this.shapes) if (!shapes.has(key)) grow(key, old);

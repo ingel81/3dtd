@@ -215,7 +215,7 @@ export class GrassField {
         .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n#ifndef FLAT_SHADED\nnormal = normalize(vNormal);\n#endif')
         .replace('#include <lights_fragment_begin>', GRASS_LIGHTS);
     };
-    material.customProgramCacheKey = () => 'custom-map-grass-4';
+    material.customProgramCacheKey = () => 'custom-map-grass-5';
     addHeightFog(material);
     this.mesh = new Mesh(g, material);
     this.mesh.name = layout.name;
@@ -396,8 +396,10 @@ if (keepEdge > 0.0 && onMap) {
   grass /= max(total, 1e-3);
   vec3 pm = texture2D(uGrassPath, uvMap).rgb;
   grass *= 1.0 - max(pm.r, pm.g);
-  // None under a road surface (path-mask.ts covers)
-  if (pm.b > 0.996 && pm.r + pm.g < 0.002) grass = 0.0;
+  // None under a road surface (path-mask.ts covers): where no path is painted, blue is the cover's share between texels
+  // (a texel of a big map 1.2 m). Only where all four texels round a blade were covered it reached the whole of a
+  // pavement's outer metre, the blades stood on its slabs; past half covered none grows
+  if (pm.b > 0.5 && pm.r + pm.g < 0.002) grass = 0.0;
 }
 float ground0 = 0.0;
 // Short towards a wall: 1 from 1.5 m off a footprint, 0 at 0.3 m
