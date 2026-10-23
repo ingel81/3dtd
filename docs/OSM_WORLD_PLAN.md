@@ -125,7 +125,11 @@ Status-Seite von overpass-api.de nannte am 2026-10-14 vier Plätze je IP; sind s
 Häufigste Arten: Miltenberg `apartments` 605, `house` 347, `garage` und `garages` 412, `detached` 216, `industrial` 54,
 `shed` 45, `carport` 38, `roof` 33, `school` 27; Stuttgart `apartments` 1 117, `office` 311, `garage` 233, `retail` 165,
 `roof` 84, `university` 42. Die Art muss also meist aus Größe, Stockwerken und der umgebenden Landnutzung geraten
-werden.
+werden. Als Landnutzung zählt auch ein Gelände, dessen Zaun die Nutzung trägt (`barrier=fence` mit `landuse`); ein
+Haus auf einem Sportgelände (`leisure=pitch`, `sports_centre`, `stadium`, `track`, `golf_course`) ist ein Vereinsheim
+(`clubhouse`, ein Geschoss, flaches Satteldach, aus dem Grundriss), ab 600 m² eine Halle; Gebäude von Wasserwerken,
+Behältern und Pumpwerken (`man_made`) und `building=service` sind Technikbauten (bis 80 m² wie eine Garage, sonst
+Halle), nie Wohnhäuser.
 
 **Höhendaten:**
 

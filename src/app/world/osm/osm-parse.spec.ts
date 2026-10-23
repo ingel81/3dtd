@@ -25,6 +25,9 @@ describe('OSM parse', () => {
     expect(isAreaTags({ place: 'suburb' })).toBe(false);
     expect(isAreaTags({ natural: 'tree_row' })).toBe(false);
     expect(isAreaTags({ barrier: 'hedge' })).toBe(false);
+    // A fence drawn round a site that carries the site's use is the site too
+    expect(isAreaTags({ barrier: 'fence', landuse: 'industrial' })).toBe(true);
+    expect(isAreaTags({ barrier: 'fence', leisure: 'pitch' })).toBe(true);
   });
 
   it('keeps the runs of a way between the nodes the answer cut off', () => {

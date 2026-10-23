@@ -113,6 +113,11 @@ describe('OSM buildings: shapes and models', () => {
     expect(buildingKind({ building: 'yes' }, 2000, 2, 'industrial')).toBe('industrial');
     expect(buildingKind({ building: 'yes', amenity: 'place_of_worship' }, 600, 2, null)).toBe('church');
     expect(buildingKind({ building: 'garages' }, 90, 5, null)).toBe('garage');
+    // A house on a sports ground is the club's; a covered reservoir or a service building a technical box
+    expect(buildingKind({ building: 'yes' }, 200, 1.5, 'sports')).toBe('clubhouse');
+    expect(buildingKind({ building: 'yes' }, 1200, 1.5, 'sports')).toBe('industrial');
+    expect(buildingKind({ building: 'yes', man_made: 'storage_tank' }, 55, 1.2, null)).toBe('garage');
+    expect(buildingKind({ building: 'service' }, 32, 1.2, null)).toBe('garage');
     // A big untagged footprint: a block of flats among blocks, a big house among houses (a village, a suburb)
     expect(buildingKind({ building: 'yes' }, 280, 1.4, 'residential')).toBe('apartments');
     expect(buildingKind({ building: 'yes' }, 280, 1.4, 'residential', 110)).toBe('house');

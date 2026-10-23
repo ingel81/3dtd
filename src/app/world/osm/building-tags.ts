@@ -30,6 +30,8 @@ export type BuildingKind =
   | 'greenhouse'
   | 'kiosk'
   | 'transformer'
+  /** A club's house on a sports ground: one storey, a low roof */
+  | 'clubhouse'
   /** A house of an old town (convert/old-town.ts): half-timbered or plastered, steep roof */
   | 'oldtown'
   // Landmarks (landmarkRole): raised from their outline, a catalogue model only where one of their own fits
@@ -170,6 +172,7 @@ export const KIND_MODELS: Readonly<Record<BuildingKind, { models: readonly strin
   greenhouse: { models: ['greenhouse'], fallback: 'shed', rows: true },
   kiosk: { models: ['kiosk'], fallback: 'shed' },
   transformer: { models: ['transformer-station'], fallback: 'shed' },
+  clubhouse: { models: [], own: true },
   // Old-town houses stand wall to wall: a long footprint is a row of them
   oldtown: { models: ['oldtown-gable-3', 'oldtown-eave-3', 'oldtown-gable-2', 'oldtown-eave-2', 'oldtown-gable-4'], fallback: 'house', rows: true },
   townhall: { models: ['town-hall'], own: true },
@@ -280,7 +283,7 @@ const AMENITY_KINDS: Readonly<Record<string, BuildingKind>> = {
 };
 
 /** Land use around a building of unknown kind (the use its middle lies in) */
-export type BuildingLand = 'residential' | 'commercial' | 'retail' | 'industrial' | 'farm' | 'education' | 'religious' | 'allotments' | 'garages' | null;
+export type BuildingLand = 'residential' | 'commercial' | 'retail' | 'industrial' | 'farm' | 'education' | 'religious' | 'allotments' | 'garages' | 'sports' | null;
 
 const LAND_USES: Readonly<Record<string, BuildingLand>> = {
   residential: 'residential',
@@ -303,8 +306,15 @@ export function buildingLandOf(tags: Readonly<Record<string, string>>): Building
   if (tags['landuse']) return LAND_USES[tags['landuse']] ?? null;
   const amenity = tags['amenity'];
   if (amenity === 'school' || amenity === 'university' || amenity === 'college' || amenity === 'kindergarten') return 'education';
+  if (SPORTS_GROUNDS.has(tags['leisure'] ?? '')) return 'sports';
   return null;
 }
+
+/** `leisure` values of the grounds a building on which is the club's house (or its hall) */
+const SPORTS_GROUNDS: ReadonlySet<string> = new Set(['pitch', 'sports_centre', 'stadium', 'track', 'golf_course']);
+
+/** `man_made` works whose buildings are technical boxes, not houses (a covered reservoir, a pumping station) */
+const WORKS: ReadonlySet<string> = new Set(['storage_tank', 'reservoir_covered', 'water_works', 'pumping_station', 'wastewater_plant']);
 
 /** Storeys a building's tags give (`building:levels`, else `height` at 3.2 m a storey), null without */
 export function buildingLevels(tags: Readonly<Record<string, string>>): number | null {
@@ -509,6 +519,8 @@ function guessKind(
     if (tags['building'] === 'commercial' && area > 600 && buildingLevels(tags) === null) return 'retail';
     return tagged;
   }
+  // A works' building or a service building without a use of its own: a technical box, a hall when big
+  if (tags['building'] === 'service' || WORKS.has(tags['man_made'] ?? '')) return area < 80 ? 'garage' : 'industrial';
   const amenity = AMENITY_KINDS[tags['amenity'] ?? ''];
   if (amenity) return amenity === 'church' && area < 150 ? 'chapel' : amenity;
   if (tags['shop']) return area > 150 ? 'retail' : 'apartments';
@@ -519,6 +531,7 @@ function guessKind(
   if (land === 'industrial') return area < 120 ? 'garage' : 'industrial';
   if (land === 'farm') return area > 150 && (levels ?? 1) <= 2 ? 'farm' : 'house';
   if (land === 'education') return area > 300 ? 'school' : 'house';
+  if (land === 'sports') return area > 600 ? 'industrial' : 'clubhouse';
   if (land === 'religious') return area > 150 ? 'church' : 'chapel';
   if (land === 'commercial' || land === 'retail') return area > 600 && (levels ?? 1) <= 2 ? 'retail' : 'office';
   // A big footprint with wings or a courtyard is a block, a big plain one a hall
