@@ -30,14 +30,12 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
 
 ### Reste der Nachtschicht 2026-10-18/19
 
-- [ ] **E251 Laden nach Bedarf, Rest**: Freischalten im Lauf per Probe geprüft (0 Links, längstes Bild 14 ms; ein
-      Zeitvorteil des Vorziehens ist nicht nachweisbar); rund 65 Links direkt bei ready (Grafikstufen noch im
-      Aufwärmen, zu E246); Bildspitzen unter Ruhe nachmessen (`tmp/plan/r6/MESSUNGEN_SPAETER.md`).
 - [ ] **E253 Schärfere Texturen** (User 2026-10-19: ja, als Nachtlauf ohne ihn): Fassaden-Familien (Putz, Ziegel,
       Schiefer, Fachwerk, Naturstein, Burgmauer, Beton, Bohlen; Quelle Poly Haven 1k, gepackt auf 512) und die sieben
       Wahrzeichen auf 1024 px. Weg: Regel je Textur-Familie im Packwerkzeug (Farbe und ARM 1024, Normalen klein;
       `textureSize` gilt sonst je Modell und hübe alle Texturen), die betroffenen Modelle aus den Quellen in Blender neu
       bauen und packen (Beton in 82 Modellen, Bohlen 58, Burgmauer 50, Putz 39 …); Vorher-Nachher, Speicher und Download.
+      User 2026-10-23: erst eine Probe (zwei Familien mit Bildern und Kosten), später.
 ### Offen nach der Runde 2026-10-20 (Gebautes in Abschnitt 2, N5 und N6)
 
 - [ ] **E280 Erster Gebäudetreffer kurz nach dem Laden ruckelt** (Zweitrechner 2026-10-20, nach E274): OSM ready jetzt
@@ -51,7 +49,7 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Ladezeit; nach ready kompiliert nichts mehr.
       2026-10-21: Stufe 1 auf next (fd30005d5, hochgezogene Gebäude 22 → 8 Programme, Leerlauf nach ready ruhig).
       **Pausiert** (User): Stufen 2-4 (Asset-Ruinen, Schatten-Zwillinge, zurück ins Laden) ruhen. Vor einer
-      Fortsetzung erst next gegen 8276577a0 mit frischem Profil messen und zählen, ob die Ruinen fertig werden.
+      Fortsetzung erst next gegen 8276577a0 mit frischem Profil messen und zählen, ob die Ruinen fertig werden. User 2026-10-23: weiter pausiert.
       Befund 2026-10-21 (E291-Messung): der erste Sicht-Cube eines Towers, in dem eine Ruine zu sehen ist, dauert
       einmal je Sitzung rund 310 ms (erster echter Draw der Ruinen-Programme im Treiber; Vorab-Übersetzen hilft nicht).
       Lösung gehört hierher: Ruinen im Aufwärmen wirklich einmal zeichnen. Gebaut 2026-10-22 (Abschnitt 2); offen
@@ -66,7 +64,7 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       (Wasser als Feld im Worker nicht). Gebaut: Wände, wo Wasser in der Luft endet, und Dinge im Wasser über die
       Tiefe der Bildkopie (Abschnitt 2, docs/CUSTOM_MAPS.md Wasser). Offen: Tiefe und Grund auf Low und Medium
       (heute nur die Durchsicht nach Tiefe, ohne Bildkopie keine Dinge im Wasser); Kosten der Tiefenkopie im Spiel
-      messen (Production, Zweitrechner).
+      messen (Production, Zweitrechner). User 2026-10-23: später.
 - [ ] **E297 Besondere Gebäude aus OSM (Schloss, Burg, Kirche, Sehenswürdigkeit …)** (User 2026-10-21, Schloss
       Johannisburg Aschaffenburg): OSM führt building=castle, historic=castle, castle_type=stately, tourism=attraction,
       roof:shape, building:levels, wikidata, Innenhof als Multipolygon, Ecktürme. Gebaut werden daraus sechs
@@ -90,6 +88,9 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       Flügelenden und Brandwänden; kein Rechteck mehr unter geneigten Dächern; die Gasse am Nordzugang der
       Fußgängerzone (auf einer Brandwand gemappt) hält die Häuser ab. Offen: L5-L8; Grundrisse mit mehreren
       Altstadthäusern stehen als ein Dach.
+      User 2026-10-23: L5/L6 grundsätzlich ja, vorher weitere Wahrzeichen ansehen (später): Zwiebeltürme (München
+      Frauenkirche, Barockkirche Oberbayern), Burgen und Ruinen (Heidelberger Schloss, Burg Eltz oder Marksburg), große
+      Kirchen (Kölner Dom, Ulmer Münster, Bamberger Dom), Altstadt mit Tor (Rothenburg); Kontaktbogen, dann beurteilen.
 - [ ] **E275 Übergang vom Laden ins Spiel** (Zweitrechner 2026-10-20, Production, V-Sync, warmes Profil): in den ersten
       0,3 s nach ready ein Bild von 117-166 ms und einige von 33-50 ms (OSM und Ruined City). Darin erste Textur-Uploads
       (512×512, 650×426 mit Mipmaps, vermutlich Minimap oder UI) und eine Programmabfrage von 5,5 ms. Ursache im
@@ -98,20 +99,19 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
       im Laden; die 650×426-Ziele sind Bloom-Mips ohne Upload-Kosten. Offen: im warmen OSM-Laden in 2 von 3 Läufen ein
       Bild von 100-200 ms rund 70-180 ms nach ready ohne GL-Aufrufe. 2026-10-22 gebaut (Zweitrechner): Abdeckung der
       Karte im Laden (36 ms), Ton-Starts zu 8 je Task (16 ms); OSM warm längstes Bild der ersten Sekunde 167 → 56 ms.
-      Offen: ~20 ms Angular-Erstrender der Spieloberfläche bei ready (nur mit Vorrendern unter dem Ladeschirm).
-- [ ] **E273 Karten-Shader dominieren das Laden** (Messbasis Zweitrechner 2026-10-20, mit Texturen, warmes Profil):
-      ready Ruined City 11,5 s, davon 8,7 s Karten-Shader; OSM Miltenberg 18,9 s, davon 13,8 s. Der GPU-Programmcache
-      greift dort offenbar kaum. Ursache offen. Daneben: Wellenstart in der Belagerung ohne V-Sync je Lauf ein Bild
-      von 47 ms (nach E256 noch einmal prüfen).
-      Analyse Zweitrechner 2026-10-20 (Chromium aus Playwright, D3D11/ANGLE): Der Programmcache wirkt nur innerhalb
-      eines Browser-Prozesses (zweites Laden im selben Browser 16 s → 0,5 s Karten-Shader); nach Neustart, auch mit
-      erhaltenem Profil und größerem Platten-Cache, wieder 12-14 s. Quelltexte stabil (238 von 238 bitgleich). Offen:
-      gilt das auch für normales Chrome und die Electron-App? Dann (a) GPU-Cache in Electron einschalten/vergrößern
-      (bis ~11 s OSM-Kaltstart), (b) Programmzahl senken (48 Pin-Programme, Defines zu Uniforms), (c) Nicht-Nötiges
-      nach ready im Hintergrund bauen.
-      User-Test 2026-10-20: bei ihm laden erstes Mal, F5 und nach Browser-Neustart gleich (~11 s bis spielbar), der Cache
-      greift dort also; nur das Mess-Chromium zahlt. Damit klein: Messbasis weist es aus, (b) nur für den allerersten Start.
+      Offen: ~20 ms Angular-Erstrender der Spieloberfläche bei ready (nur mit Vorrendern unter dem Ladeschirm). User 2026-10-23: später.
 - [ ] **E268 Rest**: Kleinigkeiten zur Fernansicht, die der User noch schickt (Abnahme 2026-10-20).
+- [ ] **E308 Reste der Erlenbach-Runde** (2026-10-23, erfasst, nicht beauftragt): Bordstein-Haken am linken Fuß der
+      Erlenbacher Brücke (Gehwegbreite springt); Bordsteine an Kreisel-Zufahrten leicht eckig; Delle in der
+      Miltenberger Kreiselinsel; zwei Kreuzungen in Miltenberg unruhig; blaue Splitter in einem Krater vor einer Ruine.
+- [ ] **E309 Flimmern intakter Dächer, Fassaden und Straßen beim Drehen** (Zweitrechner 2026-10-23): rund 7500
+      flackernde Pixel gegen rund 120 an einer Ruine, am stärksten an Kreuzungen und dunklen Solardächern (Aliasing).
+      User sieht es sich im Spiel an, erst dann untersuchen.
+- [ ] **E310 Umgebung hinter dem Kartenrand** (User 2026-10-23): wirkt oft unpassend zur Karte; ansehen.
+- [ ] **E311 OSM-Details** (User 2026-10-23): ungenutzte Tags an 17 Orten erhoben, Auswahl entschieden in
+      [docs/OSM_DETAILS_PLAN.md](docs/OSM_DETAILS_PLAN.md) (Parken am Rand, Ampeln, Überwege, Schilder, Radwege,
+      Dachgeschosse mit Gauben, Baumgrößen, Laternentypen, Hausboote, Tempel/Torii, Kunst und Kleinkram, U-Bahn-
+      Eingänge, Bahnsignale). Nächster Schritt: Plan mit Reihenfolge und Kosten, User liest, dann bauen.
 - Entschieden 2026-10-19: Schildgrenze 512 bleibt; Fähigkeiten, Held und Mutatoren bleiben übersetzt (nur Turm- und
   Gegnernamen englisch); Nachtlicht ohne Mond aufgehellt (gebaut).
 
@@ -164,6 +164,9 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       einfache Liste (keine Bestwerte, keine Kampagne).
       Vorbereitet 2026-10-12: Nachladen mit Cache und Fortschritt (`map-data.ts`, `mapData` in der runtime-config);
       offen: Daten auf den Webserver, CORS, CSP der Desktop-App ([CUSTOM_MAP_WORLD.md](docs/CUSTOM_MAP_WORLD.md#laden)).
+      Neu entschieden 2026-10-23 ([MAP_VERSIONS_PLAN.md](docs/MAP_VERSIONS_PLAN.md)): Desktop bündelt die Karten, Web
+      lädt sie von `/play/maps/`; Kartenupdates nur mit Releases, Version je Karte, Sim-Hash entscheidet, ob Spielstände
+      und Replays weiterlaufen. Damit entfallen CORS und der CSP-Eintrag.
 
 
 ### Bugs, warten auf neuen Fall
@@ -202,6 +205,7 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
       Metadaten; der Klon bringt seine Startnummer mit). Dafür ein Ausgang des Overpass-Containers nur zu
       planet.openstreetmap.org, Updater im Startskript, Last und Dauer auf dem Unraid messen; Neu-Klon bleibt der
       Notweg, falls ein Einspielen die Datenbank beschädigt.
+      User 2026-10-23: demnächst vorbereiten (Startskript, Compose, Diffs nach dem Einspielen löschen, Anleitung).
 - [ ] **Entschieden 2026-10-15 (Entscheidungsseite, Runde 1):** Push nach den Nachtests, auf `next` auch früher,
       sobald alles in einem Branch liegt; **kein Release auf main**. E184/E190: alle 13 Karten hohe Priorität, die
       angehakten Vorschläge plus Leben (Liste in der Entscheidungsseite, Notizen in `tmp/plan/IMPOSING_MAPS_2026-10-15.md`).
@@ -232,6 +236,12 @@ Notizen und Erhebung: `tmp/plan/OSM_WELT_NOTIZEN_2026-10-18.md` (Bilder in `tmp/
 ---
 
 ## 2. Gebaut, wartet auf Test
+
+### 2026-10-23 (auf `next`, Nachtests in PLAYTEST.md AD)
+
+- [ ] **E307 Erlenbach-Notizen**: Straßen an Geländelinien geschnitten, Knoten und Kreisel, Auflegen in Workern;
+      Schulhof und Platz; Keller, Häuser auf Eingangshöhe, Rand ganz oder gar nicht; Kirchturm, Fenster in der Ferne;
+      Bäume und Pflanzen sitzen, kein Schilf am Steilufer; neue Autos; Ruinen innen, Ränder, Bäume am Krater (AD1-AD6).
 
 ### 2026-10-22 (auf `next`, Nachtests in PLAYTEST.md AB)
 
@@ -620,6 +630,9 @@ Spiel und Balance (User 2026-10-21: später, ggf. erst nach 0.8; vorher evtl. ei
       einen Raum, Gäste bekommen ihn beim Beitreten; das Format ist dafür ausgelegt ([SAVE_LOAD_PLAN.md](docs/SAVE_LOAD_PLAN.md)).
 
 ## Entschieden (keine Arbeit)
+
+- **E251 Laden nach Bedarf, Rest** und **E273 Karten-Shader beim ersten Start** (User 2026-10-23): erledigt so; kein
+  spürbarer Effekt bzw. nur Mess-Chromium und allererster Start.
 
 - **E68 Pool-Größen** (User, 2026-10-11): bleiben; die Suche im vollen Pool ist behoben (`778343c2`), größere Pools waren
   langsamer.

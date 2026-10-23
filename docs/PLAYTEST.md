@@ -811,6 +811,25 @@ Wo Wände entstehen und wie sie liegen prüft `river-surface.spec.ts`; hier das 
 - **AC4 Seen:** Archipelago und Harbor Town an den Ufern entlang fliegen. *Keine türkisen Splitter an Felsen oder
   Kaimauern, die Strände wie vorher.*
 
+## AD Erlenbach-Notizen (2026-10-23, E307)
+
+OSM-Welt Erlenbach (74235) neu erzeugen und öffnen, Grafik High. Bilder je Punkt im Board.
+
+- **AD1 Straßen:** Kreuzungen, Kreisel und die Brücke über den Bach ansehen. *Keine Straßendreiecke, die in den Hang
+  tauchen; Kreisel rund; Bordstein und Gehweg laufen glatt um die Ecken, keine Treppe an der Brückenkreuzung.*
+  Ladezeit wie vorher.
+- **AD2 Flächen:** Schulhof und Kindergarten. *Asphalt oder Pflaster statt Wiese.* Ein Platz mit Brunnen:
+  *Kopfsteinpflaster rund um den Brunnen.*
+- **AD3 Häuser am Hang:** am Hang entlang fliegen. *Häuser stehen auf Eingangshöhe, bergseitig Keller oder Sockel,
+  keine Mauerstücke im Hof; am Kartenrand ganze Häuser oder keine.*
+- **AD4 Kirche und Fenster:** die Kirche ohne eigenen Turm in OSM. *Turm am Westende mit Steinhelm.* Weit
+  rauszoomen: *Fenster bleiben als Fenster sichtbar, keine Jalousien in Hallenfenstern.*
+- **AD5 Bäume und Ufer:** Bäume am Hang und Pflanzen am Bach. *Kein Stamm schwebt, keine Pflanze hängt in der Luft;
+  kein Schilf an steilen Ufern.* Parkende Autos: *neue Autos, drei Formen.*
+- **AD6 Ruinen und Krater:** Häuser beschießen und Krater neben Bäume setzen. *Innen verbrannt, kein Himmelblau am
+  Boden, Lochränder ausgefranst, kaum Flimmern beim Zoomen; Bäume am Krater fallen vom Loch weg, nahe stehende
+  welken braun.*
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo
