@@ -403,7 +403,9 @@ neben der Fläche einen dunkelgrauen Keil; jede Kreuzung deckt ihr Umriss, 30 cm
 (eine Querlage erreicht höchstens 253): der Gelände-Shader liest die Maske dort ohnehin schon (die nassen Ufer,
 ohne Kanten-Rauschen) und lässt unter der Decke seine ganze Arbeit aus (keine Splat-, Schicht-, Klippen- oder
 Formabfragen, kein Rauschen; die Fläche deckt den Boden), das Gras wächst dort nicht (es liest schon ab halber Deckung zwischen den Texeln: ein Texel einer großen Karte misst
-1,2 m, mit voller Deckung stand das Gras im äußeren Meter jedes Gehwegs). `street` an der Kante (der `highway`-Typ des
+1,2 m, mit voller Deckung stand das Gras im äußeren Meter jedes Gehwegs). Unter Gehwegen ist der Boden außerdem als Randstreifen
+(Platten) gemalt, bis 0,5 m vor ihren Rand (`roadPaintBands`), nicht als Rasen: so wächst auch dort kein Gras, wo die
+Deckung nur halb ist. `street` an der Kante (der `highway`-Typ des
 echten Wegs) gibt im Spiel den Straßentyp, nach dem Routen gewichtet und Spawns gewählt werden
 (`custom-map-streets.ts`); ohne ihn entscheidet die Art. Beides fehlt auf allen bisherigen Karten
 ([OSM_WORLD_PLAN.md](OSM_WORLD_PLAN.md)).

@@ -134,6 +134,9 @@ export function encodeRoadStyle(s: RoadStyle, layer: number): number {
  */
 const PAVED_CORE_INSET = 1.5;
 const PAVED_CORE_SHARE = 0.6;
+/** Metres the verge's paint under a pavement stops short of its edge, and fades out over */
+const PAVEMENT_SHORT = 0.5;
+const PAVEMENT_SOFT = 0.25;
 
 /** A band of ground painted under a road: its material (the first the map can have), half width and soft rim, metres */
 export interface RoadPaintBand {
@@ -151,10 +154,12 @@ export interface RoadPaintBand {
  * road-surface.ts) its own material up to PAVED_CORE_INSET short of its edge
  * and a verge round it, gravel along a country road, slabs along a town
  * street or a paved one, earth along a path, so no grass grows through the
- * surface and the ragged rim of the paint reads as a shoulder. Empty without
- * a surface
+ * surface and the ragged rim of the paint reads as a shoulder. The verge
+ * reaches over the pavements (MapPathEdge.sidewalk): painted as lawn under
+ * them, grass grew through their outer metre where the path mask's cover
+ * (1.2 m texels on a big map) read less than whole. Empty without a surface
  */
-export function roadPaintBands(edge: Pick<MapPathEdge, 'surface' | 'street' | 'width' | 'kind'>, soft: number): RoadPaintBand[] {
+export function roadPaintBands(edge: Pick<MapPathEdge, 'surface' | 'street' | 'width' | 'kind' | 'sidewalk'>, soft: number): RoadPaintBand[] {
   if (!edge.surface || edge.kind === 'bridge') return [];
   const half = edge.width / 2;
   if (!PAVED_SURFACES.has(edge.surface)) return [{ materials: [edge.surface], half, soft, core: false }];
@@ -166,6 +171,10 @@ export function roadPaintBands(edge: Pick<MapPathEdge, 'surface' | 'street' | 'w
         : ['gravel', 'gravel-light', 'dirt-path'];
   return [
     { materials: [edge.surface], half: Math.max(0.3, half - Math.min(PAVED_CORE_INSET, half * PAVED_CORE_SHARE)), soft: 0.05, core: true },
-    { materials: verge, half, soft: edge.kind === 'path' ? Math.min(0.4, soft) : soft, core: false },
+    // Under pavements to half a ground texel short of their edge, the rim short: read between texels (1.2 m on a big
+    // map) the paint reaches about to the edge, the lawn beyond it starts there, not in a shoulder of slabs
+    (edge.sidewalk ?? 0) > 0
+      ? { materials: verge, half: half + Math.max(0, edge.sidewalk! - PAVEMENT_SHORT), soft: Math.min(PAVEMENT_SOFT, soft), core: false }
+      : { materials: verge, half, soft: edge.kind === 'path' ? Math.min(0.4, soft) : soft, core: false },
   ];
 }

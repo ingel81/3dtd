@@ -50,6 +50,8 @@ describe('road style', () => {
       { materials: ['gravel', 'gravel-light', 'dirt-path'], half: 4.5, soft: 0.75, core: false },
     ]);
     expect(roadPaintBands({ surface: 'asphalt', street: 'residential', width: 6, kind: 'road' }, 1.5)[1].materials[0]).toBe('sidewalk');
+    // The verge under the pavements too: no lawn painted under them
+    expect(roadPaintBands({ surface: 'asphalt', street: 'residential', width: 6, kind: 'road', sidewalk: 1.8 }, 1.5)[1]).toMatchObject({ materials: ['sidewalk', 'paving', 'gravel'], half: 4.3, soft: 0.25 });
     expect(roadPaintBands({ surface: 'sidewalk', street: 'footway', width: 2.5, kind: 'path' }, 1.5)[1]).toMatchObject({ materials: ['dirt-path', 'dirt', 'gravel'], soft: 0.4 });
     // Unpaved: the material at its width; none without a surface or on a bridge
     expect(roadPaintBands({ surface: 'gravel', street: 'track', width: 3, kind: 'path' }, 1.5)).toEqual([{ materials: ['gravel'], half: 1.5, soft: 1.5, core: false }]);
