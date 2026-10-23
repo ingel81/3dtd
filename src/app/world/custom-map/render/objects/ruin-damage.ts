@@ -69,6 +69,9 @@ export const DAMAGE_UNIFORMS: {
 };
 RUIN_HOLES.onTexture((t) => (DAMAGE_UNIFORMS.uRuinHoles.value = t));
 
+/** How much nearer a ruin's back faces are drawn, in units of logDepthBufFC (log2 of the relative distance over two) */
+const BACK_PULL = '1.5e-5';
+
 /** Holes punched (their highest order) past the first two after which a ruin is worn down to the ground */
 const WORN_OUT = 12;
 
@@ -351,6 +354,9 @@ varying vec4 vDmg;
 varying vec4 vDmgB;
 varying vec4 vDmgC;
 varying float vDmgFall;
+#ifdef DMG_SLAB
+varying vec2 vDmgAxis;
+#endif
 `;
 
 /** What the vertex and fragment shaders both know of a collapse: its variant (uCollapse) and how long it takes */
@@ -566,6 +572,9 @@ void damageVaryings(vec3 rest) {
   vDmg = aDamage;
   vDmgB = aDamageB;
   vDmgC = aDamageC;
+#ifdef DMG_SLAB
+  vDmgAxis = normalize(instanceMatrix[0].xz + vec2(1e-6, 0.0));
+#endif
 }
 `;
 
@@ -608,6 +617,76 @@ float damageBite(vec3 p) {
   float jag = dmgNoise(vec2(a * 2.6, q.y * 0.9) + dmgHeading(vDmg) * 3.0) * 0.55 + dmgNoise(vec2(a * 9.0, q.y * 3.1)) * 0.25;
   return length(q) - dmgBiteR(vDmgB) * (0.7 + jag);
 }
+// The slab's reinforcement where its concrete broke away (DMG_SLAB): bars every 20 cm both ways in two layers (its top
+// and its bottom face), each sticking out of the broken edge by a length of its own, the cross bars shorter. Only up
+// close: where a bar is thinner than a pixel and a half it would sparkle as the camera moves, so there are none
+float dmgRebar = 0.0;
+#ifdef DMG_SLAB
+// n: the face's normal, ab: the point along the slab's axes, w: their change over a pixel (taken before any branch)
+bool dmgRebarAt(float edge, vec3 n, vec2 ab, vec2 w) {
+  const float W = 0.011;
+  if (abs(n.y) < 0.9 || edge < -1.0 || max(w.x, w.y) > W * 1.5) return false;
+  // Which face: the top layer and the bottom one have bars of their own
+  float layer = gl_FrontFacing == (n.y > 0.0) ? 1.0 : 2.0;
+  vec2 k = floor(ab / 0.2 + 0.5);
+  float outA = 0.12 + 0.85 * dmgHash(vec2(k.y, layer * 3.1));
+  float outB = 0.08 + 0.4 * dmgHash(vec2(k.x, layer * 7.7));
+  return (abs(ab.y - k.y * 0.2) < W && -edge < outA) || (abs(ab.x - k.x * 0.2) < W && -edge < outB);
+}
+#endif
+// What lies under the plaster where it came off, and in a broken edge: brickwork (courses of 7.5 cm, bricks of
+// 25 cm, every other course half off, mortar lighter), or concrete with its gravel (DMG_CORE_CONCRETE, the slabs).
+// Far off the joints thin into the mean colour, no moire
+vec3 dmgCore(vec3 p, vec3 fn) {
+#if defined( DMG_CORE_CONCRETE ) || defined( DMG_SLAB )
+  float grit = dmgNoise(p.xz * 11.0 + p.y * 7.0) * 0.6 + dmgNoise(p.zy * 23.0 + p.x * 5.0) * 0.4;
+  float aa = smoothstep(0.02, 0.06, fwidth(p.x) + fwidth(p.y) + fwidth(p.z));
+  return vec3(0.25, 0.24, 0.22) * mix(0.7 + 0.55 * grit, 0.97, aa);
+#else
+  float u = fn.x > fn.z ? p.z : p.x;
+  float row = floor(p.y / 0.075);
+  float c = u / 0.25 + 0.5 * mod(row, 2.0);
+  float mortar = max(step(fract(p.y / 0.075), 0.16), step(fract(c), 0.06));
+  vec3 brick = vec3(0.3, 0.13, 0.08) * (0.7 + 0.6 * dmgHash(vec2(floor(c), row)));
+  vec3 bricks = mix(brick, vec3(0.36, 0.33, 0.29), mortar);
+  float aa = smoothstep(0.012, 0.03, fwidth(p.y));
+  return mix(bricks, vec3(0.31, 0.17, 0.12), aa);
+#endif
+}
+// Rubble on a floor: a broken piece round each point of a jittered grid, angular, of its own size and turn. Per
+// fragment the piece it lies on or nearest: its shade (x), how far inside it (y, negative on the floor round it) and whether
+// one lies there (z); its tilt for the light
+vec3 dmgRubble(vec2 p, out vec2 tilt) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  float inside = -1.0;
+  vec2 id = i;
+  for (int y = -1; y <= 1; y++) {
+    for (int x = -1; x <= 1; x++) {
+      vec2 g = vec2(float(x), float(y));
+      vec2 c = i + g;
+      vec2 r = g + 0.15 + vec2(dmgHash(c), dmgHash(c + 17.3)) * 0.7 - f;
+      // Four broken sides, each at its own turn and distance: no two pieces alike, none round
+      float size = 0.14 + 0.26 * dmgHash(c + 8.8);
+      float k = -1e3;
+      for (int j = 0; j < 4; j++) {
+        float a = dmgHash(c + 4.4) * 6.28 + float(j) * 1.571 + (dmgHash(c + float(j) * 2.7) - 0.5) * 0.9;
+        k = max(k, dot(r, vec2(cos(a), sin(a))) / (size * (0.55 + 0.7 * dmgHash(c + float(j) * 5.3))));
+      }
+      k = 1.0 - k;
+      if (k > inside) {
+        inside = k;
+        id = c;
+      }
+    }
+  }
+  tilt = vec2(dmgHash(id + 9.7), dmgHash(id + 3.3)) - 0.5;
+  return vec3(dmgHash(id + 5.1), clamp(inside * 3.0, -1.0, 1.0), dmgHash(id + 1.9));
+}
+// Whether a fragment is inside a ruin (DAMAGE_COLOR_FRAGMENT): the sky reaches it only in part
+float dmgInside = 0.0;
+// The tilt of the rubble under a fragment, for the light (DAMAGE_NORMAL_FRAGMENT)
+vec2 dmgTilt = vec2(0.0);
 // Metres to the nearest broken edge (holes, else the bite; once fallen the cut), large where there is none: what
 // damageClip found, which runs first
 float dmgEdgeAt = 1e3;
@@ -620,10 +699,23 @@ float dmgSoot = 0.0;
 // does not fall whole and once it came down, a fall's parts as below
 void damageClip() {
   dmgEdgeAt = 1e3;
+#ifdef DMG_SLAB
+  vec3 slabN = normalize(cross(dFdx(vDmgP), dFdy(vDmgP)));
+  vec2 slabAB = vec2(dot(vDmgP.xz, vDmgAxis), dot(vDmgP.xz, vec2(-vDmgAxis.y, vDmgAxis.x)));
+  vec2 slabW = fwidth(slabAB);
+#endif
   if (vDmg.x < 0.5) return;
   bool holed = vDmg.x < 2.5;
   DmgHoleScan holes = dmgScanHoles(vDmgP, vDmg, true, holed);
+  dmgRebar = 0.0;
+#ifdef DMG_SLAB
+  if (holes.edge < 0.0) {
+    if (!dmgRebarAt(holes.edge, slabN, slabAB, slabW)) discard;
+    dmgRebar = 1.0;
+  }
+#else
   if (holes.edge < 0.0) discard;
+#endif
   dmgEdgeAt = holes.edge;
   if (holes.edge > 999.0 && vDmg.x > 1.5) {
     dmgEdgeAt = damageBite(vDmgP);
@@ -654,7 +746,13 @@ void damageClip() {
 }
 `;
 
-/** Cracks and soot from stage 1, the inside dimmed, edges charred */
+/**
+ * Cracks and soot from stage 1, edges charred; the inside lived in and burnt out, never clean: the walls stained,
+ * smoke under every ceiling and grime over every floor, plaster off in patches over the brick (or concrete), soot
+ * rising from the broken edges, the ceilings sooted, the floors under dust and rubble. The plaster round a broken
+ * edge is gone on both sides, so the wall shows its thickness. Inside is a back face of a wall or roof, and all of
+ * the floors and inner walls (DMG_SLAB)
+ */
 const DAMAGE_COLOR_FRAGMENT = /* glsl */ `
 if (vDmg.x > 0.5) {
   vec3 toMid = vDmgP - vec3(vDmgC.x, vDmgP.y, vDmgC.y);
@@ -662,8 +760,9 @@ if (vDmg.x > 0.5) {
   // The side it gives way to cracks first
   float lean = smoothstep(-0.3, 0.9, dot(normalize(toMid.xz + vec2(1e-4)), dir));
   float strength = (vDmg.x > 1.5 ? 1.0 : 0.7) * (0.45 + 0.55 * lean);
-  // The crack tile from three sides, by the surface's facing
-  vec3 fn = abs(normalize(cross(dFdx(vDmgP), dFdy(vDmgP))));
+  // The face towards the eye, and the crack tile from three sides by its facing
+  vec3 dmgN = normalize(cross(dFdx(vDmgP), dFdy(vDmgP)));
+  vec3 fn = abs(dmgN);
   fn /= fn.x + fn.y + fn.z + 1e-4;
   vec3 cp = vDmgP / ${CRACK_TILE_M.toFixed(1)};
   vec2 cr = texture2D(uCrackMap, cp.zy).rg * fn.x + texture2D(uCrackMap, cp.xz).rg * fn.y + texture2D(uCrackMap, cp.xy).rg * fn.z;
@@ -672,18 +771,112 @@ if (vDmg.x > 0.5) {
   float edge = damageEdge();
   float soot = smoothstep(0.6, 0.9, dmgNoise(vDmgP.xz * 0.35 + vDmgP.y * 0.25 + dmgHeading(vDmg))) * strength * 0.5;
   soot = max(soot, (1.0 - smoothstep(0.0, 0.9, edge)) * 0.55);
-  dmgSoot = soot;
   diffuseColor.rgb *= (1.0 - 0.75 * lines * strength) * (1.0 - 0.7 * soot);
-
-  // The inside: the same wall, dusty plaster over it, never black (a hole is not a black spot)
-  if (!gl_FrontFacing) diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.42, 0.38, 0.33), 0.4);
+  vec3 core = dmgCore(vDmgP, fn);
+  // The plaster round a broken edge broke off with it: the brick (or concrete) shows in a ragged band
+  float rimW = 0.08 + 0.3 * dmgNoise(vDmgP.xz * 2.3 + vDmgP.y * 1.7);
+  float rim = 1.0 - smoothstep(rimW, rimW + 0.05, edge);
+#ifdef DMG_SLAB
+  bool inside = true;
+  // A broken slab's inside (its box seen through the break): the concrete itself
+  if (!gl_FrontFacing) rim = 1.0;
+#else
+  bool inside = !gl_FrontFacing;
+#endif
+  if (inside) {
+    dmgInside = 1.0;
+    vec3 p = vDmgP;
+#ifdef DMG_SLAB
+    vec3 c = diffuseColor.rgb;
+#else
+    // Plastered inside, whatever the wall or roof is outside
+    vec3 c = mix(diffuseColor.rgb, vec3(0.4, 0.37, 0.32), 0.7);
+#endif
+    float sf = fract((p.y - dmgSeat(vDmg, vDmgB)) / 3.0);
+    // Along a wall (or across a floor), for streaks that run down it
+    float along = fn.x > fn.z ? p.z : p.x;
+    float streak = dmgNoise(vec2(along * 3.1, p.y * 0.35));
+    // Rooms that burnt: darker and browner all over, damp in patches
+    float damp = dmgNoise(vec2(dot(p.xz, vec2(0.7)) * 0.8, p.y * 0.25));
+    c = mix(c * 0.8, vec3(0.17, 0.15, 0.12), 0.15 + 0.25 * damp);
+    // Soot thick round the broken edges, rising from them in streaks
+    float sootIn = (1.0 - smoothstep(0.0, 1.2 + 1.4 * streak, edge)) * 0.65;
+    if (fn.y < 0.6) {
+      // Walls: the smoke under the ceiling, run-off streaks, grime along the floor, plaster off over the core
+      sootIn = max(sootIn, smoothstep(0.45, 0.98, sf) * (0.3 + 0.4 * streak));
+      // Damp and smoke in blotches
+      c *= 0.6 + 0.4 * dmgNoise(vec2(along * 0.6, p.y * 0.8) + 11.0);
+      float drip = smoothstep(0.55, 0.85, dmgNoise(vec2(along * 5.3, p.y * 0.6))) * smoothstep(0.7, 0.1, sf);
+      c *= 1.0 - 0.2 * drip;
+      c = mix(c, vec3(0.12, 0.1, 0.08), (1.0 - smoothstep(0.0, 0.12, sf)) * 0.65);
+      float off = smoothstep(0.7, 0.75, dmgNoise(p.xz * 0.9 + p.y * 0.8 + 3.0) + 0.3 * (1.0 - smoothstep(0.0, 2.0, edge)));
+      c = mix(c, core * 0.9, off);
+    } else if (dmgN.y < 0.0) {
+      // Ceilings, seen from below: sooted
+      sootIn = max(sootIn, 0.2 + 0.35 * dmgNoise(p.xz * 0.6 + 2.0));
+    } else {
+      // Floors: dust, grit and, in heaps (more of it near the breaks), the pieces that came down
+      vec2 tiltBig;
+      vec2 tiltGrit;
+      vec3 big = dmgRubble(p.xz * 2.3, tiltBig);
+      vec3 grit = dmgRubble(p.xz * 8.0, tiltGrit);
+      float near = 1.0 - smoothstep(0.0, 2.5, edge);
+      float heap = smoothstep(0.35, 0.8, dmgNoise(p.xz * 0.45 + 7.0) * 0.8 + dmgNoise(p.xz * 1.3 + 3.0) * 0.3 + 0.4 * near);
+      // Grit everywhere, thicker in the heaps; pieces strewn thin, piled in the heaps
+      float gritOn = step(0.8 - 0.45 * heap, grit.z) * (1.0 - smoothstep(0.02, 0.06, fwidth(p.x) + fwidth(p.z)));
+      c = mix(c, vec3(0.3, 0.27, 0.23) * (0.8 + 0.4 * dmgNoise(p.xz * 2.1)), 0.55 + 0.3 * heap);
+      c *= mix(1.0, grit.y > 0.0 ? (0.65 + 0.6 * grit.x) * (0.75 + 0.25 * grit.y) : 0.8 + 0.2 * (1.0 + grit.y), gritOn);
+      float chunk = step(0.9 - 0.8 * heap, big.z);
+      vec3 piece = mix(vec3(0.33, 0.31, 0.28), vec3(0.3, 0.15, 0.09), step(0.85, big.x));
+      // Each piece with the shadow it lies in
+      c *= 1.0 - 0.45 * chunk * smoothstep(-0.5, 0.0, big.y) * step(big.y, 0.0);
+      chunk *= step(0.0, big.y);
+      c = mix(c, piece * (0.7 + 0.5 * big.x) * (0.6 + 0.4 * big.y), chunk);
+      dmgTilt = tiltBig * chunk * 1.1 + tiltGrit * gritOn * 0.5;
+      sootIn *= 0.6;
+    }
+    c *= 1.0 - 0.8 * sootIn;
+    soot = max(soot, sootIn);
+    diffuseColor.rgb = c;
+  }
+  diffuseColor.rgb = mix(diffuseColor.rgb, core * (1.0 - 0.5 * soot), rim);
+  // The reinforcement out of a broken slab: rusted steel
+  if (dmgRebar > 0.5) {
+    diffuseColor.rgb = vec3(0.09, 0.05, 0.03);
+    soot = 0.6;
+  }
+  dmgSoot = soot;
 }
+`;
+
+/** The rubble on a ruin's floors tilts the light on its pieces (dmgTilt, in the group frame) */
+const DAMAGE_NORMAL_FRAGMENT = /* glsl */ `
+if (vDmg.x > 0.5 && dot(dmgTilt, dmgTilt) > 0.0) normal = normalize(normal + mat3(viewMatrix) * vec3(dmgTilt.x, 0.0, dmgTilt.y));
+`;
+
+/**
+ * A ruin's insides are drawn in front of what lies in their plane: where two
+ * buildings share a wall (a terrace, the parts of one), or two floor boxes
+ * meet, a ruin's back face and the other's front face lie in one plane and
+ * would flicker. A back face pulled a little nearer (relative, in the
+ * logarithmic depth: millimetres at a hundred metres) wins, so through a hole
+ * one sees the ruin's own sooted inside
+ */
+const DAMAGE_DEPTH_FRAGMENT = /* glsl */ `
+#if defined( USE_LOGARITHMIC_DEPTH_BUFFER )
+if (!gl_FrontFacing) gl_FragDepth -= ${BACK_PULL} * logDepthBufFC;
+#endif
 `;
 
 /** Lit windows go dark from stage 1; embers glow along a stage-2 ruin's edges */
 const DAMAGE_EMISSIVE_FRAGMENT = /* glsl */ `
 if (vDmg.x > 0.5) {
   totalEmissiveRadiance *= 0.0;
+  // Indoors the sky is mostly walls and ceilings: less of its light, and of the dust's colour, not blue
+  if (dmgInside > 0.5) {
+    reflectedLight.indirectDiffuse *= vec3(0.62, 0.57, 0.5);
+    reflectedLight.indirectSpecular *= 0.4;
+  }
   // The inside sees the sky through the holes: a little light of its own where the sun's shadow keeps it dark
   if (!gl_FrontFacing) totalEmissiveRadiance += diffuseColor.rgb * 0.22;
   if (vDmg.x > 1.5) {
@@ -692,32 +885,45 @@ if (vDmg.x > 0.5) {
     float spots = smoothstep(0.72, 0.88, dmgNoise(vDmgP.xz * 1.6 + vDmgP.y * 1.1 + dmgHeading(vDmg)));
     float flicker = 0.7 + 0.3 * sin(uDamageTime * 3.1 + dot(vDmgP, vec3(1.7, 2.3, 1.1)));
     float heat = vDmg.x > 2.5 ? 0.55 : 1.0;
-    totalEmissiveRadiance += vec3(1.0, 0.3, 0.05) * (1.0 - smoothstep(0.0, 0.22, e)) * spots * flicker * heat * 1.5;
+    totalEmissiveRadiance += vec3(1.0, 0.3, 0.05) * (1.0 - smoothstep(0.0, 0.22, e)) * spots * flicker * heat * 1.5 * (1.0 - dmgRebar);
   }
 }
 `;
 
+/**
+ * What a ruin's material is of: `core` under its plaster (brick, or concrete
+ * for concrete and metal facades), `slab` for the floors and inner walls
+ * (ruin-slabs.ts: concrete, all of it inside, reinforcement in the breaks)
+ */
+export interface DamageLook {
+  core?: 'brick' | 'concrete';
+  slab?: boolean;
+}
+
 /** Shader GLSL for a material of a damaged building's mesh; wraps what compiles it so far */
-export function addDamage(material: Material): void {
+export function addDamage(material: Material, look: DamageLook = {}): void {
   const prev = material.onBeforeCompile;
   const prevKey = material.customProgramCacheKey;
   DAMAGE_UNIFORMS.uCrackMap.value ??= crackTexture();
+  const defines = `${look.slab ? '#define DMG_SLAB\n' : ''}${look.core === 'concrete' ? '#define DMG_CORE_CONCRETE\n' : ''}`;
   material.onBeforeCompile = (shader, renderer) => {
     prev.call(material, shader, renderer);
     Object.assign(shader.uniforms, DAMAGE_UNIFORMS);
     // A ruin's windows are dark (DAMAGE_EMISSIVE_FRAGMENT): a merged part's glass share takes no attribute slot
     shader.vertexShader = shader.vertexShader
       .replace('attribute float nightGlow;', '#define nightGlow 0.0')
-      .replace('#include <common>', `#include <common>\n${DAMAGE_VERTEX_PARS}`)
+      .replace('#include <common>', `#include <common>\n${defines}${DAMAGE_VERTEX_PARS}`)
       .replace('#include <project_vertex>', DAMAGE_PROJECT_VERTEX)
       .replace('#include <worldpos_vertex>', DAMAGE_WORLDPOS_VERTEX);
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>\n${DAMAGE_FRAGMENT_PARS}\nuniform sampler2D uCrackMap;`)
+      .replace('#include <common>', `#include <common>\n${defines}${DAMAGE_FRAGMENT_PARS}\nuniform sampler2D uCrackMap;`)
+      .replace('#include <logdepthbuf_fragment>', `#include <logdepthbuf_fragment>\n${DAMAGE_DEPTH_FRAGMENT}`)
       .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\ndamageClip();')
       .replace('#include <roughnessmap_fragment>', `${DAMAGE_COLOR_FRAGMENT}\n#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 1.0, dmgSoot);`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>\n${DAMAGE_NORMAL_FRAGMENT}`)
       .replace('#include <aomap_fragment>', `#include <aomap_fragment>\n${DAMAGE_EMISSIVE_FRAGMENT}`);
   };
-  material.customProgramCacheKey = () => `${prevKey.call(material)}-damage`;
+  material.customProgramCacheKey = () => `${prevKey.call(material)}-damage${look.slab ? '-slab' : ''}${look.core === 'concrete' ? '-concrete' : ''}`;
 }
 
 /**

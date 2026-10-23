@@ -192,7 +192,7 @@ export class RuinSlabs {
   constructor() {
     // Inside, out of the sky's light: some of the environment, so floors seen through a hole are not black
     const material = new MeshStandardMaterial({ roughness: 0.95, metalness: 0, side: DoubleSide, envMapIntensity: 0.6 });
-    addDamage(material);
+    addDamage(material, { slab: true });
     this.mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), material, 1);
     this.mesh.name = 'ruin-slabs';
     this.mesh.customDepthMaterial = damageDepthMaterial('slab');

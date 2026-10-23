@@ -44,7 +44,7 @@ import { seatHeight, type ObjectFooting } from './object-seat';
 import { rubbleMaterialOf } from '../../rubble-material';
 import type { RuinFootprint, RuinSlabs } from './ruin-slabs';
 import { FOUNDATION, openingInsides, pushWall, WALL_FACADE, WALL_GABLE, WALL_PLAIN, WALL_SHOP, type WallPiece } from './mass-openings';
-import { addDamage, collapseCuts, RUIN_HOLES, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, FELL_LONG_AGO, ruinSeed, ruinShape, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
+import { addDamage, collapseCuts, RUIN_HOLES, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, FELL_LONG_AGO, type DamageLook, ruinSeed, ruinShape, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
 
 /**
  * The buildings a map raises from their own footprint (MapObject.mass,
@@ -1121,7 +1121,7 @@ export class MassLayer {
     };
     m.customProgramCacheKey = () => 'mass-wall';
     addHeightFog(m);
-    if (ruin) asRuin(m);
+    if (ruin) asRuin(m, facade === 'concrete' || facade === 'metal' ? 'concrete' : 'brick');
     this.materials.set(key, m);
     return m;
   }
@@ -1189,9 +1189,9 @@ export class MassLayer {
   }
 }
 
-/** A ruin's material: the damage in its shader, its inside drawn (ruin-damage.ts) */
-function asRuin(m: Material): void {
-  addDamage(m);
+/** A ruin's material: the damage in its shader (what is under its plaster), its inside drawn (ruin-damage.ts) */
+function asRuin(m: Material, core: DamageLook['core'] = 'brick'): void {
+  addDamage(m, { core });
   m.side = DoubleSide;
 }
 

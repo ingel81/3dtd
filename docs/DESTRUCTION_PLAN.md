@@ -319,9 +319,20 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   Richtungswert von `aDamage` (Richtung plus 8 mal Zeile plus eins): kein Attribut mehr. Ab Stufe 1 schneidet das
   Fragment die Löcher aus, ein wenig breiter als hoch, der Rand gezackt nach Winkel und Höhe, verkohlt und glühend wie
   der Biss (den zeigt nur noch eine Ruine ohne Löcher, etwa aus einem alten Spielstand); ein neues Loch geht in 0,3 s
-  auf, ein gewachsenes behält seine Zeit. Innen kein schwarzer Fleck: die Rückseiten tragen staubigen Putz über ihrer
-  Farbe und ein wenig eigenes Licht (sie sehen durch das Loch den Himmel), die Decken und Innenwände sind heller und
-  nehmen mehr Umgebungslicht, der Ruß an den Rändern ist schmaler. Über einem großen Loch (ab 2,2 m) sackt eine Säule
+  auf, ein gewachsenes behält seine Zeit. Innen ausgebrannt, nie sauber, nie schwarz (`DAMAGE_COLOR_FRAGMENT`): die
+  Rückseiten tragen Putz statt der Außenfarbe und ein wenig eigenes Licht (sie sehen durch das Loch den Himmel), das
+  Himmelslicht drinnen gedämpft und warm; Wände fleckig, Rauch unter jeder Decke, Schmutz über jedem Boden,
+  Laufspuren, Putz in Flecken ab über Ziegel (Beton bei Beton- und Metallfassaden, `DamageLook.core`), Ruß steigt in
+  Streifen von den Bruchkanten; Decken verrußt; Böden unter Staub, Splitt und in Haufen (dichter an den Brüchen)
+  kantigen Brocken mit Schlagschatten, die das Licht kippen. Um jede Bruchkante fehlt der Putz beidseitig, so zeigt
+  die Wand ihren Kern als gezacktes Band. Eine gebrochene Decke zeigt Beton, ihr Kasten innen auch, und aus der
+  Bruchkante ragt ihre Bewehrung (`DMG_SLAB`: zwei Lagen, je 20 cm, jeder Stab eigene Länge, rostig), nur wo ein Stab
+  breiter als anderthalb Pixel ist, weiter weg keiner (kein Flimmern). Alles im Fragment der bestehenden Programme:
+  keine Geometrie, kein Draw Call, kein Programm mehr.
+  Gemeinsame Ebenen flimmerten: wo zwei Bauwerke eine Wand teilen (Reihenhäuser, Teile eines Gebäudes) oder zwei
+  Deckenkästen aneinanderstoßen, liegen Rückseite der Ruine und Vorderseite des anderen in einer Ebene. Die
+  Rückseiten einer Ruine sind im logarithmischen Tiefenpuffer ein wenig näher (`BACK_PULL`, relativ: Millimeter auf
+  hundert Meter), so gewinnt das verrußte Innere der Ruine. Über einem großen Loch (ab 2,2 m) sackt eine Säule
   auf die Decke darunter und ist weg (dieselben Regeln wie beim Einsturz); sie ist rundum und nach oben gezackt und
   wird nach oben schmaler (0,85 bis 0,55 des Radius, von 0,4 bis 2 oder 2,9 Radien über dem Loch), kein Zylinder.
   Beim Fall senkt sich die Bruchkante zu den Löchern: der Einsturz beginnt, wo getroffen wurde (`dmgWorn`). Je mehr
@@ -378,7 +389,7 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   Grundriss-Gebäudes drei Schattenprogramme im Bild (67 ms, mit den größeren Shadern der Varianten 180 bis 270 ms).
 - **Uhr:** `DAMAGE_UNIFORMS.uDamageTime` läuft mit der Ansicht; ein Fall `now` beginnt jetzt, Stufen nach Laden, Sprung
   oder Restore liegen schon (`FELL_LONG_AGO`).
-- **Später:** Bewehrungsstäbe an der Kante, springendes Glas.
+- **Später:** springendes Glas.
 
 **Gelände** (gebaut, Z4)
 
