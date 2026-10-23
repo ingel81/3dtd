@@ -18,7 +18,7 @@ const REFERENCE: readonly { kind: RegExp; height: readonly [number, number]; why
   { kind: /^(lamp-post|street-lamp)$/, height: [3.4, 6], why: 'a street lamp, the lantern over a head' },
   { kind: /^lantern$/, height: [0.3, 0.6], why: 'a lantern to carry or hang' },
   { kind: /^bench$/, height: [0.7, 1.0], why: 'a bench, back included' },
-  { kind: /^car-/, height: [1.2, 1.7], why: 'a car' },
+  { kind: /^car-/, height: [1.2, 1.95], why: 'a car (an SUV or a people carrier up to 1.9 m)' },
   { kind: /^(barrel|toxic-barrel|barrel-wine|barrel-old|barrel-small|barrel-rusty|barrel-stove)$/, height: [0.6, 1.1], why: 'a barrel, hip high' },
   { kind: /^crate$/, height: [0.5, 1.1], why: 'a crate' },
   { kind: /^hydrant$/, height: [0.5, 1.0], why: 'a hydrant, knee high' },

@@ -384,10 +384,12 @@ Blüten und Wedel gezeichnet. Poly-Haven-Modelle sind auf Spielbudgets reduziert
 | container-red | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/container_side |
 | container-blue | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/container_side |
 | container-rusty | procedural (tools/map-assets/build_city.py); https://polyhaven.com/a/rusty_metal_03 |
-| car-red | procedural (tools/map-assets/build_vehicles.py) |
-| car-blue | procedural (tools/map-assets/build_vehicles.py) |
-| car-white | procedural (tools/map-assets/build_vehicles.py) |
-| car-grey | procedural (tools/map-assets/build_vehicles.py) |
+| car-small | procedural (tools/map-assets/build_vehicles.py) |
+| car-hatch | procedural (tools/map-assets/build_vehicles.py) |
+| car-sedan | procedural (tools/map-assets/build_vehicles.py) |
+| car-estate | procedural (tools/map-assets/build_vehicles.py) |
+| car-suv | procedural (tools/map-assets/build_vehicles.py) |
+| car-van | procedural (tools/map-assets/build_vehicles.py) |
 | car-wreck | procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03 |
 | car-wreck-b | procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03 |
 | car-burnt | procedural (tools/map-assets/build_vehicles.py); https://polyhaven.com/a/rusty_metal_03 |
