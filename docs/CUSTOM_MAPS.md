@@ -305,7 +305,10 @@ der Bordstein an einer Seite der Zufahrt in die Kreuzung hinein und an der ander
 Ein Fuß- oder Weg ohne Bordstein an einer Straße mit Gehweg ist gar kein Arm der Kreuzung: sein Band läuft bis zum
 Knoten unter der Fläche der Straße (niedrigerer Rang), deren Bordstein läuft gerade an ihm vorbei; als Arm, über den
 Gehweg zur Fahrbahn, trafen sich die Bordsteine beiderseits in einer Spitze an seiner Mündung (ein parallel gemappter
-Gehweg, der in der Kreuzung endet).
+Gehweg, der in der Kreuzung endet). Das gilt auch für eine Gruppe von Knoten (`ontoPavement`): ein Fußweg, der neben der
+Straße gemappt an einem anderen Knoten der Gruppe endet (an einer Zufahrt wenige Meter daneben), bog als Arm den
+Bordstein der Straße weit in die Fahrbahn; Enden, von denen eines ein Weg ist, werden nicht weiter gekürzt (sie laufen
+nebeneinander, nicht quer).
 Überlappen sich zwei Bänder ohne gemeinsamen Knoten (ein Gehweg in die Breite einer Straße gezeichnet), liegt die
 höhere Straßenklasse oben (Rang 0 Pfad bis 7 Autobahn, je Rang ein paar Millimeter mehr zur Kamera hin); innerhalb
 eines Rangs hat jedes Band und jede Kreuzung eine Reihenfolge aus ihrer Kennung (16 Stufen zu einem Sechzehntel Rang,

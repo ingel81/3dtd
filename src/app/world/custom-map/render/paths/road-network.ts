@@ -533,7 +533,7 @@ export class RoadNetworkBuilder {
       // A footway or path joining a road with a pavement here joins the pavement: no arm of the junction, its ribbon
       // runs to the node under the road's surface (a lower rank), the road's kerb on past it. As an arm, crossing the
       // pavement to the carriageway, the kerbs either side met in a spike at its mouth
-      if (list.some((e) => e.chain.walk > 0)) list = list.filter((e) => !(e.chain.edge.kind === 'path' && !roadStyle(e.chain.edge).gutter));
+      list = ontoPavement(list, 1);
       // A bridge going on from a road here: its deck's first metres an arm, so the junction reaches the deck
       if (list.length) {
         for (const e of decks.get(node) ?? []) {
@@ -551,7 +551,7 @@ export class RoadNetworkBuilder {
       const inside = new Set(group);
       const all = group.flatMap((n) => endsOf(n));
       const within = (e: End) => inside.has(e.chain.nodes[0]) && inside.has(e.chain.nodes[1]);
-      const list = all.filter((e) => !within(e));
+      const list = ontoPavement(all.filter((e) => !within(e)));
       const inner = [...new Set(all.filter(within).map((e) => e.chain))];
       const centre = clusterCentre(group.map((n) => nodes.get(n)!));
       const trims = list.map((e) => [...e.chain.trim] as [number, number]);
@@ -592,6 +592,9 @@ export class RoadNetworkBuilder {
           else list.push(e);
         }
       }
+      // A footway at one node of a group joins the pavement of a road at another (ontoPavement)
+      const kept = ontoPavement(list);
+      list.splice(0, list.length, ...kept);
       if (nodeList.length > 1) {
         this.members.set(key, nodeList);
         for (const n of nodeList) this.clusterOf.set(n, key);
@@ -884,6 +887,23 @@ function bridgeStub(e: MapPathEdge, node: string, nodes: ReadonlyMap<string, Map
   };
 }
 
+/**
+ * The ends of a junction (a node's, or a group's) without the footways and
+ * paths that have no kerb of their own, where a road there has a pavement:
+ * such a way joins the pavement, its ribbon runs on under the road's surface
+ * (its lower rank) and the road's kerb runs on past it. As an arm it crossed
+ * the pavement to the carriageway: the kerbs either side met in a spike at
+ * its mouth, or, mapped beside the road (a pavement of its own) and meeting
+ * it at a node of the group, the road's kerb bent far into the carriageway
+ * towards it. Unchanged where that would leave fewer than `least` (a group's
+ * two)
+ */
+function ontoPavement(list: End[], least = 2): End[] {
+  if (!list.some((e) => e.chain.walk > 0)) return list;
+  const kept = list.filter((e) => !(e.chain.edge.kind === 'path' && !roadStyle(e.chain.edge).gutter));
+  return kept.length >= least ? kept : list;
+}
+
 /** A chain's end at its start or its finish: its direction away from the node, over its first three metres */
 function endOf(chain: Chain, start: boolean): End {
   const p = start ? chain.line[0] : chain.line[chain.line.length - 1];
@@ -930,7 +950,8 @@ function trimJunction(c: MapPoint, list: End[], nodes: readonly (readonly End[])
     for (let k = 0; k < n; k++) {
       const a = list[k];
       const b = list[(k + 1) % n];
-      if (a === b) continue;
+      // A footway beside a road (a pavement mapped of its own) runs along it, not across: no end of the two trimmed on
+      if (a === b || a.chain.edge.kind === 'path' || b.chain.edge.kind === 'path') continue;
       const sa = endSection(a);
       const sb = endSection(b);
       const apart = !crosses(sa[0], sa[sa.length - 1], sb[0], sb[sb.length - 1]) && !sa.some((p) => insideRibbon(b.chain, p)) && !sb.some((p) => insideRibbon(a.chain, p));

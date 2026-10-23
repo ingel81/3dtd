@@ -592,3 +592,40 @@ describe('road network, kerb lines', () => {
     for (const [edges, nodes] of cases) expect(sharpestKerbTurn(buildRoadNetwork(paths(edges, nodes)))).toBeLessThan(100);
   });
 });
+
+describe('road network, pavements mapped beside a road', () => {
+  it("keeps a road's kerb straight where a footway mapped beside it meets a side road a few metres off", () => {
+    // A road north with pavements; at c a service road 3 m west to s, where a footway mapped along the road's west
+    // side ends and another service road goes on north-west
+    const net = buildRoadNetwork(
+      paths(
+        [
+          { a: 'w', b: 'c', street: 'tertiary', width: 7, sidewalk: 1.8 },
+          { a: 'c', b: 'e', street: 'tertiary', width: 7, sidewalk: 1.8 },
+          { a: 'c', b: 's', street: 'service', width: 4 },
+          { a: 's', b: 'n', street: 'service', width: 4 },
+          { a: 'f', b: 's', kind: 'path', street: 'footway', width: 2.5 },
+        ],
+        [['w', 0, -80], ['c', 0, 0], ['e', 0, 80], ['s', -3, 1], ['n', -30, 30], ['f', -5.5, -60]],
+      ),
+    );
+    // The kerb through every triangle on the west side, beside the node: 3.5 m off the road's line
+    let worst = 0;
+    for (const t of net.tiles) {
+      for (let k = 0; k < t.index.length; k += 3) {
+        const ids = [t.index[k], t.index[k + 1], t.index[k + 2]];
+        for (let s = 0; s < 3; s++) {
+          const [a, c] = [ids[s], ids[(s + 1) % 3]];
+          const [ea, ec] = [t.road[a * 4 + 2], t.road[c * 4 + 2]];
+          if (ea < 0 === ec < 0) continue;
+          const f = ea / (ea - ec);
+          const x = t.position[a * 2] + (t.position[c * 2] - t.position[a * 2]) * f;
+          const y = t.position[a * 2 + 1] + (t.position[c * 2 + 1] - t.position[a * 2 + 1]) * f;
+          // West of the road, south of the side road's corner
+          if (x < 0 && y > -15 && y < -6) worst = Math.max(worst, Math.abs(-x - 3.5));
+        }
+      }
+    }
+    expect(worst).toBeLessThan(0.3);
+  });
+});
