@@ -321,12 +321,15 @@ Innenseite einer Biegung); vorher lief er als Sehne quer, und die Insel eines Kr
 eckig. Ecken zwischen zwei Straßen bleiben gerundet (`lineMeet`; treffen sich ihre Bordsteinlinien weit hinter beiden Enden,
 fast parallel, läuft die Kurve vom einen Ende zum anderen statt weit aus der Kreuzung hinaus). Ein Pfad, an dessen Ende nichts anschließt, endet rund.
 Der Abstand zur Kante ist auch in der Kreuzung der wahre: ein zweiter Ring liegt um Gehweg plus 1,2 m innerhalb des
-Umrisses (`KERB_BAND`, je Bordsteinpunkt senkrecht zum Umriss, weniger in engen Kurven und nahe dem Knoten, nie so weit,
-dass ein Dreieck umklappt oder in den Keil des nächsten reicht, beim Vieleck nie über sich selbst oder den Umriss),
-erst innerhalb davon der Fächer vom Knoten, beim Vieleck das innere Vieleck trianguliert. Vorher
-wuchs der Abstand vom Umriss zum Knoten linear: Gehweg, Bordstein und Rinne wurden breit, wo der Umriss weit außen lag,
-und dünn, wo er nah kam. Eine Kreuzung, deren Umriss weder um den Knoten läuft noch ein Vieleck ist (Zufahrten und Abbieger, deren
-Umriss keinen Ring um die Mitte bildet), behält den einen Ring.
+Umrisses (`KERB_BAND`, je Bordsteinpunkt senkrecht zum Umriss, weniger in engen Kurven, nie so weit, dass ein Dreieck
+umklappt oder der innere Ring sich selbst oder den Umriss kreuzt), innerhalb davon das innere Vieleck trianguliert.
+Jede Kreuzung, deren Umriss ein Vieleck ist, wird so gelegt, auch eine, deren Umriss um den Knoten läuft: als Fächer
+vom Knoten musste der Ring im Keil jedes Umrissstücks bleiben, und ein Bordstein, der schräg am Knoten vorbeiläuft
+(entlang eines Bands in einer Gruppe von Knoten), kam dort an jedem zweiten Punkt auf halbe Tiefe heraus: der
+Bordstein lief in Stufen (an einer Brücke in einer Testwelt). Vorher wuchs der Abstand vom Umriss zum Knoten linear:
+Gehweg, Bordstein und Rinne wurden breit, wo der Umriss weit außen lag, und dünn, wo er nah kam. Eine Kreuzung, deren
+Umriss kein Vieleck ist (Straßen kreuzen gegenseitig ihre Enden), bleibt ein Fächer vom Knoten (der Ring dann nahe dem
+Knoten flacher und im Keil); läuft ihr Umriss auch nicht um den Knoten, behält sie den einen Ring.
 Das Aussehen folgt der Straßenart (`street`): Spurlinien auf Autobahnen, Rand- und gestrichelte Mittellinie auf
 Haupt- und Kreisstraßen (`primary`, `secondary`), Mittellinie auf `tertiary`, keine in Wohnstraßen, deren Asphalt in
 einen Bordstein mit einer Rinne aus Pflastersteinen ausläuft; Fahrspuren dunkler, Flickstellen, Querrisse und eine

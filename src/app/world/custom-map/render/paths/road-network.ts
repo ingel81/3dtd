@@ -1180,7 +1180,7 @@ function simpleRing(ring: readonly MapPoint[]): boolean {
   return true;
 }
 
-/** The surface between the ends of the roads at a junction, fanned from its node */
+/** The surface between the ends of the roads at a junction: the polygon its outline is, else fanned from its node */
 function emitJunction(c: MapPoint, list: End[], inner: readonly Chain[], out: TileBuilder, styleOf: (s: RoadStyle) => number): void {
   // The ends in counter-clockwise order (trimJunction sorted them), each with its cross section seen from the node:
   // right to left looking away from it
@@ -1230,16 +1230,19 @@ function emitJunction(c: MapPoint, list: End[], inner: readonly Chain[], out: Ti
   // junction; fanned from the node it only grew with the distance from the node, the kerb wide where the outline lies
   // far out and thin where it comes close
   const left = (p: MapPoint, q: MapPoint, r: MapPoint): number => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
-  // An outline that runs round the node is fanned from it; one that does not (links and slip roads beside a
-  // junction, a junction of several nodes whose roads leave side by side) is triangulated as the polygon it is: a fan
-  // folded over the node there, its triangles over each other's and the kerbs across the carriageway. An outline that
-  // is no polygon either (roads crossing each other's ends) keeps the fan and its single ring, its kerbs between nodes
-  // straight across the chains between them, not along them
+  // An outline that is a polygon is triangulated as one, its band parallel to it all round. Fanned from the node the
+  // band had to stay in the wedge of each stretch of outline: links and slip roads beside a junction or a junction of
+  // several nodes whose roads leave side by side folded the fan over the node, its triangles over each other's and the
+  // kerbs across the carriageway, and a kerb running slantwise past the node (along a chain inside the junction) had
+  // its band cut back at every other point, the kerb in steps. An outline that is no polygon (roads crossing each
+  // other's ends) keeps the fan and its single ring, its kerbs between nodes straight across the chains between them,
+  // not along them
   const runsAround = (r: readonly RingPoint[]) => r.every((p, k) => left(c, p, r[(k + 1) % r.length]) > 0);
   let ring = junctionOutline(list, sides as Section[], inner, look.gutter);
   let around = runsAround(ring);
-  const fan = around || !simpleRing(ring);
-  if (fan && !around && inner.length) {
+  // An outline round the node is a polygon (its points seen in turn from there)
+  const fan = !around && !simpleRing(ring);
+  if (fan && inner.length) {
     ring = junctionOutline(list, sides as Section[], inner, look.gutter, false);
     around = runsAround(ring);
   }
