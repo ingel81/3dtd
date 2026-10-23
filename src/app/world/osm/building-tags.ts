@@ -283,7 +283,7 @@ const AMENITY_KINDS: Readonly<Record<string, BuildingKind>> = {
 };
 
 /** Land use around a building of unknown kind (the use its middle lies in) */
-export type BuildingLand = 'residential' | 'commercial' | 'retail' | 'industrial' | 'farm' | 'education' | 'religious' | 'allotments' | 'garages' | 'sports' | null;
+export type BuildingLand = 'residential' | 'commercial' | 'retail' | 'industrial' | 'farm' | 'education' | 'religious' | 'allotments' | 'garages' | 'sports' | 'cemetery' | null;
 
 const LAND_USES: Readonly<Record<string, BuildingLand>> = {
   residential: 'residential',
@@ -299,6 +299,7 @@ const LAND_USES: Readonly<Record<string, BuildingLand>> = {
   religious: 'religious',
   allotments: 'allotments',
   garages: 'garages',
+  cemetery: 'cemetery',
 };
 
 /** The building land use an area's tags give, null for none */
@@ -307,6 +308,7 @@ export function buildingLandOf(tags: Readonly<Record<string, string>>): Building
   const amenity = tags['amenity'];
   if (amenity === 'school' || amenity === 'university' || amenity === 'college' || amenity === 'kindergarten') return 'education';
   if (SPORTS_GROUNDS.has(tags['leisure'] ?? '')) return 'sports';
+  if (amenity === 'grave_yard') return 'cemetery';
   return null;
 }
 
@@ -526,12 +528,14 @@ function guessKind(
   if (tags['shop']) return area > 150 ? 'retail' : 'apartments';
   const levels = buildingLevels(tags);
   if (area < 15) return 'shed';
-  if (area < 45) return land === 'farm' || land === 'allotments' || (area < 25 && aspect < 1.4) ? 'shed' : 'garage';
+  if (area < 45) return land === 'farm' || land === 'allotments' || land === 'cemetery' || (area < 25 && aspect < 1.4) ? 'shed' : 'garage';
   if (land === 'garages') return 'garage';
   if (land === 'industrial') return area < 120 ? 'garage' : 'industrial';
   if (land === 'farm') return area > 150 && (levels ?? 1) <= 2 ? 'farm' : 'house';
   if (land === 'education') return area > 300 ? 'school' : 'house';
   if (land === 'sports') return area > 600 ? 'industrial' : 'clubhouse';
+  // On a cemetery: its chapel or mortuary hall, never a house
+  if (land === 'cemetery') return 'chapel';
   if (land === 'religious') return area > 150 ? 'church' : 'chapel';
   if (land === 'commercial' || land === 'retail') return area > 600 && (levels ?? 1) <= 2 ? 'retail' : 'office';
   // A big footprint with wings or a courtyard is a block, a big plain one a hall

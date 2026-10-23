@@ -129,7 +129,7 @@ werden. Als Landnutzung zählt auch ein Gelände, dessen Zaun die Nutzung trägt
 Haus auf einem Sportgelände (`leisure=pitch`, `sports_centre`, `stadium`, `track`, `golf_course`) ist ein Vereinsheim
 (`clubhouse`, ein Geschoss, flaches Satteldach, aus dem Grundriss), ab 600 m² eine Halle; Gebäude von Wasserwerken,
 Behältern und Pumpwerken (`man_made`) und `building=service` sind Technikbauten (bis 80 m² wie eine Garage, sonst
-Halle), nie Wohnhäuser.
+Halle), nie Wohnhäuser. Ein Gebäude ohne eigene Art auf einem Friedhof (`landuse=cemetery`, `amenity=grave_yard`) ist seine Kapelle oder Aussegnungshalle (`chapel`), ein kleines sein Geräteschuppen.
 
 **Höhendaten:**
 

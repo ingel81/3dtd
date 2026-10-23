@@ -115,6 +115,9 @@ describe('OSM buildings: shapes and models', () => {
     expect(buildingKind({ building: 'garages' }, 90, 5, null)).toBe('garage');
     // A house on a sports ground is the club's; a covered reservoir or a service building a technical box
     expect(buildingKind({ building: 'yes' }, 200, 1.5, 'sports')).toBe('clubhouse');
+    // On a cemetery its chapel, a small one its shed
+    expect(buildingKind({ building: 'yes' }, 120, 1.6, 'cemetery')).toBe('chapel');
+    expect(buildingKind({ building: 'yes' }, 20, 1.2, 'cemetery')).toBe('shed');
     expect(buildingKind({ building: 'yes' }, 1200, 1.5, 'sports')).toBe('industrial');
     expect(buildingKind({ building: 'yes', man_made: 'storage_tank' }, 55, 1.2, null)).toBe('garage');
     expect(buildingKind({ building: 'service' }, 32, 1.2, null)).toBe('garage');
