@@ -140,10 +140,13 @@ export const CRATERS = {
 
 /** The heap of rubble a fallen structure leaves (StampField) */
 export const RUBBLE = {
-  /** Its top as a share of the structure's height, held in cm */
-  heightShare: 0.3,
-  minPeakCm: 40,
-  maxPeakCm: 350,
+  /**
+   * Its top as a share of the structure's height, held in cm: what is left of the floors, a storey's slab or two
+   * deep in its stump (a house of 8 m 1 m, a block of 20 m 2.4 m), not a hill over it
+   */
+  heightShare: 0.12,
+  minPeakCm: 30,
+  maxPeakCm: 250,
   /** With a ground plan (box): the share of it the full height covers, the rest runs out over the falloff */
   core: 0.6,
   /** How far it runs out past the ground plan, m; without one, the ground radius times `spill` */

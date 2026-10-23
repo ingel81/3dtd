@@ -235,7 +235,7 @@ describe('WorldDamage (docs/DESTRUCTION_PLAN.md)', () => {
     const { damage, field } = setup([house('a', 0, 20, { hp: 50 })]);
     expect(field()).toBeNull();
     damage.structures.hit(0, 20, 0, 50);
-    expect(field()!.heightAt(0.5, 20.5)).toBeGreaterThan(1);
+    expect(field()!.heightAt(0.5, 20.5)).toBeGreaterThan(0.5);
     damage.impact(geo(0, 0).lat, geo(0, 0).lon, PROJECTILE_TYPES.cannonball, false);
     const before = [field()!.heightAt(0.5, 20.5), field()!.heightAt(0.5, 0.5)];
     const hp = damage.structures.hpList();

@@ -139,7 +139,7 @@ describe('CustomMapGroundDamage (docs/DESTRUCTION_PLAN.md, Z4)', () => {
     drain();
     const shape = rubbleShapeOf(BARN);
     for (const [x, y] of [[-20, 40], [-16, 42], [-24, 36], [-12, 40]]) expect(at(x, y)).toBeCloseTo(5 + rubbleCmAt(shape, x, y) / 100, 5);
-    expect(at(-20, 40)).toBeGreaterThan(7);
+    expect(at(-20, 40)).toBeGreaterThan(5.5);
   });
 
   it('comes to the same heights from a restore that stamps everything anew as from the run, and back to flat on a clear', () => {

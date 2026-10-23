@@ -214,7 +214,8 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
 - Je Routenzelle (2 m, dieselben Indizes wie `GlobalRouteGrid`) die Summe aller Stempel in ganzen Zentimetern: Krater
   (Mulde `(1 - s)² (1 + 2s)` über `s = d² / r²`, Wall von 16 % der Tiefe knapp hinter dem Rand) und Schutthaufen
   gefallener Bauwerke (über dem Grundriss: 60 % davon in voller Höhe, auslaufend über 40 % der kürzeren halben Seite
-  plus 2 m; ohne Grundriss über dem Kreis mal 1,35; Höhe 30 % des Bauwerks, 40 bis 350 cm). Nur `+ - * /`, kein
+  plus 2 m; ohne Grundriss über dem Kreis mal 1,35; Höhe 12 % des Bauwerks, 30 bis 250 cm: was von den Decken bleibt,
+  im Stumpf, kein Hügel darüber; vorher 30 %, 40 bis 350 cm, Punkt 32). Nur `+ - * /`, kein
   `sqrt`: jede Engine stempelt dieselben Bits.
 - Summen statt Zustand: ein Stempel hinein und wieder heraus lässt die Zellen, wie sie waren, die Reihenfolge zählt
   nicht. Restore und Sprung bauen das Raster aus Stufen und Kraterliste neu und kommen auf dieselben Zellen.

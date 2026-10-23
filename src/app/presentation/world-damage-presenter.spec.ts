@@ -64,7 +64,7 @@ describe('WorldDamagePresenter (docs/DESTRUCTION_PLAN.md)', () => {
     const expected = new StampField(span);
     expected.rubbleHeap(rubbleStampOf(BARN, local), 1);
     expect(ground.field!.heightAt(20, 10)).toBe(expected.heightAt(20, 10));
-    expect(ground.field!.heightAt(20, 10)).toBeGreaterThan(1);
+    expect(ground.field!.heightAt(20, 10)).toBeGreaterThan(0.5);
     // A crater dug, then deepened: the field of the last one alone, not of both
     presenter.dig(0, 100, 100, 25, 30);
     presenter.dig(0, 100, 100, 25, 60);
