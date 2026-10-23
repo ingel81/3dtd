@@ -47,7 +47,7 @@ class Face:
     def box(self, part, u, n, z, su, sn, sz):
         """Box centred at u along the wall, n out from the wall plane (0 = facade surface)"""
         c = self.u * u + self.n * (self.depth / 2 + n)
-        box(part, c.x, c.y, z, su, sn, sz, self.angle)
+        return box(part, c.x, c.y, z, su, sn, sz, self.angle)
 
 
 class Kit:

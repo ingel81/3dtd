@@ -22407,7 +22407,7 @@
         "textures/grey_roof_tiles_02_arm_1k-05f04e03d733b1e0.ktx2",
         "textures/grey_roof_tiles_02_diff_1k-37f008e2709a66d9.ktx2",
         "textures/grey_roof_tiles_02_nor_gl_1k-f90d34b6cdfc5563.ktx2",
-        "textures/house-modern-ao-b7e645e1ba9b44c8.ktx2",
+        "textures/house-modern-ao-db2dd3084ce11d30.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.25-1.30-1.33-b4d567c6c407aabb.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2"
@@ -22417,9 +22417,9 @@
           "file": "models/house-modern-lod1.glb",
           "screen": 0.0713,
           "tone": [
-            0.813,
-            0.817,
-            0.835
+            0.805,
+            0.815,
+            0.832
           ],
           "triangles": 773
         }
@@ -22447,7 +22447,7 @@
           5.79
         ],
         "tone": [
-          0.791,
+          0.792,
           0.799,
           0.79
         ]
@@ -22517,7 +22517,7 @@
         "textures/clay_roof_tiles_03_arm_1k-a91a83cd26e2c6b2.ktx2",
         "textures/clay_roof_tiles_03_diff_1k-995d52407088ae4a.ktx2",
         "textures/clay_roof_tiles_03_nor_gl_1k-db0fa7b5784cac88.ktx2",
-        "textures/house-modern-red-ao-9c8cc5c2e28a0fa0.ktx2",
+        "textures/house-modern-red-ao-ee0641bffccb929e.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.30-1.27-1.12-53c1cbd11ff13d44.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2"
@@ -22528,8 +22528,8 @@
           "screen": 0.0794,
           "tone": [
             0.909,
-            0.865,
-            0.825
+            0.87,
+            0.835
           ],
           "triangles": 829
         }
@@ -22557,9 +22557,9 @@
           5.69
         ],
         "tone": [
-          0.832,
-          0.674,
-          0.57
+          0.833,
+          0.678,
+          0.584
         ]
       },
       "cellar": {
@@ -22632,7 +22632,7 @@
         "textures/clay_roof_tiles_03_arm_1k-a91a83cd26e2c6b2.ktx2",
         "textures/clay_roof_tiles_03_diff_1k-995d52407088ae4a.ktx2",
         "textures/clay_roof_tiles_03_nor_gl_1k-db0fa7b5784cac88.ktx2",
-        "textures/house-semi-ao-a32e58af48a16b6c.ktx2",
+        "textures/house-semi-ao-898cb5012d14b276.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.25-1.30-1.33-b4d567c6c407aabb.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.27-1.18-0.98-6b55035ab0439f53.ktx2",
@@ -22644,8 +22644,8 @@
           "screen": 0.0866,
           "tone": [
             0.941,
-            0.939,
-            0.912
+            0.943,
+            0.929
           ],
           "triangles": 792
         }
@@ -22674,8 +22674,8 @@
         ],
         "tone": [
           0.902,
-          0.832,
-          0.751
+          0.838,
+          0.772
         ]
       },
       "cellar": {
@@ -22743,7 +22743,7 @@
         "textures/grey_roof_tiles_02_arm_1k-05f04e03d733b1e0.ktx2",
         "textures/grey_roof_tiles_02_diff_1k-37f008e2709a66d9.ktx2",
         "textures/grey_roof_tiles_02_nor_gl_1k-f90d34b6cdfc5563.ktx2",
-        "textures/house-terrace-ao-c6e29293e2500e60.ktx2",
+        "textures/house-terrace-ao-4cda55ce2d852567.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.12-1.16-1.20-04a193d3fbbf74eb.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2"
@@ -22753,9 +22753,9 @@
           "file": "models/house-terrace-lod1.glb",
           "screen": 0.0742,
           "tone": [
-            0.841,
-            0.853,
-            0.857
+            0.845,
+            0.852,
+            0.863
           ],
           "triangles": 668
         }
@@ -22784,7 +22784,7 @@
         ],
         "tone": [
           0.901,
-          0.899,
+          0.9,
           0.894
         ]
       },
@@ -22853,7 +22853,7 @@
         "textures/grey_roof_tiles_02_arm_1k-05f04e03d733b1e0.ktx2",
         "textures/grey_roof_tiles_02_diff_1k-37f008e2709a66d9.ktx2",
         "textures/grey_roof_tiles_02_nor_gl_1k-f90d34b6cdfc5563.ktx2",
-        "textures/house-terrace-end-w-ao-88f8f24654ef6145.ktx2",
+        "textures/house-terrace-end-w-ao-206ffa77fff20c35.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.12-1.16-1.20-04a193d3fbbf74eb.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2"
@@ -22863,9 +22863,9 @@
           "file": "models/house-terrace-end-w-lod1.glb",
           "screen": 0.0742,
           "tone": [
-            0.83,
-            0.838,
-            0.837
+            0.837,
+            0.84,
+            0.849
           ],
           "triangles": 605
         }
@@ -22893,9 +22893,9 @@
           5.87
         ],
         "tone": [
-          0.872,
-          0.865,
-          0.851
+          0.875,
+          0.868,
+          0.856
         ]
       },
       "cellar": {
@@ -22963,7 +22963,7 @@
         "textures/grey_roof_tiles_02_arm_1k-05f04e03d733b1e0.ktx2",
         "textures/grey_roof_tiles_02_diff_1k-37f008e2709a66d9.ktx2",
         "textures/grey_roof_tiles_02_nor_gl_1k-f90d34b6cdfc5563.ktx2",
-        "textures/house-terrace-end-e-ao-f19aaae06ea39dbd.ktx2",
+        "textures/house-terrace-end-e-ao-3f6e4c897a2e7c28.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.12-1.16-1.20-04a193d3fbbf74eb.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2"
@@ -22973,9 +22973,9 @@
           "file": "models/house-terrace-end-e-lod1.glb",
           "screen": 0.0742,
           "tone": [
-            0.809,
-            0.82,
-            0.831
+            0.818,
+            0.827,
+            0.84
           ],
           "triangles": 603
         }
@@ -23003,9 +23003,9 @@
           5.9
         ],
         "tone": [
-          0.803,
-          0.81,
-          0.818
+          0.812,
+          0.818,
+          0.825
         ]
       },
       "cellar": {
@@ -23073,7 +23073,7 @@
         "textures/grey_roof_tiles_02_arm_1k-05f04e03d733b1e0.ktx2",
         "textures/grey_roof_tiles_02_diff_1k-37f008e2709a66d9.ktx2",
         "textures/grey_roof_tiles_02_nor_gl_1k-f90d34b6cdfc5563.ktx2",
-        "textures/house-terrace-ends-ao-1d589e7e2f0839a7.ktx2",
+        "textures/house-terrace-ends-ao-34b7c256f694ce38.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.12-1.16-1.20-04a193d3fbbf74eb.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2"
@@ -23083,9 +23083,9 @@
           "file": "models/house-terrace-ends-lod1.glb",
           "screen": 0.0742,
           "tone": [
-            0.832,
-            0.836,
-            0.833
+            0.841,
+            0.842,
+            0.842
           ],
           "triangles": 577
         }
@@ -23113,9 +23113,9 @@
           5.91
         ],
         "tone": [
-          0.794,
-          0.795,
-          0.793
+          0.803,
+          0.803,
+          0.801
         ]
       },
       "cellar": {
@@ -23768,7 +23768,7 @@
         "textures/grey_roof_tiles_02_arm_1k-05f04e03d733b1e0.ktx2",
         "textures/grey_roof_tiles_02_diff_1k-37f008e2709a66d9.ktx2",
         "textures/grey_roof_tiles_02_nor_gl_1k-f90d34b6cdfc5563.ktx2",
-        "textures/house-terrace-row-ao-384f844d849e4bb0.ktx2",
+        "textures/house-terrace-row-ao-77bc48c729f76ff5.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.12-1.16-1.20-04a193d3fbbf74eb.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.25-1.30-1.33-b4d567c6c407aabb.ktx2",
@@ -23781,9 +23781,9 @@
           "file": "models/house-terrace-row-lod1.glb",
           "screen": 0.1423,
           "tone": [
-            0.759,
-            0.762,
-            0.793
+            0.763,
+            0.771,
+            0.8
           ],
           "triangles": 1444
         }
@@ -23811,9 +23811,9 @@
           5.86
         ],
         "tone": [
-          0.821,
-          0.848,
-          0.873
+          0.831,
+          0.856,
+          0.882
         ]
       },
       "cellar": {
@@ -24071,7 +24071,7 @@
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
-        "textures/garden-shed-ao-fab14fef63a010a2.ktx2",
+        "textures/garden-shed-ao-41ea6d79e26ae37b.ktx2",
         "textures/wood_planks_grey_arm_1k-30f10f6ac513db8e.ktx2",
         "textures/wood_planks_grey_diff_1k-x1.15-1.02-0.84-b3f83b5d7924f1fb.ktx2",
         "textures/wood_planks_grey_nor_gl_1k-ffff2abf326ece6d.ktx2"
@@ -24106,9 +24106,9 @@
           1.9
         ],
         "tone": [
-          0.723,
-          0.693,
-          0.703
+          0.735,
+          0.697,
+          0.707
         ]
       },
       "cellar": {
@@ -24449,7 +24449,7 @@
         "city"
       ],
       "textures": [
-        "textures/block-row-4-ao-708e478c789d8daa.ktx2",
+        "textures/block-row-4-ao-d7080da45283ce74.ktx2",
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
@@ -24466,9 +24466,9 @@
           "file": "models/block-row-4-lod1.glb",
           "screen": 0.1477,
           "tone": [
-            0.925,
-            0.937,
-            0.98
+            0.94,
+            0.969,
+            1.037
           ],
           "triangles": 791
         }
@@ -24496,9 +24496,9 @@
           13.92
         ],
         "tone": [
-          0.835,
-          0.757,
-          0.732
+          0.849,
+          0.785,
+          0.777
         ]
       },
       "cellar": {
@@ -24570,7 +24570,7 @@
         "city"
       ],
       "textures": [
-        "textures/block-row-4-end-w-ao-90c6921ceccea18c.ktx2",
+        "textures/block-row-4-end-w-ao-18d408f67e220052.ktx2",
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
@@ -24587,9 +24587,9 @@
           "file": "models/block-row-4-end-w-lod1.glb",
           "screen": 0.1477,
           "tone": [
-            0.915,
-            0.92,
-            0.949
+            0.926,
+            0.952,
+            1.016
           ],
           "triangles": 1013
         }
@@ -24617,9 +24617,9 @@
           13.92
         ],
         "tone": [
-          0.828,
-          0.739,
-          0.695
+          0.837,
+          0.765,
+          0.747
         ]
       },
       "cellar": {
@@ -24691,7 +24691,7 @@
         "city"
       ],
       "textures": [
-        "textures/block-row-4-end-e-ao-3985da7dcd15f517.ktx2",
+        "textures/block-row-4-end-e-ao-86b15facf86572fa.ktx2",
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
@@ -24708,9 +24708,9 @@
           "file": "models/block-row-4-end-e-lod1.glb",
           "screen": 0.1477,
           "tone": [
-            0.894,
-            0.901,
-            0.941
+            0.921,
+            0.956,
+            1.033
           ],
           "triangles": 1007
         }
@@ -24738,9 +24738,9 @@
           13.96
         ],
         "tone": [
-          0.789,
-          0.699,
-          0.669
+          0.813,
+          0.742,
+          0.737
         ]
       },
       "cellar": {
@@ -24812,7 +24812,7 @@
         "city"
       ],
       "textures": [
-        "textures/block-row-4-ends-ao-a10faf2665fd298c.ktx2",
+        "textures/block-row-4-ends-ao-e9f3d7869905513d.ktx2",
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
@@ -24829,9 +24829,9 @@
           "file": "models/block-row-4-ends-lod1.glb",
           "screen": 0.1477,
           "tone": [
-            0.887,
-            0.888,
-            0.917
+            0.91,
+            0.947,
+            1.029
           ],
           "triangles": 1258
         }
@@ -24859,9 +24859,9 @@
           13.96
         ],
         "tone": [
-          0.78,
-          0.678,
-          0.637
+          0.801,
+          0.723,
+          0.714
         ]
       },
       "cellar": {
@@ -24936,7 +24936,7 @@
         "textures/bitumen_arm_1k-b3fde9722f170cfc.ktx2",
         "textures/bitumen_diff_1k-938e229741bf5476.ktx2",
         "textures/bitumen_nor_gl_1k-6b50d9db216fb51d.ktx2",
-        "textures/block-row-6-ao-b8d3e899448f1c56.ktx2",
+        "textures/block-row-6-ao-fefb7ef859ccfec6.ktx2",
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
@@ -24949,13 +24949,13 @@
       "lod": [
         {
           "file": "models/block-row-6-lod1.glb",
-          "screen": 0.176,
-          "triangles": 1357,
+          "screen": 0.1759,
           "tone": [
-            0.909,
-            0.891,
-            0.854
-          ]
+            0.941,
+            0.919,
+            0.882
+          ],
+          "triangles": 1357
         }
       ],
       "far": {
@@ -24981,9 +24981,9 @@
           21.19
         ],
         "tone": [
-          0.742,
-          0.742,
-          0.733
+          0.773,
+          0.771,
+          0.755
         ]
       },
       "cellar": {
@@ -25058,7 +25058,7 @@
         "textures/bitumen_arm_1k-b3fde9722f170cfc.ktx2",
         "textures/bitumen_diff_1k-938e229741bf5476.ktx2",
         "textures/bitumen_nor_gl_1k-6b50d9db216fb51d.ktx2",
-        "textures/block-row-6-end-w-ao-0be44b5b0908f595.ktx2",
+        "textures/block-row-6-end-w-ao-78abe34881557cbd.ktx2",
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
@@ -25071,13 +25071,13 @@
       "lod": [
         {
           "file": "models/block-row-6-end-w-lod1.glb",
-          "screen": 0.176,
-          "triangles": 1699,
+          "screen": 0.1759,
           "tone": [
-            0.911,
-            0.888,
-            0.841
-          ]
+            0.94,
+            0.92,
+            0.877
+          ],
+          "triangles": 1699
         }
       ],
       "far": {
@@ -25103,9 +25103,9 @@
           21.19
         ],
         "tone": [
-          0.728,
-          0.722,
-          0.704
+          0.757,
+          0.754,
+          0.737
         ]
       },
       "cellar": {
@@ -25180,7 +25180,7 @@
         "textures/bitumen_arm_1k-b3fde9722f170cfc.ktx2",
         "textures/bitumen_diff_1k-938e229741bf5476.ktx2",
         "textures/bitumen_nor_gl_1k-6b50d9db216fb51d.ktx2",
-        "textures/block-row-6-end-e-ao-72396ae1f056ad88.ktx2",
+        "textures/block-row-6-end-e-ao-1c52e50966c9319c.ktx2",
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
@@ -25193,13 +25193,13 @@
       "lod": [
         {
           "file": "models/block-row-6-end-e-lod1.glb",
-          "screen": 0.176,
-          "triangles": 1699,
+          "screen": 0.1759,
           "tone": [
-            0.887,
-            0.867,
-            0.822
-          ]
+            0.943,
+            0.921,
+            0.88
+          ],
+          "triangles": 1699
         }
       ],
       "far": {
@@ -25225,9 +25225,9 @@
           21.19
         ],
         "tone": [
-          0.693,
-          0.693,
-          0.682
+          0.743,
+          0.743,
+          0.73
         ]
       },
       "cellar": {
@@ -25302,7 +25302,7 @@
         "textures/bitumen_arm_1k-b3fde9722f170cfc.ktx2",
         "textures/bitumen_diff_1k-938e229741bf5476.ktx2",
         "textures/bitumen_nor_gl_1k-6b50d9db216fb51d.ktx2",
-        "textures/block-row-6-ends-ao-0679a9d5926ccafd.ktx2",
+        "textures/block-row-6-ends-ao-56bebe453dc44604.ktx2",
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
@@ -25315,13 +25315,13 @@
       "lod": [
         {
           "file": "models/block-row-6-ends-lod1.glb",
-          "screen": 0.176,
-          "triangles": 2041,
+          "screen": 0.1759,
           "tone": [
-            0.89,
-            0.863,
-            0.807
-          ]
+            0.931,
+            0.906,
+            0.857
+          ],
+          "triangles": 2041
         }
       ],
       "far": {
@@ -25347,9 +25347,9 @@
           21.19
         ],
         "tone": [
-          0.69,
-          0.685,
-          0.667
+          0.73,
+          0.725,
+          0.707
         ]
       },
       "cellar": {
@@ -25421,7 +25421,7 @@
         "city"
       ],
       "textures": [
-        "textures/block-corner-4-ao-9b76df0dd140d8aa.ktx2",
+        "textures/block-corner-4-ao-3b64f0f4ab59a966.ktx2",
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
@@ -25437,12 +25437,12 @@
         {
           "file": "models/block-corner-4-lod1.glb",
           "screen": 0.1477,
-          "triangles": 745,
           "tone": [
-            0.942,
-            0.898,
-            0.853
-          ]
+            0.95,
+            0.923,
+            0.896
+          ],
+          "triangles": 745
         }
       ],
       "far": {
@@ -25468,9 +25468,9 @@
           15.08
         ],
         "tone": [
-          0.899,
-          0.825,
-          0.744
+          0.907,
+          0.846,
+          0.789
         ]
       },
       "cellar": {
@@ -25550,7 +25550,7 @@
         "textures/bitumen_arm_1k-b3fde9722f170cfc.ktx2",
         "textures/bitumen_diff_1k-938e229741bf5476.ktx2",
         "textures/bitumen_nor_gl_1k-6b50d9db216fb51d.ktx2",
-        "textures/block-corner-6-ao-d54d19bb5b7c1f0b.ktx2",
+        "textures/block-corner-6-ao-bd50e65fcd396161.ktx2",
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
@@ -25563,13 +25563,13 @@
       "lod": [
         {
           "file": "models/block-corner-6-lod1.glb",
-          "screen": 0.176,
-          "triangles": 1051,
+          "screen": 0.1759,
           "tone": [
-            0.972,
-            0.954,
-            0.921
-          ]
+            0.987,
+            0.971,
+            0.943
+          ],
+          "triangles": 1051
         }
       ],
       "far": {
@@ -25595,9 +25595,9 @@
           21.31
         ],
         "tone": [
-          0.757,
-          0.771,
-          0.771
+          0.775,
+          0.787,
+          0.791
         ]
       },
       "cellar": {
@@ -26020,7 +26020,7 @@
         "textures/exterior_wall_cladding_03_arm_1k-4a81420272d78296.ktx2",
         "textures/exterior_wall_cladding_03_diff_1k-f0153c809e3b6579.ktx2",
         "textures/exterior_wall_cladding_03_nor_gl_1k-a62bb6cb3a6f9903.ktx2",
-        "textures/hall-flat-ao-5e96805182d5555f.ktx2",
+        "textures/hall-flat-ao-025f107df067559d.ktx2",
         "textures/painted_metal_shutter_arm_1k-a49a58fb1c43fc61.ktx2",
         "textures/painted_metal_shutter_diff_1k-x1.20-1.20-1.20-aae0e69c49c5ecc5.ktx2",
         "textures/painted_metal_shutter_nor_gl_1k-a54dc6ca198b7565.ktx2"
@@ -26029,12 +26029,12 @@
         {
           "file": "models/hall-flat-lod1.glb",
           "screen": 0.1683,
-          "triangles": 508,
           "tone": [
-            0.837,
-            0.8,
-            0.797
-          ]
+            0.846,
+            0.833,
+            0.814
+          ],
+          "triangles": 508
         }
       ],
       "far": {
@@ -26060,9 +26060,9 @@
           6.79
         ],
         "tone": [
-          1.094,
-          1.084,
-          0.995
+          1.128,
+          1.114,
+          1.049
         ]
       },
       "cellar": {
@@ -26149,7 +26149,7 @@
         "textures/corrugated_iron_02_arm_1k-60a1505dda488eae.ktx2",
         "textures/corrugated_iron_02_diff_1k-cf538ab563d45635.ktx2",
         "textures/corrugated_iron_02_nor_gl_1k-9c68bc1041ab2f60.ktx2",
-        "textures/industrial-hall-ao-b0df29f8fa0fe270.ktx2",
+        "textures/industrial-hall-ao-48572bf4601224d0.ktx2",
         "textures/painted_metal_shutter_arm_1k-a49a58fb1c43fc61.ktx2",
         "textures/painted_metal_shutter_diff_1k-x1.20-1.20-1.20-aae0e69c49c5ecc5.ktx2",
         "textures/painted_metal_shutter_nor_gl_1k-a54dc6ca198b7565.ktx2",
@@ -26160,13 +26160,13 @@
       "lod": [
         {
           "file": "models/industrial-hall-lod1.glb",
-          "screen": 0.3923,
-          "triangles": 803,
+          "screen": 0.3922,
           "tone": [
-            1.043,
-            1.039,
-            1.001
-          ]
+            1.046,
+            1.036,
+            1.013
+          ],
+          "triangles": 803
         }
       ],
       "far": {
@@ -26192,9 +26192,9 @@
           8.94
         ],
         "tone": [
-          1.202,
-          1.142,
-          1.155
+          1.188,
+          1.144,
+          1.17
         ]
       },
       "cellar": {
@@ -26220,7 +26220,7 @@
       "file": "models/school.glb",
       "triangles": 8834,
       "footprint": 20.9,
-      "height": 14,
+      "height": 14.0,
       "box": [
         0,
         1.3,
@@ -26272,18 +26272,18 @@
         "textures/painted_plaster_wall_diff_1k-x1.25-1.30-1.33-b4d567c6c407aabb.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.28-1.15-0.88-1ce717bfc1a53a40.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2",
-        "textures/school-ao-f0f2246e966382e1.ktx2"
+        "textures/school-ao-ed71d08bb5099c98.ktx2"
       ],
       "lod": [
         {
           "file": "models/school-lod1.glb",
-          "screen": 0.2585,
-          "triangles": 1823,
+          "screen": 0.2586,
           "tone": [
-            0.739,
-            0.735,
-            0.708
-          ]
+            0.778,
+            0.77,
+            0.749
+          ],
+          "triangles": 1823
         }
       ],
       "far": {
@@ -26309,9 +26309,9 @@
           11.36
         ],
         "tone": [
-          0.931,
-          0.958,
-          0.961
+          0.993,
+          1.021,
+          1.032
         ]
       },
       "cellar": {
@@ -26337,7 +26337,7 @@
       "file": "models/town-hall.glb",
       "triangles": 7830,
       "footprint": 13.9,
-      "height": 22,
+      "height": 22.0,
       "box": [
         0,
         0.8,
@@ -26376,18 +26376,18 @@
         "textures/painted_plaster_wall_diff_1k-x1.27-1.18-0.98-6b55035ab0439f53.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.30-1.27-1.12-53c1cbd11ff13d44.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2",
-        "textures/town-hall-ao-30ba771bfd19d672.ktx2"
+        "textures/town-hall-ao-8ad927c114329eac.ktx2"
       ],
       "lod": [
         {
           "file": "models/town-hall-lod1.glb",
           "screen": 0.172,
-          "triangles": 1585,
           "tone": [
-            0.584,
-            0.596,
-            0.606
-          ]
+            0.592,
+            0.616,
+            0.642
+          ],
+          "triangles": 1585
         }
       ],
       "far": {
@@ -26413,9 +26413,9 @@
           12.54
         ],
         "tone": [
-          0.842,
-          0.78,
-          0.725
+          0.853,
+          0.817,
+          0.799
         ]
       },
       "cellar": {
@@ -26603,18 +26603,18 @@
         "textures/painted_plaster_wall_diff_1k-1b0e544759ecb9ab.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.27-1.18-0.98-6b55035ab0439f53.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2",
-        "textures/station-ao-562c02834e063766.ktx2"
+        "textures/station-ao-c233233a826cb3b2.ktx2"
       ],
       "lod": [
         {
           "file": "models/station-lod1.glb",
-          "screen": 0.162,
-          "triangles": 938,
+          "screen": 0.1621,
           "tone": [
-            0.583,
-            0.605,
-            0.67
-          ]
+            0.595,
+            0.628,
+            0.688
+          ],
+          "triangles": 938
         }
       ],
       "far": {
@@ -26640,9 +26640,9 @@
           8.26
         ],
         "tone": [
-          0.806,
-          0.652,
-          0.608
+          0.818,
+          0.68,
+          0.641
         ]
       },
       "cellar": {
@@ -26916,7 +26916,7 @@
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
-        "textures/kiosk-ao-5fcf476b42198ead.ktx2",
+        "textures/kiosk-ao-2432575e23ecd998.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.30-1.27-1.12-53c1cbd11ff13d44.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2"
@@ -26951,9 +26951,9 @@
           3
         ],
         "tone": [
-          0.494,
-          0.51,
-          0.554
+          0.493,
+          0.511,
+          0.555
         ]
       },
       "cellar": {
@@ -27140,18 +27140,18 @@
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.27-1.18-0.98-6b55035ab0439f53.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2",
-        "textures/shop-small-ao-c37a34c104f84f5f.ktx2"
+        "textures/shop-small-ao-29684ff7c90eee6a.ktx2"
       ],
       "lod": [
         {
           "file": "models/shop-small-lod1.glb",
-          "screen": 0.0583,
-          "triangles": 390,
+          "screen": 0.0581,
           "tone": [
-            0.84,
-            0.839,
-            0.843
-          ]
+            0.82,
+            0.827,
+            0.826
+          ],
+          "triangles": 390
         }
       ],
       "far": {
@@ -27177,9 +27177,9 @@
           4.57
         ],
         "tone": [
-          0.906,
-          0.952,
-          1.018
+          0.885,
+          0.938,
+          0.999
         ]
       },
       "cellar": {
@@ -27447,7 +27447,7 @@
         "textures/grey_roof_tiles_02_arm_1k-05f04e03d733b1e0.ktx2",
         "textures/grey_roof_tiles_02_diff_1k-37f008e2709a66d9.ktx2",
         "textures/grey_roof_tiles_02_nor_gl_1k-f90d34b6cdfc5563.ktx2",
-        "textures/outbuilding-ao-49084565a86a34e3.ktx2",
+        "textures/outbuilding-ao-6d17093b78def266.ktx2",
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.12-1.16-1.20-04a193d3fbbf74eb.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2"
@@ -27482,9 +27482,9 @@
           2.34
         ],
         "tone": [
-          1.243,
-          1.186,
-          1.091
+          1.248,
+          1.188,
+          1.093
         ]
       },
       "cellar": {
@@ -27547,7 +27547,7 @@
         "village"
       ],
       "textures": [
-        "textures/annex-ao-35a6a3ca72a82765.ktx2",
+        "textures/annex-ao-4dd8146ee84fcfb7.ktx2",
         "textures/brushed_concrete_arm_1k-4aa951769ae6e765.ktx2",
         "textures/brushed_concrete_diff_1k-8be8a6b0d5ec30c6.ktx2",
         "textures/brushed_concrete_nor_gl_1k-73325d844fd79777.ktx2",
@@ -27588,9 +27588,9 @@
           2.95
         ],
         "tone": [
-          0.864,
-          0.851,
-          0.824
+          0.872,
+          0.86,
+          0.836
         ]
       },
       "cellar": {
@@ -27789,18 +27789,18 @@
         "textures/painted_plaster_wall_arm_1k-6e6fed4afc738289.ktx2",
         "textures/painted_plaster_wall_diff_1k-x1.12-1.16-1.20-04a193d3fbbf74eb.ktx2",
         "textures/painted_plaster_wall_nor_gl_1k-be839d7581af7df8.ktx2",
-        "textures/shop-office-ao-8ac1ba524cf9050c.ktx2"
+        "textures/shop-office-ao-8143f3144c51492e.ktx2"
       ],
       "lod": [
         {
           "file": "models/shop-office-lod1.glb",
-          "screen": 0.135,
-          "triangles": 912,
+          "screen": 0.1351,
           "tone": [
-            0.814,
+            0.809,
             0.803,
-            0.781
-          ]
+            0.777
+          ],
+          "triangles": 912
         }
       ],
       "far": {
@@ -27826,9 +27826,9 @@
           15.92
         ],
         "tone": [
-          0.841,
-          0.868,
-          0.877
+          0.839,
+          0.866,
+          0.873
         ]
       },
       "cellar": {

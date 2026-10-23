@@ -102,7 +102,8 @@ class Kit:
         self.glass = Part(glass())
         self.door = Part(flat_material('door-anthracite', (0.08, 0.085, 0.09), 0.5, 0.3))
         self.metal = Part(flat_material('zinc', (0.55, 0.57, 0.58), 0.4, 0.8), smooth=True)
-        self.sill = Part(flat_material('sill-grey', (0.42, 0.43, 0.44), 0.5, 0.5))
+        # Sills matt like stone or concrete: half metal, they mirrored the sky and read blue in shade
+        self.sill = Part(flat_material('sill-grey', (0.42, 0.43, 0.44), 0.8, 0.0))
         self.shutter = Part(flat_material('shutter-grey', (0.5, 0.51, 0.52), 0.6, 0.3))
         self.extra = []
 
@@ -172,8 +173,9 @@ def window(kit, face, u, zb, w, h, reveal=0.14, shutter=0.0, split=True):
         face.box(kit.frames, u, -reveal + 0.022, zb + 0.05, 0.07, 0.03, h - 0.1)
     if shutter > 0:
         face.box(kit.shutter, u, -reveal + 0.05, zb + h * (1 - shutter), w - 0.02, 0.03, h * shutter)
-    # The sill's top 2 cm over the reveal's floor, over the frame's foot: level with the floor the two fought
-    face.box(kit.sill, u, (0.06 - reveal) / 2, zb - 0.03, w + 0.08, reveal + 0.08, 0.05)
+    # The sill's top 2 cm over the reveal's floor, over the frame's foot: level with the floor the two fought.
+    # Its faces are too thin for a texel of the occlusion (5 cm): baked, the sill came out near black
+    mark_ao_flat(kit.sill, face.box(kit.sill, u, (0.06 - reveal) / 2, zb - 0.03, w + 0.08, reveal + 0.08, 0.05))
 
 
 def door(kit, face, u, zb, w=1.1, h=2.15, reveal=0.16, side_light=True):
@@ -190,7 +192,7 @@ def applied_window(kit, face, u, zb, w, h):
     face.box(kit.glass, u, 0.065, zb + 0.07, w - 0.14, 0.02, h - 0.14)
     if w > 1.0:
         face.box(kit.frames, u, 0.08, zb + 0.05, 0.07, 0.02, h - 0.1)
-    face.box(kit.sill, u, 0.08, zb - 0.05, w + 0.08, 0.16, 0.05)
+    mark_ao_flat(kit.sill, face.box(kit.sill, u, 0.08, zb - 0.05, w + 0.08, 0.16, 0.05))
 
 
 def prism(part, poly, offset):
@@ -762,7 +764,7 @@ class Moved:
 
     def box(self, part, u, n, z, su, sn, sz):
         c = self.u * u + self.n * (self.depth / 2 + n) + self.off
-        box(part, c.x, c.y, z, su, sn, sz, self.face.angle)
+        return box(part, c.x, c.y, z, su, sn, sz, self.face.angle)
 
 
 def hall(name, w, d, h, wall_asset, wall_tint=(1.0, 1.0, 1.0), roof='flat', shop=False, doors=2, annex=False, lod=300):
