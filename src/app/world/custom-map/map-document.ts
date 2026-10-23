@@ -363,6 +363,11 @@ export interface MapMass {
    * outline's point k to point k + 1
    */
   shop?: number[];
+  /**
+   * Its entrance: a point on a wall of its outline (x, z): the ground floor
+   * shows its door there, the bay at it, and no other wall one. None: no door
+   */
+  door?: [number, number];
   /** The roof's colour (#rrggbb, OSM `roof:colour`) and covering (`roof:material`); by the facade when missing */
   roofTint?: string;
   roofCover?: MapMassCover;

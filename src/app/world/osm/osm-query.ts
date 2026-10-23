@@ -22,7 +22,7 @@ import {
  * so a frame kept from an older query is downloaded again and has what the
  * world reads now. Raise it whenever the query asks for more.
  */
-export const OSM_QUERY_VERSION = 4;
+export const OSM_QUERY_VERSION = 5;
 
 /**
  * Ways and multipolygons the world reads, by key: the land, water, roads and
@@ -52,7 +52,9 @@ const POINT_AMENITIES = [
  * Tagged points the world reads. Not every `amenity` (parking spaces,
  * vending machines and car park entrances are most of them in a city and
  * show nothing), and no memorial stones set into the pavement
- * (`memorial=stolperstein`): the world puts nothing there.
+ * (`memorial=stolperstein`): the world puts nothing there. Entrances on
+ * building outlines (`entrance`) give a house its front and its footpath
+ * (convert/buildings.ts, convert/plots.ts).
  */
 const NODE_FILTERS = [
   '["natural"="tree"]',
@@ -75,6 +77,7 @@ const NODE_FILTERS = [
   '["seamark:type"]',
   '["waterway"~"^(lock_gate|weir|dam)$"]',
   '["advertising"~"^(column|billboard)$"]',
+  '["entrance"]',
 ] as const;
 
 /**

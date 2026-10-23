@@ -856,6 +856,20 @@ eingefrorenen Probe (Katalog-Modelle, keine Objekte auf Straßen oder in der Luf
     dem Vorland), sonst entfällt er (`osm-parse.ts`); geschnitten stand er halbiert am Rand.
 - **Gruppen:** alle Modelle und Mauern eines Grundrisses tragen `group: osm-b<OSM-Id>`, der Editor verschiebt sie
   zusammen.
+- **Eingang und Fußweg (2026-10-23):** die Abfrage holt die Eingänge der Umrisse (`entrance`, Abfrage-Version 5).
+  Ein gemappter Eingang (`main` vor `yes`, `home`, `staircase`; nicht `service`, Ausgänge, Notausgänge) auf dem
+  Umriss gibt dem Teil, auf dem er liegt, die Front, sonst die Straßenseite; Wohnhäuser behalten die Front an der
+  Straße, wo ein Modell so passt. Die Tür eines Gebäudes (`BuildingResult.doors`): am Eingang; sonst die Tür seines
+  Modells, die ein paar Meter vor ihr der Straße am nächsten liegt (Katalog `doors`, gemessen aus den Türteilen der
+  Modelle, `tools/map-assets/measure_doors.mjs`; ohne: die Mitte der Front); ein hochgezogener Bau bekommt sie auf
+  einer Wand seines Umrisses (Mitte oder 1,2 m vor einer Ecke, die nach außen der Straße am nächsten ist) als
+  `MapMass.door`, nur dort zeichnet sein Erdgeschoss eine Tür. Garagen, Carports, Parkhäuser, Trafos, Tore und
+  Denkmäler haben keine, außer OSM mappt eine. Der Fußweg (`convert/plots.ts`, Platten 1,2 m) geht 1 m gerade aus der
+  Tür und dann auf kürzestem Weg unter den Rand des Gehwegs; keiner, wo die Straße hinter der Tür liegt, die Tür
+  weniger als 1 m vom Gehweg steht, die Einfahrt sie bedient, ein Weg gemappt ist oder er durch ein anderes Gebäude
+  oder über einen Weg liefe. Erlenbach, Miltenberg, Oberbergen (Rohdaten 2026-10-23): Gebäude mit Tür 2 133, 2 903, 847,
+  davon am gemappten Eingang 1, 145, 1; Fußwege 1 198, 1 266, 466 (aus der Frontmitte) → 1 154, 1 225, 360 (ab der
+  Tür).
 
 ### Messungen O4 (2026-10-15)
 

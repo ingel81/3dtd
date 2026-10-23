@@ -3,7 +3,7 @@ import { createMapDocument } from '../../custom-map/map-create';
 import type { CustomMapDocument } from '../../custom-map/map-document';
 import { readWeights } from '../../../map-ops/paint-ops';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
-import { BACK_MATERIAL, DRIVE_MATERIAL, FRONT_MATERIAL, layPlots } from './plots';
+import { BACK_MATERIAL, DRIVE_MATERIAL, FRONT_MATERIAL, layPlots, PATH_MATERIAL } from './plots';
 import { RAIL_GROUND, type RailPlan } from './rails';
 
 const square = (id: number, x0: number, y0: number, x1: number, y1: number, tags: Record<string, string>): OsmArea => ({
@@ -69,6 +69,24 @@ describe('layPlots', () => {
     mapped.doc.paths.nodes.push({ id: 'c', x: 7.9, y: 0 }, { id: 'd', x: 7.9, y: 20 }, { id: 'f', x: -7.9, y: 0 }, { id: 'g', x: -7.9, y: 20 });
     mapped.doc.paths.edges.push({ id: 'e2', a: 'c', b: 'd', width: 3, kind: 'road', street: 'service', surface: 'asphalt' }, { id: 'e3', a: 'f', b: 'g', width: 3, kind: 'road', street: 'service', surface: 'asphalt' });
     expect(layPlots(mapped.doc, mapped.features, { costOf: () => 1 }).driveways).toBe(0);
+  });
+
+  it('lays the footpath from the door a step out of the wall straight to the pavement, not from the middle of the front', () => {
+    const { doc, features } = street([house(1, 0)]);
+    // The model's door on the front, 3.5 m off its middle (where the driveway is not)
+    const doors = new Map([[1, { x: -3.5, y: 14, nx: 0, ny: -1 }]]);
+    expect(layPlots(doc, features, { costOf: () => 1, doors }).footpaths).toBe(1);
+    const path = doc.surfaces!.find((s) => s.material === PATH_MATERIAL)!;
+    const xs = path.outer.map((p) => p.x);
+    const ys = path.outer.map((p) => p.y);
+    // 1.2 m wide round the door's x, from the wall to under the pavement's edge (4.8 m)
+    expect(Math.min(...xs)).toBeCloseTo(-4.1, 1);
+    expect(Math.max(...xs)).toBeCloseTo(-2.9, 1);
+    expect(Math.max(...ys)).toBeCloseTo(14, 1);
+    expect(Math.min(...ys)).toBeCloseTo(4.5, 1);
+    // A door turned away from the street: no way round the house
+    const back = street([house(1, 0)]);
+    expect(layPlots(back.doc, back.features, { costOf: () => 1, doors: new Map([[1, { x: 0, y: 23, nx: 0, ny: 1 }]]) }).footpaths).toBe(0);
   });
 
   it('runs a boundary between two plots, hedges on it within the budget, none along the walls', () => {

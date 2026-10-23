@@ -6,6 +6,7 @@ import { fitSplatMaps, type CustomMapDocument, type MapObject, type MapPoint } f
 import { SCENE_BUDGET } from '../../custom-map/render/objects/scene-cost';
 import { isGroundBuilding } from '../building-tags';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
+import type { BuildingDoor } from './buildings';
 import { LineClearance } from './line-clear';
 import { RAIL_GROUND, type RailPlan } from './rails';
 import { fillRings, stampLine, type RasterGrid } from './raster';
@@ -23,10 +24,11 @@ import { fillRings, stampLine, type RasterGrid } from './raster';
  * - a driveway of pavers (a surface, render/surfaces/) runs from the street
  *   along the side of the house with room for it to past its front, where
  *   no way is mapped there already;
- * - a footpath of slabs runs from the middle of the front, where the door
- *   of its model is (convert/buildings.ts turns a house's front to the
- *   street), straight to the pavement, unless a way or the driveway is there;
- *   no fence or hedge stands across it;
+ * - a footpath of slabs runs from its door (convert/buildings.ts: at its
+ *   mapped entrance, else the door of its model or of its raised walls
+ *   nearest the street) a step out of the wall and on straight to the
+ *   pavement, unless a way or the driveway is there, nor through a building
+ *   or over a road; no fence or hedge stands across it;
  * - hedges stand on the boundaries at the sides and the back, a picket fence
  *   along some front gardens, thinned by a hash and held to PLOTS_BUDGET_SHARE
  *   of the scene budget; none reaches over a road, a path or a track bed
@@ -53,9 +55,11 @@ const DRIVE_WALL_GAP = 0.4;
 const DRIVE_ON_PLOT = 0.85;
 export const DRIVE_MATERIAL = 'pavers';
 export const PATH_MATERIAL = 'paving';
-/** A footpath's width, and how near the driveway's middle may come to its own before the driveway serves the door */
+/** A footpath's width, and how near the driveway's middle may come to the door before the driveway serves it */
 const PATH_WIDTH = 1.2;
 const PATH_BESIDE_DRIVE = 2.6;
+/** Metres a footpath leaves its door straight out of the wall before it turns to the street */
+const PATH_STEP_OUT = 1;
 export const FRONT_MATERIAL = 'grass-lush';
 export const BACK_MATERIAL = 'grass-leafy';
 /** Weight of the back garden's grass over what the ground has there */
@@ -88,6 +92,8 @@ export interface PlotOptions {
   budget?: number;
   /** The railway: no plot crosses its beds */
   rails?: RailPlan;
+  /** Each house's door by its area's id (convert/buildings.ts): its footpath starts there; else the middle of its front */
+  doors?: ReadonlyMap<number, BuildingDoor>;
 }
 
 export interface PlotReport {
@@ -207,36 +213,53 @@ export function layPlots(doc: CustomMapDocument, features: OsmFeatures, options:
 
   // Driveways: along the side of the house with room, from the street's edge to past the front; none over a tree
   const surfaces = (doc.surfaces ??= []);
-  /** Where each house's driveway runs, across its front (driveway's middle off the house's axis) */
-  const drives = new Map<number, number>();
+  /** Where each house's driveway runs: its middle line */
+  const drives = new Map<number, [MapPoint, MapPoint]>();
   if (!options.hasMaterial || options.hasMaterial(DRIVE_MATERIAL)) {
     houses.forEach((h, index) => {
       const drive = driveway(h, index, label, dist, grid, roads);
       if (!drive) return;
-      drives.set(index, drive.offset);
-      if (drive.outer.some(cleared)) return;
-      const [a, b, c] = drive.outer;
+      const [q0, q1, q2, q3] = drive;
+      drives.set(index, [{ x: (q0.x + q3.x) / 2, y: (q0.y + q3.y) / 2 }, { x: (q1.x + q2.x) / 2, y: (q1.y + q2.y) / 2 }]);
+      if (drive.some(cleared)) return;
+      const [a, b, c] = drive;
       for (let u = 0; u <= 6; u++) {
         for (let v = 0; v <= 2; v++) {
           if (occupied({ x: a.x + ((b.x - a.x) * u) / 6 + ((c.x - b.x) * v) / 2, y: a.y + ((b.y - a.y) * u) / 6 + ((c.y - b.y) * v) / 2 }, STANDING)) return;
         }
       }
-      surfaces.push({ id: `plot-drive-${h.area.id}`, material: DRIVE_MATERIAL, outer: drive.outer });
+      surfaces.push({ id: `plot-drive-${h.area.id}`, material: DRIVE_MATERIAL, outer: drive });
       report.driveways++;
     });
   }
 
-  // Footpaths: from the door in the middle of the front straight to the pavement
+  // Footpaths: from the door a step out of the wall, then straight to the pavement
   const paths: [MapPoint, MapPoint][] = [];
   const pathMaterial = !options.hasMaterial || options.hasMaterial(PATH_MATERIAL) ? PATH_MATERIAL : DRIVE_MATERIAL;
+  /** What a footpath may not cross: a road, another building, its own house past its door */
+  const blocked = (q: MapPoint): boolean => {
+    const i = Math.round(q.x - grid.origin);
+    const j = Math.round(q.y - grid.origin);
+    if (i < 0 || j < 0 || i >= n || j >= n) return true;
+    const k = j * n + i;
+    return label[k] === BARRIER || (dist[k] <= 0 && label[k] >= 0);
+  };
   houses.forEach((h, index) => {
+    const door = options.doors?.get(h.area.id) ?? frontDoor(h);
+    if (!door) return;
     const drive = drives.get(index);
-    if (drive !== undefined && Math.abs(drive) < PATH_BESIDE_DRIVE) return;
-    const path = footpath(h, roads);
+    if (drive && segmentDistance(door, drive[0], drive[1]) < PATH_BESIDE_DRIVE) return;
+    const path = footpath(door, roads);
     if (!path || path.outer.some(cleared)) return;
-    for (let u = 0; u <= 4; u++) if (occupied({ x: path.from.x + ((path.to.x - path.from.x) * u) / 4, y: path.from.y + ((path.to.y - path.from.y) * u) / 4 }, STANDING * 0.6)) return;
+    // Its line from a step out of the door to just short of the pavement: nothing standing there, no road or building
+    const [, p1, p2] = path.line;
+    const span = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+    for (let s = 0.5; s <= span - 1.5; s += 0.5) {
+      const q = { x: p1.x + ((p2.x - p1.x) * s) / span, y: p1.y + ((p2.y - p1.y) * s) / span };
+      if (occupied(q, STANDING * 0.6) || blocked(q)) return;
+    }
     surfaces.push({ id: `plot-path-${h.area.id}`, material: pathMaterial, outer: path.outer });
-    paths.push([path.from, path.to]);
+    paths.push([path.line[0], p1], [p1, p2]);
     report.footpaths++;
   });
   /** Whether a piece of fence or hedge would stand across a footpath */
@@ -368,28 +391,54 @@ function paintGardens(doc: CustomMapDocument, label: Int32Array, dist: Float32Ar
 }
 
 /** A house's driveway (its outline), null where none fits or a way runs there already */
-/**
- * A house's footpath: from its front's middle (the door) along its way to the
- * street to just under the pavement's edge, PATH_WIDTH wide; null without a
- * street near, for a front on the street, or where a way is mapped there
- */
-function footpath(h: House, roads: EdgeIndex): { outer: MapPoint[]; from: MapPoint; to: MapPoint } | null {
+/** A house's door where nothing says where it is: the middle of its front towards its street; null without one near */
+function frontDoor(h: House): BuildingDoor | null {
   const d = h.d;
   if (!d || h.street > STREET_REACH) return null;
-  const s0 = h.front + 0.05;
-  const s1 = h.street + 0.3;
-  if (s1 - s0 < 1.5) return null;
-  const e = { x: -d.y, y: d.x };
-  const at = (s: number, o: number): MapPoint => ({ x: h.c.x + d.x * s + e.x * o, y: h.c.y + d.y * s + e.y * o });
-  const from = at(s0, 0);
-  const to = at(s1, 0);
-  const near = roads.nearest(at((s0 + h.street) / 2, 0), PATH_WIDTH * 2);
-  if (near && near.dist < near.edge.width / 2 + PATH_WIDTH) return null;
+  return { x: h.c.x + d.x * h.front, y: h.c.y + d.y * h.front, nx: d.x, ny: d.y };
+}
+
+/**
+ * A footpath from a door: PATH_STEP_OUT straight out of its wall, then
+ * straight to just under the edge of the nearest street's pavement,
+ * PATH_WIDTH wide; null without a street near, for a door turned away from
+ * it, too short a way, or where a way is mapped there
+ */
+function footpath(door: BuildingDoor, roads: EdgeIndex): { outer: MapPoint[]; line: [MapPoint, MapPoint, MapPoint] } | null {
+  const p0 = { x: door.x, y: door.y };
+  const p1 = { x: door.x + door.nx * PATH_STEP_OUT, y: door.y + door.ny * PATH_STEP_OUT };
+  const hit = roads.nearest(p1, STREET_REACH);
+  if (!hit || hit.dist < 1e-3) return null;
+  const dx = (hit.point.x - p1.x) / hit.dist;
+  const dy = (hit.point.y - p1.y) / hit.dist;
+  // The street lies behind the door: no way round the house
+  if (dx * door.nx + dy * door.ny < -0.2) return null;
+  const reach = hit.dist - hit.edge.width / 2 - (hit.edge.sidewalk ?? 0) + 0.3;
+  if (reach < 1) return null;
+  const p2 = { x: p1.x + dx * reach, y: p1.y + dy * reach };
+  const near = roads.nearest({ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }, PATH_WIDTH * 2);
+  if (near && near.edge !== hit.edge && near.dist < near.edge.width / 2 + PATH_WIDTH) return null;
+  // Its two edges, mitred where it turns
   const w = PATH_WIDTH / 2;
-  const quad = [at(s0, -w), at(s1, -w), at(s1, w), at(s0, w)];
-  const area = quad.reduce((s, p, k) => s + p.x * quad[(k + 1) % 4].y - quad[(k + 1) % 4].x * p.y, 0);
-  const outer = (area < 0 ? quad.reverse() : quad).map((p) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 }));
-  return { outer, from, to };
+  const left = (x: number, y: number) => ({ x: -y, y: x });
+  const n0 = left(door.nx, door.ny);
+  const n2 = left(dx, dy);
+  const mx = n0.x + n2.x;
+  const my = n0.y + n2.y;
+  const ml = Math.hypot(mx, my);
+  const miter = ml > 0.3 ? Math.min(2, 2 / ml) : 1;
+  const n1 = ml > 0.3 ? { x: (mx / ml) * miter, y: (my / ml) * miter } : n2;
+  const ring = [
+    { x: p0.x + n0.x * w, y: p0.y + n0.y * w },
+    { x: p1.x + n1.x * w, y: p1.y + n1.y * w },
+    { x: p2.x + n2.x * w, y: p2.y + n2.y * w },
+    { x: p2.x - n2.x * w, y: p2.y - n2.y * w },
+    { x: p1.x - n1.x * w, y: p1.y - n1.y * w },
+    { x: p0.x - n0.x * w, y: p0.y - n0.y * w },
+  ];
+  const area = ring.reduce((s, p, k) => s + p.x * ring[(k + 1) % ring.length].y - ring[(k + 1) % ring.length].x * p.y, 0);
+  const outer = (area < 0 ? ring.reverse() : ring).map((p) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 }));
+  return { outer, line: [p0, p1, p2] };
 }
 
 /** Distance from p to the segment a-b */
@@ -400,7 +449,7 @@ function segmentDistance(p: MapPoint, a: MapPoint, b: MapPoint): number {
   return Math.hypot(p.x - a.x - dx * t, p.y - a.y - dy * t);
 }
 
-function driveway(h: House, index: number, label: Int32Array, dist: Float32Array, grid: RasterGrid, roads: EdgeIndex): { outer: MapPoint[]; offset: number } | null {
+function driveway(h: House, index: number, label: Int32Array, dist: Float32Array, grid: RasterGrid, roads: EdgeIndex): MapPoint[] | null {
   const d = h.d;
   if (!d) return null;
   const e = { x: -d.y, y: d.x };
@@ -435,7 +484,7 @@ function driveway(h: House, index: number, label: Int32Array, dist: Float32Array
   // Counter-clockwise seen from above (map x east, y north)
   const quad = [at(s1, best.o - w), at(s0, best.o - w), at(s0, best.o + w), at(s1, best.o + w)];
   const area = quad.reduce((s, p, k) => s + p.x * quad[(k + 1) % 4].y - quad[(k + 1) % 4].x * p.y, 0);
-  return { outer: (area < 0 ? quad.reverse() : quad).map((p) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 })), offset: best.o };
+  return (area < 0 ? quad.reverse() : quad).map((p) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 }));
 }
 
 interface Run {

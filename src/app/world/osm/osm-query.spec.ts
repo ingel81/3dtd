@@ -18,7 +18,7 @@ describe('OSM world query', () => {
     const q = osmWorldQuery(osmQueryBox(49.7, 9.26, 2400, 100));
     for (const key of ['shop', 'tourism', 'historic', 'craft', 'office', 'healthcare', 'area:highway', 'building:part']) expect(q).toContain(`way["${key}"];`);
     expect(q).toContain('way["place"="square"];');
-    for (const node of ['node["shop"];', 'node["playground"];', 'node["seamark:type"];', 'node["public_transport"="station"];', 'node["healthcare"];']) expect(q).toContain(node);
+    for (const node of ['node["entrance"];', 'node["shop"];', 'node["playground"];', 'node["seamark:type"];', 'node["public_transport"="station"];', 'node["healthcare"];']) expect(q).toContain(node);
     expect(q).toContain('node["historic"]["memorial"!="stolperstein"];');
     expect(q).toMatch(/node\["railway"~"\^\([^)]*level_crossing[^)]*\)\$"\];/);
     expect(q).toMatch(/node\["amenity"~"\^\([^)]*\brestaurant\b[^)]*\)\$"\];/);

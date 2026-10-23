@@ -73,6 +73,10 @@ export function massProblem(m: unknown): MapText | null {
   if (shop !== undefined && (!Array.isArray(shop) || !shop.every((k) => Number.isInteger(k) && k >= 0 && k < (rings[0] as unknown[]).length / 2))) {
     return { key: 'massShop' };
   }
+  const door = r['door'];
+  if (door !== undefined && (!Array.isArray(door) || door.length !== 2 || !door.every(finite) || door.some((v) => Math.abs(v as number) > 2000))) {
+    return { key: 'massDoor' };
+  }
   const openings = r['openings'];
   if (openings !== undefined && (!Array.isArray(openings) || openings.length === 0 || openings.length > MASS_MAX_OPENINGS || !openings.every(isOpening))) {
     return { key: 'massOpenings' };

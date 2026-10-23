@@ -34,6 +34,11 @@
  *    to its floor, a yard and a bank beyond, a retaining wall at the yard's
  *    edge only where the bank would stand higher than RETAINING_FROM on a side
  *    facing up the hill (cutSlope). Never under a road or in water.
+ * 7. Door: an entrance OSM maps on the outline (EntranceIndex) gives its part
+ *    the front; the building's door (`doors`, the footpath's start in
+ *    plots.ts) is there, else its model's door nearest the street (the
+ *    catalogue's `doors`), on a raised building the wall point nearest the
+ *    street (MapMass.door, its only door). Kinds without one (NO_DOOR) none.
  */
 import { heightAt } from '../../../map-ops/grid';
 import type { CustomMapDocument, MapObject, MapPoint } from '../../custom-map/map-document';
@@ -70,15 +75,16 @@ import { toModel } from '../../custom-map/object-ground';
 import { CLIP_KEEP, CLIP_LEAST, clipOffRoads, isDrawnPart, raiseMass, sharedWalls, shareWalls, type OsmPart } from './building-mass';
 import { findOldTown } from './old-town';
 import type { ImportNote } from '../../import-notes';
+import type { CatalogDoor } from '../../custom-map/render/asset-catalog';
 
 /** A catalogue entry as far as the buildings read it */
-export type BuildingCatalogEntry = CostEntry & { id: string; footprint: number; box?: GroundBox };
+export type BuildingCatalogEntry = CostEntry & { id: string; footprint: number; box?: GroundBox; doors?: readonly CatalogDoor[] };
 
 /** The catalogue entries the buildings read (their models and the retaining wall), slim for the worker's message */
 export function buildingCatalog(objects: readonly (BuildingCatalogEntry & { id: string })[]): BuildingCatalogEntry[] {
   return objects
     .filter((o) => BUILDING_MODELS[o.id] || o.id === RETAINING_ASSET || o.id === MASS_ASSET)
-    .map(({ id, category, height, file, triangles, lod, far, effects, footprint, box }) => ({ id, category, height, file, triangles, lod, far, effects, footprint, box }));
+    .map(({ id, category, height, file, triangles, lod, far, effects, footprint, box, doors }) => ({ id, category, height, file, triangles, lod, far, effects, footprint, box, doors }));
 }
 
 export interface BuildingOptions {
@@ -100,6 +106,9 @@ export interface BuildingReport {
   /** Footprints that stand with at least one model, and the models placed */
   placed: number;
   objects: number;
+  /** Buildings standing with a door, and of them those whose door is at the entrance OSM maps */
+  doors: number;
+  entrances: number;
   /** Footprints cut into several rectangles, and laid as rows of more than one model */
   split: number;
   /** Footprints raised from their own outline (no model covers them well enough, building-mass.ts) */
@@ -162,8 +171,18 @@ export interface CoverageReport {
   overhang10: number;
 }
 
+/** A building's door: the middle of its foot on the wall (map metres) and the way out of it (unit) */
+export interface BuildingDoor {
+  x: number;
+  y: number;
+  nx: number;
+  ny: number;
+}
+
 export interface BuildingResult {
   objects: MapObject[];
+  /** Each standing building's door, by its area's id (OsmArea.id): its footpath starts there (plots.ts) */
+  doors: Map<number, BuildingDoor>;
   report: BuildingReport;
   warnings: ImportNote[];
   /** The outer rings (of `features.areas`) left out and why, as `report.dropped` counts them: for osmFootprints */
@@ -190,6 +209,20 @@ const MAX_FIT_ERROR = 0.5;
 const BLOCK_FIT_ERROR = 1.2;
 /** Kinds whose model keeps its front, the door, on the street whenever a model fits that way */
 const DOOR_ON_STREET: ReadonlySet<BuildingKind> = new Set(['house', 'semi', 'terrace']);
+
+/**
+ * Entrances OSM maps on building outlines (`entrance`), by how much they say
+ * where the door is: the main entrance first; service, exits and emergency
+ * doors give no front
+ */
+const ENTRANCE_RANKS: Readonly<Record<string, number>> = { main: 0, yes: 1, home: 1, staircase: 1 };
+/** Metres an entrance may lie off its building's outline (the node is on it; a cut outline moved it) */
+const ENTRANCE_REACH = 1;
+/** Metres a door of a raised building keeps from the corners of its wall, and how long that wall is at least */
+const DOOR_CORNER = 1.2;
+const DOOR_WALL = DOOR_CORNER * 2 + 0.2;
+/** Kinds with no door to walk in by (a carport, a car park, a transformer): no door drawn, no footpath, unless OSM maps one */
+const NO_DOOR: ReadonlySet<BuildingKind> = new Set(['garage', 'carport', 'canopy', 'parking', 'transformer', 'gate', 'monument']);
 
 /** What a front turned away from the street costs a fit */
 const ACROSS_PENALTY = 0.15;
@@ -298,6 +331,8 @@ interface Footprint {
   tint: string | null;
   /** A ruin in OSM: it starts the run fallen (MapObject.damage 3, the ruins of destroyed buildings) */
   ruin: boolean;
+  /** The entrance OSM maps on its outline (EntranceIndex), null for none */
+  entrance: MapPoint | null;
 }
 
 /**
@@ -328,6 +363,8 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     footprints: 0,
     placed: 0,
     objects: 0,
+    doors: 0,
+    entrances: 0,
     split: 0,
     masses: 0,
     withParts: 0,
@@ -389,6 +426,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
   const partsOf = partsByOutline(features);
   // The covered ways through buildings: those buildings raised from their outline, their walls opened (building-openings.ts)
   const coveredWays = new CoveredWays(doc);
+  const entrances = new EntranceIndex(features.points);
   let seen = 0;
   for (const area of features.areas) {
     if (options.onShare && ++seen % 256 === 0) options.onShare((0.9 * seen) / features.areas.length);
@@ -426,8 +464,11 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       const levels = buildingLevels(area.tags);
       const placements: Placement[] = [];
       const took = new Set<BuildingKind | null>();
+      // A mapped entrance gives the part it is on its front
+      const entrance = entrances.on(outer);
+      const entered = entrance ? parts.reduce((best, part) => (rectReach(part, entrance) < rectReach(best, entrance) ? part : best), parts[0]) : null;
       for (const part of parts) {
-        const laid = layPart(part, kind, levels, roads, known, area.id, report);
+        const laid = layPart(part, kind, levels, roads, known, area.id, report, part === entered ? entrance : null);
         took.add(laid?.kind ?? null);
         if (laid) placements.push(...laid.placements);
         // The catalogue lacks this kind at this size: the part took another kind's models, or none (a landmark
@@ -489,7 +530,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
             report.parts += raised.mass.parts.length;
           }
           const cost = costOf(MASS_ASSET, catalog, doc) + massTriangles(raised.mass);
-          footprints.push({ id: area.id, ring: outer, kind, area: ringA, centre, placements: [pl], cost, tint: raised.tint, ruin: role.ruin });
+          footprints.push({ id: area.id, ring: outer, kind, area: ringA, centre, placements: [pl], cost, tint: raised.tint, ruin: role.ruin, entrance });
           measure(ringA, ringA >= COVER_FROM ? coverage(outer, holes, rect, (q) => inMass(pl, raised.mass, q)) : 0, 0);
           continue;
         }
@@ -510,7 +551,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       // The models that are left where the raised building cannot stand (water), however they fit
       measure(ringA, cover, over);
       const cost = kept.reduce((s, pl) => s + costOf(pl.asset, catalog, doc), 0);
-      footprints.push({ id: area.id, ring: outer, kind, area: ringA, centre, placements: kept, cost, tint: TINTED_KINDS.has(kind) ? BUILDING_TINTS[hashId(area.id) % BUILDING_TINTS.length] : null, ruin: false });
+      footprints.push({ id: area.id, ring: outer, kind, area: ringA, centre, placements: kept, cost, tint: TINTED_KINDS.has(kind) ? BUILDING_TINTS[hashId(area.id) % BUILDING_TINTS.length] : null, ruin: false, entrance });
     }
   }
 
@@ -558,8 +599,16 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
   const standing: { object: MapObject; floor: number }[] = [];
   // Walls other buildings stand against (party walls): a sloped roof ends there in a gable (building-mass.ts shareWalls)
   const neighbours = new FootprintGrid(footprints);
+  const doors = new Map<number, BuildingDoor>();
   for (const f of footprints) {
     const group = `osm-b${f.id}`;
+    // Its door: where its footpath starts (plots.ts), a raised building's drawn there (MapMass.door)
+    const door = f.ruin ? null : footprintDoor(f, catalog, roads);
+    if (door && !doors.has(f.id)) {
+      doors.set(f.id, door);
+      report.doors++;
+      if (f.entrance) report.entrances++;
+    }
     for (const pl of f.placements) {
       if (pl.mass && !pl.mass.parts) {
         const o = { x: round2(origin(pl).x), y: round2(origin(pl).y), rotation: round3(pl.rotation), scale: round3(pl.scale) };
@@ -624,7 +673,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
   report.costShare = Math.round((report.cost / SCENE_BUDGET) * 1000) / 1000;
   report.missing = [...missing.entries()].sort((p, q) => q[1] - p[1]).map(([kind, count]) => ({ kind, count }));
   report.coverage = coverageReport(covered, outside);
-  return { objects, report, warnings, droppedRings };
+  return { objects, doors, report, warnings, droppedRings };
 }
 
 function costOf(asset: string, catalog: ReadonlyMap<string, BuildingCatalogEntry> | null, doc: CustomMapDocument): number {
@@ -1047,6 +1096,7 @@ function layPart(
   known: (asset: string) => boolean,
   salt: number,
   report: BuildingReport,
+  entrance: MapPoint | null = null,
 ): { placements: Placement[]; kind: BuildingKind } | null {
   const v = { x: -rect.u.y, y: rect.u.x };
   // The four sides: outward normal, the axis along it, its length and the depth behind it
@@ -1060,6 +1110,12 @@ function layPart(
   let front = 0;
   for (let k = 1; k < 4; k++) if (dists[k] < dists[front]) front = k;
   if (!Number.isFinite(dists[front])) front = rect.a >= rect.b ? 0 : 2;
+  // A mapped entrance: the side it is on (the most out along a side's normal, by the depth behind it)
+  if (entrance) {
+    const out = (k: number) => ((entrance.x - rect.c.x) * sides[k].n.x + (entrance.y - rect.c.y) * sides[k].n.y) / sides[k].depth;
+    front = 0;
+    for (let k = 1; k < 4; k++) if (out(k) > out(front)) front = k;
+  }
   // The other way round: the nearer of the two sides across the front
   const across = front < 2 ? (dists[2] <= dists[3] ? 2 : 3) : dists[0] <= dists[1] ? 0 : 1;
 
@@ -1068,8 +1124,9 @@ function layPart(
   for (let k: BuildingKind | undefined = kind, step = 0; k && step < 3 && !chosen; k = KIND_MODELS[k].fallback, step++) {
     const onFront = fitModels(k, sides[front].len, sides[front].depth, levels, known, salt);
     const onSide = fitModels(k, sides[across].len, sides[across].depth, levels, known, salt);
-    // Turning the front away from the street costs; a house keeps its door on the street (its footpath, plots.ts)
-    if (onFront && ((DOOR_ON_STREET.has(k) && onFront.error <= MAX_FIT_ERROR) || !onSide || onFront.error <= onSide.error + ACROSS_PENALTY)) chosen = { fit: onFront, side: front, kind: k };
+    // Turning the front away from the street costs; a house keeps its door on the street (its footpath, plots.ts), any
+    // building on its mapped entrance
+    if (onFront && (((DOOR_ON_STREET.has(k) || entrance) && onFront.error <= MAX_FIT_ERROR) || !onSide || onFront.error <= onSide.error + ACROSS_PENALTY)) chosen = { fit: onFront, side: front, kind: k };
     else if (onSide && onSide.error + ACROSS_PENALTY <= MAX_FIT_ERROR) chosen = { fit: onSide, side: across, kind: k };
     else if (onFront) chosen = { fit: onFront, side: front, kind: k };
   }
@@ -1445,6 +1502,137 @@ interface Segment {
  * through it, it holds that building off (coveredNear); a square's outline
  * (`area`) gives a front to face, nothing to keep off
  */
+/** An entrance OSM maps (`entrance`): where, and how much it says (ENTRANCE_RANKS, 0 the main one) */
+interface Entrance {
+  p: MapPoint;
+  rank: number;
+}
+
+/** The entrances of the points by 16 m cells: each building's (on its outline) found quickly */
+class EntranceIndex {
+  private readonly cell = 16;
+  private readonly cells = new Map<string, Entrance[]>();
+
+  constructor(points: OsmFeatures['points']) {
+    for (const pt of points) {
+      const rank = ENTRANCE_RANKS[pt.tags['entrance'] ?? ''];
+      if (rank === undefined) continue;
+      const key = `${Math.floor(pt.x / this.cell)},${Math.floor(pt.y / this.cell)}`;
+      const list = this.cells.get(key);
+      const e = { p: { x: pt.x, y: pt.y }, rank };
+      if (list) list.push(e);
+      else this.cells.set(key, [e]);
+    }
+  }
+
+  /** The entrance on an outline (within ENTRANCE_REACH), the main one first; null for none */
+  on(ring: readonly MapPoint[]): MapPoint | null {
+    if (!this.cells.size) return null;
+    const xs = ring.map((p) => p.x);
+    const ys = ring.map((p) => p.y);
+    let best: Entrance | null = null;
+    for (let i = Math.floor((Math.min(...xs) - ENTRANCE_REACH) / this.cell); i <= Math.floor((Math.max(...xs) + ENTRANCE_REACH) / this.cell); i++) {
+      for (let j = Math.floor((Math.min(...ys) - ENTRANCE_REACH) / this.cell); j <= Math.floor((Math.max(...ys) + ENTRANCE_REACH) / this.cell); j++) {
+        for (const e of this.cells.get(`${i},${j}`) ?? []) {
+          if (best && e.rank >= best.rank) continue;
+          if (ringDistance(ring, e.p) <= ENTRANCE_REACH) best = e;
+        }
+      }
+    }
+    return best?.p ?? null;
+  }
+}
+
+/** Distance from a point to a closed ring's edges */
+function ringDistance(ring: readonly MapPoint[], p: MapPoint): number {
+  let d = Infinity;
+  for (let k = 0; k < ring.length; k++) d = Math.min(d, pointSegment(p, ring[k], ring[(k + 1) % ring.length]));
+  return d;
+}
+
+/** How far a point lies outside a turned rectangle (0 inside) */
+function rectReach(rect: Rect, p: MapPoint): number {
+  const dx = p.x - rect.c.x;
+  const dy = p.y - rect.c.y;
+  const along = Math.abs(dx * rect.u.x + dy * rect.u.y) - rect.a / 2;
+  const across = Math.abs(-dx * rect.u.y + dy * rect.u.x) - rect.b / 2;
+  return Math.hypot(Math.max(0, along), Math.max(0, across));
+}
+
+/**
+ * A footprint's door (BuildingDoor): its mapped entrance's, else the one
+ * nearest the street, of its models (the catalogue's `doors`; the middle
+ * of the front for a model without) or on the walls of its raised building,
+ * whose MapMass.door it sets (the walls' middles that face out, DOOR_CORNER
+ * off their corners). Null where nothing has one, or for a kind without a
+ * door (NO_DOOR) where OSM maps none
+ */
+function footprintDoor(f: Footprint, catalog: ReadonlyMap<string, BuildingCatalogEntry> | null, roads: SegmentIndex): BuildingDoor | null {
+  if (!f.entrance && NO_DOOR.has(f.kind)) return null;
+  const doors: { door: BuildingDoor; pl: Placement }[] = [];
+  for (const pl of f.placements) {
+    const { f: front, x } = placementAxes(pl);
+    if (pl.mass) {
+      for (const door of wallDoors(f.ring, f.entrance)) doors.push({ door, pl });
+      continue;
+    }
+    const o = origin(pl);
+    const own = catalog?.get(pl.asset)?.doors;
+    if (!own?.length) {
+      doors.push({ door: { x: pl.p.x + front.x * pl.hd, y: pl.p.y + front.y * pl.hd, nx: front.x, ny: front.y }, pl });
+      continue;
+    }
+    for (const [dx, dz, side] of own) {
+      const n = side === 'front' ? front : side === 'back' ? { x: -front.x, y: -front.y } : side === 'east' ? x : { x: -x.x, y: -x.y };
+      doors.push({ door: { x: o.x + (dx * x.x + dz * front.x) * pl.scale, y: o.y + (dx * x.y + dz * front.y) * pl.scale, nx: n.x, ny: n.y }, pl });
+    }
+  }
+  if (!doors.length) return null;
+  const e = f.entrance;
+  // At the entrance; else where a few metres out lies nearest a road
+  const cost = (d: BuildingDoor) => (e ? Math.hypot(d.x - e.x, d.y - e.y) : roads.distance({ x: d.x + d.nx * 3, y: d.y + d.ny * 3 }, FRONT_REACH));
+  let best = doors[0];
+  for (const d of doors) if (cost(d.door) < cost(best.door)) best = d;
+  const { door, pl } = best;
+  if (pl.mass) {
+    const o = origin(pl);
+    const m = toModel(door.x - o.x, door.y - o.y, Math.cos(pl.rotation), Math.sin(pl.rotation));
+    pl.mass.door = [round2(m.x / pl.scale), round2(m.z / pl.scale)];
+  }
+  return { x: round2(door.x), y: round2(door.y), nx: round3(door.nx), ny: round3(door.ny) };
+}
+
+/**
+ * Where a raised building's door may be: on each wall of its outline long
+ * enough, its middle and points DOOR_CORNER off its corners, facing out;
+ * with a mapped entrance, there (on its wall) only
+ */
+function wallDoors(ring: readonly MapPoint[], entrance: MapPoint | null): BuildingDoor[] {
+  const turn = ringArea(ring) > 0 ? 1 : -1;
+  const out: BuildingDoor[] = [];
+  let nearest: { door: BuildingDoor; d: number } | null = null;
+  for (let k = 0; k < ring.length; k++) {
+    const a = ring[k];
+    const b = ring[(k + 1) % ring.length];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (len < DOOR_WALL) continue;
+    const ux = (b.x - a.x) / len;
+    const uy = (b.y - a.y) / len;
+    // Outward: to the right of a counter-clockwise ring
+    const nx = uy * turn;
+    const ny = -ux * turn;
+    if (entrance) {
+      const s = Math.max(DOOR_CORNER, Math.min(len - DOOR_CORNER, (entrance.x - a.x) * ux + (entrance.y - a.y) * uy));
+      const door = { x: a.x + ux * s, y: a.y + uy * s, nx, ny };
+      const d = Math.hypot(door.x - entrance.x, door.y - entrance.y);
+      if (!nearest || d < nearest.d) nearest = { door, d };
+      continue;
+    }
+    for (const s of [DOOR_CORNER, len / 2, len - DOOR_CORNER]) out.push({ x: a.x + ux * s, y: a.y + uy * s, nx, ny });
+  }
+  return nearest ? [nearest.door] : out;
+}
+
 class SegmentIndex {
   private readonly cell = 32;
   private readonly cells = new Map<number, Segment[]>();

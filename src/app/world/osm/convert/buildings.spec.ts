@@ -177,6 +177,45 @@ describe('OSM buildings: placing', () => {
     expect(report.pads).toBe(0);
   });
 
+  it("starts a house's door at its model's door on the front, and turns the front to a mapped entrance", () => {
+    const ring = box({ x: 0, y: 12 }, 10, 8.6, 0);
+    const street = world([area(1, ring, { building: 'house' })]);
+    const toStreet = placeBuildings(street.doc, street.features, { catalog });
+    const door = toStreet.doors.get(1)!;
+    // On the front wall (y = 7.7), facing the road, at the model's door
+    expect(door.ny).toBeLessThan(-0.9);
+    expect(Math.abs(door.y - 7.7)).toBeLessThan(0.8);
+    const o = toStreet.objects[0];
+    const own = byId.get(o.asset)!.doors![0];
+    expect(Math.hypot(door.x - (o.x - own[0] * Math.cos(o.rotation) * o.scale - own[1] * Math.sin(o.rotation) * o.scale), door.y - (o.y - own[0] * Math.sin(o.rotation) * o.scale + own[1] * Math.cos(o.rotation) * o.scale))).toBeLessThan(0.05);
+    // The main entrance OSM maps on the back: the front, the door and so the footpath there
+    const mapped = world([area(1, ring, { building: 'house' })]);
+    mapped.features.points.push({ id: 9, tags: { entrance: 'main' }, x: 1, y: 16.3 }, { id: 10, tags: { entrance: 'service' }, x: -5, y: 10 });
+    const entered = placeBuildings(mapped.doc, mapped.features, { catalog });
+    expect(Math.cos(entered.objects[0].rotation)).toBeGreaterThan(0.9);
+    expect(entered.doors.get(1)!.ny).toBeGreaterThan(0.9);
+    expect(Math.abs(entered.doors.get(1)!.y - 16.3)).toBeLessThan(0.8);
+  });
+
+  it("puts a raised building's door on the wall to the street, and none on a garage court", () => {
+    const at = (xy: number[][]) => xy.map(([x, y]) => ({ x: x - 10, y: y + 45 }));
+    const outline = at(HOME_OUTER);
+    const yard = at(HOME_YARD);
+    const ringArea = (r: MapPoint[]) => Math.abs(r.reduce((s, p, i) => s + p.x * r[(i + 1) % r.length].y - r[(i + 1) % r.length].x * p.y, 0) / 2);
+    const home: OsmArea = { id: 5, from: 'relation', tags: { building: 'yes', amenity: 'social_facility' }, outer: [outline], inner: [yard], area: ringArea(outline) - ringArea(yard) };
+    const garages = area(7, box({ x: -70, y: -14 }, 24, 6, 0), { building: 'garages' });
+    const { doc, features } = world([home, garages]);
+    const { objects, doors } = placeBuildings(doc, features, { catalog });
+    const raised = objects.find((o) => o.group === 'osm-b5')!;
+    const door = doors.get(5)!;
+    // On the outline's south side, facing the road at y = 0, and so in the mass (MapMass.door, its own axes)
+    expect(door.ny).toBeLessThan(-0.7);
+    expect(door.y).toBeLessThan(25);
+    const local = toModel(door.x - raised.x, door.y - raised.y, Math.cos(raised.rotation), Math.sin(raised.rotation));
+    expect(Math.hypot(local.x - raised.mass!.door![0], local.z - raised.mass!.door![1])).toBeLessThan(0.05);
+    expect(doors.has(7)).toBe(false);
+  });
+
   it('leaves out what stands on the road, in water and at the HQ', () => {
     const { doc, features } = world([
       area(1, box({ x: -40, y: 0 }, 10, 10, 0), { building: 'house' }),

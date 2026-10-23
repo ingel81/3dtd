@@ -165,6 +165,7 @@ const mapFile: Messages['mapFile'] = {
     massRidge: () => 'sein Gebäude hat einen kaputten First',
     massFacade: () => 'sein Gebäude hat eine unbekannte Fassade',
     massShop: () => 'sein Gebäude hat kaputte Ladenwände',
+    massDoor: () => 'sein Gebäude hat einen kaputten Eingang',
     massParts: () => 'sein Gebäude hat kaputte Teile',
     massOpenings: () => 'sein Gebäude hat kaputte Durchgänge',
     massColour: () => 'sein Gebäude hat eine kaputte Farbe',

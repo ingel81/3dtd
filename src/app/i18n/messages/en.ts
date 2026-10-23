@@ -494,6 +494,7 @@ const mapFile = {
     massRidge: () => 'its building has a bad ridge',
     massFacade: () => 'its building has an unknown facade',
     massShop: () => 'its building has bad shop walls',
+    massDoor: () => 'its building has a bad entrance',
     massParts: () => 'its building has broken parts',
     massOpenings: () => 'its building has broken openings',
     massColour: () => 'its building has a bad colour',

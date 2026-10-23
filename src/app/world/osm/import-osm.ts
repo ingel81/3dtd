@@ -273,7 +273,7 @@ export function convertOsm(
   const plants = growVegetation(doc, features, ground.land, water, { costOf, routes, keepOff: areas.keepOff, onShare: onShare && ((share) => onShare('plants', share)) });
   // The houses' plots after the plants: the trees OSM maps in the gardens stand, hedges and driveways keep off them.
   // Front gardens and gardens painted, driveways, hedges and fences in their own share
-  const plots = layPlots(doc, features, { costOf, hasMaterial: materials ? (m) => materials.has(m) : null, rails });
+  const plots = layPlots(doc, features, { costOf, hasMaterial: materials ? (m) => materials.has(m) : null, rails, doors: buildings.doors });
   // The walls, fences, hedges and tracks of each way, area and garden as one line (they draw as long as it does)
   const lineAssets = new Set(options.lineAssets ?? []);
   const lines = linesOfGroups(doc.objects, (asset) => lineAssets.has(asset));
