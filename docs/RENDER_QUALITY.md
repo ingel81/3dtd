@@ -123,7 +123,17 @@ Renderer (`RendererHostService`); jede Ansicht holt ihn mit der Kantenglättung 
 nicht, legt `RendererHost.acquire` ihn neu an (Low und Medium ohne MSAA, High und Ultra mit). FXAA läuft als letzter
 Pass im Composer (`PostProcessingPipeline.setAntialias`). Wechselt der Spieler im laufenden Spiel auf High, zeichnet ein
 Canvas ohne MSAA bis zum nächsten Start einer Welt oder eines Tests FXAA statt MSAA: MSAA auf dem Half-Float-Ziel des
-Composers kostete im Demo-Tal etwa das Dreifache (4,4 gegen 1,3 ms GPU, RTX 5080); umgekehrt bleibt MSAA bis dahin.
+Composers kostete im Demo-Tal etwa das Dreifache (4,4 gegen 1,3 ms GPU, RTX 5080, gemessen, als die Ziele noch Tiefe
+und Stencil mit auflösten; seitdem ist der Abstand kleiner, für diesen Fall nicht neu gemessen); umgekehrt bleibt MSAA bis dahin.
+
+**Composer-Ziele lösen nur die Farbe auf** (E309, 2026-10-23): die Szene zeichnet mit Bloom, Color Grading oder FXAA in
+die beiden MSAA-Ziele des Composers (Half-Float, vier Samples, Stencil für die Reichweitenringe). three löste dabei jedes
+Bild auch Tiefe und Stencil aus den Samples auf; kein Pass danach liest sie (Bloom, Grading, Output und FXAA nehmen nur
+die Farbe, die Ringe testen den Stencil, während die Szene zeichnet). Unter ANGLE/D3D11 kostete das rund 7 bis 15 ms je
+Bild, jetzt `resolveDepthBuffer` und `resolveStencilBuffer` aus. Gemessen mit Bloom an, High, RTX 3080 Ti, 1300 x 852,
+Production-Build, GPU-Median Spielansicht: Demo-Tal 10,5 auf 2,6 ms, Erlenbach (OSM) 22,6 auf 6,2 ms, echte Orte
+(Stuttgart) 15,2 auf 0,4 ms; Draw Calls und Dreiecke gleich, das Bild gleich (Pixelvergleich am selben Bild: die
+Unterschiede so groß wie zwischen zwei Bildern ohne Änderung, nur an bewegten Dingen).
 Den Kontext mitten im Spiel neu anzulegen hieße, die Engine neu aufzubauen (User 2026-10-19: nein). Die Einstellungen
 sagen es nur, wenn die laufende Ansicht wirklich abweicht (`RendererHostService.antialiasPending`): „Antialiasing changes
 at the next start of a world or test run“.

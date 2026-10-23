@@ -49,12 +49,18 @@ export class PostProcessingPipeline {
     // was lost as soon as a pass was on. Four samples on the scene target.
     // A stencil buffer like the canvas: the tower range rings need it
     // (range-ring.ts); the composer's second target is a clone of this one.
+    // Only the colour is resolved out of the samples: no pass after the scene
+    // reads its depth or stencil (the rings test the stencil while the scene
+    // draws). Resolving them too cost about 7 ms a frame on ANGLE/D3D11
+    // (RTX 3080 Ti, 1300 x 852, E309), whenever bloom or grading was on.
     const size = renderer.getSize(new Vector2());
     const pixelRatio = renderer.getPixelRatio();
     const target = new WebGLRenderTarget(size.width * pixelRatio, size.height * pixelRatio, {
       type: HalfFloatType,
       samples: 4,
       stencilBuffer: true,
+      resolveDepthBuffer: false,
+      resolveStencilBuffer: false,
     });
     this.composer = new EffectComposer(renderer, target);
     // A supplied target sets the composer's logical size to its pixel size.
@@ -107,7 +113,9 @@ export class PostProcessingPipeline {
    * context is made (`canvasMsaa`): a level that wants MSAA on a canvas
    * without it gets FXAA until the next load, as MSAA on the composer's
    * half-float target cost about three times the canvas' (RTX 5080, demo
-   * valley: 4.4 against 1.3 ms GPU).
+   * valley: 4.4 against 1.3 ms GPU). That was measured while the targets
+   * still resolved depth and stencil too (E309); the gap is smaller since,
+   * not measured anew for this case.
    */
   setAntialias(mode: 'msaa' | 'fxaa', canvasMsaa: boolean): void {
     const msaa = mode === 'msaa' && canvasMsaa;

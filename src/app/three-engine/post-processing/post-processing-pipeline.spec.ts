@@ -41,4 +41,14 @@ describe('PostProcessingPipeline', () => {
     pp.setPixelMarks(false);
     expect(pp.needsRender()).toBe(false);
   });
+
+  it('resolves only the colour out of its samples, on both of its targets and after a switch of the antialiasing', () => {
+    const pp = pipeline();
+    const { composer } = pp as unknown as { composer: EffectComposer };
+    const resolves = () => [composer.renderTarget1, composer.renderTarget2].map((t) => [t.samples, t.resolveDepthBuffer, t.resolveStencilBuffer, t.stencilBuffer]);
+    expect(resolves()).toEqual([[4, false, false, true], [4, false, false, true]]);
+    pp.setAntialias('fxaa', true);
+    pp.setAntialias('msaa', true);
+    expect(resolves()).toEqual([[4, false, false, true], [4, false, false, true]]);
+  });
 });
