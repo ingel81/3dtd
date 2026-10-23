@@ -321,7 +321,7 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   der Biss (den zeigt nur noch eine Ruine ohne Löcher, etwa aus einem alten Spielstand); ein neues Loch geht in 0,3 s
   auf, ein gewachsenes behält seine Zeit. Innen ausgebrannt, nie sauber, nie schwarz (`DAMAGE_COLOR_FRAGMENT`): die
   Rückseiten tragen Putz statt der Außenfarbe und ein wenig eigenes Licht (sie sehen durch das Loch den Himmel), das
-  Himmelslicht drinnen gedämpft und warm; Wände fleckig, Rauch unter jeder Decke, Schmutz über jedem Boden,
+  Himmelslicht drinnen gedämpft, ohne sein Blau, warm; Wände fleckig, Rauch unter jeder Decke, Schmutz über jedem Boden,
   Laufspuren, Putz in Flecken ab über Ziegel (Beton bei Beton- und Metallfassaden, `DamageLook.core`), Ruß steigt in
   Streifen von den Bruchkanten; Decken verrußt; Böden unter Staub, Splitt und in Haufen (dichter an den Brüchen)
   kantigen Brocken mit Schlagschatten, die das Licht kippen. Um jede Bruchkante fehlt der Putz beidseitig, so zeigt

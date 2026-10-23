@@ -872,9 +872,9 @@ if (!gl_FrontFacing) gl_FragDepth -= ${BACK_PULL} * logDepthBufFC;
 const DAMAGE_EMISSIVE_FRAGMENT = /* glsl */ `
 if (vDmg.x > 0.5) {
   totalEmissiveRadiance *= 0.0;
-  // Indoors the sky is mostly walls and ceilings: less of its light, and of the dust's colour, not blue
+  // Indoors the sky is mostly walls and ceilings: less of its light, and of the dust's colour, not the sky's blue
   if (dmgInside > 0.5) {
-    reflectedLight.indirectDiffuse *= vec3(0.62, 0.57, 0.5);
+    reflectedLight.indirectDiffuse = vec3(dot(reflectedLight.indirectDiffuse, vec3(0.3, 0.59, 0.11))) * vec3(0.66, 0.6, 0.52);
     reflectedLight.indirectSpecular *= 0.4;
   }
   // The inside sees the sky through the holes: a little light of its own where the sun's shadow keeps it dark
