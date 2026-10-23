@@ -336,6 +336,17 @@ Bordstein lief in Stufen (an einer Brücke in einer Testwelt). Vorher wuchs der 
 Gehweg, Bordstein und Rinne wurden breit, wo der Umriss weit außen lag, und dünn, wo er nah kam. Eine Kreuzung, deren
 Umriss kein Vieleck ist (Straßen kreuzen gegenseitig ihre Enden), bleibt ein Fächer vom Knoten (der Ring dann nahe dem
 Knoten flacher und im Keil); läuft ihr Umriss auch nicht um den Knoten, behält sie den einen Ring.
+Konnte der innere Ring nicht überall einrücken (ein schmaler Hals zwischen zwei Abbiegespuren), bekommt die Fläche
+Punkte auf einem Raster von 1,5 m mit ihrem wahren Abstand zur Kante (der kleinste über die Umrissstücke: deren Abstand
+plus der Weg dorthin), Delaunay-geflippt (`fieldPoints`, `insertPoints`): nur mit den Ringpunkten lief der Abstand
+linear von Bordstein zu Bordstein, und die ganze Kreuzung las sich als Gehweg. Zwei Enden, deren Querschnitte sich
+kreuzen oder auf der Fahrbahn des anderen liegen (eine kurze Abbiegespur neben ihrer Straße, ihre Kürzung an ihre Länge
+gebunden), werden in Schritten von 0,75 m weiter gekürzt, bis höchstens 90 % ihrer Länge; ein Bordstein folgt den
+Bändern im Innern einer Gruppe nur, wo der Weg an keinem Knoten mehr als 90° dreht (sonst lag er quer über dem Weg, der
+Umriss faltete sich, und die Gruppe zerfiel in Fächer übereinander). Eine Bordsteinkurve hat einen Punkt je 1,25 m
+(6 bis 24), die Mündungen eines Kreisels liefen sonst in Sehnen von 2 bis 3 m. Gruppen, die so in Einzelkreuzungen
+zerfielen: Miltenberg 22 → 19, Erlenbach 9 → 6 (gleiche Rohdaten); Dreiecke der Straßen +5 %, Bau der Straßen flach
+etwa +50 ms je Welt.
 Das Aussehen folgt der Straßenart (`street`): Spurlinien auf Autobahnen, Rand- und gestrichelte Mittellinie auf
 Haupt- und Kreisstraßen (`primary`, `secondary`), Mittellinie auf `tertiary`, keine in Wohnstraßen, deren Asphalt in
 einen Bordstein mit einer Rinne aus Pflastersteinen ausläuft; Fahrspuren dunkler, Flickstellen, Querrisse und eine

@@ -430,3 +430,34 @@ describe('road network, kerbs through a junction', () => {
     expect(worst).toBeLessThan(0.1);
   });
 });
+
+describe('road network, kerb curves', () => {
+  it('rounds a wide corner with a point every metre and a quarter, no long chords', () => {
+    // Two wide roads with pavements at a right angle, a side road on: the kerb round their corner a quarter circle
+    const net = buildRoadNetwork(
+      paths(
+        [
+          { a: 'w', b: 'c', street: 'secondary', width: 12, sidewalk: 1.8 },
+          { a: 'c', b: 'n', street: 'secondary', width: 12, sidewalk: 1.8 },
+          { a: 'c', b: 'e', street: 'residential', width: 6, sidewalk: 1.8 },
+        ],
+        [['w', -80, 0], ['c', 0, 0], ['n', 0, 80], ['e', 80, 0]],
+      ),
+    );
+    // The junction's outline round the corner: its points on the pavement's outer edge (distance -1.8) in the corner's box
+    const pts: [number, number][] = [];
+    for (const t of net.tiles) {
+      for (let k = 0; k < t.road.length / 4; k++) {
+        const [x, y] = [t.position[k * 2], t.position[k * 2 + 1]];
+        if (t.arm[k * 4 + 3] > 0 && Math.abs(t.road[k * 4 + 2] + 1.8) < 1e-3 && x > -25 && x < 0 && y > 0 && y < 25 && x + y > -10) pts.push([x, y]);
+      }
+    }
+    const unique = [...new Map(pts.map((p) => [p.join(','), p])).values()];
+    expect(unique.length).toBeGreaterThan(8);
+    // Each one's nearest neighbour within 1.3 m
+    for (const p of unique) {
+      const near = Math.min(...unique.filter((q) => q !== p).map((q) => Math.hypot(q[0] - p[0], q[1] - p[1])));
+      expect(near).toBeLessThan(1.3);
+    }
+  });
+});

@@ -52,8 +52,10 @@ const STEP = 6;
 const PIECE = 48;
 /** Metres a cover (RoadNetworkBuilder.covers) stays inside a ribbon's edges: the ground's mask is read between texels */
 const COVER_INSET = 0.25;
-/** Points per kerb curve and per half of a path's round end */
+/** Points per kerb curve and per half of a path's round end; a longer kerb curve a point every KERB_STEP m, up to KERB_POINTS */
 const CURVE_POINTS = 6;
+const KERB_STEP = 1.25;
+const KERB_POINTS = 24;
 /**
  * A junction vertex's arm weight (0 to 1) rides in the fraction of its wear
  * (a whole number): from ARM_WEIGHT_BASE over ARM_WEIGHT_SPAN, well clear of
@@ -795,13 +797,36 @@ function trimJunction(c: MapPoint, list: End[], nodes: readonly (readonly End[])
   const inner = new Set(nodes.flat().filter((e) => !outer.has(e)).map((e) => e.chain));
   const set = (e: End, t: number) => (e.chain.trim[e.start ? 0 : 1] = Math.max(0, Math.min(Math.min(e.chain.length * 0.45, widest * 4 + 6), t)));
   list.forEach((e, k) => set(e, trims[k]));
-  if (!inner.size) return;
-  for (const ends of nodes) {
-    const on = ends.filter((e) => outer.has(e) && endSection(e).some((p) => [...inner].some((chain) => insideRibbon(chain, p))));
-    if (!on.length) continue;
-    const sorted = [...ends];
-    const own = wantedTrims(ends[0], sorted);
-    for (const e of on) set(e, Math.max(e.chain.trim[e.start ? 0 : 1], own[sorted.indexOf(e)]));
+  if (inner.size) {
+    for (const ends of nodes) {
+      const on = ends.filter((e) => outer.has(e) && endSection(e).some((p) => [...inner].some((chain) => insideRibbon(chain, p))));
+      if (!on.length) continue;
+      const sorted = [...ends];
+      const own = wantedTrims(ends[0], sorted);
+      for (const e of on) set(e, Math.max(e.chain.trim[e.start ? 0 : 1], own[sorted.indexOf(e)]));
+    }
+  }
+  // Two roads leaving side by side (a slip road beside the road it leaves, short between two junctions, its trim held
+  // to its length) whose end sections still cross or reach onto the other's carriageway: both trimmed on, a step at a time, until they part, up to most of
+  // their length. Crossed, the junction's outline folded and it fell apart into fans over each other
+  const n = list.length;
+  for (let round = 0; n > 1 && round < SPLAY_ROUNDS; round++) {
+    let crossed = false;
+    for (let k = 0; k < n; k++) {
+      const a = list[k];
+      const b = list[(k + 1) % n];
+      if (a === b) continue;
+      const sa = endSection(a);
+      const sb = endSection(b);
+      const apart = !crosses(sa[0], sa[sa.length - 1], sb[0], sb[sb.length - 1]) && !sa.some((p) => insideRibbon(b.chain, p)) && !sb.some((p) => insideRibbon(a.chain, p));
+      if (apart) continue;
+      crossed = true;
+      for (const e of [a, b]) {
+        const at = e.start ? 0 : 1;
+        e.chain.trim[at] = Math.min(e.chain.length * SPLAY_SHARE, e.chain.trim[at] + SPLAY_STEP);
+      }
+    }
+    if (!crossed) break;
   }
 }
 
@@ -837,6 +862,11 @@ function wantedTrims(c: MapPoint, list: End[]): number[] {
   }
   return trims;
 }
+
+/** Trimming on of two ends whose sections cross (trimJunction): metres a step, steps at most, share of a road's length at most */
+const SPLAY_STEP = 0.75;
+const SPLAY_ROUNDS = 12;
+const SPLAY_SHARE = 0.9;
 
 /** Longest chain between two junctions that may join them into one */
 const CLUSTER_CHAIN = 16;
@@ -1164,9 +1194,12 @@ function junctionOutline(list: readonly End[], sides: readonly Section[], inner:
 function kerbCurve(a: MapPoint, ea: End, b: MapPoint, eb: End): (MapPoint & { t: number })[] {
   const cross = lineMeet(a, ea, b, eb);
   const span = Math.hypot(b.x - a.x, b.y - a.y);
+  // As many points as its length wants: six over a long curve (a roundabout's mouth) made a polygon of the kerb
+  const length = cross ? Math.hypot(cross.x - a.x, cross.y - a.y) + Math.hypot(b.x - cross.x, b.y - cross.y) : span * 1.5;
+  const points = Math.max(CURVE_POINTS, Math.min(KERB_POINTS, Math.ceil(length / KERB_STEP)));
   const out: (MapPoint & { t: number })[] = [];
-  for (let s = 1; s < CURVE_POINTS; s++) {
-    const t = s / CURVE_POINTS;
+  for (let s = 1; s < points; s++) {
+    const t = s / points;
     const u = 1 - t;
     if (cross) {
       out.push({ x: u * u * a.x + 2 * u * t * cross.x + t * t * b.x, y: u * u * a.y + 2 * u * t * cross.y + t * t * b.y, t });
@@ -1363,17 +1396,183 @@ function emitJunction(c: MapPoint, list: End[], inner: readonly Chain[], out: Ti
     // The inner ring as a polygon (earcut), each point once; a triangle in the frame of the road whose end it touches
     const poly: RingPoint[] = [];
     for (const p of inside) if (p !== poly[poly.length - 1] && p !== poly[0]) poly.push(p);
-    for (const t of ShapeUtils.triangulateShape(
+    // Where the inner ring could not move in all round (a narrow neck between two slip roads), points inside it on a
+    // grid, each with its true distance to the edge (fieldPoints): between the inner ring's points alone the distance
+    // ran linearly from kerb to kerb, and the junction read as pavement across
+    const all: RingPoint[] = [...poly];
+    const faces = ShapeUtils.triangulateShape(
       poly.map((p) => new Vector2(p.x, p.y)),
       [],
-    )) {
-      const [a, b, d] = t.map((i) => poly[i]);
+    ).map((f) => (left(poly[f[0]], poly[f[1]], poly[f[2]]) > 0 ? f : [f[0], f[2], f[1]]));
+    restoreDropped(poly, faces);
+    if (poly.some((p) => !p.side && p.edge < KERB_BAND - 0.05)) insertPoints(all, faces, fieldPoints(c, ring, poly, centre.edge));
+    for (const t of faces) {
+      const [a, b, d] = t.map((i) => all[i]);
       const arm = a.side ? a.arm : b.side ? b.arm : d.side ? d.arm : a.arm;
       if (left(a, b, d) > 0) triangle(a, b, d, arm);
       else triangle(a, d, b, arm);
     }
   }
   out.add(verts, tris);
+}
+
+/** Metres between the points a junction's surface takes inside its inner ring (fieldPoints), and their least gap to it */
+const FIELD_STEP = 1.5;
+const FIELD_GAP = 0.6;
+/** Most passes of flips after the points went in (insertPoints) */
+const FLIP_PASSES = 200;
+
+/**
+ * Points on a grid of FIELD_STEP round node `c` inside polygon `poly` (a
+ * junction's inner ring), FIELD_GAP and more off its sides, each with its
+ * distance to the edge as the outline gives it (`ring`, its points'
+ * distances): the least over the outline's sides of the side's distance
+ * where the point lies square to it plus the metres to it. The arm of the
+ * outline point nearest. No more than `most` (the widest road's middle); each
+ * point a little off the grid by a hash of it, so no three lie on a line
+ * (the triangulation drew a side through the middle one)
+ */
+function fieldPoints(c: MapPoint, ring: readonly RingPoint[], poly: readonly RingPoint[], most: number): RingPoint[] {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const p of poly) {
+    x0 = Math.min(x0, p.x);
+    y0 = Math.min(y0, p.y);
+    x1 = Math.max(x1, p.x);
+    y1 = Math.max(y1, p.y);
+  }
+  const out: RingPoint[] = [];
+  const n = poly.length;
+  for (let i = Math.ceil((x0 - c.x) / FIELD_STEP); c.x + i * FIELD_STEP < x1; i++) {
+    for (let j = Math.ceil((y0 - c.y) / FIELD_STEP); c.y + j * FIELD_STEP < y1; j++) {
+      const h = Math.sin(i * 12.9898 + j * 78.233) * 43758.5453;
+      const q = { x: c.x + (i + (h - Math.floor(h) - 0.5) * 0.3) * FIELD_STEP, y: c.y + (j + (((h * 7.31) % 1) + 1) % 1 * 0.3 - 0.15) * FIELD_STEP };
+      let inside = false;
+      let gap = Infinity;
+      for (let k = 0, l = n - 1; k < n; l = k++) {
+        const a = poly[k];
+        const b = poly[l];
+        if (a.y > q.y !== b.y > q.y && q.x < ((b.x - a.x) * (q.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+        gap = Math.min(gap, segmentDistance(q, a, b).d);
+      }
+      if (!inside || gap < FIELD_GAP) continue;
+      let edge = Infinity;
+      let arm = 0;
+      let near = Infinity;
+      for (let k = 0; k < ring.length; k++) {
+        const a = ring[k];
+        const b = ring[(k + 1) % ring.length];
+        const s = segmentDistance(q, a, b);
+        const e = a.edge + (b.edge - a.edge) * s.t + s.d;
+        if (e < edge) edge = e;
+        if (s.d < near) {
+          near = s.d;
+          arm = s.t < 0.5 ? a.arm : b.arm;
+        }
+      }
+      out.push({ x: q.x, y: q.y, edge: Math.min(edge, most), arm, side: false });
+    }
+  }
+  return out;
+}
+
+/**
+ * The points of polygon `pts` its triangulation (`faces`, counter-clockwise)
+ * left out or put only into flat triangles (dropped), each into the triangle
+ * whose side it lies on, split there: the triangulation drops a point in a
+ * straight run of the outline where it gets stuck, and the side spanning it
+ * met the band's two triangles at it (a crack)
+ */
+function restoreDropped(pts: readonly MapPoint[], faces: number[][]): void {
+  const flat = (f: number[]) => Math.abs((pts[f[1]].x - pts[f[0]].x) * (pts[f[2]].y - pts[f[0]].y) - (pts[f[1]].y - pts[f[0]].y) * (pts[f[2]].x - pts[f[0]].x)) <= 1e-9;
+  for (let f = faces.length - 1; f >= 0; f--) if (flat(faces[f])) faces.splice(f, 1);
+  const used = new Set(faces.flat());
+  for (let k = 0; k < pts.length; k++) {
+    if (used.has(k)) continue;
+    const q = pts[k];
+    for (let f = 0; f < faces.length; f++) {
+      const face = faces[f];
+      const e = [0, 1, 2].find((s) => {
+        const a = pts[face[s]];
+        const b = pts[face[(s + 1) % 3]];
+        const along = (q.x - a.x) * (b.x - a.x) + (q.y - a.y) * (b.y - a.y);
+        const len = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
+        return along > 0 && along < len && Math.abs((b.x - a.x) * (q.y - a.y) - (b.y - a.y) * (q.x - a.x)) < 1e-6 * Math.sqrt(len);
+      });
+      if (e === undefined) continue;
+      const [a, b, c] = [face[e], face[(e + 1) % 3], face[(e + 2) % 3]];
+      faces[f] = [a, k, c];
+      faces.push([k, b, c]);
+      break;
+    }
+  }
+}
+
+/**
+ * Points into a triangulation of `pts` (`faces`, counter-clockwise; both
+ * grow): each splits the triangle it lies in, then sides inside it are
+ * flipped where the triangles beside them are not Delaunay, so no long side
+ * runs from kerb to kerb across the points (the distance along it only that
+ * of its ends). Sides on the outline stay. A point on a side or outside every
+ * triangle is left out
+ */
+function insertPoints(pts: MapPoint[], faces: number[][], add: readonly MapPoint[]): void {
+  const area = (a: MapPoint, b: MapPoint, c: MapPoint) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  for (const q of add) {
+    const f = faces.findIndex(([a, b, c]) => area(pts[a], pts[b], q) > 1e-6 && area(pts[b], pts[c], q) > 1e-6 && area(pts[c], pts[a], q) > 1e-6);
+    if (f < 0) continue;
+    const [a, b, c] = faces[f];
+    const k = pts.length;
+    pts.push(q);
+    faces[f] = [a, b, k];
+    faces.push([b, c, k], [c, a, k]);
+  }
+  // Lawson's flips: a side is flipped where the far corner of one triangle lies in the other's circumcircle
+  const inCircle = (a: MapPoint, b: MapPoint, c: MapPoint, d: MapPoint): boolean => {
+    const ax = a.x - d.x;
+    const ay = a.y - d.y;
+    const bx = b.x - d.x;
+    const by = b.y - d.y;
+    const cx = c.x - d.x;
+    const cy = c.y - d.y;
+    return (ax * ax + ay * ay) * (bx * cy - cx * by) - (bx * bx + by * by) * (ax * cy - cx * ay) + (cx * cx + cy * cy) * (ax * by - bx * ay) > 1e-9;
+  };
+  // Passes over all sides, each triangle flipped once a pass, until none is
+  for (let pass = 0; pass < FLIP_PASSES; pass++) {
+    const sides = new Map<string, [number, number]>();
+    for (let f = 0; f < faces.length; f++) for (let e = 0; e < 3; e++) sides.set(`${faces[f][e]},${faces[f][(e + 1) % 3]}`, [f, e]);
+    const touched = new Set<number>();
+    for (let f = 0; f < faces.length; f++) {
+      if (touched.has(f)) continue;
+      for (let e = 0; e < 3; e++) {
+        const a = faces[f][e];
+        const b = faces[f][(e + 1) % 3];
+        const c = faces[f][(e + 2) % 3];
+        const other = sides.get(`${b},${a}`);
+        if (!other || touched.has(other[0])) continue;
+        const [g, h] = other;
+        const d = faces[g][(h + 2) % 3];
+        if (!inCircle(pts[a], pts[b], pts[c], pts[d])) continue;
+        // Only a convex pair turns: both new triangles counter-clockwise
+        if (area(pts[c], pts[a], pts[d]) <= 1e-6 || area(pts[d], pts[b], pts[c]) <= 1e-6) continue;
+        faces[f] = [c, a, d];
+        faces[g] = [d, b, c];
+        touched.add(f).add(g);
+        break;
+      }
+    }
+    if (!touched.size) break;
+  }
+}
+
+/** Distance from p to segment a-b, and where along it (0 at a, 1 at b) the nearest point lies */
+function segmentDistance(p: MapPoint, a: MapPoint, b: MapPoint): { d: number; t: number } {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+  return { d: Math.hypot(p.x - a.x - dx * t, p.y - a.y - dy * t), t };
 }
 
 /** Whether segment p-q crosses segment r-s inside both (touching at an end is no crossing) */
@@ -1393,6 +1592,8 @@ const KERB_BAND = 1.2;
 
 /** Most a road may turn at a node of a junction (radians) for the kerb to follow it, not round a corner */
 const KERB_TURN = Math.PI / 4;
+/** Most the way through a junction's chains may turn at a node for a kerb to follow their edges (kerbAlong, `follow`) */
+const FOLLOW_TURN = Math.PI / 2;
 
 /**
  * The kerb between road ea and the next road eb counter-clockwise, along
@@ -1436,19 +1637,23 @@ function kerbAlong(ea: End, eb: End, inner: readonly Chain[], follow = false): (
       node = step.prev;
     }
   }
-  // One road going on: at each node of the way it turns no more than KERB_TURN (a corner between two roads is rounded)
-  if (!follow) {
+  // One road going on: at each node of the way it turns no more than KERB_TURN (a corner between two roads is rounded).
+  // Following the chains inside (`follow`) no more than FOLLOW_TURN: the kerb runs on the right of the way, and where
+  // it turned back on itself (a ring between two mouths into a slip road) that edge lay across the way, the outline
+  // folded and the junction fell apart
+  if (!follow || way.length) {
+    const most = Math.cos(follow ? FOLLOW_TURN : KERB_TURN);
     let dx = -ea.dx;
     let dy = -ea.dy;
     for (const w of way) {
       const out = endOf(w.chain, w.forward);
-      if (dx * out.dx + dy * out.dy < Math.cos(KERB_TURN)) return null;
+      if (dx * out.dx + dy * out.dy < most) return null;
       const back = endOf(w.chain, !w.forward);
       dx = -back.dx;
       dy = -back.dy;
     }
-    if (dx * eb.dx + dy * eb.dy < Math.cos(KERB_TURN)) return null;
-  } else if (!way.length) return null;
+    if (dx * eb.dx + dy * eb.dy < most) return null;
+  } else return null;
   // The pieces of the way: chain distances from d0 to d1 (the joints between pieces at the nodes)
   // From the road's end section (its ribbon's, ribbonSpan: a road trimmed away between two junctions ends where they
   // meet) to its node
