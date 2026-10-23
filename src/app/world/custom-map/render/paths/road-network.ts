@@ -1,3 +1,4 @@
+import { ShapeUtils, Vector2 } from 'three';
 import type { MapPathEdge, MapPaths, MapPoint } from '../../map-document';
 import { edgePolyline, type RoadCover } from './path-mask';
 import { encodeRoadStyle, ORDER_STEP, PAVED_SURFACES, roadStyle, styleKey, type RoadStyle } from './road-style';
@@ -430,16 +431,19 @@ export class RoadNetworkBuilder {
       endsAt.set(node, list);
       return list;
     };
-    // A cluster whose outline would fold over its middle (roads from its nodes side by side, crossing each other's
-    // ends) is laid as its nodes alone
+    // A cluster whose outline neither runs round its middle (fanned from there) nor is a polygon (triangulated as one;
+    // roads from its nodes side by side, crossing each other's ends) is laid as its nodes alone
     const clusters = clusterJunctions(lay, endsOf).flatMap((group) => {
       if (group.length === 1) return [group];
       const inside = new Set(group);
-      const list = group.flatMap((n) => endsOf(n)).filter((e) => !(inside.has(e.chain.nodes[0]) && inside.has(e.chain.nodes[1])));
+      const all = group.flatMap((n) => endsOf(n));
+      const within = (e: End) => inside.has(e.chain.nodes[0]) && inside.has(e.chain.nodes[1]);
+      const list = all.filter((e) => !within(e));
+      const inner = [...new Set(all.filter(within).map((e) => e.chain))];
       const centre = clusterCentre(group.map((n) => nodes.get(n)!));
       const trims = list.map((e) => [...e.chain.trim] as [number, number]);
-      trimJunction(centre, list);
-      const fits = list.length > 1 && outlineAround(centre, list);
+      trimJunction(centre, list, group.map(endsOf));
+      const fits = list.length > 1 && (outlineAround(centre, list) || simpleRing(junctionOutline(list, list.map(endSection), inner, false)));
       list.forEach((e, k) => (e.chain.trim = trims[k]));
       return fits ? [group] : group.map((n) => [n]);
     });
@@ -478,7 +482,7 @@ export class RoadNetworkBuilder {
         e.chain.cap[e.start ? 0 : 1] = e.chain.edge.kind === 'path' && !others.has(key);
       } else if (list.length > 1) {
         const centre = clusterCentre(nodeList.map((n) => nodes.get(n)!));
-        trimJunction(centre, list);
+        trimJunction(centre, list, nodeList.length > 1 ? nodeList.map(endsOf) : []);
         this.junctionEnds.set(key, { node: centre, ends: list, inner: [...innerChains] });
       }
     }
@@ -722,15 +726,26 @@ function endOf(chain: Chain, start: boolean): End {
 
 /**
  * Trim lengths of the roads meeting at a junction: past where each road's kerb meets the next, plus a kerb radius.
- * The ends in counter-clockwise order around `c` (a cluster's ends start at their own nodes)
+ * The ends in counter-clockwise order around `c` (a cluster's ends start at their own nodes). In a junction of
+ * several nodes (`nodes`: the ends at each, the chains inside it too) a road whose end would lie on a chain inside it
+ * is trimmed past the kerbs of the roads at its own node: seen from the junction's middle the kerbs of a side road and
+ * of the next road out meet behind them, and its end lay on the carriageway of the road through
  */
-function trimJunction(c: MapPoint, list: End[]): void {
+function trimJunction(c: MapPoint, list: End[], nodes: readonly (readonly End[])[] = []): void {
   const trims = wantedTrims(c, list);
   const widest = Math.max(...list.map((e) => e.chain.half));
-  list.forEach((e, k) => {
-    const limit = Math.min(e.chain.length * 0.45, widest * 4 + 6);
-    e.chain.trim[e.start ? 0 : 1] = Math.max(0, Math.min(limit, trims[k]));
-  });
+  const outer = new Set(list);
+  const inner = new Set(nodes.flat().filter((e) => !outer.has(e)).map((e) => e.chain));
+  const set = (e: End, t: number) => (e.chain.trim[e.start ? 0 : 1] = Math.max(0, Math.min(Math.min(e.chain.length * 0.45, widest * 4 + 6), t)));
+  list.forEach((e, k) => set(e, trims[k]));
+  if (!inner.size) return;
+  for (const ends of nodes) {
+    const on = ends.filter((e) => outer.has(e) && endSection(e).some((p) => [...inner].some((chain) => insideRibbon(chain, p))));
+    if (!on.length) continue;
+    const sorted = [...ends];
+    const own = wantedTrims(ends[0], sorted);
+    for (const e of on) set(e, Math.max(e.chain.trim[e.start ? 0 : 1], own[sorted.indexOf(e)]));
+  }
 }
 
 /** The trims a junction's ends want (trimJunction, before the limits), the list sorted counter-clockwise around `c` */
@@ -748,7 +763,7 @@ function wantedTrims(c: MapPoint, list: End[]): number[] {
     // Nearly straight on, or the outside of a bend: the kerbs meet at the node. A road going on at another width
     // tapers instead: both trimmed by twice the change and a metre, the junction's straight kerbs run across
     // (they stepped at the node, a tooth in the kerb at every change of width)
-    if (n === 2 && gap > Math.PI * 0.94) {
+    if (n > 1 && gap > Math.PI * 0.94) {
       const taper = Math.abs(a.chain.half - b.chain.half);
       if (taper > 0.3) {
         trims[k] = Math.max(trims[k], taper * 2 + 1);
@@ -925,13 +940,33 @@ function kerbCorner(a: End, b: End): { t: number; s: number; x: number; y: numbe
   return { t: Math.max(0, t), s: Math.max(0, s), x: a.x + nax * ha + a.dx * t, y: a.y + nay * ha + a.dy * t };
 }
 
+/** Three columns of a ribbon: the distance to the edge peaks in the middle (the ground's bends cut the triangles, conformDraped) */
+const COLUMNS = [-1, 0, 1];
+
+/** A chain's cross section at a distance along, right to left looking along it */
+function sectionAt(chain: Chain, d: number): Section {
+  const p = pointAt(chain, d);
+  const t = tangentAt(chain, d);
+  const h = chain.half;
+  // Mitred at a corner: the offset grows as the corner sharpens, at most twice the width
+  const nx = -t.y * t.scale;
+  const ny = t.x * t.scale;
+  return COLUMNS.map((u) => ({ x: p.x + nx * u * h, y: p.y + ny * u * h, across: u * h, along: d, edge: h * (1 - Math.abs(u)) - chain.walk, style: chain.style, dx: t.x, dy: t.y }));
+}
+
+/** Where a chain's drawn ribbon starts and ends (distances along) by its trims; trimmed away between two junctions, one point where they meet */
+function ribbonSpan(chain: Chain): [number, number] {
+  const o = chain.at[0];
+  const from = o + chain.trim[0];
+  const to = o + chain.length - chain.trim[1];
+  if (to - from >= 0.05) return [from, to];
+  const mid = Math.max(o, Math.min(o + chain.length, (from + to) / 2));
+  return [mid, mid];
+}
+
 /** The ribbon of a chain between its trims, with its round ends, into the tiles; keeps its end sections for the junctions */
 function emitRibbon(chain: Chain, out: TileBuilder): void {
-  const o = chain.at[0];
-  let from = o + chain.trim[0];
-  let to = o + chain.length - chain.trim[1];
-  // Trimmed away between two junctions: one section where they meet, no ribbon
-  if (to - from < 0.05) from = to = Math.max(o, Math.min(o + chain.length, (from + to) / 2));
+  const [from, to] = ribbonSpan(chain);
   // Distances of the cross sections: the polyline's points in range, steps of at most STEP between
   const stops: number[] = [from];
   for (let k = 1; k < chain.at.length; k++) {
@@ -944,31 +979,12 @@ function emitRibbon(chain: Chain, out: TileBuilder): void {
     if (d >= to) break;
   }
   if (to <= from) stops.length = 1;
-  const h = chain.half;
-  // Three columns: the distance to the edge peaks in the middle (the ground's bends cut the triangles, conformDraped)
-  const columns = [-1, 0, 1];
-  const sections: Section[] = stops.map((d) => {
-    const p = pointAt(chain, d);
-    const t = tangentAt(chain, d);
-    // Mitred at a corner: the offset grows as the corner sharpens, at most twice the width
-    const nx = -t.y * t.scale;
-    const ny = t.x * t.scale;
-    return columns.map((u) => ({
-      x: p.x + nx * u * h,
-      y: p.y + ny * u * h,
-      across: u * h,
-      along: d,
-      edge: h * (1 - Math.abs(u)) - chain.walk,
-      style: chain.style,
-      dx: t.x,
-      dy: t.y,
-    }));
-  });
+  const sections: Section[] = stops.map((d) => sectionAt(chain, d));
   chain.ends = [sections[0], sections[sections.length - 1]];
   out.share(sections[0]);
   if (sections.length > 1) out.share(sections[sections.length - 1]);
   // Pieces of at most PIECE metres, each into the tile it starts in
-  const w = columns.length;
+  const w = COLUMNS.length;
   let first = 0;
   while (first < sections.length - 1) {
     let last = first + 1;
@@ -1028,6 +1044,111 @@ function emitCap(section: Section, sign: number, out: TileBuilder): void {
   out.add(ring, tris);
 }
 
+/** A point of a junction's outline: its distance to the edge, the road it belongs to, whether on that road's end section */
+interface RingPoint {
+  x: number;
+  y: number;
+  edge: number;
+  arm: number;
+  side: boolean;
+}
+
+/**
+ * A junction's outline, counter-clockwise: the roads' end sections (`sides`, right to left seen from the node, the
+ * ends in order as trimJunction sorted them), each followed by the kerb to the next road. `gutter`: the junction's
+ * look has kerbs; `follow`: a kerb between two of its nodes that would cut across a chain between them follows the
+ * chains' edges instead
+ */
+function junctionOutline(list: readonly End[], sides: readonly Section[], inner: readonly Chain[], gutter: boolean, follow = true): RingPoint[] {
+  // The ring: each road's end section, then the kerb to the next road (a curve through where both kerbs would meet,
+  // else straight); a point of a section belongs to its road, a kerb point to the nearer of the two
+  const ring: RingPoint[] = [];
+  const n = list.length;
+  // A kerb between two roads without one gets none: its points lie past the gutter's width from the edge
+  const kerbs = list.map((e) => roadStyle(e.chain.edge).gutter);
+  for (let k = 0; k < n; k++) {
+    const kerbEdge = gutter && !kerbs[k] && !kerbs[(k + 1) % n] ? 0.6 : 0;
+    const side = sides[k];
+    for (const v of side) ring.push({ x: v.x, y: v.y, edge: v.edge, arm: k, side: true });
+    const a = side[side.length - 1];
+    const b = sides[(k + 1) % n][0];
+    // The outline runs round the pavements: from one road's to the next's
+    const walkA = list[k].chain.walk;
+    const walkB = list[(k + 1) % n].chain.walk;
+    // Two roads wide apart (a road going on through the junction, bending or not): the kerb follows their own lines;
+    // so does a kerb between two nodes of the junction that would cut across a chain between them (the ground grey
+    // where its surface should be)
+    const ea = list[k];
+    const eb = list[(k + 1) % n];
+    let along = kerbAlong(ea, eb, inner);
+    const curve = along ? [] : kerbCurve(a, ea, b, eb);
+    if (!along && follow && inner.some((c) => curve.some((p) => insideRibbon(c, p)))) along = kerbAlong(ea, eb, inner, true);
+    if (along) along.forEach((p) => ring.push({ x: p.x, y: p.y, edge: kerbEdge - p.walk, arm: p.second ? (k + 1) % n : k, side: false }));
+    else curve.forEach((p) => ring.push({ x: p.x, y: p.y, edge: kerbEdge - (walkA * (1 - p.t) + walkB * p.t), arm: p.t * 2 <= 1 ? k : (k + 1) % n, side: false }));
+  }
+  return ring;
+}
+
+/**
+ * The kerb's points between road ea's end section (its left point `a`) and the next road eb's (its right point `b`),
+ * with how far along it each lies: a curve through where both kerbs would meet (lineMeet), else, the kerb lines
+ * meeting behind the ends (the inside of a bend, a road going on at another width), a curve leaving each end along
+ * its road (Hermite), so the kerb of a roundabout's island follows its circle through the junctions on it instead of
+ * cutting across in a chord
+ */
+function kerbCurve(a: MapPoint, ea: End, b: MapPoint, eb: End): (MapPoint & { t: number })[] {
+  const cross = lineMeet(a, ea, b, eb);
+  const span = Math.hypot(b.x - a.x, b.y - a.y);
+  const out: (MapPoint & { t: number })[] = [];
+  for (let s = 1; s < CURVE_POINTS; s++) {
+    const t = s / CURVE_POINTS;
+    const u = 1 - t;
+    if (cross) {
+      out.push({ x: u * u * a.x + 2 * u * t * cross.x + t * t * b.x, y: u * u * a.y + 2 * u * t * cross.y + t * t * b.y, t });
+      continue;
+    }
+    const h00 = 2 * t * t * t - 3 * t * t + 1;
+    const h10 = t * t * t - 2 * t * t + t;
+    const h01 = -2 * t * t * t + 3 * t * t;
+    const h11 = t * t * t - t * t;
+    out.push({ x: h00 * a.x - h10 * span * ea.dx + h01 * b.x + h11 * span * eb.dx, y: h00 * a.y - h10 * span * ea.dy + h01 * b.y + h11 * span * eb.dy, t });
+  }
+  return out;
+}
+
+/** Whether a point lies on a chain's surface, more than a few decimetres in from its edges */
+function insideRibbon(chain: Chain, p: MapPoint): boolean {
+  const { line } = chain;
+  const limit = chain.half - 0.3;
+  for (let k = 1; k < line.length; k++) {
+    const a = line[k - 1];
+    const lx = line[k].x - a.x;
+    const ly = line[k].y - a.y;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * lx + (p.y - a.y) * ly) / (lx * lx + ly * ly || 1)));
+    if (Math.hypot(p.x - a.x - lx * t, p.y - a.y - ly * t) < limit) return true;
+  }
+  return false;
+}
+
+/** The end section of a road at a junction (its ribbon's, as emitRibbon lays it), right to left seen from the node */
+function endSection(e: End): Section {
+  const [from, to] = ribbonSpan(e.chain);
+  const s = sectionAt(e.chain, e.start ? from : to);
+  return e.start ? s : s.reverse();
+}
+
+/** Whether a ring is a polygon: counter-clockwise, no side crossing another */
+function simpleRing(ring: readonly MapPoint[]): boolean {
+  const n = ring.length;
+  let area = 0;
+  for (let k = 0; k < n; k++) area += ring[k].x * ring[(k + 1) % n].y - ring[(k + 1) % n].x * ring[k].y;
+  if (area <= 0) return false;
+  for (let k = 0; k < n; k++) {
+    for (let j = k + 2; j < n; j++) if (!(k === 0 && j === n - 1) && crosses(ring[k], ring[k + 1], ring[j], ring[(j + 1) % n])) return false;
+  }
+  return true;
+}
+
 /** The surface between the ends of the roads at a junction, fanned from its node */
 function emitJunction(c: MapPoint, list: End[], inner: readonly Chain[], out: TileBuilder, styleOf: (s: RoadStyle) => number): void {
   // The ends in counter-clockwise order (trimJunction sorted them), each with its cross section seen from the node:
@@ -1066,63 +1187,7 @@ function emitJunction(c: MapPoint, list: End[], inner: readonly Chain[], out: Ti
       arm: [armAcross, armAlong, Math.atan2(f.dy, f.dx) - Math.atan2(mf.dy, mf.dx), wears[arm] + weight * 0.99],
     };
   };
-  // The ring: each road's end section, then the kerb to the next road (a curve through where both kerbs would meet,
-  // else straight); a point of a section belongs to its road, a kerb point to the nearer of the two
-  interface RingPoint {
-    x: number;
-    y: number;
-    edge: number;
-    arm: number;
-    side: boolean;
-  }
-  const ring: RingPoint[] = [];
-  const n = list.length;
-  // A kerb between two roads without one gets none: its points lie past the gutter's width from the edge
-  const kerbs = list.map((e) => roadStyle(e.chain.edge).gutter);
-  for (let k = 0; k < n; k++) {
-    const kerbEdge = look.gutter && !kerbs[k] && !kerbs[(k + 1) % n] ? 0.6 : 0;
-    const side = sides[k]!;
-    for (const v of side) ring.push({ x: v.x, y: v.y, edge: v.edge, arm: k, side: true });
-    out.share(side);
-    const a = side[side.length - 1];
-    const b = sides[(k + 1) % n]![0];
-    // The outline runs round the pavements: from one road's to the next's
-    const walkA = list[k].chain.walk;
-    const walkB = list[(k + 1) % n].chain.walk;
-    // Two roads wide apart (a road going on through the junction, bending or not): the kerb follows their own lines
-    const along = kerbAlong(list[k], list[(k + 1) % n], inner);
-    const cross = along ? null : lineMeet(a, list[k], b, list[(k + 1) % n]);
-    if (along) {
-      along.forEach((p) => ring.push({ x: p.x, y: p.y, edge: kerbEdge - p.walk, arm: p.second ? (k + 1) % n : k, side: false }));
-    } else if (cross) {
-      for (let s = 1; s < CURVE_POINTS; s++) {
-        const t = s / CURVE_POINTS;
-        const u = 1 - t;
-        ring.push({ x: u * u * a.x + 2 * u * t * cross.x + t * t * b.x, y: u * u * a.y + 2 * u * t * cross.y + t * t * b.y, edge: kerbEdge - (walkA * u + walkB * t), arm: s * 2 <= CURVE_POINTS ? k : (k + 1) % n, side: false });
-      }
-    } else {
-      // The kerb lines meet behind the ends (the inside of a bend, a road going on at another width): a curve leaving
-      // each end along its road (Hermite), so the kerb of a roundabout's island follows its circle through the
-      // junctions on it instead of cutting across in a chord; its middle parts the two roads' frames
-      const ea = list[k];
-      const eb = list[(k + 1) % n];
-      const span = Math.hypot(b.x - a.x, b.y - a.y);
-      for (let s = 1; s < CURVE_POINTS; s++) {
-        const t = s / CURVE_POINTS;
-        const h00 = 2 * t * t * t - 3 * t * t + 1;
-        const h10 = t * t * t - 2 * t * t + t;
-        const h01 = -2 * t * t * t + 3 * t * t;
-        const h11 = t * t * t - t * t;
-        ring.push({
-          x: h00 * a.x - h10 * span * ea.dx + h01 * b.x + h11 * span * eb.dx,
-          y: h00 * a.y - h10 * span * ea.dy + h01 * b.y + h11 * span * eb.dy,
-          edge: kerbEdge - (walkA * (1 - t) + walkB * t),
-          arm: s * 2 <= CURVE_POINTS ? k : (k + 1) % n,
-          side: false,
-        });
-      }
-    }
-  }
+  for (const side of sides) out.share(side!);
   // The node lies on the widest road, its kerbs that road's half carriageway away: the distance to the edge runs from
   // there to the ring, so the kerbs cross the junction where that road's run. A narrower way's half (a footway
   // joining) pulled them in towards the node, the pavement bulging into the carriageway on both sides of each
@@ -1134,6 +1199,19 @@ function emitJunction(c: MapPoint, list: End[], inner: readonly Chain[], out: Ti
   // junction; fanned from the node it only grew with the distance from the node, the kerb wide where the outline lies
   // far out and thin where it comes close
   const left = (p: MapPoint, q: MapPoint, r: MapPoint): number => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  // An outline that runs round the node is fanned from it; one that does not (links and slip roads beside a
+  // junction, a junction of several nodes whose roads leave side by side) is triangulated as the polygon it is: a fan
+  // folded over the node there, its triangles over each other's and the kerbs across the carriageway. An outline that
+  // is no polygon either (roads crossing each other's ends) keeps the fan and its single ring, its kerbs between nodes
+  // straight across the chains between them, not along them
+  const runsAround = (r: readonly RingPoint[]) => r.every((p, k) => left(c, p, r[(k + 1) % r.length]) > 0);
+  let ring = junctionOutline(list, sides as Section[], inner, look.gutter);
+  let around = runsAround(ring);
+  const fan = around || !simpleRing(ring);
+  if (fan && !around && inner.length) {
+    ring = junctionOutline(list, sides as Section[], inner, look.gutter, false);
+    around = runsAround(ring);
+  }
   const count = ring.length;
   const normals = ring.map((p, k) => {
     const prev = ring[(k + count - 1) % count];
@@ -1142,7 +1220,7 @@ function emitJunction(c: MapPoint, list: End[], inner: readonly Chain[], out: Ti
     if (p.side || tl < 1e-6) return null;
     // Counter-clockwise round the node: inside is on the left
     let d = p.edge < 0 ? KERB_BAND - p.edge : KERB_BAND;
-    d = Math.min(d, Math.hypot(p.x - c.x, p.y - c.y) * 0.45);
+    if (fan) d = Math.min(d, Math.hypot(p.x - c.x, p.y - c.y) * 0.45);
     // Where the outline turns left (towards the inside), no further in than most of the radius of its turn
     const ax = p.x - prev.x;
     const ay = p.y - prev.y;
@@ -1164,12 +1242,18 @@ function emitJunction(c: MapPoint, list: End[], inner: readonly Chain[], out: Ti
   const folds = (k: number): boolean => {
     const j = (k + 1) % count;
     const [p, q, pi, qi] = [ring[k], ring[j], inside[k], inside[j]];
+    if (left(p, q, qi) < -1e-9 || left(p, qi, pi) < -1e-9) return true;
     // The band and the fan stay in the wedge of their stretch of outline: no triangle over the next one's
-    return left(p, q, qi) < -1e-9 || left(p, qi, pi) < -1e-9 || left(c, pi, qi) <= 0 || left(c, p, qi) <= 0 || left(c, pi, q) <= 0;
+    if (fan) return left(c, pi, qi) <= 0 || left(c, p, qi) <= 0 || left(c, pi, q) <= 0;
+    // The inner ring crosses neither itself nor the outline (a narrow neck between two roads side by side)
+    for (let i = 0; i < count; i++) {
+      const l = (i + 1) % count;
+      if (i !== k && crosses(pi, qi, ring[i], ring[l])) return true;
+      if (i !== k && i !== j && l !== k && crosses(pi, qi, inside[i], inside[l])) return true;
+    }
+    return false;
   };
-  // A fan that already folds over its node (a junction of links and slip roads whose outline is no ring round it)
-  // keeps its single ring: a second one would only add to the folds
-  if (ring.some((p, k) => left(c, p, ring[(k + 1) % count]) <= 0)) depth.fill(0);
+  if (!around && fan) depth.fill(0);
   for (let k = 0; k < count; k++) inside[k] = inward(k, depth[k]);
   for (let round = 0; round < 8; round++) {
     let folded = false;
@@ -1188,7 +1272,8 @@ function emitJunction(c: MapPoint, list: End[], inner: readonly Chain[], out: Ti
   const verts: Vertex[] = [];
   const tris: number[] = [];
   const triangle = (p: RingPoint, q: RingPoint, r: RingPoint, arm: number): void => {
-    // Skip slivers the wrong way round (a ring folding over the node at a very sharp junction) and the empty ones
+    // Skip slivers the wrong way round (an outline that is no polygon, roads crossing each other's ends) and the empty
+    // ones
     if (left(p, q, r) <= 1e-9) return;
     const base = verts.length;
     const weight = (v: RingPoint) => (v.side && v.arm === arm ? 1 : 0);
@@ -1204,9 +1289,35 @@ function emitJunction(c: MapPoint, list: End[], inner: readonly Chain[], out: Ti
     // The band between the rings, then the fan from the node to the inner ring
     triangle(p, q, qi, arm);
     if (pi !== p) triangle(p, qi, pi, arm);
-    triangle(centre, pi, qi, arm);
+    if (fan) triangle(centre, pi, qi, arm);
+  }
+  if (!fan) {
+    // The inner ring as a polygon (earcut), each point once; a triangle in the frame of the road whose end it touches
+    const poly: RingPoint[] = [];
+    for (const p of inside) if (p !== poly[poly.length - 1] && p !== poly[0]) poly.push(p);
+    for (const t of ShapeUtils.triangulateShape(
+      poly.map((p) => new Vector2(p.x, p.y)),
+      [],
+    )) {
+      const [a, b, d] = t.map((i) => poly[i]);
+      const arm = a.side ? a.arm : b.side ? b.arm : d.side ? d.arm : a.arm;
+      if (left(a, b, d) > 0) triangle(a, b, d, arm);
+      else triangle(a, d, b, arm);
+    }
   }
   out.add(verts, tris);
+}
+
+/** Whether segment p-q crosses segment r-s inside both (touching at an end is no crossing) */
+function crosses(p: MapPoint, q: MapPoint, r: MapPoint, s: MapPoint): boolean {
+  if (Math.max(p.x, q.x) < Math.min(r.x, s.x) || Math.max(r.x, s.x) < Math.min(p.x, q.x)) return false;
+  if (Math.max(p.y, q.y) < Math.min(r.y, s.y) || Math.max(r.y, s.y) < Math.min(p.y, q.y)) return false;
+  const side = (a: MapPoint, b: MapPoint, c: MapPoint) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  const a = side(p, q, r);
+  const b = side(p, q, s);
+  const e = side(r, s, p);
+  const f = side(r, s, q);
+  return ((a > 1e-9 && b < -1e-9) || (a < -1e-9 && b > 1e-9)) && ((e > 1e-9 && f < -1e-9) || (e < -1e-9 && f > 1e-9));
 }
 
 /** How far past the kerb the junction's distance to the edge is the true one (its paint and gutter lie within), m */
@@ -1230,7 +1341,7 @@ const KERB_TURN = Math.PI / 4;
  * eb's side; null for a corner between two roads (rounded by lineMeet) or
  * without a way through the junction's chains
  */
-function kerbAlong(ea: End, eb: End, inner: readonly Chain[]): (MapPoint & { walk: number; second: boolean })[] | null {
+function kerbAlong(ea: End, eb: End, inner: readonly Chain[], follow = false): (MapPoint & { walk: number; second: boolean })[] | null {
   const nodeOf = (e: End) => e.chain.nodes[e.start ? 0 : 1];
   // The way through the junction's chains from ea's node to eb's (none for one node)
   const way: { chain: Chain; forward: boolean }[] = [];
@@ -1258,40 +1369,54 @@ function kerbAlong(ea: End, eb: End, inner: readonly Chain[]): (MapPoint & { wal
     }
   }
   // One road going on: at each node of the way it turns no more than KERB_TURN (a corner between two roads is rounded)
-  let dx = -ea.dx;
-  let dy = -ea.dy;
-  for (const w of way) {
-    const out = endOf(w.chain, w.forward);
-    if (dx * out.dx + dy * out.dy < Math.cos(KERB_TURN)) return null;
-    const back = endOf(w.chain, !w.forward);
-    dx = -back.dx;
-    dy = -back.dy;
-  }
-  if (dx * eb.dx + dy * eb.dy < Math.cos(KERB_TURN)) return null;
+  if (!follow) {
+    let dx = -ea.dx;
+    let dy = -ea.dy;
+    for (const w of way) {
+      const out = endOf(w.chain, w.forward);
+      if (dx * out.dx + dy * out.dy < Math.cos(KERB_TURN)) return null;
+      const back = endOf(w.chain, !w.forward);
+      dx = -back.dx;
+      dy = -back.dy;
+    }
+    if (dx * eb.dx + dy * eb.dy < Math.cos(KERB_TURN)) return null;
+  } else if (!way.length) return null;
   // The pieces of the way: chain distances from d0 to d1 (the joints between pieces at the nodes)
+  // From the road's end section (its ribbon's, ribbonSpan: a road trimmed away between two junctions ends where they
+  // meet) to its node
   const ends = (e: End): [number, number] => {
     const c = e.chain;
-    const trim = c.trim[e.start ? 0 : 1];
-    return e.start ? [c.at[0] + trim, c.at[0]] : [c.at[0] + c.length - trim, c.at[0] + c.length];
+    const [from, to] = ribbonSpan(c);
+    return e.start ? [from, c.at[0]] : [to, c.at[0] + c.length];
   };
   const [a0, a1] = ends(ea);
   const [b1, b0] = ends(eb);
-  const spans: { chain: Chain; d0: number; d1: number; second: boolean }[] = [{ chain: ea.chain, d0: a0, d1: a1, second: false }];
-  for (const w of way) spans.push({ chain: w.chain, d0: w.forward ? w.chain.at[0] : w.chain.at[0] + w.chain.length, d1: w.forward ? w.chain.at[0] + w.chain.length : w.chain.at[0], second: false });
-  spans.push({ chain: eb.chain, d0: b0, d1: b1, second: true });
-  // At a joint between two widths the edge tapers over twice the change and a metre to their mean (as trimJunction
-  // tapers a road of two ends), so the two edges meet there instead of stepping
+  // Each with its way along the chain (forward: as its distance grows), also where it has no length (a road not trimmed)
+  const spans: { chain: Chain; d0: number; d1: number; forward: boolean; second: boolean }[] = [{ chain: ea.chain, d0: a0, d1: a1, forward: !ea.start, second: false }];
+  for (const w of way) spans.push({ chain: w.chain, d0: w.forward ? w.chain.at[0] : w.chain.at[0] + w.chain.length, d1: w.forward ? w.chain.at[0] + w.chain.length : w.chain.at[0], forward: w.forward, second: false });
+  spans.push({ chain: eb.chain, d0: b0, d1: b1, forward: eb.start, second: true });
+  // At a joint between two widths of a road going on (turning at most KERB_TURN there) the edge tapers over twice the
+  // change and a metre to their mean (as trimJunction tapers a road of two ends), so the two edges meet there instead
+  // of stepping; at a corner between two roads each keeps its width (tapered, a road's kerb came in short of its edge)
+  const heading = (k: number, end: boolean): MapPoint => {
+    const t = tangentAt(spans[k].chain, end ? spans[k].d1 : spans[k].d0);
+    return spans[k].forward ? t : { x: -t.x, y: -t.y };
+  };
   const toward = (k: number, other: number): { to: number; reach: number } | null => {
     if (other < 0 || other >= spans.length) return null;
+    const [first, second] = other < k ? [other, k] : [k, other];
+    const a = heading(first, true);
+    const b = heading(second, false);
+    if (a.x * b.x + a.y * b.y < Math.cos(KERB_TURN)) return null;
     const step = Math.abs(spans[k].chain.half - spans[other].chain.half);
     return step < 0.05 ? null : { to: (spans[k].chain.half + spans[other].chain.half) / 2, reach: step * 2 + 1 };
   };
   // Each piece's edge on the right of the way round the junction (counter-clockwise, the surface on the left)
-  const pieces = spans.map(({ chain, d0, d1, second }, k) => {
+  const pieces = spans.map(({ chain, d0, d1, forward, second }, k) => {
     const before = k > 0 ? toward(k, k - 1) : null;
     const after = k < spans.length - 1 ? toward(k, k + 1) : null;
     const steps = Math.max(1, Math.ceil(Math.abs(d1 - d0)));
-    const sign = d1 >= d0 ? 1 : -1;
+    const sign = forward ? 1 : -1;
     const out: (MapPoint & { walk: number; second: boolean })[] = [];
     for (let s = 0; s <= steps; s++) {
       const d = d0 + ((d1 - d0) * s) / steps;
@@ -1306,25 +1431,107 @@ function kerbAlong(ea: End, eb: End, inner: readonly Chain[]): (MapPoint & { wal
     return out;
   });
   // Joined piece by piece where the edges cross (the inside of a bend; at a joint that tapers, at the node): the
-  // latest crossing on the way in, the earliest on the way out. Edges that part (the outside of a bend): no kerb along
-  // them, the kerb lines meet in front (lineMeet)
+  // latest crossing on the way in, the earliest on the way out, a corner of more than KERB_ROUND rounded off by the
+  // narrower road's kerb radius. Edges that part (the outside of a bend): at one node no kerb along them, the kerb
+  // lines meet in front (lineMeet); between nodes a curve from one edge to the next through where their lines meet
+  type KerbPoint = MapPoint & { walk: number; second: boolean };
   let line = pieces[0];
   for (let k = 1; k < pieces.length; k++) {
     const next = pieces[k];
-    let joined: typeof line | null = null;
+    const radius = Math.min(6, Math.max(0.5, Math.min(spans[k - 1].chain.half, spans[k].chain.half) * 0.8 + 1));
+    let joined: KerbPoint[] | null = null;
     for (let i = line.length - 1; i > 0 && !joined; i--) {
       for (let j = 0; j + 1 < next.length; j++) {
         const x = segmentCross(line[i - 1], line[i], next[j], next[j + 1]);
         if (!x) continue;
-        joined = [...line.slice(0, i), { ...x, walk: line[i - 1].walk, second: line[i - 1].second }, ...next.slice(j + 1)];
+        const corner = { ...x, walk: line[i - 1].walk, second: line[i - 1].second };
+        joined = follow ? roundJoint(line.slice(0, i), corner, next.slice(j + 1), radius) : [...line.slice(0, i), corner, ...next.slice(j + 1)];
         break;
       }
+    }
+    if (!joined && follow) {
+      const p = line[line.length - 1];
+      const q = next[0];
+      let meet = line.length > 1 && next.length > 1 ? rayMeet(line[line.length - 2], p, q, next[1]) : null;
+      // Not far beyond either (edges nearly parallel): straight across
+      if (meet && Math.hypot(meet.x - p.x, meet.y - p.y) + Math.hypot(meet.x - q.x, meet.y - q.y) > Math.hypot(q.x - p.x, q.y - p.y) * 3 + 2) meet = null;
+      const curve: KerbPoint[] = [];
+      for (let s = 1; meet && s < CURVE_POINTS; s++) {
+        const t = s / CURVE_POINTS;
+        const u = 1 - t;
+        const from = t < 0.5 ? p : q;
+        curve.push({ x: u * u * p.x + 2 * u * t * meet.x + t * t * q.x, y: u * u * p.y + 2 * u * t * meet.y + t * t * q.y, walk: from.walk, second: from.second });
+      }
+      joined = [...line, ...curve, ...next];
     }
     if (!joined) return null;
     line = joined;
   }
   // Between the end sections (theirs are the ring's own points)
   return line.slice(1, -1);
+}
+
+/** Least turn (radians) of a kerb at a joint of kerbAlong's pieces that is rounded off */
+const KERB_ROUND = Math.PI / 12;
+
+/**
+ * A kerb's corner at `x` (the line `before` comes in, `after` goes on)
+ * rounded off: a curve from `radius` before it to `radius` after it (less where
+ * a side is shorter), through the corner as its control point
+ */
+function roundJoint<T extends MapPoint & { walk: number; second: boolean }>(before: T[], x: T, after: T[], radius: number): T[] {
+  const into = before[before.length - 1];
+  const out = after[0];
+  if (!into || !out) return [...before, x, ...after];
+  const ax = x.x - into.x;
+  const ay = x.y - into.y;
+  const bx = out.x - x.x;
+  const by = out.y - x.y;
+  if (Math.abs(Math.atan2(ax * by - ay * bx, ax * bx + ay * by)) < KERB_ROUND) return [...before, x, ...after];
+  // Back along the incoming line and on along the outgoing one by the radius (at most two fifths of either)
+  const walk = (points: T[], from: MapPoint, reach: number): { at: MapPoint; rest: T[] } => {
+    let prev: MapPoint = from;
+    for (let k = 0; k < points.length; k++) {
+      const l = Math.hypot(points[k].x - prev.x, points[k].y - prev.y);
+      if (l >= reach) {
+        const t = reach / (l || 1);
+        return { at: { x: prev.x + (points[k].x - prev.x) * t, y: prev.y + (points[k].y - prev.y) * t }, rest: points.slice(k) };
+      }
+      reach -= l;
+      prev = points[k];
+    }
+    return { at: prev, rest: [] };
+  };
+  const length = (points: readonly MapPoint[], from: MapPoint) => points.reduce((s, p, k) => s + Math.hypot(p.x - (k ? points[k - 1] : from).x, p.y - (k ? points[k - 1] : from).y), 0);
+  const back = [...before].reverse();
+  const r = Math.min(radius, length(back, x) * 0.4, length(after, x) * 0.4);
+  if (r < 0.05) return [...before, x, ...after];
+  const s0 = walk(back, x, r);
+  const s1 = walk(after, x, r);
+  const curve: T[] = [];
+  for (let s = 0; s <= CURVE_POINTS; s++) {
+    const t = s / CURVE_POINTS;
+    const u = 1 - t;
+    curve.push({ ...(t < 0.5 ? into : out), x: u * u * s0.at.x + 2 * u * t * x.x + t * t * s1.at.x, y: u * u * s0.at.y + 2 * u * t * x.y + t * t * s1.at.y });
+  }
+  return [...s0.rest.reverse(), ...curve, ...s1.rest];
+}
+
+/** Where the line on from p through q (beyond q) meets the line back from s through r (before r), null behind either */
+function rayMeet(p: MapPoint, q: MapPoint, r: MapPoint, s: MapPoint): MapPoint | null {
+  const dx = q.x - p.x;
+  const dy = q.y - p.y;
+  const ex = r.x - s.x;
+  const ey = r.y - s.y;
+  const det = dx * -ey - dy * -ex;
+  if (Math.abs(det) < 1e-9) return null;
+  // q + d * a = r + e * b, a, b >= 0
+  const rx = r.x - q.x;
+  const ry = r.y - q.y;
+  const a = (rx * -ey - ry * -ex) / det;
+  const b = (dx * ry - dy * rx) / det;
+  if (a < 0 || b < 0) return null;
+  return { x: q.x + dx * a, y: q.y + dy * a };
 }
 
 /** Where segment p-q crosses segment r-s, null when it does not */
@@ -1342,7 +1549,7 @@ function segmentCross(p: MapPoint, q: MapPoint, r: MapPoint, s: MapPoint): MapPo
  * the one through `b` (along eb): the control point of the kerb curve; null
  * when they meet behind either end or not at all
  */
-function lineMeet(a: Vertex, ea: End, b: Vertex, eb: End): MapPoint | null {
+function lineMeet(a: MapPoint, ea: End, b: MapPoint, eb: End): MapPoint | null {
   // a - ea.d * p = b - eb.d * q
   const det = -ea.dx * eb.dy + ea.dy * eb.dx;
   if (Math.abs(det) < 1e-4) return null;
@@ -1352,6 +1559,9 @@ function lineMeet(a: Vertex, ea: End, b: Vertex, eb: End): MapPoint | null {
   const p = (rx * eb.dy - ry * eb.dx) / det;
   const q = (-ea.dx * ry + ea.dy * rx) / det;
   if (p < 0 || q < 0) return null;
+  // Far behind both (roads nearly parallel, from nodes of a junction metres apart): no curve out of the junction
+  const reach = Math.hypot(rx, ry) * 3 + 2;
+  if (p > reach && q > reach) return null;
   return { x: a.x - ea.dx * p, y: a.y - ea.dy * p };
 }
 

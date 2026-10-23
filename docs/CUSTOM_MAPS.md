@@ -305,18 +305,27 @@ zusammen mehr Platz wollen als es hat (ihre Kürzungen über neun Zehntel seiner
 (`clusterJunctions`: kürzeste zuerst, höchstens 24 m Ausdehnung, Mitte der Knoten als Fächerpunkt, jeder Arm von seinem
 Knoten aus gekürzt); das Band dazwischen entfällt, seine Fläche deckt die Kreuzung. Vorher lagen zwei Kreuzungen
 übereinander, ihre Bordsteine quer über der Fahrbahn der anderen. Läuft der Umriss einer solchen Kreuzung nicht einmal
-um ihre Mitte (Straßen ihrer Knoten nebeneinander, etwa Zufahrten an einer Kreuzung zweier Hauptstraßen), bleiben
-es einzelne Kreuzungen (`outlineAround`). Ein Band, das sich um mehr als 30° biegt (ein Kreisverkehr zwischen zwei Zufahrten), wird nie
+um ihre Mitte (Straßen ihrer Knoten nebeneinander, etwa Zufahrten und Abbieger an einer Kreuzung zweier
+Hauptstraßen), wird sie als das Vieleck trianguliert, das ihr Umriss ist (earcut, `simpleRing`); nur ein Umriss,
+der sich selbst kreuzt, zerfällt wieder in einzelne Kreuzungen. Vorher zerfiel jede solche Gruppe, ihre Fächer
+lagen übereinander und klappten über die Knoten (an einem Knoten mit Abbiegespur 529 doppelt gedeckte
+25-cm-Punkte, jetzt 27). Ein Bordstein zwischen zwei Knoten der Gruppe, dessen Kurve quer über ein Band in ihr liefe,
+folgt den Kanten der Bänder (`kerbAlong` mit `follow`, Ecken mit dem Bordsteinradius gerundet); vorher blieb dort
+das Grau des Bodens unter der Straße sichtbar. Ein Arm, dessen Ende auf einem Band in der Gruppe läge (eine
+Seitenstraße, von der Mitte der Gruppe aus gesehen), wird auch an seinem eigenen Knoten gekürzt (`trimJunction`). Ein Band, das sich um mehr als 30° biegt (ein Kreisverkehr zwischen zwei Zufahrten), wird nie
 Teil einer Kreuzung. Zwischen zwei Armen derselben weiterlaufenden Straße (an jedem Knoten des Wegs höchstens 45°
 Knick, auch durch die inneren Bänder einer Kreuzung) folgt der Bordstein den Kanten der Bänder selbst, im Meter, bei
-einem Breitenwechsel über doppelte Änderung plus einen Meter verjüngt (`kerbAlong`), wo sie sich schneiden (die
+einem Breitenwechsel über doppelte Änderung plus einen Meter verjüngt (`kerbAlong`; die Kürzung dafür auch an einem
+Knoten mit weiteren Straßen), wo sie sich schneiden (die
 Innenseite einer Biegung); vorher lief er als Sehne quer, und die Insel eines Kreisverkehrs wurde in jeder Kreuzung
-eckig. Ecken zwischen zwei Straßen bleiben gerundet (`lineMeet`). Ein Pfad, an dessen Ende nichts anschließt, endet rund.
+eckig. Ecken zwischen zwei Straßen bleiben gerundet (`lineMeet`; treffen sich ihre Bordsteinlinien weit hinter beiden Enden,
+fast parallel, läuft die Kurve vom einen Ende zum anderen statt weit aus der Kreuzung hinaus). Ein Pfad, an dessen Ende nichts anschließt, endet rund.
 Der Abstand zur Kante ist auch in der Kreuzung der wahre: ein zweiter Ring liegt um Gehweg plus 1,2 m innerhalb des
 Umrisses (`KERB_BAND`, je Bordsteinpunkt senkrecht zum Umriss, weniger in engen Kurven und nahe dem Knoten, nie so weit,
-dass ein Dreieck umklappt oder in den Keil des nächsten reicht), erst innerhalb davon der Fächer vom Knoten. Vorher
+dass ein Dreieck umklappt oder in den Keil des nächsten reicht, beim Vieleck nie über sich selbst oder den Umriss),
+erst innerhalb davon der Fächer vom Knoten, beim Vieleck das innere Vieleck trianguliert. Vorher
 wuchs der Abstand vom Umriss zum Knoten linear: Gehweg, Bordstein und Rinne wurden breit, wo der Umriss weit außen lag,
-und dünn, wo er nah kam. Eine Kreuzung, deren Fächer schon über den Knoten klappt (Zufahrten und Abbieger, deren
+und dünn, wo er nah kam. Eine Kreuzung, deren Umriss weder um den Knoten läuft noch ein Vieleck ist (Zufahrten und Abbieger, deren
 Umriss keinen Ring um die Mitte bildet), behält den einen Ring.
 Das Aussehen folgt der Straßenart (`street`): Spurlinien auf Autobahnen, Rand- und gestrichelte Mittellinie auf
 Haupt- und Kreisstraßen (`primary`, `secondary`), Mittellinie auf `tertiary`, keine in Wohnstraßen, deren Asphalt in
