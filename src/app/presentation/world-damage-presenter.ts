@@ -404,6 +404,7 @@ export class WorldDamagePresenter {
     if (!drawn) return;
     drawn.clear();
     const list = this.runStructures();
+    drawn.holdStructures?.(list);
     for (let i = 0; i < this.stages.length && i < list.length; i++) if (this.stages[i] === 3) drawn.rubble(list[i], 1);
     const c = this.craterList();
     for (let k = 0; k + CRATER_STRIDE <= c.length; k += CRATER_STRIDE) drawn.crater(c[k], c[k + 1], c[k + 2], c[k + 3], 1);

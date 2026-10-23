@@ -366,8 +366,13 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   beidseitig), der Fall selbst steht für die Sichtlinie still; der Sonnenschatten fällt und schneidet mit.
 - **Stehen:** Gebäude, Mauern und Bauwerke stehen auf den Höhen der Karte mit den Kratern, nicht auf dem Schutt des
   Laufs (`CustomMapViewOptions.standingGround`, `CustomMapGroundDamage.standing`: Grundhöhe plus nur die
-  Kraterstempel). Ein Stumpf am Kraterrand sinkt mit dem Boden (auf seiner tiefsten Ecke, nichts schwebt), keiner hebt
-  sich auf seinen eigenen Haufen; eine Ruine, die sinkt, nimmt Bruchkante, Biss, Decken und Glutnest mit (E270).
+  Kraterstempel). Ein Bauwerk, das steht (auch beschädigt), hält den Boden seines Grundrisses wie ein Tower
+  (`CustomMapGroundDamage.holdStructures`, Punkt 31): ein Krater an seiner Wand lässt den Boden darunter, gezeichnet
+  und als Sitz, wie gebaut; das Haus sinkt nicht, unter seiner Bodenplatte kommt kein Rasen hervor, die Mulde endet an
+  der Wand. Vorher sank jedes Haus auf die tiefste Ecke seines Grunds. Fällt es (sein Schutt kommt), lässt es los: ein
+  Stumpf am Kraterrand sinkt mit dem Boden (auf seiner tiefsten Ecke, nichts schwebt), keiner hebt sich auf seinen
+  eigenen Haufen; eine Ruine, die sinkt, nimmt Bruchkante, Biss, Decken und Glutnest mit (E270). Die Kraterliste und
+  das Auslöschen ändert das nicht.
 - **Krater löschen aus** (E270, `custom-map/crater-obliteration.ts`): was in einem Krater steht, wo die Krater unter
   seiner Mitte oder einer Ecke seines Grunds 150 cm oder tiefer reichen (`OBLITERATE_CM`), ist weg: ein gefallenes
   Bauwerk ganz (kein Stumpf, keine Decken, kein Glutnest; sein Schutt liegt auf dem Kratergrund), eine gefallene Hecke,

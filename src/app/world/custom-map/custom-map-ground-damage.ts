@@ -5,6 +5,7 @@ import { craterCm } from '../../map-ops/impact-stamp';
 import { rubbleCmAt, rubbleReach, rubbleShapeOf } from '../../utils/stamp-field';
 import { craterMaxDepthCm } from '../../managers/game-state/crater-ledger';
 import { RUBBLE } from '../../configs/destruction.config';
+import { MAP_METERS_PER_DEGREE } from './map-document';
 import { RUBBLE_COLOURS, RUBBLE_MATERIALS, type RubbleMaterial } from './rubble-material';
 
 /** What a mark shows */
@@ -38,6 +39,20 @@ export const BARE_FROM_CM = 10;
 export const TOWER_HOLD_M = 3;
 /** A sample no tower holds: no floor under it */
 const NO_FLOOR = -0x7fffffff;
+/** Edge of a cell of the lookup grid of the structures holding the ground, m */
+const HOLD_CELL_M = 16;
+
+/** A structure's ground plan as it holds the ground: middle, half extents in its own axes, cos and sin of its turn */
+interface HeldPlan {
+  x: number;
+  y: number;
+  hx: number;
+  hy: number;
+  cos: number;
+  sin: number;
+  /** No box: a circle of radius hx */
+  round: boolean;
+}
 
 /** A rectangle in map metres, as CustomMapView.updateHeights takes it */
 export interface GroundRect {
@@ -67,6 +82,12 @@ export interface GroundRect {
  * walls and structures stand on: the map's own with the craters but not the
  * rubble (a stump at a crater's rim sinks with the ground, none rises on its
  * own heap), and the craters' centimetres alone per sample (craterCmAt).
+ *
+ * A structure that still stands holds the ground of its ground plan as a
+ * tower does (holdStructures): a crater at its wall leaves the ground under
+ * it as built, drawn and stood on, so a house does not sink when hit, nor
+ * does its floor go under the lawn. When it falls (its rubble comes) it lets
+ * go, and its stump sinks with the ground as before.
  *
  * Changed samples are written per tile of GROUND_TILE samples, a few tiles a
  * frame (`flush`, GROUND_TILES_PER_FRAME), the samples changed in each frame's
@@ -106,6 +127,13 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
    * the map (MapTerrainLayer.refreshApron) though no border sample moved.
    */
   private readonly changed: Int32Array;
+  /** The structures that hold the ground while they stand (holdStructures), their plans, and which of them fell */
+  private held: readonly RunStructure[] = [];
+  private plans: HeldPlan[] = [];
+  private heldIndex = new Map<RunStructure, number>();
+  private fallen = new Uint8Array(0);
+  /** The lookup grid of the plans: per cell of HOLD_CELL_M the plans reaching into it */
+  private readonly heldCells = new Map<number, number[]>();
   /** The towers holding the ground: map metres, `foot` the height their plinth stands on */
   private readonly towers = new Map<string, { x: number; y: number; foot: number }>();
   /** The marks over the stamps (impact-marks.ts): a crater by its middle, a heap by its structure */
@@ -198,6 +226,12 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
   }
 
   rubble(structure: RunStructure, sign: 1 | -1): void {
+    // Fallen, it holds its ground no more; mended, it holds it again
+    const held = this.heldIndex.get(structure);
+    if (held !== undefined && this.fallen[held] !== (sign > 0 ? 1 : 0)) {
+      this.fallen[held] = sign > 0 ? 1 : 0;
+      this.markPlan(held);
+    }
     const shape = rubbleShapeOf(structure);
     const reach = rubbleReach(shape);
     this.stamp(shape.x, shape.z, reach.x, reach.z, (sx, sy) => rubbleCmAt(shape, sx, sy) * sign);
@@ -230,6 +264,7 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     sum.fill(0);
     this.craterSum!.fill(0);
     this.floor!.fill(NO_FLOOR);
+    this.fallen.fill(0);
     this.towers.clear();
     this.marks.clear();
     this.craterList.clear();
@@ -254,6 +289,67 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     const v = fy - j;
     const k = j * this.columns + i;
     return (c[k] * (1 - u) + c[k + 1] * u) * (1 - v) + (c[k + this.columns] * (1 - u) + c[k + this.columns + 1] * u) * v;
+  }
+
+  /**
+   * The world's structures (the run rules' order): each holds the ground of
+   * its ground plan (its box, else its circle) while it stands, all of them
+   * from now and after a clear, but those whose rubble came (rubble). The
+   * same list again changes nothing
+   */
+  holdStructures(structures: readonly RunStructure[]): void {
+    if (structures === this.held) return;
+    this.held = structures;
+    this.heldIndex = new Map(structures.map((s, i) => [s, i]));
+    this.fallen = new Uint8Array(structures.length);
+    this.heldCells.clear();
+    this.plans = structures.map((s, i) => {
+      const plan: HeldPlan = s.box
+        ? { x: s.box[0], y: s.box[1], hx: s.box[2], hy: s.box[3], cos: Math.cos(s.box[4]), sin: Math.sin(s.box[4]), round: false }
+        : { x: s.lon * MAP_METERS_PER_DEGREE, y: s.lat * MAP_METERS_PER_DEGREE, hx: s.radius, hy: s.radius, cos: 1, sin: 0, round: true };
+      const reach = Math.hypot(plan.hx, plan.hy);
+      for (let cy = Math.floor((plan.y - reach) / HOLD_CELL_M); cy <= Math.floor((plan.y + reach) / HOLD_CELL_M); cy++) {
+        for (let cx = Math.floor((plan.x - reach) / HOLD_CELL_M); cx <= Math.floor((plan.x + reach) / HOLD_CELL_M); cx++) {
+          const key = cy * 65536 + cx;
+          const cell = this.heldCells.get(key);
+          if (cell) cell.push(i);
+          else this.heldCells.set(key, [i]);
+        }
+      }
+      return plan;
+    });
+    // Samples stamped already follow their structures' hold
+    if (this.sum) for (let i = 0; i < this.plans.length; i++) this.markPlan(i);
+  }
+
+  /** A structure that stands holds map metres (`x`, `y`): within its ground plan */
+  private heldAt(x: number, y: number): boolean {
+    const cell = this.heldCells.get(Math.floor(y / HOLD_CELL_M) * 65536 + Math.floor(x / HOLD_CELL_M));
+    if (!cell) return false;
+    for (const i of cell) {
+      if (this.fallen[i]) continue;
+      const p = this.plans[i];
+      const ox = x - p.x;
+      const oy = y - p.y;
+      if (p.round) {
+        if (ox * ox + oy * oy <= p.hx * p.hx) return true;
+      } else if (Math.abs(-ox * p.cos - oy * p.sin) <= p.hx && Math.abs(-ox * p.sin + oy * p.cos) <= p.hy) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** The samples of plan `i` to be written anew (its hold changed) */
+  private markPlan(i: number): void {
+    if (!this.sum) return;
+    const p = this.plans[i];
+    const reach = Math.hypot(p.hx, p.hy);
+    const i0 = Math.max(0, Math.ceil((p.x - reach - this.originX) / this.cell));
+    const i1 = Math.min(this.columns - 1, Math.floor((p.x + reach - this.originX) / this.cell));
+    const j0 = Math.max(0, Math.ceil((p.y - reach - this.originY) / this.cell));
+    const j1 = Math.min(this.rows - 1, Math.floor((p.y + reach - this.originY) / this.cell));
+    for (let j = j0; j <= j1; j++) for (let k = j * this.columns + i0; k <= j * this.columns + i1; k++) this.markSample(k);
   }
 
   /**
@@ -324,11 +420,15 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
       const a1 = c[tile * 4 + 2];
       const b1 = c[tile * 4 + 3];
       for (let j = b0; j <= b1; j++) {
+        const y = this.originY + j * this.cell;
         for (let i = a0; i <= a1; i++) {
           const k = j * this.columns + i;
-          const cm = Math.max(sum[k], floor[k]);
+          let cm = Math.max(sum[k], floor[k]);
+          // Under a structure that stands no pit: it holds its ground as built
+          const held = (cm < 0 || craters[k] !== 0) && this.heldAt(this.originX + i * this.cell, y);
+          if (held && cm < 0) cm = 0;
           heights[k] = base[k] + cm / 100;
-          standing[k] = base[k] + craters[k] / 100;
+          standing[k] = base[k] + (held ? 0 : craters[k] / 100);
           bare[k] = cm >= BARE_FROM_CM || cm <= -BARE_FROM_CM ? 1 : 0;
         }
       }

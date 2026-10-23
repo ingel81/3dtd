@@ -102,6 +102,37 @@ describe('CustomMapGroundDamage (docs/DESTRUCTION_PLAN.md, Z4)', () => {
     expect(rects[1]).toEqual({ minX: -128, minY: -128, maxX: 128, maxY: 128 });
   });
 
+  it('holds the ground of a standing structure against a crater at its wall, and lets go when it falls (Punkt 31)', () => {
+    const { grid, ground, at, drain } = setup();
+    const hut: RunStructure = { id: 'hut', lat: 0, lon: 0, radius: 6, height: 6, hp: 100, box: [0, 0, 4, 4, 0] };
+    const standAt = (x: number, y: number) => ground.standing.heights[((y + 128) / 2) * 129 + (x + 128) / 2];
+    ground.holdStructures([hut]);
+    // A crater 3 m wide and 60 cm deep 6 m east of its middle, 2 m off its east wall
+    ground.crater(60, 0, 30, 60, 1);
+    drain();
+    // On its wall and within: the ground as built, drawn and stood on; outside the pit
+    expect(at(4, 0)).toBe(5);
+    expect(standAt(4, 0)).toBe(5);
+    expect(at(6, 0)).toBeCloseTo(4.4, 5);
+    expect(standAt(6, 0)).toBeCloseTo(4.4, 5);
+    // It falls: its rubble comes and the pit under its wall with it; its stump stands in the crater
+    ground.rubble(hut, 1);
+    drain();
+    expect(standAt(4, 0)).toBeLessThan(5);
+    expect(at(4, 0)).not.toBe(5);
+    // Mended, it holds again; a clear holds every structure again, the same list changes nothing
+    ground.rubble(hut, -1);
+    drain();
+    expect(at(4, 0)).toBe(5);
+    ground.rubble(hut, 1);
+    ground.clear();
+    ground.holdStructures([hut]);
+    ground.crater(60, 0, 30, 60, 1);
+    drain();
+    expect(standAt(4, 0)).toBe(5);
+    expect(grid.heights.length).toBe(129 * 129);
+  });
+
   it('heaps the rubble of a fallen structure as the stamp field does', () => {
     const { ground, at, drain } = setup();
     ground.rubble(BARN, 1);

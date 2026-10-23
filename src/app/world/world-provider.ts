@@ -594,7 +594,13 @@ export interface WorldGroundDamage {
   dug?(xDm: number, yDm: number): void;
   /** What stands at map dm (`xDm`, `yDm`) before a hit there: water, lava or nothing (a hit's splash) */
   waterAt?(xDm: number, yDm: number): 'water' | 'lava' | null;
+  /** Structure `structure` fell (1: its rubble comes, it holds its ground no more) or stands again (-1) */
   rubble(structure: RunStructure, sign: 1 | -1): void;
+  /**
+   * The world's structures, each holding the ground of its ground plan while it stands: a crater at its wall
+   * leaves the ground under it as built (CustomMapGroundDamage.holdStructures)
+   */
+  holdStructures?(structures: readonly RunStructure[]): void;
   /** Every stamp off, every hold let go */
   clear(): void;
   /** A structure of `material` at map metres (`x`, `y`) falls: its pieces thrown out, rolled from `seed` */
