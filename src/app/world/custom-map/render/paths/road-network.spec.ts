@@ -509,3 +509,86 @@ describe('road network covers', () => {
     again.forEach((c, k) => expect(c).toBe(first[k]));
   });
 });
+
+describe('road network, kerb lines', () => {
+  /** The kerb (distance to the edge 0) through every triangle; the sharpest turn where two pieces of it meet, degrees */
+  function sharpestKerbTurn(net: RoadNetwork): number {
+    const ends = new Map<string, number[][]>();
+    for (const t of net.tiles) {
+      for (let k = 0; k < t.index.length; k += 3) {
+        const ids = [t.index[k], t.index[k + 1], t.index[k + 2]];
+        const e = ids.map((v) => t.road[v * 4 + 2]);
+        const pts: number[][] = [];
+        for (let s = 0; s < 3; s++) {
+          const [a, c] = [ids[s], ids[(s + 1) % 3]];
+          const [ea, ec] = [e[s], e[(s + 1) % 3]];
+          if (ea < 0 === ec < 0) continue;
+          const f = ea / (ea - ec);
+          pts.push([t.position[a * 2] + (t.position[c * 2] - t.position[a * 2]) * f, t.position[a * 2 + 1] + (t.position[c * 2 + 1] - t.position[a * 2 + 1]) * f]);
+        }
+        if (pts.length !== 2) continue;
+        const l = Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]);
+        if (l < 0.25) continue;
+        for (const [p, q] of [[pts[0], pts[1]], [pts[1], pts[0]]]) {
+          const key = `${Math.round(p[0] * 200)},${Math.round(p[1] * 200)}`;
+          (ends.get(key) ?? ends.set(key, []).get(key)!).push([(q[0] - p[0]) / l, (q[1] - p[1]) / l]);
+        }
+      }
+    }
+    let most = 0;
+    for (const list of ends.values()) {
+      if (list.length !== 2) continue;
+      const dot = list[0][0] * list[1][0] + list[0][1] * list[1][1];
+      most = Math.max(most, (Math.acos(Math.max(-1, Math.min(1, -dot))) * 180) / Math.PI);
+    }
+    return most;
+  }
+
+  it('turns no kerb back on itself at a mouth, a taper or a corner cut close', () => {
+    const cases: [Partial<MapPathEdge>[], [string, number, number][]][] = [
+      // A road going on narrower with a side road at the change
+      [
+        [
+          { a: 'w', b: 'c', street: 'residential', width: 9, sidewalk: 1.8 },
+          { a: 'c', b: 'e', street: 'residential', width: 6, sidewalk: 1.8 },
+          { a: 'c', b: 'n', street: 'residential', width: 6, sidewalk: 1.8 },
+        ],
+        [['w', -60, 0], ['c', 0, 0], ['e', 60, 0], ['n', 8, 60]],
+      ],
+      // A driveway at a shallow angle off a street with pavements
+      [
+        [
+          { a: 'w', b: 'c', street: 'residential', width: 6, sidewalk: 1.8 },
+          { a: 'c', b: 'e', street: 'residential', width: 6, sidewalk: 1.8 },
+          { a: 'c', b: 'n', street: 'service', width: 3 },
+        ],
+        [['w', -60, 0], ['c', 0, 0], ['e', 60, 0], ['n', 30, 12]],
+      ],
+      // Two side roads close together, one bending away
+      [
+        [
+          { a: 'w', b: 'c', street: 'tertiary', width: 7, sidewalk: 1.8 },
+          { a: 'c', b: 'e', street: 'tertiary', width: 7, sidewalk: 1.8 },
+          { a: 'c', b: 'n', street: 'residential', width: 6, sidewalk: 1.5 },
+          { a: 'c', b: 's', street: 'service', width: 4 },
+        ],
+        [['w', -60, 0], ['c', 0, 0], ['e', 60, 0], ['n', -10, 60], ['s', 50, -15]],
+      ],
+    ];
+    // A slip road with a pavement leaving a main road at its end (a test world's: its kerb ran past and back, a spike)
+    cases.push([
+      [
+        { a: 'n17', b: 'n34', street: 'secondary', width: 6, sidewalk: 1.8 },
+        { a: 'n09', b: 'n17', street: 'secondary_link', width: 3, sidewalk: 1.8 },
+        { a: 'n17', b: 'n32', street: 'secondary_link', width: 3 },
+        { a: 'n32', b: 'n70', street: 'secondary_link', width: 3 },
+        { a: 'n70', b: 'n09', street: 'secondary_link', width: 3, via: [{ x: -7.07, y: 21.38 }] },
+        { a: 'n08', b: 'n09', street: 'secondary_link', width: 3, via: [{ x: -22.59, y: 21.49 }, { x: -11.56, y: 14.43 }] },
+        { a: 'n09', b: 'n32', street: 'service', width: 4, surface: 'cobblestone' },
+        { a: 'n60', b: 'n09', street: 'service', width: 4, surface: 'sidewalk', via: [{ x: -18.89, y: 7.68 }] },
+      ],
+      [['n70', 0.9, 30.26], ['n09', -6.23, 9.97], ['n17', -1.53, -0.21], ['n32', 1.07, 10.39], ['n08', -52.84, 32.81], ['n34', 5.31, -53.98], ['n60', -24.98, 8.92]],
+    ]);
+    for (const [edges, nodes] of cases) expect(sharpestKerbTurn(buildRoadNetwork(paths(edges, nodes)))).toBeLessThan(100);
+  });
+});

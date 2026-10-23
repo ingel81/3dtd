@@ -1298,7 +1298,61 @@ function junctionOutline(list: readonly End[], sides: readonly Section[], inner:
     if (along) along.forEach((p) => ring.push({ x: p.x, y: p.y, edge: kerbEdge - p.walk, arm: p.second ? (k + 1) % n : k, side: false }));
     else curve.forEach((p) => ring.push({ x: p.x, y: p.y, edge: kerbEdge - (walkA * (1 - p.t) + walkB * p.t), arm: p.t * 2 <= 1 ? k : (k + 1) % n, side: false }));
   }
-  return ring;
+  return untangle(ring);
+}
+
+/** Sharpest turn back an outline may take at a kerb point (cosine of the angle between the way in and out) */
+const SPIKE_COS = -0.5;
+
+/**
+ * A junction's outline without spikes and loops of kerb: a kerb point where
+ * the outline turns back on itself (more than 120 degrees) goes, and where
+ * two stretches of it cross, the kerb points between them (the loop) go.
+ * The kerbs between two ends met wherever the lines of the roads beside them
+ * took them: at a narrow mouth, a taper or a corner cut close they ran past
+ * each other and back, a spike or a zigzag of kerb into the carriageway.
+ * The roads' end sections stay (other surfaces share their points)
+ */
+function untangle(ring: RingPoint[]): RingPoint[] {
+  const out = [...ring];
+  for (let round = 0; round < out.length + 8; round++) {
+    let changed = false;
+    const n = out.length;
+    if (n < 4) break;
+    for (let k = 0; k < n && !changed; k++) {
+      const p = out[k];
+      if (p.side) continue;
+      const a = out[(k + n - 1) % n];
+      const b = out[(k + 1) % n];
+      const ax = p.x - a.x;
+      const ay = p.y - a.y;
+      const bx = b.x - p.x;
+      const by = b.y - p.y;
+      const la = Math.hypot(ax, ay);
+      const lb = Math.hypot(bx, by);
+      // A point on top of the one before, or a turn back
+      if (la < 1e-4 || lb < 1e-4 || (ax * bx + ay * by) / (la * lb) < SPIKE_COS) {
+        out.splice(k, 1);
+        changed = true;
+      }
+    }
+    if (changed) continue;
+    // A loop: two sides that cross; the shorter run of kerb points between them goes
+    for (let i = 0; i < n && !changed; i++) {
+      for (let j = i + 2; j < n && !changed; j++) {
+        if (i === 0 && j === n - 1) continue;
+        if (!crosses(out[i], out[(i + 1) % n], out[j], out[(j + 1) % n])) continue;
+        const inner = out.slice(i + 1, j + 1);
+        const outer = [...out.slice(j + 1), ...out.slice(0, i + 1)];
+        const loop = inner.length <= outer.length ? inner : outer;
+        if (loop.some((q) => q.side)) continue;
+        for (const q of loop) out.splice(out.indexOf(q), 1);
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  return out;
 }
 
 /**

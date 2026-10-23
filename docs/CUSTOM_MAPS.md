@@ -357,6 +357,10 @@ weiterlaufenden Straße laufen wie bei jeder Breitenänderung in die Breite des 
 dem Deck quer ab, der Gehweg endete in einer Stufe, daneben blieb der Boden frei (ein Haken am Brückenfuß). Eine Gruppe
 von Knoten, deren Umriss die Bänder in ihrem Innern nicht ganz deckt, zerfällt in Einzelkreuzungen (das Band dann
 gezeichnet), statt deren Boden frei zu lassen.
+Der Umriss einer Kreuzung hat keine Spitzen und Schleifen: ein Bordsteinpunkt, an dem er um mehr als 120° umkehrt,
+entfällt, und wo sich zwei Stücke kreuzen, die Bordsteinpunkte der kürzeren Schleife dazwischen (`untangle`; die
+Endquerschnitte bleiben). Kreuzungen mit scharfen Knicken (über 100°) in der Bordsteinlinie: Miltenberg 32 → 3,
+Erlenbach 14 → 1 (Stand vor dieser Runde → jetzt, mit den Mündungs- und Gehwegregeln oben).
 Das Aussehen folgt der Straßenart (`street`): Spurlinien auf Autobahnen, Rand- und gestrichelte Mittellinie auf
 Haupt- und Kreisstraßen (`primary`, `secondary`), Mittellinie auf `tertiary`, keine in Wohnstraßen, deren Asphalt in
 einen Bordstein mit einer Rinne aus Pflastersteinen ausläuft; Fahrspuren dunkler, Flickstellen, Querrisse und eine
