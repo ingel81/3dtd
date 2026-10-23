@@ -5,7 +5,7 @@ import { massArea, massBodies, massContains } from '../../object-mass';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import { HeightField } from '../height-field';
 import { MapAssetLibrary } from '../map-asset-library';
-import { basementBodies, cellarBody, MassLayer, massShape } from './mass-layer';
+import { basementBodies, cellarBody, MassLayer, massShape, packFrame } from './mass-layer';
 import { FELL_LONG_AGO } from './ruin-damage';
 import { MapObjectLayer } from './object-layer';
 
@@ -99,6 +99,27 @@ describe('mass layer: the shape of a raised building', () => {
     }
     // A little past the box on each side, over the model's own foundation
     expect(cellar.walls.map((w) => w.length).sort((p, q) => p - q)).toEqual([6.2, 6.2, 8.2, 8.2].map((v) => expect.closeTo(v, 5)));
+    // Measured on the model (catalogue `cellar`): its surface and colour, up over its plinth so that is the basement's
+    const stone = cellarBody([0, 0.5, 4, 3], 2.5, { facade: 'stone', tone: [1.2, 1, 0.9], plinth: 0.6 });
+    expect(stone.facade).toBe('stone');
+    expect(stone.tone).toEqual([1.2, 1, 0.9]);
+    for (const w of massShape(stone).walls) expect(w.top).toBeCloseTo(0.62, 5);
+    // A low plinth or none: as high as without
+    expect(massShape(cellarBody([0, 0.5, 4, 3], 2.5, { facade: 'plaster', tone: [1, 1, 1], plinth: 0 })).walls[0].top).toBe(cellar.walls[0].top);
+  });
+
+  it('packs the window frame colour of a basement into one number the shader unpacks exactly, 0 for none', () => {
+    // As WALL_COLOR_FRAGMENT unpacks it
+    const unpack = (v: number) => {
+      const p = Math.floor(v + 0.5) - 1;
+      return [Math.floor(p / 65536), Math.floor(p / 256) % 256, p % 256].map((c) => c / 255);
+    };
+    for (const c of [[0.583, 0.583, 0.57], [0, 0, 0], [1, 1, 1], [0.13, 0.5, 0.9]] as [number, number, number][]) {
+      const v = packFrame(c);
+      expect(v).toBeGreaterThan(0);
+      expect(Math.fround(v)).toBe(v);
+      unpack(v).forEach((u, k) => expect(u).toBeCloseTo(c[k], 2));
+    }
   });
 
   it('raises a mansard: walls to the eaves, steep slopes from past them, the top flat', () => {

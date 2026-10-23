@@ -6,6 +6,7 @@
  */
 
 import type { CatalogRoof } from '../object-roof';
+import type { MapMassFacade } from '../map-document';
 
 export const CATALOG_VERSION = 1;
 
@@ -283,13 +284,24 @@ export interface CatalogObject {
    */
   band?: { top: [number, number, number]; side: [number, number, number]; cover?: number };
   /**
-   * Buildings: the colour a basement under the model takes (MassLayer), as a
-   * factor over the raised buildings' plaster: the model's ground storey
-   * without its windows; measured by tools/map-assets/measure_bands.mjs
+   * Buildings: how a basement under the model looks (MassLayer cellarBody),
+   * measured on its ground storey by tools/map-assets/measure_bands.mjs
    */
-  cellar?: [number, number, number];
+  cellar?: CatalogCellar;
   /** Where an object's `sign` is written on the model (render/objects/sign-text.ts) */
   signPanel?: CatalogSignPanel;
+}
+
+/** A building model's basement (CatalogObject.cellar) */
+export interface CatalogCellar {
+  /** The surface of the raised buildings' kit its walls show (plaster, sandstone, brick, ...) */
+  facade: MapMassFacade;
+  /** The colour of the model's walls as a factor over that surface's own */
+  tone: [number, number, number];
+  /** The top of the model's plinth over its floor, m at scale 1: the basement reaches over it (0 for none) */
+  plinth: number;
+  /** The colour of the model's window frames (linear), for the basement's windows and door; the facade's own without */
+  frame?: [number, number, number];
 }
 
 /**

@@ -921,10 +921,18 @@ baut alle Bauten neu (wenige ms), eine Höhenänderung verschiebt nur die betrof
 gehoben) über einem Kellergeschoss, dessen Wände bis zum Sitz hinab reichen (`object-seat.ts`) und talseitig zu sehen
 sind. Ein Bau aus dem Grundriss verlängert dafür die Wände seiner Körper am Boden (`basementBodies`), unter einem
 Katalogmodell zeichnet die Massenebene einen Kellerkörper aus dessen Wandkasten (Katalog `box`, 0,1 m größer, über das
-eigene Fundament des Modells, bis 0,2 m in das Modell hinein; `cellarBody`, kein Dach); das Modell selbst bleibt in
-seiner Charge. Dieselben Wand-Instanzen, kein Programm mehr: der Shader liest die Kellertiefe aus dem Fuß der Wand
-(`aWall.z` weniger Fundament) und malt den Keller im Putz der Fassade, etwas dunkler und grauer; ab 1,2 m Tiefe je
-Achse ein Kellerfenster hoch in der Wand (je tiefer, desto größer), in der mittleren Achse eine Tür oder ein
+eigene Fundament des Modells, bis über dessen Sockelleiste, mindestens 0,2 m in das Modell hinein; `cellarBody`, kein
+Dach); das Modell selbst bleibt in seiner Charge. Dieselben Wand-Instanzen, kein Programm mehr: der Shader liest die
+Kellertiefe aus dem Fuß der Wand (`aWall.z` weniger Fundament). Der Keller ist ein Geschoss des Hauses (Punkt 25,
+2026-10-23): die Oberfläche der Fassade läuft hinunter, mit ihrer Fleckigkeit und Schmutz, der vom Boden aufsteigt;
+der Sockel steht unten am Gelände (am Sitz, dem tiefsten Boden), nicht am Erdgeschoss. Vorher war der ganze Keller
+Sockel: der Putz grau und dunkler, und die Sockelleiste des Modells stand als dunkles Band zwischen Keller und Wand.
+Unter einem Katalogmodell nimmt er, was `tools/map-assets/measure_bands.mjs` an dessen Erdgeschoss misst (Katalog
+`cellar`): die Oberfläche des Kits nach der Farbtextur seiner Wand (Putz, Sandstein, Ziegel, Beton; ein Holzhaus steht
+auf Stein), ihren Ton (bei verwitterten Modellen mit ihrer AO, wie `addGrime` sie zeigt), die Oberkante seiner
+Sockelleiste und die Farbe seiner Fensterrahmen. Ab 1,2 m Tiefe je Achse ein Kellerfenster hoch in der Wand (je
+tiefer, desto größer; in der Rahmenfarbe des Modells, die `aWallD.w` als drei Bytes trägt, `packFrame`; in Sandstein
+in einem Gewände aus hellerem Haustein mit Eisenstäben, in Putz mit Bank), in der mittleren Achse eine Tür oder ein
 Garagentor, wo das Gelände vor der Wandmitte (`aWallD.y`, beim Bau gemessen) mindestens 2,4 m unter dem Boden liegt.
 Die Prüfung „in der Luft“ misst den Fuß unter dem Keller. Ohne `basement` bleibt alles wie vorher.
 
