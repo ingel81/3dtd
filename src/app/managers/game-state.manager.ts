@@ -1473,10 +1473,11 @@ export class GameStateManager {
    * `lon`) through the world's real damage (WorldDamage.debugBlast) and
    * shows as the real one: a projectile's impact, the nuclear strike's
    * landing (no strike before it, strike id -1), the strike at `radius` m
-   * when given (E284). Enemies take nothing
+   * when given (E284), its hole `up` dm over the ground when it struck a
+   * wall or a roof. Enemies take nothing
    */
-  debugBlast(lat: number, lon: number, height: number, blast: DebugBlast, radius?: number): void {
-    this.worldDamage.debugBlast(lat, lon, blast, radius);
+  debugBlast(lat: number, lon: number, height: number, blast: DebugBlast, radius?: number, up?: number): void {
+    this.worldDamage.debugBlast(lat, lon, blast, radius, up);
     if (blast === 'nuclear-strike') {
       const playerId = this.actingPlayerId;
       this.eventBus.emit({

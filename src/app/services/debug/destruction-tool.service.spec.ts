@@ -41,4 +41,18 @@ describe('DestructionToolService', () => {
     runEffects();
     expect(tool.mode()).toBe('pick');
   });
+
+  it('sends a blast that struck a wall or a roof with its height over the ground in whole dm, one at the ground without', () => {
+    const emit = vi.fn();
+    injections['SimClient'] = { bus: { emit } };
+    injections['PresentationService'] = { host: null };
+    injections['UIStore'] = { buildMode: signal(false) };
+    const tool = new DestructionToolService();
+    tool.setMode('blast');
+    tool.blast.set('rocket');
+    tool.click(0.001, 0.002, 17.4, 7.43);
+    expect(emit).toHaveBeenLastCalledWith({ type: 'debug:blast', lat: 0.001, lon: 0.002, height: 17.4, blast: 'rocket', up: 74 });
+    tool.click(0.001, 0.002, 10);
+    expect(emit).toHaveBeenLastCalledWith({ type: 'debug:blast', lat: 0.001, lon: 0.002, height: 10, blast: 'rocket' });
+  });
 });

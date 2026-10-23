@@ -362,6 +362,11 @@ export interface WorldProvider {
   readonly tiles: WorldTiles | null;
   /** Its structures that take damage and fall; null unless capabilities.destructible */
   readonly destruction: WorldDestruction | null;
+  /**
+   * The nearest point of its placed objects as drawn (a wall, a roof, a tree) a screen pick's ray meets, scene
+   * space; a new vector, null for none or a world without them (ScreenPicker.raycastStrike)
+   */
+  pickObjects?(raycaster: Raycaster): Vector3 | null;
   /** Put the world into the engine's scene: ground, camera controls, load events */
   attach(ctx: WorldAttachContext): Promise<void>;
   /** The world draws frames (tiles: once the renderer stands) */

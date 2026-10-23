@@ -59,9 +59,15 @@ export interface CellReportInputCallbacks {
 export interface DestructionToolInputCallbacks {
   /** A mode is on: a left click on the ground goes to the tool */
   active: () => boolean;
-  /** A left click on the ground (or a roof) at geo (`lat`, `lon`, `height`) */
-  click: (lat: number, lon: number, height: number) => void;
+  /**
+   * A left click struck geo (`lat`, `lon`, `height`): the ground, or `up` m over it a wall, a roof or a tree
+   * (ScreenPicker.raycastStrike)
+   */
+  click: (lat: number, lon: number, height: number, up?: number) => void;
 }
+
+/** A click that struck this high over the ground or more struck a wall, a roof or a tree, m */
+const STRUCK_ABOVE_M = 0.3;
 
 /**
  * InputHandlerService
@@ -439,12 +445,14 @@ export class InputHandlerService {
       return;
     }
 
-    // So does the destruction tool: a blast there, or the structure there picked
+    // So does the destruction tool: a blast where the click strikes (a wall, a roof, the ground), or the structure
+    // there picked; how high over the ground it struck places the hole (debug:blast `up`)
     if (this.destructionTool?.active()) {
-      const hit = this.engine.picker.raycastTerrain(event.clientX, event.clientY);
+      const hit = this.engine.picker.raycastStrike(event.clientX, event.clientY);
       if (!hit) return;
       const at = this.engine.sync.localToGeo(hit);
-      this.destructionTool.click(at.lat, at.lon, at.height);
+      const up = at.height - (this.engine.getTerrainHeightAtGeo(at.lat, at.lon) ?? at.height);
+      this.destructionTool.click(at.lat, at.lon, at.height, up >= STRUCK_ABOVE_M ? up : undefined);
       return;
     }
 

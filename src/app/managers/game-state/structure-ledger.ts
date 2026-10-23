@@ -2,12 +2,13 @@ import type { SimSink } from '../../sim/core/sim-sink';
 import type { RunStructure } from '../../sim/protocol/run-rules';
 import { MAP_METERS_PER_DEGREE } from '../../world/custom-map/map-document';
 import {
-  HOLE_GROW_DM, HOLE_LEAST_DAMAGE, HOLE_MAX_DM, HOLE_MERGE_DM, HOLE_SLOTS, HOLE_STRIDE, holeRadiusDm, presetHp, structureHeading, structureStage,
+  HOLE_FOOT_SHARE, HOLE_GROW_DM, HOLE_LEAST_DAMAGE, HOLE_MAX_DM, HOLE_MERGE_DM, HOLE_REACH_M, HOLE_SLOTS, HOLE_STRIDE, holeRadiusDm, presetHp,
+  structureHeading, structureStage,
   WEAR_SIGHT_EVERY,
   type StructureStage,
 } from '../../configs/destruction.config';
 import { DetMath } from '../../utils/det-math';
-import { ringsContain } from '../../world/custom-map/object-mass';
+import { ringsContain, ringsNearest } from '../../world/custom-map/object-mass';
 
 /** Edge of a cell of the ledger's lookup grid, m (as CustomMapSurface's build blocking) */
 export const STRUCTURE_CELL_M = 16;
@@ -89,6 +90,12 @@ export class StructureLedger {
   private readonly holesChanged: number[] = [];
   /** Per structure whose roof carries towers its box (ROOF_STRIDE numbers), NaN for one without */
   private roof = new Float64Array(0);
+  /** Per structure with a ground plan (RunStructure.box) the cos and sin of its turn, where a hit's hole goes (struck) */
+  private boxCos = new Float64Array(0);
+  private boxSin = new Float64Array(0);
+  /** Where a hit struck a structure's ground plan (struck, scratch), map metres */
+  private readonly at = { x: 0, y: 0 };
+  private readonly model = { x: 0, z: 0 };
   /** Per raised building its outline with the cos and sin of its turn (RunStructure.mass), null for one without */
   private outline: ({ x: number; y: number; scale: number; cos: number; sin: number; rings: readonly (readonly number[])[] } | null)[] = [];
 
@@ -132,6 +139,8 @@ export class StructureLedger {
     this.height = new Float64Array(n);
     this.holesChanged.length = 0;
     this.roof = new Float64Array(n * ROOF_STRIDE).fill(NaN);
+    this.boxCos = new Float64Array(n);
+    this.boxSin = new Float64Array(n);
     this.outline = list.map((s) => s.mass
       ? { x: s.mass.x, y: s.mass.y, scale: s.mass.scale, cos: DetMath.cos(s.mass.turn), sin: DetMath.sin(s.mass.turn), rings: s.mass.rings }
       : null);
@@ -147,6 +156,10 @@ export class StructureLedger {
       this.extent[i] = s.box ? Math.max(s.radius, boxReach(s.box, this.x[i], this.y[i])) : s.radius;
       this.maxHp[i] = Math.max(1, Math.round(s.hp));
       this.startHp[i] = Math.min(this.maxHp[i], Math.max(0, Math.round(s.start ?? s.hp)));
+      if (s.box) {
+        this.boxCos[i] = DetMath.cos(s.box[4]);
+        this.boxSin[i] = DetMath.sin(s.box[4]);
+      }
       if (s.roof) this.setRoof(i, s);
     });
     this.buildGrid();
@@ -254,18 +267,19 @@ export class StructureLedger {
   /**
    * Take `amount` (whole HP) off every structure that still stands within
    * `reach` m plus its radius of map metres (`x`, `y`) and carries no
-   * tower; how many changed their stage
+   * tower; how many changed their stage. `up`: how high over the ground
+   * the hit struck, m (the destruction tool's click on a wall or a roof),
+   * null for a hit at the ground
    */
-  hit(x: number, y: number, reach: number, amount: number): number {
+  hit(x: number, y: number, reach: number, amount: number, up: number | null = null): number {
     if (amount <= 0 || this.structures.length === 0) return 0;
     let changed = 0;
     for (const i of this.near(x, y, reach, true)) {
       if (this.hp[i] > 0) {
-        if (this.damage(i, amount, x, y)) changed++;
+        if (this.damage(i, amount, x, y, up)) changed++;
       } else if (amount >= HOLE_LEAST_DAMAGE) {
         // A ruin goes on wearing down: holes in what is left of its walls, low (E259); now and then a wall of it went
-        this.punch(i, amount, x, y, true);
-        if ((this.holeCount[i] - 2) % WEAR_SIGHT_EVERY === 0) this.events.worn?.(i);
+        if (this.punch(i, amount, x, y, up, true) && (this.holeCount[i] - 2) % WEAR_SIGHT_EVERY === 0) this.events.worn?.(i);
       }
     }
     return changed;
@@ -348,15 +362,16 @@ export class StructureLedger {
   }
 
   /**
-   * `amount` off structure `index` by a hit at map metres (`x`, `y`) unless
-   * it carries a tower; whether its stage changed (and took the hit's heading)
+   * `amount` off structure `index` by a hit at map metres (`x`, `y`), `up` m
+   * over the ground (null: at it), unless it carries a tower; whether its
+   * stage changed (and took the hit's heading)
    */
-  private damage(index: number, amount: number, x: number, y: number): boolean {
+  private damage(index: number, amount: number, x: number, y: number, up: number | null = null): boolean {
     if (this.hp[index] <= 0 || amount <= 0) return false;
     if (!Number.isNaN(this.roof[index * ROOF_STRIDE]) && this.events.carried(index)) return false;
     this.hp[index] = Math.max(0, this.hp[index] - amount);
     this.markHp(index);
-    if (amount >= HOLE_LEAST_DAMAGE) this.punch(index, amount, x, y);
+    if (amount >= HOLE_LEAST_DAMAGE) this.punch(index, amount, x, y, up);
     const to = structureStage(this.hp[index], this.maxHp[index]);
     const from = this.stage[index] as StructureStage;
     if (to === from) return false;
@@ -370,28 +385,36 @@ export class StructureLedger {
 
   /**
    * A hole in structure `index` where a hit of `amount` struck at map
-   * metres (`x`, `y`): on the side it came from (within 90 % of its ground
-   * radius), at a height its count rolls (25 to 80 % of its height; in a
-   * fallen one's stump 0.3 to 2 m), as large as the hit's damage for its
-   * size (holeRadiusDm). Near a hole it has, that one grows; else it takes a
-   * free slot or the oldest hole's
+   * metres (`x`, `y`), `up` m over the ground (null: at the ground), as
+   * large as the hit's damage for its size (holeRadiusDm). It sits where the
+   * hit struck the structure's ground plan (struck): on a roof the struck
+   * point itself, else the point of its outline nearest the hit, at the
+   * hit's height; a hit at the ground opens the wall from its foot
+   * (HOLE_FOOT_SHARE of the radius up, plus up to as much again by its
+   * count's roll). In a fallen one's stump 0.3 to 2 m over the ground. A hit
+   * farther than the hole's radius and HOLE_REACH_M from that point opens
+   * nothing. Near a hole it has, that one grows; else it takes a free slot or
+   * the oldest hole's. Whether it made or grew one
    */
-  private punch(index: number, amount: number, x: number, y: number, fallen = false): void {
-    let dx = x - this.x[index];
-    let dy = y - this.y[index];
-    const d = Math.sqrt(dx * dx + dy * dy);
-    const most = this.radius[index] * 0.9;
-    if (d > most) {
-      dx *= most / d;
-      dy *= most / d;
-    }
-    const ox = Math.round(dx * 10);
-    const oy = Math.round(dy * 10);
-    const n = ++this.holeCount[index];
-    const roll = (Math.imul(index + 1, 0x9e3779b1) ^ Math.imul(n, 0x85ebca6b)) >>> 0;
+  private punch(index: number, amount: number, x: number, y: number, up: number | null, fallen = false): boolean {
+    const r = holeRadiusDm(amount, this.radius[index]);
+    const at = this.struck(index, x, y, up !== null && !fallen);
+    const roll = (Math.imul(index + 1, 0x9e3779b1) ^ Math.imul(this.holeCount[index] + 1, 0x85ebca6b)) >>> 0;
+    const top = Math.round(this.height[index] * 10);
     const h = fallen
-      ? Math.round(3 + (17 * (roll % 1000)) / 1000)
-      : Math.round(this.height[index] * 10 * (0.25 + (0.55 * (roll % 1000)) / 1000));
+      ? Math.min(20, Math.max(3, up === null ? Math.round(3 + (17 * (roll % 1000)) / 1000) : Math.round(up * 10)))
+      : up === null
+        ? Math.min(Math.round(top * 0.8), Math.round(r * HOLE_FOOT_SHARE * (1 + (roll % 1000) / 1000)))
+        : Math.min(top, Math.max(0, Math.round(up * 10)));
+    // How far the hit was from where the hole goes, dm: in the air beside a wall its height counts too
+    const gx = (x - at.x) * 10;
+    const gy = (y - at.y) * 10;
+    const gh = up === null ? 0 : up * 10 - h;
+    const reach = r + HOLE_REACH_M * 10;
+    if (gx * gx + gy * gy + gh * gh > reach * reach) return false;
+    const ox = Math.round((at.x - this.x[index]) * 10);
+    const oy = Math.round((at.y - this.y[index]) * 10);
+    const n = ++this.holeCount[index];
     const holes = this.holes;
     const k0 = index * HOLES_EACH;
     let merge = -1;
@@ -418,9 +441,68 @@ export class StructureLedger {
       holes[k + 4] = n;
     } else {
       slot = free >= 0 ? free : oldest;
-      holes.set([ox, oy, h, holeRadiusDm(amount, this.radius[index]), n], k0 + slot * HOLE_STRIDE);
+      holes.set([ox, oy, h, r, n], k0 + slot * HOLE_STRIDE);
     }
     this.holesChanged.push(index, slot);
+    return true;
+  }
+
+  /**
+   * Where a hit at map metres (`x`, `y`) struck structure `index`'s ground
+   * plan (a scratch point, map metres): a raised building's outline, else
+   * its box, else its circle. A point within it stays where it is when
+   * `keepWithin` (a click on its roof), else goes to the nearest wall.
+   * Turns by the cos and sin DetMath gave, the rest `+ - * /` and `sqrt`:
+   * the same on every client
+   */
+  private struck(index: number, x: number, y: number, keepWithin: boolean): { x: number; y: number } {
+    const m = this.outline[index];
+    const box = this.structures[index].box;
+    if (m) {
+      // Into the model's x and z at scale 1 and back (the turn is its own inverse, as in onRoof)
+      const dx = (x - m.x) / m.scale;
+      const dy = (y - m.y) / m.scale;
+      const mx = -dx * m.cos - dy * m.sin;
+      const mz = -dx * m.sin + dy * m.cos;
+      if (keepWithin && ringsContain(m.rings, mx, mz)) return this.strikeAt(x, y);
+      ringsNearest(m.rings, mx, mz, this.model);
+      const px = this.model.x;
+      const pz = this.model.z;
+      return this.strikeAt(m.x + (-px * m.cos - pz * m.sin) * m.scale, m.y + (-px * m.sin + pz * m.cos) * m.scale);
+    }
+    if (box) {
+      const [bx, by, hx, hy] = box;
+      const cos = this.boxCos[index];
+      const sin = this.boxSin[index];
+      const ox = x - bx;
+      const oy = y - by;
+      let u = -ox * cos - oy * sin;
+      let v = -ox * sin + oy * cos;
+      const within = Math.abs(u) <= hx && Math.abs(v) <= hy;
+      if (within && keepWithin) return this.strikeAt(x, y);
+      if (within) {
+        // To the nearer of its walls
+        if (hx - Math.abs(u) <= hy - Math.abs(v)) u = u < 0 ? -hx : hx;
+        else v = v < 0 ? -hy : hy;
+      } else {
+        u = Math.min(hx, Math.max(-hx, u));
+        v = Math.min(hy, Math.max(-hy, v));
+      }
+      return this.strikeAt(bx - u * cos - v * sin, by - u * sin + v * cos);
+    }
+    const dx = x - this.x[index];
+    const dy = y - this.y[index];
+    const d = Math.sqrt(dx * dx + dy * dy);
+    const r = this.radius[index];
+    if (d <= r && keepWithin) return this.strikeAt(x, y);
+    if (d === 0) return this.strikeAt(this.x[index] + r, this.y[index]);
+    return this.strikeAt(this.x[index] + (dx * r) / d, this.y[index] + (dy * r) / d);
+  }
+
+  private strikeAt(x: number, y: number): { x: number; y: number } {
+    this.at.x = x;
+    this.at.y = y;
+    return this.at;
   }
 
   /**

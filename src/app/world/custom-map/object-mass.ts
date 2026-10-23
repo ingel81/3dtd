@@ -442,6 +442,33 @@ export function massDistance(m: MapMass, x: number, z: number): number {
   return best;
 }
 
+/**
+ * The point of the rings' edges nearest model point (x, z), into `out`.
+ * Only `+ - * /` and comparisons: every engine comes to the same bits (the
+ * simulation places a hit's hole with it, StructureLedger)
+ */
+export function ringsNearest(rings: readonly (readonly number[])[], x: number, z: number, out: { x: number; z: number }): void {
+  let best = Infinity;
+  for (const r of rings) {
+    for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
+      const ax = r[j];
+      const az = r[j + 1];
+      const dx = r[i] - ax;
+      const dz = r[i + 1] - az;
+      const len2 = dx * dx + dz * dz;
+      const t = len2 > 0 ? Math.min(1, Math.max(0, ((x - ax) * dx + (z - az) * dz) / len2)) : 0;
+      const px = ax + t * dx;
+      const pz = az + t * dz;
+      const sq = (x - px) * (x - px) + (z - pz) * (z - pz);
+      if (sq < best) {
+        best = sq;
+        out.x = px;
+        out.z = pz;
+      }
+    }
+  }
+}
+
 /** Distance between two pieces of line (a to b, c to d), 0 where they cross */
 export function segmentDistance(ax: number, az: number, bx: number, bz: number, cx: number, cz: number, dx: number, dz: number): number {
   // Crossing pieces meet

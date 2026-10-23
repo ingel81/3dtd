@@ -160,14 +160,17 @@ export class WorldDamage {
   /**
    * A projectile of `type` came down at map degrees (`lat`, `lon`): on the
    * ground (`air` false) it takes its structureDamage off the structures in
-   * reach and digs its crater; in the air it does neither
+   * reach and digs its crater; in the air it does neither. `up`: m over the
+   * ground where it struck a wall or a roof (the destruction tool), null at
+   * the ground: where its hole goes (StructureLedger.punch); up there it digs
+   * no crater
    */
-  impact(lat: number, lon: number, type: ProjectileTypeConfig, air: boolean): void {
+  impact(lat: number, lon: number, type: ProjectileTypeConfig, air: boolean, up: number | null = null): void {
     if (air) return;
     const x = lon * MAP_METERS_PER_DEGREE;
     const y = lat * MAP_METERS_PER_DEGREE;
-    if (type.structureDamage > 0) this.structures.hit(x, y, (type.splashRadius ?? 0) + IMPACT_REACH_M, type.structureDamage);
-    if (type.craterRadius) this.dig(x, y, type.craterRadius, null);
+    if (type.structureDamage > 0) this.structures.hit(x, y, (type.splashRadius ?? 0) + IMPACT_REACH_M, type.structureDamage, up);
+    if (type.craterRadius && up === null) this.dig(x, y, type.craterRadius, null);
   }
 
   /**
@@ -261,11 +264,12 @@ export class WorldDamage {
    * Debug (the dev tools' destruction tool): `blast` goes off at map degrees
    * (`lat`, `lon`) as the real one does: a projectile type's impact on the
    * ground, or the nuclear strike where it lands, at `radius` m when given
-   * (E284). The show is the caller's
+   * (E284); a projectile that struck a wall or a roof `upDm` dm over the
+   * ground opens its hole there. The show is the caller's
    */
-  debugBlast(lat: number, lon: number, blast: DebugBlast, radius?: number): void {
+  debugBlast(lat: number, lon: number, blast: DebugBlast, radius?: number, upDm?: number): void {
     if (blast === 'nuclear-strike') this.ability(blast, { lat, lon }, 0, 0, radius);
-    else this.impact(lat, lon, PROJECTILE_TYPES[blast], false);
+    else this.impact(lat, lon, PROJECTILE_TYPES[blast], false, upDm === undefined ? null : upDm / 10);
   }
 
   /**

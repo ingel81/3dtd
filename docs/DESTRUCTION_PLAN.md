@@ -123,9 +123,16 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   40 %), 3 gefallen (0), `structureStage` mit ganzen Zahlen. Snapshot und Hash tragen nur die HP.
 - **Löcher** (E259, `StructureLedger.punch`): ein Treffer mit mindestens 25 Gebäudeschaden (`HOLE_LEAST_DAMAGE`:
   Heldengranate 25, Kanone 30, Rakete 45, Belagerungsgranate; nicht Kugeln, Flak, Magie) hinterlässt ein Loch, wo er
-  einschlug: je Bauwerk die letzten sechs, je fünf ganze Zahlen (Versatz zur Mitte in dm, auf der Seite des Treffers
-  und höchstens 90 % des Radius weit; Höhe über dem Grund in dm, aus Bauwerk und Lochzähler gewürfelt, 25 bis 80 % der
-  Höhe; Radius in dm; die Nummer des Lochs). Der Radius folgt dem Schaden, nicht dem HP-Anteil: 1 m plus ein Viertel
+  einschlug: je Bauwerk die letzten sechs, je fünf ganze Zahlen (Versatz zur Mitte in dm; Höhe über dem Grund in dm;
+  Radius in dm; die Nummer des Lochs). Der Ort (Punkte 33, 34, 2026-10-23, `StructureLedger.struck`): der Punkt des
+  Grundrisses, den der Treffer traf, beim Bau aus dem Grundriss sein Umriss (`ringsNearest`), sonst seine Box, sonst sein
+  Kreis. Ein Treffer an Wand oder Dach (das Werkzeug, Feld `up` am Befehl) setzt das Loch genau dorthin, auf der Höhe
+  des Treffers; ein Treffer am Boden auf den nächsten Punkt der Wand, vom Fuß her geöffnet (Mitte 40 bis 80 % des
+  Lochradius hoch, `HOLE_FOOT_SHARE`, gewürfelt aus Bauwerk und Lochzähler). Liegt der Treffer weiter als Lochradius
+  plus 1,5 m (`HOLE_REACH_M`) von diesem Punkt, gibt es kein Loch, nur HP: das Haus hinter dem getroffenen behält
+  seine Wände. Vorher saß das Loch auf dem Kreis um die Mitte (höchstens 90 % des Radius) in gewürfelter Höhe von 25
+  bis 80 % des Bauwerks; bei langen Häusern lag es daneben, auf einem Dach unter der Traufe, beim Nachbarn an
+  beliebiger Stelle. Ein Treffer an Wand oder Dach gräbt keinen Krater. Der Radius folgt dem Schaden, nicht dem HP-Anteil: 1 m plus ein Viertel
   der Wurzel des Schadens (Kanone 2,4 m, Rakete 2,7 m), mal 6 m durch den Bauwerksradius in 0,6 bis 1,4 (`holeRadiusDm`;
   ein Häuschen von 4 m bekommt von der Rakete 3,7 m, ein Block von 12 m 1,6 m), 0,8 bis 5 m. Ein Treffer innerhalb 1,5 m
   plus Radius eines Lochs vergrößert es um 0,6 m (höchstens 6 m), sonst nimmt er einen freien Platz oder den des ältesten.
@@ -451,7 +458,11 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
 - Fenster „Destruction“ in den Entwickleroptionen (Kachel „Destroy“ unter „Waves & Inspect“, nur auf einer
   zerstörbaren Welt). Zwei Modi; solange einer an ist, geht ein Linksklick auf die Karte ans Werkzeug, nicht ans Spiel
   (`DestructionToolService`, `InputHandlerService.setDestructionToolCallbacks`):
-  - **Blast:** Kanone, Rakete oder Atomschlag am Klickpunkt, über dieselben Funktionen wie der echte Treffer
+  - **Blast:** Kanone, Rakete oder Atomschlag am Klickpunkt, über dieselben Funktionen wie der echte Treffer. Der Klick
+    trifft, was man sieht (`ScreenPicker.raycastStrike`: Boden, Turmdach oder ein Objekt der Welt wie Wand, Dach,
+    Baum, `WorldProvider.pickObjects`); vorher ging der Strahl durch Wände auf den Boden dahinter. Liegt der Treffer
+    0,3 m oder mehr über dem Boden, trägt der Befehl die Höhe in ganzen dm (`up`, höchstens `DEBUG_BLAST_UP_DM`), das
+    Loch sitzt dort (siehe „Löcher“)
     (`WorldDamage.debugBlast`: der Einschlag des Projektiltyps am Boden, der Atomschlag über `ability`), mit dessen
     Darstellung (`vfx:projectile-impact`, beim Atomschlag `ability:impact` mit Strike-Id -1). Gegner nehmen keinen
     Schaden.

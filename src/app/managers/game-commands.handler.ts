@@ -400,7 +400,7 @@ export class GameCommandsHandler {
     });
 
     this.on('debug:blast', (event) => {
-      this.gsm.debugBlast(event.lat, event.lon, event.height, event.blast, event.radius);
+      this.gsm.debugBlast(event.lat, event.lon, event.height, event.blast, event.radius, event.up);
     });
 
     this.on('debug:set-structure-stage', (event) => {

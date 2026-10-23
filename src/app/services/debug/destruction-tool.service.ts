@@ -3,7 +3,7 @@ import { UIStore } from '../../store/ui.store';
 import { SimClient } from '../../sim/client/sim-client.service';
 import { PresentationService } from '../../presentation/presentation.service';
 import type { StructureHp } from '../../presentation/world-damage-presenter';
-import { clampDebugBlastRadius, DEBUG_RADIUS_BLASTS, type DebugBlast, type StructureStage } from '../../configs/destruction.config';
+import { clampDebugBlastRadius, DEBUG_BLAST_UP_DM, DEBUG_RADIUS_BLASTS, type DebugBlast, type StructureStage } from '../../configs/destruction.config';
 import { ABILITIES } from '../../configs/abilities.config';
 import { COLLAPSE_VARIANTS, collapseVariant, setCollapseVariant, type CollapseVariant } from '../../world/custom-map/render/objects/ruin-damage';
 
@@ -88,13 +88,17 @@ export class DestructionToolService {
     this.missed.set(false);
   }
 
-  /** A left click on the map at (`lat`, `lon`, geo `height`) while a mode is on */
-  click(lat: number, lon: number, height: number): void {
+  /**
+   * A left click on the map at (`lat`, `lon`, geo `height`) while a mode is on, `up` m over the ground where it
+   * struck a wall, a roof or a tree: a projectile's hole goes there (whole dm, debug:blast `up`)
+   */
+  click(lat: number, lon: number, height: number, up?: number): void {
     const mode = this.mode();
     if (mode === 'blast') {
       const blast = this.blast();
       if (this.takesRadius(blast)) this.sim.bus.emit({ type: 'debug:blast', lat, lon, height, blast, radius: this.radius() });
-      else this.sim.bus.emit({ type: 'debug:blast', lat, lon, height, blast });
+      else if (up === undefined) this.sim.bus.emit({ type: 'debug:blast', lat, lon, height, blast });
+      else this.sim.bus.emit({ type: 'debug:blast', lat, lon, height, blast, up: Math.min(DEBUG_BLAST_UP_DM, Math.max(0, Math.round(up * 10))) });
       return;
     }
     if (mode !== 'pick') return;

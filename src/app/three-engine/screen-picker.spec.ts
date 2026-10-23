@@ -78,6 +78,22 @@ describe('ScreenPicker', () => {
     vi.restoreAllMocks();
   });
 
+  describe('raycastStrike()', () => {
+    it('trifft das nähere von Boden und den Objekten der Welt: eine Wand vor dem Boden, nicht den Boden dahinter', () => {
+      const { picker, camera, renderer } = setup();
+      const ground = picker.raycastTerrain(CENTER.x, CENTER.y)!;
+      const strikeWith = (object: Vector3 | null) =>
+        new ScreenPicker(camera, renderer, { getAllMeshes: () => [] }, { pickRay: () => ground.clone() }, () => object?.clone() ?? null)
+          .raycastStrike(CENTER.x, CENTER.y);
+      const wall = camera.position.clone().lerp(ground, 0.5);
+      expect(strikeWith(wall)).toEqual(wall);
+      // An object behind the ground (seen through it) does not count; none at all: the ground
+      expect(strikeWith(camera.position.clone().lerp(ground, 1.5))).toEqual(ground);
+      expect(strikeWith(null)).toEqual(ground);
+      expect(picker.raycastStrike(CENTER.x, CENTER.y)).toEqual(ground);
+    });
+  });
+
   describe('raycastTerrain()', () => {
     it('liefert den Boden unter dem Canvas-Punkt, relativ zum Canvas-Rechteck', () => {
       const { picker } = setup();

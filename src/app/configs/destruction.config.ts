@@ -62,6 +62,15 @@ export const HOLE_GROW_DM = 6;
 export const HOLE_MAX_DM = 60;
 /** The ground radius (m) a hole has the size of its damage at; smaller structures get larger holes, larger smaller ones */
 export const HOLE_SIZE_RADIUS_M = 6;
+/**
+ * How far past its hole's radius a hit still opens a wall, m: the hole sits
+ * on the structure's ground plan where the hit came nearest (or at the
+ * struck point itself), a hit farther off only takes HP (a house behind the
+ * one struck keeps its walls)
+ */
+export const HOLE_REACH_M = 1.5;
+/** A hit at the ground opens the wall from its foot: the hole's middle this share of its radius up, plus up to as much again by its roll */
+export const HOLE_FOOT_SHARE = 0.4;
 
 /**
  * A hole's radius in dm for a hit of `amount` structure damage on a
@@ -172,6 +181,9 @@ export type DebugBlast = (typeof DEBUG_BLASTS)[number];
  */
 export const DEBUG_BLAST_RADIUS = { min: 5, max: 100, step: 1 } as const;
 
+/** The most the destruction tool's blast may have struck over the ground (debug:blast `up`), whole dm: a high-rise's roof */
+export const DEBUG_BLAST_UP_DM = 3000;
+
 /** The blasts a radius applies to: the nuclear strike only, a projectile's impact keeps its type's */
 export const DEBUG_RADIUS_BLASTS: readonly DebugBlast[] = ['nuclear-strike'];
 
@@ -190,6 +202,7 @@ export function destructionKeyParts(): string[] {
     JSON.stringify(STRUCTURE_STAGE_PERCENT),
     JSON.stringify(PRESET_HP_SHARE),
     String(IMPACT_REACH_M),
+    `${HOLE_REACH_M}:${HOLE_FOOT_SHARE}`,
     JSON.stringify(ABILITY_DESTRUCTION),
     JSON.stringify(CRATERS),
     JSON.stringify(RUBBLE),

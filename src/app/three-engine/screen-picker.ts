@@ -31,6 +31,8 @@ export class ScreenPicker {
     private readonly renderer: WebGLRenderer,
     private readonly towers: PickableTowers,
     private readonly ground: Pick<WorldSurface, 'pickRay'>,
+    /** The world's objects as drawn (WorldProvider.pickObjects), for what a blast strikes */
+    private readonly objects: (raycaster: Raycaster) => Vector3 | null = () => null,
   ) {}
 
   /**
@@ -87,5 +89,19 @@ export class ScreenPicker {
    */
   raycastTerrain(screenX: number, screenY: number): Vector3 | null {
     return this.ground.pickRay(this.rayAt(screenX, screenY));
+  }
+
+  /**
+   * What a blast aimed at the screen point strikes: the nearer of the ground
+   * (raycastTerrain) and the world's objects as drawn (a wall, a roof, a
+   * tree). The ground pick alone runs through a wall to the ground behind it.
+   */
+  raycastStrike(screenX: number, screenY: number): Vector3 | null {
+    const raycaster = this.rayAt(screenX, screenY);
+    const ground = this.ground.pickRay(raycaster);
+    const object = this.objects(raycaster);
+    if (!object || !ground) return object ?? ground;
+    const from = raycaster.ray.origin;
+    return object.distanceToSquared(from) < ground.distanceToSquared(from) ? object : ground;
   }
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { commandProblem } from './command-guard';
 import { ABILITIES } from '../configs/abilities.config';
-import { clampDebugBlastRadius, DEBUG_BLAST_RADIUS } from '../configs/destruction.config';
+import { clampDebugBlastRadius, DEBUG_BLAST_RADIUS, DEBUG_BLAST_UP_DM } from '../configs/destruction.config';
 
 const at = { lat: 48.78, lon: 9.18, height: 250 };
 
@@ -56,6 +56,14 @@ describe('commandProblem (COOP_PLAN S4)', () => {
     // A projectile's impact keeps its type's radius: a radius on it is no command of the tool
     expect(blast({ blast: 'rocket', radius: 25 })).toBe('blast');
     expect(blast({ blast: 'cannonball', radius: 25 })).toBe('blast');
+    // Where it struck a wall or a roof: whole dm over the ground, within DEBUG_BLAST_UP_DM
+    expect(blast({ blast: 'rocket', up: 0 })).toBeNull();
+    expect(blast({ blast: 'rocket', up: 74 })).toBeNull();
+    expect(blast({ blast: 'rocket', up: DEBUG_BLAST_UP_DM })).toBeNull();
+    expect(blast({ blast: 'rocket', up: DEBUG_BLAST_UP_DM + 1 })).toBe('blast');
+    expect(blast({ blast: 'rocket', up: -1 })).toBe('blast');
+    expect(blast({ blast: 'rocket', up: 7.4 })).toBe('blast');
+    expect(blast({ blast: 'rocket', up: '74' })).toBe('blast');
   });
 
   it('clamps the radius the tool sends to whole metres within its bounds', () => {

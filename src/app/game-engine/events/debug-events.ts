@@ -62,13 +62,15 @@ export type DebugEvent =
   | {
       // The destruction tool: `blast` goes off at a point of a destructible world as the real one does
       // (WorldDamage.debugBlast), at `height` for its show (docs/DESTRUCTION_PLAN.md). `radius` m (E284):
-      // the nuclear strike's instead of its own, within DEBUG_BLAST_RADIUS (destruction.config.ts)
+      // the nuclear strike's instead of its own, within DEBUG_BLAST_RADIUS (destruction.config.ts). `up`: whole dm
+      // over the ground where it struck a wall or a roof (its hole goes there), absent at the ground
       type: 'debug:blast';
       lat: number;
       lon: number;
       height: number;
       blast: DebugBlast;
       radius?: number;
+      up?: number;
     }
   | {
       // The destruction tool: structure `index` (run rules' order) to `stage`, pushed from the point (lat, lon)

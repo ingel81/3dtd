@@ -1,6 +1,6 @@
 import { isDevMode } from '@angular/core';
 import { defaultOpenLanes, laneChoiceOf, laneChoiceProblem, type LaneChoice } from './lane-choice';
-import { type Camera, type Group, type Matrix4, type Object3D, type PerspectiveCamera, type Scene, Vector3, type WebGLRenderer, WebGLRenderTarget } from 'three';
+import { type Camera, type Group, type Matrix4, type Object3D, type PerspectiveCamera, type Raycaster, type Scene, Vector3, type WebGLRenderer, WebGLRenderTarget } from 'three';
 import { STORM_STRIKE_LIGHT } from '../../configs/shot-lights.config';
 import type { CameraBounds, CameraRig } from '../../three-engine/camera-rig';
 import { EllipsoidSync } from '../../three-engine/ellipsoid-sync';
@@ -378,6 +378,11 @@ export class CustomMapWorld implements WorldProvider {
     performance.mark('load:map-shaders:done');
     this.prepared = true;
     for (const waiter of this.firstGroundWaiters.splice(0)) waiter();
+  }
+
+  /** The nearest placed object as drawn on a screen pick's ray (CustomMapView.raycastObjects), scene space */
+  pickObjects(raycaster: Raycaster): Vector3 | null {
+    return this.view?.raycastObjects(raycaster.ray)?.point ?? null;
   }
 
   /** Frames draw once the map is prepared (prepare) */

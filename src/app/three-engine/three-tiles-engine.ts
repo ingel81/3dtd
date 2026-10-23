@@ -465,7 +465,7 @@ export class ThreeTilesEngine {
     const pickableTowers = {
       getAllMeshes: () => [...this.towers.getAllMeshes(), ...this.plinths.getAllMeshes()],
     };
-    this.picker = new ScreenPicker(this.camera, this.renderer, pickableTowers, this.terrain);
+    this.picker = new ScreenPicker(this.camera, this.renderer, pickableTowers, this.terrain, (raycaster) => this.world.pickObjects?.(raycaster) ?? null);
 
     // Setup post-processing pipeline (bloom off by default)
     this.setupPostProcessing();
