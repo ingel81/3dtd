@@ -188,6 +188,9 @@ const MIN_AREA = 6;
 const MAX_FIT_ERROR = 0.5;
 /** What the block with a facade may miss of a footprint: it stands where nothing else fits */
 const BLOCK_FIT_ERROR = 1.2;
+/** Kinds whose model keeps its front, the door, on the street whenever a model fits that way */
+const DOOR_ON_STREET: ReadonlySet<BuildingKind> = new Set(['house', 'semi', 'terrace']);
+
 /** What a front turned away from the street costs a fit */
 const ACROSS_PENALTY = 0.15;
 /** Most storeys a model may have for a footprint without `building:levels` or `height` */
@@ -222,6 +225,8 @@ const RETAINING_FROM = 2;
 /** Metres of hill a retaining wall holds over the floor (its height less a coping's) */
 const RETAINING_HOLD = 2.6;
 const RETAINING_ASSET = 'retaining-wall';
+/** Metres a retaining wall keeps from the HQ (the furniture's room round it) */
+const RETAINING_HQ_CLEAR = 25;
 /** The retaining wall's length and depth at scale 1 (m) */
 const RETAINING_BOX: readonly [number, number] = [5.4, 1.2];
 /** A side of a building faces up the hill when its normal lies this near the way up (cosine): only there retaining walls */
@@ -1063,8 +1068,8 @@ function layPart(
   for (let k: BuildingKind | undefined = kind, step = 0; k && step < 3 && !chosen; k = KIND_MODELS[k].fallback, step++) {
     const onFront = fitModels(k, sides[front].len, sides[front].depth, levels, known, salt);
     const onSide = fitModels(k, sides[across].len, sides[across].depth, levels, known, salt);
-    // Turning the front away from the street costs
-    if (onFront && (!onSide || onFront.error <= onSide.error + ACROSS_PENALTY)) chosen = { fit: onFront, side: front, kind: k };
+    // Turning the front away from the street costs; a house keeps its door on the street (its footpath, plots.ts)
+    if (onFront && ((DOOR_ON_STREET.has(k) && onFront.error <= MAX_FIT_ERROR) || !onSide || onFront.error <= onSide.error + ACROSS_PENALTY)) chosen = { fit: onFront, side: front, kind: k };
     else if (onSide && onSide.error + ACROSS_PENALTY <= MAX_FIT_ERROR) chosen = { fit: onSide, side: across, kind: k };
     else if (onFront) chosen = { fit: onFront, side: front, kind: k };
   }
@@ -1346,6 +1351,8 @@ function cutSlope(
       // Its face to the building; not on a road (the editor's check), not in the water or off the map, not in the next building
       const wall = { asset: RETAINING_ASSET, x: round2(p.x), y: round2(p.y), rotation: round3(Math.atan2(side.n.x, -side.n.y)), scale: round3(scale) };
       if (onRoad!(wall) || inWater(t, p.x, p.y) || Math.abs(p.x) > t.width / 2 - wl || Math.abs(p.y) > t.depth / 2 - wl) continue;
+      // The room round the HQ takes none, as it takes no furniture
+      if (Math.hypot(p.x - doc.hq.x, p.y - doc.hq.y) < RETAINING_HQ_CLEAR) continue;
       if (boxes.near(p).some((q) => q !== pl && boxDistance(q, p) < wd)) continue;
       walls.push({ ...wall, z: 0 });
       side.held[k] = true;

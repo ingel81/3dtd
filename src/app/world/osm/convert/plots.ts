@@ -23,6 +23,10 @@ import { fillRings, stampLine, type RasterGrid } from './raster';
  * - a driveway of pavers (a surface, render/surfaces/) runs from the street
  *   along the side of the house with room for it to past its front, where
  *   no way is mapped there already;
+ * - a footpath of slabs runs from the middle of the front, where the door
+ *   of its model is (convert/buildings.ts turns a house's front to the
+ *   street), straight to the pavement, unless a way or the driveway is there;
+ *   no fence or hedge stands across it;
  * - hedges stand on the boundaries at the sides and the back, a picket fence
  *   along some front gardens, thinned by a hash and held to PLOTS_BUDGET_SHARE
  *   of the scene budget; none reaches over a road, a path or a track bed
@@ -48,6 +52,10 @@ const DRIVE_WALL_GAP = 0.4;
 /** Share of a driveway's ground that must lie on its plot */
 const DRIVE_ON_PLOT = 0.85;
 export const DRIVE_MATERIAL = 'pavers';
+export const PATH_MATERIAL = 'paving';
+/** A footpath's width, and how near the driveway's middle may come to its own before the driveway serves the door */
+const PATH_WIDTH = 1.2;
+const PATH_BESIDE_DRIVE = 2.6;
 export const FRONT_MATERIAL = 'grass-lush';
 export const BACK_MATERIAL = 'grass-leafy';
 /** Weight of the back garden's grass over what the ground has there */
@@ -87,6 +95,8 @@ export interface PlotReport {
   /** Houses with a front garden, and with a driveway */
   fronts: number;
   driveways: number;
+  /** Houses with a footpath to the door */
+  footpaths: number;
   /** Pieces placed: hedges, fences; dropped past the budget */
   hedges: number;
   fences: number;
@@ -109,7 +119,7 @@ interface House {
 
 /** Lays the plots of the houses of `features` into `doc`: ground paint, driveways (surfaces), hedges and fences */
 export function layPlots(doc: CustomMapDocument, features: OsmFeatures, options: PlotOptions): PlotReport {
-  const report: PlotReport = { houses: 0, fronts: 0, driveways: 0, hedges: 0, fences: 0, dropped: 0, cost: 0 };
+  const report: PlotReport = { houses: 0, fronts: 0, driveways: 0, footpaths: 0, hedges: 0, fences: 0, dropped: 0, cost: 0 };
   const t = doc.terrain;
   const side = Math.max(t.width, t.depth);
   const grid: RasterGrid = { n: Math.ceil(side) + 1, origin: -side / 2, step: 1 };
@@ -197,21 +207,40 @@ export function layPlots(doc: CustomMapDocument, features: OsmFeatures, options:
 
   // Driveways: along the side of the house with room, from the street's edge to past the front; none over a tree
   const surfaces = (doc.surfaces ??= []);
+  /** Where each house's driveway runs, across its front (driveway's middle off the house's axis) */
+  const drives = new Map<number, number>();
   if (!options.hasMaterial || options.hasMaterial(DRIVE_MATERIAL)) {
     houses.forEach((h, index) => {
       const drive = driveway(h, index, label, dist, grid, roads);
       if (!drive) return;
-      if (drive.some(cleared)) return;
-      const [a, b, c] = drive;
+      drives.set(index, drive.offset);
+      if (drive.outer.some(cleared)) return;
+      const [a, b, c] = drive.outer;
       for (let u = 0; u <= 6; u++) {
         for (let v = 0; v <= 2; v++) {
           if (occupied({ x: a.x + ((b.x - a.x) * u) / 6 + ((c.x - b.x) * v) / 2, y: a.y + ((b.y - a.y) * u) / 6 + ((c.y - b.y) * v) / 2 }, STANDING)) return;
         }
       }
-      surfaces.push({ id: `plot-drive-${h.area.id}`, material: DRIVE_MATERIAL, outer: drive });
+      surfaces.push({ id: `plot-drive-${h.area.id}`, material: DRIVE_MATERIAL, outer: drive.outer });
       report.driveways++;
     });
   }
+
+  // Footpaths: from the door in the middle of the front straight to the pavement
+  const paths: [MapPoint, MapPoint][] = [];
+  const pathMaterial = !options.hasMaterial || options.hasMaterial(PATH_MATERIAL) ? PATH_MATERIAL : DRIVE_MATERIAL;
+  houses.forEach((h, index) => {
+    const drive = drives.get(index);
+    if (drive !== undefined && Math.abs(drive) < PATH_BESIDE_DRIVE) return;
+    const path = footpath(h, roads);
+    if (!path || path.outer.some(cleared)) return;
+    for (let u = 0; u <= 4; u++) if (occupied({ x: path.from.x + ((path.to.x - path.from.x) * u) / 4, y: path.from.y + ((path.to.y - path.from.y) * u) / 4 }, STANDING * 0.6)) return;
+    surfaces.push({ id: `plot-path-${h.area.id}`, material: pathMaterial, outer: path.outer });
+    paths.push([path.from, path.to]);
+    report.footpaths++;
+  });
+  /** Whether a piece of fence or hedge would stand across a footpath */
+  const onPath = (p: MapPoint): boolean => paths.some(([a, b]) => segmentDistance(p, a, b) < PATH_WIDTH / 2 + 1);
 
   // Hedges on the sides and backs, a fence along some front gardens
   const seed = Math.round(features.frame.lat * 1e4) ^ Math.round(features.frame.lon * 1e4);
@@ -224,7 +253,7 @@ export function layPlots(doc: CustomMapDocument, features: OsmFeatures, options:
   const placed: MapObject[] = [];
   const keep = (pieces: MapObject[], kind: 'hedges' | 'fences', group: string): void => {
     for (const o of pieces) {
-      if (cleared(o) || occupied(o, STANDING)) continue;
+      if (cleared(o) || occupied(o, STANDING) || onPath(o)) continue;
       const cost = options.costOf(o.asset);
       if (report.cost + cost > budget) {
         report.dropped++;
@@ -339,7 +368,39 @@ function paintGardens(doc: CustomMapDocument, label: Int32Array, dist: Float32Ar
 }
 
 /** A house's driveway (its outline), null where none fits or a way runs there already */
-function driveway(h: House, index: number, label: Int32Array, dist: Float32Array, grid: RasterGrid, roads: EdgeIndex): MapPoint[] | null {
+/**
+ * A house's footpath: from its front's middle (the door) along its way to the
+ * street to just under the pavement's edge, PATH_WIDTH wide; null without a
+ * street near, for a front on the street, or where a way is mapped there
+ */
+function footpath(h: House, roads: EdgeIndex): { outer: MapPoint[]; from: MapPoint; to: MapPoint } | null {
+  const d = h.d;
+  if (!d || h.street > STREET_REACH) return null;
+  const s0 = h.front + 0.05;
+  const s1 = h.street + 0.3;
+  if (s1 - s0 < 1.5) return null;
+  const e = { x: -d.y, y: d.x };
+  const at = (s: number, o: number): MapPoint => ({ x: h.c.x + d.x * s + e.x * o, y: h.c.y + d.y * s + e.y * o });
+  const from = at(s0, 0);
+  const to = at(s1, 0);
+  const near = roads.nearest(at((s0 + h.street) / 2, 0), PATH_WIDTH * 2);
+  if (near && near.dist < near.edge.width / 2 + PATH_WIDTH) return null;
+  const w = PATH_WIDTH / 2;
+  const quad = [at(s0, -w), at(s1, -w), at(s1, w), at(s0, w)];
+  const area = quad.reduce((s, p, k) => s + p.x * quad[(k + 1) % 4].y - quad[(k + 1) % 4].x * p.y, 0);
+  const outer = (area < 0 ? quad.reverse() : quad).map((p) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 }));
+  return { outer, from, to };
+}
+
+/** Distance from p to the segment a-b */
+function segmentDistance(p: MapPoint, a: MapPoint, b: MapPoint): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / Math.max(1e-9, dx * dx + dy * dy)));
+  return Math.hypot(p.x - a.x - dx * t, p.y - a.y - dy * t);
+}
+
+function driveway(h: House, index: number, label: Int32Array, dist: Float32Array, grid: RasterGrid, roads: EdgeIndex): { outer: MapPoint[]; offset: number } | null {
   const d = h.d;
   if (!d) return null;
   const e = { x: -d.y, y: d.x };
@@ -374,7 +435,7 @@ function driveway(h: House, index: number, label: Int32Array, dist: Float32Array
   // Counter-clockwise seen from above (map x east, y north)
   const quad = [at(s1, best.o - w), at(s0, best.o - w), at(s0, best.o + w), at(s1, best.o + w)];
   const area = quad.reduce((s, p, k) => s + p.x * quad[(k + 1) % 4].y - quad[(k + 1) % 4].x * p.y, 0);
-  return (area < 0 ? quad.reverse() : quad).map((p) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 }));
+  return { outer: (area < 0 ? quad.reverse() : quad).map((p) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 })), offset: best.o };
 }
 
 interface Run {

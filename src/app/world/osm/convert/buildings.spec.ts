@@ -325,8 +325,8 @@ describe('OSM buildings: placing', () => {
 
   it('ends two houses against each other in a gable: the party wall they share stands, no eaves over it (E297 L4)', () => {
     // Two houses north of the road sharing the wall x = 0, their backs askew (no model fits either)
-    const west = area(60, [{ x: -10, y: 10 }, { x: 0, y: 10 }, { x: 0, y: 22 }, { x: -10, y: 18 }], { building: 'house', 'roof:shape': 'gabled' });
-    const east = area(61, [{ x: 0, y: 10 }, { x: 10, y: 10 }, { x: 10, y: 18 }, { x: 0, y: 22 }], { building: 'house', 'roof:shape': 'gabled' });
+    const west = area(60, [{ x: -10, y: 10 }, { x: 0, y: 10 }, { x: 0, y: 24 }, { x: -10, y: 14 }], { building: 'house', 'roof:shape': 'gabled' });
+    const east = area(61, [{ x: 0, y: 10 }, { x: 10, y: 10 }, { x: 10, y: 14 }, { x: 0, y: 24 }], { building: 'house', 'roof:shape': 'gabled' });
     const { doc, features } = world([west, east]);
     const { objects } = placeBuildings(doc, features, { catalog });
     for (const id of [60, 61]) {
@@ -345,8 +345,8 @@ describe('OSM buildings: placing', () => {
   });
 
   it('keeps two houses off an alley OSM maps on their party wall, a covered way through neither (E297 L4)', () => {
-    const west = area(62, [{ x: -10, y: 10 }, { x: 0, y: 10 }, { x: 0, y: 22 }, { x: -10, y: 18 }], { building: 'house' });
-    const east = area(63, [{ x: 0, y: 10 }, { x: 10, y: 10 }, { x: 10, y: 18 }, { x: 0, y: 22 }], { building: 'house' });
+    const west = area(62, [{ x: -10, y: 10 }, { x: 0, y: 10 }, { x: 0, y: 24 }, { x: -10, y: 14 }], { building: 'house' });
+    const east = area(63, [{ x: 0, y: 10 }, { x: 10, y: 10 }, { x: 10, y: 14 }, { x: 0, y: 24 }], { building: 'house' });
     const { doc, features } = world([west, east]);
     // The alley from the road along the wall the two share, covered (it goes on under a building further back)
     doc.paths.nodes.push({ id: 'g1', x: 0, y: 3 }, { id: 'g2', x: 0, y: 10 }, { id: 'g3', x: 0, y: 22 }, { id: 'g4', x: 0, y: 40 });
