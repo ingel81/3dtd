@@ -93,8 +93,10 @@ describe('road network', () => {
         [['w', -100, 0], ['c', 0, 0], ['e', 100, 0], ['n', 0, 60]],
       ),
     );
-    // The distance to the edge at a map point, from the triangle it lies in
+    // The distance to the edge at a map point, from the triangle it lies in, the one drawn on top (the highest rank)
     const edgeAt = (x: number, y: number): number => {
+      let best = NaN;
+      let top = -1;
       for (const t of net.tiles) {
         for (let k = 0; k < t.index.length; k += 3) {
           const [i, j, l] = [t.index[k], t.index[k + 1], t.index[k + 2]];
@@ -104,20 +106,24 @@ describe('road network', () => {
           const u = ((b[0] - x) * (c[1] - y) - (b[1] - y) * (c[0] - x)) / d;
           const v = ((c[0] - x) * (a[1] - y) - (c[1] - y) * (a[0] - x)) / d;
           if (u < -1e-6 || v < -1e-6 || u + v > 1 + 1e-6) continue;
-          return u * t.road[i * 4 + 2] + v * t.road[j * 4 + 2] + (1 - u - v) * t.road[l * 4 + 2];
+          const rank = Math.floor(t.road[i * 4 + 3] / 131072) % 8;
+          if (rank <= top) continue;
+          top = rank;
+          best = u * t.road[i * 4 + 2] + v * t.road[j * 4 + 2] + (1 - u - v) * t.road[l * 4 + 2];
         }
       }
-      return NaN;
+      return best;
     };
     // Across from the footway, through the junction: carriageway to 3 m, pavement beyond, as along the rest of the road
     for (const x of [-3, -1, 0, 1, 3]) {
       expect(edgeAt(x, -2.7)).toBeGreaterThan(0);
       expect(edgeAt(x, -3.3)).toBeLessThan(0);
     }
-    // The footway meets the carriageway without kerbs of its own: none along its sides into the junction and back
-    // (a notch in the pavement), its mouth past the kerb and its gutter
-    for (const y of [5.2, 5.6, 6]) {
-      for (const x of [-0.6, 0, 0.6]) expect(edgeAt(x, y)).toBeGreaterThan(0.55);
+    // The footway joins the pavement: the road's kerb runs on straight past it (no notch, no spike), pavement before it
+    for (const x of [-1, 0, 1]) {
+      expect(edgeAt(x, 2.85)).toBeGreaterThan(0);
+      expect(edgeAt(x, 3.15)).toBeLessThan(0);
+      expect(edgeAt(x, 4.5)).toBeLessThan(-1);
     }
   });
 

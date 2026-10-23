@@ -514,6 +514,10 @@ export class RoadNetworkBuilder {
           list.push(endOf(c, start));
         }
       }
+      // A footway or path joining a road with a pavement here joins the pavement: no arm of the junction, its ribbon
+      // runs to the node under the road's surface (a lower rank), the road's kerb on past it. As an arm, crossing the
+      // pavement to the carriageway, the kerbs either side met in a spike at its mouth
+      if (list.some((e) => e.chain.walk > 0)) list = list.filter((e) => !(e.chain.edge.kind === 'path' && !roadStyle(e.chain.edge).gutter));
       // A bridge going on from a road here: its deck's first metres an arm, so the junction reaches the deck
       if (list.length) {
         for (const e of decks.get(node) ?? []) {

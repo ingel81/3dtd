@@ -299,9 +299,13 @@ und an den Bordsteinen): keine Naht an einem Arm. Das Gewicht steht im Bruchteil
 Zahl) zwischen 0,25 und 0,75, fern der ganzen Zahlen (`ARM_WEIGHT_BASE`): lag Gewicht 0 auf der ganzen Zahl selbst, kam
 es über das Dreieck interpoliert an manchen Pixeln knapp darunter an, sein Bruchteil fast 1, und Belag und Abnutzung
 sprangen pixelweise zwischen zwei Armen; jede Kreuzung flimmerte bei jeder Kamerabewegung. Bordsteine laufen um die Ecken, an denen ein Arm einen hat. Eine Zufahrt oder ein Weg ohne eigenen Bordstein und
-niedrigeren Rangs als eine Straße mit Bordstein dort (Rang bis 2: Wirtschaftswege, Fußwege, `MOUTH_RANK`) mündet ohne:
+niedrigeren Rangs als eine Straße mit Bordstein dort (Rang bis 2: Wirtschaftswege, `MOUTH_RANK`) mündet ohne:
 der Bordstein der Ecke endet in der Kurve zu ihr hin, die Mündung liegt jenseits von Bordstein und Rinne. Vorher lief
 der Bordstein an einer Seite der Zufahrt in die Kreuzung hinein und an der anderen wieder hinaus, eine Kerbe im Gehweg.
+Ein Fuß- oder Weg ohne Bordstein an einer Straße mit Gehweg ist gar kein Arm der Kreuzung: sein Band läuft bis zum
+Knoten unter der Fläche der Straße (niedrigerer Rang), deren Bordstein läuft gerade an ihm vorbei; als Arm, über den
+Gehweg zur Fahrbahn, trafen sich die Bordsteine beiderseits in einer Spitze an seiner Mündung (ein parallel gemappter
+Gehweg, der in der Kreuzung endet).
 Überlappen sich zwei Bänder ohne gemeinsamen Knoten (ein Gehweg in die Breite einer Straße gezeichnet), liegt die
 höhere Straßenklasse oben (Rang 0 Pfad bis 7 Autobahn, je Rang ein paar Millimeter mehr zur Kamera hin); innerhalb
 eines Rangs hat jedes Band und jede Kreuzung eine Reihenfolge aus ihrer Kennung (16 Stufen zu einem Sechzehntel Rang,
