@@ -43,7 +43,7 @@ import type { MapBiome } from '../map-document';
 import { CoverMap } from './environment/cover-map';
 import { setPlantSway, WIND_UNIFORMS } from './environment/wind';
 import { prepareNoiseTextures } from './noise-textures';
-import { MapObjectLayer, type ObjectDamage, type ObjectHit } from './objects/object-layer';
+import { MapObjectLayer, type ObjectDamage, type ObjectHit, type WitheredObject } from './objects/object-layer';
 import { DAMAGE_UNIFORMS, FELL_LONG_AGO, RUIN_HOLES, sceneHeading } from './objects/ruin-damage';
 import { fontsReady, SignLayer } from './objects/sign-text';
 import { IMPOSTOR_SUN } from './objects/impostor';
@@ -97,8 +97,6 @@ const FALL_FIRST = 0.02;
 const FELLED_PITCH = 1.4;
 /** Share of its crown's radius (catalogue footprint) a felled tree lies lifted on its branches */
 const FELLED_LIFT = 0.45;
-/** A felled tree's withered leaves and dull trunk */
-const FELLED_TINT = '#b29e72';
 const WOOD_CELL = 30;
 const WOOD_TREES = 6;
 /** Shore samples for fireflies every this many metres, and at most this many swarms */
@@ -1459,7 +1457,7 @@ export class CustomMapView {
   /**
    * Object `o` as drawn: a felled tree turned to the way it falls (model +z,
    * object-ground.ts) and tipped over about its foot, slowly at first and
-   * then faster, to lie across the ground in a withered tint, blocking
+   * then faster, to lie across the ground with withered leaves, blocking
    * neither sight nor building (the same instanced batches, no draw of its own)
    */
   private drawnAs(o: MapObject): MapObject {
@@ -1469,7 +1467,8 @@ export class CustomMapView {
     const k = t * t;
     // Down, it rests on its crown's branches: its foot lifted by part of the crown's width
     const crown = (this.entries?.map.get(o.asset)?.footprint ?? 2) * (o.scale || 1);
-    return { ...o, z: o.z + crown * FELLED_LIFT * k, rotation: f.heading - Math.PI / 2, pitch: Math.max(FALL_FIRST, FELLED_PITCH * k), roll: undefined, blocksLos: false, blocksBuild: false, tint: FELLED_TINT };
+    const felled: WitheredObject = { ...o, z: o.z + crown * FELLED_LIFT * k, rotation: f.heading - Math.PI / 2, pitch: Math.max(FALL_FIRST, FELLED_PITCH * k), roll: undefined, blocksLos: false, blocksBuild: false, withered: true };
+    return felled;
   }
 
   /**

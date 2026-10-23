@@ -360,9 +360,14 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   Bäume. Gefällt heißt: aus dem Bauverbot und aus den Sichtblockern; die Simulation fragt dafür bei jedem neuen oder
   geweiteten Krater, auch abseits der Routen, die Sicht der Tower in Reichweite neu an (`WorldDamage.dig`, 1,35
   Kraterradien plus 4 m; ein nur vertiefter fragt nicht), deterministisch wie jede Sichtanfrage. Im Bild
-  (`CustomMapView.setFelled`) kippt der Baum vom Krater weg, der unter ihm am tiefsten ist (in 1,4 s Spielzeit,
-  langsam zuerst; nach Laden, Restore oder Sprung liegt er schon), und bleibt mit welkem Laub (Instanzfarbe) auf
-  seinen Ästen liegen: dieselben Instanz-Batches über `pitch` und `tint`, eine Charge je Baumart für die liegenden
+  (`CustomMapView.setFelled`) kippt der Baum vom Krater weg, der unter ihm am tiefsten ist, bis zu 60° gedreht zur
+  Seite, wo die wenigsten stehenden Bäume in seiner Fallbahn stehen (`fall-way.ts`: neun Richtungen, je Nachbar nach
+  Nähe zur Bahn gewichtet, die geradere gewinnt bei fast gleich offen; nur aus Objektliste und dem, was die Krater
+  fällten), damit seine Krone nicht unter der nächsten liegt (in 1,4 s Spielzeit, langsam zuerst; nach Laden, Restore
+  oder Sprung liegt er schon), und bleibt mit welkem Laub auf seinen Ästen liegen: braun-ocker mit etwas Restgrün, der
+  Stamm unverändert. Das Welken trägt die Instanzfarbe (`WITHER_FLAG`: 4 auf dem Rot, im Vertex-Shader wieder
+  abgezogen, das Laubfragment tauscht die Farbe), kein Programm und keine Variante mehr. Dieselben Instanz-Batches
+  über `pitch` und die Instanzfarbe, eine Charge je Baumart für die liegenden
   (sie sperren keine Sicht), kein Impostor (der zeigte ihn stehend; ein liegender endet, wo der Impostor käme). Ein
   tieferer Krater löscht ihn aus wie bisher.
 - **Vorab übersetzt:** die Ruinen-Batches zerstörbarer Assets entstehen leer mit der Karte, die Grundriss-Gebäude bekommen

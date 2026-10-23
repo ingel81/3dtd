@@ -127,6 +127,35 @@ const BUILD_SLICE_MS = 8;
 const SLABS_MS = 4;
 /** Strongest glow of an object surface (emissive colour times intensity, linear) */
 const MAX_EMISSIVE = 0.55;
+
+/**
+ * A withered tree (a felled one, WitheredObject) carries this on its
+ * instance colour's red: the shaders take it off again and brown its leaves
+ * (WITHER_FRAGMENT), its trunk keeps its colour. No program more, no variant
+ */
+const WITHER_FLAG = 4;
+
+/** An object drawn withered: the view's felled trees (CustomMapView.setFelled), not the document's */
+export interface WitheredObject extends MapObject {
+  withered: true;
+}
+
+const WITHER_VERTEX = /* glsl */ `#include <color_vertex>
+vWither = 0.0;
+#ifdef USE_INSTANCING_COLOR
+if (instanceColor.r > ${(WITHER_FLAG - 1).toFixed(1)}) {
+  vWither = 1.0;
+  vColor.r *= (instanceColor.r - ${WITHER_FLAG.toFixed(1)}) / instanceColor.r;
+}
+#endif`;
+
+/** Withered leaves: their shade in ochre and brown, a little of their green left, darker where they were dark */
+const WITHER_FRAGMENT = /* glsl */ `#include <color_fragment>
+if (vWither > 0.5) {
+  float leaf = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11));
+  vec3 ochre = mix(vec3(0.48, 0.3, 0.12), vec3(0.72, 0.52, 0.22), smoothstep(0.08, 0.35, leaf)) * (0.55 + 1.6 * leaf);
+  diffuseColor.rgb = mix(diffuseColor.rgb, ochre, 0.82);
+}`;
 /** Sight blockers draw to High's pixel limit on every level: what the towers' sight sees does not depend on it */
 const LOS_DRAW_PIXELS = QUALITY_TABLE.high.customMaps.drawPixels;
 /** Instances an asset's lists have room for: half again of its objects, at least 16, so a brush adds without building anew */
@@ -1652,7 +1681,9 @@ export class MapObjectLayer {
     const colors = b.source.colors;
     if (colors) {
       const c = o.tint ? new Color(o.tint) : null;
-      colors[i * 3] = (c?.r ?? 1) * look.r;
+      // Withered (a felled tree): flagged on the red where its materials read the flag (they sway: wind)
+      const withered = (o as Partial<WitheredObject>).withered && e.wind > 0 ? WITHER_FLAG : 0;
+      colors[i * 3] = (c?.r ?? 1) * look.r + withered;
       colors[i * 3 + 1] = (c?.g ?? 1) * look.g;
       colors[i * 3 + 2] = (c?.b ?? 1) * look.b;
     }
@@ -1807,6 +1838,11 @@ export class MapObjectLayer {
       shader.uniforms['uFadeRange'] = local.uFadeRange;
       shader.uniforms['uSpinPeriod'] = local.uSpinPeriod;
       shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>\n${WIND_GLSL}\nuniform float uWindBend;\nuniform float uWindHeight;`);
+      // A withered instance (a felled tree, WITHER_FLAG on its colour's red): the flag off its colour, its leaves
+      // browned below (card)
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying float vWither;')
+        .replace('#include <color_vertex>', WITHER_VERTEX);
       if (wind > 0) {
         shader.vertexShader = shader.vertexShader.replace(
           '#include <begin_vertex>',
@@ -1957,7 +1993,8 @@ transformed.xz = spinTurn * transformed.xz;
       }
       if (card) {
         shader.fragmentShader = shader.fragmentShader
-          .replace('#include <common>', '#include <common>\nuniform vec2 uFadeRange;\nuniform float uWindTime;')
+          .replace('#include <common>', '#include <common>\nuniform vec2 uFadeRange;\nuniform float uWindTime;\nvarying float vWither;')
+          .replace('#include <color_fragment>', WITHER_FRAGMENT)
           // Card normals are authored (bent out of the crown, up for grass); three flips them on
           // back faces of double-sided materials, which turned every card's back black. A geometry
           // without normals draws flat shaded, without vNormal
