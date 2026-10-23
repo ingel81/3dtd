@@ -461,3 +461,19 @@ describe('road network, kerb curves', () => {
     }
   });
 });
+
+describe('road network, roads onto bridges', () => {
+  it("meets a bridge's deck with the junction, its pavements running into the deck's width, no step", () => {
+    const p = paths(
+      [
+        { a: 'w', b: 'c', street: 'tertiary', width: 7, sidewalk: 1.8 },
+        { a: 'c', b: 'e', street: 'tertiary', width: 7, kind: 'bridge', surface: undefined },
+      ],
+      [['w', -60, 0], ['c', 0, 0], ['e', 30, 0]],
+    );
+    const ys = (x0: number, x1: number) => triangles(buildRoadNetwork(p)).flat().filter(([x]) => x > x0 && x <= x1).map(([, y]) => Math.abs(y));
+    // Its full width with pavements some metres back, the deck's at its end
+    expect(Math.max(...ys(-30, -10))).toBeCloseTo(5.3, 2);
+    expect(Math.max(...ys(-0.5, 0))).toBeCloseTo(3.5, 2);
+  });
+});

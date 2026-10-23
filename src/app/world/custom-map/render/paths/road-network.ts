@@ -128,6 +128,11 @@ interface Chain {
   /** Cross sections at both ends of the drawn ribbon, right to left seen along the ribbon */
   ends: [Section | null, Section | null];
   cap: [boolean, boolean];
+  /**
+   * The first metres of a bridge's deck at a junction (bridgeStub): an arm of the junction whose surface the deck
+   * is, never drawn here; its end section lies at the node
+   */
+  stub?: boolean;
   /** Inside a junction of several nodes (too short for a ribbon between them): the junction's surface covers it */
   inner: boolean;
 }
@@ -293,6 +298,8 @@ function sameEdge(s: EdgeState, e: MapPathEdge, numbers: readonly number[]): boo
  */
 export class RoadNetworkBuilder {
   private readonly edges = new Map<string, EdgeState>();
+  /** The bridges as last laid (their decks are arms of junctions, bridgeStub) */
+  private readonly decks = new Map<string, EdgeState>();
   private readonly chains = new Map<string, Chain>();
   /** The chain each paved edge belongs to */
   private readonly chainOf = new Map<string, Chain>();
@@ -414,10 +421,25 @@ export class RoadNetworkBuilder {
     const seen = new Set<string>();
     const others = new Set<string>();
     const at = new Map<string, MapPathEdge[]>();
+    /** The bridges at each node: arms of a junction there (bridgeStub) */
+    const decks = new Map<string, MapPathEdge[]>();
+    const seenDecks = new Set<string>();
     for (const e of paths.edges) {
       if (!pavedEdge(e)) {
         others.add(e.a);
         others.add(e.b);
+        if (e.kind === 'bridge' && !e.tunnel) {
+          for (const n of [e.a, e.b]) decks.set(n, [...(decks.get(n) ?? []), e]);
+          // A deck that came, moved or went lays its junctions again
+          seenDecks.add(e.id);
+          const numbers = edgeNumbers(e, nodes);
+          const s = this.decks.get(e.id);
+          if (!s || !sameEdge(s, e, numbers)) {
+            if (s) touched.add(s.edge.a).add(s.edge.b);
+            touched.add(e.a).add(e.b);
+            this.decks.set(e.id, { edge: e, numbers });
+          }
+        }
         continue;
       }
       seen.add(e.id);
@@ -433,6 +455,11 @@ export class RoadNetworkBuilder {
       touched.add(e.a).add(e.b);
       changed.add(e.id);
       this.edges.set(e.id, { edge: e, numbers });
+    }
+    for (const [id, s] of this.decks) {
+      if (seenDecks.has(id)) continue;
+      touched.add(s.edge.a).add(s.edge.b);
+      this.decks.delete(id);
     }
     for (const [id, s] of this.edges) {
       if (seen.has(id)) continue;
@@ -487,6 +514,13 @@ export class RoadNetworkBuilder {
           list.push(endOf(c, start));
         }
       }
+      // A bridge going on from a road here: its deck's first metres an arm, so the junction reaches the deck
+      if (list.length) {
+        for (const e of decks.get(node) ?? []) {
+          const stub = bridgeStub(e, node, nodes);
+          if (stub) list.push(endOf(stub, true));
+        }
+      }
       endsAt.set(node, list);
       return list;
     };
@@ -502,14 +536,21 @@ export class RoadNetworkBuilder {
       const centre = clusterCentre(group.map((n) => nodes.get(n)!));
       const trims = list.map((e) => [...e.chain.trim] as [number, number]);
       trimJunction(centre, list, group.map(endsOf));
-      const fits = list.length > 1 && (outlineAround(centre, list) || simpleRing(junctionOutline(list, list.map(endSection), inner, false)));
+      // Its outline round its middle or a polygon, and over the chains inside it: a kerb that cut across one (it could
+      // not follow a way turning back on itself) left the chain's ground bare, a ribbon there is better
+      const outline = list.length > 1 ? junctionOutline(list, list.map(endSection), inner, false) : [];
+      const fits =
+        list.length > 1 &&
+        (outlineAround(centre, list) || simpleRing(outline)) &&
+        inner.every((ch) => [0.25, 0.5, 0.75].every((s) => inRing(outline, pointAt(ch, ch.at[0] + ch.length * s))));
       list.forEach((e, k) => (e.chain.trim = trims[k]));
       return fits ? [group] : group.map((n) => [n]);
     });
     // Trims of the kept chains at those nodes, to see whether they moved, and whether they were inside a cluster
     const laid = new Set(clusters.flat());
-    const before = new Map<Chain, [number, number, boolean]>();
-    for (const c of this.chains.values()) if (laid.has(c.nodes[0]) || laid.has(c.nodes[1])) before.set(c, [c.trim[0], c.trim[1], c.inner]);
+    const before = new Map<Chain, [number, number, boolean, string]>();
+    const ends = (c: Chain) => `${+c.cap[0]}${+c.cap[1]}`;
+    for (const c of this.chains.values()) if (laid.has(c.nodes[0]) || laid.has(c.nodes[1])) before.set(c, [c.trim[0], c.trim[1], c.inner, ends(c)]);
     for (const nodeList of clusters) {
       const key = nodeList.reduce((p, q) => (q < p ? q : p));
       // The clusters these nodes were in go
@@ -548,11 +589,13 @@ export class RoadNetworkBuilder {
     // A kept chain whose trim moved (it ends at a junction laid again) or that went in or out of a cluster is laid again
     const fresh = new Set(made);
     for (const [c, was] of before) {
-      if (fresh.has(c) || (was[0] === c.trim[0] && was[1] === c.trim[1] && was[2] === c.inner)) continue;
+      if (fresh.has(c) || (was[0] === c.trim[0] && was[1] === c.trim[1] && was[2] === c.inner && was[3] === ends(c))) continue;
       this.dropItem(`c${c.id}`, rebuilt);
       made.push(c);
     }
     for (const c of made) if (!c.inner) this.putItem(`c${c.id}`, (out) => emitRibbon(c, out), rebuilt);
+    // The decks' stubs: their end sections at their nodes, as a ribbon's would be (they draw nothing)
+    for (const j of this.junctionEnds.values()) for (const e of j.ends) if (e.chain.stub) e.chain.ends = [sectionAt(e.chain, e.chain.at[0]), null];
     for (const nodeList of clusters) {
       const key = nodeList.reduce((p, q) => (q < p ? q : p));
       const j = this.junctionEnds.get(key);
@@ -772,6 +815,45 @@ export function buildRoadNetwork(paths: MapPaths): RoadNetwork {
   return new RoadNetworkBuilder().update(paths);
 }
 
+/** Metres of a bridge's deck its stub runs along from its node (bridgeStub) */
+const STUB = 4;
+
+/**
+ * A bridge's first metres from `node` as a chain of its width without
+ * pavements (Chain.stub): an arm of the junction there, its end section at
+ * the node, so the junction's outline runs across the deck's end. Laid as if
+ * the bridge did not meet the junction, its kerb cut across short of the
+ * deck and left the ground bare between them, a hook beside the deck
+ */
+function bridgeStub(e: MapPathEdge, node: string, nodes: ReadonlyMap<string, MapPoint>): Chain | null {
+  const line = edgePolyline(e, nodes as Map<string, MapPoint>);
+  if (!line || line.length < 2) return null;
+  const pts = e.a === node ? line : [...line].reverse();
+  const a = pts[0];
+  const b = pts[1];
+  const l = Math.hypot(b.x - a.x, b.y - a.y);
+  if (l < 0.5) return null;
+  const length = Math.min(STUB, l);
+  const q = { x: a.x + ((b.x - a.x) * length) / l, y: a.y + ((b.y - a.y) * length) / l };
+  return {
+    id: `deck-${e.id}-${node}`,
+    edge: { ...e, kind: 'road', surface: 'asphalt', sidewalk: 0 },
+    edges: [],
+    nodes: [node, ''],
+    line: [a, q],
+    at: [0, length],
+    length,
+    half: e.width / 2,
+    walk: 0,
+    style: 0,
+    trim: [0, 0],
+    ends: [null, null],
+    cap: [false, false],
+    inner: false,
+    stub: true,
+  };
+}
+
 /** A chain's end at its start or its finish: its direction away from the node, over its first three metres */
 function endOf(chain: Chain, start: boolean): End {
   const p = start ? chain.line[0] : chain.line[chain.line.length - 1];
@@ -795,7 +877,10 @@ function trimJunction(c: MapPoint, list: End[], nodes: readonly (readonly End[])
   const widest = Math.max(...list.map((e) => e.chain.half));
   const outer = new Set(list);
   const inner = new Set(nodes.flat().filter((e) => !outer.has(e)).map((e) => e.chain));
-  const set = (e: End, t: number) => (e.chain.trim[e.start ? 0 : 1] = Math.max(0, Math.min(Math.min(e.chain.length * 0.45, widest * 4 + 6), t)));
+  const set = (e: End, t: number) => {
+    // A deck's stub ends at its node (bridgeStub)
+    if (!e.chain.stub) e.chain.trim[e.start ? 0 : 1] = Math.max(0, Math.min(Math.min(e.chain.length * 0.45, widest * 4 + 6), t));
+  };
   list.forEach((e, k) => set(e, trims[k]));
   if (inner.size) {
     for (const ends of nodes) {
@@ -822,6 +907,7 @@ function trimJunction(c: MapPoint, list: End[], nodes: readonly (readonly End[])
       if (apart) continue;
       crossed = true;
       for (const e of [a, b]) {
+        if (e.chain.stub) continue;
         const at = e.start ? 0 : 1;
         e.chain.trim[at] = Math.min(e.chain.length * SPLAY_SHARE, e.chain.trim[at] + SPLAY_STEP);
       }
@@ -1034,11 +1120,12 @@ const COLUMNS = [-1, 0, 1];
 function sectionAt(chain: Chain, d: number): Section {
   const p = pointAt(chain, d);
   const t = tangentAt(chain, d);
+  const walk = chain.walk;
   const h = chain.half;
   // Mitred at a corner: the offset grows as the corner sharpens, at most twice the width
   const nx = -t.y * t.scale;
   const ny = t.x * t.scale;
-  return COLUMNS.map((u) => ({ x: p.x + nx * u * h, y: p.y + ny * u * h, across: u * h, along: d, edge: h * (1 - Math.abs(u)) - chain.walk, style: chain.style, dx: t.x, dy: t.y }));
+  return COLUMNS.map((u) => ({ x: p.x + nx * u * h, y: p.y + ny * u * h, across: u * h, along: d, edge: h * (1 - Math.abs(u)) - walk, style: chain.style, dx: t.x, dy: t.y }));
 }
 
 /** Where a chain's drawn ribbon starts and ends (distances along) by its trims; trimmed away between two junctions, one point where they meet */
@@ -1233,6 +1320,17 @@ function endSection(e: End): Section {
   const [from, to] = ribbonSpan(e.chain);
   const s = sectionAt(e.chain, e.start ? from : to);
   return e.start ? s : s.reverse();
+}
+
+/** Whether a point lies inside a ring (even-odd) */
+function inRing(ring: readonly MapPoint[], q: MapPoint): boolean {
+  let inside = false;
+  for (let k = 0, l = ring.length - 1; k < ring.length; l = k++) {
+    const a = ring[k];
+    const b = ring[l];
+    if (a.y > q.y !== b.y > q.y && q.x < ((b.x - a.x) * (q.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
 }
 
 /** Whether a ring is a polygon: counter-clockwise, no side crossing another */

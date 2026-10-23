@@ -347,6 +347,12 @@ Umriss faltete sich, und die Gruppe zerfiel in Fächer übereinander). Eine Bord
 (6 bis 24), die Mündungen eines Kreisels liefen sonst in Sehnen von 2 bis 3 m. Gruppen, die so in Einzelkreuzungen
 zerfielen: Miltenberg 22 → 19, Erlenbach 9 → 6 (gleiche Rohdaten); Dreiecke der Straßen +5 %, Bau der Straßen flach
 etwa +50 ms je Welt.
+Eine Brücke an einer Kreuzung ist ein Arm: die ersten 4 m ihres Decks als Band ihrer Breite ohne Gehweg (`bridgeStub`,
+nie gezeichnet), sein Endquerschnitt am Knoten, so läuft der Umriss über das Ende des Decks, und die Gehwege einer
+weiterlaufenden Straße laufen wie bei jeder Breitenänderung in die Breite des Decks. Vorher schnitt der Bordstein vor
+dem Deck quer ab, der Gehweg endete in einer Stufe, daneben blieb der Boden frei (ein Haken am Brückenfuß). Eine Gruppe
+von Knoten, deren Umriss die Bänder in ihrem Innern nicht ganz deckt, zerfällt in Einzelkreuzungen (das Band dann
+gezeichnet), statt deren Boden frei zu lassen.
 Das Aussehen folgt der Straßenart (`street`): Spurlinien auf Autobahnen, Rand- und gestrichelte Mittellinie auf
 Haupt- und Kreisstraßen (`primary`, `secondary`), Mittellinie auf `tertiary`, keine in Wohnstraßen, deren Asphalt in
 einen Bordstein mit einer Rinne aus Pflastersteinen ausläuft; Fahrspuren dunkler, Flickstellen, Querrisse und eine
