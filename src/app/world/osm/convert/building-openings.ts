@@ -20,6 +20,7 @@ import type { CustomMapDocument, MapMass, MapMassOpening, MapPathEdge, MapPoint 
 import { toModel } from '../../custom-map/object-ground';
 import { MASS_MAX_OPENINGS, massBodies, ringsContain } from '../../custom-map/object-mass';
 import { OPENING_STUB } from './underground';
+import { round2 } from './geom';
 
 /** Clear height of a passage by what runs through it, m: carriageways, pedestrian streets, footways */
 const DRIVE_HEIGHT = 3.8;
@@ -546,4 +547,3 @@ function pointOnMap(frame: OpeningFrame, p: readonly [number, number], cos: numb
   return { x: frame.x - (x * cos + z * sin), y: frame.y - x * sin + z * cos };
 }
 
-const round2 = (v: number) => Math.round(v * 100) / 100;

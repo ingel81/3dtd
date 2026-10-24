@@ -31,6 +31,7 @@ import { fillRings, sampleGrid } from './raster';
 import type { WaterResult } from './water';
 import { LineClearance } from './line-clear';
 import { onTrackBed, planRails, railPieces, RAIL_ASSET_IDS, TRACK_KINDS, type RailPlan } from './rails';
+import { round2, round3, wrapAngle } from './geom';
 
 /** Share of the scene budget the furniture may take (plants 50 %, buildings for now without a cap) */
 export const FURNITURE_BUDGET_SHARE = 0.15;
@@ -270,7 +271,7 @@ export function placeFurniture(doc: CustomMapDocument, features: OsmFeatures, wa
   const lamp = doc.environment.biome === 'city' ? STREET_LAMPS.city : STREET_LAMPS.town;
   let powerLines: Map<number, number> | undefined;
   let trackEnds: Map<number, number> | undefined;
-  const facing = (p: MapPoint, toward: MapPoint) => wrap(Math.atan2(-(toward.x - p.x), toward.y - p.y));
+  const facing = (p: MapPoint, toward: MapPoint) => wrapAngle(Math.atan2(-(toward.x - p.x), toward.y - p.y));
   for (const pt of features.points) {
     const asset = pointAsset(pt.tags);
     if (!asset) continue;
@@ -366,7 +367,7 @@ function powerLineTurns(features: OsmFeatures): Map<number, number> {
       const a = w.points[Math.max(0, k - 1)];
       const b = w.points[Math.min(w.points.length - 1, k + 1)];
       if (!a || !b || (a.x === b.x && a.y === b.y) || out.has(node)) return;
-      out.set(node, wrap(Math.atan2(-(b.x - a.x), b.y - a.y)));
+      out.set(node, wrapAngle(Math.atan2(-(b.x - a.x), b.y - a.y)));
     });
   }
   return out;
@@ -381,12 +382,9 @@ function trackEndTurns(ways: readonly OsmWay[]): Map<number, number> {
       const a = w.points[prev];
       const b = w.points[end];
       if (!a || !b || last < 1) continue;
-      out.set(w.nodes[end], wrap(Math.atan2(-(b.x - a.x), b.y - a.y) + Math.PI / 2));
+      out.set(w.nodes[end], wrapAngle(Math.atan2(-(b.x - a.x), b.y - a.y) + Math.PI / 2));
     }
   }
   return out;
 }
 
-const wrap = (r: number): number => ((r % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-const round2 = (v: number): number => Math.round(v * 100) / 100;
-const round3 = (v: number): number => Math.round(v * 1000) / 1000;

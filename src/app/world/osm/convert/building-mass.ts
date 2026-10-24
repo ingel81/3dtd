@@ -35,6 +35,7 @@ import { minAreaRect } from '../../custom-map/map-surfaces';
 import { buildingLevels, type BuildingKind } from '../building-tags';
 import { ringArea } from '../square-clip';
 import { pointSegmentDistance } from '../../../map-ops/path-graph';
+import { round2, round3 } from './geom';
 
 /** Points nearer than this (m) to the line of their neighbours go (Douglas-Peucker) */
 const SIMPLIFY_M = 0.35;
@@ -601,8 +602,6 @@ function compass(value: string | undefined): number | null {
   const deg = k >= 0 ? k * 22.5 : parseFloat(v.replace(',', '.'));
   return Number.isFinite(deg) ? (((deg % 360) + 360) % 360) * (Math.PI / 180) : null;
 }
-
-const round3 = (v: number): number => Math.round(v * 1000) / 1000;
 
 /**
  * The outline and its courtyards in the building's axes, simplified, more
@@ -1281,4 +1280,3 @@ export function simplifyRing(ring: readonly MapPoint[], tolerance: number): MapP
   return Math.abs(s) > 1 ? out : null;
 }
 
-const round2 = (v: number): number => Math.round(v * 100) / 100;

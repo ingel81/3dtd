@@ -33,6 +33,7 @@ import { standScale } from '../../../map-ops/tree-stands';
 import { AREA_ASSETS } from './areas';
 import { heightAt } from '../../../map-ops/grid';
 import { CROP_ROWS, parcelsOf, rowBlocks, rowRuns, runPieces, runPlants, RoadIndex, VINE_ROWS, type RowRule } from './crop-rows';
+import { round2 } from './geom';
 
 /** Share of the scene budget the plants may take; buildings and furniture get the rest */
 export const PLANT_BUDGET_SHARE = 0.5;
@@ -472,4 +473,3 @@ function nearRing(x: number, y: number, ring: readonly MapPoint[], reach: number
   return false;
 }
 
-const round2 = (v: number): number => Math.round(v * 100) / 100;

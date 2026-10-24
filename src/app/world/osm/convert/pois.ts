@@ -40,6 +40,7 @@ import type { OsmArea, OsmFeatures } from '../osm-parse';
 import { AWNING_COLOURS, BOARD_COLOURS, poiCategory, signLanguage, type PoiCategory, type SignLanguage } from '../poi-tags';
 import { facadeDistance, facadesOf, facadeTurn, massFacades, type FacadeAnchor } from './facades';
 import { centroid, insideRing } from '../../custom-map/map-surfaces';
+import { round2, round3 } from './geom';
 
 /** Share of the scene budget the POIs' objects may take */
 export const POI_BUDGET_SHARE = 0.06;
@@ -541,5 +542,3 @@ function ringDistance(p: MapPoint, ring: readonly MapPoint[]): number {
   return best;
 }
 
-const round2 = (v: number): number => Math.round(v * 100) / 100;
-const round3 = (v: number): number => Math.round(v * 1000) / 1000;

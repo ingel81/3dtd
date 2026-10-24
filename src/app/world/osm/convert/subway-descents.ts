@@ -26,6 +26,7 @@ import type { MapObject, MapPoint, MapTerrain } from '../../custom-map/map-docum
 import type { OsmFeatures, OsmWay } from '../osm-parse';
 import type { Road } from './underground';
 import { SolidIndex } from './square-outlines';
+import { round2, round3 } from './geom';
 
 export const STAIRS_ASSET = 'subway-stairs';
 export const RAMP_ASSET = 'subway-ramp';
@@ -202,5 +203,3 @@ function forSamples(terrain: MapTerrain, points: readonly MapPoint[], pad: numbe
   }
 }
 
-const round2 = (v: number): number => Math.round(v * 100) / 100;
-const round3 = (v: number): number => Math.round(v * 1000) / 1000;

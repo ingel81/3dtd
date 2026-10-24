@@ -19,6 +19,7 @@ import type { StreetNetwork } from '../../../interfaces/street-network-provider.
 import { CustomMapStreets, type StreetMap } from '../../custom-map/custom-map-streets';
 import { geoToMap, mapToGeo, type CustomMapDocument, type MapPoint, type MapSpawn } from '../../custom-map/map-document';
 import type { SpawnAnchor } from './anchors';
+import { round2 } from './geom';
 
 /** Why a spawn cannot stand where the player dropped it; the frame words it (osm.dropReasons) */
 export type SpawnDropReason = 'no-streets' | 'no-street-near' | 'edge' | 'near-hq' | 'far-hq' | 'tunnel' | 'no-route';
@@ -348,5 +349,4 @@ function closest(a: MapPoint, b: MapPoint, p: MapPoint): MapPoint {
   return { x: a.x + dx * t, y: a.y + dy * t };
 }
 
-const round2 = (v: number): number => Math.round(v * 100) / 100;
 const roundPoint = (p: MapPoint): MapPoint => ({ x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10 });

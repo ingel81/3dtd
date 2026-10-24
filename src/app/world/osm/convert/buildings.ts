@@ -77,6 +77,7 @@ import { findOldTown } from './old-town';
 import type { ImportNote } from '../../import-notes';
 import type { CatalogDoor } from '../../custom-map/render/asset-catalog';
 import { insideRing, minAreaRect, type TurnedRect } from '../../custom-map/map-surfaces';
+import { round1, round2, round3 } from './geom';
 
 /** A catalogue entry as far as the buildings read it */
 export type BuildingCatalogEntry = CostEntry & { id: string; footprint: number; box?: GroundBox; doors?: readonly CatalogDoor[] };
@@ -1881,8 +1882,4 @@ export function partsByOutline(features: OsmFeatures): Map<readonly MapPoint[], 
   }
   return out;
 }
-
-const round1 = (v: number): number => Math.round(v * 10) / 10;
-const round2 = (v: number): number => Math.round(v * 100) / 100;
-const round3 = (v: number): number => Math.round(v * 1000) / 1000;
 

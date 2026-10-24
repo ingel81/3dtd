@@ -25,6 +25,7 @@ import { heightAt, sampleX, sampleY } from '../../../map-ops/grid';
 import { nearestOnPolyline } from '../../../map-ops/path-graph';
 import type { MapObject, MapPoint, MapTerrain } from '../../custom-map/map-document';
 import type { TunnelLine, TunnelMouth } from './roads';
+import { round2, round3 } from './geom';
 
 /** The portal model at every mouth */
 export const TUNNEL_PORTAL_ASSET = 'tunnel-portal-concrete';
@@ -229,5 +230,3 @@ function forSamples(terrain: MapTerrain, points: readonly MapPoint[], pad: numbe
   for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) f(j * g.columns + i, { x: sampleX(terrain, i), y: sampleY(terrain, j) });
 }
 
-const round2 = (v: number): number => Math.round(v * 100) / 100;
-const round3 = (v: number): number => Math.round(v * 1000) / 1000;

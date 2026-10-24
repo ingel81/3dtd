@@ -32,6 +32,7 @@ import { findDescents, type DescentReport, type SubwayDescent } from './subway-d
 import { roundRoundabouts } from './roundabouts';
 import { pointAt, polylineLength } from '../../../map-ops/path-graph';
 import { clipSegment } from '../square-clip';
+import { round2 } from './geom';
 
 export interface RoadStats {
   /** Road ways read, and the tunnels (ways joined end to end) kept as tunnel edges, with their length */
@@ -456,8 +457,6 @@ function thin(line: readonly MapPoint[], tolerance: number): MapPoint[] {
   }
   return line.filter((_, k) => keep[k] === 1);
 }
-
-const round2 = (v: number): number => Math.round(v * 100) / 100;
 
 /** Shoulder (metres past the half width that fade into the ground) and smoothing along the road */
 export const ROAD_LEVELLING = { shoulder: 3, smoothing: 20 } as const;

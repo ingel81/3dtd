@@ -50,6 +50,7 @@ import { runs, type OsmArea, type OsmFeatures } from '../osm-parse';
 import { clipLine, cornersBetween, perimeter, ringArea } from '../square-clip';
 import { distanceField, fillRings, sampleGrid, stampLine, type RasterGrid } from './raster';
 import type { ImportNote } from '../../import-notes';
+import { round2 } from './geom';
 
 /** Water areas smaller than this are left out, m² */
 export const MIN_WATER_AREA = 50;
@@ -981,4 +982,3 @@ export function layRunnels(doc: CustomMapDocument, water: WaterResult, has: ((id
   return laid.length;
 }
 
-const round2 = (v: number): number => Math.round(v * 100) / 100;

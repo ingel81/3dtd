@@ -44,6 +44,7 @@ import { spawnRoutes } from '../../map-ops/path-graph';
 import { linesOfGroups } from '../../map-ops/object-ops';
 import { OsmError } from './osm-error';
 import type { ImportNote } from '../import-notes';
+import { round1 } from './convert/geom';
 
 /**
  * Side of an OSM world, metres: 2.4 km by default and at most (decision 2 of the plan, the size the format and the
@@ -330,8 +331,6 @@ export function convertOsm(
   };
 }
 
-const round1 = (v: number): number => Math.round(v * 10) / 10;
-
 /**
  * The address line, name and id of a place's map: the place's name as the
  * search list showed it when given ("Am Thorwengert 6, Miltenberg"), else
@@ -381,7 +380,6 @@ export interface OsmDownloadStats {
   demTiles: number;
   demBytes: number;
 }
-
 
 /**
  * What convertOsm reads for a place: from the frame store when it holds the

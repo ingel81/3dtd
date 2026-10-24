@@ -7,6 +7,7 @@
 import type { MapPoint } from '../../custom-map/map-document';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
 import { landmarkRole, type LandmarkRole } from '../building-tags';
+import { round1 } from './geom';
 
 /** A place enemies may arrive from, in map metres */
 export interface SpawnAnchor {
@@ -188,4 +189,3 @@ function shortName(name: string | undefined): string {
   return last.length > 32 ? `${last.slice(0, 31).trimEnd()}.` : last;
 }
 
-const round1 = (v: number): number => Math.round(v * 10) / 10;

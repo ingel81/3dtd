@@ -61,6 +61,7 @@ import { bridgeWaterLevel } from '../../custom-map/render/paths/bridge-water';
 import type { OsmFeatures, OsmWay } from '../osm-parse';
 import { roadTags } from '../osm-tags';
 import { findTunnels, paintBands, type PaintBand, type TunnelLine, type TunnelMouth } from './roads';
+import { round2, round3, unit, wrapAngle } from './geom';
 
 /** Railway kinds that get a track (no disused, abandoned or platform lines) */
 export const TRACK_KINDS: ReadonlySet<string> = new Set(['rail', 'light_rail', 'tram', 'narrow_gauge', 'subway', 'funicular']);
@@ -618,11 +619,6 @@ function intersect(p: MapPoint, q: MapPoint, a: MapPoint, b: MapPoint): { at: Ma
   return { at: { x: p.x + rx * t, y: p.y + ry * t }, t };
 }
 
-const unit = (v: MapPoint): MapPoint => {
-  const l = Math.hypot(v.x, v.y) || 1;
-  return { x: v.x / l, y: v.y / l };
-};
-
 /** The segment of `c` that `along` falls on */
 function segmentAt(c: RailChain, along: number): number {
   let lo = 0;
@@ -1085,7 +1081,7 @@ export function railPieces(plan: RailPlan, terrain: MapTerrain, paths: MapPaths)
         const a = pointOn(c, from);
         const b = pointOn(c, from + len);
         const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-        const rotation = wrap(Math.atan2(-(b.x - a.x), b.y - a.y) + Math.PI / 2);
+        const rotation = wrapAngle(Math.atan2(-(b.x - a.x), b.y - a.y) + Math.PI / 2);
         // Model +X points back to `a`: tilted so it rises with the profile from b to a
         const roll = Math.atan2(profileAt(c, from, terrain) - profileAt(c, from + len, terrain), len);
         // Bridges, crossings and street track stand on the profile (under a road the formation lies under it, the ballast hidden), the bed on the ground levelled to it
@@ -1110,7 +1106,7 @@ export function railPieces(plan: RailPlan, terrain: MapTerrain, paths: MapPaths)
         // On the left of the line (the arm, model back, over the track)
         const p = { x: mid.x - d.y * MAST_OFFSET, y: mid.y + d.x * MAST_OFFSET };
         if (trackIndex.near(p, MAST_CLEAR)) continue;
-        const rotation = wrap(Math.atan2(-d.x, d.y) + Math.PI / 2);
+        const rotation = wrapAngle(Math.atan2(-d.x, d.y) + Math.PI / 2);
         out.push({ o: { asset: RAIL_ASSETS.mast, x: round2(p.x), y: round2(p.y), z: 0, rotation: round3(rotation), scale: 1 }, source: 'catenary', group });
       }
     }
@@ -1251,7 +1247,7 @@ function signals(c: RailChain, x: RailCrossing, group: string): RailPiece[] {
     const v = { x: -side * x.roadDir.x, y: -side * x.roadDir.y };
     const right = { x: v.y, y: -v.x };
     // The front (model -Y) toward the traffic coming
-    const facing = wrap(Math.atan2(-side * x.roadDir.x, side * x.roadDir.y));
+    const facing = wrapAngle(Math.atan2(-side * x.roadDir.x, side * x.roadDir.y));
     const place = (fromTrack: number, out_: number) => {
       const d = fromTrack / sin;
       const edge = x.roadWidth / 2 + x.pavement + out_;
@@ -1380,7 +1376,7 @@ function blocked(p: MapPoint, across: MapPoint, roads: EdgeIndex, tracks: LineIn
 function support(asset: string, p: MapPoint, f: MapPoint, top: number, ground: number, scale: number, height: number): Omit<MapObject, 'id'> | null {
   if (top <= ground + 0.3) return null;
   const s = Math.max(scale, (top - ground + 1) / height);
-  return { asset, x: round2(p.x), y: round2(p.y), z: round2(top - height * s - ground), rotation: round3(wrap(Math.atan2(-f.x, f.y))), scale: round3(s) };
+  return { asset, x: round2(p.x), y: round2(p.y), z: round2(top - height * s - ground), rotation: round3(wrapAngle(Math.atan2(-f.x, f.y))), scale: round3(s) };
 }
 
 /** Whether `p` lies on a track bed of `plan` (within its levelled width): other furniture keeps off */
@@ -1466,6 +1462,3 @@ class LineIndex {
   }
 }
 
-const wrap = (r: number): number => ((r % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-const round2 = (v: number): number => Math.round(v * 100) / 100;
-const round3 = (v: number): number => Math.round(v * 1000) / 1000;

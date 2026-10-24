@@ -33,6 +33,7 @@ import type { MapObject, MapPaths, MapPoint, MapTerrain } from '../../custom-map
 import type { OsmArea, OsmFeatures } from '../osm-parse';
 import type { RailPlan } from './rails';
 import { insideRing } from '../../custom-map/map-surfaces';
+import { round2, round3, unit } from './geom';
 
 export const TRACK_WALL_ASSET = 'track-wall';
 /** Length of a wall piece at stretch 1, and the depth of its shelf, metres (build_modern.py track_wall) */
@@ -373,9 +374,3 @@ class TrackIndex {
   }
 }
 
-const unit = (v: MapPoint): MapPoint => {
-  const l = Math.hypot(v.x, v.y) || 1;
-  return { x: v.x / l, y: v.y / l };
-};
-const round2 = (v: number): number => Math.round(v * 100) / 100;
-const round3 = (v: number): number => Math.round(v * 1000) / 1000;

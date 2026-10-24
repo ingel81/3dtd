@@ -19,6 +19,7 @@ import type { MapPaths, MapPoint } from '../../custom-map/map-document';
 import { isGroundBuilding } from '../building-tags';
 import type { OsmFeatures } from '../osm-parse';
 import { insideRing } from '../../custom-map/map-surfaces';
+import { round2 } from './geom';
 
 /** Metres an outline keeps from a wall beyond its half width */
 const OUTLINE_GUARD = 0.5;
@@ -235,4 +236,3 @@ function nearestOn(p: MapPoint, a: MapPoint, b: MapPoint): MapPoint {
   return { x: a.x + t * dx, y: a.y + t * dy };
 }
 
-const round2 = (v: number): number => Math.round(v * 100) / 100;

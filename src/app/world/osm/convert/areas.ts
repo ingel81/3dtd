@@ -36,6 +36,7 @@ import { fillRings, sampleGrid, stampLine, distanceField, type RasterGrid } from
 /** Metres a cell of the buildings' index */
 const BUILDING_CELL = 40;
 import type { WaterResult } from './water';
+import { round2, round3 } from './geom';
 
 /** Share of the scene budget the objects of the areas may take */
 export const AREA_BUDGET_SHARE = 0.1;
@@ -145,8 +146,6 @@ interface Planned {
 
 /** The direction (radians from east) a model facing north at turn 0 turns to face from `from` to `to` */
 const facing = (from: MapPoint, to: MapPoint) => Math.atan2(-(to.x - from.x), to.y - from.y);
-const round2 = (v: number) => Math.round(v * 100) / 100;
-const round3 = (v: number) => Math.round(v * 1000) / 1000;
 
 /**
  * The areas of `features` laid on `doc` (after the roads, water, HQ and
