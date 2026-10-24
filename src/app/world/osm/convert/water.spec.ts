@@ -5,7 +5,9 @@ import { landClassOf, waterClassOf, waterwayOf } from '../land-tags';
 import { OsmFrame, type OsmArea, type OsmFeatures, type OsmWay } from '../osm-parse';
 import { ringArea } from '../square-clip';
 import { MAX_SURFACE_MATERIALS, RUNNEL_TRICKLE, surfaceProblems } from '../../custom-map/map-surfaces';
-import { carveWater, coastMask, isQuayWater, layRunnels, RUNNEL_SHELL, settleWater } from './water';
+import { carveWater, isQuayWater, settleWater } from './water';
+import { layRunnels, RUNNEL_SHELL } from './water-rivers';
+import { coastMask } from './water-coast';
 import { sampleGrid } from './raster';
 
 const SIDE = 400;

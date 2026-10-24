@@ -11,7 +11,7 @@ import { polylineLength } from '../../../map-ops/path-graph';
 import type { CustomMapDocument, MapIntro, MapIntroView, MapLife, MapLifeArea, MapPoint } from '../../custom-map/map-document';
 import { LIFE_AREA_DENSITY, MAX_LIFE_POINTS } from '../../custom-map/map-life';
 import type { OsmFeatures } from '../osm-parse';
-import type { WaterResult } from './water';
+import type { WaterResult } from './water-types';
 import { distanceField, sampleGrid } from './raster';
 import type { Landmark } from './anchors';
 

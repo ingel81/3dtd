@@ -28,7 +28,7 @@ import type { CustomMapDocument, MapObject, MapPoint } from '../../custom-map/ma
 import { SCENE_BUDGET } from '../../custom-map/render/objects/scene-cost';
 import { runs, type OsmFeatures, type OsmWay } from '../osm-parse';
 import { fillRings, sampleGrid } from './raster';
-import type { WaterResult } from './water';
+import type { WaterResult } from './water-types';
 import { LineClearance } from './line-clear';
 import { planRails } from './rails';
 import { onTrackBed, railPieces } from './rails-pieces';

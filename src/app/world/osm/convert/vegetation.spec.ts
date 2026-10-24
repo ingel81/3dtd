@@ -5,7 +5,7 @@ import { ROW_END_GAP } from './crop-rows';
 import { LAND_CLASSES } from './ground';
 import { fillRings, sampleGrid, stampLine } from './raster';
 import { growVegetation } from './vegetation';
-import type { WaterResult } from './water';
+import type { WaterResult } from './water-types';
 
 const SIDE = 300;
 const VINE = 10;

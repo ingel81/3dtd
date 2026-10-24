@@ -4,7 +4,7 @@ import type { CustomMapDocument, MapPoint } from '../../custom-map/map-document'
 import { OsmFrame, type OsmArea, type OsmFeatures, type OsmPoint, type OsmWay } from '../osm-parse';
 import { barrierPiece, placeFurniture, pointAsset } from './furniture';
 import { sampleGrid } from './raster';
-import type { WaterResult } from './water';
+import type { WaterResult } from './water-types';
 
 let nextNode = 1;
 function way(id: number, tags: Record<string, string>, points: MapPoint[]): OsmWay {

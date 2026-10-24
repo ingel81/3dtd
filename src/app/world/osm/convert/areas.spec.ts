@@ -7,7 +7,7 @@ import { landClassOf } from '../land-tags';
 import { OsmFrame, type OsmArea, type OsmFeatures, type OsmPoint } from '../osm-parse';
 import { layAreas } from './areas';
 import { sampleGrid } from './raster';
-import type { WaterResult } from './water';
+import type { WaterResult } from './water-types';
 
 const box = (x0: number, y0: number, x1: number, y1: number): MapPoint[] => [
   { x: x0, y: y0 },

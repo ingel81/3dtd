@@ -26,7 +26,7 @@ import type { LandClass } from '../land-tags';
 import { runs, type OsmFeatures } from '../osm-parse';
 import { LAND_CLASSES } from './ground';
 import { distanceField, fillRings, sampleGrid, stampLine, type RasterGrid } from './raster';
-import type { WaterResult } from './water';
+import type { WaterResult } from './water-types';
 import { FURNITURE_ASSETS } from './furniture';
 import { POI_ASSETS } from './pois';
 import { standScale } from '../../../map-ops/tree-stands';

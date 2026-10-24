@@ -35,7 +35,7 @@ import { fillRings, sampleGrid, stampLine, distanceField, type RasterGrid } from
 
 /** Metres a cell of the buildings' index */
 const BUILDING_CELL = 40;
-import type { WaterResult } from './water';
+import type { WaterResult } from './water-types';
 import { round2, round3 } from './geom';
 
 /** Share of the scene budget the objects of the areas may take */

@@ -20,7 +20,7 @@ import { profileAt } from './rails-lines';
 import { type RailPlan } from './rails-types';
 import { BED_HALF, CROSSING_RAMP, CROSSING_SINK, LATTICE, OVER_CLEARANCE, PANEL_TOP, RAIL_ASSETS, RAIL_DECK_DEPTH, RAIL_HEAD, STREET_SINK, STREET_TOP, UNDER_CLEARANCE } from './rails-config';
 import { buildRoads, levelRoads } from './roads';
-import type { WaterResult } from './water';
+import type { WaterResult } from './water-types';
 
 const catalog = JSON.parse(readFileSync(join(__dirname, '../../../../../public/maps/assets/catalog.json'), 'utf8')) as { objects: CatalogObject[] };
 const byId = new Map(catalog.objects.map((o) => [o.id, o]));
