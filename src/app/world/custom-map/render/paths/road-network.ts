@@ -264,7 +264,37 @@ export class RoadNetworkBuilder {
 
   private lay(paths: MapPaths): RoadNetwork {
     const nodes = new Map<string, MapPoint>(paths.nodes.map((n) => [n.id, n]));
-    // The edges that changed, came or went, and the nodes they touch
+    const { touched, changed, at, decks, others } = this.diffEdges(paths, nodes);
+    const rebuilt = new Set<string>();
+    this.dropChains(touched, changed, rebuilt);
+    const made = this.newChains(paths, at, nodes);
+    // The junctions at every node a new chain ends at, then the geometry. Nodes a short chain joins, too close for a
+    // ribbon between their junctions, are one junction (a cluster): with the nodes clustered with them before
+    const lay = new Set<string>();
+    for (const c of made) c.nodes.forEach((n) => lay.add(n));
+    for (const n of touched) lay.add(n);
+    for (const n of [...lay]) for (const m of this.members.get(this.clusterOf.get(n) ?? '') ?? []) lay.add(m);
+    const endsOf = this.endsLookup(at, decks, nodes);
+    const clusters = fitClusters(lay, endsOf, nodes);
+    const before = this.trimsBefore(clusters);
+    for (const nodeList of clusters) this.layJunction(nodeList, endsOf, nodes, others, rebuilt);
+    this.relayMoved(before, made, rebuilt);
+    for (const c of made) if (!c.inner) this.putItem(`c${c.id}`, (out) => emitRibbon(c, out), rebuilt);
+    // The decks' stubs: their end sections at their nodes, as a ribbon's would be (they draw nothing)
+    for (const j of this.junctionEnds.values()) for (const e of j.ends) if (e.chain.stub) e.chain.ends = [sectionAt(e.chain, e.chain.at[0]), null];
+    for (const nodeList of clusters) {
+      const key = nodeList.reduce((p, q) => (q < p ? q : p));
+      const j = this.junctionEnds.get(key);
+      if (j) this.putItem(`j${key}`, (out) => this.outline(`j${key}`, emitJunction(j.node, j.ends, j.inner, out, this.styleOf)), rebuilt);
+    }
+    return this.network(rebuilt);
+  }
+
+  /** The edges that changed, came or went since the last lay, the nodes they touch, and the paved edges and bridges at each node */
+  private diffEdges(
+    paths: MapPaths,
+    nodes: ReadonlyMap<string, MapPoint>,
+  ): { touched: Set<string>; changed: Set<string>; at: Map<string, MapPathEdge[]>; decks: Map<string, MapPathEdge[]>; others: Set<string> } {
     const touched = new Set<string>();
     const changed = new Set<string>();
     const seen = new Set<string>();
@@ -320,20 +350,24 @@ export class RoadNetworkBuilder {
     for (const n of others) if (!this.others.has(n)) touched.add(n);
     for (const n of this.others) if (!others.has(n)) touched.add(n);
     this.others = others;
+    return { touched, changed, at, decks, others };
+  }
 
-    // Chains holding a changed edge give their ends; every chain ending at a touched node is laid again
+  /** Chains holding a changed edge give their ends; every chain ending at a touched node goes, to be laid again */
+  private dropChains(touched: Set<string>, changed: ReadonlySet<string>, rebuilt: Set<string>): void {
     const holds = (c: Chain) => c.edges.some((id) => changed.has(id));
     for (const c of this.chains.values()) if (holds(c)) c.nodes.forEach((n) => touched.add(n));
     const dropped: Chain[] = [];
     for (const c of this.chains.values()) if (holds(c) || touched.has(c.nodes[0]) || touched.has(c.nodes[1])) dropped.push(c);
-    const rebuilt = new Set<string>();
     for (const c of dropped) {
       this.chains.delete(c.id);
       for (const id of c.edges) if (this.chainOf.get(id) === c) this.chainOf.delete(id);
       this.dropItem(`c${c.id}`, rebuilt);
     }
+  }
 
-    // New chains from the free paved edges
+  /** New chains from the free paved edges */
+  private newChains(paths: MapPaths, at: Map<string, MapPathEdge[]>, nodes: Map<string, MapPoint>): Chain[] {
     const made: Chain[] = [];
     for (const e of paths.edges) {
       if (!pavedEdge(e) || this.chainOf.has(e.id)) continue;
@@ -342,15 +376,13 @@ export class RoadNetworkBuilder {
       made.push(c);
       this.chains.set(c.id, c);
     }
+    return made;
+  }
 
-    // The junctions at every node a new chain ends at, then the geometry. Nodes a short chain joins, too close for a
-    // ribbon between their junctions, are one junction (a cluster): with the nodes clustered with them before
-    const lay = new Set<string>();
-    for (const c of made) c.nodes.forEach((n) => lay.add(n));
-    for (const n of touched) lay.add(n);
-    for (const n of [...lay]) for (const m of this.members.get(this.clusterOf.get(n) ?? '') ?? []) lay.add(m);
+  /** The roads' ends at a node, once each: a footway onto a pavement joins it, a bridge going on is an arm (bridgeStub) */
+  private endsLookup(at: ReadonlyMap<string, MapPathEdge[]>, decks: ReadonlyMap<string, MapPathEdge[]>, nodes: ReadonlyMap<string, MapPoint>): (node: string) => End[] {
     const endsAt = new Map<string, End[]>();
-    const endsOf = (node: string): End[] => {
+    return (node: string): End[] => {
       let list = endsAt.get(node);
       if (list) return list;
       list = [];
@@ -377,87 +409,66 @@ export class RoadNetworkBuilder {
       endsAt.set(node, list);
       return list;
     };
-    // A cluster whose outline neither runs round its middle (fanned from there) nor is a polygon (triangulated as one;
-    // roads from its nodes side by side, crossing each other's ends) is laid as its nodes alone
-    const clusters = clusterJunctions(lay, endsOf).flatMap((group) => {
-      if (group.length === 1) return [group];
-      const inside = new Set(group);
-      const all = group.flatMap((n) => endsOf(n));
-      const within = (e: End) => inside.has(e.chain.nodes[0]) && inside.has(e.chain.nodes[1]);
-      const list = ontoPavement(all.filter((e) => !within(e)));
-      const inner = [...new Set(all.filter(within).map((e) => e.chain))];
-      const centre = clusterCentre(group.map((n) => nodes.get(n)!));
-      const trims = list.map((e) => [...e.chain.trim] as [number, number]);
-      trimJunction(centre, list, group.map(endsOf));
-      // Its outline round its middle or a polygon, and over the chains inside it: a kerb that cut across one (it could
-      // not follow a way turning back on itself) left the chain's ground bare, a ribbon there is better
-      const outline = list.length > 1 ? junctionOutline(list, list.map(endSection), inner, false) : [];
-      const fits =
-        list.length > 1 &&
-        (outlineAround(centre, list) || simpleRing(outline)) &&
-        inner.every((ch) => [0.25, 0.5, 0.75].every((s) => inRing(outline, pointAt(ch, ch.at[0] + ch.length * s))));
-      list.forEach((e, k) => (e.chain.trim = trims[k]));
-      return fits ? [group] : group.map((n) => [n]);
-    });
-    // Trims of the kept chains at those nodes, to see whether they moved, and whether they were inside a cluster
+  }
+
+  /** Trims of the kept chains at the junctions laid, to see whether they moved, and whether they were inside a cluster */
+  private trimsBefore(clusters: readonly string[][]): Map<Chain, [number, number, boolean, string]> {
     const laid = new Set(clusters.flat());
     const before = new Map<Chain, [number, number, boolean, string]>();
     const ends = (c: Chain) => `${+c.cap[0]}${+c.cap[1]}`;
     for (const c of this.chains.values()) if (laid.has(c.nodes[0]) || laid.has(c.nodes[1])) before.set(c, [c.trim[0], c.trim[1], c.inner, ends(c)]);
-    for (const nodeList of clusters) {
-      const key = nodeList.reduce((p, q) => (q < p ? q : p));
-      // The clusters these nodes were in go
-      for (const n of nodeList) {
-        const was = this.clusterOf.get(n) ?? n;
-        this.dropItem(`j${was}`, rebuilt);
-        this.junctionEnds.delete(was);
-        for (const m of this.members.get(was) ?? []) if (this.clusterOf.get(m) === was) this.clusterOf.delete(m);
-        this.members.delete(was);
-      }
-      const inside = new Set(nodeList);
-      const list: End[] = [];
-      const innerChains = new Set<Chain>();
-      for (const n of nodeList) {
-        for (const e of endsOf(n)) {
-          const inner = inside.has(e.chain.nodes[0]) && inside.has(e.chain.nodes[1]) && nodeList.length > 1;
-          e.chain.inner = inner;
-          if (inner) innerChains.add(e.chain);
-          else list.push(e);
-        }
-      }
-      // A footway at one node of a group joins the pavement of a road at another (ontoPavement)
-      const kept = ontoPavement(list);
-      list.splice(0, list.length, ...kept);
-      if (nodeList.length > 1) {
-        this.members.set(key, nodeList);
-        for (const n of nodeList) this.clusterOf.set(n, key);
-      }
-      if (list.length === 1 && nodeList.length === 1) {
-        const e = list[0];
-        // A path that ends with nothing else there gets a round end; a road ends square
-        e.chain.cap[e.start ? 0 : 1] = e.chain.edge.kind === 'path' && !others.has(key);
-      } else if (list.length > 1) {
-        const centre = clusterCentre(nodeList.map((n) => nodes.get(n)!));
-        trimJunction(centre, list, nodeList.length > 1 ? nodeList.map(endsOf) : []);
-        this.junctionEnds.set(key, { node: centre, ends: list, inner: [...innerChains] });
+    return before;
+  }
+
+  /** The junction of `nodeList` (a node or a cluster): the clusters its nodes were in go, its roads' ends trimmed, a lone end capped */
+  private layJunction(nodeList: string[], endsOf: (node: string) => End[], nodes: ReadonlyMap<string, MapPoint>, others: ReadonlySet<string>, rebuilt: Set<string>): void {
+    const key = nodeList.reduce((p, q) => (q < p ? q : p));
+    // The clusters these nodes were in go
+    for (const n of nodeList) {
+      const was = this.clusterOf.get(n) ?? n;
+      this.dropItem(`j${was}`, rebuilt);
+      this.junctionEnds.delete(was);
+      for (const m of this.members.get(was) ?? []) if (this.clusterOf.get(m) === was) this.clusterOf.delete(m);
+      this.members.delete(was);
+    }
+    const inside = new Set(nodeList);
+    const list: End[] = [];
+    const innerChains = new Set<Chain>();
+    for (const n of nodeList) {
+      for (const e of endsOf(n)) {
+        const inner = inside.has(e.chain.nodes[0]) && inside.has(e.chain.nodes[1]) && nodeList.length > 1;
+        e.chain.inner = inner;
+        if (inner) innerChains.add(e.chain);
+        else list.push(e);
       }
     }
-    // A kept chain whose trim moved (it ends at a junction laid again) or that went in or out of a cluster is laid again
+    // A footway at one node of a group joins the pavement of a road at another (ontoPavement)
+    const kept = ontoPavement(list);
+    list.splice(0, list.length, ...kept);
+    if (nodeList.length > 1) {
+      this.members.set(key, nodeList);
+      for (const n of nodeList) this.clusterOf.set(n, key);
+    }
+    if (list.length === 1 && nodeList.length === 1) {
+      const e = list[0];
+      // A path that ends with nothing else there gets a round end; a road ends square
+      e.chain.cap[e.start ? 0 : 1] = e.chain.edge.kind === 'path' && !others.has(key);
+    } else if (list.length > 1) {
+      const centre = clusterCentre(nodeList.map((n) => nodes.get(n)!));
+      trimJunction(centre, list, nodeList.length > 1 ? nodeList.map(endsOf) : []);
+      this.junctionEnds.set(key, { node: centre, ends: list, inner: [...innerChains] });
+    }
+  }
+
+  /** A kept chain whose trim moved (it ends at a junction laid again) or that went in or out of a cluster is laid again */
+  private relayMoved(before: ReadonlyMap<Chain, [number, number, boolean, string]>, made: Chain[], rebuilt: Set<string>): void {
+    const ends = (c: Chain) => `${+c.cap[0]}${+c.cap[1]}`;
     const fresh = new Set(made);
     for (const [c, was] of before) {
       if (fresh.has(c) || (was[0] === c.trim[0] && was[1] === c.trim[1] && was[2] === c.inner && was[3] === ends(c))) continue;
       this.dropItem(`c${c.id}`, rebuilt);
       made.push(c);
     }
-    for (const c of made) if (!c.inner) this.putItem(`c${c.id}`, (out) => emitRibbon(c, out), rebuilt);
-    // The decks' stubs: their end sections at their nodes, as a ribbon's would be (they draw nothing)
-    for (const j of this.junctionEnds.values()) for (const e of j.ends) if (e.chain.stub) e.chain.ends = [sectionAt(e.chain, e.chain.at[0]), null];
-    for (const nodeList of clusters) {
-      const key = nodeList.reduce((p, q) => (q < p ? q : p));
-      const j = this.junctionEnds.get(key);
-      if (j) this.putItem(`j${key}`, (out) => this.outline(`j${key}`, emitJunction(j.node, j.ends, j.inner, out, this.styleOf)), rebuilt);
-    }
-    return this.network(rebuilt);
   }
 
   /**
@@ -674,6 +685,34 @@ export class RoadNetworkBuilder {
     }
     return tile;
   }
+}
+
+/**
+ * The junctions to lay, by their nodes. A cluster whose outline neither runs round its middle (fanned from there)
+ * nor is a polygon (triangulated as one; roads from its nodes side by side, crossing each other's ends) is laid as
+ * its nodes alone
+ */
+function fitClusters(lay: ReadonlySet<string>, endsOf: (node: string) => End[], nodes: ReadonlyMap<string, MapPoint>): string[][] {
+  return clusterJunctions(lay, endsOf).flatMap((group) => {
+    if (group.length === 1) return [group];
+    const inside = new Set(group);
+    const all = group.flatMap((n) => endsOf(n));
+    const within = (e: End) => inside.has(e.chain.nodes[0]) && inside.has(e.chain.nodes[1]);
+    const list = ontoPavement(all.filter((e) => !within(e)));
+    const inner = [...new Set(all.filter(within).map((e) => e.chain))];
+    const centre = clusterCentre(group.map((n) => nodes.get(n)!));
+    const trims = list.map((e) => [...e.chain.trim] as [number, number]);
+    trimJunction(centre, list, group.map(endsOf));
+    // Its outline round its middle or a polygon, and over the chains inside it: a kerb that cut across one (it could
+    // not follow a way turning back on itself) left the chain's ground bare, a ribbon there is better
+    const outline = list.length > 1 ? junctionOutline(list, list.map(endSection), inner, false) : [];
+    const fits =
+      list.length > 1 &&
+      (outlineAround(centre, list) || simpleRing(outline)) &&
+      inner.every((ch) => [0.25, 0.5, 0.75].every((s) => inRing(outline, pointAt(ch, ch.at[0] + ch.length * s))));
+    list.forEach((e, k) => (e.chain.trim = trims[k]));
+    return fits ? [group] : group.map((n) => [n]);
+  });
 }
 
 /** The road surface of `paths` in one go (all tiles) */
