@@ -62,7 +62,7 @@ import {
   ROW_ENDS,
   type BuildingKind,
 } from '../building-tags';
-import type { OsmFeatures } from '../osm-parse';
+import type { OsmArea, OsmFeatures } from '../osm-parse';
 import { ringArea } from '../square-clip';
 import { MASS_ASSET, type MapFootprints, type MapMass } from '../../custom-map/map-document';
 import { packFootprints, type FootprintDrop, type FootprintRing } from '../../custom-map/map-footprints';
@@ -135,36 +135,7 @@ export function osmFootprints(features: OsmFeatures, dropped: ReadonlyMap<readon
 
 /** The buildings of `features` placed on `doc` (after the roads and the HQ): objects to add, the ground levelled under them */
 export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, options: BuildingOptions = {}): BuildingResult {
-  const report: BuildingReport = {
-    footprints: 0,
-    placed: 0,
-    objects: 0,
-    doors: 0,
-    entrances: 0,
-    split: 0,
-    masses: 0,
-    withParts: 0,
-    parts: 0,
-    rowEnds: 0,
-    oldTown: { tags: 0, area: 0, wall: 0, dense: 0 },
-    rows: 0,
-    kinds: {},
-    landmarks: {},
-    ruins: 0,
-    fallbacks: {},
-    dropped: { tiny: 0, noModel: 0, roads: 0, water: 0, hq: 0, budget: 0 },
-    shrunk: 0,
-    pads: 0,
-    deepestCutM: 0,
-    retainingWalls: 0,
-    basements: 0,
-    deepestBasementM: 0,
-    cost: 0,
-    costShare: 0,
-    missing: [],
-    coverage: { footprints: 0, median: 0, below70: 0, overhang10: 0 },
-    openings: { passages: 0, arches: 0, garages: 0, closed: 0 },
-  };
+  const report = emptyReport();
   // Per footprint of COVER_FROM m² or more: its covered share and the models' share outside it
   const covered: number[] = [];
   const outside: number[] = [];
@@ -208,6 +179,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     const doors = catalog?.get(asset)?.doors;
     return !doors?.length || doors.some((d) => d[2] === 'front') ? 'front' : doors[0][2];
   };
+  const ctx: PlaceContext = { doc, report, catalog, known, roads, onRoad, droppedRings, missing, measure, footprints, lands, compounds, waters, around, oldTown, partsOf, coveredWays, entrances, doorSide };
   let seen = 0;
   for (const area of features.areas) {
     if (options.onShare && ++seen % 256 === 0) options.onShare((0.9 * seen) / features.areas.length);
@@ -218,126 +190,201 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       for (const outer of area.outer) droppedRings.set(outer, 'tiny');
       continue;
     }
-    for (const outer of area.outer) {
-      const holes = area.inner.filter((r) => insideRing(r[0], outer));
-      const ringA = Math.abs(ringArea(outer)) - holes.reduce((s, r) => s + Math.abs(ringArea(r)), 0);
-      if (ringA < MIN_AREA) {
-        report.dropped.tiny++;
-        droppedRings.set(outer, 'tiny');
-        continue;
-      }
-      const rect = minAreaRect(outer);
-      const centre = rect.c;
-      const land = (lands.at(centre)?.tags ?? null) as Record<string, string> | null;
-      const aspect = Math.max(rect.a, rect.b) / Math.max(0.1, Math.min(rect.a, rect.b));
-      const fill = ringA / (rect.a * rect.b);
-      const median = around.median(centre, AROUND_REACH);
-      const role = buildingRole(area.tags, ringA, compounds.at(centre)?.tags ?? null);
-      const inOldTown = oldTown.has(centre, area.tags, median);
-      const kind = buildingKind(area.tags, ringA, aspect, land ? buildingLandOf(land) : null, median, holes.length > 0 || fill < WINGED_FILL, inOldTown, role);
-      report.kinds[kind] = (report.kinds[kind] ?? 0) + 1;
-      if (role.landmark) report.landmarks[role.landmark] = (report.landmarks[role.landmark] ?? 0) + 1;
-      // OSM's parts of it (Simple 3D Buildings): raised as them; the models only where that cannot stand (as below)
-      const ownParts = partsOf.get(outer) ?? [];
-      // A ruin is raised from its outline and falls (the ruins of the raised buildings, no model's)
-      const parts = role.ruin ? [] : fill < FILL_SPLIT ? splitFootprint(outer, holes, rect, ringA) : [rect];
-      if (parts.length > 1) report.split++;
-      const levels = buildingLevels(area.tags);
-      const placements: Placement[] = [];
-      const took = new Set<BuildingKind | null>();
-      // A mapped entrance gives the part it is on its front
-      const entrance = entrances.on(outer);
-      const entered = entrance ? parts.reduce((best, part) => (rectReach(part, entrance) < rectReach(best, entrance) ? part : best), parts[0]) : null;
-      for (const part of parts) {
-        const laid = layPart(part, kind, levels, roads, known, area.id, report, part === entered ? entrance : null, doorSide);
-        took.add(laid?.kind ?? null);
-        if (laid) placements.push(...laid.placements);
-        // The catalogue lacks this kind at this size: the part took another kind's models, or none (a landmark
-        // without models of its own is raised by intent)
-        if (laid?.kind !== kind && KIND_MODELS[kind].models.length) {
-          const key = `${kind} ${sizeClass(part.a, part.b)}`;
-          missing.set(key, (missing.get(key) ?? 0) + 1);
-        }
-      }
-      for (const k of took) if (k !== kind) report.fallbacks[`${kind}>${k ?? 'none'}`] = (report.fallbacks[`${kind}>${k ?? 'none'}`] ?? 0) + 1;
-      // Clear of water, roads and the HQ
-      const kept: Placement[] = [];
-      let why: 'water' | 'roads' | 'hq' | null = null;
-      for (const pl of placements) {
-        if (boxCorners(pl).some((q) => waters.at(q) !== null || waterLevelAt(doc.terrain, q.x, q.y, heightAt(doc.terrain, q.x, q.y)) !== null)) {
-          why = 'water';
-          continue;
-        }
-        // The room round the HQ takes no landmark (decision 4): the HQ stands where the player put it, the landmark too
-        if (!role.landmark && boxDistance(pl, doc.hq) < HQ_CLEAR) {
-          why = 'hq';
-          continue;
-        }
-        const clear = clearOfRoads(pl, onRoad);
-        if (!clear) {
-          why = 'roads';
-          continue;
-        }
-        if (clear === 'shrunk') report.shrunk++;
-        kept.push(pl);
-      }
-      // How the models fit the footprint: raised from its outline instead where they fit badly and that stands
-      const cover = kept.length ? coverage(outer, holes, rect, (q) => kept.some((pl) => inBox(pl, q))) : 0;
-      const over = kept.length ? overhang(outer, holes, kept, ringA) : 0;
-      // A covered way through it (a passage, a car park's entrance): raised from its outline, its walls open there
-      const passage = coveredWays.through(outer, holes);
-      const raised = cover >= MODEL_COVER && over <= MODEL_OVERHANG && !ownParts.length && !passage
-        ? null
-        : raiseMass(outer, holes, rect, kind, area.tags, ringA, hashId(area.id), inOldTown, ownParts);
-      if (raised) {
-        const pl: Placement = {
-          asset: MASS_ASSET,
-          p: raised.centre,
-          front: raised.front,
-          hw: raised.hw,
-          hd: raised.hd,
-          scale: 1,
-          rotation: raised.rotation,
-          model: { asset: MASS_ASSET, box: [raised.hw * 2, raised.hd * 2], floors: raised.mass.floors },
-          mass: raised.mass,
-        };
-        const blocked = massBlocked(pl, raised.mass, outer, doc, waters, roads, onRoad, !role.landmark);
-        if (!blocked) {
-          report.masses++;
-          if (pl.scale < 1) report.shrunk++;
-          if (role.ruin) report.ruins++;
-          if (raised.mass.parts) {
-            report.withParts++;
-            report.parts += raised.mass.parts.length;
-          }
-          const cost = costOf(MASS_ASSET, catalog, doc) + massTriangles(raised.mass);
-          footprints.push({ id: area.id, ring: outer, kind, area: ringA, centre, placements: [pl], cost, tint: raised.tint, ruin: role.ruin, entrance });
-          measure(ringA, ringA >= COVER_FROM ? coverage(outer, holes, rect, (q) => inMass(pl, raised.mass, q)) : 0, 0);
-          continue;
-        }
-        why ??= blocked;
-      }
-      if (!placements.length) {
-        report.dropped[why ?? 'noModel']++;
-        droppedRings.set(outer, why ?? 'noModel');
-        measure(ringA, 0, 0);
-        continue;
-      }
-      if (!kept.length) {
-        report.dropped[why ?? 'roads']++;
-        droppedRings.set(outer, why ?? 'roads');
-        measure(ringA, 0, 0);
-        continue;
-      }
-      // The models that are left where the raised building cannot stand (water), however they fit
-      measure(ringA, cover, over);
-      const cost = kept.reduce((s, pl) => s + costOf(pl.asset, catalog, doc), 0);
-      footprints.push({ id: area.id, ring: outer, kind, area: ringA, centre, placements: kept, cost, tint: TINTED_KINDS.has(kind) ? BUILDING_TINTS[hashId(area.id) % BUILDING_TINTS.length] : null, ruin: false, entrance });
-    }
+    for (const outer of area.outer) layFootprint(ctx, area, outer);
   }
 
-  // Scene cost: past the budget, the smallest footprints far from the HQ go first
-  const budget = options.budget ?? BUILDING_BUDGET_SHARE * SCENE_BUDGET;
+  capToBudget(ctx, options.budget ?? BUILDING_BUDGET_SHARE * SCENE_BUDGET, warnings);
+  // Pads, retaining walls and the objects
+  const boxes = new BoxIndex(footprints.flatMap((f) => f.placements));
+  openRowEnds(ctx, boxes);
+  const { objects, standing, doors } = standObjects(ctx, boxes);
+  seatOnCellars(doc, standing, footingOf, report);
+  report.objects = objects.length;
+  report.cost = Math.round(objects.reduce((s, o) => s + costOf(o.asset, catalog, doc) + (o.mass ? massTriangles(o.mass) : 0), 0));
+  report.costShare = Math.round((report.cost / SCENE_BUDGET) * 1000) / 1000;
+  report.missing = [...missing.entries()].sort((p, q) => q[1] - p[1]).map(([kind, count]) => ({ kind, count }));
+  report.coverage = coverageReport(covered, outside);
+  return { objects, doors, report, warnings, droppedRings };
+}
+
+function emptyReport(): BuildingReport {
+  return {
+      footprints: 0,
+      placed: 0,
+      objects: 0,
+      doors: 0,
+      entrances: 0,
+      split: 0,
+      masses: 0,
+      withParts: 0,
+      parts: 0,
+      rowEnds: 0,
+      oldTown: { tags: 0, area: 0, wall: 0, dense: 0 },
+      rows: 0,
+      kinds: {},
+      landmarks: {},
+      ruins: 0,
+      fallbacks: {},
+      dropped: { tiny: 0, noModel: 0, roads: 0, water: 0, hq: 0, budget: 0 },
+      shrunk: 0,
+      pads: 0,
+      deepestCutM: 0,
+      retainingWalls: 0,
+      basements: 0,
+      deepestBasementM: 0,
+      cost: 0,
+      costShare: 0,
+      missing: [],
+      coverage: { footprints: 0, median: 0, below70: 0, overhang10: 0 },
+      openings: { passages: 0, arches: 0, garages: 0, closed: 0 },
+  };
+}
+
+/** What the steps of placeBuildings share: the map, the report, the lookups, the footprints laid so far */
+interface PlaceContext {
+  doc: CustomMapDocument;
+  report: BuildingReport;
+  catalog: ReadonlyMap<string, BuildingCatalogEntry> | null;
+  known: (asset: string) => boolean;
+  roads: SegmentIndex;
+  onRoad: (o: Pick<MapObject, 'asset' | 'x' | 'y' | 'rotation' | 'scale' | 'mass'>) => boolean;
+  droppedRings: Map<readonly MapPoint[], FootprintDrop>;
+  missing: Map<string, number>;
+  measure: (ringA: number, cover: number, over: number) => void;
+  footprints: Footprint[];
+  lands: AreaIndex;
+  compounds: AreaIndex;
+  waters: AreaIndex;
+  around: AroundIndex;
+  oldTown: ReturnType<typeof findOldTown>;
+  partsOf: Map<readonly MapPoint[], OsmPart[]>;
+  coveredWays: CoveredWays;
+  entrances: EntranceIndex;
+  doorSide: (asset: string) => DoorSide;
+}
+
+/** One outer ring of a building area: its kind, its models or its raised outline, kept clear of water, roads and the HQ; a footprint, or why it is dropped */
+function layFootprint(ctx: PlaceContext, area: OsmArea, outer: readonly MapPoint[]): void {
+  const { doc, report, catalog, known, roads, onRoad, droppedRings, missing, measure, footprints, lands, compounds, waters, around, oldTown, partsOf, coveredWays, entrances, doorSide } = ctx;
+  const holes = area.inner.filter((r) => insideRing(r[0], outer));
+  const ringA = Math.abs(ringArea(outer)) - holes.reduce((s, r) => s + Math.abs(ringArea(r)), 0);
+  if (ringA < MIN_AREA) {
+    report.dropped.tiny++;
+    droppedRings.set(outer, 'tiny');
+    return;
+  }
+  const rect = minAreaRect(outer);
+  const centre = rect.c;
+  const land = (lands.at(centre)?.tags ?? null) as Record<string, string> | null;
+  const aspect = Math.max(rect.a, rect.b) / Math.max(0.1, Math.min(rect.a, rect.b));
+  const fill = ringA / (rect.a * rect.b);
+  const median = around.median(centre, AROUND_REACH);
+  const role = buildingRole(area.tags, ringA, compounds.at(centre)?.tags ?? null);
+  const inOldTown = oldTown.has(centre, area.tags, median);
+  const kind = buildingKind(area.tags, ringA, aspect, land ? buildingLandOf(land) : null, median, holes.length > 0 || fill < WINGED_FILL, inOldTown, role);
+  report.kinds[kind] = (report.kinds[kind] ?? 0) + 1;
+  if (role.landmark) report.landmarks[role.landmark] = (report.landmarks[role.landmark] ?? 0) + 1;
+  // OSM's parts of it (Simple 3D Buildings): raised as them; the models only where that cannot stand (as below)
+  const ownParts = partsOf.get(outer) ?? [];
+  // A ruin is raised from its outline and falls (the ruins of the raised buildings, no model's)
+  const parts = role.ruin ? [] : fill < FILL_SPLIT ? splitFootprint(outer, holes, rect, ringA) : [rect];
+  if (parts.length > 1) report.split++;
+  const levels = buildingLevels(area.tags);
+  const placements: Placement[] = [];
+  const took = new Set<BuildingKind | null>();
+  // A mapped entrance gives the part it is on its front
+  const entrance = entrances.on(outer);
+  const entered = entrance ? parts.reduce((best, part) => (rectReach(part, entrance) < rectReach(best, entrance) ? part : best), parts[0]) : null;
+  for (const part of parts) {
+    const laid = layPart(part, kind, levels, roads, known, area.id, report, part === entered ? entrance : null, doorSide);
+    took.add(laid?.kind ?? null);
+    if (laid) placements.push(...laid.placements);
+    // The catalogue lacks this kind at this size: the part took another kind's models, or none (a landmark
+    // without models of its own is raised by intent)
+    if (laid?.kind !== kind && KIND_MODELS[kind].models.length) {
+      const key = `${kind} ${sizeClass(part.a, part.b)}`;
+      missing.set(key, (missing.get(key) ?? 0) + 1);
+    }
+  }
+  for (const k of took) if (k !== kind) report.fallbacks[`${kind}>${k ?? 'none'}`] = (report.fallbacks[`${kind}>${k ?? 'none'}`] ?? 0) + 1;
+  // Clear of water, roads and the HQ
+  const kept: Placement[] = [];
+  let why: 'water' | 'roads' | 'hq' | null = null;
+  for (const pl of placements) {
+    if (boxCorners(pl).some((q) => waters.at(q) !== null || waterLevelAt(doc.terrain, q.x, q.y, heightAt(doc.terrain, q.x, q.y)) !== null)) {
+      why = 'water';
+      continue;
+    }
+    // The room round the HQ takes no landmark (decision 4): the HQ stands where the player put it, the landmark too
+    if (!role.landmark && boxDistance(pl, doc.hq) < HQ_CLEAR) {
+      why = 'hq';
+      continue;
+    }
+    const clear = clearOfRoads(pl, onRoad);
+    if (!clear) {
+      why = 'roads';
+      continue;
+    }
+    if (clear === 'shrunk') report.shrunk++;
+    kept.push(pl);
+  }
+  // How the models fit the footprint: raised from its outline instead where they fit badly and that stands
+  const cover = kept.length ? coverage(outer, holes, rect, (q) => kept.some((pl) => inBox(pl, q))) : 0;
+  const over = kept.length ? overhang(outer, holes, kept, ringA) : 0;
+  // A covered way through it (a passage, a car park's entrance): raised from its outline, its walls open there
+  const passage = coveredWays.through(outer, holes);
+  const raised = cover >= MODEL_COVER && over <= MODEL_OVERHANG && !ownParts.length && !passage
+    ? null
+    : raiseMass(outer, holes, rect, kind, area.tags, ringA, hashId(area.id), inOldTown, ownParts);
+  if (raised) {
+    const pl: Placement = {
+      asset: MASS_ASSET,
+      p: raised.centre,
+      front: raised.front,
+      hw: raised.hw,
+      hd: raised.hd,
+      scale: 1,
+      rotation: raised.rotation,
+      model: { asset: MASS_ASSET, box: [raised.hw * 2, raised.hd * 2], floors: raised.mass.floors },
+      mass: raised.mass,
+    };
+    const blocked = massBlocked(pl, raised.mass, outer, doc, waters, roads, onRoad, !role.landmark);
+    if (!blocked) {
+      report.masses++;
+      if (pl.scale < 1) report.shrunk++;
+      if (role.ruin) report.ruins++;
+      if (raised.mass.parts) {
+        report.withParts++;
+        report.parts += raised.mass.parts.length;
+      }
+      const cost = costOf(MASS_ASSET, catalog, doc) + massTriangles(raised.mass);
+      footprints.push({ id: area.id, ring: outer, kind, area: ringA, centre, placements: [pl], cost, tint: raised.tint, ruin: role.ruin, entrance });
+      measure(ringA, ringA >= COVER_FROM ? coverage(outer, holes, rect, (q) => inMass(pl, raised.mass, q)) : 0, 0);
+      return;
+    }
+    why ??= blocked;
+  }
+  if (!placements.length) {
+    report.dropped[why ?? 'noModel']++;
+    droppedRings.set(outer, why ?? 'noModel');
+    measure(ringA, 0, 0);
+    return;
+  }
+  if (!kept.length) {
+    report.dropped[why ?? 'roads']++;
+    droppedRings.set(outer, why ?? 'roads');
+    measure(ringA, 0, 0);
+    return;
+  }
+  // The models that are left where the raised building cannot stand (water), however they fit
+  measure(ringA, cover, over);
+  const cost = kept.reduce((s, pl) => s + costOf(pl.asset, catalog, doc), 0);
+  footprints.push({ id: area.id, ring: outer, kind, area: ringA, centre, placements: kept, cost, tint: TINTED_KINDS.has(kind) ? BUILDING_TINTS[hashId(area.id) % BUILDING_TINTS.length] : null, ruin: false, entrance });
+}
+
+/** Scene cost: past the budget, the smallest footprints far from the HQ go first */
+function capToBudget(ctx: PlaceContext, budget: number, warnings: ImportNote[]): void {
+  const { doc, report, catalog, droppedRings, footprints } = ctx;
   let cost = footprints.reduce((s, f) => s + f.cost, 0);
   if (catalog && Number.isFinite(budget) && cost > budget) {
     const worth = (f: Footprint) => f.area / (1 + Math.hypot(f.centre.x - doc.hq.x, f.centre.y - doc.hq.y) / 400);
@@ -353,11 +400,11 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     if (gone.size) warnings.push({ key: 'buildingsLeftOut', v: { count: gone.size, percent: Math.round((budget / SCENE_BUDGET) * 100) } });
     footprints.splice(0, footprints.length, ...footprints.filter((f) => !gone.has(f)));
   }
+}
 
-  // Pads, retaining walls and the objects
-  const guard = roadGuard(doc);
-  const boxes = new BoxIndex(footprints.flatMap((f) => f.placements));
-  // The end of a row: a module whose blank gable no house abuts takes the model with windows on that side
+/** The end of a row: a module whose blank gable no house abuts takes the model with windows on that side */
+function openRowEnds(ctx: PlaceContext, boxes: BoxIndex): void {
+  const { report, known, onRoad, footprints } = ctx;
   for (const f of footprints) {
     for (const pl of f.placements) {
       const ends = ROW_ENDS[pl.asset];
@@ -373,6 +420,12 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       report.rowEnds++;
     }
   }
+}
+
+/** The footprints' objects: each with its door, openings and floor, the slope cut to it with its retaining walls */
+function standObjects(ctx: PlaceContext, boxes: BoxIndex): { objects: MapObject[]; standing: { object: MapObject; floor: number }[]; doors: Map<number, BuildingDoor> } {
+  const { doc, report, catalog, known, roads, onRoad, coveredWays, footprints } = ctx;
+  const guard = roadGuard(doc);
   const objects: MapObject[] = [];
   let n = 0;
   // The floors are read off the hill as it was, before any building's cut: a neighbour's yard leaves an entrance be
@@ -433,8 +486,14 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     }
     report.placed++;
   }
-  // Each building over its seat on the ground as all the cuts left it, as the renderer seats it: lifted to its floor
-  // over its cellar where the hill falls away under it
+  return { objects, standing, doors };
+}
+
+/**
+ * Each building over its seat on the ground as all the cuts left it, as the renderer seats it: lifted to its floor
+ * over its cellar where the hill falls away under it
+ */
+function seatOnCellars(doc: CustomMapDocument, standing: readonly { object: MapObject; floor: number }[], footingOf: (asset: string) => ObjectFooting, report: BuildingReport): void {
   const ground = (x: number, y: number) => heightAt(doc.terrain, x, y);
   for (const { object, floor } of standing) {
     const mass = object.mass;
@@ -450,12 +509,6 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
     // Its car park entrances' floors under the seat, where the ramps meet the wall
     if (mass?.openings?.some((o) => o.kind === 'garage')) garageFloors(mass.openings, object, doc.terrain, seat);
   }
-  report.objects = objects.length;
-  report.cost = Math.round(objects.reduce((s, o) => s + costOf(o.asset, catalog, doc) + (o.mass ? massTriangles(o.mass) : 0), 0));
-  report.costShare = Math.round((report.cost / SCENE_BUDGET) * 1000) / 1000;
-  report.missing = [...missing.entries()].sort((p, q) => q[1] - p[1]).map(([kind, count]) => ({ kind, count }));
-  report.coverage = coverageReport(covered, outside);
-  return { objects, doors, report, warnings, droppedRings };
 }
 
 function costOf(asset: string, catalog: ReadonlyMap<string, BuildingCatalogEntry> | null, doc: CustomMapDocument): number {
