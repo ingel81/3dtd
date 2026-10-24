@@ -344,14 +344,40 @@ export function rowDirection(p: Parcel, heightAt: (x: number, y: number) => numb
 export function rowBlocks(p: Parcel, heightAt: (x: number, y: number) => number, roads: RoadIndex | null, rule: RowRule = CROP_ROWS): RowBlock[] {
   const whole = rowDirection(p, heightAt, roads, rule);
   if (!rule.blocks) return [whole];
+  const squares = squarePlanes(p, heightAt);
+  if (!squares || agreesWhole(squares, p, whole, rule)) return [whole];
+  return blockAreas(squares, growRegions(squares, p, roads, rule), rule);
+}
+
+/** The BLOCK_CELL squares over a parcel's box, each with its ground's plane: the fall's x and y and its grade */
+interface SquarePlanes {
+  c: number;
+  i0: number;
+  j0: number;
+  nx: number;
+  ny: number;
+  gx: Float64Array;
+  gy: Float64Array;
+  grade: Float64Array;
+}
+
+/** The squares' blocks: which block each square is in, the blocks and their squares' boxes, the flat block's id (-1: none) */
+interface SquareRegions {
+  region: Int32Array;
+  blocks: RowBlock[];
+  boxes: Box[];
+  flat: number;
+}
+
+/** The plane of each square's window: 7 x 7 heights 10 m apart round its middle; null for a parcel in one square */
+function squarePlanes(p: Parcel, heightAt: (x: number, y: number) => number): SquarePlanes | null {
   const c = BLOCK_CELL;
   const box = boundsOf(p.outer);
   const i0 = Math.floor(box.minX / c);
   const j0 = Math.floor(box.minY / c);
   const nx = Math.floor(box.maxX / c) - i0 + 1;
   const ny = Math.floor(box.maxY / c) - j0 + 1;
-  if (nx * ny <= 1) return [whole];
-  // The plane of each square's window: 7 x 7 heights 10 m apart round its middle
+  if (nx * ny <= 1) return null;
   const n = nx * ny;
   const gx = new Float64Array(n);
   const gy = new Float64Array(n);
@@ -383,7 +409,12 @@ export function rowBlocks(p: Parcel, heightAt: (x: number, y: number) => number,
       grade[k] = plane.grade;
     }
   }
-  // One block when the squares the parcel covers agree with its own plane (a square counts by its middle or a corner)
+  return { c, i0, j0, nx, ny, gx, gy, grade };
+}
+
+/** Whether the squares the parcel covers agree with its own plane (a square counts by its middle or a corner): then it is one block */
+function agreesWhole(squares: SquarePlanes, p: Parcel, whole: RowBlock, rule: RowRule): boolean {
+  const { c, i0, j0, nx, ny, gx, gy, grade } = squares;
   const covers = (i: number, j: number) => {
     for (const [u, v] of [[0.5, 0.5], [0, 0], [1, 0], [0, 1], [1, 1]]) if (insideRing({ x: (i0 + i + u) * c, y: (j0 + j + v) * c }, p.outer)) return true;
     return false;
@@ -397,8 +428,16 @@ export function rowBlocks(p: Parcel, heightAt: (x: number, y: number) => number,
       if (whole.reason === 'slope' ? !sloped || angleBetween(Math.atan2(gy[k], gx[k]), whole.angle) > BLOCK_JOIN : sloped) agree = false;
     }
   }
-  if (agree) return [whole];
+  return agree;
+}
 
+/**
+ * The squares grown into blocks, the steepest first: a sloped block takes its neighbours falling the same way
+ * (within BLOCK_JOIN); the flat squares are one block, square to the serving road or along the longest side
+ */
+function growRegions(squares: SquarePlanes, p: Parcel, roads: RoadIndex | null, rule: RowRule): SquareRegions {
+  const { c, i0, j0, nx, ny, gx, gy, grade } = squares;
+  const n = nx * ny;
   const region = new Int32Array(n).fill(-1);
   const order = Array.from({ length: n }, (_, k) => k).sort((a, b) => grade[b] - grade[a] || a - b);
   const blocks: RowBlock[] = [];
@@ -454,10 +493,20 @@ export function rowBlocks(p: Parcel, heightAt: (x: number, y: number) => number,
     }
     blocks.push({ angle: foldAngle(Math.atan2(sy, sx)), reason: 'slope', grade: Math.hypot(sx, sy) / count });
   }
-  // A point goes to the block, of those of the four squares round it, that runs nearest the fall line there (the
-  // squares' planes blended by distance), to the flat one where the blend is flat: the borders between blocks bend
-  // with the ground instead of stepping along the squares. `whole4` says the four were one block and the point lies
-  // at least BLOCK_GAP inside their middles, so the lane needs no look
+  return { region, blocks, boxes, flat };
+}
+
+/**
+ * Each block's area: a point goes to the block, of those of the four squares round it, that runs nearest the fall
+ * line there (the squares' planes blended by distance), to the flat one where the blend is flat: the borders between
+ * blocks bend with the ground instead of stepping along the squares. A block holds a point in its own part and
+ * BLOCK_GAP short of another block's
+ */
+function blockAreas(squares: SquarePlanes, regions: SquareRegions, rule: RowRule): RowBlock[] {
+  const { c, i0, j0, nx, ny, gx, gy } = squares;
+  const { region, blocks, boxes, flat } = regions;
+  // `whole4`: the four squares round the point were one block and it lies at least BLOCK_GAP inside their middles,
+  // so the lane needs no look
   let whole4 = false;
   const lane = BLOCK_GAP / c;
   const twice = new Float64Array(blocks.length * 2);
