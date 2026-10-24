@@ -104,14 +104,6 @@ performant, architektonisch sauber und erweiterbar, handgemachte Optik; bei Opti
 - [ ] **E308 Reste der Erlenbach-Runde** (2026-10-23, erfasst, nicht beauftragt): Bordstein-Haken am linken Fuß der
       Erlenbacher Brücke (Gehwegbreite springt); Bordsteine an Kreisel-Zufahrten leicht eckig; Delle in der
       Miltenberger Kreiselinsel; zwei Kreuzungen in Miltenberg unruhig; blaue Splitter in einem Krater vor einer Ruine.
-- [ ] **E309 Flimmern intakter Dächer, Fassaden und Straßen beim Drehen** (Zweitrechner 2026-10-23): rund 7500
-      flackernde Pixel gegen rund 120 an einer Ruine, am stärksten an Kreuzungen und dunklen Solardächern (Aliasing).
-      User sieht es sich im Spiel an, erst dann untersuchen.
-      Stand 2026-10-23: geparkt (User sieht nach den Straßen- und Schattenfixes kein Flimmern mehr). Gemessen
-      (Zweitrechner, tmp/plan/spiel-2026-10-23/REPORT_erl2-aa.md): Rest ist Geometrie unter einem Pixel (Fenster,
-      Fachwerk, Zäune, Reben), Spiegelung/Normalen/Filterung 0-3 %; Fernstufen früher -40 %, 8x MSAA über schlanken
-      Composer -51 bis -62 % für +0,6 ms, TAA nicht gebaut. Nebenbei behoben: Composer-Ziele lösen nur Farbe auf
-      (Bloom-Spieler Erlenbach 22,6 -> 6,2 ms GPU).
 - [ ] **E310 Umgebung hinter dem Kartenrand** (User 2026-10-23): wirkt oft unpassend zur Karte; ansehen.
 - [ ] **E311 OSM-Details** (User 2026-10-23): ungenutzte Tags an 17 Orten erhoben, Auswahl entschieden in
       [docs/OSM_DETAILS_PLAN.md](docs/OSM_DETAILS_PLAN.md) (Parken am Rand, Ampeln, Überwege, Schilder, Radwege,
@@ -635,6 +627,10 @@ Spiel und Balance (User 2026-10-21: später, ggf. erst nach 0.8; vorher evtl. ei
       einen Raum, Gäste bekommen ihn beim Beitreten; das Format ist dafür ausgelegt ([SAVE_LOAD_PLAN.md](docs/SAVE_LOAD_PLAN.md)).
 
 ## Entschieden (keine Arbeit)
+
+- **E309 Flimmern intakter Dächer, Fassaden und Straßen beim Drehen** (User 2026-10-24): gestrichen, er meldet es,
+  wenn es wieder auffällt. Messung von 2026-10-23: Rest ist Geometrie unter einem Pixel (Fenster, Fachwerk, Zäune,
+  Reben); Fernstufen früher -40 %, 8x MSAA über schlanken Composer -51 bis -62 % für +0,6 ms, TAA nicht gebaut.
 
 - **E251 Laden nach Bedarf, Rest** und **E273 Karten-Shader beim ersten Start** (User 2026-10-23): erledigt so; kein
   spürbarer Effekt bzw. nur Mess-Chromium und allererster Start.
