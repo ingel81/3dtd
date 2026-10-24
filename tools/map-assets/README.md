@@ -97,8 +97,9 @@ python -I tools/map-assets/update_catalog.py $DL/glb-raw public/maps/assets
 # (/map-preview, ein laufender Dev-Server), Faktor je Kanal in stage-tones.json und per stage_tones.py in den Katalog
 # (`lod[].tone`, `far.tone`; update_catalog.py übernimmt ihn). Nach jedem neuen oder geänderten LOD-Modell und
 # Fernkasten (match_lods.py, bake_far_boxes.mjs), zweimal (der zweite Lauf verfeinert); --report misst nur.
-# packed-models.spec.ts meldet Stufen ohne Ton
-node tools/map-assets/stage_tones.mjs --url http://localhost:<port> [--report] [<id> ...]
+# packed-models.spec.ts meldet Stufen ohne Ton. Gebäude: zuerst --materials (ein Ton je flachem LOD-Material,
+# `lod[].materials`), in den Katalog, dann die Stufentöne mit --switch (gemessen am Umschaltabstand)
+node tools/map-assets/stage_tones.mjs --url http://localhost:<port> [--report] [--materials | --switch] [<id> ...]
 ```
 
 Aufteilung der Blender-Skripte: `build_models.py` (Einstieg, Register, Grundbestand), `build_nature.py` (Bäume,

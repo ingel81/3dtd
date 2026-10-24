@@ -1,5 +1,6 @@
-"""The detail stages' tones (stage-tones.json, measured by stage_tones.mjs) into the catalogue: `lod[k].tone` and
-`far.tone` per object, as the game reads them (asset-catalog.ts StageTone). update_catalog.py applies them too.
+"""The detail stages' tones (stage-tones.json, measured by stage_tones.mjs) into the catalogue: `lod[k].tone`,
+`lod[k].materials` (a tone per LOD material, stage_tones.mjs --materials) and `far.tone` per object, as the game
+reads them (asset-catalog.ts StageTone). update_catalog.py applies them too.
 
     python -I tools/map-assets/stage_tones.py public/maps/assets
 """
@@ -25,6 +26,11 @@ def apply(objects, tones):
                 level['tone'] = tone
             else:
                 level.pop('tone', None)
+            materials = (t.get('lodMaterials') or [])[k] if k < len(t.get('lodMaterials') or []) else None
+            if materials:
+                level['materials'] = materials
+            else:
+                level.pop('materials', None)
         if 'far' in o:
             if t.get('far'):
                 o['far']['tone'] = t['far']

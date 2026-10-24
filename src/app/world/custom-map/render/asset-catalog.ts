@@ -274,9 +274,12 @@ export interface CatalogObject {
    * nearer than a big one (object-layer.ts). `tone`: what its colours are
    * multiplied by to look like the full model in the game's light (the
    * model's occlusion, grime and normal maps the flat copy lacks), measured
-   * by tools/map-assets/stage_tones.mjs
+   * by tools/map-assets/stage_tones.mjs; `materials`: a tone per flat
+   * material of the LOD model by its name, over its colour before `tone`
+   * (a textured roof loses other colours to its maps than a plastered
+   * wall: stage_tones.mjs --materials)
    */
-  lod?: { file: string; screen: number; triangles?: number; textures?: string[]; tone?: StageTone }[];
+  lod?: { file: string; screen: number; triangles?: number; textures?: string[]; tone?: StageTone; materials?: Record<string, StageTone> }[];
   /**
    * Buildings: the far stage, a box of 24 triangles (40 with its cellar) textured from the
    * model (objects/far-boxes.ts, tools/map-assets/bake_far_boxes.mjs),

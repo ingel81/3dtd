@@ -773,6 +773,16 @@ Modells durch das der Stufe, je Kanal, mal dem bisherigen Ton (ein zweiter Lauf 
 `stage_tones.py` schreibt ihn in den Katalog (`update_catalog.py` ebenso). Wo eine Stufe anders gebaut ist als ihr
 Modell (Formen, die die Dezimierung verliert, offene Bauten als voller Kasten), bleibt der Ton ein Mittel, keine
 Gleichheit: er hält die Helligkeit des Ganzen, nicht jedes Teils.
+**Ton je Material (Katalog `lod[].materials`):** ein Ton für die ganze Stufe gleicht ihr Mittel aus, nicht was jedem
+Material fehlt. Ein Ziegeldach verliert an Textur, Normalen und Rauheit ein Drittel seines Blaus, ein Putz weniger;
+das LOD-Haus stand mit einem Ton orange im Dach und zu hell in der Wand, und beim Rauszoomen wechselten Dach- und
+Wandfarbe. Darum trägt jede flache Materialkopie der ersten LOD-Stufe (`<name>-lod`) eines texturierten Materials
+des Modells ihren eigenen Faktor; `map-asset-library.ts` (`toneMaterials`) multipliziert ihre Farbe beim Laden damit,
+bevor die einfarbigen Teile zu einem Draw verschmelzen (die Farbe geht in die Vertices, kein Draw und kein Programm
+mehr). Gemessen von `stage_tones.mjs --materials`: die Pixel des Materials (ein Markierungsdurchgang, alle anderen
+schwarz), wie das volle Modell sie zeichnet, über dieselben Pixel mit der flachen Farbe der Stufe. Danach misst
+`stage_tones.mjs --switch` die Stufentöne dort, wo das Spiel umschaltet: die Kamera knapp hinter dem
+Umschaltabstand, beide Modelle mit den Mip-Stufen dieser Entfernung, statt aus der Nähe.
 **Schaden (Zerstörung, [DESTRUCTION_PLAN.md](DESTRUCTION_PLAN.md), Z2):** ein beschädigtes Gebäude verlässt den Batch
 seines Assets für dessen Ruinen-Batch (`setDamage`, beidseitig, der Schaden im Shader); intakte Instanzen und Fern-Kästen
 tragen keinen Schaden und behalten ihre Programme.

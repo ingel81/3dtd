@@ -2,6 +2,7 @@ import {
   BoxGeometry,
   BufferAttribute,
   BufferGeometry,
+  Color,
   ConeGeometry,
   CylinderGeometry,
   DataTexture,
@@ -274,7 +275,7 @@ export class MapAssetLibrary {
         if (!p) {
           this.startTextures(lod.textures);
           p = Promise.all([this.loadModelFn(this.url(lod.file)), this.model(id)]).then(([root, full]) => {
-            const parts = sharedMaterials(collectParts(root), full.parts);
+            const parts = toneMaterials(sharedMaterials(collectParts(root), full.parts), lod.materials);
             return this.keep({ id, entry, parts, height: partsHeight(parts), placeholder: false });
           });
           this.models.set(key, p);
@@ -563,6 +564,24 @@ export function sharedMaterials(parts: ModelPart[], full: readonly ModelPart[]):
   });
   for (const m of freed) m.dispose();
   return out;
+}
+
+/**
+ * A LOD model's flat materials each times its tone (catalogue `lod[].materials`, by the material's name), once, at
+ * load: before the plain parts merge into one draw their colours go per vertex (merge-parts.ts). A material the full
+ * model shares (a textured one, sharedMaterials) is never named there
+ */
+export function toneMaterials(parts: ModelPart[], tones: Readonly<Record<string, StageTone>> | undefined): ModelPart[] {
+  if (!tones) return parts;
+  const done = new Set<Material>();
+  for (const p of parts) {
+    const tone = tones[p.material.name];
+    const m = p.material as MeshStandardMaterial;
+    if (!tone || done.has(m) || !m.color) continue;
+    done.add(m);
+    m.color.multiply(new Color(tone[0], tone[1], tone[2]));
+  }
+  return parts;
 }
 
 function collectParts(root: Object3D): ModelPart[] {

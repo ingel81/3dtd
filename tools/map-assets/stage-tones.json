@@ -1,9 +1,9 @@
 {
  "adobe-house": {
-  "far": [0.875, 0.833, 0.727]
+  "far": [0.903, 0.856, 0.756]
  },
  "adobe-house-large": {
-  "far": [0.894, 0.853, 0.713]
+  "far": [0.887, 0.857, 0.74]
  },
  "advertising-column": {
   "lod": [
@@ -11,36 +11,87 @@
   ]
  },
  "alpine-hut": {
-  "far": [1.098, 1.109, 1.048],
+  "far": [1.017, 0.996, 0.959],
   "lod": [
-   [0.985, 0.95, 0.898]
+   [1.078, 1.182, 1.203]
+  ],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [0.972, 0.78, 0.597],
+    "wall-stacked_stone_wall-lod": [0.528, 0.421, 0.4],
+    "timber-lod": [0.592, 0.539, 0.484],
+    "roof-weathered_planks-lod": [0.884, 0.77, 0.734],
+    "roof-weathered_planks-ridge-lod": [0.873, 0.736, 0.733],
+    "planks-alpine-lod": [0.791, 0.653, 0.561],
+    "stone-roof-lod": [0.93, 0.784, 0.644],
+    "bark-bark_brown_02-lod": [0.98, 0.854, 0.661]
+   }
   ]
  },
  "alpine-hut-snow": {
-  "far": [0.916, 0.918, 0.893],
+  "far": [0.91, 0.909, 0.869],
   "lod": [
-   [0.855, 0.867, 0.831]
+   [0.734, 0.861, 1.065]
+  ],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [0.976, 0.774, 0.579],
+    "roof-weathered_planks-ridge-lod": [0.89, 0.763, 0.775],
+    "snow-roof-lod": [1.121, 0.964, 0.726],
+    "planks-alpine-lod": [0.8, 0.667, 0.583],
+    "stone-roof-lod": [0.933, 0.788, 0.647],
+    "bark-bark_brown_02-lod": [1.003, 0.876, 0.671]
+   }
   ]
  },
  "annex": {
-  "far": [0.872, 0.86, 0.836]
+  "far": [0.756, 0.734, 0.688],
+  "lodMaterials": [
+   {
+    "plaster-1.25-1.30-1.33-lod": [0.866, 0.807, 0.77],
+    "plinth-concrete-lod": [0.438, 0.4, 0.4],
+    "roof-zinc-seam-lod": [0.832, 0.746, 0.697]
+   }
+  ]
  },
  "apartment-block": {
   "lod": [
-   [0.926, 0.88, 0.83]
+   [0.941, 1.081, 1.164]
   ],
-  "far": [0.779, 0.751, 0.713]
+  "far": [0.723, 0.684, 0.622],
+  "lodMaterials": [
+   {
+    "wall-concrete_slab_wall-t-lod": [0.968, 0.765, 0.625],
+    "trim-brushed_concrete-lod": [0.86, 0.71, 0.65],
+    "roof-bitumen-lod": [0.739, 0.62, 0.691],
+    "roof-gravel_floor_02-lod": [1.125, 0.908, 0.66]
+   }
+  ]
  },
  "apartment-block-ruined": {
   "lod": [
-   [0.978, 0.936, 0.914]
+   [0.929, 1.068, 1.162]
+  ],
+  "lodMaterials": [
+   {
+    "wall-concrete_slab_wall-t-lod": [1.026, 0.804, 0.638],
+    "trim-brushed_concrete-lod": [0.981, 0.838, 0.82]
+   }
   ]
  },
  "apartment-block-tall": {
   "lod": [
-   [0.965, 0.9, 0.825]
+   [1.011, 1.149, 1.229]
   ],
-  "far": [0.78, 0.756, 0.705]
+  "far": [0.66, 0.608, 0.548],
+  "lodMaterials": [
+   {
+    "wall-concrete_slab_wall-t-lod": [0.938, 0.739, 0.591],
+    "trim-brushed_concrete-lod": [0.83, 0.679, 0.623],
+    "roof-bitumen-lod": [0.738, 0.627, 0.634],
+    "roof-gravel_floor_02-lod": [1.1, 0.889, 0.626]
+   }
+  ]
  },
  "barbed-wire": {
   "lod": [
@@ -49,21 +100,44 @@
  },
  "barn": {
   "lod": [
-   [0.891, 0.891, 0.862]
+   [1.062, 1.181, 1.311]
   ],
-  "far": [0.934, 0.936, 0.937]
+  "far": [0.954, 0.92, 0.915],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [1.042, 0.852, 0.725],
+    "wall-brown_planks_07-lod": [0.699, 0.539, 0.447],
+    "timber-lod": [0.544, 0.505, 0.446],
+    "roof-grey_roof_tiles-lod": [0.864, 0.777, 0.699],
+    "window-lod": [0.693, 0.704, 0.781],
+    "roof-grey_roof_tiles-ridge-lod": [0.738, 0.668, 0.625]
+   }
+  ]
  },
  "barn-modern": {
   "lod": [
-   [1.123, 1.101, 1.03]
+   [1.266, 1.269, 1.192]
   ],
-  "far": [0.918, 0.909, 0.911]
+  "far": [0.756, 0.746, 0.729],
+  "lodMaterials": [
+   {
+    "plinth-concrete-lod": [0.552, 0.47, 0.458],
+    "boards-barn-lod": [0.4, 0.4, 0.4],
+    "roof-fibre-cement-lod": [0.846, 0.793, 0.777]
+   }
+  ]
  },
  "barn-snow": {
   "lod": [
-   [0.96, 0.995, 0.975]
+   [0.898, 1.008, 1.251]
   ],
-  "far": [0.998, 1.021, 1.011]
+  "far": [1.026, 1.036, 1.018],
+  "lodMaterials": [
+   {
+    "roof-grey_roof_tiles-ridge-lod": [0.806, 0.72, 0.68],
+    "snow-roof-lod": [1.139, 0.986, 0.757]
+   }
+  ]
  },
  "barrels-broken": {
   "lod": [
@@ -77,13 +151,25 @@
  },
  "base-hub": {
   "lod": [
-   [0.96, 0.938, 0.937]
+   [0.842, 1.005, 1.234]
   ],
-  "far": [1.072, 1.063, 1.041]
+  "far": [1.091, 1.085, 1.084],
+  "lodMaterials": [
+   {
+    "hull-panels-lod": [1.152, 0.925, 0.734]
+   }
+  ]
  },
  "base-module": {
   "lod": [
-   [0.981, 0.965, 0.961]
+   [0.856, 1.025, 1.218]
+  ],
+  "lodMaterials": [
+   {
+    "hull-panels-lod": [1.174, 0.943, 0.748],
+    "station-window-lod": [1.202, 0.998, 0.768],
+    "solar-cells-lod": [1.019, 0.86, 0.974]
+   }
   ]
  },
  "basketball-hoop": {
@@ -93,15 +179,29 @@
  },
  "bell-tower": {
   "lod": [
-   [1.013, 1.025, 0.994]
+   [1.023, 1.203, 1.346]
   ],
-  "far": [0.967, 0.955, 0.955]
+  "far": [0.772, 0.732, 0.649],
+  "lodMaterials": [
+   {
+    "wall-stacked_stone_wall-lod": [0.806, 0.694, 0.4],
+    "stone-slates-lod": [0.928, 0.77, 0.627],
+    "roof-roof_slates_02-lod": [1.086, 0.925, 0.776]
+   }
+  ]
  },
  "bell-tower-snow": {
   "lod": [
-   [1.098, 1.087, 1.012]
+   [0.974, 1.123, 1.215]
   ],
-  "far": [1.054, 1.057, 1.12]
+  "far": [0.894, 0.865, 0.811],
+  "lodMaterials": [
+   {
+    "wall-stacked_stone_wall-lod": [0.837, 0.723, 0.4],
+    "stone-slates-lod": [0.95, 0.794, 0.649],
+    "snow-snow_02-lod": [1.21, 0.994, 0.819]
+   }
+  ]
  },
  "bike-rack": {
   "lod": [
@@ -110,63 +210,153 @@
  },
  "block-corner-4": {
   "lod": [
-   [0.95, 0.923, 0.896]
+   [0.905, 1.081, 1.267]
   ],
-  "far": [0.907, 0.846, 0.789]
+  "far": [0.803, 0.734, 0.684],
+  "lodMaterials": [
+   {
+    "plaster-0.95-0.94-0.92-lod": [0.798, 0.65, 0.572],
+    "plaster-1.30-1.15-1.08-lod": [1.064, 0.836, 0.673],
+    "plinth-concrete-lod": [0.456, 0.4, 0.4],
+    "roof-red-tiles-lod": [1.006, 0.803, 0.62],
+    "roof-red-ridge-lod": [0.817, 0.649, 0.456]
+   }
+  ]
  },
  "block-corner-6": {
   "lod": [
-   [0.987, 0.971, 0.943]
+   [0.984, 1.126, 1.339]
   ],
-  "far": [0.775, 0.787, 0.791]
+  "far": [0.706, 0.686, 0.652],
+  "lodMaterials": [
+   {
+    "plaster-0.95-0.94-0.92-lod": [0.788, 0.644, 0.57],
+    "plaster-1.10-1.20-1.08-lod": [1.002, 0.845, 0.657],
+    "plaster-1.25-1.30-1.33-lod": [0.799, 0.64, 0.505],
+    "plinth-concrete-lod": [0.444, 0.4, 0.4],
+    "roof-bitumen-lod": [0.688, 0.64, 0.657]
+   }
+  ]
  },
  "block-row-4": {
   "lod": [
-   [0.94, 0.969, 1.037]
+   [0.911, 1.115, 1.41]
   ],
-  "far": [0.849, 0.785, 0.777]
+  "far": [0.772, 0.707, 0.658],
+  "lodMaterials": [
+   {
+    "plaster-0.95-0.94-0.92-lod": [0.968, 0.794, 0.65],
+    "plaster-1.28-1.15-0.88-lod": [1.066, 0.843, 0.665],
+    "plinth-concrete-lod": [0.436, 0.4, 0.4],
+    "roof-red-tiles-lod": [0.968, 0.768, 0.584],
+    "roof-red-ridge-lod": [0.808, 0.644, 0.463]
+   }
+  ]
  },
  "block-row-4-end-e": {
   "lod": [
-   [0.921, 0.956, 1.033]
+   [0.934, 1.15, 1.433]
   ],
-  "far": [0.813, 0.742, 0.737]
+  "far": [0.723, 0.647, 0.601],
+  "lodMaterials": [
+   {
+    "plaster-0.95-0.94-0.92-lod": [0.999, 0.82, 0.672],
+    "plaster-1.28-1.15-0.88-lod": [0.981, 0.778, 0.622],
+    "plinth-concrete-lod": [0.4, 0.4, 0.4],
+    "roof-red-tiles-lod": [0.955, 0.757, 0.571],
+    "roof-red-ridge-lod": [0.832, 0.668, 0.497]
+   }
+  ]
  },
  "block-row-4-end-w": {
   "lod": [
-   [0.926, 0.952, 1.016]
+   [0.906, 1.108, 1.407]
   ],
-  "far": [0.837, 0.765, 0.747]
+  "far": [0.763, 0.69, 0.628],
+  "lodMaterials": [
+   {
+    "plaster-0.95-0.94-0.92-lod": [0.998, 0.818, 0.669],
+    "plaster-1.28-1.15-0.88-lod": [1.064, 0.831, 0.637],
+    "plinth-concrete-lod": [0.405, 0.4, 0.4],
+    "roof-red-tiles-lod": [0.954, 0.756, 0.57],
+    "roof-red-ridge-lod": [0.848, 0.677, 0.493]
+   }
+  ]
  },
  "block-row-4-ends": {
   "lod": [
-   [0.91, 0.947, 1.029]
+   [0.926, 1.144, 1.447]
   ],
-  "far": [0.801, 0.723, 0.714]
+  "far": [0.722, 0.636, 0.582],
+  "lodMaterials": [
+   {
+    "plaster-0.95-0.94-0.92-lod": [0.982, 0.804, 0.657],
+    "plaster-1.28-1.15-0.88-lod": [0.983, 0.766, 0.589],
+    "plinth-concrete-lod": [0.404, 0.4, 0.4],
+    "roof-red-tiles-lod": [0.948, 0.751, 0.564],
+    "roof-red-ridge-lod": [0.854, 0.681, 0.499]
+   }
+  ]
  },
  "block-row-6": {
   "lod": [
-   [0.941, 0.919, 0.882]
+   [0.938, 1.085, 1.22]
   ],
-  "far": [0.773, 0.771, 0.755]
+  "far": [0.663, 0.633, 0.592],
+  "lodMaterials": [
+   {
+    "plaster-0.95-0.94-0.92-lod": [0.924, 0.757, 0.621],
+    "plaster-1.12-1.16-1.20-lod": [1.003, 0.821, 0.666],
+    "plaster-1.25-1.30-1.33-lod": [0.798, 0.64, 0.506],
+    "plinth-concrete-lod": [0.4, 0.4, 0.4],
+    "roof-bitumen-lod": [0.687, 0.635, 0.654]
+   }
+  ]
  },
  "block-row-6-end-e": {
   "lod": [
-   [0.943, 0.921, 0.88]
+   [0.986, 1.135, 1.266]
   ],
-  "far": [0.743, 0.743, 0.73]
+  "far": [0.614, 0.586, 0.546],
+  "lodMaterials": [
+   {
+    "plaster-0.95-0.94-0.92-lod": [0.949, 0.779, 0.642],
+    "plaster-1.12-1.16-1.20-lod": [0.931, 0.766, 0.629],
+    "plaster-1.25-1.30-1.33-lod": [0.796, 0.638, 0.504],
+    "plinth-concrete-lod": [0.4, 0.4, 0.4],
+    "roof-bitumen-lod": [0.685, 0.633, 0.65]
+   }
+  ]
  },
  "block-row-6-end-w": {
   "lod": [
-   [0.94, 0.92, 0.877]
+   [0.96, 1.118, 1.277]
   ],
-  "far": [0.757, 0.754, 0.737]
+  "far": [0.651, 0.615, 0.568],
+  "lodMaterials": [
+   {
+    "plaster-0.95-0.94-0.92-lod": [0.922, 0.756, 0.621],
+    "plaster-1.12-1.16-1.20-lod": [0.97, 0.788, 0.628],
+    "plaster-1.25-1.30-1.33-lod": [0.797, 0.638, 0.503],
+    "plinth-concrete-lod": [0.4, 0.4, 0.4],
+    "roof-bitumen-lod": [0.687, 0.635, 0.654]
+   }
+  ]
  },
  "block-row-6-ends": {
   "lod": [
-   [0.931, 0.906, 0.857]
+   [1.007, 1.157, 1.29]
   ],
-  "far": [0.73, 0.725, 0.707]
+  "far": [0.594, 0.557, 0.509],
+  "lodMaterials": [
+   {
+    "plaster-0.95-0.94-0.92-lod": [0.903, 0.741, 0.608],
+    "plaster-1.12-1.16-1.20-lod": [0.904, 0.734, 0.587],
+    "plaster-1.25-1.30-1.33-lod": [0.794, 0.636, 0.503],
+    "plinth-concrete-lod": [0.4, 0.4, 0.4],
+    "roof-bitumen-lod": [0.691, 0.64, 0.659]
+   }
+  ]
  },
  "bone-pile": {
   "lod": [
@@ -185,20 +375,42 @@
  },
  "brick-block": {
   "lod": [
-   [0.973, 0.948, 0.905]
+   [0.973, 1.087, 1.143]
   ],
-  "far": [0.863, 0.826, 0.766]
+  "far": [0.788, 0.725, 0.634],
+  "lodMaterials": [
+   {
+    "wall-brick_wall_07-lod": [0.893, 0.701, 0.549],
+    "trim-brushed_concrete-t-lod": [1.012, 0.846, 0.7],
+    "roof-bitumen-lod": [0.725, 0.594, 0.661],
+    "roof-gravel_floor_02-lod": [1.153, 0.938, 0.696]
+   }
+  ]
  },
  "brick-block-ruined": {
   "lod": [
-   [0.993, 0.972, 0.936]
+   [0.967, 1.085, 1.146]
+  ],
+  "lodMaterials": [
+   {
+    "wall-brick_wall_07-lod": [0.997, 0.796, 0.626],
+    "trim-brushed_concrete-t-lod": [1.026, 0.855, 0.721]
+   }
   ]
  },
  "brick-house": {
   "lod": [
-   [0.99, 0.969, 0.928]
+   [0.974, 1.092, 1.15]
   ],
-  "far": [0.849, 0.819, 0.77]
+  "far": [0.802, 0.749, 0.664],
+  "lodMaterials": [
+   {
+    "wall-brick_wall_07-lod": [0.881, 0.691, 0.527],
+    "trim-brushed_concrete-t-lod": [1.023, 0.857, 0.716],
+    "roof-bitumen-lod": [0.726, 0.608, 0.673],
+    "roof-gravel_floor_02-lod": [1.139, 0.924, 0.686]
+   }
+  ]
  },
  "bridge-abutment": {
   "lod": [
@@ -252,7 +464,14 @@
  },
  "cablecar-station": {
   "lod": [
-   [0.98, 0.995, 0.979]
+   [0.898, 1.076, 1.328]
+  ],
+  "lodMaterials": [
+   {
+    "stone-stacked-lod": [0.683, 0.565, 0.4],
+    "planks-weathered_planks-t-lod": [0.827, 0.631, 0.518],
+    "roof-roof_slates_02-lod": [1.118, 0.942, 0.747]
+   }
   ]
  },
  "cafe-set": {
@@ -316,10 +535,21 @@
   ]
  },
  "carport": {
-  "far": [1.158, 1.097, 1.05]
+  "far": [1.431, 1.337, 1.212],
+  "lodMaterials": [
+   {
+    "plinth-concrete-lod": [0.825, 0.723, 0.768],
+    "roof-trapezoid-lod": [0.861, 0.792, 0.758]
+   }
+  ]
  },
  "carport-double": {
-  "far": [1.173, 1.111, 1.076]
+  "far": [1.431, 1.335, 1.219],
+  "lodMaterials": [
+   {
+    "roof-trapezoid-lod": [0.929, 0.849, 0.807]
+   }
+  ]
  },
  "cart": {
   "lod": [
@@ -333,18 +563,36 @@
  },
  "castle-gate": {
   "lod": [
-   [0.906, 0.882, 0.817]
+   [0.921, 1.087, 1.348]
   ],
-  "far": [0.916, 0.899, 0.875]
+  "far": [0.894, 0.888, 0.869],
+  "lodMaterials": [
+   {
+    "castle-castle_wall_slates-lod": [0.993, 0.811, 0.62]
+   }
+  ]
  },
  "castle-keep": {
   "lod": [
-   [0.919, 0.902, 0.864]
+   [0.92, 1.104, 1.35]
+  ],
+  "lodMaterials": [
+   {
+    "castle-castle_wall_slates-lod": [1.001, 0.817, 0.639],
+    "roof-roof_slates_02-lod": [1.083, 0.924, 0.778],
+    "window-lod": [0.566, 0.614, 0.742]
+   }
   ]
  },
  "castle-ruin": {
   "lod": [
-   [1.001, 1.027, 1.01]
+   [1.235, 1.345, 1.18]
+  ],
+  "lodMaterials": [
+   {
+    "castle-mossy_stone_wall-lod": [0.795, 0.767, 0.658],
+    "planks-dark-lod": [0.872, 0.818, 0.84]
+   }
   ]
  },
  "castle-stairs": {
@@ -354,18 +602,36 @@
  },
  "castle-tower": {
   "lod": [
-   [0.889, 0.875, 0.821]
+   [0.937, 1.116, 1.403]
+  ],
+  "lodMaterials": [
+   {
+    "castle-castle_wall_slates-lod": [0.992, 0.817, 0.631],
+    "window-lod": [0.513, 0.4, 0.45]
+   }
   ]
  },
  "castle-tower-roof": {
   "lod": [
-   [0.979, 0.974, 0.946]
+   [0.922, 1.089, 1.261]
   ],
-  "far": [1.014, 1.01, 1.012]
+  "far": [0.922, 0.926, 0.887],
+  "lodMaterials": [
+   {
+    "castle-castle_wall_slates-lod": [1.051, 0.869, 0.705],
+    "roof-roof_slates_02-lod": [1.073, 0.907, 0.754]
+   }
+  ]
  },
  "castle-tower-ruined": {
   "lod": [
-   [1.06, 1.047, 1.025]
+   [1.261, 1.395, 1.206]
+  ],
+  "lodMaterials": [
+   {
+    "castle-mossy_stone_wall-lod": [0.788, 0.72, 0.577],
+    "slit-lod": [0.54, 0.451, 0.526]
+   }
   ]
  },
  "castle-wall": {
@@ -410,21 +676,49 @@
  },
  "chapel": {
   "lod": [
-   [0.945, 0.949, 0.921]
+   [0.899, 1.062, 1.226]
   ],
-  "far": [1.013, 0.993, 0.959]
+  "far": [0.907, 0.881, 0.807],
+  "lodMaterials": [
+   {
+    "wall-white_sandstone_bricks-lod": [0.895, 0.762, 0.661],
+    "roof-roof_slates_02-lod": [1.082, 0.913, 0.742],
+    "window-lod": [0.53, 0.589, 0.738],
+    "planks-dark-lod": [0.769, 0.694, 0.642]
+   }
+  ]
  },
  "chapel-mountain": {
   "lod": [
-   [0.97, 0.977, 0.952]
+   [0.911, 1.087, 1.287]
   ],
-  "far": [1.051, 1.058, 1.041]
+  "far": [1.038, 1.051, 1.019],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [0.957, 0.779, 0.621],
+    "timber-lod": [0.617, 0.591, 0.576],
+    "roof-roof_slates_02-lod": [1.107, 0.927, 0.747],
+    "roof-roof_slates_02-ridge-lod": [0.996, 0.868, 0.731],
+    "planks-weathered_planks-t-lod": [0.757, 0.584, 0.412],
+    "wall-stacked_stone_wall-lod": [0.68, 0.564, 0.4]
+   }
+  ]
  },
  "chapel-mountain-snow": {
   "lod": [
-   [1.034, 1.031, 0.995]
+   [0.88, 1.046, 1.262]
   ],
-  "far": [1.126, 1.114, 1.098]
+  "far": [1.123, 1.118, 1.089],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [0.961, 0.782, 0.623],
+    "roof-roof_slates_02-lod": [1.207, 1.003, 0.8],
+    "roof-roof_slates_02-ridge-lod": [1.005, 0.875, 0.728],
+    "snow-snow_02-lod": [1.221, 1.007, 0.784],
+    "planks-weathered_planks-t-lod": [0.758, 0.586, 0.418],
+    "wall-stacked_stone_wall-lod": [0.671, 0.555, 0.4]
+   }
+  ]
  },
  "cliff-coast": {
   "lod": [
@@ -472,7 +766,16 @@
   ]
  },
  "cottage": {
-  "far": [0.965, 0.951, 0.9]
+  "far": [0.995, 0.955, 0.889],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [0.967, 0.77, 0.58],
+    "wall-beige_wall_001-lod": [0.575, 0.425, 0.4],
+    "timber-lod": [0.703, 0.627, 0.549],
+    "roof-reed_roof_04-lod": [1.108, 0.889, 0.677],
+    "roof-reed_roof_04-ridge-lod": [0.883, 0.734, 0.585]
+   }
+  ]
  },
  "cow": {
   "lod": [
@@ -511,7 +814,13 @@
  },
  "desert-temple": {
   "lod": [
-   [0.969, 0.955, 0.97]
+   [0.83, 1.02, 1.378]
+  ],
+  "lodMaterials": [
+   {
+    "wall-sandstone_blocks_04-lod": [1.198, 0.933, 0.702],
+    "rock-sandstone_cracks-lod": [1.243, 0.967, 0.728]
+   }
   ]
  },
  "desert-tree": {
@@ -526,12 +835,22 @@
  },
  "dome-glass": {
   "lod": [
-   [0.97, 0.949, 0.936]
+   [0.947, 0.949, 0.953]
+  ],
+  "lodMaterials": [
+   {
+    "hull-panels-lod": [1.147, 0.925, 0.753]
+   }
   ]
  },
  "dome-white": {
   "lod": [
-   [0.949, 0.932, 0.931]
+   [0.81, 0.968, 1.185]
+  ],
+  "lodMaterials": [
+   {
+    "hull-panels-lod": [1.184, 0.955, 0.765]
+   }
   ]
  },
  "fence-broken": {
@@ -570,11 +889,17 @@
   ]
  },
  "forge": {
-  "far": [0.95, 0.893, 0.615]
+  "far": [1.093, 0.862, 0.441]
  },
  "fort-tower": {
   "lod": [
-   [0.975, 0.98, 0.962]
+   [0.958, 1.113, 1.214]
+  ],
+  "lodMaterials": [
+   {
+    "modular_fort_01_wall_1-lod": [0.99, 0.874, 0.815],
+    "modular_fort_01_trim_1-lod": [1.015, 0.885, 0.745]
+   }
   ]
  },
  "fort-wall": {
@@ -588,16 +913,38 @@
   ]
  },
  "garage": {
-  "far": [0.898, 0.915, 0.899]
+  "far": [0.689, 0.675, 0.647],
+  "lodMaterials": [
+   {
+    "plaster-1.12-1.16-1.20-lod": [1.007, 0.858, 0.684],
+    "plinth-concrete-lod": [0.467, 0.4, 0.4],
+    "roof-bitumen-lod": [0.69, 0.593, 0.689]
+   }
+  ]
  },
  "garage-row": {
   "lod": [
-   [0.838, 0.799, 0.803]
+   [0.963, 1.007, 1.007]
   ],
-  "far": [0.749, 0.751, 0.767]
+  "far": [0.648, 0.615, 0.614],
+  "lodMaterials": [
+   {
+    "plaster-1.12-1.16-1.20-lod": [0.818, 0.732, 0.648],
+    "plinth-concrete-lod": [0.457, 0.4, 0.4],
+    "roof-bitumen-lod": [0.712, 0.611, 0.73]
+   }
+  ]
  },
  "garden-shed": {
-  "far": [0.735, 0.697, 0.707]
+  "far": [0.586, 0.576, 0.589],
+  "lodMaterials": [
+   {
+    "planks-shed-lod": [0.4, 0.4, 0.4],
+    "planks-shed-trim-lod": [0.495, 0.432, 0.426],
+    "roof-felt-lod": [0.591, 0.553, 0.618],
+    "plinth-concrete-lod": [0.533, 0.452, 0.42]
+   }
+  ]
  },
  "gate-farm": {
   "lod": [
@@ -606,7 +953,13 @@
  },
  "gate-ruin": {
   "lod": [
-   [1.047, 1.055, 1.03]
+   [1.136, 1.244, 1.14]
+  ],
+  "lodMaterials": [
+   {
+    "castle-mossy_stone_wall-lod": [0.871, 0.818, 0.724],
+    "slit-lod": [0.597, 0.555, 0.634]
+   }
   ]
  },
  "glacier": {
@@ -616,20 +969,39 @@
  },
  "greenhouse": {
   "lod": [
-   [0.969, 0.956, 0.95]
+   [0.928, 0.916, 0.903]
   ],
-  "far": [0.656, 0.671, 0.689]
+  "far": [0.625, 0.629, 0.636],
+  "lodMaterials": [
+   {
+    "brick-base-lod": [1.083, 0.871, 0.737]
+   }
+  ]
  },
  "greenhouse-dome": {
   "lod": [
-   [1.251, 1.227, 1.269]
+   [1.197, 1.281, 1.349]
+  ],
+  "lodMaterials": [
+   {
+    "greenhouse-glass-lod": [0.726, 0.868, 0.869],
+    "hull-panels-lod": [1.144, 0.923, 0.755]
+   }
   ]
  },
  "hall-flat": {
   "lod": [
-   [0.846, 0.833, 0.814]
+   [1.155, 1.252, 1.281]
   ],
-  "far": [1.128, 1.114, 1.049]
+  "far": [0.793, 0.758, 0.71],
+  "lodMaterials": [
+   {
+    "plinth-concrete-lod": [0.481, 0.416, 0.4],
+    "panel-exterior_wall_cladding_03-0.85-0.88-0.90-lod": [0.701, 0.579, 0.492],
+    "door-shutter-lod": [0.994, 0.873, 0.691],
+    "roof-bitumen-lod": [0.669, 0.611, 0.63]
+   }
+  ]
  },
  "handball-goal": {
   "lod": [
@@ -644,7 +1016,16 @@
  },
  "hell-gate": {
   "lod": [
-   [0.921, 0.935, 0.932]
+   [0.837, 0.949, 1.267]
+  ],
+  "lodMaterials": [
+   {
+    "rock-dark_rock_02-hell-lod": [0.71, 0.556, 0.458],
+    "hell-glow-lod": [1.081, 0.945, 0.674],
+    "bone-beige_wall_001-lod": [1.152, 0.953, 0.702],
+    "hell-glow.002-lod": [1.126, 0.934, 0.609],
+    "rift-core-lod": [1.126, 0.99, 0.706]
+   }
   ]
  },
  "highway-collapsed": {
@@ -653,103 +1034,243 @@
   ]
  },
  "house": {
-  "far": [0.984, 0.992, 0.978],
+  "far": [0.989, 0.922, 0.867],
   "lod": [
-   [0.932, 0.945, 0.94]
+   [0.968, 1.115, 1.174]
+  ],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [1.015, 0.819, 0.634],
+    "timber-lod": [0.69, 0.618, 0.548],
+    "roof-clay_roof_tiles_02-lod": [0.99, 0.809, 0.638],
+    "roof-clay_roof_tiles_02-ridge-lod": [0.951, 0.751, 0.501]
+   }
   ]
  },
  "house-large": {
   "lod": [
-   [0.848, 0.84, 0.801]
+   [0.977, 1.112, 1.267]
   ],
-  "far": [0.968, 0.973, 0.995]
+  "far": [0.936, 0.921, 0.939],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [0.934, 0.761, 0.605],
+    "wall-grey_plaster_02-lod": [1.129, 0.878, 0.666],
+    "timber-lod": [0.647, 0.58, 0.51],
+    "roof-grey_roof_tiles-lod": [0.826, 0.737, 0.65],
+    "shutter-green-lod": [0.686, 0.59, 0.618],
+    "roof-grey_roof_tiles-ridge-lod": [0.764, 0.677, 0.608]
+   }
+  ]
  },
  "house-modern": {
   "lod": [
-   [0.805, 0.815, 0.832]
+   [1.554, 1.641, 1.526]
   ],
-  "far": [0.792, 0.799, 0.79]
+  "far": [0.68, 0.672, 0.66],
+  "lodMaterials": [
+   {
+    "plaster-1.25-1.30-1.33-lod": [0.453, 0.4, 0.4],
+    "plinth-concrete-lod": [0.475, 0.403, 0.4],
+    "roof-anthracite-tiles-lod": [0.67, 0.645, 0.73],
+    "roof-anthracite-ridge-lod": [0.66, 0.608, 0.671]
+   }
+  ]
  },
  "house-modern-red": {
   "lod": [
-   [0.909, 0.87, 0.835]
+   [0.961, 1.135, 1.319]
   ],
-  "far": [0.833, 0.678, 0.584]
+  "far": [0.786, 0.682, 0.613],
+  "lodMaterials": [
+   {
+    "plaster-1.30-1.27-1.12-lod": [0.924, 0.74, 0.582],
+    "plinth-concrete-lod": [0.547, 0.472, 0.45],
+    "roof-red-tiles-lod": [0.956, 0.762, 0.576],
+    "roof-red-ridge-lod": [0.845, 0.678, 0.518]
+   }
+  ]
  },
  "house-semi": {
   "lod": [
-   [0.941, 0.943, 0.929]
+   [0.971, 1.163, 1.358]
   ],
-  "far": [0.902, 0.838, 0.772]
+  "far": [0.8, 0.691, 0.606],
+  "lodMaterials": [
+   {
+    "plaster-1.25-1.30-1.33-lod": [0.918, 0.751, 0.597],
+    "plaster-1.27-1.18-0.98-lod": [0.914, 0.718, 0.56],
+    "plinth-concrete-lod": [0.466, 0.4, 0.4],
+    "roof-red-tiles-lod": [0.973, 0.776, 0.589],
+    "roof-red-ridge-lod": [0.832, 0.667, 0.5]
+   }
+  ]
  },
  "house-snow": {
-  "far": [0.995, 0.999, 0.985]
+  "far": [1.06, 1.066, 1.048],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [0.998, 0.8, 0.603],
+    "roof-grey_roof_tiles-ridge-lod": [0.761, 0.675, 0.625],
+    "snow-roof-lod": [1.137, 0.978, 0.745]
+   }
+  ]
  },
  "house-stone": {
-  "far": [1.004, 1.001, 0.983],
+  "far": [1.016, 1.022, 1.003],
   "lod": [
-   [0.973, 0.977, 0.953]
+   [0.892, 1.067, 1.253]
+  ],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [1.01, 0.811, 0.631],
+    "timber-lod": [0.589, 0.54, 0.491],
+    "roof-roof_slates_02-lod": [1.105, 0.925, 0.745],
+    "roof-roof_slates_02-ridge-lod": [1.023, 0.889, 0.749]
+   }
   ]
  },
  "house-stone-balcony": {
   "lod": [
-   [0.977, 0.966, 0.925]
+   [1.038, 1.252, 1.331]
   ],
-  "far": [1.068, 1.09, 0.979]
+  "far": [1.052, 1.035, 0.909],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [0.944, 0.769, 0.61],
+    "wall-stacked_stone_wall-lod": [0.712, 0.569, 0.4],
+    "timber-lod": [0.581, 0.519, 0.462],
+    "roof-roof_planks-lod": [0.975, 0.817, 0.625],
+    "shutter-green-lod": [0.608, 0.625, 0.686],
+    "roof-roof_planks-ridge-lod": [0.89, 0.737, 0.518],
+    "planks-weathered_planks-t-lod": [0.781, 0.62, 0.428]
+   }
+  ]
  },
  "house-stone-balcony-snow": {
   "lod": [
-   [0.944, 0.974, 0.952]
+   [0.894, 1.03, 1.292]
   ],
-  "far": [1.06, 1.066, 1.056]
+  "far": [1.071, 1.056, 1.029],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [0.952, 0.776, 0.615],
+    "wall-stacked_stone_wall-lod": [0.728, 0.578, 0.4],
+    "timber-lod": [0.578, 0.491, 0.4],
+    "shutter-green-lod": [0.69, 0.701, 0.779],
+    "roof-roof_planks-ridge-lod": [0.908, 0.755, 0.558],
+    "snow-roof-lod": [1.135, 0.979, 0.746],
+    "planks-weathered_planks-t-lod": [0.785, 0.624, 0.437]
+   }
+  ]
  },
  "house-stone-snow": {
-  "far": [1.032, 1.029, 1.012],
+  "far": [1.11, 1.1, 1.074],
   "lod": [
-   [0.954, 0.98, 0.959]
+   [0.879, 1.017, 1.275]
+  ],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [0.996, 0.793, 0.61],
+    "roof-roof_slates_02-ridge-lod": [1.055, 0.914, 0.762],
+    "snow-roof-lod": [1.139, 0.981, 0.747]
+   }
   ]
  },
  "house-tall": {
   "lod": [
-   [0.946, 0.939, 0.88]
+   [0.953, 1.125, 1.185]
   ],
-  "far": [0.958, 0.907, 0.868]
+  "far": [0.928, 0.848, 0.771],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [0.951, 0.773, 0.621],
+    "wall-beige_wall_001-lod": [1.016, 0.861, 0.68],
+    "timber-lod": [0.648, 0.596, 0.518],
+    "roof-clay_roof_tiles_02-lod": [1.011, 0.819, 0.627],
+    "shutter-green-lod": [0.722, 0.635, 0.675],
+    "roof-clay_roof_tiles_02-ridge-lod": [0.943, 0.739, 0.488]
+   }
+  ]
  },
  "house-terrace": {
   "lod": [
-   [0.845, 0.852, 0.863]
+   [0.855, 0.993, 1.099]
   ],
-  "far": [0.901, 0.9, 0.894]
+  "far": [0.798, 0.788, 0.775],
+  "lodMaterials": [
+   {
+    "plaster-1.12-1.16-1.20-lod": [1.085, 0.9, 0.745],
+    "plinth-concrete-lod": [0.481, 0.408, 0.4],
+    "roof-anthracite-tiles-lod": [0.726, 0.688, 0.752],
+    "roof-anthracite-ridge-lod": [0.637, 0.583, 0.638]
+   }
+  ]
  },
  "house-terrace-end-e": {
   "lod": [
-   [0.818, 0.827, 0.84]
+   [0.866, 0.989, 1.068]
   ],
-  "far": [0.812, 0.818, 0.825]
+  "far": [0.726, 0.718, 0.713],
+  "lodMaterials": [
+   {
+    "plaster-1.12-1.16-1.20-lod": [1.043, 0.877, 0.754],
+    "plinth-concrete-lod": [0.482, 0.409, 0.4],
+    "roof-anthracite-tiles-lod": [0.713, 0.675, 0.737],
+    "roof-anthracite-ridge-lod": [0.645, 0.59, 0.645]
+   }
+  ]
  },
  "house-terrace-end-w": {
   "lod": [
-   [0.837, 0.84, 0.849]
+   [0.846, 0.982, 1.1]
   ],
-  "far": [0.875, 0.868, 0.856]
+  "far": [0.779, 0.762, 0.742],
+  "lodMaterials": [
+   {
+    "plaster-1.12-1.16-1.20-lod": [1.106, 0.91, 0.731],
+    "plinth-concrete-lod": [0.455, 0.4, 0.4],
+    "roof-anthracite-tiles-lod": [0.71, 0.673, 0.735],
+    "roof-anthracite-ridge-lod": [0.631, 0.579, 0.635]
+   }
+  ]
  },
  "house-terrace-ends": {
   "lod": [
-   [0.841, 0.842, 0.842]
+   [0.859, 0.993, 1.079]
   ],
-  "far": [0.803, 0.803, 0.801]
+  "far": [0.711, 0.697, 0.682],
+  "lodMaterials": [
+   {
+    "plaster-1.12-1.16-1.20-lod": [1.062, 0.881, 0.729],
+    "plinth-concrete-lod": [0.464, 0.4, 0.4],
+    "roof-anthracite-tiles-lod": [0.699, 0.662, 0.722],
+    "roof-anthracite-ridge-lod": [0.632, 0.578, 0.632]
+   }
+  ]
  },
  "house-terrace-row": {
   "lod": [
-   [0.763, 0.771, 0.8]
+   [0.88, 1.018, 1.07]
   ],
-  "far": [0.831, 0.856, 0.882]
+  "far": [0.704, 0.713, 0.709],
+  "lodMaterials": [
+   {
+    "plaster-1.25-1.30-1.33-lod": [1.01, 0.832, 0.673],
+    "plaster-1.30-1.27-1.12-lod": [1.045, 0.842, 0.673],
+    "plaster-1.12-1.16-1.20-lod": [0.976, 0.81, 0.677],
+    "plaster-1.27-1.18-0.98-lod": [1.026, 0.817, 0.649],
+    "plinth-concrete-lod": [0.455, 0.4, 0.4],
+    "roof-anthracite-tiles-lod": [0.677, 0.648, 0.737],
+    "roof-anthracite-ridge-lod": [0.638, 0.593, 0.673]
+   }
+  ]
  },
  "hut-round": {
-  "far": [1.005, 1.005, 0.981]
+  "far": [1.119, 1.069, 1.059]
  },
  "hut-stilts": {
-  "far": [1.149, 1.129, 1.077]
+  "far": [1.413, 1.338, 1.275]
  },
  "ice-floe": {
   "lod": [
@@ -768,9 +1289,18 @@
  },
  "industrial-hall": {
   "lod": [
-   [1.046, 1.036, 1.013]
+   [1.116, 1.213, 1.231]
   ],
-  "far": [1.188, 1.144, 1.17]
+  "far": [1.171, 1.135, 1.116],
+  "lodMaterials": [
+   {
+    "plaster-1.25-1.30-1.33-lod": [1.046, 0.866, 0.712],
+    "plinth-concrete-lod": [0.535, 0.466, 0.467],
+    "panel-box_profile_metal_sheet-0.90-0.95-1.00-lod": [0.766, 0.562, 0.572],
+    "door-shutter-lod": [1.043, 0.919, 0.719],
+    "roof-sheet-lod": [0.922, 0.843, 0.819]
+   }
+  ]
  },
  "iron-gate": {
   "lod": [
@@ -783,7 +1313,13 @@
   ]
  },
  "kiosk": {
-  "far": [0.493, 0.511, 0.555]
+  "far": [0.533, 0.576, 0.63],
+  "lodMaterials": [
+   {
+    "plaster-1.30-1.27-1.12-lod": [0.602, 0.501, 0.445],
+    "plinth-concrete-lod": [0.422, 0.4, 0.4]
+   }
+  ]
  },
  "lava-pool": {
   "lod": [
@@ -802,14 +1338,37 @@
  },
  "lighthouse": {
   "lod": [
-   [0.952, 0.91, 0.918]
+   [0.915, 1.051, 1.126]
+  ],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [0.986, 0.806, 0.638],
+    "wall-whitewashed_brick-lod": [1.137, 0.891, 0.79],
+    "lantern-glass-lod": [0.4, 0.4, 0.422]
+   }
   ]
  },
  "log-cabin": {
-  "far": [1.02, 1.078, 1]
+  "far": [1.101, 1.091, 0.978],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [0.998, 0.802, 0.611],
+    "wall-wood_trunk_wall-lod": [0.563, 0.446, 0.4],
+    "timber-lod": [0.614, 0.558, 0.499],
+    "roof-roof_planks-lod": [0.971, 0.834, 0.597],
+    "roof-roof_planks-ridge-lod": [0.901, 0.737, 0.543]
+   }
+  ]
  },
  "log-cabin-snow": {
-  "far": [0.973, 0.978, 0.959]
+  "far": [1.176, 1.149, 1.119],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [0.982, 0.789, 0.594],
+    "roof-roof_planks-ridge-lod": [0.909, 0.746, 0.566],
+    "snow-roof-lod": [1.138, 0.979, 0.746]
+   }
+  ]
  },
  "log-fallen": {
   "lod": [
@@ -878,60 +1437,144 @@
  },
  "office-high": {
   "lod": [
-   [0.753, 0.72, 0.668]
+   [0.896, 0.958, 0.952]
   ],
-  "far": [0.868, 0.875, 0.852]
+  "far": [0.55, 0.507, 0.469],
+  "lodMaterials": [
+   {
+    "plaster-1.12-1.16-1.20-lod": [0.9, 0.753, 0.589],
+    "plinth-concrete-lod": [0.448, 0.4, 0.4],
+    "band-concrete_slab_wall-lod": [0.789, 0.625, 0.498],
+    "roof-bitumen-lod": [0.717, 0.627, 0.666]
+   }
+  ]
  },
  "office-mid": {
   "lod": [
-   [0.789, 0.768, 0.716]
+   [0.885, 0.966, 0.989]
   ],
-  "far": [0.959, 0.96, 0.939]
+  "far": [0.655, 0.61, 0.563],
+  "lodMaterials": [
+   {
+    "plaster-1.25-1.30-1.33-lod": [0.824, 0.671, 0.517],
+    "plaster-1.12-1.16-1.20-lod": [0.91, 0.764, 0.595],
+    "plinth-concrete-lod": [0.441, 0.4, 0.4],
+    "roof-bitumen-lod": [0.715, 0.613, 0.685]
+   }
+  ]
  },
  "office-ribbon": {
   "lod": [
-   [0.789, 0.77, 0.724]
+   [0.899, 1.034, 1.103]
   ],
-  "far": [0.783, 0.761, 0.748]
+  "far": [0.432, 0.411, 0.4],
+  "lodMaterials": [
+   {
+    "plaster-1.12-1.16-1.20-lod": [0.867, 0.732, 0.581],
+    "plinth-concrete-lod": [0.484, 0.4, 0.4],
+    "stone-pilaster-lod": [0.917, 0.753, 0.562],
+    "stone-spandrel-lod": [0.8, 0.627, 0.525],
+    "roof-bitumen-lod": [0.709, 0.597, 0.628]
+   }
+  ]
  },
  "office-tower": {
   "lod": [
-   [0.968, 0.897, 0.81]
+   [1.017, 1.165, 1.266]
   ],
-  "far": [0.883, 0.836, 0.76]
+  "far": [0.68, 0.609, 0.549],
+  "lodMaterials": [
+   {
+    "wall-concrete_slab_wall-t-lod": [0.961, 0.753, 0.581],
+    "trim-brushed_concrete-lod": [0.797, 0.644, 0.582],
+    "roof-bitumen-lod": [0.729, 0.617, 0.601],
+    "roof-gravel_floor_02-lod": [1.082, 0.867, 0.604]
+   }
+  ]
  },
  "oldtown-eave-2": {
   "lod": [
-   [0.807, 0.784, 0.755]
+   [0.933, 1.045, 1.173]
   ],
-  "far": [0.861, 0.775, 0.703]
+  "far": [0.771, 0.669, 0.572],
+  "lodMaterials": [
+   {
+    "plaster-ot-1.00-1.10-0.92-lod": [0.87, 0.733, 0.583],
+    "timber-ot-0.55-0.42-0.32-lod": [0.407, 0.4, 0.4],
+    "stone-ot-lod": [0.848, 0.635, 0.448],
+    "roof-ot-tiles-lod": [0.822, 0.643, 0.4],
+    "door-ot-lod": [0.49, 0.4, 0.4]
+   }
+  ]
  },
  "oldtown-eave-3": {
   "lod": [
-   [0.798, 0.721, 0.643]
+   [0.907, 1.044, 1.105]
   ],
-  "far": [0.804, 0.634, 0.508]
+  "far": [0.65, 0.509, 0.4],
+  "lodMaterials": [
+   {
+    "plaster-ot-1.25-1.18-0.98-lod": [0.803, 0.624, 0.481],
+    "timber-ot-0.30-0.26-0.24-lod": [0.4, 0.4, 0.4],
+    "stone-ot-lod": [0.846, 0.634, 0.454],
+    "roof-ot-tiles-lod": [0.84, 0.647, 0.4],
+    "door-ot-lod": [0.467, 0.4, 0.4]
+   }
+  ]
  },
  "oldtown-gable-2": {
   "lod": [
-   [0.78, 0.781, 0.777]
+   [0.868, 1, 1.096]
   ],
-  "far": [0.837, 0.828, 0.773]
+  "far": [0.715, 0.656, 0.563],
+  "lodMaterials": [
+   {
+    "plaster-ot-1.25-0.95-0.85-lod": [0.951, 0.735, 0.611],
+    "stone-ot-lod": [0.864, 0.653, 0.444],
+    "roof-ot-tiles-lod": [0.756, 0.587, 0.4],
+    "door-ot-lod": [0.549, 0.453, 0.4]
+   }
+  ]
  },
  "oldtown-gable-3": {
   "lod": [
-   [0.805, 0.766, 0.74]
+   [0.906, 1.051, 1.173]
   ],
-  "far": [0.803, 0.673, 0.6]
+  "far": [0.65, 0.522, 0.405],
+  "lodMaterials": [
+   {
+    "plaster-ot-1.22-1.02-0.66-lod": [0.772, 0.598, 0.4],
+    "timber-ot-0.42-0.30-0.22-lod": [0.4, 0.4, 0.4],
+    "stone-ot-lod": [0.883, 0.675, 0.492],
+    "roof-ot-tiles-lod": [0.825, 0.635, 0.4],
+    "door-ot-lod": [0.4, 0.4, 0.4]
+   }
+  ]
  },
  "oldtown-gable-4": {
   "lod": [
-   [0.788, 0.724, 0.643]
+   [0.881, 1.003, 1.116]
   ],
-  "far": [0.781, 0.613, 0.482]
+  "far": [0.637, 0.501, 0.4],
+  "lodMaterials": [
+   {
+    "plaster-ot-1.30-1.28-1.20-lod": [0.861, 0.676, 0.52],
+    "timber-ot-0.75-0.28-0.20-lod": [0.406, 0.4, 0.4],
+    "stone-ot-lod": [0.951, 0.729, 0.559],
+    "roof-ot-tiles-lod": [0.815, 0.626, 0.4],
+    "door-ot-lod": [0.4, 0.4, 0.4]
+   }
+  ]
  },
  "outbuilding": {
-  "far": [1.248, 1.188, 1.093]
+  "far": [0.759, 0.721, 0.669],
+  "lodMaterials": [
+   {
+    "plaster-1.12-1.16-1.20-lod": [0.4, 0.4, 0.4],
+    "roof-anthracite-tiles-lod": [0.85, 0.764, 0.76],
+    "roof-anthracite-ridge-lod": [0.815, 0.732, 0.749]
+   }
+  ]
  },
  "palisade": {
   "lod": [
@@ -945,9 +1588,18 @@
  },
  "parking-garage": {
   "lod": [
-   [0.878, 0.881, 0.83]
+   [1.047, 1.144, 1.159]
   ],
-  "far": [0.819, 0.859, 0.889]
+  "far": [0.707, 0.742, 0.728],
+  "lodMaterials": [
+   {
+    "plaster-1.12-1.16-1.20-lod": [0.968, 0.836, 0.7],
+    "plinth-concrete-lod": [0.536, 0.44, 0.447],
+    "deck-concrete-lod": [0.597, 0.521, 0.516],
+    "parapet-precast-lod": [0.821, 0.663, 0.488],
+    "deck-asphalt-lod": [0.833, 0.791, 0.749]
+   }
+  ]
  },
  "pebbles-scatter": {
   "lod": [
@@ -1045,7 +1697,7 @@
   ]
  },
  "research-station": {
-  "far": [0.55, 0.596, 0.637]
+  "far": [0.561, 0.593, 0.608]
  },
  "retaining-wall": {
   "lod": [
@@ -1184,7 +1836,12 @@
  },
  "rocket": {
   "lod": [
-   [0.996, 0.933, 0.939]
+   [0.799, 0.761, 0.747]
+  ],
+  "lodMaterials": [
+   {
+    "wall-brushed_concrete-lod": [0.826, 0.732, 0.918]
+   }
   ]
  },
  "roots": {
@@ -1204,17 +1861,33 @@
  },
  "ruin-arch": {
   "lod": [
-   [1.033, 1.039, 1.021]
+   [1.073, 1.172, 1.101]
+  ],
+  "lodMaterials": [
+   {
+    "castle-mossy_stone_wall-lod": [0.886, 0.822, 0.735]
+   }
   ]
  },
  "ruin-columns": {
   "lod": [
-   [0.929, 0.912, 0.901]
+   [0.862, 1.042, 1.226]
+  ],
+  "lodMaterials": [
+   {
+    "wall-white_sandstone_bricks-lod": [1.074, 0.867, 0.699],
+    "rock-sandstone_cracks-lod": [1.137, 0.906, 0.698]
+   }
   ]
  },
  "ruin-wall": {
   "lod": [
-   [1.122, 1.122, 1.073]
+   [1.158, 1.255, 1.123]
+  ],
+  "lodMaterials": [
+   {
+    "castle-mossy_stone_wall-lod": [0.881, 0.818, 0.726]
+   }
   ]
  },
  "sandbags": {
@@ -1239,9 +1912,18 @@
  },
  "school": {
   "lod": [
-   [0.778, 0.77, 0.749]
+   [0.857, 0.993, 1.135]
   ],
-  "far": [0.993, 1.021, 1.032]
+  "far": [0.657, 0.634, 0.633],
+  "lodMaterials": [
+   {
+    "plaster-1.25-1.30-1.33-lod": [0.903, 0.737, 0.585],
+    "plaster-1.28-1.15-0.88-lod": [0.872, 0.658, 0.487],
+    "plaster-1.12-1.16-1.20-lod": [0.876, 0.716, 0.584],
+    "plinth-concrete-lod": [0.467, 0.4, 0.4],
+    "roof-bitumen-lod": [0.688, 0.63, 0.637]
+   }
+  ]
  },
  "seesaw": {
   "lod": [
@@ -1249,11 +1931,26 @@
   ]
  },
  "shelter-lean-to": {
-  "far": [0.937, 0.971, 1.028]
+  "far": [0.795, 0.857, 0.913],
+  "lodMaterials": [
+   {
+    "plinth-concrete-lod": [0.836, 0.738, 0.792],
+    "timber-lean-to-lod": [0.921, 0.82, 0.813],
+    "boards-lean-to-lod": [0.619, 0.631, 0.708],
+    "roof-sheet-lean-to-lod": [0.839, 0.809, 0.839]
+   }
+  ]
  },
  "ship": {
   "lod": [
-   [1.055, 1.032, 1.021]
+   [1.034, 1.1, 1.061]
+  ],
+  "lodMaterials": [
+   {
+    "dutch_ship_medium_rigging-lod": [0.757, 0.644, 0.553],
+    "dutch_ship_medium_hull-lod": [1.046, 0.972, 1.068],
+    "dutch_ship_medium_sails-lod": [0.915, 0.826, 0.903]
+   }
   ]
  },
  "shipwreck": {
@@ -1263,25 +1960,56 @@
  },
  "shop": {
   "lod": [
-   [0.992, 0.973, 0.944]
+   [0.962, 1.09, 1.147]
   ],
-  "far": [0.893, 0.858, 0.82]
+  "far": [0.851, 0.794, 0.704],
+  "lodMaterials": [
+   {
+    "wall-brick_wall_07-lod": [0.922, 0.724, 0.555],
+    "trim-brushed_concrete-t-lod": [1.03, 0.865, 0.741],
+    "roof-bitumen-lod": [0.704, 0.587, 0.647],
+    "roof-gravel_floor_02-lod": [1.125, 0.914, 0.687]
+   }
+  ]
  },
  "shop-office": {
   "lod": [
-   [0.809, 0.803, 0.777]
+   [0.9, 1.018, 1.071]
   ],
-  "far": [0.839, 0.866, 0.873]
+  "far": [0.625, 0.604, 0.572],
+  "lodMaterials": [
+   {
+    "plaster-1.12-1.16-1.20-lod": [0.885, 0.725, 0.6],
+    "plinth-concrete-lod": [0.436, 0.4, 0.4],
+    "stone-pilaster-lod": [0.926, 0.757, 0.58],
+    "stone-spandrel-lod": [0.767, 0.611, 0.485],
+    "roof-bitumen-lod": [0.671, 0.609, 0.644]
+   }
+  ]
  },
  "shop-small": {
-  "far": [0.885, 0.938, 0.999],
+  "far": [0.714, 0.76, 0.764],
   "lod": [
-   [0.82, 0.827, 0.826]
+   [0.885, 0.993, 1.058]
+  ],
+  "lodMaterials": [
+   {
+    "plaster-1.27-1.18-0.98-lod": [0.849, 0.65, 0.462],
+    "plinth-concrete-lod": [0.4, 0.4, 0.4],
+    "roof-bitumen-lod": [0.637, 0.563, 0.603]
+   }
   ]
  },
  "siege-tower": {
   "lod": [
-   [1.215, 1.199, 1.166]
+   [1.558, 1.627, 1.574]
+  ],
+  "lodMaterials": [
+   {
+    "wood-rough-lod": [0.798, 0.697, 0.649],
+    "planks-dark-lod": [0.763, 0.684, 0.631],
+    "hide-hessian-lod": [0.824, 0.756, 0.498]
+   }
   ]
  },
  "sign-bracket": {
@@ -1306,15 +2034,29 @@
  },
  "station": {
   "lod": [
-   [0.595, 0.628, 0.688]
+   [0.875, 0.905, 0.931]
   ],
-  "far": [0.818, 0.68, 0.641]
+  "far": [0.768, 0.666, 0.573],
+  "lodMaterials": [
+   {
+    "plaster-1.27-1.18-0.98-lod": [1.077, 0.843, 0.637],
+    "plaster-0.95-0.94-0.92-lod": [0.835, 0.685, 0.56],
+    "plinth-concrete-lod": [0.503, 0.436, 0.413],
+    "roof-red-tiles-lod": [0.476, 0.4, 0.4],
+    "roof-red-ridge-lod": [0.828, 0.654, 0.457]
+   }
+  ]
  },
  "station-canopy": {
   "lod": [
-   [0.995, 0.986, 1.018]
+   [1.041, 1.091, 1.071]
   ],
-  "far": [1.194, 1.192, 1.18]
+  "far": [0.844, 0.762, 0.71],
+  "lodMaterials": [
+   {
+    "plinth-concrete-lod": [0.925, 0.834, 0.905]
+   }
+  ]
  },
  "statue-horse": {
   "lod": [
@@ -1363,9 +2105,16 @@
  },
  "supermarket": {
   "lod": [
-   [0.936, 0.897, 0.861]
+   [1.007, 1.035, 1.021]
   ],
-  "far": [1.135, 1.159, 1.054]
+  "far": [0.827, 0.808, 0.772],
+  "lodMaterials": [
+   {
+    "plinth-concrete-lod": [0.495, 0.421, 0.439],
+    "panel-exterior_wall_cladding_03-1.00-1.00-1.00-lod": [1.002, 0.806, 0.735],
+    "roof-bitumen-lod": [0.697, 0.597, 0.631]
+   }
+  ]
  },
  "supply-crates": {
   "lod": [
@@ -1374,7 +2123,13 @@
  },
  "temple-ruin": {
   "lod": [
-   [0.957, 0.928, 0.919]
+   [0.828, 1.034, 1.367]
+  ],
+  "lodMaterials": [
+   {
+    "wall-sandstone_blocks_04-lod": [1.157, 0.888, 0.666],
+    "rock-sandstone_cracks-lod": [1.132, 0.899, 0.698]
+   }
   ]
  },
  "thorns": {
@@ -1384,24 +2139,51 @@
  },
  "tower-stump": {
   "lod": [
-   [1.042, 1.032, 0.983]
+   [1.06, 1.205, 1.256]
   ],
-  "far": [0.81, 0.824, 0.851]
+  "far": [0.726, 0.745, 0.736],
+  "lodMaterials": [
+   {
+    "wall-concrete_floor_damaged_01-light-lod": [0.969, 0.84, 0.757],
+    "wall-rectangular_facade_tiles-lod": [0.714, 0.721, 0.691]
+   }
+  ]
  },
  "town-church": {
   "lod": [
-   [0.868, 0.868, 0.87]
+   [0.959, 1.107, 1.181]
   ],
-  "far": [0.835, 0.835, 0.829]
+  "far": [0.663, 0.652, 0.615],
+  "lodMaterials": [
+   {
+    "stone-white_sandstone_bricks-lod": [0.804, 0.682, 0.618],
+    "stone-sandstone-dress-lod": [0.874, 0.649, 0.478],
+    "roof-slate-lod": [0.945, 0.843, 0.781]
+   }
+  ]
  },
  "town-hall": {
   "lod": [
-   [0.592, 0.616, 0.642]
+   [0.843, 0.914, 1.072]
   ],
-  "far": [0.853, 0.817, 0.799]
+  "far": [0.747, 0.697, 0.64],
+  "lodMaterials": [
+   {
+    "plaster-1.30-1.27-1.12-lod": [1.078, 0.877, 0.714],
+    "plaster-1.27-1.18-0.98-lod": [1.056, 0.865, 0.637],
+    "plinth-concrete-lod": [0.424, 0.4, 0.4],
+    "roof-red-tiles-lod": [0.471, 0.4, 0.4],
+    "roof-red-ridge-lod": [0.729, 0.574, 0.4]
+   }
+  ]
  },
  "transformer-station": {
-  "far": [0.971, 0.971, 0.948]
+  "far": [0.901, 0.859, 0.837],
+  "lodMaterials": [
+   {
+    "concrete-box-lod": [1.134, 0.912, 0.709]
+   }
+  ]
  },
  "treasure-chest": {
   "lod": [
@@ -1553,31 +2335,66 @@
  },
  "warehouse": {
   "lod": [
-   [0.993, 0.994, 0.979]
+   [1.03, 1.089, 1.088]
   ],
-  "far": [0.958, 0.925, 0.899]
+  "far": [0.949, 0.905, 0.852],
+  "lodMaterials": [
+   {
+    "metal-corrugated_iron_02-lod": [0.924, 0.859, 0.83],
+    "wall-brushed_concrete-lod": [0.979, 0.826, 0.787],
+    "metal-painted_metal_shutter-lod": [0.982, 0.782, 0.747]
+   }
+  ]
  },
  "warehouse-rusty": {
   "lod": [
-   [1.009, 0.987, 0.95]
+   [1.075, 1.145, 1.17]
   ],
-  "far": [0.999, 0.983, 0.957]
+  "far": [1.004, 0.953, 0.987],
+  "lodMaterials": [
+   {
+    "metal-corrugated-rusty-lod": [0.947, 0.839, 0.77],
+    "wall-brushed_concrete-lod": [0.981, 0.828, 0.787],
+    "metal-painted_metal_shutter-lod": [0.998, 0.797, 0.761]
+   }
+  ]
  },
  "watchtower": {
-  "far": [1.077, 0.942, 0.802]
+  "far": [0.915, 0.72, 0.627]
  },
  "watermill": {
-  "far": [0.983, 0.976, 0.959],
+  "far": [0.975, 0.982, 0.964],
   "lod": [
-   [0.966, 0.969, 0.943]
+   [0.905, 1.079, 1.274]
+  ],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [0.972, 0.783, 0.609],
+    "wall-stacked_stone_wall-lod": [0.527, 0.429, 0.4],
+    "timber-lod": [0.568, 0.508, 0.439],
+    "roof-roof_slates_02-lod": [1.104, 0.924, 0.744],
+    "roof-roof_slates_02-ridge-lod": [1.041, 0.906, 0.755],
+    "rotor-planks-wheel-lod": [0.521, 0.472, 0.425]
+   }
   ]
  },
  "windmill": {
   "lod": [
-   [0.976, 0.947, 0.899]
+   [1.034, 1.155, 1.257]
+  ],
+  "lodMaterials": [
+   {
+    "stone-slates-lod": [1.106, 0.942, 0.819],
+    "wall-beige_wall_001-lod": [0.967, 0.819, 0.654],
+    "roof-reed_roof_04-lod": [1.106, 0.897, 0.683],
+    "planks-dark-lod": [0.748, 0.676, 0.665],
+    "window-lod": [0.655, 0.675, 0.772],
+    "rotor-planks-dark-lod": [0.4, 0.4, 0.4],
+    "rotor-cloth-hessian-lod": [0.407, 0.4, 0.4]
+   }
   ]
  },
  "witch-hut": {
-  "far": [1.165, 1.186, 1.108]
+  "far": [1.281, 1.272, 1.166]
  }
 }

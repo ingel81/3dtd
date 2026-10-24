@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseCatalog } from './asset-catalog';
-import { MapAssetLibrary, packMaterial, sharedMaterials, type ImagePixels } from './map-asset-library';
+import { MapAssetLibrary, packMaterial, sharedMaterials, toneMaterials, type ImagePixels } from './map-asset-library';
 import { mergeParts } from './objects/merge-parts';
 import { RendererHost } from '../../../three-engine/renderer-host';
 import { isSharedGpu } from '../../../three-engine/shared-gpu';
@@ -247,5 +247,21 @@ describe('sharedMaterials', () => {
     expect(lod[2].material).toBe(flatBark);
     // The texture files are the library's, drawn by the full model too
     expect(disposed).not.toHaveBeenCalled();
+  });
+});
+
+describe('toneMaterials', () => {
+  it("multiplies each named flat material of a LOD model by its tone, once however many parts share it", () => {
+    const named = (name: string, color: number): MeshStandardMaterial => Object.assign(new MeshStandardMaterial({ color }), { name });
+    const roof = named('roof-red-tiles-lod', 0xffffff);
+    const wall = named('plaster-lod', 0x808080);
+    const parts = [roof, roof, wall].map((material) => ({ geometry: new BoxGeometry(), material }));
+    expect(toneMaterials(parts, { 'roof-red-tiles-lod': [0.5, 0.25, 1] })).toBe(parts);
+    expect(roof.color.toArray()).toEqual([0.5, 0.25, 1]);
+    // A material without a tone keeps its colour
+    expect(wall.color.getHex()).toBe(0x808080);
+    // No tones: nothing changes
+    expect(toneMaterials(parts, undefined)).toBe(parts);
+    expect(roof.color.toArray()).toEqual([0.5, 0.25, 1]);
   });
 });
