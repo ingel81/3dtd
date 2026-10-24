@@ -2,7 +2,7 @@ import { MAX_LAYERS, readWeights, writeWeights } from '../../../map-ops/paint-op
 import { DEFAULT_LINE, ObjectIds, objectsAlong } from '../../../map-ops/object-ops';
 import { EdgeIndex, pointSegmentDistance } from '../../../map-ops/path-graph';
 import { hashCell } from '../../../map-ops/landscape-noise';
-import { fitSplatMaps, type CustomMapDocument, type MapObject, type MapPoint } from '../../custom-map/map-document';
+import { fitSplatMaps, type CustomMapDocument, type MapObject, type MapPoint, type MapSurface } from '../../custom-map/map-document';
 import { SCENE_BUDGET } from '../../custom-map/render/objects/scene-cost';
 import { isGroundBuilding } from '../building-tags';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
@@ -135,53 +135,15 @@ export function layPlots(doc: CustomMapDocument, features: OsmFeatures, options:
   const label = new Int32Array(n * n).fill(OPEN);
   const dist = new Float32Array(n * n).fill(Infinity);
 
-  // What no plot crosses: the streets with their pavements, other buildings, squares and car parks, water
-  const nodes = new Map(doc.paths.nodes.map((p) => [p.id, p]));
-  for (const e of doc.paths.edges) {
-    const a = nodes.get(e.a);
-    const b = nodes.get(e.b);
-    if (e.tunnel || !a || !b) continue;
-    stampLine([a, ...(e.via ?? []), b], grid, e.width / 2 + (e.sidewalk ?? 0) + 0.3, (i, j) => (label[j * n + i] = BARRIER));
-  }
-  const houses: House[] = [];
-  for (const a of features.areas) {
-    if (a.tags['building'] && !isHouse(a)) fillRings([...a.outer, ...a.inner], grid, (i, j) => (label[j * n + i] = BARRIER));
-    else if (a.tags['natural'] === 'water' || a.tags['waterway'] === 'riverbank') fillRings([...a.outer, ...a.inner], grid, (i, j) => (label[j * n + i] = BARRIER));
-  }
-  for (const s of doc.surfaces ?? []) fillRings([s.outer, ...(s.holes ?? [])], grid, (i, j) => (label[j * n + i] = BARRIER));
-  for (const c of options.rails?.chains ?? []) stampLine(c.line, grid, RAIL_GROUND.half, (i, j) => (label[j * n + i] = BARRIER));
-  // The houses: each its footprint as the seed of its plot
-  for (const a of features.areas) {
-    if (!isHouse(a) || !a.outer.length) continue;
-    const ring = a.outer[0];
-    const c = ring.reduce((s, p) => ({ x: s.x + p.x / ring.length, y: s.y + p.y / ring.length }), { x: 0, y: 0 });
-    if (Math.abs(c.x) > t.width / 2 - REACH || Math.abs(c.y) > t.depth / 2 - REACH) continue;
-    const index = houses.length;
-    houses.push({ area: a, c, d: null, front: 0, sideMin: 0, sideMax: 0, street: Infinity });
-    fillRings(a.outer, grid, (i, j) => {
-      const k = j * n + i;
-      label[k] = index;
-      dist[k] = 0;
-    });
-  }
+  markBarriers(doc, features, options, grid, label);
+  const houses = seedHouses(doc, features, grid, label, dist);
   report.houses = houses.length;
   if (!houses.length) return report;
   growPlots(label, dist, n);
 
   // Each house's street: the nearest road, the house's front towards it
   const roads = new EdgeIndex({ nodes: doc.paths.nodes, edges: doc.paths.edges.filter((e) => !e.tunnel && e.kind !== 'bridge' && !e.area) });
-  for (const h of houses) {
-    const hit = roads.nearest(h.c, STREET_REACH);
-    if (!hit || hit.dist < 1) continue;
-    const d = { x: (hit.point.x - h.c.x) / hit.dist, y: (hit.point.y - h.c.y) / hit.dist };
-    const ring = h.area.outer[0];
-    h.front = Math.max(...ring.map((p) => (p.x - h.c.x) * d.x + (p.y - h.c.y) * d.y));
-    const across = ring.map((p) => -(p.x - h.c.x) * d.y + (p.y - h.c.y) * d.x);
-    h.sideMin = Math.min(...across);
-    h.sideMax = Math.max(...across);
-    h.street = hit.dist - hit.edge.width / 2 - (hit.edge.sidewalk ?? 0);
-    if (h.street > h.front + 1) h.d = d;
-  }
+  findStreets(houses, roads);
   const isFront = (k: number): boolean => {
     const h = houses[label[k]];
     if (!h?.d || dist[k] <= 0) return false;
@@ -195,7 +157,87 @@ export function layPlots(doc: CustomMapDocument, features: OsmFeatures, options:
 
   const clearings = [{ ...doc.hq, r: HQ_CLEAR }, ...doc.spawns.map((s) => ({ x: s.x, y: s.y, r: SPAWN_CLEAR }))];
   const cleared = (p: MapPoint): boolean => clearings.some((c) => Math.hypot(c.x - p.x, c.y - p.y) < c.r);
-  // What stands already (the plants, the furniture), by 4 m cells
+  const occupied = standingAt(doc);
+  const land: PlotLand = { doc, options, report, grid, label, dist, houses, roads, cleared, occupied, surfaces: (doc.surfaces ??= []) };
+  const drives = layDriveways(land);
+  const onPath = layFootpaths(land, drives);
+  layBoundaries(land, features, isFront, onPath);
+  report.cost = Math.round(report.cost);
+  return report;
+}
+
+/** What the steps of layPlots share: the map, the plots' raster, the houses and their streets, what stands and is kept clear */
+interface PlotLand {
+  doc: CustomMapDocument;
+  options: PlotOptions;
+  report: PlotReport;
+  grid: RasterGrid;
+  label: Int32Array;
+  dist: Float32Array;
+  houses: House[];
+  roads: EdgeIndex;
+  cleared: (p: MapPoint) => boolean;
+  occupied: (p: MapPoint, r: number) => boolean;
+  surfaces: MapSurface[];
+}
+
+/** What no plot crosses: the streets with their pavements, other buildings, squares and car parks, water, track beds */
+function markBarriers(doc: CustomMapDocument, features: OsmFeatures, options: PlotOptions, grid: RasterGrid, label: Int32Array): void {
+  const n = grid.n;
+  const nodes = new Map(doc.paths.nodes.map((p) => [p.id, p]));
+  for (const e of doc.paths.edges) {
+    const a = nodes.get(e.a);
+    const b = nodes.get(e.b);
+    if (e.tunnel || !a || !b) continue;
+    stampLine([a, ...(e.via ?? []), b], grid, e.width / 2 + (e.sidewalk ?? 0) + 0.3, (i, j) => (label[j * n + i] = BARRIER));
+  }
+  for (const a of features.areas) {
+    if (a.tags['building'] && !isHouse(a)) fillRings([...a.outer, ...a.inner], grid, (i, j) => (label[j * n + i] = BARRIER));
+    else if (a.tags['natural'] === 'water' || a.tags['waterway'] === 'riverbank') fillRings([...a.outer, ...a.inner], grid, (i, j) => (label[j * n + i] = BARRIER));
+  }
+  for (const s of doc.surfaces ?? []) fillRings([s.outer, ...(s.holes ?? [])], grid, (i, j) => (label[j * n + i] = BARRIER));
+  for (const c of options.rails?.chains ?? []) stampLine(c.line, grid, RAIL_GROUND.half, (i, j) => (label[j * n + i] = BARRIER));
+}
+
+/** The houses: each its footprint as the seed of its plot (label its index, distance 0) */
+function seedHouses(doc: CustomMapDocument, features: OsmFeatures, grid: RasterGrid, label: Int32Array, dist: Float32Array): House[] {
+  const t = doc.terrain;
+  const n = grid.n;
+  const houses: House[] = [];
+  for (const a of features.areas) {
+    if (!isHouse(a) || !a.outer.length) continue;
+    const ring = a.outer[0];
+    const c = ring.reduce((s, p) => ({ x: s.x + p.x / ring.length, y: s.y + p.y / ring.length }), { x: 0, y: 0 });
+    if (Math.abs(c.x) > t.width / 2 - REACH || Math.abs(c.y) > t.depth / 2 - REACH) continue;
+    const index = houses.length;
+    houses.push({ area: a, c, d: null, front: 0, sideMin: 0, sideMax: 0, street: Infinity });
+    fillRings(a.outer, grid, (i, j) => {
+      const k = j * n + i;
+      label[k] = index;
+      dist[k] = 0;
+    });
+  }
+  return houses;
+}
+
+/** Each house's street: the nearest road, the house's front towards it */
+function findStreets(houses: readonly House[], roads: EdgeIndex): void {
+  for (const h of houses) {
+    const hit = roads.nearest(h.c, STREET_REACH);
+    if (!hit || hit.dist < 1) continue;
+    const d = { x: (hit.point.x - h.c.x) / hit.dist, y: (hit.point.y - h.c.y) / hit.dist };
+    const ring = h.area.outer[0];
+    h.front = Math.max(...ring.map((p) => (p.x - h.c.x) * d.x + (p.y - h.c.y) * d.y));
+    const across = ring.map((p) => -(p.x - h.c.x) * d.y + (p.y - h.c.y) * d.x);
+    h.sideMin = Math.min(...across);
+    h.sideMax = Math.max(...across);
+    h.street = hit.dist - hit.edge.width / 2 - (hit.edge.sidewalk ?? 0);
+    if (h.street > h.front + 1) h.d = d;
+  }
+}
+
+/** Whether something stands within `r` of a point already (the plants, the furniture), looked up by 4 m cells */
+function standingAt(doc: CustomMapDocument): (p: MapPoint, r: number) => boolean {
   const standing = new Map<number, MapPoint[]>();
   const cellKey = (i: number, j: number) => (i + 32768) * 65536 + j + 32768;
   for (const o of doc.objects) {
@@ -204,7 +246,7 @@ export function layPlots(doc: CustomMapDocument, features: OsmFeatures, options:
     if (list) list.push(o);
     else standing.set(key, [o]);
   }
-  const occupied = (p: MapPoint, r: number): boolean => {
+  return (p: MapPoint, r: number): boolean => {
     for (let i = Math.floor((p.x - r) / 4); i <= Math.floor((p.x + r) / 4); i++) {
       for (let j = Math.floor((p.y - r) / 4); j <= Math.floor((p.y + r) / 4); j++) {
         for (const q of standing.get(cellKey(i, j)) ?? []) if (Math.hypot(q.x - p.x, q.y - p.y) < r) return true;
@@ -212,9 +254,11 @@ export function layPlots(doc: CustomMapDocument, features: OsmFeatures, options:
     }
     return false;
   };
+}
 
-  // Driveways: along the side of the house with room, from the street's edge to past the front; none over a tree
-  const surfaces = (doc.surfaces ??= []);
+/** Driveways: along the side of the house with room, from the street's edge to past the front; none over a tree. Their middle lines by house */
+function layDriveways(land: PlotLand): Map<number, [MapPoint, MapPoint]> {
+  const { options, report, grid, label, dist, houses, roads, cleared, occupied, surfaces } = land;
   /** Where each house's driveway runs: its middle line */
   const drives = new Map<number, [MapPoint, MapPoint]>();
   if (!options.hasMaterial || options.hasMaterial(DRIVE_MATERIAL)) {
@@ -234,8 +278,13 @@ export function layPlots(doc: CustomMapDocument, features: OsmFeatures, options:
       report.driveways++;
     });
   }
+  return drives;
+}
 
-  // Footpaths: from the door a step out of the wall, then straight to the pavement
+/** Footpaths: from the door a step out of the wall, then straight to the pavement; whether a point is on one */
+function layFootpaths(land: PlotLand, drives: ReadonlyMap<number, [MapPoint, MapPoint]>): (p: MapPoint) => boolean {
+  const { options, report, grid, label, dist, houses, roads, cleared, occupied, surfaces } = land;
+  const n = grid.n;
   const paths: [MapPoint, MapPoint][] = [];
   const pathMaterial = !options.hasMaterial || options.hasMaterial(PATH_MATERIAL) ? PATH_MATERIAL : DRIVE_MATERIAL;
   /** What a footpath may not cross: a road, another building, its own house past its door */
@@ -265,9 +314,13 @@ export function layPlots(doc: CustomMapDocument, features: OsmFeatures, options:
     report.footpaths++;
   });
   /** Whether a piece of fence or hedge would stand across a footpath */
-  const onPath = (p: MapPoint): boolean => paths.some(([a, b]) => pointSegmentDistance(p, a, b) < PATH_WIDTH / 2 + 1);
+  return (p: MapPoint): boolean => paths.some(([a, b]) => pointSegmentDistance(p, a, b) < PATH_WIDTH / 2 + 1);
+}
 
-  // Hedges on the sides and backs, a fence along some front gardens
+/** Hedges on the sides and backs of the plots, a fence along some front gardens, within the budget */
+function layBoundaries(land: PlotLand, features: OsmFeatures, isFront: (k: number) => boolean, onPath: (p: MapPoint) => boolean): void {
+  const { doc, options, report, grid, label, dist, cleared, occupied } = land;
+  const n = grid.n;
   const seed = Math.round(features.frame.lat * 1e4) ^ Math.round(features.frame.lon * 1e4);
 
   const ids = new ObjectIds(doc.objects);
@@ -302,8 +355,6 @@ export function layPlots(doc: CustomMapDocument, features: OsmFeatures, options:
     }
   }
   doc.objects.push(...placed);
-  report.cost = Math.round(report.cost);
-  return report;
 }
 
 /** Whether an area is a house with a garden (not a block of flats, a shed or a barn) */
