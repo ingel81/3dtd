@@ -14,6 +14,33 @@ export const RUBBLE_COLOURS: Record<RubbleMaterial, { grit: readonly [number, nu
   wood: { grit: [0.12, 0.065, 0.032], dust: [0.24, 0.18, 0.12] },
 };
 
+/** A pitched roof's covering, for the share of a building's rubble pieces that came off its roof; 0 none */
+export const ROOF_RUBBLE = ['none', 'tiles', 'slate', 'metal'] as const;
+export type RoofRubble = (typeof ROOF_RUBBLE)[number];
+
+/** Linear RGB of each covering's pieces: clay tiles, slate, sheet metal */
+export const ROOF_RUBBLE_COLOURS: Record<Exclude<RoofRubble, 'none'>, readonly [number, number, number]> = {
+  tiles: [0.3, 0.085, 0.04],
+  slate: [0.07, 0.075, 0.085],
+  metal: [0.2, 0.21, 0.22],
+};
+
+/**
+ * What a building's roof is covered with, for its rubble: a raised
+ * building's covering (MapMass.roofCover, tiles on a pitched roof without
+ * one), else the roof textures its catalogue entry names (`roof` in a
+ * texture's name: clay tiles, slate, sheet). None for a flat roof or none told
+ */
+export function roofRubbleOf(object: Pick<MapObject, 'mass'>, textures: readonly string[] = []): RoofRubble {
+  const m = object.mass;
+  if (m) return m.roof === 'flat' ? 'none' : (m.roofCover ?? (m.facade === 'metal' ? 'metal' : 'tiles'));
+  const roof = textures.filter((t) => /roof/i.test(t)).join(' ').toLowerCase();
+  if (/clay|tile|terracotta/.test(roof)) return 'tiles';
+  if (/slate/.test(roof)) return 'slate';
+  if (/metal|zinc|copper|sheet|corrugated/.test(roof)) return 'metal';
+  return 'none';
+}
+
 /** Words in a catalogue entry's id or tags that tell its class, the first that matches wins */
 const CLASS_WORDS: readonly [RegExp, RubbleMaterial][] = [
   [/barn|shed|cabin|hut|wood|log|stable|mill|timber|shack|lodge|dock|pier/, 'wood'],

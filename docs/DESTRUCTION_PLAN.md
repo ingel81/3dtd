@@ -302,10 +302,11 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   Solange es steht und sein Inneres zeigt (ein Loch oder Stufe 2), ist das Gelände in seinem ganzen Grund bis 15 cm
   über dem Boden darüber ausgespart (`RuinSlabs.cellarCuts`, je Kasten ein Schnitt ohne Bogen in `terrain-cuts.ts`,
   das Gelände verwirft dort seine Fragmente): durch ein Loch in der Kellerwand zeigt sich der Kellerraum, nicht der
-  Hang. Ein gefallenes behält seinen Keller als Grube: der Schnitt reicht 8 m über den Boden (auch durch den Haufen,
-  den sein Schutt im Gelände aufwirft), die Einschlagmarken verwerfen sich dort wie das Gelände, die Erdgeschossplatte
-  ist hinunter, und die Trümmerstücke liegen auf dem untersten Boden, zur Mitte hin bis 1,4 m hoch
-  (`RuinSlabs.pitFloor`, `CustomMapView.layRubble`). Die Simulation behält ihren Haufen. Ein ganzes Haus braucht
+  Hang; von innen kleidet eine 0,32 m starke Wand den Umriss aus (`cellarLining`). Ein gefallenes behält seinen Keller
+  fast voll Schutt: der Schnitt reicht 8 m über den Boden (auch durch den Haufen, den sein Schutt im Gelände aufwirft),
+  die Einschlagmarken verwerfen sich dort wie das Gelände, die Erdgeschossplatte ist hinunter, ein Block füllt den
+  Keller bis 0,55 m unter den Boden, die Trümmerstücke liegen darauf, zur Mitte hin bis 1,4 m hoch
+  (`RuinSlabs.pitFloor`, `CustomMapView.layRubble`), Innenwände als Stümpfe darüber, Außenwände 0,2 m über dem Boden. Die Simulation behält ihren Haufen. Ein ganzes Haus braucht
   keinen Schnitt (seine Wände verdecken den Hang). Der Index der Schnitte nennt dafür bis zu vier je Texel von 8 m, ein
   Fetch je Fragment wie bisher. Ein Treffer an der Kellerwand locht sie dort (`RunStructure.cellar`).
 - **Stufe 3:** das Gebäude stürzt in sich zusammen (E259, im Vertex-Shader aus Fallstart, den Zahlen der Instanz und
@@ -520,7 +521,9 @@ Ganze Zahlen und die IEEE-Grundrechenarten, Drehungen über `DetMath`; die Werte
   eines Baus aus dem Grundriss oder den Wörtern des Katalogeintrags; Farben von Schutt und Staub linear.
 - **Brocken** (`render/terrain/rubble-pieces.ts`): Platten mit Bewehrung, Ziegel im Mörtel, gebrochene Balken,
   Mauerbrocken, je Klasse eine eigene Mischung, nach der Saat des Haufens gewürfelt; vier instanzierte Netze für alle
-  Haufen, der Vertex-Shader setzt jeden auf die Höhentextur.
+  Haufen, der Vertex-Shader setzt jeden auf die Höhentextur. Hatte der Bau ein geneigtes Dach, ist gut die Hälfte
+  seiner Platten und Ziegel in dessen Deckung gefärbt (`roofRubbleOf`: Tonziegel, Schiefer, Blech aus den
+  Dachtexturen des Katalogs oder der Deckung des Grundrissbaus, `ImpactMark.roof`).
 - **Fliegende Brocken** (`render/terrain/flying-debris.ts`): ein Pool von 768, Parabel, Drehung und Landung im
   Vertex-Shader aus Start, Geschwindigkeit und Zeit; die CPU setzt die Uhr.
 - **Fall:** Staubwand über dem Boden, Staubsäule die Höhe hinauf, Splitter in den Farben der Klasse, Rauch, ein kleiner

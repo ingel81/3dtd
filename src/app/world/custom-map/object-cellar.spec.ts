@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CELLAR_FOOTING, CELLAR_STOREY, cellarDepth, cellarForDrop, cellarFrame, cellarOf, DEFAULT_CELLAR, isMapCellar, takesCellar } from './object-cellar';
+import { CELLAR_FOOTING, CELLAR_PLINTH_SHARE, CELLAR_STOREY, cellarDepth, cellarForDrop, cellarFrame, cellarOf, cellarPlinthDown, DEFAULT_CELLAR, isMapCellar, takesCellar } from './object-cellar';
 
 describe('object-cellar: a building\'s cellar', () => {
   it('gives a building the default cellar where its map has none, nothing to anything else or with mode none', () => {
@@ -42,5 +42,13 @@ describe('object-cellar: a building\'s cellar', () => {
     for (const v of [null, 2, [], { mode: 'deep', storeys: 1 }, { mode: 'auto', storeys: 0 }, { mode: 'auto', storeys: 4 }, { mode: 'auto', storeys: 1.5 }, { mode: 'auto' }]) {
       expect(isMapCellar(v)).toBe(false);
     }
+  });
+
+  it("gives one house in five a cellar in its plinth's surface, the same house always", () => {
+    const ids = Array.from({ length: 2000 }, (_, k) => `osm-b${k}`);
+    const share = ids.filter(cellarPlinthDown).length / ids.length;
+    expect(share).toBeGreaterThan(CELLAR_PLINTH_SHARE - 0.04);
+    expect(share).toBeLessThan(CELLAR_PLINTH_SHARE + 0.04);
+    expect(ids.map(cellarPlinthDown)).toEqual(ids.map(cellarPlinthDown));
   });
 });

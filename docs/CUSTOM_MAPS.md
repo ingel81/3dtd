@@ -989,8 +989,15 @@ Gelände verdeckt, was in ihm liegt.
   in der Textur des Deckels; vor einer Tür so tief wie der Absatz). Läuft die Fußwand über ihre Teilung weiter (das
   Steinerdgeschoss der Altstadt), bleibt ihr Boden, denn er verdeckt die Fuge zwischen ihren Lagen: bei diesen
   Häusern liegt über der Grube der Erdgeschossboden.
-- *Grundrissbau* (`mass-layer.ts`, `cellarBodies`): die Wände seiner Körper am Boden reichen bis zum Kellerfuß, im
-  Sockelmaterial der Fassade ab der Sockeloberkante abwärts.
+
+  So, im Sockelmaterial bis zum Fuß, zeigt nur jedes fünfte Haus seinen Keller (`cellarPlinthDown`, nach der Id).
+  Bei den anderen trägt der Keller die Wand darüber: Die Oberkante des Sockels (samt Rand) und der Fuß der Wand
+  darauf gehen um die Höhe des Bodens über dem tiefsten Gelände hinunter (`MapObject.z`, `aCellarOf.w`; -1 für
+  Sockeloptik), die Textur der Wand läuft weiter. Der Sockel steht dann unten am Hang, darüber Putz wie am Haus. Ohne
+  Wand auf dem Sockel (ein niedriger Block, der das ganze Gebäude ist) gilt er nicht als Sockel.
+- *Grundrissbau* (`mass-layer.ts`, `cellarBodies`): die Wände seiner Körper am Boden reichen bis zum Kellerfuß. Jedes
+  fünfte Haus (nach seinem Hash) im Sockelmaterial der Fassade ab der Sockeloberkante abwärts, die anderen in der
+  Fassade, der Sockel unten am Hang (`wallDown` aus der Tiefe der gezeichneten Wand).
 
 **Öffnungen.** Unter jedem Fenster des Erdgeschosses (die Scheiben zwischen 0,3 und 3 m) in jedem Kellergeschoss ein
 Kellerfenster (0,9 × 0,6 m, 0,35 m unter der Decke) im Rahmen und Glas des Modells, auf jeder Wand an der Achse nahe
@@ -1016,7 +1023,10 @@ unter dem Wandkasten (`raycast`), `floorUnder` gibt den Boden des getroffenen Ha
 Schaden-Shader (`ruin-damage.ts`) wirkt auf seine Wände wie auf die darüber; beim Einsturz bleibt, was unter der
 Bruchlinie liegt, also der Keller. Die Böden der Ruine (`ruin-slabs.ts`) liegen auch in jedem Kellergeschoss, die
 Innenwände reichen hinunter; das Gelände im Grundriss ist herausgeschnitten (`cellarCuts`), solange ein Loch das
-Innere zeigt und nach dem Einsturz: die Grube, in der die Trümmer liegen. Ein Treffer an der Kellerwand locht sie
+Innere zeigt und nach dem Einsturz. Von innen kleidet eine 0,32 m starke Wand den Umriss aus (`cellarLining`): ein
+Loch zeigt ihren Schnitt und durch sie hindurch nichts vom Hang. Nach dem Einsturz ist der Keller fast voll Schutt:
+ein Block vom Kellerfuß bis 0,55 m unter den Boden, die Trümmerstücke darauf, die Innenwände als Stümpfe 0,15 bis
+0,7 m darüber, die Außenwände 0,2 m über dem Boden abgebrochen. Ein Treffer an der Kellerwand locht sie
 dort: `RunStructure.cellar` (Tiefe in m) lässt `StructureLedger.punch` Löcher bis zum Kellerfuß zu, das Werkzeug
 Zerstörung misst die Höhe vom Boden des getroffenen Hauses (`floorUnder`, `debug:blast` `up` bis
 `-DEBUG_BLAST_DOWN_DM`). Die Prüfung „in der Luft“ misst den Fuß unter dem Keller.

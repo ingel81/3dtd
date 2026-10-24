@@ -81,6 +81,19 @@ export function cellarFrame(c: Readonly<MapCellar> | null): { cellar?: number; c
   return c ? { cellar: cellarDepth(c), cellarStoreys: c.storeys } : {};
 }
 
+/** Share of the houses whose exposed cellar is of their plinth's surface; the others' wears the wall over it */
+export const CELLAR_PLINTH_SHARE = 0.2;
+
+/**
+ * Whether house `id`'s cellar shows its plinth's surface all the way down (one in five, by its id), else its
+ * wall's, with the plinth at the foot of the slope (cellar-shell.ts WALL_BASE)
+ */
+export function cellarPlinthDown(id: string): boolean {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  return ((h >>> 0) % 1000) / 1000 < CELLAR_PLINTH_SHARE;
+}
+
 /** A floor this much over the lowest ground opens its cellar to the slope (cellarForDrop), m */
 export const CELLAR_OPEN_FROM = 0.6;
 

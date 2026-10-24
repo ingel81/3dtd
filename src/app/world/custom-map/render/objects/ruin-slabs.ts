@@ -37,6 +37,14 @@ import { addDamage, DAMAGE_ATTRIBUTES, damageArrays, damageDepthMaterial, writeD
 const CUT_OVER = 0.15;
 /** Over a fallen one's floor the ground is cut away inside it up to this, m: its rubble's heap too, an open pit */
 const PIT_OVER = 8;
+/** A fallen one's cellar is filled with its rubble up to this far under its floor, m: a little of it shows */
+const FILL_UNDER = 0.55;
+/** Its walls' stumps: the outer lining's top over the floor, the inner walls' over the fill, least and most, m */
+const STUMP_OVER_FLOOR = 0.2;
+const INNER_STUMP: readonly [number, number] = [0.15, 0.7];
+/** The cellar's walls from inside: thick, so a hole or a pit shows their section and nothing through them, m */
+const LINING = 0.32;
+const LINING_COLOUR: readonly [number, number, number] = [0.27, 0.25, 0.22];
 /** Storey height and slab thickness, m */
 const STOREY = 3;
 const THICKNESS = 0.24;
@@ -260,18 +268,31 @@ export class RuinSlabs {
     const cellarStoreys = cellar > 0 ? (frame.cellarStoreys ?? 1) : 0;
     let cuts: GroundCut[] | null = null;
     let inner: FootprintRect[] = [];
+    let outline: FootprintRect[] = [];
+    const fallen = stage >= 3;
+    const cellarFoot = frame.seatY - cellarStoreys * CELLAR_STOREY;
+    const fillY = frame.seatY - FILL_UNDER;
+    // A fallen one's fill: one block from the cellar's foot up
+    const fills: { y: number; height: number; rects: FootprintRect[] }[] = [];
     if (cellar > 0) {
       const section = footprint?.section?.(SECTION_OVER / f.sy);
       inner = footprint ? footprintRects(footprint.roof, HEADROOM / f.sy, box, section) : [box];
-      for (let k = 1; k <= cellarStoreys && inner.length; k++) floors.push({ y: frame.seatY - k * CELLAR_STOREY + THICKNESS / 2, rects: inner });
+      // A fallen one's cellar filled with its rubble almost to the top (its floors under it unseen), a standing one's
+      // storeys with their floors
+      if (fallen) {
+        if (inner.length) fills.push({ y: cellarFoot, height: fillY - cellarFoot, rects: inner });
+      } else {
+        for (let k = 1; k <= cellarStoreys && inner.length; k++) floors.push({ y: frame.seatY - k * CELLAR_STOREY + THICKNESS / 2, rects: inner });
+      }
       const whole: FootprintRect = { x0: mx - hx, x1: mx + hx, z0: mz - hz, z1: mz + hz };
-      cuts = (footprint ? footprintRects(footprint.roof, HEADROOM / f.sy, whole, section) : [whole]).map((r) => cellarCut(f, r, frame.seatY + (stage >= 3 ? PIT_OVER : CUT_OVER)));
+      outline = footprint ? footprintRects(footprint.roof, HEADROOM / f.sy, whole, section) : [whole];
+      cuts = outline.map((r) => cellarCut(f, r, frame.seatY + (fallen ? PIT_OVER : CUT_OVER)));
     }
-    if (cuts && stage >= 3) this.pits.set(id, { cuts, floor: frame.seatY - cellarStoreys * CELLAR_STOREY + THICKNESS });
+    if (cuts && fallen) this.pits.set(id, { cuts, floor: fillY });
     else this.pits.delete(id);
     this.setCuts(id, cuts);
     // A wall across each side long enough for two rooms, off the middle by the ruin's roll (its heading)
-    const walls: { alongZ: boolean; at: number; from: number; to: number; height: number; foot: number }[] = [];
+    const walls: { alongZ: boolean; at: number; from: number; to: number; height: number; foot: number; thick?: number; colour?: readonly [number, number, number] }[] = [];
     const tallest = frame.height * WALL_TOP;
     for (const [alongZ, half, roll] of [[true, Math.hypot(frame.ax, frame.az), 7.31], [false, Math.hypot(frame.bx, frame.bz), 3.17]] as const) {
       if (half <= ROOM_HALF) continue;
@@ -296,11 +317,20 @@ export class RuinSlabs {
         const runs = inner.filter((r) => (w.alongZ ? r.x0 <= w.at && w.at <= r.x1 : r.z0 <= w.at && w.at <= r.z1));
         for (const r of runs) {
           const [from, to] = w.alongZ ? [Math.max(w.from, r.z0), Math.min(w.to, r.z1)] : [Math.max(w.from, r.x0), Math.min(w.to, r.x1)];
-          if (to - from >= LEAST_SIDE) walls.push({ alongZ: w.alongZ, at: w.at, from, to, height: depth, foot: frame.seatY - depth });
+          if (to - from < LEAST_SIDE) continue;
+          // A fallen one's: a stump over the fill, broken at a height of its own
+          const stump = INNER_STUMP[0] + fract(w.at * 3.7 + from * 1.3 + shape.heading) * (INNER_STUMP[1] - INNER_STUMP[0]);
+          walls.push({ alongZ: w.alongZ, at: w.at, from, to, height: fallen ? fillY + stump - cellarFoot : depth, foot: cellarFoot });
         }
       }
     }
-    const count = floors.reduce((n, fl) => n + fl.rects.length, 0) + walls.length;
+    // The outer walls from inside (cellarLining): thick, from the cellar's foot to over its floor
+    if (cellarStoreys && outline.length) {
+      const scale = Math.hypot(f.ux, f.uz) || 1;
+      const top = frame.seatY + (fallen ? STUMP_OVER_FLOOR : 0);
+      for (const l of cellarLining(outline, LINING / scale)) walls.push({ ...l, height: top - cellarFoot, foot: cellarFoot, thick: LINING, colour: LINING_COLOUR });
+    }
+    const count = floors.reduce((n, fl) => n + fl.rects.length, 0) + fills.reduce((n, fl) => n + fl.rects.length, 0) + walls.length;
     if (!count) {
       this.delete(id);
       return;
@@ -331,6 +361,23 @@ export class RuinSlabs {
         put(SLAB_COLOURS[material]);
       }
     }
+    // The fill: a block from the cellar's foot to its top, lighter than a floor (the rubble's dust)
+    const fillColour = SLAB_COLOURS[material].map((c) => c * 1.15) as [number, number, number];
+    for (const fl of fills) {
+      for (const r of fl.rects) {
+        const x = (r.x0 + r.x1) / 2;
+        const z = (r.z0 + r.z1) / 2;
+        const w = r.x1 - r.x0;
+        const d = r.z1 - r.z0;
+        this.matrix.set(
+          f.ux * w, 0, f.vx * d, f.ox + f.ux * x + f.vx * z,
+          0, fl.height, 0, fl.y + fl.height / 2,
+          f.uz * w, 0, f.vz * d, f.oz + f.uz * x + f.vz * z,
+          0, 0, 0, 1,
+        );
+        put(fillColour);
+      }
+    }
     for (const w of walls) {
       // Thin across its line, as long as its span along it, from the seat up
       const along = (w.from + w.to) / 2;
@@ -339,13 +386,14 @@ export class RuinSlabs {
       const [lx, lz] = w.alongZ ? [f.vx * len, f.vz * len] : [f.ux * len, f.uz * len];
       const [nx, nz] = w.alongZ ? [f.ux, f.uz] : [f.vx, f.vz];
       const n = Math.hypot(nx, nz) || 1;
+      const thick = w.thick ?? WALL;
       this.matrix.set(
-        (nx / n) * WALL, 0, lx, f.ox + f.ux * x + f.vx * z,
+        (nx / n) * thick, 0, lx, f.ox + f.ux * x + f.vx * z,
         0, w.height, 0, w.foot + w.height / 2,
-        (nz / n) * WALL, 0, lz, f.oz + f.uz * x + f.vz * z,
+        (nz / n) * thick, 0, lz, f.oz + f.uz * x + f.vz * z,
         0, 0, 0, 1,
       );
-      put(WALL_COLOUR);
+      put(w.colour ?? WALL_COLOUR);
     }
     this.ruins.set(id, { count, matrices, damage, colours });
     this.flush();
@@ -480,6 +528,42 @@ function cellarCut(f: { ox: number; oz: number; ux: number; uz: number; vx: numb
     springY: top,
     rise: 0,
   };
+}
+
+/**
+ * The cellar's outer walls seen from inside: along each side of the
+ * building's ground rectangles (model space) where no other rectangle goes
+ * on beyond it, a wall `thick` deep inside the side. As inner walls: the line
+ * it stands on (`alongZ`: at model x `at`, along z) and its span
+ */
+export function cellarLining(rects: readonly FootprintRect[], thick: number): { alongZ: boolean; at: number; from: number; to: number }[] {
+  const out: { alongZ: boolean; at: number; from: number; to: number }[] = [];
+  const eps = 0.02;
+  for (const r of rects) {
+    // Per side: along z or x, its line, which way is in, its span
+    const sides: [boolean, number, number, number, number][] = [
+      [true, r.x0, 1, r.z0, r.z1], [true, r.x1, -1, r.z0, r.z1], [false, r.z0, 1, r.x0, r.x1], [false, r.z1, -1, r.x0, r.x1],
+    ];
+    for (const [alongZ, line, inward, from, to] of sides) {
+      // Where another rectangle reaches past this side, the side is inside the building: no wall there
+      const beyond = (o: FootprintRect): boolean => {
+        const [lo, hi] = alongZ ? [o.x0, o.x1] : [o.z0, o.z1];
+        return inward > 0 ? lo < line - eps && hi >= line - eps : hi > line + eps && lo <= line + eps;
+      };
+      const covered = rects
+        .filter((o) => o !== r && beyond(o))
+        .map((o) => (alongZ ? [o.z0, o.z1] : [o.x0, o.x1]) as [number, number])
+        .sort((a, b) => a[0] - b[0]);
+      let at = from;
+      for (const [c0, c1] of [...covered, [to, to] as [number, number]]) {
+        const end = Math.min(c0, to);
+        if (end - at >= LEAST_SIDE) out.push({ alongZ, at: line + (inward * thick) / 2, from: at, to: end });
+        at = Math.max(at, c1);
+        if (at >= to) break;
+      }
+    }
+  }
+  return out;
 }
 
 /** Whether map point (`x`, `y`) lies within cut `c`'s ground (its front face's width, its length in) */

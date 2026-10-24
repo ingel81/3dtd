@@ -6,7 +6,7 @@ import { rubbleCmAt, rubbleReach, rubbleShapeOf } from '../../utils/stamp-field'
 import { craterMaxDepthCm } from '../../managers/game-state/crater-ledger';
 import { RUBBLE } from '../../configs/destruction.config';
 import { MAP_METERS_PER_DEGREE } from './map-document';
-import { RUBBLE_COLOURS, RUBBLE_MATERIALS, type RubbleMaterial } from './rubble-material';
+import { ROOF_RUBBLE, RUBBLE_COLOURS, RUBBLE_MATERIALS, type RoofRubble, type RubbleMaterial } from './rubble-material';
 
 /** What a mark shows */
 export const ImpactMarkKind = { Crater: 0, Rubble: 1 } as const;
@@ -27,6 +27,8 @@ export interface ImpactMark {
   seed: number;
   /** What rubble is of (RUBBLE_MATERIALS index); 0 for a crater */
   material: number;
+  /** What its roof was covered with (ROOF_RUBBLE index), a share of its pieces in that; 0 none */
+  roof?: number;
 }
 
 /** Samples a side of a tile the ground is rebuilt in */
@@ -160,6 +162,8 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
     private readonly now: () => number = () => 0,
     /** What stands at map metres (x, y) before a hit (waterAt) */
     private readonly waterAtMap: (x: number, y: number) => 'water' | 'lava' | null = () => null,
+    /** What structure `id`'s roof was covered with (CustomMapDestruction.roofOf) */
+    private readonly roofOf: (id: string) => RoofRubble = () => 'none',
   ) {
     this.standing = { ...grid, heights: grid.heights.slice() };
     this.columns = grid.columns;
@@ -243,6 +247,7 @@ export class CustomMapGroundDamage implements WorldGroundDamage {
       this.marks.set(key, {
         x: shape.x, y: shape.z, size, rotation: structure.box?.[4] ?? 0, kind: ImpactMarkKind.Rubble,
         strength: shape.peakCm / RUBBLE.maxPeakCm, seed, material: RUBBLE_MATERIALS.indexOf(this.materialOf(structure.id)),
+        roof: ROOF_RUBBLE.indexOf(this.roofOf(structure.id)),
       });
     }
     this.marksChanged = true;

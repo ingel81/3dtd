@@ -8,6 +8,7 @@ import { MapAssetLibrary } from '../map-asset-library';
 import { CRACK_SIZE, crackTexels } from './crack-texture';
 import { massShape, splitWalls } from './mass-layer';
 import { MapObjectLayer } from './object-layer';
+import { cellarLining } from './ruin-slabs';
 import { footprintRects, RuinSlabs, type FootprintRect, type RuinFootprint } from './ruin-slabs';
 import { modelSection } from './ruin-section';
 import type { CatalogRoof } from '../../object-roof';
@@ -402,9 +403,16 @@ describe('ruin damage: floors and inner walls', () => {
     expect(changed).toHaveBeenCalledTimes(1);
     slabs.set('c', cellar, shape, 3, FELL_LONG_AGO, 'brick');
     expect(slabs.cellarCuts()).toHaveLength(1);
-    // Fallen: its pit cut up through the heap its rubble raised, the rubble on its lowest floor, its ground floor gone
+    // Fallen: its pit cut up through the heap its rubble raised, the cellar filled with rubble almost to the top and
+    // the pieces on the fill, its ground floor gone; its walls thick from inside, stumps over the floor
     expect(slabs.cellarCuts()[0].springY).toBeGreaterThan(5);
-    expect(slabs.pitFloor(-10, 5)).toBeCloseTo(-5.6 + 0.24);
+    expect(slabs.pitFloor(-10, 5)).toBeCloseTo(-0.55);
+    const tops = Array.from({ length: slabs.mesh.count }, (_, k) => {
+      const a = slabs.mesh.instanceMatrix.array;
+      return +(a[k * 16 + 13] + a[k * 16 + 5] / 2).toFixed(2);
+    });
+    expect(tops).toContain(-0.55);
+    expect(tops).toContain(0.2);
     expect(slabs.pitFloor(-20, 5)).toBeNull();
     const fallen = Array.from({ length: slabs.mesh.count }, (_, k) => +slabs.mesh.instanceMatrix.array[k * 16 + 13].toFixed(2));
     expect(fallen).not.toContain(0.12);
@@ -427,16 +435,30 @@ describe('ruin damage: floors and inner walls', () => {
     layer.setDamage([{ id: 'm1', stage: 2, fallStart: FELL_LONG_AGO }, { id: 'h1', stage: 2, fallStart: FELL_LONG_AGO }]);
     const slabs = layer.group.children.find((c) => c.name === 'ruin-slabs') as InstancedMesh;
     // The block (20 x 12 m, 12 m high): the ground's slab, three floors, two inner walls, and in its cellar (a map
-    // without one: DEFAULT_CELLAR, one storey) a floor and the two walls on their lines, at once (the mass layer's)
-    expect(slabs.count).toBe(9);
-    // The house (6 x 4 m, 8 m high): the ground's, two floors, one wall, its cellar's floor and wall, from the frame
-    // after the damage's (buildSlabs, E271)
+    // without one: DEFAULT_CELLAR, one storey) a floor, the two walls on their lines and its four outer walls from
+    // inside, at once (the mass layer's)
+    expect(slabs.count).toBe(13);
+    // The house (6 x 4 m, 8 m high): the ground's, two floors, one wall, its cellar's floor, wall and four outer
+    // walls, from the frame after the damage's (buildSlabs, E271)
     const camera = new PerspectiveCamera(60);
     layer.update(0.016, camera);
-    expect(slabs.count).toBe(9);
+    expect(slabs.count).toBe(13);
     layer.update(0.016, camera);
-    expect(slabs.count).toBe(9 + 6);
+    expect(slabs.count).toBe(13 + 10);
     layer.dispose();
+  });
+});
+
+describe("ruin damage: a cellar's walls from inside", () => {
+  it('lines the outline of an L of two rectangles, not the side they share', () => {
+    // A 10 x 4 wing and a 4 x 6 wing on its end: the outline has six sides
+    const walls = cellarLining([{ x0: 0, x1: 10, z0: 0, z1: 4 }, { x0: 6, x1: 10, z0: 4, z1: 10 }], 0.3);
+    const length = walls.reduce((n, w) => n + w.to - w.from, 0);
+    expect(length).toBeCloseTo(10 + 4 + 4 + 6 + 6 + 6 + 4, 5);
+    // None on the line z = 4 where the wings meet, between x 6 and 10
+    expect(walls.some((w) => !w.alongZ && Math.abs(w.at - (4 - 0.15)) < 1e-6 && w.to > 6.01)).toBe(false);
+    // Each inside its side, half its thickness in
+    expect(walls.find((w) => w.alongZ && w.from === 0)?.at).toBeCloseTo(0.15);
   });
 });
 

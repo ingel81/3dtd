@@ -41,6 +41,15 @@ const WINDOW = 2;
 /** A window where the door may stand: closed when the door opens */
 const DOOR_SLOT = 2.5;
 const DOOR = 3;
+/**
+ * A house whose cellar wears its wall (aCellarOf.w, cellarPlinthDown): the plinth's top goes down to the lowest
+ * ground with it, and the wall's foot standing on it, its texture running on, so the wall's surface covers the
+ * cellar and the plinth stands at the foot of the slope
+ */
+const PLINTH_TOP = 4;
+/** A plinth's foot (FOOT on a model with a plinth): under a wall-clad cellar its texture moves with its top */
+const PLINTH_FOOT = 1.25;
+const WALL_BASE = 5;
 /** A foot face: its lowest point at the model's lowest, within this (m) */
 const FOOT_NEAR = 0.03;
 /** An upright face: its normal's height under this */
@@ -63,9 +72,9 @@ export const WINDOW_FREE = WIN.top + WIN.height + 0.2;
 const DOOR_SIZE = { width: 1.0, height: 2.05, frame: 0.06 } as const;
 export const DOOR_FROM = 2.3;
 export const DOOR_TO = CELLAR_STOREY + 1;
-/** How far in front of the wall the frame, the glass and the door lie, m */
-const FRAME_OUT = 0.015;
-const GLASS_OUT = 0.025;
+/** How far in front of the wall the frame, the glass and the door lie, m: apart enough not to fight for depth far off */
+const FRAME_OUT = 0.03;
+const GLASS_OUT = 0.06;
 
 interface Face {
   part: number;
@@ -387,7 +396,7 @@ export function cellarShell(source: readonly ModelPart[], openings = true): Mode
     if (!list) footFaces.set(f.part, (list = []));
     list.push(f);
   }
-  for (const [k, list] of footFaces) {
+  const mark = (k: number, list: readonly Face[], atY: number, kind: number): void => {
     let g = geometries[k];
     const pos = g.getAttribute('position');
     const uv = (g.getAttribute('uv') as BufferAttribute | undefined) ?? null;
@@ -399,7 +408,7 @@ export function cellarShell(source: readonly ModelPart[], openings = true): Mode
       const gradient = Math.abs(f.n.y) <= UPRIGHT ? (uvPerMetreDown(f, uv) ?? [0, 0]) : [0, 0] as [number, number];
       for (let c = 0; c < 3; c++) {
         const id = f.ids[c];
-        if (Math.abs(pos.getY(id) - footY) >= FOOT_NEAR) continue;
+        if (Math.abs(pos.getY(id) - atY) >= FOOT_NEAR) continue;
         const had = taken.get(id);
         if (!had) {
           taken.set(id, gradient);
@@ -458,8 +467,9 @@ export function cellarShell(source: readonly ModelPart[], openings = true): Mode
       cellar = new Float32Array((n + splits.length) * 4);
       cellars[k] = cellar;
     }
-    for (const [id, [du, dv]] of taken) cellar.set([FOOT, du, dv, 0], id * 4);
-  }
+    for (const [id, [du, dv]] of taken) cellar.set([kind, du, dv, 0], id * 4);
+  };
+  for (const [k, list] of footFaces) mark(k, list, footY, FOOT);
   const adds = new Map<number, Added>();
   // The foot's top: a plinth built as one block has a cap over the whole ground, which would close the cellar seen
   // through a hole or its pit after a fall; only its ledge before the wall stays (capRing)
@@ -472,6 +482,39 @@ export function cellarShell(source: readonly ModelPart[], openings = true): Mode
     if (!ring) continue;
     geometries[k] = ring.geometry;
     if (ring.add.pos.length) adds.set(k, ring.add);
+  }
+  // A plinth (a foot lower than CAP_HIGHEST, its own parts): its top and the wall's foot on it marked, to go down
+  // to the lowest ground on a house whose cellar wears its wall (WALL_BASE)
+  const plinthParts = [...footFaces.keys()].filter((k) => {
+    const sides = footFaces.get(k)!.filter((f) => Math.abs(f.n.y) <= UPRIGHT);
+    return sides.length > 0 && Math.max(...sides.map((f) => f.maxY)) <= CAP_HIGHEST;
+  });
+  if (plinthParts.length) {
+    const top = Math.max(...plinthParts.flatMap((k) => footFaces.get(k)!.filter((f) => Math.abs(f.n.y) <= UPRIGHT).map((f) => f.maxY)));
+    const opening = (name: string) => name.startsWith('frame') || name === 'window' || name.startsWith('door') || isWindowGlass(name);
+    // The wall standing on it: upright faces of the other parts (not a window's, a door's) from its top
+    const base = new Map<number, Face[]>();
+    for (const f of faces) {
+      if (footFaces.has(f.part) || opening(parts[f.part].material.name) || Math.abs(f.n.y) > UPRIGHT || Math.abs(f.minY - top) >= FOOT_NEAR) continue;
+      let list = base.get(f.part);
+      if (!list) base.set(f.part, (list = []));
+      list.push(f);
+    }
+    // No wall on it: a low block that is the whole building, its foot a foot
+    if (base.size) {
+      for (const k of plinthParts) {
+        // The plinth's top corners (no texture run: the plinth moves whole), its ledge's too (the ring added above)
+        const cellar = cellars[k];
+        const pos = geometries[k].getAttribute('position');
+        for (let i = 0; i < pos.count; i++) {
+          if (Math.abs(pos.getY(i) - top) < FOOT_NEAR && cellar[i * 4] === 0) cellar.set([PLINTH_TOP, 0, 0, 0], i * 4);
+          else if (cellar[i * 4] === FOOT) cellar[i * 4] = PLINTH_FOOT;
+        }
+        const ring = adds.get(k);
+        if (ring) for (let i = 0; i < ring.cellar.length; i += 4) ring.cellar[i] = PLINTH_TOP;
+      }
+      for (const [k, list] of base) mark(k, list, top, WALL_BASE);
+    }
   }
   // The openings, into the parts of the model's frame, glass and door
   if (openings) {
@@ -526,10 +569,19 @@ vec2 cellarUvShift = vec2(0.0);
 {
   float sy = max(length(instanceMatrix[1].xyz), 1e-3);
   float kind = aCellar.x;
+  // A cellar in the wall's surface: the plinth's top and the wall's foot this far down (the floor over the lowest
+  // ground, aCellarOf.w; -1 a cellar in the plinth's)
+  float wallDown = aCellarOf.x > 0.0 ? max(aCellarOf.w, 0.0) / sy : 0.0;
   if (kind > 0.5 && kind < 1.5 && aCellarOf.x > 0.0) {
     float drop = max(0.0, position.y + aCellarOf.x / sy);
     cellarMove.y = -drop;
-    cellarUvShift = aCellar.yz * drop;
+    // Under a wall-clad cellar a plinth moves whole and stretches only below its old foot's new place
+    cellarUvShift = aCellar.yz * max(0.0, drop - (kind > 1.1 ? wallDown : 0.0));
+  } else if (kind > 3.5 && kind < 4.5) {
+    cellarMove.y = -wallDown;
+  } else if (kind > 4.5) {
+    cellarMove.y = -wallDown;
+    cellarUvShift = aCellar.yz * wallDown;
   } else if (kind > 1.5) {
     float storey = aCellar.w;
     vec3 anchor = position - vec3(0.0, storey * ${CELLAR_STOREY.toFixed(2)} / sy, 0.0);

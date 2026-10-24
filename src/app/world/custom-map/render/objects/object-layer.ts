@@ -23,7 +23,7 @@ import {
   type MeshStandardMaterial,
 } from 'three';
 import type { MapObject } from '../../map-document';
-import { cellarDepth, cellarDrawnDepth, cellarFrame, cellarOf, takesCellar } from '../../object-cellar';
+import { cellarDepth, cellarDrawnDepth, cellarFrame, cellarOf, cellarPlinthDown, takesCellar } from '../../object-cellar';
 import type { HeightTexture } from '../terrain/height-texture';
 import { addCellar, cellarShell } from './cellar-shell';
 import { LOD_TAN_HALF_FOV, objectRadius, pixelDistance, screenDistance, type AssetCatalog, type CatalogObject, type StageTone } from '../asset-catalog';
@@ -1751,7 +1751,10 @@ export class MapObjectLayer {
     // to their foot
     const cellar = b.cellar ? cellarOf(o, true) : null;
     const depth = cellarDrawnDepth(cellar, o.z, b.ruin);
-    if (b.cellar) b.cellar.set([depth, cellar?.storeys ?? 0, cellar ? (cellar.mode === 'buried' ? 2 : 1) : 0, 0], i * 4);
+    // The last: how far the wall's surface goes down over the cellar (the floor over the lowest ground), -1 where the
+    // plinth's does
+    const wallDown = cellarPlinthDown(o.id) ? -1 : Math.max(0, o.z);
+    if (b.cellar) b.cellar.set([depth, cellar?.storeys ?? 0, cellar ? (cellar.mode === 'buried' ? 2 : 1) : 0, wallDown], i * 4);
     b.spheres[i * 4] = this.tmpPos.x;
     b.spheres[i * 4 + 1] = this.tmpPos.y + (b.model.height * s - depth) / 2;
     b.spheres[i * 4 + 2] = this.tmpPos.z;

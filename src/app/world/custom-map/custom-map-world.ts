@@ -242,6 +242,7 @@ export class CustomMapWorld implements WorldProvider {
         (rect) => this.cratersChanged(rect),
         () => this.gameClock,
         (x, y) => waterKindAt(this.doc.terrain, x, y),
+        (id) => this.destruction?.roofOf(id) ?? 'none',
       )
       : null;
     this.groundDamage = ground;

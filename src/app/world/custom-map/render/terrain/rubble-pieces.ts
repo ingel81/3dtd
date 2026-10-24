@@ -16,11 +16,14 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { TERRAIN_HEIGHT_GLSL, type HeightTexture } from './height-texture';
 import { addHeightFog } from '../environment/height-fog';
 import { ImpactMarkKind, type ImpactMark } from '../../custom-map-ground-damage';
-import { RUBBLE_COLOURS, RUBBLE_MATERIALS, type RubbleMaterial } from '../../rubble-material';
+import { ROOF_RUBBLE, ROOF_RUBBLE_COLOURS, RUBBLE_COLOURS, RUBBLE_MATERIALS, type RubbleMaterial } from '../../rubble-material';
 
 /** The kinds of piece on a heap */
 const PIECES = ['slab', 'bricks', 'beam', 'chunk'] as const;
 type Piece = (typeof PIECES)[number];
+
+/** Of a pitched roof's building's slabs and bricks, this share are of its covering */
+const ROOF_SHARE = 0.55;
 
 /** A piece's floor where it lies on the ground (aRubbleFloor) */
 const NO_FLOOR = -1e9;
@@ -182,6 +185,9 @@ export class RubblePieces {
       const weights = MIX[material];
       const total = weights.reduce((a, b) => a + b, 0);
       const grit = RUBBLE_COLOURS[material].grit;
+      // A share of a pitched roof's pieces in its covering: slabs and bricks, as tiles and slates break
+      const roof = ROOF_RUBBLE[m.roof ?? 0] ?? 'none';
+      const roofColour = roof === 'none' ? null : ROOF_RUBBLE_COLOURS[roof];
       // A piece per 2.5 m² of the heap's core, more on a big one
       const reach = m.size / 2;
       const n = Math.min(60, Math.max(6, Math.round((reach * reach * 1.6) / 2.5)));
@@ -206,7 +212,8 @@ export class RubblePieces {
         const mesh = this.meshes[kind];
         mesh.setMatrixAt(at, this.matrix);
         const tone = 0.7 + rand(m.seed, k * 7 + 9) * 0.5;
-        mesh.setColorAt(at, this.color.setRGB(grit[0] * tone, grit[1] * tone, grit[2] * tone));
+        const c = roofColour && kind <= 1 && rand(m.seed, k * 7 + 10) < ROOF_SHARE ? roofColour : grit;
+        mesh.setColorAt(at, this.color.setRGB(c[0] * tone, c[1] * tone, c[2] * tone));
         (mesh.geometry.getAttribute('aRubbleFloor').array as Float32Array)[at] = floorAt(x, y, k) ?? NO_FLOOR;
         counts[kind]++;
       }

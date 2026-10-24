@@ -4,7 +4,7 @@ import { HOLE_SLOTS, HOLE_STRIDE, presetHp, type StructureStage } from '../../co
 import { type CustomMapDocument, type MapObject, MAP_METERS_PER_DEGREE, STRUCTURE_HP_SCALE } from './map-document';
 import type { GroundBox } from './object-ground';
 import type { CatalogRoof } from './object-roof';
-import { rubbleMaterialOf, type RubbleMaterial } from './rubble-material';
+import { roofRubbleOf, rubbleMaterialOf, type RoofRubble, type RubbleMaterial } from './rubble-material';
 import { massArea, massOf, massTop, objectShape } from './object-mass';
 import { cellarDepth, cellarOf, takesCellar } from './object-cellar';
 
@@ -50,6 +50,8 @@ export interface StructureEntry {
   roof?: CatalogRoof;
   /** Biome and style words, which tell what it is built of (rubble-material.ts) */
   tags?: readonly string[];
+  /** Its textures' files, which tell what its roof is covered with (rubble-material.ts roofRubbleOf) */
+  textures?: readonly string[];
 }
 
 /**
@@ -71,6 +73,8 @@ interface MapStructure extends WorldStructure {
   readonly run: RunStructure;
   /** What its rubble, dust and pieces are of */
   readonly material: RubbleMaterial;
+  /** What its roof was covered with: a share of its pieces */
+  readonly roofRubble: RoofRubble;
 }
 
 /** HP of a structure: its volume as a cylinder, held in STRUCTURE_HP */
@@ -187,7 +191,8 @@ export class CustomMapDestruction implements WorldDestruction {
       };
       // Standing until the simulation says otherwise: a structure the map damaged beforehand comes with its first stages
       const material = rubbleMaterialOf(object, entry.tags);
-      this.list.push({ id: object.id, object, run, lat: run.lat, lon: run.lon, radius, height, maxHp, stage: 0, heading: -1, material });
+      const roofRubble = roofRubbleOf(object, entry.textures);
+      this.list.push({ id: object.id, object, run, lat: run.lat, lon: run.lon, radius, height, maxHp, stage: 0, heading: -1, material, roofRubble });
     }
   }
 
@@ -240,6 +245,11 @@ export class CustomMapDestruction implements WorldDestruction {
     const risen = changes.filter((c) => c.was === 3).map((c) => c.object);
     if (fallen.length > 0) this.fall(fallen);
     if (risen.length > 0) this.rise(risen);
+  }
+
+  /** What structure `id`'s roof was covered with; none for one not in the list */
+  roofOf(id: string): RoofRubble {
+    return this.byId().get(id)?.roofRubble ?? 'none';
   }
 
   /** What structure `id`'s rubble is of; plaster for one not in the list */

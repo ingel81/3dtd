@@ -1375,9 +1375,11 @@ const WALL_COLOR_FRAGMENT = /* glsl */ `
   } else if (facade == 4) {
     plinthH = 0.6; bay = 3.6; winW = 1.05; winH = 2.0; sill = 1.1; frame = vec3(0.3, 0.27, 0.24);
   }
-  // Its cellar under the floor (MapObject.cellar, object-cellar.ts; the walls' foot at its foot): the plinth's
-  // surface from the plinth's top over the floor all the way down, the wall's colour ends there
-  float plinthTop = plinthH;
+  // Its cellar under the floor (MapObject.cellar, object-cellar.ts; the walls' foot at its foot): one house in five
+  // in the plinth's surface from the plinth's top over the floor all the way down; the others in the wall's, the
+  // plinth at the lowest ground (the walls reach CELLAR_EXPOSED_MARGIN under it, vWall.z; none under FOUNDATION)
+  float wallDown = step(0.2, massHash(vec3(seed, 3.7, 1.3))) * step(1.55, vWall.z) * max(vWall.z - 0.6, 0.0);
+  float plinthTop = plinthH - wallDown;
   vec3 base = diffuseColor.rgb;
   #ifdef USE_COLOR
   if (facade == 2) {

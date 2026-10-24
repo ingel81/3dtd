@@ -25,7 +25,7 @@ function house(): ModelPart[] {
 const cellarOf = (p: ModelPart) => p.geometry.getAttribute('aCellar') as BufferAttribute;
 
 describe('cellar-shell: a building model\'s cellar from its foot', () => {
-  it('marks the vertices of its plinth\'s foot, with the texture running on down; the wall over it stays', () => {
+  it('marks the vertices of its plinth\'s foot, with the texture running on down, its top and the wall\'s foot on it', () => {
     const parts = cellarShell(house());
     const plinth = parts[0];
     const pos = plinth.geometry.getAttribute('position');
@@ -33,7 +33,9 @@ describe('cellar-shell: a building model\'s cellar from its foot', () => {
     let feet = 0;
     for (let i = 0; i < pos.count; i++) {
       const foot = Math.abs(pos.getY(i) + 1) < 1e-6;
-      expect(c.getX(i)).toBe(foot ? 1 : 0);
+      const top = Math.abs(pos.getY(i) - 0.45) < 1e-6;
+      // A plinth's foot (1.25), its top (4): under a cellar in the wall's surface the plinth goes down whole
+      expect(c.getX(i)).toBe(foot ? 1.25 : top ? 4 : 0);
       if (!foot) continue;
       feet++;
       // On an upright side the texture's v runs down by 1 / 1.45 a metre (BoxGeometry: 0 at the foot, 1 at the top)
@@ -42,8 +44,15 @@ describe('cellar-shell: a building model\'s cellar from its foot', () => {
     }
     // Four sides of two foot corners and the bottom's four
     expect(feet).toBe(12);
+    // The wall's foot on the plinth's top (5), its texture running on down; the rest of it stays
     const wall = cellarOf(parts[1]);
-    for (let i = 0; i < wall.count; i++) expect(wall.getX(i)).toBe(0);
+    const wallPos = parts[1].geometry.getAttribute('position');
+    const wallNormal = parts[1].geometry.getAttribute('normal');
+    for (let i = 0; i < wall.count; i++) {
+      const foot = Math.abs(wallPos.getY(i) - 0.45) < 1e-6 && Math.abs(wallNormal.getY(i)) < 0.5;
+      expect(wall.getX(i)).toBe(foot ? 5 : 0);
+      if (foot) expect(wall.getZ(i)).toBeCloseTo(-1 / 5.55, 5);
+    }
   });
 
   it('opens the plinth\'s top over the ground: only its ledge before the wall stays, the cellar under it open to a hole', () => {
@@ -81,7 +90,7 @@ describe('cellar-shell: a building model\'s cellar from its foot', () => {
     for (let i = n; i < pos.count; i += 6) {
       // Its corners on one point (drawn nothing until the shader opens it), on the plinth's face at the front or back
       for (let k = 1; k < 6; k++) expect(pos.getX(i + k)).toBe(pos.getX(i));
-      expect(Math.abs(pos.getZ(i))).toBeCloseTo(4.04 + 0.025, 5);
+      expect(Math.abs(pos.getZ(i))).toBeCloseTo(4.04 + 0.06, 5);
       expect(pos.getY(i)).toBeCloseTo(-0.35, 5);
       kinds.add(c.getX(i));
       expect(c.getW(i)).toBeGreaterThanOrEqual(0);
