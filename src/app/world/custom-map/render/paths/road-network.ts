@@ -6,6 +6,7 @@ import { DRAPE_TILE, drapeTileKey } from '../drape/draped-layer';
 import { conformDraped, type DrapedGeometry, type DrapeGround, type DrapeRect } from '../drape/draped-refine';
 import type { DrapedConformPool } from '../drape/draped-conform-pool';
 import type { ConformJob } from '../drape/draped-conform-protocol';
+import { seedOf } from '../../../../utils/seeded-random';
 
 /**
  * The paved roads of a map as one surface (RoadSurfaceLayer draws it): a
@@ -2102,17 +2103,13 @@ function segmentAt(at: readonly number[], d: number): number {
  * depth and fight
  */
 function orderOf(id: string): number {
-  let h = 2166136261;
-  for (let k = 0; k < id.length; k++) h = Math.imul(h ^ id.charCodeAt(k), 16777619);
-  return ((h >>> 0) % 16) * ORDER_STEP;
+  return (seedOf(id) % 16) * ORDER_STEP;
 }
 
 /** A chain's start of distance along, from its edges' ids (the least): 0.5 to 997 m */
 function alongOffset(edges: readonly string[]): number {
   const id = edges.reduce((a, b) => (b < a ? b : a));
-  let h = 2166136261;
-  for (let k = 0; k < id.length; k++) h = Math.imul(h ^ id.charCodeAt(k), 16777619);
-  return ((h >>> 0) % 997) + 0.5;
+  return (seedOf(id) % 997) + 0.5;
 }
 
 /** Points closer than 5 cm to the previous one left out */

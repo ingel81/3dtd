@@ -1,7 +1,6 @@
 import {
   Box3,
   Color,
-  DoubleSide,
   Euler,
   Group,
   InstancedMesh,
@@ -60,7 +59,7 @@ import type { GroundCut } from '../terrain/terrain-cuts';
 import { HOLE_SLOTS, HOLE_STRIDE } from '../../../../configs/destruction.config';
 import { modelSection } from './ruin-section';
 import type { CatalogRoof } from '../../object-roof';
-import { addDamage, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, fallImpact, FELL_LONG_AGO, readDamage, RUIN_EMBERS, RUIN_HOLES, ruinSeed, structureSeed, ruinShape, writeDamage, type DamageArrays } from './ruin-damage';
+import { asRuin, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, type DamageArrays, damageDepthMaterial, emberPoint, fallImpact, FELL_LONG_AGO, readDamage, RUIN_EMBERS, RUIN_HOLES, ruinSeed, ruinShape, structureSeed, writeDamage } from './ruin-damage';
 
 /**
  * The placed objects of a map, drawn instanced: per asset, detail level and
@@ -2129,12 +2128,6 @@ transformed.xz = spinTurn * transformed.xz;
     this.materials.set(key, m);
     return m;
   }
-}
-
-/** A ruin's material: the damage in its shader, its inside drawn (ruin-damage.ts) */
-function asRuin(m: Material): void {
-  addDamage(m);
-  m.side = DoubleSide;
 }
 
 /**

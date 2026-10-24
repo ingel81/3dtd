@@ -1,8 +1,9 @@
-import { MeshDepthMaterial, RGBADepthPacking, type Material, type Texture } from 'three';
+import { DoubleSide, MeshDepthMaterial, RGBADepthPacking, type Material, type Texture } from 'three';
 import type { LosVertexPatch } from '../../../../three-engine/tower-shadow-mapper';
 import { HOLE_SLOTS, STRUCTURE_HEADING_STEPS } from '../../../../configs/destruction.config';
 import { RuinHoles } from './ruin-holes';
 import { CRACK_TILE_M, crackTexture } from './crack-texture';
+import { seedOf } from '../../../../utils/seeded-random';
 
 /**
  * How a damaged building looks (docs/DESTRUCTION_PLAN.md, Z2), in the shader
@@ -171,9 +172,7 @@ export interface RuinShape {
 
 /** A number per structure id (FNV-1a), which the ruin is rolled from */
 export function structureSeed(id: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
-  return h >>> 0;
+  return seedOf(id);
 }
 
 /** The number an object's ruin is rolled from: its map's `damageSeed` where it sets one, else its id */
@@ -944,6 +943,12 @@ export function addDamage(material: Material, look: DamageLook = {}): void {
       .replace('#include <aomap_fragment>', `#include <aomap_fragment>\n${DAMAGE_EMISSIVE_FRAGMENT}`);
   };
   material.customProgramCacheKey = () => `${prevKey.call(material)}-damage${look.slab ? '-slab' : ''}${look.core === 'concrete' ? '-concrete' : ''}`;
+}
+
+/** A ruin's material: the damage in its shader (what is under its plaster), its inside drawn */
+export function asRuin(m: Material, core: DamageLook['core'] = 'brick'): void {
+  addDamage(m, { core });
+  m.side = DoubleSide;
 }
 
 /**

@@ -11,6 +11,7 @@
 import type { MapBirdSpecies, MapLife, MapLifeArea, MapLifeKind, MapPoint } from './map-document';
 import type { MapText, MapThing } from './map-text';
 import { centroid } from './map-surfaces';
+import { seedOf } from '../../utils/seeded-random';
 
 export const LIFE_KINDS: readonly MapLifeKind[] = ['birds', 'fireflies', 'fog', 'leaves', 'embers', 'sparks', 'snow', 'dust', 'surf', 'haze', 'boats', 'movers', 'sound'];
 export const BIRD_SPECIES: readonly MapBirdSpecies[] = ['songbirds', 'gulls', 'crows', 'raptors', 'bats'];
@@ -236,9 +237,7 @@ export function lifeRandom(seed: number): () => number {
 
 /** A seed from an area's id, so an area keeps its look when others change */
 export function lifeSeed(id: string): number {
-  let h = 2166136261;
-  for (let k = 0; k < id.length; k++) h = Math.imul(h ^ id.charCodeAt(k), 16777619);
-  return (h >>> 0) % 2147483646;
+  return seedOf(id) % 2147483646;
 }
 
 /**

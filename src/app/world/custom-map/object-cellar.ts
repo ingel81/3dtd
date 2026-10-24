@@ -1,4 +1,5 @@
 import type { MapObject } from './map-document';
+import { seedOf } from '../../utils/seeded-random';
 
 /**
  * A building's cellar (docs/CUSTOM_MAPS.md "Keller"): storeys under its
@@ -89,9 +90,7 @@ export const CELLAR_PLINTH_SHARE = 0.2;
  * wall's, with the plinth at the foot of the slope (cellar-shell.ts WALL_BASE)
  */
 export function cellarPlinthDown(id: string): boolean {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
-  return ((h >>> 0) % 1000) / 1000 < CELLAR_PLINTH_SHARE;
+  return (seedOf(id) % 1000) / 1000 < CELLAR_PLINTH_SHARE;
 }
 
 /** A floor this much over the lowest ground opens its cellar to the slope (cellarForDrop), m */

@@ -1,3 +1,4 @@
+import { seedOf } from '../../../../utils/seeded-random';
 /**
  * How one plant differs from the next of its model, from a hash of its id
  * (the same object keeps its look across rebuilds and on every client): its
@@ -38,8 +39,7 @@ export interface InstanceVariation {
 
 /** Fractions in 0..1 from an object's id, FNV-1a and two more mixes */
 function idHashes(id: string): [number, number, number, number, number, number] {
-  let h = 2166136261;
-  for (let k = 0; k < id.length; k++) h = Math.imul(h ^ id.charCodeAt(k), 16777619);
+  const h = seedOf(id);
   let g = Math.imul(h ^ (h >>> 15), 2246822519);
   g = Math.imul(g ^ (g >>> 13), 3266489917);
   g ^= g >>> 16;

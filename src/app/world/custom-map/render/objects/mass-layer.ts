@@ -2,7 +2,6 @@ import {
   BufferAttribute,
   BufferGeometry,
   Color,
-  DoubleSide,
   Group,
   InstancedBufferAttribute,
   InstancedMesh,
@@ -47,7 +46,8 @@ import { rubbleMaterialOf } from '../../rubble-material';
 import type { RuinFootprint, RuinSlabs } from './ruin-slabs';
 import { DOOR_FROM, DOOR_TO } from './cellar-shell';
 import { FOUNDATION, openingInsides, pushWall, WALL_FACADE, WALL_GABLE, WALL_PLAIN, WALL_SHOP, type WallPiece } from './mass-openings';
-import { addDamage, collapseCuts, RUIN_HOLES, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, damageDepthMaterial, emberPoint, FELL_LONG_AGO, type DamageLook, ruinSeed, ruinShape, writeDamage, type DamageArrays, type RuinFrame, type RuinShape } from './ruin-damage';
+import { asRuin, collapseCuts, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, type DamageArrays, damageDepthMaterial, emberPoint, FELL_LONG_AGO, RUIN_HOLES, type RuinFrame, ruinSeed, ruinShape, type RuinShape, writeDamage } from './ruin-damage';
+import { seedOf } from '../../../../utils/seeded-random';
 
 /**
  * The buildings a map raises from their own footprint (MapObject.mass,
@@ -371,7 +371,7 @@ interface Batch {
 
 /** The batches a building is drawn with, as Batch.part: its bodies' facades' walls, their coverings' roofs, the caps */
 function partsOf(o: MapObject): string[] {
-  const seed = seedOf(o.id);
+  const seed = massSeed(o.id);
   return [...new Set(cellarBodies(massBodies(o.mass!), o).flatMap((b) => [`walls:${b.facade}`, `roof:${massShape(b, seed).covering}`])), 'caps'];
 }
 
@@ -795,7 +795,7 @@ export class MassLayer {
     const picked: MapObject[] = [];
     for (const o of this.objects) {
       if (!o.mass) continue;
-      const seed = seedOf(o.id);
+      const seed = massSeed(o.id);
       const bodies = massBodies(o.mass);
       if (bodies.every((b) => facades.has(b.facade) && coverings.has(massShape(b, seed).covering))) continue;
       for (const b of bodies) {
@@ -842,7 +842,7 @@ export class MassLayer {
     const roofCount = new Map<Covering, number>();
     let capCount = 0;
     for (const o of objects) {
-      const seed = seedOf(o.id);
+      const seed = massSeed(o.id);
       for (const body of this.bodiesOf(o, ruin)) {
         const shape = massShape(body, seed);
         wallCount.set(body.facade, (wallCount.get(body.facade) ?? 0) + wallsOf(o, shape).length);
@@ -910,7 +910,7 @@ export class MassLayer {
     const starts = new Array<number>(counters.length);
 
     for (const o of objects) {
-      const seed = seedOf(o.id);
+      const seed = massSeed(o.id);
       const scale = o.scale || 1;
       const r = ruins.get(o);
       // Where its instances start in each batch, for the ranges a damaged building leaves
@@ -1178,12 +1178,6 @@ export class MassLayer {
   }
 }
 
-/** A ruin's material: the damage in its shader (what is under its plaster), its inside drawn (ruin-damage.ts) */
-function asRuin(m: Material, core: DamageLook['core'] = 'brick'): void {
-  addDamage(m, { core });
-  m.side = DoubleSide;
-}
-
 function disposeBatch(b: Batch): void {
   b.mesh.removeFromParent();
   if (b.mesh.geometry.userData['owned']) b.mesh.geometry.dispose();
@@ -1226,10 +1220,8 @@ function kitSurfaces(model: ObjectModel): Map<string, Surface> {
 }
 
 /** A small number per object id for the shader's variation */
-function seedOf(id: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
-  return (h >>> 0) % 997;
+function massSeed(id: string): number {
+  return seedOf(id) % 997;
 }
 
 /**
