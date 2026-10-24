@@ -8,7 +8,8 @@ import { isGroundBuilding } from '../building-tags';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
 import type { BuildingDoor } from './building-types';
 import { LineClearance } from './line-clear';
-import { RAIL_GROUND, type RailPlan } from './rails';
+import { RAIL_GROUND } from './rails-ground';
+import { type RailPlan } from './rails-types';
 import { fillRings, stampLine, type RasterGrid } from './raster';
 import { simplify } from '../../../map-ops/lines';
 

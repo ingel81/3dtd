@@ -1,6 +1,8 @@
 import { EdgeIndex } from '../../../map-ops/path-graph';
 import type { MapPaths, MapPoint } from '../../custom-map/map-document';
-import { onTrackBed, RAIL_GROUND, type RailPlan } from './rails';
+import { RAIL_GROUND } from './rails-ground';
+import { onTrackBed } from './rails-pieces';
+import { type RailPlan } from './rails-types';
 
 /**
  * Where the pieces of a line stop (fences, walls, hedges: OSM's barrier

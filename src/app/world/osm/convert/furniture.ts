@@ -30,7 +30,10 @@ import { runs, type OsmFeatures, type OsmWay } from '../osm-parse';
 import { fillRings, sampleGrid } from './raster';
 import type { WaterResult } from './water';
 import { LineClearance } from './line-clear';
-import { onTrackBed, planRails, railPieces, RAIL_ASSET_IDS, TRACK_KINDS, type RailPlan } from './rails';
+import { planRails } from './rails';
+import { onTrackBed, railPieces } from './rails-pieces';
+import { type RailPlan } from './rails-types';
+import { RAIL_ASSET_IDS, TRACK_KINDS } from './rails-config';
 import { round2, round3, wrapAngle } from './geom';
 
 /** Share of the scene budget the furniture may take (plants 50 %, buildings for now without a cap) */

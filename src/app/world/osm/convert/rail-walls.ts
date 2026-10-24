@@ -31,7 +31,7 @@ import { heightAt, sampleX, sampleY } from '../../../map-ops/grid';
 import { EdgeIndex, edgePolyline, pointSegmentDistance } from '../../../map-ops/path-graph';
 import type { MapObject, MapPaths, MapPoint, MapTerrain } from '../../custom-map/map-document';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
-import type { RailPlan } from './rails';
+import type { RailPlan } from './rails-types';
 import { insideRing } from '../../custom-map/map-surfaces';
 import { round2, round3, unit } from './geom';
 

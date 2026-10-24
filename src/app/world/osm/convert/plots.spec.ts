@@ -4,7 +4,8 @@ import type { CustomMapDocument } from '../../custom-map/map-document';
 import { readWeights } from '../../../map-ops/paint-ops';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
 import { BACK_MATERIAL, DRIVE_MATERIAL, FRONT_MATERIAL, layPlots, PATH_MATERIAL } from './plots';
-import { RAIL_GROUND, type RailPlan } from './rails';
+import { RAIL_GROUND } from './rails-ground';
+import { type RailPlan } from './rails-types';
 
 const square = (id: number, x0: number, y0: number, x1: number, y1: number, tags: Record<string, string>): OsmArea => ({
   id,

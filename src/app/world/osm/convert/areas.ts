@@ -30,7 +30,7 @@ import { centroid, courtOf, fitMarking, insideRing, insideSurface, MARKING_FILL,
 import { areaLookOf, availableMaterial, MATERIAL_FALLBACK, PARKED_CARS, PLAYGROUND_DEVICES, PLAYGROUND_SETS, type AreaKind, type AreaLook } from '../area-tags';
 import type { OsmArea, OsmFeatures, OsmPoint } from '../osm-parse';
 import { LineClearance } from './line-clear';
-import type { RailPlan } from './rails';
+import type { RailPlan } from './rails-types';
 import { fillRings, sampleGrid, stampLine, distanceField, type RasterGrid } from './raster';
 
 /** Metres a cell of the buildings' index */

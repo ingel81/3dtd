@@ -13,29 +13,12 @@ import { OsmFrame, parseOsm } from '../osm-parse';
 import type { OverpassElement } from '../overpass-client';
 import { placeFurniture } from './furniture';
 import { sampleGrid } from './raster';
-import {
-  BED_HALF,
-  CROSSING_RAMP,
-  CROSSING_SINK,
-  equipment,
-  LATTICE,
-  levelRails,
-  OVER_CLEARANCE,
-  PANEL_TOP,
-  planRails,
-  profileAt,
-  RAIL_ASSETS,
-  RAIL_DECK_DEPTH,
-  paintRails,
-  RAIL_GROUND,
-  RAIL_HEAD,
-  railPieces,
-  STREET_SINK,
-  STREET_TOP,
-  timberSleepers,
-  UNDER_CLEARANCE,
-  type RailPlan,
-} from './rails';
+import { equipment, planRails } from './rails';
+import { levelRails, paintRails, RAIL_GROUND } from './rails-ground';
+import { railPieces, timberSleepers } from './rails-pieces';
+import { profileAt } from './rails-lines';
+import { type RailPlan } from './rails-types';
+import { BED_HALF, CROSSING_RAMP, CROSSING_SINK, LATTICE, OVER_CLEARANCE, PANEL_TOP, RAIL_ASSETS, RAIL_DECK_DEPTH, RAIL_HEAD, STREET_SINK, STREET_TOP, UNDER_CLEARANCE } from './rails-config';
 import { buildRoads, levelRoads } from './roads';
 import type { WaterResult } from './water';
 

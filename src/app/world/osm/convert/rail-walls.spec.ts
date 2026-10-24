@@ -3,7 +3,7 @@ import { createMapDocument } from '../../custom-map/map-create';
 import type { MapPaths } from '../../custom-map/map-document';
 import type { OsmArea } from '../osm-parse';
 import { FACE_OUT, placeRailWalls, TRACK_WALL_ASSET, WALL_MIN } from './rail-walls';
-import type { RailPlan } from './rails';
+import type { RailPlan } from './rails-types';
 
 /** A road along y = 0 (6 m wide) and a line along y = 12, the bed's ground `bed` metres over the road's */
 function world(bed: number, areas: OsmArea[] = []) {
