@@ -5,7 +5,8 @@ import { massArea, massBodies, massContains } from '../../object-mass';
 import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import { HeightField } from '../height-field';
 import { MapAssetLibrary } from '../map-asset-library';
-import { cellarBodies, MassLayer, massShape } from './mass-layer';
+import { MassLayer } from './mass-layer';
+import { cellarBodies, massShape } from './mass-shape';
 import { FELL_LONG_AGO } from './ruin-damage';
 import { MapObjectLayer } from './object-layer';
 

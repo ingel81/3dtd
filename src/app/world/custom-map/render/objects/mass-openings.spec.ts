@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MapMass, MapMassOpening } from '../../map-document';
 import { massBodies, massContains, massProblem } from '../../object-mass';
-import { massShape } from './mass-layer';
+import { massShape } from './mass-shape';
 import { FOUNDATION, WALL_ARCH, WALL_FACADE, WALL_PLAIN, WALL_REVEAL, WALL_WEDGE, type WallPiece } from './mass-openings';
 
 /** A house 20 m along x, 10 m deep, a way straight through it across its depth at x = 4 */

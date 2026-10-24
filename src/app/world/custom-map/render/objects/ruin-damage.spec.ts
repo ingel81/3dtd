@@ -6,7 +6,7 @@ import type { AssetCatalog, CatalogObject } from '../asset-catalog';
 import { HeightField } from '../height-field';
 import { MapAssetLibrary } from '../map-asset-library';
 import { CRACK_SIZE, crackTexels } from './crack-texture';
-import { massShape, splitWalls } from './mass-layer';
+import { massShape, splitWalls } from './mass-shape';
 import { MapObjectLayer } from './object-layer';
 import { cellarLining } from './ruin-slabs';
 import { footprintRects, RuinSlabs, type FootprintRect, type RuinFootprint } from './ruin-slabs';
