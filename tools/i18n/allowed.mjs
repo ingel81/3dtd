@@ -80,14 +80,14 @@ export const ALLOWED = {
     'red poppies read as enemy markers or blood from the game camera': NOTE,
   },
   'world/osm/convert/anchors.ts': { 'car park': KIND, 'city gate': KIND, 'place of worship': KIND, 'town hall': KIND },
-  'world/osm/convert/areas.ts': {
-    'tennis fence': GROUP, 'table tennis': GROUP, 'riding fence': GROUP, 'boules benches': GROUP, 'ball fence': GROUP, 'skate ramps': GROUP,
-    'playground benches': GROUP, 'market stalls': GROUP, 'outdoor seating': GROUP, 'cemetery hedge': GROUP, 'allotment fences': GROUP,
-    'allotment beds': GROUP, 'allotment sheds': GROUP,
+  'world/osm/convert/area-objects.ts': {
+    'ball fence': GROUP, 'skate ramps': GROUP, 'playground benches': GROUP, 'market stalls': GROUP, 'outdoor seating': GROUP,
+    'cemetery hedge': GROUP, 'allotment fences': GROUP, 'allotment beds': GROUP, 'allotment sheds': GROUP,
   },
+  'world/osm/convert/areas.ts': { 'tennis fence': GROUP, 'table tennis': GROUP, 'riding fence': GROUP, 'boules benches': GROUP },
   'world/osm/convert/furniture.ts': { 'city wall': GROUP, 'lit roads': GROUP },
   'world/osm/convert/life.ts': { 'bell at {}': MAP_CONTENT, 'ship horn on the river': MAP_CONTENT },
-  'world/osm/convert/rails.ts': { 'rail bridge': GROUP, 'crossing signal': GROUP },
+  'world/osm/convert/rails-pieces.ts': { 'rail bridge': GROUP, 'crossing signal': GROUP },
   'world/osm/convert/vegetation.ts': { 'tree rows': GROUP },
   'world/osm/dem-tiles.ts': {
     'Heights: Mapterhorn (mapterhorn.com) and its sources': CREDIT,
