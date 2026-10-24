@@ -396,80 +396,8 @@ export function cellarShell(source: readonly ModelPart[], openings = true): Mode
     if (!list) footFaces.set(f.part, (list = []));
     list.push(f);
   }
-  const mark = (k: number, list: readonly Face[], atY: number, kind: number): void => {
-    let g = geometries[k];
-    const pos = g.getAttribute('position');
-    const uv = (g.getAttribute('uv') as BufferAttribute | undefined) ?? null;
-    let cellar = cellars[k];
-    // The gradient each foot vertex took, and its splits: a vertex shared by faces of other gradients is copied
-    const taken = new Map<number, [number, number]>();
-    const splits: { from: number; gradient: [number, number]; faces: Face[] }[] = [];
-    for (const f of list) {
-      const gradient = Math.abs(f.n.y) <= UPRIGHT ? (uvPerMetreDown(f, uv) ?? [0, 0]) : [0, 0] as [number, number];
-      for (let c = 0; c < 3; c++) {
-        const id = f.ids[c];
-        if (Math.abs(pos.getY(id) - atY) >= FOOT_NEAR) continue;
-        const had = taken.get(id);
-        if (!had) {
-          taken.set(id, gradient);
-          continue;
-        }
-        if (Math.abs(had[0] - gradient[0]) < 1e-5 && Math.abs(had[1] - gradient[1]) < 1e-5) continue;
-        let split = splits.find((s) => s.from === id && Math.abs(s.gradient[0] - gradient[0]) < 1e-5 && Math.abs(s.gradient[1] - gradient[1]) < 1e-5);
-        if (!split) splits.push((split = { from: id, gradient, faces: [] }));
-        split.faces.push(f);
-      }
-    }
-    if (splits.length && g.getIndex()) {
-      // Each split a copy of its vertex at the end, its faces' corners pointed at it
-      const n = pos.count;
-      const grown = new BufferGeometry();
-      for (const [name, attr] of Object.entries(g.attributes)) {
-        const size = attr.itemSize;
-        const data = new Float32Array((n + splits.length) * size);
-        for (let i = 0; i < n; i++) for (let c = 0; c < size; c++) data[i * size + c] = attr.getComponent(i, c);
-        splits.forEach((s, j) => {
-          for (let c = 0; c < size; c++) data[(n + j) * size + c] = attr.getComponent(s.from, c);
-        });
-        grown.setAttribute(name, new BufferAttribute(data, size));
-      }
-      const index = g.getIndex()!;
-      const corners = Array.from({ length: index.count }, (_, i) => index.getX(i));
-      // The faces by their first corner's place in the index (facesOf walked the index in threes)
-      const at = new Map<Face, number>();
-      {
-        const total = index.count;
-        const start = Math.max(0, g.drawRange.start);
-        const end = Math.min(total, start + (Number.isFinite(g.drawRange.count) ? g.drawRange.count : total));
-        let q = 0;
-        const own = faces.filter((f) => f.part === k);
-        for (let i = start; i + 2 < end && q < own.length; i += 3) {
-          const f = own[q];
-          if (f.ids[0] === index.getX(i) && f.ids[1] === index.getX(i + 1) && f.ids[2] === index.getX(i + 2)) {
-            at.set(f, i);
-            q++;
-          }
-        }
-      }
-      splits.forEach((s, j) => {
-        for (const f of s.faces) {
-          const i = at.get(f);
-          if (i === undefined) continue;
-          for (let c = 0; c < 3; c++) if (corners[i + c] === s.from) corners[i + c] = n + j;
-        }
-        taken.set(n + j, s.gradient);
-      });
-      grown.setIndex(corners);
-      grown.groups = g.groups;
-      grown.drawRange = { ...g.drawRange };
-      g = grown;
-      geometries[k] = g;
-      cellar = new Float32Array((n + splits.length) * 4);
-      cellars[k] = cellar;
-    }
-    for (const [id, [du, dv]] of taken) cellar.set([kind, du, dv, 0], id * 4);
-  };
-  for (const [k, list] of footFaces) mark(k, list, footY, FOOT);
+  const shell: Shell = { parts, faces, geometries, cellars };
+  for (const [k, list] of footFaces) mark(shell, k, list, footY, FOOT);
   const adds = new Map<number, Added>();
   // The foot's top: a plinth built as one block has a cap over the whole ground, which would close the cellar seen
   // through a hole or its pit after a fall; only its ledge before the wall stays (capRing)
@@ -483,8 +411,109 @@ export function cellarShell(source: readonly ModelPart[], openings = true): Mode
     geometries[k] = ring.geometry;
     if (ring.add.pos.length) adds.set(k, ring.add);
   }
-  // A plinth (a foot lower than CAP_HIGHEST, its own parts): its top and the wall's foot on it marked, to go down
-  // to the lowest ground on a house whose cellar wears its wall (WALL_BASE)
+  markPlinth(shell, footFaces, adds);
+  if (openings) addOpenings(parts, faces, foot, adds);
+  return parts.map((p, k) => ({ geometry: withCellar(geometries[k], cellars[k], adds.get(k)), material: p.material }));
+}
+
+/** A model's parts as cellarShell works on them: their faces, their geometries and cellar attributes (replaced when vertices are split) */
+interface Shell {
+  parts: readonly ModelPart[];
+  faces: readonly Face[];
+  geometries: BufferGeometry[];
+  cellars: Float32Array[];
+}
+
+/**
+ * Part `k`'s vertices at `atY` on its faces `list` marked `kind`, each with the uv per metre down of the upright face
+ * it belongs to; a vertex shared by faces of other gradients is copied, one per gradient
+ */
+function mark(shell: Shell, k: number, list: readonly Face[], atY: number, kind: number): void {
+  const { faces, geometries, cellars } = shell;
+  let g = geometries[k];
+  const pos = g.getAttribute('position');
+  const uv = (g.getAttribute('uv') as BufferAttribute | undefined) ?? null;
+  let cellar = cellars[k];
+  // The gradient each foot vertex took, and its splits: a vertex shared by faces of other gradients is copied
+  const taken = new Map<number, [number, number]>();
+  const splits: { from: number; gradient: [number, number]; faces: Face[] }[] = [];
+  for (const f of list) {
+    const gradient = Math.abs(f.n.y) <= UPRIGHT ? (uvPerMetreDown(f, uv) ?? [0, 0]) : [0, 0] as [number, number];
+    for (let c = 0; c < 3; c++) {
+      const id = f.ids[c];
+      if (Math.abs(pos.getY(id) - atY) >= FOOT_NEAR) continue;
+      const had = taken.get(id);
+      if (!had) {
+        taken.set(id, gradient);
+        continue;
+      }
+      if (Math.abs(had[0] - gradient[0]) < 1e-5 && Math.abs(had[1] - gradient[1]) < 1e-5) continue;
+      let split = splits.find((s) => s.from === id && Math.abs(s.gradient[0] - gradient[0]) < 1e-5 && Math.abs(s.gradient[1] - gradient[1]) < 1e-5);
+      if (!split) splits.push((split = { from: id, gradient, faces: [] }));
+      split.faces.push(f);
+    }
+  }
+  if (splits.length && g.getIndex()) {
+    // Each split a copy of its vertex at the end, its faces' corners pointed at it
+    g = splitVertices(g, faces.filter((f) => f.part === k), splits, taken);
+    geometries[k] = g;
+    cellar = new Float32Array(g.getAttribute('position').count * 4);
+    cellars[k] = cellar;
+  }
+  for (const [id, [du, dv]] of taken) cellar.set([kind, du, dv, 0], id * 4);
+}
+
+/** `g` with a copy of each split's vertex at its end, the split's faces' corners (of `own`, the part's faces) pointed at it; `taken` learns their gradients */
+function splitVertices(g: BufferGeometry, own: readonly Face[], splits: readonly { from: number; gradient: [number, number]; faces: Face[] }[], taken: Map<number, [number, number]>): BufferGeometry {
+  const pos = g.getAttribute('position');
+  const n = pos.count;
+  const grown = new BufferGeometry();
+  for (const [name, attr] of Object.entries(g.attributes)) {
+    const size = attr.itemSize;
+    const data = new Float32Array((n + splits.length) * size);
+    for (let i = 0; i < n; i++) for (let c = 0; c < size; c++) data[i * size + c] = attr.getComponent(i, c);
+    splits.forEach((s, j) => {
+      for (let c = 0; c < size; c++) data[(n + j) * size + c] = attr.getComponent(s.from, c);
+    });
+    grown.setAttribute(name, new BufferAttribute(data, size));
+  }
+  const index = g.getIndex()!;
+  const corners = Array.from({ length: index.count }, (_, i) => index.getX(i));
+  // The faces by their first corner's place in the index (facesOf walked the index in threes)
+  const at = new Map<Face, number>();
+  {
+    const total = index.count;
+    const start = Math.max(0, g.drawRange.start);
+    const end = Math.min(total, start + (Number.isFinite(g.drawRange.count) ? g.drawRange.count : total));
+    let q = 0;
+    for (let i = start; i + 2 < end && q < own.length; i += 3) {
+      const f = own[q];
+      if (f.ids[0] === index.getX(i) && f.ids[1] === index.getX(i + 1) && f.ids[2] === index.getX(i + 2)) {
+        at.set(f, i);
+        q++;
+      }
+    }
+  }
+  splits.forEach((s, j) => {
+    for (const f of s.faces) {
+      const i = at.get(f);
+      if (i === undefined) continue;
+      for (let c = 0; c < 3; c++) if (corners[i + c] === s.from) corners[i + c] = n + j;
+    }
+    taken.set(n + j, s.gradient);
+  });
+  grown.setIndex(corners);
+  grown.groups = g.groups;
+  grown.drawRange = { ...g.drawRange };
+  return grown;
+}
+
+/**
+ * A plinth (a foot lower than CAP_HIGHEST, its own parts): its top and the wall's foot on it marked, to go down to
+ * the lowest ground on a house whose cellar wears its wall (WALL_BASE)
+ */
+function markPlinth(shell: Shell, footFaces: ReadonlyMap<number, Face[]>, adds: ReadonlyMap<number, Added>): void {
+  const { parts, faces, geometries, cellars } = shell;
   const plinthParts = [...footFaces.keys()].filter((k) => {
     const sides = footFaces.get(k)!.filter((f) => Math.abs(f.n.y) <= UPRIGHT);
     return sides.length > 0 && Math.max(...sides.map((f) => f.maxY)) <= CAP_HIGHEST;
@@ -513,44 +542,44 @@ export function cellarShell(source: readonly ModelPart[], openings = true): Mode
         const ring = adds.get(k);
         if (ring) for (let i = 0; i < ring.cellar.length; i += 4) ring.cellar[i] = PLINTH_TOP;
       }
-      for (const [k, list] of base) mark(k, list, top, WALL_BASE);
+      for (const [k, list] of base) mark(shell, k, list, top, WALL_BASE);
     }
   }
-  // The openings, into the parts of the model's frame, glass and door
-  if (openings) {
-    const frame = parts.findIndex((p) => p.material.name.startsWith('frame') || p.material.name === 'window');
-    const glass = parts.findIndex((p) => isWindowGlass(p.material.name) && p.material.name !== 'window');
-    const door = parts.findIndex((p) => p.material.name.startsWith('door'));
-    if (frame >= 0 && glass >= 0) {
-      const walls = footWalls(foot);
-      const into = (k: number): Added => {
-        let a = adds.get(k);
-        if (!a) adds.set(k, (a = { pos: [], nor: [], cellar: [] }));
-        return a;
-      };
-      for (const s of slotsOf(faces, parts, walls)) {
-        const n = s.wall.n;
-        const t = tangentOf(n);
-        const at = (out: number, y: number) => t.clone().multiplyScalar(s.along).addScaledVector(n, s.wall.d + out).setY(y);
-        const half = s.width / 2;
-        const kind = s.door && door >= 0 ? DOOR_SLOT : WINDOW;
-        for (let k = 0; k < MAX_CELLAR_STOREYS; k++) {
-          // A window: its frame, the glass in front; corners down from its top
-          const b = WIN.frame;
-          addQuad(into(frame), at(FRAME_OUT, -WIN.top), n, kind, k, -half - b, half + b, -b, WIN.height + b);
-          addQuad(into(glass), at(GLASS_OUT, -WIN.top), n, kind, k, -half, half, 0, WIN.height);
-          if (s.door && door >= 0) {
-            // The door: up from the ground it stands on (the shader puts the point there)
-            const h = DOOR_SIZE.width / 2;
-            const f = DOOR_SIZE.frame;
-            addQuad(into(frame), at(FRAME_OUT, 0), n, DOOR, k, -h - f, h + f, -DOOR_SIZE.height - f, 0);
-            addQuad(into(door), at(GLASS_OUT, 0), n, DOOR, k, -h, h, -DOOR_SIZE.height, 0);
-          }
+}
+
+/** The openings, into the parts of the model's frame, glass and door: a window per storey down each wall's slots, a door where the slot is one */
+function addOpenings(parts: readonly ModelPart[], faces: readonly Face[], foot: readonly Face[], adds: Map<number, Added>): void {
+  const frame = parts.findIndex((p) => p.material.name.startsWith('frame') || p.material.name === 'window');
+  const glass = parts.findIndex((p) => isWindowGlass(p.material.name) && p.material.name !== 'window');
+  const door = parts.findIndex((p) => p.material.name.startsWith('door'));
+  if (frame >= 0 && glass >= 0) {
+    const walls = footWalls(foot);
+    const into = (k: number): Added => {
+      let a = adds.get(k);
+      if (!a) adds.set(k, (a = { pos: [], nor: [], cellar: [] }));
+      return a;
+    };
+    for (const s of slotsOf(faces, parts, walls)) {
+      const n = s.wall.n;
+      const t = tangentOf(n);
+      const at = (out: number, y: number) => t.clone().multiplyScalar(s.along).addScaledVector(n, s.wall.d + out).setY(y);
+      const half = s.width / 2;
+      const kind = s.door && door >= 0 ? DOOR_SLOT : WINDOW;
+      for (let k = 0; k < MAX_CELLAR_STOREYS; k++) {
+        // A window: its frame, the glass in front; corners down from its top
+        const b = WIN.frame;
+        addQuad(into(frame), at(FRAME_OUT, -WIN.top), n, kind, k, -half - b, half + b, -b, WIN.height + b);
+        addQuad(into(glass), at(GLASS_OUT, -WIN.top), n, kind, k, -half, half, 0, WIN.height);
+        if (s.door && door >= 0) {
+          // The door: up from the ground it stands on (the shader puts the point there)
+          const h = DOOR_SIZE.width / 2;
+          const f = DOOR_SIZE.frame;
+          addQuad(into(frame), at(FRAME_OUT, 0), n, DOOR, k, -h - f, h + f, -DOOR_SIZE.height - f, 0);
+          addQuad(into(door), at(GLASS_OUT, 0), n, DOOR, k, -h, h, -DOOR_SIZE.height, 0);
         }
       }
     }
   }
-  return parts.map((p, k) => ({ geometry: withCellar(geometries[k], cellars[k], adds.get(k)), material: p.material }));
 }
 
 /**
