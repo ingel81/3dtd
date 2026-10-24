@@ -6,7 +6,8 @@ import type { HeightField } from '../height-field';
 import type { HeightTexture } from '../terrain/height-texture';
 import { DrapedMaterial, DrapedTextures, DrapedTiles, type DrapeLook } from '../drape/draped-layer';
 import { DrapedConformPool } from '../drape/draped-conform-pool';
-import { ARM_WEIGHT_BASE, ARM_WEIGHT_SPAN, RoadNetworkBuilder, type RoadNetwork, type RoadTile } from './road-network';
+import { RoadNetworkBuilder, type RoadNetwork, type RoadTile } from './road-network';
+import { ARM_WEIGHT_BASE, ARM_WEIGHT_SPAN } from './road-junction';
 import { MAX_ROAD_SURFACES } from './road-style';
 
 /**

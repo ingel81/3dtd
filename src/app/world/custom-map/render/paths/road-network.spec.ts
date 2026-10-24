@@ -1,7 +1,8 @@
 import type { MapPathEdge, MapPaths } from '../../map-document';
 import { gridHeightAt } from '../height-field';
 import { REFINE_TOLERANCE, type DrapeGround } from '../drape/draped-refine';
-import { ARM_WEIGHT_BASE, ARM_WEIGHT_SPAN, buildRoadNetwork, RoadNetworkBuilder, type RoadNetwork, type RoadTile } from './road-network';
+import { buildRoadNetwork, RoadNetworkBuilder, type RoadNetwork, type RoadTile } from './road-network';
+import { ARM_WEIGHT_BASE, ARM_WEIGHT_SPAN } from './road-junction';
 
 function paths(edges: Partial<MapPathEdge>[], nodes: [string, number, number][]): MapPaths {
   return {
