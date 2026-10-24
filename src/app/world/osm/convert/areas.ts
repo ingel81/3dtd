@@ -28,7 +28,7 @@ import type { CustomMapDocument, MapObject, MapPoint, MapSurface, MapSurfaceMark
 import { SCENE_BUDGET } from '../../custom-map/render/objects/scene-cost';
 import { centroid, fitMarking, insideRing, insideSurface, MARKING_FILL, markingPoint, MAX_SURFACE_MATERIALS, minAreaRect, surfaceArea } from '../../custom-map/map-surfaces';
 import { areaLookOf, availableMaterial, MATERIAL_FALLBACK, PARKED_CARS, type AreaKind } from '../area-tags';
-import type { OsmFeatures } from '../osm-parse';
+import type { OsmArea, OsmFeatures, OsmPoint } from '../osm-parse';
 import { LineClearance } from './line-clear';
 import type { RailPlan } from './rails-types';
 import { fillRings, sampleGrid, stampLine, distanceField, type RasterGrid } from './raster';
@@ -155,8 +155,36 @@ export function layAreas(doc: CustomMapDocument, features: OsmFeatures, water: W
   const centres = features.areas.filter((a) => a.tags['leisure'] === 'sports_centre' || a.tags['leisure'] === 'stadium');
   const markets = features.points.filter((p) => p.tags['amenity'] === 'marketplace');
   const devices = features.points.filter((p) => !!p.tags['playground']);
+  const { planned, cemeteries, allotments, seating } = planSurfaces(features);
+  settleMaterials(planned, roads, options.hasMaterial ?? null, report);
+  markAndLevel(doc, planned, water, report);
 
-  // The surfaces: one per outer ring of each area of use, its holes the inner rings inside it
+  // Cemeteries: gravel paths across the middle (surfaces of their own), rows of graves along them, a hedge round
+  const extra: MapSurface[] = [];
+  const candidates: Candidate[] = [];
+  const add = (o: Omit<MapObject, 'id'>, source: string, priority: number, reach?: number) =>
+    candidates.push({ o: { ...o, x: round2(o.x), y: round2(o.y), rotation: round3(o.rotation), scale: round2(o.scale) }, source, priority, reach });
+  // The objects of an area carry its group, as its surface does: the editor picks and moves them together
+  const into = (group: string | undefined): Add => (o, source, priority, reach) => add(group ? { ...o, group } : o, source, priority, reach);
+  for (const c of cemeteries) cemetery(c, extra, into(c.surface.group), options.hasMaterial ?? null);
+  for (const a of allotments) allotmentPlots(a, buildings, into(a.surface.group));
+  for (const s of seating) outdoorSeating(s, into(s.surface.group));
+
+  const nearRoute = routeNearness(doc, options);
+  for (const p of planned) placeOn(p, { centres, markets, devices, seed, nearRoute }, into(p.surface.group));
+
+  const keepOff = new Uint8Array(n * n);
+  placeCandidates(doc, candidates, { water, buildings, roads, cell, half, keepOff }, options, report);
+
+  const surfaces = [...planned.map((p) => p.surface), ...extra];
+  for (const s of surfaces) fillRings([s.outer, ...(s.holes ?? [])], grid, (i, j) => (keepOff[j * n + i] = 1));
+  if (surfaces.length) doc.surfaces = [...(doc.surfaces ?? []), ...surfaces];
+  report.materials = [...new Set(surfaces.map((s) => s.material))];
+  return { report, keepOff };
+}
+
+/** The surfaces: one per outer ring of each area of use, its holes the inner rings inside it; cemeteries, allotments and outdoor seating apart */
+function planSurfaces(features: OsmFeatures): { planned: Planned[]; cemeteries: Planned[]; allotments: Planned[]; seating: Planned[] } {
   const planned: Planned[] = [];
   const cemeteries: Planned[] = [];
   const allotments: Planned[] = [];
@@ -180,13 +208,18 @@ export function layAreas(doc: CustomMapDocument, features: OsmFeatures, water: W
       } else planned.push(entry);
     });
   }
+  return { planned, cemeteries, allotments, seating };
+}
 
-  // Materials: the catalogue's, a square of setts where the streets round it are, at most MAX_SURFACE_MATERIALS.
-  // An untagged square inside a larger one (a footway's area across a pedestrian square) takes its material
+/**
+ * Materials: the catalogue's, a square of setts where the streets round it are, at most MAX_SURFACE_MATERIALS.
+ * An untagged square inside a larger one (a footway's area across a pedestrian square) takes its material
+ */
+function settleMaterials(planned: Planned[], roads: EdgeIndex, hasMaterial: ((id: string) => boolean) | null, report: AreaReport): void {
   const squares = planned.filter((p) => p.look.kind === 'square').sort((p, q) => surfaceArea(q.surface) - surfaceArea(p.surface));
   for (const p of planned) {
     if (p.look.kind === 'square' && !p.area.tags['surface'] && settsAround(p.surface, roads)) p.look = { ...p.look, material: 'cobblestone' };
-    p.surface.material = availableMaterial(p.look.material!, options.hasMaterial ?? null);
+    p.surface.material = availableMaterial(p.look.material!, hasMaterial);
     if (p.surface.material !== p.look.material) report.fellBack[p.look.material!] = p.surface.material;
   }
   squares.forEach((p, k) => {
@@ -195,9 +228,11 @@ export function layAreas(doc: CustomMapDocument, features: OsmFeatures, water: W
     const outer = squares.slice(0, k).find((q) => insideSurface(q.surface, c));
     if (outer) p.surface.material = outer.surface.material;
   });
-  fitMaterials(planned, options.hasMaterial ?? null, report);
+  fitMaterials(planned, hasMaterial, report);
+}
 
-  // Lines, level ground
+/** Lines (a pitch's, a car park's stalls) and level ground where the kind asks for them */
+function markAndLevel(doc: CustomMapDocument, planned: readonly Planned[], water: WaterResult, report: AreaReport): void {
   for (const p of planned) {
     const s = p.surface;
     if (p.look.marking) {
@@ -213,91 +248,98 @@ export function layAreas(doc: CustomMapDocument, features: OsmFeatures, water: W
     if (p.look.level && (s.marking || p.look.kind === 'parking') && levelGround(doc, s, water)) report.levelled++;
     report.surfaces[p.look.kind] = (report.surfaces[p.look.kind] ?? 0) + 1;
   }
+}
 
-  // Cemeteries: gravel paths across the middle (surfaces of their own), rows of graves along them, a hedge round
-  const extra: MapSurface[] = [];
-  const candidates: Candidate[] = [];
-  const add = (o: Omit<MapObject, 'id'>, source: string, priority: number, reach?: number) =>
-    candidates.push({ o: { ...o, x: round2(o.x), y: round2(o.y), rotation: round3(o.rotation), scale: round2(o.scale) }, source, priority, reach });
-  // The objects of an area carry its group, as its surface does: the editor picks and moves them together
-  const into = (group: string | undefined): Add => (o, source, priority, reach) => add(group ? { ...o, group } : o, source, priority, reach);
-  for (const c of cemeteries) cemetery(c, extra, into(c.surface.group), options.hasMaterial ?? null);
-  for (const a of allotments) allotmentPlots(a, buildings, into(a.surface.group));
-  for (const s of seating) outdoorSeating(s, into(s.surface.group));
-
-  // Nearness to the routes, for the devices kept first
+/** Whether a point is near the routes (ROUTE_NEAR), for the devices kept first; everywhere without routes */
+function routeNearness(doc: CustomMapDocument, options: AreaOptions): (p: MapPoint) => boolean {
+  const t = doc.terrain;
+  const half = t.width / 2;
   const routeLines = options.routes ?? [...spawnRoutes(doc).values()].filter((r) => !!r).map((r) => r!.points);
   const coarse: RasterGrid = { n: Math.ceil(t.width / 8) + 1, origin: -half, step: 8 };
   const onRoute = new Uint8Array(coarse.n * coarse.n);
   for (const line of routeLines) stampLine(line, coarse, coarse.step, (i, j) => (onRoute[j * coarse.n + i] = 1));
   const routeDist = routeLines.length ? distanceField(onRoute, coarse.n, coarse.step, ROUTE_NEAR * 2, false) : null;
-  const nearRoute = (p: MapPoint) => {
+  return (p: MapPoint) => {
     if (!routeDist) return true;
     const i = Math.min(coarse.n - 1, Math.max(0, Math.round((p.x - coarse.origin) / coarse.step)));
     const j = Math.min(coarse.n - 1, Math.max(0, Math.round((p.y - coarse.origin) / coarse.step)));
     return routeDist[j * coarse.n + i] <= ROUTE_NEAR;
   };
+}
 
-  for (const p of planned) {
-    const s = p.surface;
-    const m = s.marking;
-    const salt = hashCell(p.area.id % 1e6, 17, seed);
-    const add = into(s.group);
-    switch (p.look.kind) {
-      case 'soccer':
-        if (m) soccer(m, centres, add);
-        break;
-      case 'handball':
-        if (m) goals(m, 'handball-goal', 1, add);
-        break;
-      case 'multi':
-        if (m) multi(m, add);
-        break;
-      case 'basketball':
-        if (m) hoops(m, add);
-        break;
-      case 'tennis':
-        if (m) {
-          net(m, 'tennis-net', add);
-          fenceRect(m, 'fence-chainlink', 3.6, add, 'tennis fence');
-        }
-        break;
-      case 'volleyball':
-      case 'beachvolleyball':
-        if (m) net(m, 'volleyball-net', add);
-        break;
-      case 'table_tennis': {
-        const r = minAreaRect(s.outer);
-        add({ asset: 'table-tennis', x: r.c.x, y: r.c.y, z: 0, rotation: Math.atan2(r.u.y, r.u.x), scale: 1 }, 'table tennis', 0);
-        break;
+/** What an area's surface takes by its kind: goals, nets, devices, cars, stalls, loungers */
+function placeOn(
+  p: Planned,
+  near: { centres: readonly OsmArea[]; markets: readonly OsmPoint[]; devices: readonly OsmPoint[]; seed: number; nearRoute: (p: MapPoint) => boolean },
+  add: Add,
+): void {
+  const { centres, markets, devices, seed, nearRoute } = near;
+  const s = p.surface;
+  const m = s.marking;
+  const salt = hashCell(p.area.id % 1e6, 17, seed);
+  switch (p.look.kind) {
+    case 'soccer':
+      if (m) soccer(m, centres, add);
+      break;
+    case 'handball':
+      if (m) goals(m, 'handball-goal', 1, add);
+      break;
+    case 'multi':
+      if (m) multi(m, add);
+      break;
+    case 'basketball':
+      if (m) hoops(m, add);
+      break;
+    case 'tennis':
+      if (m) {
+        net(m, 'tennis-net', add);
+        fenceRect(m, 'fence-chainlink', 3.6, add, 'tennis fence');
       }
-      case 'skateboard':
-        skatePark(s, add);
-        break;
-      case 'equestrian':
-        if (m) fenceRect(m, 'fence-rail', 3.8, add, 'riding fence');
-        break;
-      case 'boules':
-        benchesAt(s, 2, salt, add, 'boules benches');
-        break;
-      case 'playground':
-        playground(s, devices, salt, nearRoute, add);
-        break;
-      case 'parking':
-        if (m) parkedCars(s, m, salt, add);
-        break;
-      case 'square':
-        if (p.area.tags['amenity'] === 'marketplace' || markets.some((q) => insideSurface(s, q))) marketStalls(s, salt, add);
-        break;
-      case 'pool':
-        loungers(p.area, add);
-        break;
-      default:
-        break;
+      break;
+    case 'volleyball':
+    case 'beachvolleyball':
+      if (m) net(m, 'volleyball-net', add);
+      break;
+    case 'table_tennis': {
+      const r = minAreaRect(s.outer);
+      add({ asset: 'table-tennis', x: r.c.x, y: r.c.y, z: 0, rotation: Math.atan2(r.u.y, r.u.x), scale: 1 }, 'table tennis', 0);
+      break;
     }
+    case 'skateboard':
+      skatePark(s, add);
+      break;
+    case 'equestrian':
+      if (m) fenceRect(m, 'fence-rail', 3.8, add, 'riding fence');
+      break;
+    case 'boules':
+      benchesAt(s, 2, salt, add, 'boules benches');
+      break;
+    case 'playground':
+      playground(s, devices, salt, nearRoute, add);
+      break;
+    case 'parking':
+      if (m) parkedCars(s, m, salt, add);
+      break;
+    case 'square':
+      if (p.area.tags['amenity'] === 'marketplace' || markets.some((q) => insideSurface(s, q))) marketStalls(s, salt, add);
+      break;
+    case 'pool':
+      loungers(p.area, add);
+      break;
+    default:
+      break;
   }
+}
 
-  // The objects: off roads, water, buildings and clearings, models the catalogue has, then the budget by priority
+/** The objects: off roads, water, buildings and clearings, models the catalogue has, then the budget by priority */
+function placeCandidates(
+  doc: CustomMapDocument,
+  candidates: Candidate[],
+  ground: { water: WaterResult; buildings: BuildingIndex; roads: EdgeIndex; cell: (p: MapPoint) => number; half: number; keepOff: Uint8Array },
+  options: AreaOptions,
+  report: AreaReport,
+): void {
+  const { water, buildings, roads, cell, half, keepOff } = ground;
   const clearings = [{ ...doc.hq, r: HQ_CLEAR }, ...doc.spawns.map((sp) => ({ x: sp.x, y: sp.y, r: SPAWN_CLEAR }))];
   // A fence's or hedge's piece stops at the roads, paths and track beds with all its length
   const clearance = new LineClearance(doc.paths, options.rails ?? null, { roadClear: ROAD_CLEAR, pavements: false });
@@ -317,7 +359,6 @@ export function layAreas(doc: CustomMapDocument, features: OsmFeatures, water: W
   report.budget = Math.round(budget);
   candidates.sort((a, b) => a.priority - b.priority);
   const ids = new ObjectIds(doc.objects);
-  const keepOff = new Uint8Array(n * n);
   let cost = 0;
   for (const c of candidates) {
     if (options.hasAsset && !options.hasAsset(c.o.asset)) continue;
@@ -340,12 +381,6 @@ export function layAreas(doc: CustomMapDocument, features: OsmFeatures, water: W
     if (k >= 0) keepOff[k] = 1;
   }
   report.cost = Math.round(cost);
-
-  const surfaces = [...planned.map((p) => p.surface), ...extra];
-  for (const s of surfaces) fillRings([s.outer, ...(s.holes ?? [])], grid, (i, j) => (keepOff[j * n + i] = 1));
-  if (surfaces.length) doc.surfaces = [...(doc.surfaces ?? []), ...surfaces];
-  report.materials = [...new Set(surfaces.map((s) => s.material))];
-  return { report, keepOff };
 }
 
 /** Whether the streets round a square are mostly setts: its own ground is then setts too (an old town) */
