@@ -529,7 +529,8 @@ des Gleisfelds, der Posttunnel), 5 Mündungen ohne Abgang (Aufzüge), Objekte 49
 
 Code: `map-document.ts` (`MapMassPart`, `MapMass.parts`, `roofTint`, `roofCover`, Dach `pyramid`), `object-mass.ts`
 (`massBodies`, Prüfung, Höhe und Dachraster über alle Teile, `massRectFrame`, `massApex`), `render/objects/mass-layer.ts`
-(Teile als Körper desselben Baus), `convert/building-mass.ts` (`partsMass`, `partOf`, Farben, `clipOffRoads`),
+(Teile als Körper desselben Baus), `convert/building-parts.ts` (`partsMass`, `partOf`), `convert/building-look.ts`
+(Farben), `convert/mass-road-clip.ts` (`clipOffRoads`),
 `convert/buildings.ts` (`partsByOutline`, Bericht), `convert/square-outlines.ts` (`pullDeadEnds`), `convert/roads.ts`.
 Specs: `building-parts.spec.ts` (neu), `object-mass.spec.ts`, `mass-layer.spec.ts`.
 

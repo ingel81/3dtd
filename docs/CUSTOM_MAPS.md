@@ -1005,7 +1005,7 @@ Gelände verdeckt, was in ihm liegt.
   darauf gehen um die Höhe des Bodens über dem tiefsten Gelände hinunter (`MapObject.z`, `aCellarOf.w`; -1 für
   Sockeloptik), die Textur der Wand läuft weiter. Der Sockel steht dann unten am Hang, darüber Putz wie am Haus. Ohne
   Wand auf dem Sockel (ein niedriger Block, der das ganze Gebäude ist) gilt er nicht als Sockel.
-- *Grundrissbau* (`mass-layer.ts`, `cellarBodies`): die Wände seiner Körper am Boden reichen bis zum Kellerfuß. Jedes
+- *Grundrissbau* (`mass-layer.ts`, `mass-shape.ts` `cellarBodies`): die Wände seiner Körper am Boden reichen bis zum Kellerfuß. Jedes
   fünfte Haus (nach seinem Hash) im Sockelmaterial der Fassade ab der Sockeloberkante abwärts, die anderen in der
   Fassade, der Sockel unten am Hang (`wallDown` aus der Tiefe der gezeichneten Wand).
 
