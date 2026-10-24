@@ -11,7 +11,6 @@ import {
   Ray,
   Raycaster,
   Sphere,
-  Vector2,
   Vector3,
   type BufferGeometry,
   type Camera,
@@ -19,31 +18,24 @@ import {
   type Material,
   type Object3D,
   type Texture,
-  type MeshStandardMaterial,
 } from 'three';
 import type { MapObject } from '../../map-document';
 import { cellarDepth, cellarDrawnDepth, cellarFrame, cellarOf, cellarPlinthDown, takesCellar } from '../../object-cellar';
 import type { HeightTexture } from '../terrain/height-texture';
-import { addCellar, cellarShell } from './cellar-shell';
-import { LOD_TAN_HALF_FOV, objectRadius, pixelDistance, screenDistance, type AssetCatalog, type CatalogObject, type StageTone } from '../asset-catalog';
+import { cellarShell } from './cellar-shell';
+import { LOD_TAN_HALF_FOV, pixelDistance, screenDistance, type AssetCatalog, type CatalogObject, type StageTone } from '../asset-catalog';
 import { QUALITY_TABLE } from '../../../../three-engine/render-quality';
 import type { LosPrepare } from '../../../../three-engine/tower-shadow-mapper';
 import type { HeightField } from '../height-field';
 import type { LodModel, MapAssetLibrary, ModelPart, ObjectModel } from '../map-asset-library';
-import { addHeightFog } from '../environment/height-fog';
-import { WIND_GLSL, WIND_UNIFORMS, windSwayAtTop } from '../environment/wind';
 import { mapToScene } from '../map-coords';
 import { seatHeight, wallShear } from './object-seat';
-import { addAtlasVariants } from './atlas-variants';
 import { instanceVariation, rowLookKey } from './instance-variation';
 import type { ImpostorCache } from './impostor-cache';
-import { addVertexRoughMetal, mergeParts } from './merge-parts';
+import { mergeParts } from './merge-parts';
 import { clothGeometry, isCloth } from './cloth';
-import { DEFAULT_SPIN, SPIN_GLSL } from './spin';
-import { addRotorTurn, DEFAULT_ROTOR, isRotor, rotorDepthMaterial, rotorGeometry, rotorHub } from './rotor';
-import { addNightWindows, isWindowGlass } from './night-windows';
-import { LAMP_LIGHT_UNIFORMS, LAMP_ON_UNIFORM } from '../effects/lamp-light';
-import { addLodFade, blendAt, disposeFadeGeometry, fadeGeometry, holdBlend, levelStart, REST_S, SETTLE_S, settleBlend, type LodBlend } from './lod-fade';
+import { DEFAULT_ROTOR, isRotor, rotorDepthMaterial, rotorGeometry, rotorHub } from './rotor';
+import { blendAt, disposeFadeGeometry, fadeGeometry, holdBlend, levelStart, REST_S, SETTLE_S, settleBlend, type LodBlend } from './lod-fade';
 import { InstanceList, type InstanceSource } from './instance-list';
 import { LineSpheres } from './line-spheres';
 import { MassLayer } from './mass-layer';
@@ -59,7 +51,8 @@ import type { GroundCut } from '../terrain/terrain-cuts';
 import { HOLE_SLOTS, HOLE_STRIDE } from '../../../../configs/destruction.config';
 import { modelSection } from './ruin-section';
 import type { CatalogRoof } from '../../object-roof';
-import { asRuin, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, type DamageArrays, damageDepthMaterial, emberPoint, fallImpact, FELL_LONG_AGO, readDamage, RUIN_EMBERS, RUIN_HOLES, ruinSeed, ruinShape, structureSeed, writeDamage } from './ruin-damage';
+import { DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, type DamageArrays, damageDepthMaterial, emberPoint, fallImpact, FELL_LONG_AGO, readDamage, RUIN_EMBERS, RUIN_HOLES, ruinSeed, ruinShape, structureSeed, writeDamage } from './ruin-damage';
+import { ObjectMaterials, WITHER_FLAG } from './object-materials';
 
 /**
  * The placed objects of a map, drawn instanced: per asset, detail level and
@@ -92,7 +85,7 @@ import { asRuin, DAMAGE_ATTRIBUTES, DAMAGE_LOS, damageArrays, type DamageArrays,
  *
  * Trees and plants sway in the wind, foliage cards keep their normals and
  * fade when seen edge-on or near their pixel limit, waterfall cards flow
- * and flames flicker (all in objectMaterial). Vegetation gets a brightness
+ * and flames flicker (all in object-materials.ts). Vegetation gets a brightness
  * hue and size per instance, trees also a lean, autumn foliage a wider
  * turn of colour (instance-variation.ts), so a forest of one model does
  * not look cloned. Plain-coloured model parts of one look are merged into
@@ -123,8 +116,6 @@ function distance(xyz: Float32Array, at: number, p: Vector3): number {
 }
 
 /** An object outside every band (AssetBatch.nextOf) */
-/** Scratch colour for a detail stage's tone (objectMaterial) */
-const STAGE_TONE = new Color();
 const NO_NEXT = -2;
 /** Milliseconds of batches built before setObjects gives the page a frame: a town's assets were built in one */
 const BUILD_SLICE_MS = 8;
@@ -132,37 +123,12 @@ const BUILD_SLICE_MS = 8;
 const SLABS_MS = 4;
 /** Metres round a building's ground rectangle and over its top a point still counts as on it (floorUnder): a pick lands on its surface */
 const PICK_ROOM = 0.4;
-/** Strongest glow of an object surface (emissive colour times intensity, linear) */
-const MAX_EMISSIVE = 0.55;
-
-/**
- * A withered tree (a felled one, WitheredObject) carries this on its
- * instance colour's red: the shaders take it off again and brown its leaves
- * (WITHER_FRAGMENT), its trunk keeps its colour. No program more, no variant
- */
-const WITHER_FLAG = 4;
 
 /** An object drawn withered: the view's felled trees (CustomMapView.setFelled), not the document's */
 export interface WitheredObject extends MapObject {
   withered: true;
 }
 
-const WITHER_VERTEX = /* glsl */ `#include <color_vertex>
-vWither = 0.0;
-#ifdef USE_INSTANCING_COLOR
-if (instanceColor.r > ${(WITHER_FLAG - 1).toFixed(1)}) {
-  vWither = 1.0;
-  vColor.r *= (instanceColor.r - ${WITHER_FLAG.toFixed(1)}) / instanceColor.r;
-}
-#endif`;
-
-/** Withered leaves: their shade in ochre and brown, a little of their green left, darker where they were dark */
-const WITHER_FRAGMENT = /* glsl */ `#include <color_fragment>
-if (vWither > 0.5) {
-  float leaf = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11));
-  vec3 ochre = mix(vec3(0.48, 0.3, 0.12), vec3(0.72, 0.52, 0.22), smoothstep(0.08, 0.35, leaf)) * (0.55 + 1.6 * leaf);
-  diffuseColor.rgb = mix(diffuseColor.rgb, ochre, 0.82);
-}`;
 /** Sight blockers draw to High's pixel limit on every level: what the towers' sight sees does not depend on it */
 const LOS_DRAW_PIXELS = QUALITY_TABLE.high.customMaps.drawPixels;
 /** Instances an asset's lists have room for: half again of its objects, at least 16, so a brush adds without building anew */
@@ -346,7 +312,6 @@ export class MapObjectLayer {
    */
   private slabsNow = new Map<string, Parameters<RuinSlabs['set']>>();
   private slabsDue = new Map<string, Parameters<RuinSlabs['set']>>();
-  private readonly materials = new Map<string, Material>();
   /** Shadow materials of rotor parts by seconds a turn (rotorShadow) */
   private readonly rotorShadows = new Map<number, Material>();
   /** The buildings' far stage, once its atlas is in (ensureFarBoxes) */
@@ -419,8 +384,8 @@ export class MapObjectLayer {
    * not depend on the level
    */
   private detail = { lodBias: 1, impostorFrom: 380, drawPixels: QUALITY_TABLE.high.customMaps.drawPixels };
-  /** Fade ranges of the card materials with the radius of the asset they were made for */
-  private readonly fades: { range: Vector2; radius: number }[] = [];
+  /** The models' parts' materials (object-materials.ts) */
+  private readonly materials = new ObjectMaterials(() => this.options.terrain, this.detail.drawPixels);
   /** The lines the pieces name (MapObject.line) */
   private readonly lineSpheres = new LineSpheres();
   /** The blockers as the LOS cube draws them (LosDraw), shown in its render only (tower-shadow-mapper.ts losOnly) */
@@ -1137,12 +1102,10 @@ export class MapObjectLayer {
     this.generation++;
     this.clear();
     this.masses.dispose();
-    for (const m of this.materials.values()) m.dispose();
+    this.materials.dispose();
     for (const m of this.rotorShadows.values()) m.dispose();
     this.ruinDepth?.dispose();
     this.slabs?.dispose();
-    this.materials.clear();
-    this.fades.length = 0;
     for (const draws of this.sharedDraws()) draws.dispose();
     this.farBoxes = null;
     this.impostorDraws = null;
@@ -1156,14 +1119,8 @@ export class MapObjectLayer {
     const now = this.detail;
     if (detail.lodBias === now.lodBias && detail.impostorFrom === now.impostorFrom && detail.drawPixels === now.drawPixels) return;
     this.detail = { ...detail };
-    for (const f of this.fades) this.setFadeRange(f.range, f.radius);
+    this.materials.setDrawPixels(detail.drawPixels);
     this.applyLevels(true);
-  }
-
-  /** A card material's fade: from 0.55 of the distance where an object of `radius` reaches the pixel limit to there */
-  private setFadeRange(range: Vector2, radius: number): Vector2 {
-    const end = pixelDistance(radius, this.detail.drawPixels);
-    return range.set(end * 0.55, end);
   }
 
   private clear(): void {
@@ -1212,7 +1169,7 @@ export class MapObjectLayer {
     const drawn = (m: ObjectModel, tone?: StageTone, openings = true) =>
       mergedParts(m, openings).map((p) => ({
         geometry: p.geometry,
-        material: this.objectMaterial(p.material, entry, ruin, tone),
+        material: this.materials.get(p.material, entry, ruin, tone),
         depthMaterial: ruin ? this.ruinDepthMaterial() : isRotor(p.material) ? this.rotorShadow(entry) : undefined,
       }));
     const levels: Level[] = [{ from: 0, parts: drawn(model) }];
@@ -1863,317 +1820,6 @@ export class MapObjectLayer {
     return m;
   }
 
-  /**
-   * The material an object part is drawn with: a copy of the model's,
-   * shared by every asset with the same source material and look. Adds
-   * wind sway (wind > 0), the foliage card fixes (materials `foliage-*`:
-   * authored normals on both sides, fade when edge-on and towards the draw
-   * distance), flowing waterfall cards (`foliage-waterfall*`) and flicker
-   * for flames (foliage cards that glow). The per-asset numbers are
-   * uniforms, so all of them share a handful of shader programs.
-   */
-  /** An object's material as the layer draws it; `tone` multiplies a detail stage's colour (CatalogObject `lod`) */
-  private objectMaterial(source: Material, entry: CatalogObject, ruin = false, tone?: StageTone): Material {
-    const m0 = source as MeshStandardMaterial;
-    const card = m0.name.startsWith('foliage-');
-    const waterfall = m0.name.startsWith('foliage-waterfall');
-    const flame = card && !waterfall && !!m0.emissive && m0.emissive.getHex() !== 0;
-    // Banner cloth waves where the map asks for it (cloth.ts, WIND_UNIFORMS.uClothWave)
-    const cloth = isCloth(m0);
-    // Parts that turn round the model's upright axis: a radar dish, a lighthouse's lens (catalogue `spin`)
-    const spin = m0.name.startsWith('spin-');
-    // Parts that turn round a hub of their own: a windmill's sails, a water wheel (rotor.ts, catalogue `rotor`)
-    const rotor = isRotor(m0);
-    const period = rotor ? (entry.rotor ?? DEFAULT_ROTOR) : (entry.spin ?? DEFAULT_SPIN);
-    const wind = waterfall ? 0 : entry.wind;
-    // Trees bend their crowns apart (in the wind block, before the rest pose)
-    const crownWarp = wind > 0 && entry.category === 'tree';
-    // Floating objects that are not moored structures rock on the water
-    const bob = !!entry.float && entry.category !== 'structure';
-    // Several looks in one atlas (a herd of several breeds): only for objects that stay where they are
-    const variants = !card && !bob && (entry.variants ?? 1) > 1 ? entry.variants! : 1;
-    const key = `${source.uuid}|${entry.grime ? 1 : 0}|${crownWarp ? 1 : 0}|${wind}|${wind > 0 ? entry.height : 0}|${card ? objectRadius(entry) : 0}|${bob ? 1 : 0}|${cloth ? 1 : 0}|${spin || rotor ? period : 0}|${rotor ? 1 : 0}|${variants}|${ruin ? 1 : 0}|${tone ? tone.join(',') : ''}`;
-    const cached = this.materials.get(key);
-    if (cached) return cached;
-    // Always an own copy: the library's material is shared (other views, the editor's thumbnails)
-    // and is never changed or disposed here. Copies of one source share its textures and programs
-    const m = source.clone() as MeshStandardMaterial;
-    if (tone) m.color.multiply(STAGE_TONE.setRGB(tone[0], tone[1], tone[2]));
-    if (!card && m.emissive) {
-      // Glowing surfaces (lava, crystals, windows) stay under a cap: at night a full glow
-      // reads as a flat bright disc instead of a lit surface
-      const peak = Math.max(m.emissive.r, m.emissive.g, m.emissive.b) * m.emissiveIntensity;
-      if (peak > MAX_EMISSIVE) m.emissiveIntensity *= MAX_EMISSIVE / peak;
-    }
-    if (!card && wind <= 0 && !bob && !spin && !rotor) {
-      if (m.userData['roughMetal']) addVertexRoughMetal(m);
-      if (entry.grime && m.aoMap) addGrime(m);
-      if (variants > 1) addAtlasVariants(m, variants);
-      addWindowGlow(m, source);
-      addLodFade(m);
-      addHeightFog(m);
-      if (ruin) asRuin(m);
-      // Last: its move comes first (cellar-shell.ts)
-      if (takesCellar(entry) && this.options.terrain) addCellar(m, this.options.terrain);
-      this.materials.set(key, m);
-      return m;
-    }
-    const local = {
-      // Sway at the top in a strong wind, and the height it is measured at (model metres)
-      uWindBend: { value: windSwayAtTop(wind, entry.height) },
-      uWindHeight: { value: Math.max(entry.height, 0.3) },
-      uFadeRange: { value: this.setFadeRange(new Vector2(), objectRadius(entry)) },
-      // Seconds a turn of the spinning or rotor parts
-      uSpinPeriod: { value: Math.max(0.5, period) },
-    };
-    if (card) this.fades.push({ range: local.uFadeRange.value, radius: objectRadius(entry) });
-    const variant = `${crownWarp ? 't' : ''}${wind > 0 ? 'w' : ''}${card ? 'c' : ''}${waterfall ? 'f' : ''}${flame ? 'l' : ''}${bob ? 'b' : ''}${cloth ? 'k' : ''}${spin ? 's' : ''}${rotor ? 'r' : ''}`;
-    m.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, WIND_UNIFORMS);
-      shader.uniforms['uWindBend'] = local.uWindBend;
-      shader.uniforms['uWindHeight'] = local.uWindHeight;
-      shader.uniforms['uFadeRange'] = local.uFadeRange;
-      shader.uniforms['uSpinPeriod'] = local.uSpinPeriod;
-      shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>\n${WIND_GLSL}\nuniform float uWindBend;\nuniform float uWindHeight;`);
-      // A withered instance (a felled tree, WITHER_FLAG on its colour's red): the flag off its colour, its leaves
-      // browned below (card)
-      shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nvarying float vWither;')
-        .replace('#include <color_vertex>', WITHER_VERTEX);
-      if (wind > 0) {
-        shader.vertexShader = shader.vertexShader.replace(
-          '#include <begin_vertex>',
-          /* glsl */ `#include <begin_vertex>
-          ${crownWarp ? `{
-            // Each crown its own: low bulges up the crown (none on the trunk), their phase from where the tree
-            // stands, so one model's trees part in outline, not only in size and turn
-            float crownSeed = 0.0;
-            #ifdef USE_INSTANCING
-            crownSeed = dot(instanceMatrix[3].xz, vec2(0.173, 0.119));
-            #endif
-            float crownH = clamp(transformed.y / uWindHeight, 0.0, 1.3);
-            vec2 bulge = vec2(sin(crownH * 5.2 + crownSeed * 6.1 + transformed.z * 0.35), cos(crownH * 4.3 + crownSeed * 4.7 + transformed.x * 0.35));
-            transformed.xz += bulge * 0.05 * uWindHeight * smoothstep(0.3, 0.6, crownH);
-          }` : ''}
-          // The rest pose, for the shadow lookup below
-          vec3 windRest = transformed;
-          {
-            // The wind's direction in model space: the instance's rotation and scale undone
-            vec3 base = vec3(0.0);
-            vec3 windDir = vec3(uWindDir.x, 0.0, uWindDir.y);
-            #ifdef USE_INSTANCING
-            base = instanceMatrix[3].xyz;
-            windDir = normalize(transpose(mat3(instanceMatrix)) * windDir);
-            #endif
-            vec3 acrossDir = normalize(cross(vec3(0.0, 1.0, 0.0), windDir) + vec3(1e-5, 0.0, 0.0));
-            float phase = dot(base.xz, vec2(0.071, 0.093));
-            // The push at the plant: steady wind, swell and the gust fronts that cross the map (windPush)
-            float push = windPush(base.xz);
-            float t = uWindTime;
-            float hn = clamp(transformed.y / uWindHeight, 0.0, 1.3);
-            // A plant swings slower the taller it is (an 8 m tree about once in four seconds), so a wood does not
-            // tremble at one quick beat
-            float w = 1.6 * sqrt(8.0 / max(uWindHeight, 0.5));
-            // Trunk and crown as one: a stiff trunk (bending with the square of the height) leans with the push
-            // and swings slowly round that lean, a little across it too
-            float sway = sin(t * w + phase) * 0.6 + sin(t * w * 1.63 + phase * 1.7) * 0.22;
-            vec3 off = (windDir * (0.75 * push + 0.3 * sway * (0.3 + push)) + acrossDir * sin(t * w * 0.77 + phase * 1.3) * 0.12 * (0.3 + push))
-              * uWindBend * 0.4 * hn * hn;
-            // Branches: away from the trunk they bend a little more and bob on their own, slowly; each bough
-            // moves as one (the phase changes over a few metres, not from vertex to vertex)
-            float reach = length(transformed.xz) / uWindHeight;
-            float branch = smoothstep(0.06, 0.35, reach) * smoothstep(0.15, 0.5, hn);
-            float bp = dot(transformed, vec3(0.37, 0.29, 0.41)) * 2.6 / uWindHeight + phase;
-            float beat = sin(t * w * 1.9 + bp) * 0.75 + sin(t * w * 3.1 + bp * 1.4) * 0.25;
-            off += (windDir * (0.3 * push + 0.12 * beat * (0.2 + push)) + vec3(0.0, 0.1 * beat * (0.2 + push), 0.0)) * uWindBend * 0.4 * branch;
-            ${card ? `// Leaf cards flutter, each card as a whole (the phase over half a metre), quick and small
-            vec3 flutter = sin(t * vec3(4.3, 5.1, 3.7) + transformed * 1.3 + phase);
-            off += flutter * 0.03 * (0.2 + push) * smoothstep(0.1, 0.4, hn) * min(uWindBend * 4.0, 1.0);` : ''}
-            // The player's plant motion: still, calmer or as the wind takes them
-            off *= uPlantSway;
-            // Bent, not stretched: what moves sideways sinks a little
-            off.y -= dot(off.xz, off.xz) / (2.0 * max(transformed.y, 0.5));
-            transformed += off;
-          }`,
-        );
-        // The sun's shadow map holds the plants at rest (three's depth material has no sway, and the map is
-        // cached over frames): a swaying leaf looked it up where it had moved to and slid in and out of its own
-        // crown's shadow, the canopy flickered. It reads the shadow at its rest pose, so the shading rides along
-        shader.vertexShader = shader.vertexShader.replace(
-          '#include <shadowmap_vertex>',
-          /* glsl */ `#ifdef USE_SHADOWMAP
-          vec4 windSwayed = worldPosition;
-          worldPosition = vec4(windRest, 1.0);
-          #ifdef USE_INSTANCING
-          worldPosition = instanceMatrix * worldPosition;
-          #endif
-          worldPosition = modelMatrix * worldPosition;
-          #endif
-          #include <shadowmap_vertex>
-          #ifdef USE_SHADOWMAP
-          worldPosition = windSwayed;
-          #endif`,
-        );
-      }
-      if (bob) {
-        // Rocking on the water: a slow heave, roll and pitch, each object with its own phase
-        shader.vertexShader = shader.vertexShader.replace(
-          '#include <begin_vertex>',
-          /* glsl */ `#include <begin_vertex>
-          {
-            float phase = 0.0;
-            #ifdef USE_INSTANCING
-            phase = dot(instanceMatrix[3].xz, vec2(0.13, 0.17));
-            #endif
-            float t = uWindTime;
-            float heave = sin(t * 0.9 + phase) * 0.06;
-            float roll = sin(t * 0.7 + phase * 1.3) * 0.035;
-            float pitch = sin(t * 0.55 + phase * 0.7) * 0.025;
-            transformed.y += heave + transformed.x * roll + transformed.z * pitch;
-          }`,
-        );
-      }
-      if (spin) {
-        // Turning round the model's upright axis, each object at its own angle (spinAngle): the shape and its normals
-        const angle = `float spinPhase = 0.0;
-            #ifdef USE_INSTANCING
-            spinPhase = spinAngle(instanceMatrix[3].xz);
-            #endif
-            float spinA = uWindTime * 6.2831853 / uSpinPeriod + spinPhase;
-            mat2 spinTurn = mat2(cos(spinA), sin(spinA), -sin(spinA), cos(spinA));`;
-        shader.vertexShader = shader.vertexShader
-          .replace('#include <common>', `#include <common>
-uniform float uSpinPeriod;
-${SPIN_GLSL}`)
-          .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
-{
-${angle}
-objectNormal.xz = spinTurn * objectNormal.xz;
-}`)
-          .replace('#include <begin_vertex>', `#include <begin_vertex>
-{
-${angle}
-transformed.xz = spinTurn * transformed.xz;
-}`);
-      }
-      if (rotor) addRotorTurn(shader, local.uSpinPeriod);
-      if (cloth) {
-        // The cloth ripples down from where it is fastened, more at its free end, and blows out with the wind
-        shader.vertexShader = shader.vertexShader
-          .replace('#include <common>', '#include <common>\nattribute float aHang;\nuniform float uClothWave;')
-          .replace(
-            '#include <begin_vertex>',
-            /* glsl */ `#include <begin_vertex>
-          {
-            vec3 clothBase = vec3(0.0);
-            vec3 clothWind = vec3(uWindDir.x, 0.0, uWindDir.y);
-            #ifdef USE_INSTANCING
-            clothBase = instanceMatrix[3].xyz;
-            clothWind = normalize(transpose(mat3(instanceMatrix)) * clothWind);
-            #endif
-            float clothPhase = dot(clothBase.xz, vec2(0.071, 0.093));
-            float clothPush = windPush(clothBase.xz);
-            float ripple = sin(transformed.y * 2.6 - uWindTime * (3.0 + 2.0 * clothPush) + clothPhase) * 0.65
-              + sin(transformed.x * 4.0 - uWindTime * 4.6 + clothPhase * 1.7) * 0.35;
-            float clothOn = uClothWave * uPlantSway;
-            transformed.z += ripple * aHang * (0.05 + 0.2 * clothPush) * clothOn;
-            transformed += clothWind * aHang * aHang * 0.35 * clothPush * clothOn;
-          }`,
-          );
-      }
-      if (waterfall) {
-        // Water runs down the card: scroll the texture
-        shader.vertexShader = shader.vertexShader.replace(
-          '#include <uv_vertex>',
-          '#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv.y += uWindTime * 0.6;\n#endif',
-        );
-      }
-      if (card) {
-        shader.fragmentShader = shader.fragmentShader
-          .replace('#include <common>', '#include <common>\nuniform vec2 uFadeRange;\nuniform float uWindTime;\nvarying float vWither;')
-          .replace('#include <color_fragment>', WITHER_FRAGMENT)
-          // Card normals are authored (bent out of the crown, up for grass); three flips them on
-          // back faces of double-sided materials, which turned every card's back black. A geometry
-          // without normals draws flat shaded, without vNormal
-          .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n#ifndef FLAT_SHADED\nnormal = normalize(vNormal);\n#endif')
-          .replace(
-            '#include <alphatest_fragment>',
-            /* glsl */ `{
-            // Cards seen edge-on smear their texture into streaks: fade them out by the flat face normal
-            vec3 faceNormal = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));
-            float facing = abs(dot(faceNormal, normalize(vViewPosition)));
-            diffuseColor.a *= smoothstep(0.08, 0.3, facing);
-            // Fade out towards the draw distance: thin far cards turn into dark lines otherwise
-            diffuseColor.a *= 1.0 - smoothstep(uFadeRange.x, uFadeRange.y, length(vViewPosition));
-          }
-          #include <alphatest_fragment>`,
-          );
-        if (flame) {
-          shader.fragmentShader = shader.fragmentShader.replace(
-            '#include <emissivemap_fragment>',
-            /* glsl */ `#include <emissivemap_fragment>
-            totalEmissiveRadiance *= 0.75 + 0.18 * sin(uWindTime * 11.0 + vViewPosition.x * 3.0) + 0.1 * sin(uWindTime * 23.0 + vViewPosition.y * 5.0);`,
-          );
-        }
-      }
-    };
-    m.customProgramCacheKey = () => `custom-map-object-${variant}`;
-    if (m.userData['roughMetal']) addVertexRoughMetal(m);
-    if (variants > 1) addAtlasVariants(m, variants);
-    // Window glass on parts that move lights up at night as well (a ship rocking on the water, a turning part)
-    if (!card) addWindowGlow(m, source);
-    addLodFade(m);
-    addHeightFog(m);
-    if (ruin) asRuin(m);
-    this.materials.set(key, m);
-    return m;
-  }
-}
-
-/**
- * Weathering baked into a model's occlusion texture (catalogue `grime`,
- * blender_kit.bake_ao): dirt from the ground, streaks under the sills, dirt
- * in the hollows. The occlusion darkens the colour in direct light as well,
- * part way, so the weathering shows in the sun; the tiled surfaces stay
- * sharp, no texture or draw call more
- */
-function addGrime(m: Material): void {
-  const prev = m.onBeforeCompile;
-  const prevKey = m.customProgramCacheKey;
-  m.onBeforeCompile = (shader, renderer) => {
-    prev.call(m, shader, renderer);
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <color_fragment>',
-      `#include <color_fragment>
-      #ifdef USE_AOMAP
-      diffuseColor.rgb *= mix(1.0, texture2D(aoMap, vAoMapUv).r, 0.55);
-      #endif`,
-    );
-  };
-  m.customProgramCacheKey = () => `${prevKey.call(m)}-grime`;
-}
-
-/** Window glass glows at night (night-windows.ts): a merged part per vertex, a glass material all over */
-function addWindowGlow(m: Material, source: Material): void {
-  if (m.userData['nightGlow']) addNightWindows(m, true);
-  else if (isWindowGlass(source.name)) addNightWindows(m, false);
-  else if (LAMP_GLASS.test(source.name)) addLampGlass(m);
-}
-
-/** Glass of a lamp or a lantern (its emissive material): lit as the map's lights are on (EffectLayer, LIGHTS_ON), dark by day */
-const LAMP_GLASS = /lamp-glass|lantern-glass/;
-
-function addLampGlass(m: Material): void {
-  const prev = m.onBeforeCompile;
-  const prevKey = m.customProgramCacheKey;
-  m.onBeforeCompile = (shader, renderer) => {
-    prev.call(m, shader, renderer);
-    shader.uniforms['uLampOn'] = LAMP_LIGHT_UNIFORMS.uLampOn;
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>\n${LAMP_ON_UNIFORM}`)
-      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\ntotalEmissiveRadiance *= uLampOn;`);
-  };
-  m.customProgramCacheKey = () => `${prevKey.call(m)}-lampglass`;
 }
 
 const sections = new WeakMap<ObjectModel, Map<number, Uint8Array>>();
