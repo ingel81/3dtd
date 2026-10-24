@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { MapMass, MapPoint } from '../../custom-map/map-document';
 import { massArea, massContains, massPitched, massRoofAt } from '../../custom-map/object-mass';
 import { toModel } from '../../custom-map/object-ground';
-import { clipOffRoads, massFacade, massLevels, massTint, raiseMass, simplifyRing } from './building-mass';
+import { raiseMass } from './building-mass';
+import { simplifyRing } from '../../../map-ops/lines';
+import { massFacade, massLevels, massTint } from './building-look';
+import { clipOffRoads } from './mass-road-clip';
 import { minAreaRect } from '../../custom-map/map-surfaces';
 
 /** A ring of map points from x, y pairs */

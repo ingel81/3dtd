@@ -6,7 +6,10 @@ import { MASS_ASSET, type MapMass, type MapPoint } from '../../custom-map/map-do
 import { massBodies, massProblem, massRoofAt, massTop, ringsContain } from '../../custom-map/object-mass';
 import { toModel } from '../../custom-map/object-ground';
 import { OsmFrame, type OsmArea, type OsmFeatures } from '../osm-parse';
-import { clipOffRoads, isDrawnPart, partsCover, raiseMass, tagColour, type OsmPart } from './building-mass';
+import { raiseMass } from './building-mass';
+import { isDrawnPart, partsCover, type OsmPart } from './building-parts';
+import { tagColour } from './building-look';
+import { clipOffRoads } from './mass-road-clip';
 import { partsByOutline, placeBuildings } from './buildings';
 import { type BuildingCatalogEntry } from './building-types';
 import { minAreaRect } from '../../custom-map/map-surfaces';

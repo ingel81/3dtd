@@ -69,7 +69,9 @@ import { packFootprints, type FootprintDrop, type FootprintRing } from '../../cu
 import { massArea, massBodies, massBox, massDistance, massRadius, massTop, massTriangles, ringsContain } from '../../custom-map/object-mass';
 import { cellarForDrop } from '../../custom-map/object-cellar';
 import { toModel } from '../../custom-map/object-ground';
-import { CLIP_KEEP, CLIP_LEAST, clipOffRoads, isDrawnPart, raiseMass, sharedWalls, shareWalls, type OsmPart } from './building-mass';
+import { raiseMass } from './building-mass';
+import { isDrawnPart, sharedWalls, shareWalls, type OsmPart } from './building-parts';
+import { CLIP_KEEP, CLIP_LEAST, clipOffRoads } from './mass-road-clip';
 import { findOldTown } from './old-town';
 import type { ImportNote } from '../../import-notes';
 import { insideRing, minAreaRect, type TurnedRect } from '../../custom-map/map-surfaces';

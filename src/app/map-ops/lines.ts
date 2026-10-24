@@ -1,10 +1,10 @@
 /**
  * Lines drawn with the mouse, made usable: Chaikin smoothing against the
  * jitter of the hand, even resampling, and Douglas-Peucker simplification
- * for road curve points.
+ * for road curve points and closed rings.
  */
 import type { MapPoint } from '../world/custom-map/map-document';
-import { pointAt, polylineLength } from './path-graph';
+import { pointAt, pointSegmentDistance, polylineLength } from './path-graph';
 
 export function chaikin(line: readonly MapPoint[], rounds = 2): MapPoint[] {
   let pts = line.map((p) => ({ x: p.x, y: p.y }));
@@ -69,4 +69,51 @@ export function segmentCross(a: MapPoint, b: MapPoint, c: MapPoint, d: MapPoint)
   const t = ((c.x - a.x) * sy - (c.y - a.y) * sx) / den;
   const u = ((c.x - a.x) * ry - (c.y - a.y) * rx) / den;
   return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? t : null;
+}
+
+/**
+ * A closed ring (the first point not repeated) with the points nearer than
+ * `tolerance` to the line of their neighbours left out, as Douglas-Peucker
+ * does, from its two points farthest apart; null when fewer than three
+ * points or no area are left
+ */
+export function simplifyRing(ring: readonly MapPoint[], tolerance: number): MapPoint[] | null {
+  const pts = ring.length > 1 && ring[0].x === ring[ring.length - 1].x && ring[0].y === ring[ring.length - 1].y ? ring.slice(0, -1) : [...ring];
+  if (pts.length < 3) return null;
+  // Split at the point farthest from the first, simplify both halves
+  let far = 0;
+  let best = -1;
+  for (let k = 1; k < pts.length; k++) {
+    const d = (pts[k].x - pts[0].x) ** 2 + (pts[k].y - pts[0].y) ** 2;
+    if (d > best) {
+      best = d;
+      far = k;
+    }
+  }
+  const keep = new Uint8Array(pts.length);
+  keep[0] = keep[far] = 1;
+  const stack: [number, number][] = [[0, far], [far, pts.length]];
+  while (stack.length) {
+    const [i, j] = stack.pop()!;
+    const a = pts[i];
+    const b = pts[j % pts.length];
+    let worst = -1;
+    let at = -1;
+    for (let k = i + 1; k < j; k++) {
+      const d = pointSegmentDistance(pts[k], a, b);
+      if (d > worst) {
+        worst = d;
+        at = k;
+      }
+    }
+    if (at >= 0 && worst > tolerance) {
+      keep[at] = 1;
+      stack.push([i, at], [at, j]);
+    }
+  }
+  const out = pts.filter((_, k) => keep[k]);
+  if (out.length < 3) return null;
+  let s = 0;
+  for (let i = 0, j = out.length - 1; i < out.length; j = i++) s += out[j].x * out[i].y - out[i].x * out[j].y;
+  return Math.abs(s) > 1 ? out : null;
 }
