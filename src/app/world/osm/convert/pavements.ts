@@ -3,6 +3,7 @@ import { PAVED_SURFACES } from '../../custom-map/render/paths/road-style';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
 import { SIDEWALK_WIDTH } from '../osm-tags';
 import { insideRings } from '../square-clip';
+import { pointSegmentDistance } from '../../../map-ops/path-graph';
 
 /**
  * The pavements of an OSM world's streets (MapPathEdge.sidewalk), drawn by
@@ -196,7 +197,7 @@ class WallIndex {
         let nearest: Wall | null = null;
         forCells(at.x - reach, at.y - reach, at.x + reach, at.y + reach, (key) => {
           for (const w of this.cells.get(key) ?? []) {
-            const d = pointSegment(at, w.a, w.b);
+            const d = pointSegmentDistance(at, w.a, w.b);
             if (d < near) {
               near = d;
               nearest = w;
@@ -223,10 +224,3 @@ function forCells(x0: number, y0: number, x1: number, y1: number, visit: (key: n
   }
 }
 
-function pointSegment(p: MapPoint, a: MapPoint, b: MapPoint): number {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const l2 = dx * dx + dy * dy;
-  const t = l2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0;
-  return Math.hypot(p.x - a.x - dx * t, p.y - a.y - dy * t);
-}

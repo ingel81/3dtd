@@ -28,11 +28,11 @@
  * ground later, its stalls reached past the road's edge under the shelf.
  */
 import { heightAt, sampleX, sampleY } from '../../../map-ops/grid';
-import { EdgeIndex, edgePolyline } from '../../../map-ops/path-graph';
+import { EdgeIndex, edgePolyline, pointSegmentDistance } from '../../../map-ops/path-graph';
 import type { MapObject, MapPaths, MapPoint, MapTerrain } from '../../custom-map/map-document';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
 import type { RailPlan } from './rails';
-import { pointInRing } from './raster';
+import { insideRing } from '../../custom-map/map-surfaces';
 
 export const TRACK_WALL_ASSET = 'track-wall';
 /** Length of a wall piece at stretch 1, and the depth of its shelf, metres (build_modern.py track_wall) */
@@ -103,7 +103,7 @@ export function placeRailWalls(
   const roads = new EdgeIndex({ nodes: paths.nodes, edges: paths.edges.filter((e) => e.kind !== 'bridge' && !e.tunnel && !e.area && !e.covered) });
   const tracks = new TrackIndex(plan);
   const onRoad = (p: MapPoint): boolean =>
-    roads.segmentsNear(p, 20).some((s) => distance(p, s.a, s.b) < s.edge.width / 2 + Math.max(0, s.edge.sidewalk ?? 0) + GAP);
+    roads.segmentsNear(p, 20).some((s) => pointSegmentDistance(p, s.a, s.b) < s.edge.width / 2 + Math.max(0, s.edge.sidewalk ?? 0) + GAP);
   const open = new AreaGrid(features.areas.filter((a) => OPEN_AREAS(a.tags)));
   const g = terrain.grid;
   const bed = (p: MapPoint): boolean => {
@@ -333,7 +333,7 @@ class AreaGrid {
   inside(p: MapPoint): boolean {
     const c = AreaGrid.CELL;
     for (const a of this.cells.get((Math.floor(p.x / c) + 4096) * 8192 + (Math.floor(p.y / c) + 4096)) ?? []) {
-      if (a.outer.some((r) => pointInRing(p, r)) && !a.inner.some((r) => pointInRing(p, r))) return true;
+      if (a.outer.some((r) => insideRing(p, r)) && !a.inner.some((r) => insideRing(p, r))) return true;
     }
     return false;
   }
@@ -366,19 +366,11 @@ class TrackIndex {
     const s = TrackIndex.CELL;
     for (let j = Math.floor((p.y - r) / s); j <= Math.floor((p.y + r) / s); j++) {
       for (let i = Math.floor((p.x - r) / s); i <= Math.floor((p.x + r) / s); i++) {
-        for (const [a, b] of this.cells.get((i + 100_000) * 200_003 + (j + 100_000)) ?? []) if (distance(p, a, b) < r) return true;
+        for (const [a, b] of this.cells.get((i + 100_000) * 200_003 + (j + 100_000)) ?? []) if (pointSegmentDistance(p, a, b) < r) return true;
       }
     }
     return false;
   }
-}
-
-function distance(p: MapPoint, a: MapPoint, b: MapPoint): number {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const len2 = dx * dx + dy * dy;
-  const t = len2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
-  return Math.hypot(a.x + dx * t - p.x, a.y + dy * t - p.y);
 }
 
 const unit = (v: MapPoint): MapPoint => {

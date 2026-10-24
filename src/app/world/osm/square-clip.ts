@@ -48,7 +48,7 @@ export function clipLine(line: readonly MapPoint[], lim: number): MapPoint[][] {
 }
 
 /** The part of segment a-b inside the square, as parameters along it; null when none (Liang-Barsky) */
-function clipSegment(a: MapPoint, b: MapPoint, lim: number): [number, number] | null {
+export function clipSegment(a: MapPoint, b: MapPoint, lim: number): [number, number] | null {
   let t0 = 0;
   let t1 = 1;
   const dx = b.x - a.x;

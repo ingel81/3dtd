@@ -1,11 +1,12 @@
 import { Group, InstancedMesh, type Material, Matrix4, Quaternion, Vector3 } from 'three';
 import type { MapLifeArea, MapPoint } from '../../map-document';
-import { areaDensity, centroid, DEFAULT_BOAT, lifeSeed, lifeRandom, loopInside, MOVER_LANE, routeLoop } from '../../map-life';
+import { areaDensity, DEFAULT_BOAT, lifeSeed, lifeRandom, loopInside, MOVER_LANE, routeLoop } from '../../map-life';
 import { addHeightFog } from '../environment/height-fog';
 import type { HeightField } from '../height-field';
 import type { MapAssetLibrary } from '../map-asset-library';
 import { mapToScene } from '../map-coords';
 import { ropeHeightAt, ropeHeights, type Rope } from './cable-ride';
+import { centroid } from '../../map-surfaces';
 
 /**
  * Things of the life areas (map-life.ts) that go round: boats (kind `boats`)

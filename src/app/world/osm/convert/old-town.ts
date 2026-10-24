@@ -18,7 +18,8 @@
  */
 import type { MapPoint } from '../../custom-map/map-document';
 import type { OsmFeatures } from '../osm-parse';
-import { convexHull, fillRings, pointInRing, type RasterGrid } from './raster';
+import { fillRings, type RasterGrid } from './raster';
+import { convexHull, insideRing } from '../../custom-map/map-surfaces';
 
 /** Buildings older than this year are old-town houses */
 const OLD_YEAR = 1850;
@@ -83,11 +84,11 @@ export function findOldTown(features: OsmFeatures, side: number): OldTown {
         reasons.tags++;
         return true;
       }
-      if (areas.some((a) => a.outer.some((r) => pointInRing(p, r)) && !a.inner.some((r) => pointInRing(p, r)))) {
+      if (areas.some((a) => a.outer.some((r) => insideRing(p, r)) && !a.inner.some((r) => insideRing(p, r)))) {
         reasons.area++;
         return true;
       }
-      if (wall && pointInRing(p, wall)) {
+      if (wall && insideRing(p, wall)) {
         reasons.wall++;
         return true;
       }

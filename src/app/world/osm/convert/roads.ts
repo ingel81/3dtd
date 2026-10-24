@@ -30,6 +30,8 @@ import { pullDeadEnds, pullOutlines } from './square-outlines';
 import { sortUnderground, type Ramp, type UndergroundReport } from './underground';
 import { findDescents, type DescentReport, type SubwayDescent } from './subway-descents';
 import { roundRoundabouts } from './roundabouts';
+import { pointAt, polylineLength } from '../../../map-ops/path-graph';
+import { clipSegment } from '../square-clip';
 
 export interface RoadStats {
   /** Road ways read, and the tunnels (ways joined end to end) kept as tunnel edges, with their length */
@@ -180,7 +182,7 @@ export function buildRoads(features: OsmFeatures): RoadBuild {
           const b = nodeFor(span[span.length - 1], `b${++borderCount}`);
           if (a === b) continue;
           const pts = span.map((s) => s.p);
-          const length = lineLength(pts);
+          const length = polylineLength(pts);
           if (length < 0.5) continue;
           const kind = tags.bridge && !tags.tunnel ? 'bridge' : tags.kind;
           const via = thin(pts, VIA_TOLERANCE).slice(1, -1).map((p) => ({ x: round2(p.x), y: round2(p.y) }));
@@ -259,7 +261,7 @@ export function findTunnels(
   const short = new Set<RoadWay>();
   for (const members of groups.values()) {
     const lines = members.map((k) => ways[k].way.points.filter((p): p is MapPoint => p !== null));
-    const length = lines.reduce((s, l) => s + lineLength(l), 0);
+    const length = lines.reduce((s, l) => s + polylineLength(l), 0);
     if (length < MIN_TUNNEL_M) {
       for (const k of members) short.add(ways[k].way);
       continue;
@@ -272,7 +274,7 @@ export function findTunnels(
         const p = way.points[end];
         if (!p || ends.get(way.nodes[end]) !== 1 || Math.abs(p.x) > lim || Math.abs(p.y) > lim) continue;
         const line = (end === 0 ? way.points : [...way.points].reverse()).filter((q): q is MapPoint => q !== null);
-        const aim = pointAlong(line, Math.min(MOUTH_AIM_M, lineLength(line)));
+        const aim = pointAt(line, Math.min(MOUTH_AIM_M, polylineLength(line)));
         const d = Math.hypot(aim.x - p.x, aim.y - p.y);
         if (d < 1e-6) continue;
         mouths.push({ p: { x: round2(p.x), y: round2(p.y) }, inward: { x: (aim.x - p.x) / d, y: (aim.y - p.y) / d }, width: tags.width, tunnel: index });
@@ -365,19 +367,6 @@ function segmentsCross(a: MapPoint, b: MapPoint, c: MapPoint, d: MapPoint): bool
   return t > 1e-9 && t < 1 - 1e-9 && u > 1e-9 && u < 1 - 1e-9;
 }
 
-function pointAlong(line: readonly MapPoint[], along: number): MapPoint {
-  let walked = 0;
-  for (let k = 1; k < line.length; k++) {
-    const seg = Math.hypot(line[k].x - line[k - 1].x, line[k].y - line[k - 1].y);
-    if (walked + seg >= along && seg > 0) {
-      const s = (along - walked) / seg;
-      return { x: line[k - 1].x + (line[k].x - line[k - 1].x) * s, y: line[k - 1].y + (line[k].y - line[k - 1].y) * s };
-    }
-    walked += seg;
-  }
-  return line[line.length - 1];
-}
-
 /**
  * The runs of a way's vertices inside the square |x|, |y| <= lim: a gap
  * (a node the answer cut off) ends a run, and so does the square's edge, at
@@ -425,35 +414,6 @@ export function clipPieces(vertices: readonly (Vertex | null)[], lim: number): {
   return out;
 }
 
-/** The part of segment a-b inside the square, as parameters along it; null when none (Liang-Barsky) */
-function clipSegment(a: MapPoint, b: MapPoint, lim: number): [number, number] | null {
-  let t0 = 0;
-  let t1 = 1;
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const checks: [number, number][] = [
-    [-dx, a.x + lim],
-    [dx, lim - a.x],
-    [-dy, a.y + lim],
-    [dy, lim - a.y],
-  ];
-  for (const [p, q] of checks) {
-    if (p === 0) {
-      if (q < 0) return null;
-      continue;
-    }
-    const r = q / p;
-    if (p < 0) {
-      if (r > t1) return null;
-      if (r > t0) t0 = r;
-    } else {
-      if (r < t0) return null;
-      if (r < t1) t1 = r;
-    }
-  }
-  return t0 <= t1 ? [t0, t1] : null;
-}
-
 /**
  * A span whose ends are one node (a closed way with one shared node) split at
  * its middle vertex, so no edge starts and ends at one node
@@ -466,12 +426,6 @@ function loopFree(span: Vertex[]): Vertex[][] {
   if (span.length < 3) return [];
   const mid = Math.floor(span.length / 2);
   return [span.slice(0, mid + 1), span.slice(mid)];
-}
-
-function lineLength(points: readonly MapPoint[]): number {
-  let s = 0;
-  for (let k = 1; k < points.length; k++) s += Math.hypot(points[k].x - points[k - 1].x, points[k].y - points[k - 1].y);
-  return s;
 }
 
 /** Douglas-Peucker: the points of `line` that stray more than `tolerance` from the line through those kept */

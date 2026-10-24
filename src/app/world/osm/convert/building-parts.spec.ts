@@ -7,7 +7,8 @@ import { massBodies, massProblem, massRoofAt, massTop, ringsContain } from '../.
 import { toModel } from '../../custom-map/object-ground';
 import { OsmFrame, type OsmArea, type OsmFeatures } from '../osm-parse';
 import { clipOffRoads, isDrawnPart, partsCover, raiseMass, tagColour, type OsmPart } from './building-mass';
-import { minAreaRect, partsByOutline, placeBuildings, type BuildingCatalogEntry } from './buildings';
+import { partsByOutline, placeBuildings, type BuildingCatalogEntry } from './buildings';
+import { minAreaRect } from '../../custom-map/map-surfaces';
 
 /** A rectangle `a` by `b` round `c` */
 const box = (c: MapPoint, a: number, b: number): MapPoint[] => [

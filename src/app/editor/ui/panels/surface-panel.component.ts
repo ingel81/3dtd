@@ -1,8 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import { MAP_SURFACE_MARKINGS, type MapSurface, type MapSurfaceMarkingKind } from '../../../world/custom-map/map-document';
-import { centroid } from '../../../world/custom-map/map-life';
-import { fitMarking, MAX_SURFACE_MATERIALS, surfaceArea, surfaceMaterials } from '../../../world/custom-map/map-surfaces';
+import { centroid, fitMarking, MAX_SURFACE_MATERIALS, surfaceArea, surfaceMaterials } from '../../../world/custom-map/map-surfaces';
 import { refitMarking, surfacesCommand } from '../../ops/surfaces';
 import { patch, type SurfaceMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';

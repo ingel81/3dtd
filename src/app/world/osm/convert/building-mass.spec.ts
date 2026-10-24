@@ -3,7 +3,7 @@ import type { MapMass, MapPoint } from '../../custom-map/map-document';
 import { massArea, massContains, massPitched, massRoofAt } from '../../custom-map/object-mass';
 import { toModel } from '../../custom-map/object-ground';
 import { clipOffRoads, massFacade, massLevels, massTint, raiseMass, simplifyRing } from './building-mass';
-import { minAreaRect } from './buildings';
+import { minAreaRect } from '../../custom-map/map-surfaces';
 
 /** A ring of map points from x, y pairs */
 const ring = (...xy: number[]): MapPoint[] => xy.flatMap((_, i) => (i % 2 ? [] : [{ x: xy[i], y: xy[i + 1] }]));

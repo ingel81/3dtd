@@ -10,8 +10,9 @@ import { toModel } from '../../custom-map/object-ground';
 import { seatHeight } from '../../custom-map/render/objects/object-seat';
 import { buildingKind, BUILDING_MODELS } from '../building-tags';
 import { OsmFrame, type OsmArea, type OsmFeatures } from '../osm-parse';
-import { fitModels, minAreaRect, placeBuildings, splitFootprint, type BuildingCatalogEntry } from './buildings';
+import { fitModels, placeBuildings, splitFootprint, type BuildingCatalogEntry } from './buildings';
 import { noteWords } from '../../testing/note-words';
+import { minAreaRect } from '../../custom-map/map-surfaces';
 
 /** A nursing home's outline and courtyard as OSM maps such buildings (mirrored), metres east and north of its middle */
 const HOME_OUTER = [

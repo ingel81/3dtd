@@ -5,6 +5,7 @@
  * neighbours', so the bed the brush carved still fits.
  */
 import type { MapPoint, MapRiver, MapRiverPoint } from '../../world/custom-map/map-document';
+import { pointSegmentDistance } from '../../map-ops/path-graph';
 
 export interface RiverPointRef {
   river: number;
@@ -121,7 +122,7 @@ export function simplifyRiver(river: MapRiver, tolerance: number): void {
     let worst = -1;
     let at = -1;
     for (let k = a + 1; k < b; k++) {
-      const d = segmentDistance(pts[k], pts[a], pts[b]);
+      const d = pointSegmentDistance(pts[k], pts[a], pts[b]);
       if (d > worst) {
         worst = d;
         at = k;
@@ -135,10 +136,3 @@ export function simplifyRiver(river: MapRiver, tolerance: number): void {
   river.points = pts.filter((_, k) => keep[k]);
 }
 
-function segmentDistance(p: MapPoint, a: MapPoint, b: MapPoint): number {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const len2 = dx * dx + dy * dy || 1;
-  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
-  return Math.hypot(a.x + dx * t - p.x, a.y + dy * t - p.y);
-}

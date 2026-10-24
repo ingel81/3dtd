@@ -10,6 +10,7 @@
  */
 import type { MapBirdSpecies, MapLife, MapLifeArea, MapLifeKind, MapPoint } from './map-document';
 import type { MapText, MapThing } from './map-text';
+import { centroid } from './map-surfaces';
 
 export const LIFE_KINDS: readonly MapLifeKind[] = ['birds', 'fireflies', 'fog', 'leaves', 'embers', 'sparks', 'snow', 'dust', 'surf', 'haze', 'boats', 'movers', 'sound'];
 export const BIRD_SPECIES: readonly MapBirdSpecies[] = ['songbirds', 'gulls', 'crows', 'raptors', 'bats'];
@@ -276,17 +277,6 @@ export function lifeSpots(area: Pick<MapLifeArea, 'id' | 'shape' | 'points'>, sp
   if (out.length <= most) return out;
   const k = out.length / most;
   return Array.from({ length: most }, (_, n) => out[Math.floor(n * k)]);
-}
-
-/** The mean of the points */
-export function centroid(points: readonly MapPoint[]): MapPoint {
-  let x = 0;
-  let y = 0;
-  for (const p of points) {
-    x += p.x;
-    y += p.y;
-  }
-  return { x: x / Math.max(1, points.length), y: y / Math.max(1, points.length) };
 }
 
 /**

@@ -53,7 +53,7 @@
  * bridges over the track.
  */
 import { heightAt } from '../../../map-ops/grid';
-import { EdgeIndex } from '../../../map-ops/path-graph';
+import { EdgeIndex, pointSegmentDistance } from '../../../map-ops/path-graph';
 import { bridgeDecks, deckHeight, deckHeightAt } from '../../custom-map/bridge-decks';
 import type { MapObject, MapPathEdge, MapPaths, MapPoint, MapTerrain } from '../../custom-map/map-document';
 import { HeightField } from '../../custom-map/render/height-field';
@@ -1364,7 +1364,7 @@ function blocked(p: MapPoint, across: MapPoint, roads: EdgeIndex, tracks: LineIn
     const q = { x: p.x + (across.x * PIER.width * k) / 4, y: p.y + (across.y * PIER.width * k) / 4 };
     for (const { edge, a, b } of roads.segmentsNear(q, 25)) {
       if (edge === ownEdge || edge.kind === 'bridge') continue;
-      if (distance(q, a, b) < edge.width / 2 + PIER_ROAD_CLEAR + PIER.thick / 2) return true;
+      if (pointSegmentDistance(q, a, b) < edge.width / 2 + PIER_ROAD_CLEAR + PIER.thick / 2) return true;
     }
     if (tracks.near(q, PIER_TRACK_CLEAR + PIER.thick / 2, own)) return true;
   }
@@ -1382,14 +1382,6 @@ function support(asset: string, p: MapPoint, f: MapPoint, top: number, ground: n
   const s = Math.max(scale, (top - ground + 1) / height);
   return { asset, x: round2(p.x), y: round2(p.y), z: round2(top - height * s - ground), rotation: round3(wrap(Math.atan2(-f.x, f.y))), scale: round3(s) };
 }
-
-const distance = (p: MapPoint, a: MapPoint, b: MapPoint): number => {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const l2 = dx * dx + dy * dy;
-  const t = l2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0;
-  return Math.hypot(a.x + dx * t - p.x, a.y + dy * t - p.y);
-};
 
 /** Whether `p` lies on a track bed of `plan` (within its levelled width): other furniture keeps off */
 export function onTrackBed(plan: RailPlan, reach = BED_HALF): (p: MapPoint) => boolean {
@@ -1426,7 +1418,7 @@ class LineIndex {
     for (let j = Math.floor((p.y - r) / c); j <= Math.floor((p.y + r) / c); j++) {
       for (let i = Math.floor((p.x - r) / c); i <= Math.floor((p.x + r) / c); i++) {
         for (const s of this.cells.get((i + 100_000) * 200_003 + (j + 100_000)) ?? []) {
-          if (s.chain !== except && distance(p, s.a, s.b) < r) return true;
+          if (s.chain !== except && pointSegmentDistance(p, s.a, s.b) < r) return true;
         }
       }
     }
@@ -1441,7 +1433,7 @@ class LineIndex {
       for (let i = Math.floor((p.x - r) / c); i <= Math.floor((p.x + r) / c); i++) {
         for (const s of this.cells.get((i + 100_000) * 200_003 + (j + 100_000)) ?? []) {
           if (s.chain === except) continue;
-          const d = distance(p, s.a, s.b);
+          const d = pointSegmentDistance(p, s.a, s.b);
           if (d >= r || d >= (best.get(s.chain)?.dist ?? Infinity)) continue;
           const len = s.chain.at[s.k + 1] - s.chain.at[s.k];
           const t = len > 0 ? Math.max(0, Math.min(len, ((p.x - s.a.x) * (s.b.x - s.a.x) + (p.y - s.a.y) * (s.b.y - s.a.y)) / len)) : 0;
@@ -1461,7 +1453,7 @@ class LineIndex {
       for (let i = Math.floor((p.x - r) / c); i <= Math.floor((p.x + r) / c); i++) {
         for (const s of this.cells.get((i + 100_000) * 200_003 + (j + 100_000)) ?? []) {
           if (s.chain === except) continue;
-          const d = distance(p, s.a, s.b);
+          const d = pointSegmentDistance(p, s.a, s.b);
           if (d >= bestD) continue;
           const len = s.chain.at[s.k + 1] - s.chain.at[s.k];
           const t = len > 0 ? Math.max(0, Math.min(len, ((p.x - s.a.x) * (s.b.x - s.a.x) + (p.y - s.a.y) * (s.b.y - s.a.y)) / len)) : 0;

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { TdIconComponent } from '../../../components/icon/icon.component';
 import type { MapLife, MapLifeArea, MapLifeKind } from '../../../world/custom-map/map-document';
-import { centroid, DEFAULT_BOAT, LIFE_AREA_DENSITY, LIFE_KIND_INFO, LIFE_KINDS, LIFE_SOUND_REACH, lifeSwitches, outlineArea, shapeLength } from '../../../world/custom-map/map-life';
+import { DEFAULT_BOAT, LIFE_AREA_DENSITY, LIFE_KIND_INFO, LIFE_KINDS, LIFE_SOUND_REACH, lifeSwitches, outlineArea, shapeLength } from '../../../world/custom-map/map-life';
 import { SnapshotCommand } from '../../model/commands/snapshot';
 import { patch, type LifeMode } from '../../tools/tool';
 import { EditorSession } from '../editor-session.service';
@@ -10,6 +10,7 @@ import { RangeRowComponent } from './range-row.component';
 import { AMBIENT_SOUNDS, BIOME_AMBIENCE, WAVE_SOUNDS, type AmbientSoundId, type WaveSoundId } from '../../../world/custom-map/ambience/ambient-sounds';
 import { injectT } from '../../../i18n/i18n.service';
 import { catalogName } from '../../ops/describe';
+import { centroid } from '../../../world/custom-map/map-surfaces';
 
 
 /** Effect objects a click places (the Objects tool's Place), for one spot instead of an area */

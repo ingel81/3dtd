@@ -34,6 +34,7 @@ import { toModel } from '../../custom-map/object-ground';
 import { minAreaRect } from '../../custom-map/map-surfaces';
 import { buildingLevels, type BuildingKind } from '../building-tags';
 import { ringArea } from '../square-clip';
+import { pointSegmentDistance } from '../../../map-ops/path-graph';
 
 /** Points nearer than this (m) to the line of their neighbours go (Douglas-Peucker) */
 const SIMPLIFY_M = 0.35;
@@ -1042,7 +1043,6 @@ export function massLevels(tags: Readonly<Record<string, string>>, kind: Buildin
   return { floors, height: PLINTH + floors * storey };
 }
 
-
 /** The walls' look: `building:material` (or `building:facade:material`), else the kind's; a town hall in an old town half-timbered */
 export function massFacade(tags: Readonly<Record<string, string>>, kind: BuildingKind, oldTown = false): MapMassFacade {
   const tagged = MATERIALS[tags['building:material'] ?? tags['building:facade:material'] ?? ''];
@@ -1263,7 +1263,7 @@ export function simplifyRing(ring: readonly MapPoint[], tolerance: number): MapP
     let worst = -1;
     let at = -1;
     for (let k = i + 1; k < j; k++) {
-      const d = pointLine(pts[k], a, b);
+      const d = pointSegmentDistance(pts[k], a, b);
       if (d > worst) {
         worst = d;
         at = k;
@@ -1279,14 +1279,6 @@ export function simplifyRing(ring: readonly MapPoint[], tolerance: number): MapP
   let s = 0;
   for (let i = 0, j = out.length - 1; i < out.length; j = i++) s += out[j].x * out[i].y - out[i].x * out[j].y;
   return Math.abs(s) > 1 ? out : null;
-}
-
-function pointLine(p: MapPoint, a: MapPoint, b: MapPoint): number {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const len2 = dx * dx + dy * dy;
-  const t = len2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
-  return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
 }
 
 const round2 = (v: number): number => Math.round(v * 100) / 100;

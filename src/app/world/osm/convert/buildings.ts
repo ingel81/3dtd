@@ -47,7 +47,7 @@ import { waterLevelAt } from '../../custom-map/water-level';
 import { groundRing, type GroundBox } from '../../custom-map/object-ground';
 import { seatHeight, type ObjectFooting } from '../../custom-map/render/objects/object-seat';
 import { CoveredWays, garageFloors, massOpenings, type OpeningReport } from './building-openings';
-import { doorNodes, EdgeIndex, offDoors } from '../../../map-ops/path-graph';
+import { doorNodes, EdgeIndex, offDoors, pointSegmentDistance } from '../../../map-ops/path-graph';
 import { objectsOnPaths, PATH_WALL_SHARE } from '../../../map-ops/validation/map-validation';
 import {
   BUILDING_MODELS,
@@ -67,7 +67,6 @@ import {
 } from '../building-tags';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
 import { ringArea } from '../square-clip';
-import { convexHull, pointInRing } from './raster';
 import { MASS_ASSET, type MapFootprints, type MapMass } from '../../custom-map/map-document';
 import { packFootprints, type FootprintDrop, type FootprintRing } from '../../custom-map/map-footprints';
 import { massArea, massBodies, massBox, massDistance, massOnRamp, massRadius, massTop, massTriangles, ringsContain } from '../../custom-map/object-mass';
@@ -77,6 +76,7 @@ import { CLIP_KEEP, CLIP_LEAST, clipOffRoads, isDrawnPart, raiseMass, sharedWall
 import { findOldTown } from './old-town';
 import type { ImportNote } from '../../import-notes';
 import type { CatalogDoor } from '../../custom-map/render/asset-catalog';
+import { insideRing, minAreaRect, type TurnedRect } from '../../custom-map/map-surfaces';
 
 /** A catalogue entry as far as the buildings read it */
 export type BuildingCatalogEntry = CostEntry & { id: string; footprint: number; box?: GroundBox; doors?: readonly CatalogDoor[] };
@@ -298,14 +298,6 @@ const WINGED_FILL = 0.6;
 const BUILDING_TINTS: readonly (string | null)[] = [null, null, null, '#f6eee2', '#efe5d6', '#f3e3cb', '#e4ddd5', '#e9d6c2', '#dcd2c6'];
 const TINTED_KINDS: ReadonlySet<BuildingKind> = new Set(['house', 'semi', 'terrace', 'garage', 'shed', 'farm']);
 
-/** A turned rectangle: middle, unit axis `u` along side `a`, side `b` along `v` (u turned a quarter left) */
-interface Rect {
-  c: MapPoint;
-  u: MapPoint;
-  a: number;
-  b: number;
-}
-
 /** One model to place */
 interface Placement {
   asset: string;
@@ -356,7 +348,7 @@ export function osmFootprints(features: OsmFeatures, dropped: ReadonlyMap<readon
     const levels = buildingLevels(area.tags);
     const minLevel = buildingMinLevel(area.tags);
     for (const points of area.outer) {
-      const holes = area.inner.filter((r) => pointInRing(r[0], points));
+      const holes = area.inner.filter((r) => insideRing(r[0], points));
       rings.push({ points, holes, levels, minLevel, kind, dropped: dropped.get(points) ?? null });
     }
   }
@@ -449,7 +441,7 @@ export function placeBuildings(doc: CustomMapDocument, features: OsmFeatures, op
       continue;
     }
     for (const outer of area.outer) {
-      const holes = area.inner.filter((r) => pointInRing(r[0], outer));
+      const holes = area.inner.filter((r) => insideRing(r[0], outer));
       const ringA = Math.abs(ringArea(outer)) - holes.reduce((s, r) => s + Math.abs(ringArea(r)), 0);
       if (ringA < MIN_AREA) {
         report.dropped.tiny++;
@@ -738,7 +730,7 @@ class FootprintGrid {
     for (const f of this.cells.get(Math.floor(p.x / c) * 100003 + Math.floor(p.y / c)) ?? []) {
       const b = this.of.get(f)!;
       if (f === self || b.top < least || p.x < b.minX || p.x > b.maxX || p.y < b.minY || p.y > b.maxY) continue;
-      if (pointInRing(p, f.ring)) return true;
+      if (insideRing(p, f.ring)) return true;
     }
     return false;
   }
@@ -764,7 +756,7 @@ function partyWalls(mass: MapMass, o: Pick<MapObject, 'x' | 'y' | 'rotation' | '
  * point): points on a raster of its rectangle, about 300 of them on the
  * footprint
  */
-function coverage(outer: readonly MapPoint[], holes: readonly MapPoint[][], rect: Rect, covers: (q: MapPoint) => boolean): number {
+function coverage(outer: readonly MapPoint[], holes: readonly MapPoint[][], rect: TurnedRect, covers: (q: MapPoint) => boolean): number {
   const cell = Math.max(0.4, Math.sqrt((rect.a * rect.b) / 300));
   const v = { x: -rect.u.y, y: rect.u.x };
   let inside = 0;
@@ -772,7 +764,7 @@ function coverage(outer: readonly MapPoint[], holes: readonly MapPoint[][], rect
   for (let sv = -rect.b / 2 + cell / 2; sv < rect.b / 2; sv += cell) {
     for (let su = -rect.a / 2 + cell / 2; su < rect.a / 2; su += cell) {
       const q = { x: rect.c.x + su * rect.u.x + sv * v.x, y: rect.c.y + su * rect.u.y + sv * v.y };
-      if (!pointInRing(q, outer) || holes.some((h) => pointInRing(q, h))) continue;
+      if (!insideRing(q, outer) || holes.some((h) => insideRing(q, h))) continue;
       inside++;
       if (covers(q)) covered++;
     }
@@ -794,7 +786,7 @@ function overhang(outer: readonly MapPoint[], holes: readonly MapPoint[][], kept
     for (let t = -pl.hd + cell / 2; t < pl.hd; t += cell) {
       for (let s = -pl.hw + cell / 2; s < pl.hw; s += cell) {
         const q = { x: pl.p.x + r.x * s + f.x * t, y: pl.p.y + r.y * s + f.y * t };
-        if (pointInRing(q, outer) && !holes.some((h) => pointInRing(q, h))) continue;
+        if (insideRing(q, outer) && !holes.some((h) => insideRing(q, h))) continue;
         if (kept.some((o, j) => j < k && inBox(o, q))) continue;
         out += cell * cell;
       }
@@ -879,7 +871,7 @@ function massBlocked(
   for (const g of roads.coveredNear(pl.p, radius + 40)) {
     const piece = local(g);
     // Only pieces that come near the building's ground at all (its circle round the origin)
-    if (pointSegment({ x: 0, y: 0 }, { x: piece.ax, y: piece.az }, { x: piece.bx, y: piece.bz }) > radius + piece.half) continue;
+    if (pointSegmentDistance({ x: 0, y: 0 }, { x: piece.ax, y: piece.az }, { x: piece.bx, y: piece.bz }) > radius + piece.half) continue;
     if (alongWalls(mass, piece)) pieces.push(piece);
   }
   const rings = mass.rings;
@@ -950,47 +942,13 @@ const MASS_SHRINK = [1, 0.95, 0.9, 0.85, 0.8];
 
 // ---- Shape ----
 
-/** The smallest turned rectangle round a ring: one side lies on an edge of its hull (rotating calipers, tried edge by edge) */
-export function minAreaRect(ring: readonly MapPoint[]): Rect {
-  const hull = convexHull(ring);
-  let best: Rect | null = null;
-  let bestArea = Infinity;
-  for (let k = 0; k < hull.length; k++) {
-    const p = hull[k];
-    const q = hull[(k + 1) % hull.length];
-    const len = Math.hypot(q.x - p.x, q.y - p.y);
-    if (len < 1e-6) continue;
-    const u = { x: (q.x - p.x) / len, y: (q.y - p.y) / len };
-    let minU = Infinity;
-    let maxU = -Infinity;
-    let minV = Infinity;
-    let maxV = -Infinity;
-    for (const h of hull) {
-      const su = h.x * u.x + h.y * u.y;
-      const sv = -h.x * u.y + h.y * u.x;
-      minU = Math.min(minU, su);
-      maxU = Math.max(maxU, su);
-      minV = Math.min(minV, sv);
-      maxV = Math.max(maxV, sv);
-    }
-    const area = (maxU - minU) * (maxV - minV);
-    if (area < bestArea - 1e-9) {
-      bestArea = area;
-      const cu = (minU + maxU) / 2;
-      const cv = (minV + maxV) / 2;
-      best = { c: { x: cu * u.x - cv * u.y, y: cu * u.y + cv * u.x }, u, a: maxU - minU, b: maxV - minV };
-    }
-  }
-  return best ?? { c: ring[0] ?? { x: 0, y: 0 }, u: { x: 1, y: 0 }, a: 0, b: 0 };
-}
-
 /**
  * A footprint that fills its rectangle badly cut into rectangles: the
  * footprint rasterised in the rectangle's own axes, then the biggest
  * rectangle of filled cells taken again and again (the largest rectangle
  * under each row's histogram) until the parts left are small
  */
-export function splitFootprint(outer: readonly MapPoint[], holes: readonly MapPoint[][], rect: Rect, area: number): Rect[] {
+export function splitFootprint(outer: readonly MapPoint[], holes: readonly MapPoint[][], rect: TurnedRect, area: number): TurnedRect[] {
   const cell = Math.max(0.5, Math.min(2, Math.sqrt(rect.a * rect.b) / 60));
   const nu = Math.max(1, Math.ceil(rect.a / cell));
   const nv = Math.max(1, Math.ceil(rect.b / cell));
@@ -1001,13 +959,13 @@ export function splitFootprint(outer: readonly MapPoint[], holes: readonly MapPo
       const su = -rect.a / 2 + (i + 0.5) * (rect.a / nu);
       const sv = -rect.b / 2 + (j + 0.5) * (rect.b / nv);
       const p = { x: rect.c.x + su * rect.u.x + sv * v.x, y: rect.c.y + su * rect.u.y + sv * v.y };
-      if (pointInRing(p, outer) && !holes.some((h) => pointInRing(p, h))) filled[j * nu + i] = 1;
+      if (insideRing(p, outer) && !holes.some((h) => insideRing(p, h))) filled[j * nu + i] = 1;
     }
   }
   const du = rect.a / nu;
   const dv = rect.b / nv;
   const minCells = Math.max(MIN_PART_AREA, MIN_PART_SHARE * area) / (du * dv);
-  const parts: Rect[] = [];
+  const parts: TurnedRect[] = [];
   const heights = new Int32Array(nu);
   while (parts.length < MAX_PARTS) {
     // Largest rectangle of filled cells: histogram per row, a stack per histogram
@@ -1115,7 +1073,7 @@ function sizeClass(a: number, b: number): string {
 
 /** The models of one rectangle of a footprint, facing the nearest street; null when nothing fits */
 function layPart(
-  rect: Rect,
+  rect: TurnedRect,
   kind: BuildingKind,
   levels: number | null,
   roads: SegmentIndex,
@@ -1280,14 +1238,6 @@ function boxDistance(pl: Placement, q: MapPoint): number {
   return Math.hypot(Math.max(0, Math.abs(s) - pl.hw), Math.max(0, Math.abs(t) - pl.hd));
 }
 
-function pointSegment(p: MapPoint, a: MapPoint, b: MapPoint): number {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const len2 = dx * dx + dy * dy;
-  const t = len2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
-  return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
-}
-
 /**
  * The ground of a building model as the editor's check and the renderer take
  * it: the catalogue's footprint and ground rectangle, or without a catalogue
@@ -1351,7 +1301,7 @@ function roadGuard(doc: CustomMapDocument): Uint8Array {
         const y = -t.depth / 2 + j * g.cellSize;
         for (let i = i0; i <= i1; i++) {
           const x = -t.width / 2 + i * g.cellSize;
-          if (pointSegment({ x, y }, p, q) <= reach) mask[j * g.columns + i] = 1;
+          if (pointSegmentDistance({ x, y }, p, q) <= reach) mask[j * g.columns + i] = 1;
         }
       }
     }
@@ -1599,12 +1549,12 @@ class EntranceIndex {
 /** Distance from a point to a closed ring's edges */
 function ringDistance(ring: readonly MapPoint[], p: MapPoint): number {
   let d = Infinity;
-  for (let k = 0; k < ring.length; k++) d = Math.min(d, pointSegment(p, ring[k], ring[(k + 1) % ring.length]));
+  for (let k = 0; k < ring.length; k++) d = Math.min(d, pointSegmentDistance(p, ring[k], ring[(k + 1) % ring.length]));
   return d;
 }
 
 /** How far a point lies outside a turned rectangle (0 inside) */
-function rectReach(rect: Rect, p: MapPoint): number {
+function rectReach(rect: TurnedRect, p: MapPoint): number {
   const dx = p.x - rect.c.x;
   const dy = p.y - rect.c.y;
   const along = Math.abs(dx * rect.u.x + dy * rect.u.y) - rect.a / 2;
@@ -1758,7 +1708,7 @@ class SegmentIndex {
     let road = Infinity;
     let path = Infinity;
     for (const s of this.near(p, reach)) {
-      const d = Math.max(0, pointSegment(p, s.a, s.b) - s.half);
+      const d = Math.max(0, pointSegmentDistance(p, s.a, s.b) - s.half);
       if (s.road) road = Math.min(road, d);
       else path = Math.min(path, d);
     }
@@ -1886,7 +1836,7 @@ class AreaIndex {
     let best: OsmArea | null = null;
     for (const area of this.cells.get((Math.floor(p.x / this.cell) + 4096) * 8192 + (Math.floor(p.y / this.cell) + 4096)) ?? []) {
       if (best && area.area >= best.area) continue;
-      if (area.outer.some((r) => pointInRing(p, r)) && !area.inner.some((r) => pointInRing(p, r))) best = area;
+      if (area.outer.some((r) => insideRing(p, r)) && !area.inner.some((r) => insideRing(p, r))) best = area;
     }
     return best;
   }
@@ -1897,7 +1847,7 @@ class AreaIndex {
     let bestArea = Infinity;
     for (const area of this.cells.get((Math.floor(p.x / this.cell) + 4096) * 8192 + (Math.floor(p.y / this.cell) + 4096)) ?? []) {
       for (const r of area.outer) {
-        if (!pointInRing(p, r)) continue;
+        if (!insideRing(p, r)) continue;
         const a = Math.abs(ringArea(r));
         if (a < bestArea) {
           best = r;
@@ -1926,7 +1876,7 @@ export function partsByOutline(features: OsmFeatures): Map<readonly MapPoint[], 
       if (!owner) continue;
       let list = out.get(owner);
       if (!list) out.set(owner, (list = []));
-      list.push({ outer: ring, holes: part.inner.filter((h) => pointInRing(h[0], ring)), tags: part.tags });
+      list.push({ outer: ring, holes: part.inner.filter((h) => insideRing(h[0], ring)), tags: part.tags });
     }
   }
   return out;

@@ -22,7 +22,7 @@
  * is free come in as functions and lines, the same input gives the same rows.
  */
 import type { MapPoint } from '../../custom-map/map-document';
-import { pointInRing } from './raster';
+import { insideRing } from '../../custom-map/map-surfaces';
 
 /** Ground rising at least this much per metre is a slope the rows run down */
 export const ROW_SLOPE = 0.08;
@@ -107,7 +107,7 @@ export interface RowRun {
 export function parcelsOf(outer: readonly (readonly MapPoint[])[], inner: readonly (readonly MapPoint[])[]): Parcel[] {
   return outer
     .filter((r) => r.length >= 3)
-    .map((ring) => ({ outer: ring, inner: inner.filter((h) => h.length >= 3 && pointInRing(h[0], ring)) }));
+    .map((ring) => ({ outer: ring, inner: inner.filter((h) => h.length >= 3 && insideRing(h[0], ring)) }));
 }
 
 /**
@@ -251,7 +251,7 @@ export function fallLine(p: Parcel, heightAt: (x: number, y: number) => number):
   for (let y = box.minY + step / 2; y < box.maxY; y += step) {
     for (let x = box.minX + step / 2; x < box.maxX; x += step) {
       const q = { x, y };
-      if (!pointInRing(q, p.outer) || p.inner.some((h) => pointInRing(q, h))) continue;
+      if (!insideRing(q, p.outer) || p.inner.some((h) => insideRing(q, h))) continue;
       xs.push(x);
       ys.push(y);
       hs.push(heightAt(x, y));
@@ -385,7 +385,7 @@ export function rowBlocks(p: Parcel, heightAt: (x: number, y: number) => number,
   }
   // One block when the squares the parcel covers agree with its own plane (a square counts by its middle or a corner)
   const covers = (i: number, j: number) => {
-    for (const [u, v] of [[0.5, 0.5], [0, 0], [1, 0], [0, 1], [1, 1]]) if (pointInRing({ x: (i0 + i + u) * c, y: (j0 + j + v) * c }, p.outer)) return true;
+    for (const [u, v] of [[0.5, 0.5], [0, 0], [1, 0], [0, 1], [1, 1]]) if (insideRing({ x: (i0 + i + u) * c, y: (j0 + j + v) * c }, p.outer)) return true;
     return false;
   };
   let agree = true;

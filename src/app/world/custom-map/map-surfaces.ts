@@ -182,6 +182,17 @@ export function minAreaRect(ring: readonly MapPoint[]): TurnedRect {
   return best ?? { c: ring[0] ?? { x: 0, y: 0 }, u: { x: 1, y: 0 }, a: 0, b: 0 };
 }
 
+/** The mean of the points */
+export function centroid(points: readonly MapPoint[]): MapPoint {
+  let x = 0;
+  let y = 0;
+  for (const p of points) {
+    x += p.x;
+    y += p.y;
+  }
+  return { x: x / Math.max(1, points.length), y: y / Math.max(1, points.length) };
+}
+
 /** Signed area of a ring (counter-clockwise positive) */
 export function signedArea(ring: readonly MapPoint[]): number {
   let s = 0;

@@ -38,8 +38,8 @@ import { SCENE_BUDGET } from '../../custom-map/render/objects/scene-cost';
 import { BUILDING_MODELS } from '../building-tags';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
 import { AWNING_COLOURS, BOARD_COLOURS, poiCategory, signLanguage, type PoiCategory, type SignLanguage } from '../poi-tags';
-import { pointInRing } from './raster';
 import { facadeDistance, facadesOf, facadeTurn, massFacades, type FacadeAnchor } from './facades';
+import { centroid, insideRing } from '../../custom-map/map-surfaces';
 
 /** Share of the scene budget the POIs' objects may take */
 export const POI_BUDGET_SHARE = 0.06;
@@ -169,7 +169,7 @@ export function placePois(doc: CustomMapDocument, features: OsmFeatures, options
   for (const a of features.areas) {
     const kind = poiCategory(a.tags);
     if (!kind || !a.outer.length) continue;
-    const c = ringCentre(a.outer[0]);
+    const c = centroid(a.outer[0]);
     pois.push({ id: a.id, x: c.x, y: c.y, tags: a.tags, kind, area: a });
   }
   report.pois = pois.length;
@@ -190,7 +190,7 @@ export function placePois(doc: CustomMapDocument, features: OsmFeatures, options
       }
       continue;
     }
-    if (poi.area === area || area.outer.some((r) => pointInRing(poi, r))) report.inside++;
+    if (poi.area === area || area.outer.some((r) => insideRing(poi, r))) report.inside++;
     else report.near++;
     if (poi.kind.id === 'fuel') {
       wishes.set(poi, fuelPumps(poi, doc, roads));
@@ -466,17 +466,6 @@ export function streetAsset(tags: Readonly<Record<string, string>>): string | nu
   return null;
 }
 
-/** The middle of a ring (the mean of its corners) */
-function ringCentre(ring: readonly MapPoint[]): MapPoint {
-  let x = 0;
-  let y = 0;
-  for (const p of ring) {
-    x += p.x;
-    y += p.y;
-  }
-  return { x: x / ring.length, y: y / ring.length };
-}
-
 /** Footprints by CELL m cells of their bounds: the one a point lies in or nearest within a reach */
 class FootprintIndex {
   private readonly cells = new Map<number, OsmArea[]>();
@@ -510,7 +499,7 @@ class FootprintIndex {
   at(p: MapPoint, reach = 0): OsmArea | null {
     const ci = Math.floor(p.x / CELL);
     const cj = Math.floor(p.y / CELL);
-    for (const a of this.cells.get(key(ci, cj)) ?? []) if (a.outer.some((r) => pointInRing(p, r))) return a;
+    for (const a of this.cells.get(key(ci, cj)) ?? []) if (a.outer.some((r) => insideRing(p, r))) return a;
     if (reach <= 0) return null;
     let best: OsmArea | null = null;
     let bestD = reach;

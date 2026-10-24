@@ -217,7 +217,7 @@ export class EdgeIndex {
           const line = this.lines.get(item.edge)!;
           const a = line[item.segment];
           const b = line[item.segment + 1];
-          if (segmentDistance(p, a, b) > radius) continue;
+          if (pointSegmentDistance(p, a, b) > radius) continue;
           const doorA = item.segment === 0 && this.doors.has(item.edge.a);
           const doorB = item.segment === line.length - 2 && this.doors.has(item.edge.b);
           out.push({ edge: item.edge, a, b, doorA, doorB });
@@ -243,7 +243,7 @@ export class EdgeIndex {
           if (Math.max(Math.abs(i - ci), Math.abs(j - cj)) !== r) continue;
           for (const item of this.cells.get(cellKey(i, j)) ?? []) {
             const line = this.lines.get(item.edge)!;
-            const d = segmentDistance(p, line[item.segment], line[item.segment + 1]);
+            const d = pointSegmentDistance(p, line[item.segment], line[item.segment + 1]);
             if (d > maxDist) continue;
             if (!best || d < best.dist || (d === best.dist && this.order.get(item.edge)! < this.order.get(best.edge)!)) best = { edge: item.edge, dist: d };
           }
@@ -297,7 +297,8 @@ export function offDoors(a: MapPoint, b: MapPoint, doorA: boolean, doorB: boolea
   ];
 }
 
-function segmentDistance(p: MapPoint, a: MapPoint, b: MapPoint): number {
+/** Distance from p to the segment a-b */
+export function pointSegmentDistance(p: MapPoint, a: MapPoint, b: MapPoint): number {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const len2 = dx * dx + dy * dy;

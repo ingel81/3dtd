@@ -18,7 +18,7 @@
 import type { MapPaths, MapPoint } from '../../custom-map/map-document';
 import { isGroundBuilding } from '../building-tags';
 import type { OsmFeatures } from '../osm-parse';
-import { pointInRing } from './raster';
+import { insideRing } from '../../custom-map/map-surfaces';
 
 /** Metres an outline keeps from a wall beyond its half width */
 const OUTLINE_GUARD = 0.5;
@@ -167,7 +167,7 @@ export class SolidIndex {
           minY = Math.min(minY, q.y);
           maxY = Math.max(maxY, q.y);
         }
-        const solid: Solid = { outer, holes: area.inner.filter((r) => pointInRing(r[0], outer)), minX, maxX, minY, maxY };
+        const solid: Solid = { outer, holes: area.inner.filter((r) => insideRing(r[0], outer)), minX, maxX, minY, maxY };
         for (let j = Math.floor(minY / CELL); j <= Math.floor(maxY / CELL); j++) {
           for (let i = Math.floor(minX / CELL); i <= Math.floor(maxX / CELL); i++) {
             const key = (i + 4096) * 8192 + (j + 4096);
@@ -223,7 +223,7 @@ export class SolidIndex {
 
 /** Whether `p` lies in a building's outer ring and in none of its courtyards */
 function onGround(s: Solid, p: MapPoint): boolean {
-  return pointInRing(p, s.outer) && !s.holes.some((h) => pointInRing(p, h));
+  return insideRing(p, s.outer) && !s.holes.some((h) => insideRing(p, h));
 }
 
 /** The point of segment a to b nearest to `p` */

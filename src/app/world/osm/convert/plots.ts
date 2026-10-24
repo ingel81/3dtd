@@ -1,6 +1,6 @@
 import { MAX_LAYERS, readWeights, writeWeights } from '../../../map-ops/paint-ops';
 import { DEFAULT_LINE, ObjectIds, objectsAlong } from '../../../map-ops/object-ops';
-import { EdgeIndex } from '../../../map-ops/path-graph';
+import { EdgeIndex, pointSegmentDistance } from '../../../map-ops/path-graph';
 import { hashCell } from '../../../map-ops/landscape-noise';
 import { fitSplatMaps, type CustomMapDocument, type MapObject, type MapPoint } from '../../custom-map/map-document';
 import { SCENE_BUDGET } from '../../custom-map/render/objects/scene-cost';
@@ -10,6 +10,7 @@ import type { BuildingDoor } from './buildings';
 import { LineClearance } from './line-clear';
 import { RAIL_GROUND, type RailPlan } from './rails';
 import { fillRings, stampLine, type RasterGrid } from './raster';
+import { simplify } from '../../../map-ops/lines';
 
 /**
  * The plots of an OSM world's houses (report-vterrain 4: between the houses
@@ -248,7 +249,7 @@ export function layPlots(doc: CustomMapDocument, features: OsmFeatures, options:
     const door = options.doors?.get(h.area.id) ?? frontDoor(h);
     if (!door) return;
     const drive = drives.get(index);
-    if (drive && segmentDistance(door, drive[0], drive[1]) < PATH_BESIDE_DRIVE) return;
+    if (drive && pointSegmentDistance(door, drive[0], drive[1]) < PATH_BESIDE_DRIVE) return;
     const path = footpath(door, roads);
     if (!path || path.outer.some(cleared)) return;
     // Its line from a step out of the door to just short of the pavement: nothing standing there, no road or building
@@ -263,7 +264,7 @@ export function layPlots(doc: CustomMapDocument, features: OsmFeatures, options:
     report.footpaths++;
   });
   /** Whether a piece of fence or hedge would stand across a footpath */
-  const onPath = (p: MapPoint): boolean => paths.some(([a, b]) => segmentDistance(p, a, b) < PATH_WIDTH / 2 + 1);
+  const onPath = (p: MapPoint): boolean => paths.some(([a, b]) => pointSegmentDistance(p, a, b) < PATH_WIDTH / 2 + 1);
 
   // Hedges on the sides and backs, a fence along some front gardens
   const seed = Math.round(features.frame.lat * 1e4) ^ Math.round(features.frame.lon * 1e4);
@@ -441,14 +442,6 @@ function footpath(door: BuildingDoor, roads: EdgeIndex): { outer: MapPoint[]; li
   return { outer, line: [p0, p1, p2] };
 }
 
-/** Distance from p to the segment a-b */
-function segmentDistance(p: MapPoint, a: MapPoint, b: MapPoint): number {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / Math.max(1e-9, dx * dx + dy * dy)));
-  return Math.hypot(p.x - a.x - dx * t, p.y - a.y - dy * t);
-}
-
 function driveway(h: House, index: number, label: Int32Array, dist: Float32Array, grid: RasterGrid, roads: EdgeIndex): MapPoint[] | null {
   const d = h.d;
   if (!d) return null;
@@ -567,34 +560,5 @@ function boundaries(label: Int32Array, dist: Float32Array, n: number, isFront: (
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) while (degree(i, j, want) > 0) take(i, j, want);
   }
   return runs;
-}
-
-/** A line's points within `tolerance` of the line through fewer (Douglas and Peucker) */
-function simplify(line: readonly MapPoint[], tolerance: number): MapPoint[] {
-  if (line.length < 3) return [...line];
-  const keep = new Uint8Array(line.length);
-  keep[0] = keep[line.length - 1] = 1;
-  const stack: [number, number][] = [[0, line.length - 1]];
-  while (stack.length) {
-    const [a, b] = stack.pop()!;
-    const p = line[a];
-    const q = line[b];
-    const dx = q.x - p.x;
-    const dy = q.y - p.y;
-    const l = Math.hypot(dx, dy) || 1;
-    let far = -1;
-    let worst = tolerance;
-    for (let k = a + 1; k < b; k++) {
-      const d = Math.abs((line[k].x - p.x) * dy - (line[k].y - p.y) * dx) / l;
-      if (d > worst) {
-        worst = d;
-        far = k;
-      }
-    }
-    if (far < 0) continue;
-    keep[far] = 1;
-    stack.push([a, far], [far, b]);
-  }
-  return line.filter((_, k) => keep[k]);
 }
 

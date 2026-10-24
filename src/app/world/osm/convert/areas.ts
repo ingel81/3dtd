@@ -23,10 +23,10 @@
  */
 import { hashCell } from '../../../map-ops/landscape-noise';
 import { ObjectIds } from '../../../map-ops/object-ops';
-import { EdgeIndex, spawnRoutes } from '../../../map-ops/path-graph';
+import { EdgeIndex, pointSegmentDistance, spawnRoutes } from '../../../map-ops/path-graph';
 import type { CustomMapDocument, MapObject, MapPoint, MapSurface, MapSurfaceMarking } from '../../custom-map/map-document';
 import { SCENE_BUDGET } from '../../custom-map/render/objects/scene-cost';
-import { courtOf, fitMarking, insideRing, insideSurface, MARKING_FILL, markingPoint, MAX_SURFACE_MATERIALS, minAreaRect, parkingRows, signedArea, STALL, surfaceArea } from '../../custom-map/map-surfaces';
+import { centroid, courtOf, fitMarking, insideRing, insideSurface, MARKING_FILL, markingPoint, MAX_SURFACE_MATERIALS, minAreaRect, parkingRows, signedArea, STALL, surfaceArea } from '../../custom-map/map-surfaces';
 import { areaLookOf, availableMaterial, MATERIAL_FALLBACK, PARKED_CARS, PLAYGROUND_DEVICES, PLAYGROUND_SETS, type AreaKind, type AreaLook } from '../area-tags';
 import type { OsmArea, OsmFeatures, OsmPoint } from '../osm-parse';
 import { LineClearance } from './line-clear';
@@ -207,7 +207,7 @@ export function layAreas(doc: CustomMapDocument, features: OsmFeatures, water: W
   }
   squares.forEach((p, k) => {
     if (p.area.tags['surface']) return;
-    const c = centroidOf(p.surface.outer);
+    const c = centroid(p.surface.outer);
     const outer = squares.slice(0, k).find((q) => insideSurface(q.surface, c));
     if (outer) p.surface.material = outer.surface.material;
   });
@@ -445,7 +445,7 @@ function levelGround(doc: CustomMapDocument, s: MapSurface, water: WaterResult):
         continue;
       }
       let d = Infinity;
-      for (const [a, b] of edges) d = Math.min(d, segmentDistance(p, a, b));
+      for (const [a, b] of edges) d = Math.min(d, pointSegmentDistance(p, a, b));
       if (d < SLOPE) near.push({ k, d });
     }
   }
@@ -460,13 +460,6 @@ function levelGround(doc: CustomMapDocument, s: MapSurface, water: WaterResult):
     g.heights[k] = level + (g.heights[k] - level) * w;
   }
   return true;
-}
-
-function segmentDistance(p: MapPoint, a: MapPoint, b: MapPoint): number {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
-  return Math.hypot(a.x + t * dx - p.x, a.y + t * dy - p.y);
 }
 
 type Add = (o: Omit<MapObject, 'id'>, source: string, priority: number, reach?: number) => void;
@@ -582,7 +575,7 @@ function spotsIn(s: MapSurface, size: number, margin: number, salt: number): Map
       const p = { x: x + (hashCell(i, j, salt) - 0.5) * size * 0.5, y: y + (hashCell(i, j, salt + 1) - 0.5) * size * 0.5 };
       if (!insideSurface(s, p)) continue;
       let d = Infinity;
-      for (const r of rings) for (let k = 0; k < r.length; k++) d = Math.min(d, segmentDistance(p, r[k], r[(k + 1) % r.length]));
+      for (const r of rings) for (let k = 0; k < r.length; k++) d = Math.min(d, pointSegmentDistance(p, r[k], r[(k + 1) % r.length]));
       if (d < margin) continue;
       out.push({ p, order: hashCell(i, j, salt + 2) });
     }
@@ -592,7 +585,7 @@ function spotsIn(s: MapSurface, size: number, margin: number, salt: number): Map
 
 /** Benches at the edge of a surface, 1 m inside, facing its middle */
 function benchesAt(s: MapSurface, count: number, salt: number, add: Add, source: string): void {
-  const c = centroidOf(s.outer);
+  const c = centroid(s.outer);
   const ring = s.outer;
   const perimeter = ring.reduce((sum, p, k) => sum + Math.hypot(ring[(k + 1) % ring.length].x - p.x, ring[(k + 1) % ring.length].y - p.y), 0);
   for (let b = 0; b < count; b++) {
@@ -724,7 +717,7 @@ function cemetery(e: Planned, extra: MapSurface[], add: Add, has: ((id: string) 
       const p = markingPoint(m, u, v);
       if (!insideSurface(s, p)) continue;
       let d = Infinity;
-      for (const ring of rings) for (let k = 0; k < ring.length; k++) d = Math.min(d, segmentDistance(p, ring[k], ring[(k + 1) % ring.length]));
+      for (const ring of rings) for (let k = 0; k < ring.length; k++) d = Math.min(d, pointSegmentDistance(p, ring[k], ring[(k + 1) % ring.length]));
       if (d < 3) continue;
       spots.push({ p, d: Math.hypot(u, v) });
     }
@@ -732,7 +725,7 @@ function cemetery(e: Planned, extra: MapSurface[], add: Add, has: ((id: string) 
   spots.sort((a, b) => a.d - b.d);
   for (const { p } of spots.slice(0, MAX_GRAVES)) add(place('graves', p, angle + Math.PI / 2), 'graves', 2);
   // A hedge round it, 0.8 m inside
-  const c = centroidOf(s.outer);
+  const c = centroid(s.outer);
   const inset = s.outer.map((p) => {
     const d = Math.hypot(c.x - p.x, c.y - p.y) || 1;
     return { x: p.x + ((c.x - p.x) / d) * 0.8, y: p.y + ((c.y - p.y) / d) * 0.8 };
@@ -764,7 +757,7 @@ function allotmentPlots(e: Planned, buildings: BuildingIndex, add: Add): void {
     }
   }
   plots.sort((a, b) => a.d - b.d);
-  const huts = buildings.near(s.outer).map((b) => centroidOf(b.outer[0] ?? [])).filter((p) => insideSurface(s, p));
+  const huts = buildings.near(s.outer).map((b) => centroid(b.outer[0] ?? [])).filter((p) => insideSurface(s, p));
   for (const { u, v } of plots.slice(0, MAX_PLOTS)) {
     const p = (du: number, dv: number) => markingPoint(m, u + du, v + dv);
     line(p(-W / 2, -D / 2), p(W / 2, -D / 2), 'fence-picket', 3.6, add, 'allotment fences', 3);
@@ -775,16 +768,6 @@ function allotmentPlots(e: Planned, buildings: BuildingIndex, add: Add): void {
     const shed = p(W / 2 - 3, D / 2 - 3);
     add(place('garden-shed', shed, facing(shed, p(0, 0))), 'allotment sheds', 3);
   }
-}
-
-function centroidOf(ring: readonly MapPoint[]): MapPoint {
-  let x = 0;
-  let y = 0;
-  for (const p of ring) {
-    x += p.x;
-    y += p.y;
-  }
-  return ring.length ? { x: x / ring.length, y: y / ring.length } : { x: 0, y: 0 };
 }
 
 /** The point `along` metres round a ring from its first point */
