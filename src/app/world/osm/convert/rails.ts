@@ -632,7 +632,7 @@ function segmentAt(c: RailChain, along: number): number {
 }
 
 /** The point `along` metres down the line (clamped to it) */
-export function pointOn(c: RailChain, along: number): MapPoint {
+function pointOn(c: RailChain, along: number): MapPoint {
   const k = segmentAt(c, along);
   const a = c.line[k];
   const b = c.line[k + 1];

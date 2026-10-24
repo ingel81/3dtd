@@ -459,7 +459,7 @@ function thin(line: readonly MapPoint[], tolerance: number): MapPoint[] {
 }
 
 /** Shoulder (metres past the half width that fade into the ground) and smoothing along the road */
-export const ROAD_LEVELLING = { shoulder: 3, smoothing: 20 } as const;
+const ROAD_LEVELLING = { shoulder: 3, smoothing: 20 } as const;
 
 /**
  * The ground levelled across every road and path (bridges span theirs, tunnels run under it):

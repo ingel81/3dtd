@@ -243,7 +243,7 @@ const STONE_NAMED: Readonly<Record<string, string>> = {
 };
 
 /** One raised building: its mass in the object's own axes, the object's place and turn, its tint */
-export interface RaisedMass {
+interface RaisedMass {
   mass: MapMass;
   /** The object's middle (its rectangle's) and turn; the front (model +z) and the half sides of its rectangle */
   centre: MapPoint;
@@ -255,7 +255,7 @@ export interface RaisedMass {
 }
 
 /** A footprint's turned rectangle as convert/buildings.ts finds it: middle, unit axis along side `a`, sides */
-export interface MassRect {
+interface MassRect {
   c: MapPoint;
   u: MapPoint;
   a: number;
@@ -928,7 +928,7 @@ function leanAway(part: MapMassPart, parts: readonly MapMassPart[]): number | nu
 }
 
 /** A roof's colour and covering from `roof:colour` and `roof:material` (MapMass.roofTint, roofCover); none untagged */
-export function roofLook(tags: Readonly<Record<string, string>>): Pick<MapMass, 'roofTint' | 'roofCover'> {
+function roofLook(tags: Readonly<Record<string, string>>): Pick<MapMass, 'roofTint' | 'roofCover'> {
   const roofTint = tagColour(tags['roof:colour'], false, true) ?? undefined;
   const roofCover = ROOF_MATERIALS[tags['roof:material'] ?? ''] ?? (roofTint ? coverOfColour(roofTint) : undefined);
   return { ...(roofTint ? { roofTint } : {}), ...(roofCover ? { roofCover } : {}) };
@@ -1062,7 +1062,7 @@ export function massTint(tags: Readonly<Record<string, string>>, facade: MapMass
 }
 
 /** A road's piece in the building's own axes (model x, z) with the half width the building keeps off */
-export interface MassRoad {
+interface MassRoad {
   ax: number;
   az: number;
   bx: number;

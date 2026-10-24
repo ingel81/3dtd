@@ -53,7 +53,7 @@ import type { ImportNote } from '../../import-notes';
 import { round2 } from './geom';
 
 /** Water areas smaller than this are left out, m² */
-export const MIN_WATER_AREA = 50;
+const MIN_WATER_AREA = 50;
 /** A river area falling more than this over its course is cut into sections, metres */
 const SECTION_FALL = 0.75;
 /** Metres along a river's axis per bin its level is read in */

@@ -64,7 +64,7 @@ const PANE_IN_WALL = 1;
 /** Cellar windows: most width, height, their top under the storey's ceiling, the frame round the glass; the nearest two may stand */
 const WIN = { width: 0.9, height: 0.6, top: 0.35, frame: 0.06, apart: 1.2 } as const;
 /** A cellar window opens where the storey stands this free of the ground: its top, its height and room under its sill */
-export const WINDOW_FREE = WIN.top + WIN.height + 0.2;
+const WINDOW_FREE = WIN.top + WIN.height + 0.2;
 /**
  * The door: width, height, frame; it opens where the ground lies this far under the storey's ceiling, from and to:
  * room for it, and at most a few steps under its floor

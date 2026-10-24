@@ -152,7 +152,7 @@ export interface MapRect {
   maxY: number;
 }
 
-export interface MapRayHit {
+interface MapRayHit {
   /** Scene position of the hit */
   point: Vector3;
   distance: number;

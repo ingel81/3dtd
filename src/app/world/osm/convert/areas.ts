@@ -39,7 +39,7 @@ import type { WaterResult } from './water';
 import { round2, round3 } from './geom';
 
 /** Share of the scene budget the objects of the areas may take */
-export const AREA_BUDGET_SHARE = 0.1;
+const AREA_BUDGET_SHARE = 0.1;
 /** How much of its rectangle a car park must fill for its rows of stalls */
 const PARKING_FILL = 0.6;
 /** Square metres an area needs for a surface */

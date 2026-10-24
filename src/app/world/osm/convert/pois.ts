@@ -49,7 +49,7 @@ export const MAX_POI_SIGNS = 512;
 /** A point this near a footprint (m) belongs to it */
 export const NEAR_M = 8;
 /** Width of a front each shop needs at least (m) */
-export const SLOT_M = 2.8;
+const SLOT_M = 2.8;
 /** The street front wins over a side nearer than this (m) */
 const FRONT_BONUS_M = 2.5;
 /** A raised footprint's edge with a road within this (m) before it is a street front */

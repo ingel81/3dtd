@@ -25,15 +25,15 @@ import type { MapPoint } from '../../custom-map/map-document';
 import { insideRing } from '../../custom-map/map-surfaces';
 
 /** Ground rising at least this much per metre is a slope the rows run down */
-export const ROW_SLOPE = 0.08;
+const ROW_SLOPE = 0.08;
 /** On a slope the rows stay square to the serving road while that is within this of the fall line (radians, 35 degrees) */
-export const ROAD_SNAP = (35 * Math.PI) / 180;
+const ROAD_SNAP = (35 * Math.PI) / 180;
 /** A road whose centre line lies within this of the parcel's edge serves it, metres */
-export const ROAD_REACH = 14;
+const ROAD_REACH = 14;
 /** Metres a row ends inside the parcel's edge (its end post stands there) */
 export const ROW_END_GAP = 0.6;
 /** Metres between the checks along a row for what breaks it */
-export const ROW_CHECK_STEP = 1;
+const ROW_CHECK_STEP = 1;
 /** Shortest run kept, metres */
 export const LEAST_RUN = 3;
 /**
@@ -41,11 +41,11 @@ export const LEAST_RUN = 3;
  * down the rows and a tractor drives up and down, never across, from a few percent on; over a block's 60 m window
  * 3 % is 1.8 m of height, far above the decimetres the elevation tiles are off, so the fall line read is no noise
  */
-export const VINE_SLOPE = 0.03;
+const VINE_SLOPE = 0.03;
 /** Side of the squares a vineyard's ground is read in for its blocks, metres */
-export const BLOCK_CELL = 40;
+const BLOCK_CELL = 40;
 /** Squares whose fall lines lie within this of a block's steepest square join it (radians, 12 degrees) */
-export const BLOCK_JOIN = (12 * Math.PI) / 180;
+const BLOCK_JOIN = (12 * Math.PI) / 180;
 /** Metres the rows of a block end short of a block that runs another way: half the lane between them */
 export const BLOCK_GAP = 1.5;
 /** Checks along a row between the coarse looks of a block's `near` (rowRuns), metres at ROW_CHECK_STEP */
@@ -179,7 +179,7 @@ export class RoadIndex {
 }
 
 /** An angle folded into [0, pi): a row has no way round */
-export function foldAngle(a: number): number {
+function foldAngle(a: number): number {
   const m = a % Math.PI;
   return m < 0 ? m + Math.PI : m;
 }
@@ -298,7 +298,7 @@ function planeOf(xs: readonly number[], ys: readonly number[], hs: readonly numb
 }
 
 /** The direction of the roads that serve a parcel: of its edge, sampled every 2 m, the parts within ROAD_REACH of a road vote with that road's direction */
-export function servingRoad(p: Parcel, roads: RoadIndex | null): number | null {
+function servingRoad(p: Parcel, roads: RoadIndex | null): number | null {
   if (!roads) return null;
   const angles: number[] = [];
   const weights: number[] = [];

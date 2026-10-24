@@ -179,7 +179,7 @@ function reach(p: MapPoint, q: MapPoint, d: number): MapPoint {
 }
 
 /** Where a raised building stands: its origin on the map, its turn and scale */
-export interface OpeningFrame {
+interface OpeningFrame {
   x: number;
   y: number;
   rotation: number;
@@ -326,7 +326,7 @@ interface Stretch {
 }
 
 /** The stretches of polyline `pts` (model x, z) on the ground of `rings`, between its crossings with their walls */
-export function stretches(pts: readonly (readonly [number, number])[], rings: readonly (readonly number[])[]): Stretch[] {
+function stretches(pts: readonly (readonly [number, number])[], rings: readonly (readonly number[])[]): Stretch[] {
   // Every crossing: along the line (segment k plus its share), and the wall's index over all rings
   const marks: { k: number; t: number; wall: number }[] = [];
   for (let k = 1; k < pts.length; k++) {

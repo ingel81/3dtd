@@ -103,7 +103,7 @@ const NO_FRONT = new Set([
 ]);
 
 /** Whether a building model has a front for a shop */
-export function hasFront(asset: string): boolean {
+function hasFront(asset: string): boolean {
   return !NO_FRONT.has(asset);
 }
 

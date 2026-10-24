@@ -105,10 +105,10 @@ export interface RoadNetwork {
 }
 
 /** The surface of every pavement beside a road */
-export const SIDEWALK_SURFACE = 'sidewalk';
+const SIDEWALK_SURFACE = 'sidewalk';
 
 /** Whether an edge is drawn by the road surface */
-export function pavedEdge(edge: MapPathEdge): boolean {
+function pavedEdge(edge: MapPathEdge): boolean {
   return edge.kind !== 'bridge' && !edge.tunnel && !edge.area && !!edge.surface && PAVED_SURFACES.has(edge.surface);
 }
 

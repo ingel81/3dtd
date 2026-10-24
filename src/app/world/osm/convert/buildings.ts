@@ -89,7 +89,7 @@ export function buildingCatalog(objects: readonly (BuildingCatalogEntry & { id: 
     .map(({ id, category, height, file, triangles, lod, far, effects, footprint, box, doors }) => ({ id, category, height, file, triangles, lod, far, effects, footprint, box, doors }));
 }
 
-export interface BuildingOptions {
+interface BuildingOptions {
   /**
    * The asset catalogue: only its models are placed, and its triangles give
    * the scene cost. Without it every model of building-tags.ts is placed and
@@ -163,7 +163,7 @@ export interface BuildingReport {
  * building's outline, and the share of its area the models' boxes stand
  * outside it. A footprint left out covers nothing
  */
-export interface CoverageReport {
+interface CoverageReport {
   footprints: number;
   /** Median of the covered shares (0 to 1) */
   median: number;
@@ -181,7 +181,7 @@ export interface BuildingDoor {
   ny: number;
 }
 
-export interface BuildingResult {
+interface BuildingResult {
   objects: MapObject[];
   /** Each standing building's door, by its area's id (OsmArea.id): its footpath starts there (plots.ts) */
   doors: Map<number, BuildingDoor>;
@@ -197,12 +197,12 @@ export interface BuildingResult {
  * 0.6 held Stuttgart to about 2 450 of 7 900 footprints. Set a share (or
  * pass `budget`) to bring the cap back.
  */
-export const BUILDING_BUDGET_SHARE = Infinity;
+const BUILDING_BUDGET_SHARE = Infinity;
 /** A footprint filling less of its turned rectangle than this is cut into rectangles */
-export const FILL_SPLIT = 0.8;
+const FILL_SPLIT = 0.8;
 /** One scale for all axes, within these */
-export const SCALE_MIN = 0.8;
-export const SCALE_MAX = 1.25;
+const SCALE_MIN = 0.8;
+const SCALE_MAX = 1.25;
 /** Footprints smaller than this (m²) are left out */
 const MIN_AREA = 6;
 /** A worse fit than this (sum of the logs of both coverages and the penalties) takes the next kind */

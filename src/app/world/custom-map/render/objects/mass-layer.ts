@@ -108,7 +108,7 @@ const COVER_COVERING: Readonly<Record<MapMassCover, Covering>> = { tiles: 'red',
 const COVERING_MEAN: Readonly<Record<Covering, string>> = { flat: '#6f6f6f', red: '#9c5a44', grey: '#575b61', metal: '#9ea3a8' };
 
 /** A roof colour's instance colour over its covering: the tag's colour against the covering's mean, held to a range the texture keeps its look in */
-export function roofTintFactor(covering: Covering, tint: string, out: Color): Color {
+function roofTintFactor(covering: Covering, tint: string, out: Color): Color {
   const mean = new Color(COVERING_MEAN[covering]);
   out.set(tint);
   out.r = Math.min(2.4, Math.max(0.3, out.r / Math.max(mean.r, 0.02)));
@@ -376,7 +376,7 @@ function partsOf(o: MapObject): string[] {
 }
 
 /** What the mass layer does with damage (ObjectLayerOptions): ruins built with the map, the ground buildings stand on */
-export interface MassDamageOptions {
+interface MassDamageOptions {
   ruins?: boolean;
   standingAt?: (x: number, y: number) => number;
   /** The ruins' floors (ruin-slabs.ts), shared with the object layer */
@@ -443,7 +443,7 @@ const UNIT_TRIANGLE = (() => {
   return g;
 })();
 
-export interface MassHit {
+interface MassHit {
   object: MapObject;
   point: Vector3;
   distance: number;

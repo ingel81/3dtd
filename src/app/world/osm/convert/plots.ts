@@ -79,7 +79,7 @@ const SPAWN_CLEAR = 10;
 /** Metres a piece or a driveway keeps from an object standing already (a tree, a lamp) */
 const STANDING = 1.5;
 /** Share of the scene budget the plots' pieces may take */
-export const PLOTS_BUDGET_SHARE = 0.05;
+const PLOTS_BUDGET_SHARE = 0.05;
 
 /** Cell kinds besides a house's index */
 const OPEN = -1;
@@ -306,7 +306,7 @@ export function layPlots(doc: CustomMapDocument, features: OsmFeatures, options:
 }
 
 /** Whether an area is a house with a garden (not a block of flats, a shed or a barn) */
-export function isHouse(a: OsmArea): boolean {
+function isHouse(a: OsmArea): boolean {
   const b = a.tags['building'];
   if (!b || !isGroundBuilding(a.tags) || a.area < HOUSE_AREA[0] || a.area > HOUSE_AREA[1]) return false;
   return HOUSES.has(b) || (b === 'yes' && a.area <= YES_AREA);
