@@ -10,7 +10,9 @@ import { toModel } from '../../custom-map/object-ground';
 import { seatHeight } from '../../custom-map/render/objects/object-seat';
 import { buildingKind, BUILDING_MODELS } from '../building-tags';
 import { OsmFrame, type OsmArea, type OsmFeatures } from '../osm-parse';
-import { fitModels, placeBuildings, splitFootprint, type BuildingCatalogEntry } from './buildings';
+import { placeBuildings, splitFootprint } from './buildings';
+import { fitModels } from './building-models';
+import { type BuildingCatalogEntry } from './building-types';
 import { noteWords } from '../../testing/note-words';
 import { minAreaRect } from '../../custom-map/map-surfaces';
 

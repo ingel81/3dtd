@@ -6,7 +6,7 @@ import { fitSplatMaps, type CustomMapDocument, type MapObject, type MapPoint } f
 import { SCENE_BUDGET } from '../../custom-map/render/objects/scene-cost';
 import { isGroundBuilding } from '../building-tags';
 import type { OsmArea, OsmFeatures } from '../osm-parse';
-import type { BuildingDoor } from './buildings';
+import type { BuildingDoor } from './building-types';
 import { LineClearance } from './line-clear';
 import { RAIL_GROUND, type RailPlan } from './rails';
 import { fillRings, stampLine, type RasterGrid } from './raster';
